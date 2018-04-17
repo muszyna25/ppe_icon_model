@@ -74,7 +74,7 @@ MODULE mo_surface_les
   CHARACTER(len=12)  :: str_module = 'surface_les'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
 
-  REAL(wp), SAVE, ALLOCATABLE ::  ts(:), ps(:), qvs(:)
+  REAL(wp), SAVE, ALLOCATABLE ::  ts(:), qvs(:)
   REAL(wp), SAVE :: dt_interval = 0._wp
 
   CONTAINS
@@ -480,7 +480,7 @@ MODULE mo_surface_les
       ENDIF  
   
       !Read the input file til end. The order of file assumed is:
-      !Ts(K) - qvs(kg/kg) - ps(Pa)
+      !Ts(K) - qvs(kg/kg)
       
       !Skip the first line
       READ(iunit,*,IOSTAT=ist)			      !skip
@@ -492,9 +492,9 @@ MODULE mo_surface_les
 
       nt = INT(etime/dt_interval)+1
 
-      ALLOCATE( ts(nt), qvs(nt), ps(nt) )
+      ALLOCATE( ts(nt), qvs(nt) )
       DO n = 1 , nt
-        READ(iunit,*,IOSTAT=ist)ts(n),qvs(n),ps(n)
+        READ(iunit,*,IOSTAT=ist)ts(n),qvs(n)
         IF(ist/=success) CALL finish (TRIM(routine), 'something wrong in sfc_forcing.dat')
       END DO
 
@@ -519,7 +519,6 @@ MODULE mo_surface_les
 
     p_prog_lnd_new%t_g(:,:) = ts(n_curr)*(1.-int_weight)+ts(n_next)*int_weight
     p_diag_lnd%qv_s(:,:)    = qvs(n_curr)*(1.-int_weight)+qvs(n_next)*int_weight
-    !pres_sfc(:,:)           = ps(n_curr)*(1.-int_weight)+ps(n_next)*int_weight
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
