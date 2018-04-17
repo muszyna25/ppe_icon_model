@@ -2799,7 +2799,8 @@ surface type \\
 2 = fixed surface fluxes \\
 3 = fixed buoyancy fluxes \\
 4 = RICO test case \\
-5 = fixed SST &
+5 = fixed SST \\
+6 = time varying SST and qv\_s case with prescribed roughness length for semi-idealized setups &
 \tabularnewline
 
 %\hline
@@ -3328,6 +3329,12 @@ is\_plane\_torus=.TRUE.
 %\hline
 is\_advection & L & .FALSE. &  &
 switch for enabling LS horizontal advection (currently only for thermal equations)&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+%\hline
+is\_nudging & L & .FALSE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for horizontal winds, temperature and specific humidity&
 is\_plane\_torus=.TRUE.
 \tabularnewline
 
