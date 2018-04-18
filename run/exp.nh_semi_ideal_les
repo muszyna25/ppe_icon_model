@@ -146,7 +146,7 @@ const_z0  = 0.449291
 /
 &sleve_nml
  top_height     = 13000.
- min_lay_thckn = 20.    ! thickness of lowest model layer
+ min_lay_thckn  = 20.    ! thickness of lowest model layer
 /
 &extpar_nml
  itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
@@ -174,8 +174,8 @@ EOF
 . ${thisdir}/add_required_atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_hydrostatic_files
 DATADIR=${basedir}/data
-add_link_file ${DATADIR}/sound_in sound_in
-add_link_file ${DATADIR}/nudging.dat nudging.dat
-add_link_file ${DATADIR}/ls_forcing.dat ls_forcing.dat
-add_link_file ${DATADIR}/sfc_forcing.dat sfc_forcing.dat
+add_link_file ${DATADIR}/sound_in_20130424 sound_in
+add_link_file ${DATADIR}/nudging_20130424.dat nudging.dat
+add_link_file ${DATADIR}/ls_forcing_20130424.dat ls_forcing.dat
+add_link_file ${DATADIR}/sfc_forcing_20130424.dat sfc_forcing.dat
 #-----------------------------------------------------------------------------
