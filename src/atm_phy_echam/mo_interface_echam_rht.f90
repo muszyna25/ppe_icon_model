@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine echam_phy_main calls all the parameterization schemes
+!! @brief Subroutine interface_echam_rht calls the radiative heating scheme.
 !!
 !! @author Hui Wan, MPI-M
 !! @author Marco Giorgetta, MPI-M
@@ -18,62 +18,66 @@
 !! headers of the routines.
 !!
 
-#if defined __xlC__ && !defined NOXLFPROCESS
-@PROCESS HOT
-@PROCESS SPILLSIZE(5000)
-#endif
-!OCL NOALIAS
-
 MODULE mo_interface_echam_rht
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind                   ,ONLY: wp
+  USE mtime                     ,ONLY: datetime
 
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config,          ONLY: nlev, nlevp1
+  USE mo_echam_phy_config       ,ONLY: echam_phy_config
+  USE mo_echam_phy_memory       ,ONLY: t_echam_phy_field, prm_field, &
+    &                                  t_echam_phy_tend,  prm_tend
 
-  USE mtime                  ,ONLY: datetime
-  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
-    &                               t_echam_phy_tend,  prm_tend
-  USE mo_ext_data_state,      ONLY: ext_data
+  USE mo_timer                  ,ONLY: ltimer, timer_start, timer_stop, timer_rht
 
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radheat
+  USE mo_radheating             ,ONLY: radheating
+  USE mo_psrad_solar_parameters ,ONLY: psctm
+  USE mo_ext_data_state         ,ONLY: ext_data
 
-  USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_solar_parameters, ONLY: psctm
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_rht
+  PUBLIC  :: interface_echam_rht
 
 CONTAINS
 
-  !-------------------------------------------------------------------
-  SUBROUTINE echam_rht(is_in_sd_ed_interval, &
-       &               is_active,            &
-       &               jg, jb,jcs,jce,       &
-       &               datetime_old,         &
-       &               pdtime                )
+  SUBROUTINE interface_echam_rht(jg, jb,jcs,jce       ,&
+       &                         nproma,nlev          ,& 
+       &                         is_in_sd_ed_interval ,&
+       &                         is_active            ,&
+       &                         datetime_old         ,&
+       &                         pdtime               )
 
-    LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
-    LOGICAL                 ,INTENT(in) :: is_active           !< generic input, not used in echam_rht
-    INTEGER                 ,INTENT(in) :: jg
-    INTEGER                 ,INTENT(in) :: jb                  !< block index
-    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
-    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_rht
-    REAL(wp)                ,INTENT(in) :: pdtime              !< generic input, not used in echam_rht
-
-    ! Local variables
+    ! Arguments
     !
+    INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
+    INTEGER                 ,INTENT(in) :: nproma,nlev
+    LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
+    LOGICAL                 ,INTENT(in) :: is_active
+    TYPE(datetime)          ,POINTER    :: datetime_old
+    REAL(wp)                ,INTENT(in) :: pdtime
+
+    ! Pointers
+    !
+    LOGICAL                 ,POINTER    :: lparamcpl
+    INTEGER                 ,POINTER    :: fc_rht
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
-    IF (ltimer) CALL timer_start(timer_radheat)
+    ! Local variables
+    !
+    INTEGER                             :: nlevp1
+    
+    IF (ltimer) CALL timer_start(timer_rht)
 
     ! associate pointers
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    lparamcpl => echam_phy_config(jg)%lparamcpl
+    fc_rht    => echam_phy_config(jg)%fc_rht
+    field     => prm_field(jg)
+    tend      => prm_tend (jg)
 
     IF ( is_in_sd_ed_interval ) THEN
+       !
+       nlevp1 = nlev+1
        !
        CALL radheating (                                   &
             !
@@ -159,8 +163,22 @@ CONTAINS
        ! accumulate heating
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field%q_rsw(jcs:jce,:,jb) + field%q_rlw(jcs:jce,:,jb)
        !
-       ! accumulate tendencies
-       tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_rsw (jcs:jce,:,jb) + tend% ta_rlw (jcs:jce,:,jb)
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_rht)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_rsw (jcs:jce,:,jb) + tend% ta_rlw (jcs:jce,:,jb)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + (tend% ta_rsw(jcs:jce,:,jb) + tend% ta_rlw (jcs:jce,:,jb))*pdtime
+       END IF
        !
     ELSE
        !
@@ -169,9 +187,14 @@ CONTAINS
        !
     END IF
 
-    IF (ltimer) CALL timer_stop(timer_radheat)
+    ! disassociate pointers
+    NULLIFY(lparamcpl)
+    NULLIFY(fc_rht)
+    NULLIFY(field)
+    NULLIFY(tend)
 
-  END SUBROUTINE echam_rht
-  !---------------------------------------------------------------------
+    IF (ltimer) CALL timer_stop(timer_rht)
+
+  END SUBROUTINE interface_echam_rht
 
 END MODULE mo_interface_echam_rht

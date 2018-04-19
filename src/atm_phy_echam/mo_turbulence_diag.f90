@@ -144,7 +144,7 @@ CONTAINS
     INTEGER  :: jk, jl
     REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
                ,zpapm1i(kbdim),         zua(kbdim)
-    REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, imix_neutral, ldis, lmc, kmc, khc
+    REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, imix_neutral, ldis, lmc
     REAL(wp) :: zalh2, zbuoy, zcor, zdisl, zdusq, zdvsq
     REAL(wp) :: zdqtot, zds, zdus1, zdus2, zdz
     REAL(wp) :: zes, zfox, zfux, zktest

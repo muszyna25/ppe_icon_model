@@ -17,7 +17,6 @@
   zg                 z_mc
   zghalf             z_ifc
   gpfull             geopot
-  orog               topography_c
 #
 # Available translations for instantaneous output of variable fields
 # ------------------------------------------------------------------

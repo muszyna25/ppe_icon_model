@@ -70,14 +70,14 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid
   !! with index jg rather than the entire grid tree.
 
-  SUBROUTINE echam_phy_bcs( mtime_old,    &
-    &                       patch        ,&! in
+  SUBROUTINE echam_phy_bcs( patch        ,&! in
+    &                       mtime_old,    &
     &                       dtadv_loc    ) ! out
 
     ! Arguments
 
-    TYPE(datetime) , POINTER  ,INTENT(in)    :: mtime_old
     TYPE(t_patch)  , TARGET   ,INTENT(in)    :: patch          !< description of this grid
+    TYPE(datetime) , POINTER  ,INTENT(in)    :: mtime_old
     REAL(wp)                  ,INTENT(in)    :: dtadv_loc      !< timestep of advection and physics on this grid
 
     ! Local variables
@@ -125,9 +125,7 @@ CONTAINS
           CALL read_bc_sst_sic(mtime_old%date%year, patch)
         END IF
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights    , &
-          &                                prm_field(patch%id)%lsmask (:,:)        &
-          &                              + prm_field(patch%id)%alake  (:,:)        &
-          &                              > 1._wp - 10._wp*EPSILON(1._wp)         , &
+          &                                prm_field(patch%id)%sftlf  (:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
           &                                prm_field(patch%id)%ts_tile(:,:,iwtr) , &
           &                                prm_field(patch%id)%seaice (:,:)      , &
           &                                prm_field(patch%id)%siced  (:,:)      , &

@@ -1126,7 +1126,7 @@ echam\_phy\_config(jg)\% \newline dt\_gwd > 0.000s
 %------------------------------------------------------------------------------
 \subsection{echam\_phy\_nml}
 
-The ECHAM physics is configured by a data structure \textit{echam\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for atmospheric forcings and additional logical switches for controlling how the atmospheric boundary conditions for the ECHAM physics are determined. Time control parameters are available for the following atmospheric processes:
+The ECHAM physics is configured by a data structure \textit{echam\_phy\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains several parameters providing time control for the atmospheric forcing by the different parameterizations and additional logical switches for controlling the coupling between the parameterizations of the physics and between the dynamics and the physics. Further logical switches control how the atmospheric boundary conditions for the ECHAM physics are determined. Time control parameters are available for the following atmospheric processes:
 
 \begin{table}[htbp]
 \begin{center}
@@ -1153,6 +1153,8 @@ If \textit{dt\_prc} is not specified, or an empty string or a string of blanks o
 
 If \textit{sd\_prc} or \textit{ed\_prc} are not specified, or an empty string or a string of blanks are given, then the experiment start date and the experiment stop date are used, respectively.
 
+Further the forcing control switch fc\_prc can be used to decide if an active process (dt\_prc > 0) is used for the integration (fc\_prc = 1) or only computed for diagnostic purposes (fc\_prc = 0).
+
 \begin{longtab}
 %
 echam\_phy\_config(jg)\% \newline dt\_prc & C & "" & &
@@ -1166,6 +1168,13 @@ run\_nml/iforcing = 2 and
 %
 echam\_phy\_config(jg)\% \newline ed\_prc & C & "" & &
 Defines the end date/time in ISO 8601-2004 format of the interval \textit{[sd\_prc,ed\_prc[}, in which the forcing by the process \textit{prc} is computed in intervals \textit{dt\_prc}. &
+run\_nml/iforcing = 2 and
+\textit{dt\_prc}  > 0.000s \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline fc\_prc & I & 1 & &
+Forcing control for process  \textit{prc}.  \newline
+fc\_prc = 0: the forcing of the process is not used in the integration.  \newline
+fc\_prc = 1: the forcing of the process is used in the integration. &
 run\_nml/iforcing = 2 and
 \textit{dt\_prc}  > 0.000s \tabularnewline
 %
@@ -1392,6 +1401,11 @@ echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
 echam\_sso\_config(jg)\% \newline gklift & R & 0. & &
 Coefficient for low level lift. &
 echam\_phy\_config(jg)\% \newline dt\_sso > 0.000s \tabularnewline
+%
+echam\_sso\_config(jg)\% \newline lsftlf & L & .TRUE. & &
+.FALSE.: SSO effects are directly applied, for the case that SSO parameters are valid for the full cell area.  \newline
+.TRUE.: SSO effects are scaled with the cell area fraction of land including lakes (field sftlf), for the case that SSO parameters are valid only for this part of the cell area.&
+echam\_phy\_config(jg)\% \newline dt\_vdf > 0.000s \tabularnewline
 %
 \end{longtab}
 
@@ -3471,9 +3485,21 @@ Stride of MPI ranks.&
 \begin{longtab}
 
 %\hline
+\textbf{institute} &
+C & ' ' & &
+Acronym of the institute for which the full institute name is printed in the log file. Options are DWD, MPIM, KIT, or CSCS. Otherwise the full names of MPIM and DWD are printed.&
+\tabularnewline
+
+%\hline
 \textbf{lrestart}&
 L & .FALSE. & &
 If .TRUE.: Current experiment is started from a restart.&
+\tabularnewline
+
+%\hline
+\textbf{read\_restart\_namelists}&
+L & .TRUE. & &
+If .TRUE.: Namelists are read from the restart file to override the default namelist settings, before reading new namelists from the run script. Otherwise the namelists stored in the restart file are ignored.&
 \tabularnewline
 
 %\hline
