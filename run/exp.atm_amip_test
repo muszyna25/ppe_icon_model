@@ -79,7 +79,7 @@ lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_hd=no
 jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
@@ -227,7 +227,7 @@ cat > ${lnd_namelist} << EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_rad_nml
-  use_alb_veg_simple = .TRUE.           ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -253,10 +253,10 @@ cat > ${lnd_namelist} << EOF
   bc_sso_filename = 'bc_land_sso.nc'
 /
 &jsb_assimi_nml
-  active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -446,7 +446,9 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ ml_varlist       = 'clon'    , 'clat'    , 'areacella',
+                    'sftlf'   , 'sftgif'  , 'sftof'    ,
+                    'orog'    , 'zghalf'  , 'zg'       ,
 /
 EOF
 fi
@@ -495,8 +497,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    ,
-                    'ps'      , 'psl'     ,
+ ml_varlist       = 'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
@@ -513,6 +514,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
+                    'ptp'     ,
 /
 EOF
 fi

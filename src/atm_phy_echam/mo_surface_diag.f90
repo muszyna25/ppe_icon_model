@@ -33,7 +33,8 @@ CONTAINS
   SUBROUTINE surface_fluxes( kproma, kbdim, ksfc_type,             &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & psteplen,                             &! in
-                           & pfrc, alake, pcfh_tile, pfac_sfc,     &! in
+                           & pfrc, lsmask, alake,                  &! in
+                           & pcfh_tile, pfac_sfc,                  &! in
                            & pcptv_tile, pqsat_tile,               &! in
                            & pca, pcs, bb_btm,                     &! in
                            & plhflx_lnd, plhflx_lwtr, plhflx_lice, &! in for JSBACH land and lakes
@@ -50,6 +51,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ih, iqv
 
     REAL(wp),INTENT(IN) :: pfrc      (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: lsmask    (kbdim)
     REAL(wp),INTENT(IN) :: alake     (kbdim)
     REAL(wp),INTENT(IN) :: pcfh_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pfac_sfc  (kbdim)
@@ -122,26 +124,52 @@ CONTAINS
       ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
       !                     *(tpfac1)**(-1)*( qv_{tavg,klev} - qs_tile ) ]
 
+      ! On solid land (i.e. without lakes)
+      !
       IF (jsfc == idx_lnd) THEN
         pevap_tile(1:kproma,jsfc) = pevap_lnd(1:kproma)
       END IF
+
+      ! On open water, ocean and lakes
+      !
       IF (jsfc == idx_wtr) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pevap_tile(1:kproma,idx_wtr) = pevap_lwtr(1:kproma)
-        ELSE WHERE
-          pevap_tile(1:kproma,idx_wtr) =  zconst*pfac_sfc(1:kproma)   &
-                                       & *pcfh_tile(1:kproma,idx_wtr) &
-                                       & *zdqv(1:kproma)
-        END WHERE
+!!$        WHERE (alake(1:kproma) > 0._wp)
+!!$          pevap_tile(1:kproma,idx_wtr) = pevap_lwtr(1:kproma)
+!!$        ELSE WHERE
+!!$          pevap_tile(1:kproma,idx_wtr) =  zconst*pfac_sfc(1:kproma)   &
+!!$                                       & *pcfh_tile(1:kproma,idx_wtr) &
+!!$                                       & *zdqv(1:kproma)
+!!$        END WHERE
+         WHERE (lsmask(1:kproma) < 1._wp)
+            pevap_tile(1:kproma,jsfc) = alake(1:kproma)*pevap_lwtr(1:kproma)               & ! lakes
+                 &                     +(1._wp-lsmask(1:kproma)-alake(1:kproma))           & ! ocean
+                 &                     *zconst*pfac_sfc(1:kproma)*pcfh_tile(1:kproma,jsfc) &
+                 &                     *zdqv(1:kproma)
+            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask(1:kproma))
+         ELSE WHERE
+            pevap_tile(1:kproma,jsfc) = 0.0_wp
+         END WHERE
       END IF
+
+      ! On ice covered water, ocean and lakes
+      !
       IF (jsfc == idx_ice) THEN
-        WHERE (alake(1:kproma) > 0._wp)
-          pevap_tile(1:kproma,idx_ice) = pevap_lice(1:kproma)
-        ELSE WHERE
-          pevap_tile(1:kproma,idx_ice) =  zconst*pfac_sfc(1:kproma)   &
-                                       & *pcfh_tile(1:kproma,idx_ice) &
-                                       & *zdqv(1:kproma)
-        END WHERE
+!!$        WHERE (alake(1:kproma) > 0._wp)
+!!$          pevap_tile(1:kproma,idx_ice) = pevap_lice(1:kproma)
+!!$        ELSE WHERE
+!!$          pevap_tile(1:kproma,idx_ice) =  zconst*pfac_sfc(1:kproma)   &
+!!$                                       & *pcfh_tile(1:kproma,idx_ice) &
+!!$                                       & *zdqv(1:kproma)
+!!$        END WHERE
+         WHERE (lsmask(1:kproma) < 1._wp)
+            pevap_tile(1:kproma,jsfc) = alake(1:kproma)*pevap_lice(1:kproma)               & ! lakes
+                 &                     +(1._wp-lsmask(1:kproma)-alake(1:kproma))           & ! ocean
+                 &                     *zconst*pfac_sfc(1:kproma)*pcfh_tile(1:kproma,jsfc) &
+                 &                     *zdqv(1:kproma)
+            pevap_tile(1:kproma,jsfc) = pevap_tile(1:kproma,jsfc)/(1._wp-lsmask(1:kproma))
+         ELSE WHERE
+            pevap_tile(1:kproma,jsfc) = 0.0_wp
+         END WHERE
       END IF
 
     ENDDO

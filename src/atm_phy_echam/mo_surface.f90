@@ -37,7 +37,7 @@ MODULE mo_surface
 #endif
   USE mo_echam_sfc_indices, ONLY: nsfc_type
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ice_interface, ONLY: ice_fast
+  USE mo_ice_interface,     ONLY: ice_fast
   USE mo_ml_ocean,          ONLY: ml_ocean
 #endif
 
@@ -243,7 +243,7 @@ CONTAINS
       & zlhflx_lnd(kbdim), zlhflx_lwtr(kbdim), zlhflx_lice(kbdim), &
       & zshflx_lnd(kbdim), zshflx_lwtr(kbdim), zshflx_lice(kbdim), &
       & zevap_lnd(kbdim), zevap_lwtr(kbdim), zevap_lice(kbdim),    &
-      & sat_surface_specific_humidity(kbdim),                      &
+      & qsat_lnd(kbdim), qsat_lwtr(kbdim), qsat_lice(kbdim),       &
       & dry_static_energy(kbdim),                                  &
       & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),                    &
       & ztsfc_wtr(kbdim), ztsfc_lwtr(kbdim), ztsfc_lice(kbdim),    &
@@ -356,7 +356,9 @@ CONTAINS
       ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
 #ifndef __NO_JSBACH__
 
-      sat_surface_specific_humidity(:) = 0._wp
+      qsat_lnd(:)          = 0._wp
+      qsat_lwtr(:)         = 0._wp
+      qsat_lice(:)         = 0._wp
       dry_static_energy(:) = 0._wp
       ztsfc_lnd(:)         = 0._wp
       ztsfc_lnd_eff(:)     = 0._wp
@@ -397,7 +399,7 @@ CONTAINS
                                                                                              ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp
                                                                                              ! (effective, for longwave rad)
-          & qsat_srf          = sat_surface_specific_humidity(1:kproma),                   & ! out
+          & qsat_srf          = qsat_lnd(1:kproma),                                        & ! out
           & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(1:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(1:kproma),                                           & ! out
@@ -426,11 +428,13 @@ CONTAINS
           & q_acoef_ice       = zen_qv(1:kproma, idx_ice),                                 & ! in
           & q_bcoef_ice       = zfn_qv(1:kproma, idx_ice),                                 & ! in
           & t_lwtr            = ztsfc_lwtr(1:kproma),                                      & ! out
+          & qsat_lwtr         = qsat_lwtr(1:kproma),                                       & ! out
           & evapo_wtr         = zevap_lwtr(1:kproma),                                      & ! out
           & latent_hflx_wtr   = zlhflx_lwtr(1:kproma),                                     & ! out
           & sensible_hflx_wtr = zshflx_lwtr(1:kproma),                                     & ! out
           & albedo_lwtr       = zalbedo_lwtr(1:kproma),                                    & ! out
           & t_lice            = ztsfc_lice(1:kproma),                                      & ! out
+          & qsat_lice         = qsat_lice(1:kproma),                                       & ! out
           & evapo_ice         = zevap_lice(1:kproma),                                      & ! out
           & latent_hflx_ice   = zlhflx_lice(1:kproma),                                     & ! out
           & sensible_hflx_ice = zshflx_lice(1:kproma),                                     & ! out
@@ -464,7 +468,7 @@ CONTAINS
                                                                                              ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp 
                                                                                              ! (effective, for longwave rad)
-          & qsat_srf          = sat_surface_specific_humidity(1:kproma),                   & ! out
+          & qsat_srf          = qsat_lnd(1:kproma),                                        & ! out
           & s_srf             = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(1:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(1:kproma),                                           & ! out
@@ -489,11 +493,12 @@ CONTAINS
 
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
-      pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
+      pqsat_tile(1:kproma,idx_lnd) = qsat_lnd(1:kproma)
       IF (echam_phy_config(jg)%llake) THEN
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(1:kproma) > 0._wp)
             ptsfc_tile    (1:kproma, idx_wtr) = ztsfc_lwtr   (1:kproma)
+            pqsat_tile    (1:kproma, idx_wtr) = qsat_lwtr    (1:kproma)
             albvisdir_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
             albvisdif_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
             albnirdir_tile(1:kproma, idx_wtr) = zalbedo_lwtr (1:kproma)
@@ -505,6 +510,7 @@ CONTAINS
         IF (idx_ice <= ksfc_type) THEN
           WHERE (alake(1:kproma) > 0._wp)
             ptsfc_tile    (1:kproma, idx_ice) = ztsfc_lice   (1:kproma)
+            pqsat_tile    (1:kproma, idx_ice) = qsat_lice    (1:kproma)
             albvisdir_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
             albvisdif_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
             albnirdir_tile(1:kproma, idx_ice) = zalbedo_lice (1:kproma)
@@ -768,7 +774,8 @@ CONTAINS
        CALL surface_fluxes( kproma, kbdim, ksfc_type,             &! in
             &               idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
             &               pdtime,                               &! in
-            &               pfrc, alake, pcfh_tile, pfac_sfc,     &! in
+            &               pfrc, lsm, alake,                     &! in
+            &               pcfh_tile, pfac_sfc,                  &! in
             &               pcpt_tile, pqsat_tile,                &! in
             &               zca, zcs, bb_btm(:,:,ih:iqv),         &! in
             &               zlhflx_lnd, zlhflx_lwtr, zlhflx_lice, &! in

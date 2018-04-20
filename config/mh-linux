@@ -52,8 +52,8 @@ case "$fortran_compiler" in
         FOPTIONS    = $FCPP $FLANG $FWARN $FDEBUG $FCHECK
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
-        DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
-        STD_FLAGS   = -march=native -O2 -mpc64 $DEBUG_FLAGS -D__LOOP_EXCHANGE 
+        DEBUG_FLAGS = -g -O -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
+        STD_FLAGS   = -g    -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -march=native -O2 -mpc64 -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -mpc64 -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
@@ -189,7 +189,7 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -J
         ;;
-    intel|intel16|intel15|intel14)
+    intel*)
         config_compiler  = intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         # CC          = icc
@@ -203,8 +203,8 @@ case "$fortran_compiler" in
         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
-        OMPFLAG     = -openmp
-        CC_OMPFLAG  = -openmp
+        OMPFLAG     = -qopenmp
+        CC_OMPFLAG  = -qopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -591,7 +591,7 @@ case "$ac_sitename" in
                             load_modules    = intel/14.0.3 ${load_modules}
                             ;;
                           intel17)
-                            load_modules = intel/17.0.0 ${load_modules}
+                            load_modules = intel/17.0.6 ${load_modules}
                             ;;
                           intel16|intel*)
                             load_modules = intel/16.0 ${load_modules}
@@ -611,7 +611,7 @@ case "$ac_sitename" in
                         FPPFLAGS    = -fpp
                         STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
-                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS
 
@@ -661,6 +661,15 @@ case "$ac_sitename" in
                                 ;;
                             "$software_tree/intel/impi/2017.2.174")
                                 load_modules = ${load_modules} intelmpi/2017.2.174
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
+                                MPIROOT      = /sw/rhel6-x64/intel/impi/2017.2.174/compilers_and_libraries/linux/mpi/intel64
+                                MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                ;;
+                            "$software_tree/intel/impi/2018.1.163")
+                                load_modules = ${load_modules} intelmpi/2018.1.163
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /sw/rhel6-x64/intel/impi/2017.2.174/compilers_and_libraries/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
@@ -922,6 +931,7 @@ case "$ac_sitename" in
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                                CC_OMPFLAG  = -fopenmp
                                 ;;
                         esac
                         ;;
@@ -1102,6 +1112,23 @@ case "$ac_sitename" in
         esac
         ;;
         #-------------------------------------------------------------------
+    *)
+    case "$(hostname)" in
+      melian)
+        FC=gfortran-6
+        CC=gcc-6
+        AR=gcc-ar-6
+        NM=gcc-nm-6
+        MPIROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/openmpi-3.0.0-cmrvnxasc5cybkp3e3zsrmaajtaftq7z
+        MPI_LIB=-L/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib    -Wl,-rpath -Wl,/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lhwloc -ldl -lz -lrt -lutil -lm
+        ZLIBROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/zlib-1.2.11-ixmeez7b3hhvgyakwl5zyx37hr7jn6ao
+        HDF5ROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hdf5-1.10.1-pq4dgtuiu2i2icyybg3dtem6av5o3ol2
+        NETCDFROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/netcdf-4.4.1.1-eni4v5h6r5tdcyjftuytckg3ze7ze7ab
+        SZIPROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/libszip-2.1.1-u34densnuyujh6plxi5o4g53exhjnthc
+        XML2ROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/libxml2-2.9.4-nwxoyi5iqhykepvxsunhgqqfzdxlq6qw
+      ;;
+    esac
+    ;;
 
 #===============================================
 esac

@@ -57,10 +57,15 @@ MODULE mo_echam_phy_config
      ! ------------------------
      !
      ! dynamics physics coupling
-     INTEGER  :: idcphycpl  !< determines the coupling between the dynamical core and the
-     !                      !  phyiscs package
-     !                      !  1: dynamics and physics update sequentially
-     !                      !  2: dynamics uses physics forcing for updating
+     LOGICAL  :: ldcphycpl  !< determines the coupling between the dynamics and the phyiscs
+     !                      !  .FALSE.: dynamics and physics update sequentially
+     !                      !  .TRUE. : dynamics uses physics forcing for updating
+     !
+     LOGICAL  :: lparamcpl  !< determines the coupling between the parameterizations
+     !                      !  .FALSE.: parameterizations do not update the physics state
+     !                      !           so that all params get the same input state
+     !                      !  .TRUE. : parameterizations update the physics state
+     !                      !           so that each param. provides a new prov. state
      !
      LOGICAL  :: ldrymoist  !  .true. : use dry   air mass as conserved reference air mass
      !                      !  .false.: use moist air mass as conserved reference air mass
@@ -71,43 +76,59 @@ MODULE mo_echam_phy_config
      ! - ed = end date
      ! - dt = time interval
      !
+     ! forcing control of processes
+     ! (to replace later ldcphycpl, which controls all params. together, by a param. specific control)
+     ! - fc
+     !   fc = 0: diagnostic, tendencies of the param. are not used in integration
+     !   fc = 1: prognostic, tendencies of the param. are used to update the model state
+     !   fc = 2: prognostic, tendencies of the param. are used as forcing in the dynamical core 
+     !
      ! atmospheric physics
      CHARACTER(len=max_timedelta_str_len) :: dt_rad  !< time  step of LW radiation
      CHARACTER(len=max_datetime_str_len ) :: sd_rad  !< start time of LW radiation
      CHARACTER(len=max_datetime_str_len ) :: ed_rad  !< end   time of LW radiation
+     INTEGER                              :: fc_rht
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_vdf  !< time  step of vertical diffusion
      CHARACTER(len=max_datetime_str_len ) :: sd_vdf  !< start time of vertical diffusion
      CHARACTER(len=max_datetime_str_len ) :: ed_vdf  !< end   time of vertical diffusion
+     INTEGER                              :: fc_vdf
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_cnv  !< time  step of cumulus convection
      CHARACTER(len=max_datetime_str_len ) :: sd_cnv  !< start time of cumulus convection
      CHARACTER(len=max_datetime_str_len ) :: ed_cnv  !< end   time of cumulus convection
+     INTEGER                              :: fc_cnv
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_cld  !< time  step of cloud microphysics
      CHARACTER(len=max_datetime_str_len ) :: sd_cld  !< start time of cloud microphysics
      CHARACTER(len=max_datetime_str_len ) :: ed_cld  !< end   time of cloud microphysics
+     INTEGER                              :: fc_cld
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_gwd  !< time  step of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: sd_gwd  !< start time of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: ed_gwd  !< end   time of atmospheric gravity wave drag
+     INTEGER                              :: fc_gwd
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_sso  !< time  step of sub grid scale orogr. effects
      CHARACTER(len=max_datetime_str_len ) :: sd_sso  !< start time of sub grid scale orogr. effects
      CHARACTER(len=max_datetime_str_len ) :: ed_sso  !< end   time of sub grid scale orogr. effects
+     INTEGER                              :: fc_sso
      !
      ! atmospheric chemistry
      CHARACTER(len=max_timedelta_str_len) :: dt_mox  !< time  step of methan oxidation and water vapor photolysis
      CHARACTER(len=max_datetime_str_len ) :: sd_mox  !< start time of methan oxidation and water vapor photolysis
      CHARACTER(len=max_datetime_str_len ) :: ed_mox  !< end   time of methan oxidation and water vapor photolysis
+     INTEGER                              :: fc_mox
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_car  !< time  step of lin. Cariolle ozone chemistry
      CHARACTER(len=max_datetime_str_len ) :: sd_car  !< start time of lin. Cariolle ozone chemistry
      CHARACTER(len=max_datetime_str_len ) :: ed_car  !< end   time of lin. Cariolle ozone chemistry
+     INTEGER                              :: fc_car
      !
      CHARACTER(len=max_timedelta_str_len) :: dt_art  !< time  step of ART chemistry
      CHARACTER(len=max_datetime_str_len ) :: sd_art  !< start time of ART chemistry
      CHARACTER(len=max_datetime_str_len ) :: ed_art  !< end   time of ART chemistry
+     INTEGER                              :: fc_art
      !
      ! surface
      LOGICAL                              :: lmlo    !< .true. for mixed layer ocean
@@ -182,8 +203,8 @@ MODULE mo_echam_phy_config
   !>
   !! Configuration/logicals/timecontrol state vectors, for multiple domains/grids.
   !!
-  TYPE(t_echam_phy_config) :: echam_phy_config  (max_dom)
-  TYPE(t_echam_phy_tc)     :: echam_phy_tc      (max_dom)
+  TYPE(t_echam_phy_config), TARGET :: echam_phy_config  (max_dom)
+  TYPE(t_echam_phy_tc)    , TARGET :: echam_phy_tc      (max_dom)
   
   !>
   !! Events and event group
@@ -211,45 +232,55 @@ CONTAINS
     ! ---------------------------
     !
     ! dynamics physics coupling
-    echam_phy_config(:)%idcphycpl = 1
+    echam_phy_config(:)%ldcphycpl = .FALSE.
+    echam_phy_config(:)%lparamcpl = .TRUE.
     echam_phy_config(:)%ldrymoist = .FALSE.
     !
     ! time control parameters
     echam_phy_config(:)% dt_rad = ''
     echam_phy_config(:)% sd_rad = ''
     echam_phy_config(:)% ed_rad = ''
+    echam_phy_config(:)% fc_rht = 1
     !
     echam_phy_config(:)% dt_vdf = ''
     echam_phy_config(:)% sd_vdf = ''
     echam_phy_config(:)% ed_vdf = ''
+    echam_phy_config(:)% fc_vdf = 1
     !
     echam_phy_config(:)% dt_cnv = ''
     echam_phy_config(:)% sd_cnv = ''
     echam_phy_config(:)% ed_cnv = ''
+    echam_phy_config(:)% fc_cnv = 1
     !
     echam_phy_config(:)% dt_cld = ''
     echam_phy_config(:)% sd_cld = ''
     echam_phy_config(:)% ed_cld = ''
+    echam_phy_config(:)% fc_cld = 1
     !
     echam_phy_config(:)% dt_gwd = ''
     echam_phy_config(:)% sd_gwd = ''
     echam_phy_config(:)% ed_gwd = ''
+    echam_phy_config(:)% fc_gwd = 1
     !
     echam_phy_config(:)% dt_sso = ''
     echam_phy_config(:)% sd_sso = ''
     echam_phy_config(:)% ed_sso = ''
+    echam_phy_config(:)% fc_sso = 1
     !
     echam_phy_config(:)% dt_mox = ''
     echam_phy_config(:)% sd_mox = ''
     echam_phy_config(:)% ed_mox = ''
+    echam_phy_config(:)% fc_mox = 1
     !
     echam_phy_config(:)% dt_car = ''
     echam_phy_config(:)% sd_car = ''
     echam_phy_config(:)% ed_car = ''
+    echam_phy_config(:)% fc_car = 1
     !
     echam_phy_config(:)% dt_art = ''
     echam_phy_config(:)% sd_art = ''
     echam_phy_config(:)% ed_art = ''
+    echam_phy_config(:)% fc_art = 1
     !
     ! logical switches
     echam_phy_config(:)% ljsb  = .FALSE.
@@ -275,58 +306,71 @@ CONTAINS
        !
        WRITE(cg,'(i0)') jg
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'rad', &
-            &                              echam_phy_config (jg)% dt_rad,  &
-            &                              echam_phy_config (jg)% sd_rad,  &
-            &                              echam_phy_config (jg)% ed_rad)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'rad' ,&
+            &                             echam_phy_config (jg)% dt_rad  ,&
+            &                             echam_phy_config (jg)% sd_rad  ,&
+            &                             echam_phy_config (jg)% ed_rad  ,&
+            &                             echam_phy_config (jg)% fc_rht  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'vdf', &
-            &                              echam_phy_config (jg)% dt_vdf,  &
-            &                              echam_phy_config (jg)% sd_vdf,  &
-            &                              echam_phy_config (jg)% ed_vdf)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'vdf' ,&
+            &                             echam_phy_config (jg)% dt_vdf  ,&
+            &                             echam_phy_config (jg)% sd_vdf  ,&
+            &                             echam_phy_config (jg)% ed_vdf  ,&
+            &                             echam_phy_config (jg)% fc_vdf  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'cnv', &
-            &                              echam_phy_config (jg)% dt_cnv,  &
-            &                              echam_phy_config (jg)% sd_cnv,  &
-            &                              echam_phy_config (jg)% ed_cnv)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'cnv' ,&
+            &                             echam_phy_config (jg)% dt_cnv  ,&
+            &                             echam_phy_config (jg)% sd_cnv  ,&
+            &                             echam_phy_config (jg)% ed_cnv  ,&
+            &                             echam_phy_config (jg)% fc_cnv  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'cld', &
-            &                              echam_phy_config (jg)% dt_cld,  &
-            &                              echam_phy_config (jg)% sd_cld,  &
-            &                              echam_phy_config (jg)% ed_cld)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'cld' ,&
+            &                             echam_phy_config (jg)% dt_cld  ,&
+            &                             echam_phy_config (jg)% sd_cld  ,&
+            &                             echam_phy_config (jg)% ed_cld  ,&
+            &                             echam_phy_config (jg)% fc_cld  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'gwd', &
-            &                              echam_phy_config (jg)% dt_gwd,  &
-            &                              echam_phy_config (jg)% sd_gwd,  &
-            &                              echam_phy_config (jg)% ed_gwd)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'gwd' ,&
+            &                             echam_phy_config (jg)% dt_gwd  ,&
+            &                             echam_phy_config (jg)% sd_gwd  ,&
+            &                             echam_phy_config (jg)% ed_gwd  ,&
+            &                             echam_phy_config (jg)% fc_gwd  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'sso', &
-            &                              echam_phy_config (jg)% dt_sso,  &
-            &                              echam_phy_config (jg)% sd_sso,  &
-            &                              echam_phy_config (jg)% ed_sso)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'sso' ,&
+            &                             echam_phy_config (jg)% dt_sso  ,&
+            &                             echam_phy_config (jg)% sd_sso  ,&
+            &                             echam_phy_config (jg)% ed_sso  ,&
+            &                             echam_phy_config (jg)% fc_sso  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'mox', &
-            &                              echam_phy_config (jg)% dt_mox,  &
-            &                              echam_phy_config (jg)% sd_mox,  &
-            &                              echam_phy_config (jg)% ed_mox)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'mox' ,&
+            &                             echam_phy_config (jg)% dt_mox  ,&
+            &                             echam_phy_config (jg)% sd_mox  ,&
+            &                             echam_phy_config (jg)% ed_mox  ,&
+            &                             echam_phy_config (jg)% fc_mox  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'car', &
-            &                              echam_phy_config (jg)% dt_car,  &
-            &                              echam_phy_config (jg)% sd_car,  &
-            &                              echam_phy_config (jg)% ed_car)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'car' ,&
+            &                             echam_phy_config (jg)% dt_car  ,&
+            &                             echam_phy_config (jg)% sd_car  ,&
+            &                             echam_phy_config (jg)% ed_car  ,&
+            &                             echam_phy_config (jg)% fc_car  )
        !
-       CALL eval_echam_phy_config_dt_sd_ed(TRIM(cg),                'art', &
-            &                              echam_phy_config (jg)% dt_art,  &
-            &                              echam_phy_config (jg)% sd_art,  &
-            &                              echam_phy_config (jg)% ed_art)
+       CALL eval_echam_phy_config_details(TRIM(cg),                'art' ,&
+            &                             echam_phy_config (jg)% dt_art  ,&
+            &                             echam_phy_config (jg)% sd_art  ,&
+            &                             echam_phy_config (jg)% ed_art  ,&
+            &                             echam_phy_config (jg)% fc_art  )
        !
     END DO
     !
   CONTAINS
     !
-    SUBROUTINE eval_echam_phy_config_dt_sd_ed(cg,process,config_dt,config_sd,config_ed)
+    SUBROUTINE eval_echam_phy_config_details(cg,process ,&
+         &                                   config_dt  ,&
+         &                                   config_sd  ,&
+         &                                   config_ed  ,&
+         &                                   config_fc  )
       !
-      CHARACTER(LEN=*),PARAMETER  :: method_name ='eval_echam_phy_config_dt_sd_ed'
+      CHARACTER(LEN=*),PARAMETER  :: method_name ='eval_echam_phy_config_details'
       !
       ! grid and name of evaluated configuration
       CHARACTER(len=*)                    , INTENT(in)    :: cg
@@ -336,6 +380,9 @@ CONTAINS
       CHARACTER(len=max_timedelta_str_len), INTENT(inout) :: config_dt
       CHARACTER(len=max_datetime_str_len ), INTENT(inout) :: config_sd
       CHARACTER(len=max_datetime_str_len ), INTENT(inout) :: config_ed
+      !
+      ! forcing control
+      INTEGER                             , INTENT(in)    :: config_fc
       !
       ! mtime time control (TC) variables
       TYPE(timedelta), POINTER :: tc_dt
@@ -375,9 +422,20 @@ CONTAINS
          !
       END IF
       !
+      !
+      ! 5. fc must be 0, 1 or 2
+      !
+      SELECT CASE(config_fc)
+      CASE(0,1,2)
+         ! OK
+      CASE DEFAULT
+         ! not allowed
+         CALL finish(method_name,'echam_phy_config('//TRIM(cg)//')% fc_'//TRIM(process)//' must be 0, 1 or 2')
+      END SELECT
+      !
       CALL deallocateTimeDelta(tc_dt)
       !
-    END SUBROUTINE eval_echam_phy_config_dt_sd_ed
+    END SUBROUTINE eval_echam_phy_config_details
     !
   END SUBROUTINE eval_echam_phy_config
 
@@ -390,7 +448,6 @@ CONTAINS
     !
     INTEGER                 :: jg
     CHARACTER(LEN=2)        :: cg
-    LOGICAL                 :: lret
     !
     ! ECHAM physics timecontrol
     ! -------------------------
@@ -404,99 +461,99 @@ CONTAINS
        !
        WRITE(cg,'(i0)') jg
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'rad', &
-            &                             echam_phy_config(jg)% dt_rad,  &
-            &                             echam_phy_config(jg)% sd_rad,  &
-            &                             echam_phy_config(jg)% ed_rad,  &
-            &                             echam_phy_tc    (jg)% dt_rad,  &
-            &                             echam_phy_tc    (jg)% sd_rad,  &
-            &                             echam_phy_tc    (jg)% ed_rad,  &
-            &                             echam_phy_tc    (jg)% ev_rad   )
+       CALL eval_echam_phy_tc_details(cg,                     'rad' ,&
+            &                         echam_phy_config(jg)% dt_rad  ,&
+            &                         echam_phy_config(jg)% sd_rad  ,&
+            &                         echam_phy_config(jg)% ed_rad  ,&
+            &                         echam_phy_tc    (jg)% dt_rad  ,&
+            &                         echam_phy_tc    (jg)% sd_rad  ,&
+            &                         echam_phy_tc    (jg)% ed_rad  ,&
+            &                         echam_phy_tc    (jg)% ev_rad  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'vdf', &
-            &                             echam_phy_config(jg)% dt_vdf,  &
-            &                             echam_phy_config(jg)% sd_vdf,  &
-            &                             echam_phy_config(jg)% ed_vdf,  &
-            &                             echam_phy_tc    (jg)% dt_vdf,  &
-            &                             echam_phy_tc    (jg)% sd_vdf,  &
-            &                             echam_phy_tc    (jg)% ed_vdf,  &
-            &                             echam_phy_tc    (jg)% ev_vdf   )
+       CALL eval_echam_phy_tc_details(cg,                     'vdf' ,&
+            &                         echam_phy_config(jg)% dt_vdf  ,&
+            &                         echam_phy_config(jg)% sd_vdf  ,&
+            &                         echam_phy_config(jg)% ed_vdf  ,&
+            &                         echam_phy_tc    (jg)% dt_vdf  ,&
+            &                         echam_phy_tc    (jg)% sd_vdf  ,&
+            &                         echam_phy_tc    (jg)% ed_vdf  ,&
+            &                         echam_phy_tc    (jg)% ev_vdf  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'cnv', &
-            &                             echam_phy_config(jg)% dt_cnv,  &
-            &                             echam_phy_config(jg)% sd_cnv,  &
-            &                             echam_phy_config(jg)% ed_cnv,  &
-            &                             echam_phy_tc    (jg)% dt_cnv,  &
-            &                             echam_phy_tc    (jg)% sd_cnv,  &
-            &                             echam_phy_tc    (jg)% ed_cnv,  &
-            &                             echam_phy_tc    (jg)% ev_cnv   )
+       CALL eval_echam_phy_tc_details(cg,                     'cnv' ,&
+            &                         echam_phy_config(jg)% dt_cnv  ,&
+            &                         echam_phy_config(jg)% sd_cnv  ,&
+            &                         echam_phy_config(jg)% ed_cnv  ,&
+            &                         echam_phy_tc    (jg)% dt_cnv  ,&
+            &                         echam_phy_tc    (jg)% sd_cnv  ,&
+            &                         echam_phy_tc    (jg)% ed_cnv  ,&
+            &                         echam_phy_tc    (jg)% ev_cnv  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'cld', &
-            &                             echam_phy_config(jg)% dt_cld,  &
-            &                             echam_phy_config(jg)% sd_cld,  &
-            &                             echam_phy_config(jg)% ed_cld,  &
-            &                             echam_phy_tc    (jg)% dt_cld,  &
-            &                             echam_phy_tc    (jg)% sd_cld,  &
-            &                             echam_phy_tc    (jg)% ed_cld,  &
-            &                             echam_phy_tc    (jg)% ev_cld   )
+       CALL eval_echam_phy_tc_details(cg,                     'cld' ,&
+            &                         echam_phy_config(jg)% dt_cld  ,&
+            &                         echam_phy_config(jg)% sd_cld  ,&
+            &                         echam_phy_config(jg)% ed_cld  ,&
+            &                         echam_phy_tc    (jg)% dt_cld  ,&
+            &                         echam_phy_tc    (jg)% sd_cld  ,&
+            &                         echam_phy_tc    (jg)% ed_cld  ,&
+            &                         echam_phy_tc    (jg)% ev_cld  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'gwd', &
-            &                             echam_phy_config(jg)% dt_gwd,  &
-            &                             echam_phy_config(jg)% sd_gwd,  &
-            &                             echam_phy_config(jg)% ed_gwd,  &
-            &                             echam_phy_tc    (jg)% dt_gwd,  &
-            &                             echam_phy_tc    (jg)% sd_gwd,  &
-            &                             echam_phy_tc    (jg)% ed_gwd,  &
-            &                             echam_phy_tc    (jg)% ev_gwd   )
+       CALL eval_echam_phy_tc_details(cg,                     'gwd' ,&
+            &                         echam_phy_config(jg)% dt_gwd  ,&
+            &                         echam_phy_config(jg)% sd_gwd  ,&
+            &                         echam_phy_config(jg)% ed_gwd  ,&
+            &                         echam_phy_tc    (jg)% dt_gwd  ,&
+            &                         echam_phy_tc    (jg)% sd_gwd  ,&
+            &                         echam_phy_tc    (jg)% ed_gwd  ,&
+            &                         echam_phy_tc    (jg)% ev_gwd  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'sso', &
-            &                             echam_phy_config(jg)% dt_sso,  &
-            &                             echam_phy_config(jg)% sd_sso,  &
-            &                             echam_phy_config(jg)% ed_sso,  &
-            &                             echam_phy_tc    (jg)% dt_sso,  &
-            &                             echam_phy_tc    (jg)% sd_sso,  &
-            &                             echam_phy_tc    (jg)% ed_sso,  &
-            &                             echam_phy_tc    (jg)% ev_sso   )
+       CALL eval_echam_phy_tc_details(cg,                     'sso' ,&
+            &                         echam_phy_config(jg)% dt_sso  ,&
+            &                         echam_phy_config(jg)% sd_sso  ,&
+            &                         echam_phy_config(jg)% ed_sso  ,&
+            &                         echam_phy_tc    (jg)% dt_sso  ,&
+            &                         echam_phy_tc    (jg)% sd_sso  ,&
+            &                         echam_phy_tc    (jg)% ed_sso  ,&
+            &                         echam_phy_tc    (jg)% ev_sso  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'mox', &
-            &                             echam_phy_config(jg)% dt_mox,  &
-            &                             echam_phy_config(jg)% sd_mox,  &
-            &                             echam_phy_config(jg)% ed_mox,  &
-            &                             echam_phy_tc    (jg)% dt_mox,  &
-            &                             echam_phy_tc    (jg)% sd_mox,  &
-            &                             echam_phy_tc    (jg)% ed_mox,  &
-            &                             echam_phy_tc    (jg)% ev_mox   )
+       CALL eval_echam_phy_tc_details(cg,                     'mox' ,&
+            &                         echam_phy_config(jg)% dt_mox  ,&
+            &                         echam_phy_config(jg)% sd_mox  ,&
+            &                         echam_phy_config(jg)% ed_mox  ,&
+            &                         echam_phy_tc    (jg)% dt_mox  ,&
+            &                         echam_phy_tc    (jg)% sd_mox  ,&
+            &                         echam_phy_tc    (jg)% ed_mox  ,&
+            &                         echam_phy_tc    (jg)% ev_mox  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'car', &
-            &                             echam_phy_config(jg)% dt_car,  &
-            &                             echam_phy_config(jg)% sd_car,  &
-            &                             echam_phy_config(jg)% ed_car,  &
-            &                             echam_phy_tc    (jg)% dt_car,  &
-            &                             echam_phy_tc    (jg)% sd_car,  &
-            &                             echam_phy_tc    (jg)% ed_car,  &
-            &                             echam_phy_tc    (jg)% ev_car   )
+       CALL eval_echam_phy_tc_details(cg,                     'car' ,&
+            &                         echam_phy_config(jg)% dt_car  ,&
+            &                         echam_phy_config(jg)% sd_car  ,&
+            &                         echam_phy_config(jg)% ed_car  ,&
+            &                         echam_phy_tc    (jg)% dt_car  ,&
+            &                         echam_phy_tc    (jg)% sd_car  ,&
+            &                         echam_phy_tc    (jg)% ed_car  ,&
+            &                         echam_phy_tc    (jg)% ev_car  )
        !
-       CALL eval_echam_phy_tc_dt_sd_ed_ev(cg,                     'art', &
-            &                             echam_phy_config(jg)% dt_art,  &
-            &                             echam_phy_config(jg)% sd_art,  &
-            &                             echam_phy_config(jg)% ed_art,  &
-            &                             echam_phy_tc    (jg)% dt_art,  &
-            &                             echam_phy_tc    (jg)% sd_art,  &
-            &                             echam_phy_tc    (jg)% ed_art,  &
-            &                             echam_phy_tc    (jg)% ev_art   )
+       CALL eval_echam_phy_tc_details(cg,                     'art' ,&
+            &                         echam_phy_config(jg)% dt_art  ,&
+            &                         echam_phy_config(jg)% sd_art  ,&
+            &                         echam_phy_config(jg)% ed_art  ,&
+            &                         echam_phy_tc    (jg)% dt_art  ,&
+            &                         echam_phy_tc    (jg)% sd_art  ,&
+            &                         echam_phy_tc    (jg)% ed_art  ,&
+            &                         echam_phy_tc    (jg)% ev_art  )
        !
     END DO
     !
   CONTAINS
     !
-    SUBROUTINE eval_echam_phy_tc_dt_sd_ed_ev(cg, process, &
-         &                                   config_dt,   &
-         &                                   config_sd,   &
-         &                                   config_ed,   &
-         &                                   tc_dt,       &
-         &                                   tc_sd,       &
-         &                                   tc_ed,       &
-         &                                   tc_ev        )
+    SUBROUTINE eval_echam_phy_tc_details(cg, process ,&
+         &                               config_dt   ,&
+         &                               config_sd   ,&
+         &                               config_ed   ,&
+         &                               tc_dt       ,&
+         &                               tc_sd       ,&
+         &                               tc_ed       ,&
+         &                               tc_ev       )
       !
       ! grid and name of evaluated configuration
       CHARACTER(len=*)                    , INTENT(in)    :: cg
@@ -527,7 +584,7 @@ CONTAINS
          lret = addEventToEventGroup(tc_ev, echam_phy_event_group)
       END IF
       !
-    END SUBROUTINE eval_echam_phy_tc_dt_sd_ed_ev
+    END SUBROUTINE eval_echam_phy_tc_details
     !
   END SUBROUTINE eval_echam_phy_tc
 
@@ -558,56 +615,70 @@ CONTAINS
        CALL message    ('','User controlled parameters')
        CALL message    ('','..........................')
        CALL message    ('','')
-!!$       CALL message    ('','dynamics physics coupling')
-!!$       CALL print_value('    echam_phy_config('//TRIM(cg)//')% idcphycpl  ',echam_phy_config(jg)% idcphycpl  )
-!!$       CALL print_value('    echam_phy_config('//TRIM(cg)//')% ldrymoist  ',echam_phy_config(jg)% ldrymoist  )
-!!$       CALL message    ('','')
+       CALL message    ('','dynamics physics coupling')
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% ldcphycpl  ',echam_phy_config(jg)% ldcphycpl  )
+       CALL message    ('','')
+       CALL message    ('','parameterization coupling: .FALSE.: no updates of physics state, .TRUE.: updates phyiscs state')
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lparamcpl  ',echam_phy_config(jg)% lparamcpl  )
+       CALL message    ('','')
+       CALL message    ('','tracer reference air mass: .FALSE.: moist air mass, .TRUE.: dry air mass')
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% ldrymoist  ',echam_phy_config(jg)% ldrymoist  )
+       CALL message    ('','')
        CALL message    ('','time control parameters')
        CALL message    ('','')
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'rad', &
-            &                               echam_phy_config(jg)% dt_rad,  &
-            &                               echam_phy_config(jg)% sd_rad,  &
-            &                               echam_phy_config(jg)% ed_rad   )
+       CALL print_echam_phy_config_details(cg,                     'rad' ,&
+            &                              echam_phy_config(jg)% dt_rad  ,&
+            &                              echam_phy_config(jg)% sd_rad  ,&
+            &                              echam_phy_config(jg)% ed_rad  ,&
+            &                              echam_phy_config(jg)% fc_rht  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'vdf', &
-            &                               echam_phy_config(jg)% dt_vdf,  &
-            &                               echam_phy_config(jg)% sd_vdf,  &
-            &                               echam_phy_config(jg)% ed_vdf   )
+       CALL print_echam_phy_config_details(cg,                     'vdf' ,&
+            &                              echam_phy_config(jg)% dt_vdf  ,&
+            &                              echam_phy_config(jg)% sd_vdf  ,&
+            &                              echam_phy_config(jg)% ed_vdf  ,&
+            &                              echam_phy_config(jg)% fc_vdf  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'cnv', &
-            &                               echam_phy_config(jg)% dt_cnv,  &
-            &                               echam_phy_config(jg)% sd_cnv,  &
-            &                               echam_phy_config(jg)% ed_cnv   )
+       CALL print_echam_phy_config_details(cg,                     'cnv' ,&
+            &                              echam_phy_config(jg)% dt_cnv  ,&
+            &                              echam_phy_config(jg)% sd_cnv  ,&
+            &                              echam_phy_config(jg)% ed_cnv  ,&
+            &                              echam_phy_config(jg)% fc_cnv  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'cld', &
-            &                               echam_phy_config(jg)% dt_cld,  &
-            &                               echam_phy_config(jg)% sd_cld,  &
-            &                               echam_phy_config(jg)% ed_cld   )
+       CALL print_echam_phy_config_details(cg,                     'cld' ,&
+            &                              echam_phy_config(jg)% dt_cld  ,&
+            &                              echam_phy_config(jg)% sd_cld  ,&
+            &                              echam_phy_config(jg)% ed_cld  ,&
+            &                              echam_phy_config(jg)% fc_cld  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'gwd', &
-            &                               echam_phy_config(jg)% dt_gwd,  &
-            &                               echam_phy_config(jg)% sd_gwd,  &
-            &                               echam_phy_config(jg)% ed_gwd   )
+       CALL print_echam_phy_config_details(cg,                     'gwd' ,&
+            &                              echam_phy_config(jg)% dt_gwd  ,&
+            &                              echam_phy_config(jg)% sd_gwd  ,&
+            &                              echam_phy_config(jg)% ed_gwd  ,&
+            &                              echam_phy_config(jg)% fc_gwd  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'sso', &
-            &                               echam_phy_config(jg)% dt_sso,  &
-            &                               echam_phy_config(jg)% sd_sso,  &
-            &                               echam_phy_config(jg)% ed_sso   )
+       CALL print_echam_phy_config_details(cg,                     'sso' ,&
+            &                              echam_phy_config(jg)% dt_sso  ,&
+            &                              echam_phy_config(jg)% sd_sso  ,&
+            &                              echam_phy_config(jg)% ed_sso  ,&
+            &                              echam_phy_config(jg)% fc_sso  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'mox', &
-            &                               echam_phy_config(jg)% dt_mox,  &
-            &                               echam_phy_config(jg)% sd_mox,  &
-            &                               echam_phy_config(jg)% ed_mox   )
+       CALL print_echam_phy_config_details(cg,                     'mox' ,&
+            &                              echam_phy_config(jg)% dt_mox  ,&
+            &                              echam_phy_config(jg)% sd_mox  ,&
+            &                              echam_phy_config(jg)% ed_mox  ,&
+            &                              echam_phy_config(jg)% fc_mox  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'car', &
-            &                               echam_phy_config(jg)% dt_car,  &
-            &                               echam_phy_config(jg)% sd_car,  &
-            &                               echam_phy_config(jg)% ed_car   )
+       CALL print_echam_phy_config_details(cg,                     'car' ,&
+            &                              echam_phy_config(jg)% dt_car  ,&
+            &                              echam_phy_config(jg)% sd_car  ,&
+            &                              echam_phy_config(jg)% ed_car  ,&
+            &                              echam_phy_config(jg)% fc_car  )
        !
-       CALL print_echam_phy_config_dt_sd_ed(cg,                     'art', &
-            &                               echam_phy_config(jg)% dt_art,  &
-            &                               echam_phy_config(jg)% sd_art,  &
-            &                               echam_phy_config(jg)% ed_art   )
+       CALL print_echam_phy_config_details(cg,                     'art' ,&
+            &                              echam_phy_config(jg)% dt_art  ,&
+            &                              echam_phy_config(jg)% sd_art  ,&
+            &                              echam_phy_config(jg)% ed_art  ,&
+            &                              echam_phy_config(jg)% fc_art  )
        !
        CALL message    ('','logical switches')
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lmlo ',echam_phy_config(jg)% lmlo  )
@@ -616,58 +687,56 @@ CONTAINS
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lamip',echam_phy_config(jg)% lamip )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',echam_phy_config(jg)% lcpl_co2_atmoce)
-       CALL message    ('','')
-       CALL message    ('','')
        !
        CALL message    ('','')
        CALL message    ('','Derived time control')
        CALL message    ('','....................')
        CALL message    ('','')
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'rad', &
-            &                           echam_phy_tc(jg)% dt_rad,  &
-            &                           echam_phy_tc(jg)% sd_rad,  &
-            &                           echam_phy_tc(jg)% ed_rad   )
+       CALL print_echam_phy_tc_details(cg,                 'rad' ,&
+            &                          echam_phy_tc(jg)% dt_rad  ,&
+            &                          echam_phy_tc(jg)% sd_rad  ,&
+            &                          echam_phy_tc(jg)% ed_rad  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'vdf', &
-            &                           echam_phy_tc(jg)% dt_vdf,  &
-            &                           echam_phy_tc(jg)% sd_vdf,  &
-            &                           echam_phy_tc(jg)% ed_vdf   )
+       CALL print_echam_phy_tc_details(cg,                 'vdf' ,&
+            &                          echam_phy_tc(jg)% dt_vdf  ,&
+            &                          echam_phy_tc(jg)% sd_vdf  ,&
+            &                          echam_phy_tc(jg)% ed_vdf  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'cnv', &
-            &                           echam_phy_tc(jg)% dt_cnv,  &
-            &                           echam_phy_tc(jg)% sd_cnv,  &
-            &                           echam_phy_tc(jg)% ed_cnv   )
+       CALL print_echam_phy_tc_details(cg,                 'cnv' ,&
+            &                          echam_phy_tc(jg)% dt_cnv  ,&
+            &                          echam_phy_tc(jg)% sd_cnv  ,&
+            &                          echam_phy_tc(jg)% ed_cnv  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'cld', &
-            &                           echam_phy_tc(jg)% dt_cld,  &
-            &                           echam_phy_tc(jg)% sd_cld,  &
-            &                           echam_phy_tc(jg)% ed_cld   )
+       CALL print_echam_phy_tc_details(cg,                 'cld' ,&
+            &                          echam_phy_tc(jg)% dt_cld  ,&
+            &                          echam_phy_tc(jg)% sd_cld  ,&
+            &                          echam_phy_tc(jg)% ed_cld  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'gwd', &
-            &                           echam_phy_tc(jg)% dt_gwd,  &
-            &                           echam_phy_tc(jg)% sd_gwd,  &
-            &                           echam_phy_tc(jg)% ed_gwd   )
+       CALL print_echam_phy_tc_details(cg,                 'gwd' ,&
+            &                          echam_phy_tc(jg)% dt_gwd  ,&
+            &                          echam_phy_tc(jg)% sd_gwd  ,&
+            &                          echam_phy_tc(jg)% ed_gwd  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'sso', &
-            &                           echam_phy_tc(jg)% dt_sso,  &
-            &                           echam_phy_tc(jg)% sd_sso,  &
-            &                           echam_phy_tc(jg)% ed_sso   )
+       CALL print_echam_phy_tc_details(cg,                 'sso' ,&
+            &                          echam_phy_tc(jg)% dt_sso  ,&
+            &                          echam_phy_tc(jg)% sd_sso  ,&
+            &                          echam_phy_tc(jg)% ed_sso  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'mox', &
-            &                           echam_phy_tc(jg)% dt_mox,  &
-            &                           echam_phy_tc(jg)% sd_mox,  &
-            &                           echam_phy_tc(jg)% ed_mox   )
+       CALL print_echam_phy_tc_details(cg,                 'mox' ,&
+            &                          echam_phy_tc(jg)% dt_mox  ,&
+            &                          echam_phy_tc(jg)% sd_mox  ,&
+            &                          echam_phy_tc(jg)% ed_mox  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'car', &
-            &                           echam_phy_tc(jg)% dt_car,  &
-            &                           echam_phy_tc(jg)% sd_car,  &
-            &                           echam_phy_tc(jg)% ed_car   )
+       CALL print_echam_phy_tc_details(cg,                 'car' ,&
+            &                          echam_phy_tc(jg)% dt_car  ,&
+            &                          echam_phy_tc(jg)% sd_car  ,&
+            &                          echam_phy_tc(jg)% ed_car  )
        !
-       CALL print_echam_phy_tc_dt_sd_ed(cg,                 'art', &
-            &                           echam_phy_tc(jg)% dt_art,  &
-            &                           echam_phy_tc(jg)% sd_art,  &
-            &                           echam_phy_tc(jg)% ed_art   )
+       CALL print_echam_phy_tc_details(cg,                 'art' ,&
+            &                          echam_phy_tc(jg)% dt_art  ,&
+            &                          echam_phy_tc(jg)% sd_art  ,&
+            &                          echam_phy_tc(jg)% ed_art  )
        !
        CALL message    ('','')
        CALL message    ('','------------------------------------------------------------------------')
@@ -684,34 +753,47 @@ CONTAINS
     !
   CONTAINS
     !
-    SUBROUTINE print_echam_phy_config_dt_sd_ed(cg, process, &
-         &                                     config_dt,   &
-         &                                     config_sd,   &
-         &                                     config_ed    )
+    SUBROUTINE print_echam_phy_config_details(cg, process ,&
+         &                                    config_dt   ,&
+         &                                    config_sd   ,&
+         &                                    config_ed   ,&
+         &                                    config_fc   )
       !
       ! grid and name of evaluated configuration
-      CHARACTER(len=*), INTENT(in) :: cg
-      CHARACTER(len=*), INTENT(in) :: process
+      CHARACTER(len=*)                    , INTENT(in) :: cg
+      CHARACTER(len=*)                    , INTENT(in) :: process
       !
       ! configuration strings
       CHARACTER(len=max_timedelta_str_len), INTENT(in) :: config_dt
       CHARACTER(len=max_datetime_str_len ), INTENT(in) :: config_sd
       CHARACTER(len=max_datetime_str_len ), INTENT(in) :: config_ed
       !
-      CALL message   ('    echam_phy_config('//cg//')% dt_'//process,config_dt )
+      ! forcing control
+      INTEGER                             , INTENT(in) :: config_fc
+      !
+      CALL message       ('    echam_phy_config('//cg//')% dt_'//process,config_dt )
       IF (config_dt /= 'PT0S') THEN
-         CALL message('    echam_phy_config('//cg//')% sd_'//process,config_sd )
-         CALL message('    echam_phy_config('//cg//')% ed_'//process,config_ed )
+         CALL message    ('    echam_phy_config('//cg//')% sd_'//process,config_sd )
+         CALL message    ('    echam_phy_config('//cg//')% ed_'//process,config_ed )
+         CALL print_value('    echam_phy_config('//cg//')% fc_'//process,config_fc )
+         SELECT CASE(config_fc)
+         CASE(0)
+            CALL message ('',process//' tendencies are diagnostic')
+         CASE(1)
+            CALL message ('',process//' tendencies are used to update the model state')
+         CASE(2)
+            CALL message ('',process//' tendencies are used as forcing in the dynamics')
+         END SELECT
       END IF
       CALL message   ('','')
       !
-    END SUBROUTINE print_echam_phy_config_dt_sd_ed
+    END SUBROUTINE print_echam_phy_config_details
     !
     !
-    SUBROUTINE print_echam_phy_tc_dt_sd_ed(cg, process, &
-         &                                 tc_dt,       &
-         &                                 tc_sd,       &
-         &                                 tc_ed        )
+    SUBROUTINE print_echam_phy_tc_details(cg, process ,&
+         &                                tc_dt       ,&
+         &                                tc_sd       ,&
+         &                                tc_ed       )
       !
       ! grid and name of evaluated configuration
       CHARACTER(len=*)                    , INTENT(in)    :: cg
@@ -735,7 +817,7 @@ CONTAINS
       END IF
       CALL message   ('','')
       !
-    END SUBROUTINE print_echam_phy_tc_dt_sd_ed
+    END SUBROUTINE print_echam_phy_tc_details
     !
   END SUBROUTINE print_echam_phy_config
 
