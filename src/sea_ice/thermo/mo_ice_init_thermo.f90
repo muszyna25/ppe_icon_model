@@ -35,12 +35,13 @@ MODULE mo_ice_init_thermo
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
 
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, mu, albi, albedoW_sim
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, mu
   USE mo_ocean_nml,           ONLY: no_tracer
   USE mo_sea_ice_nml,         ONLY: i_ice_dyn, i_ice_advec, &
     &                                use_IceInitialization_fromTemperature, use_constant_tfreez, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
-    &                               init_analytic_hs_param, init_analytic_temp_under_ice
+    &                               init_analytic_hs_param, init_analytic_temp_under_ice, &
+    &                               albi, albedoW_sim
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_state,         ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var

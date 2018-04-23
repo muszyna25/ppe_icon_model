@@ -42,14 +42,14 @@ MODULE mo_sea_ice
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
     &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
     &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
-    &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf,    &
+    &                               fr_fac, mu, alf, alv, clw, cpd, zemiss_def, rd, &
     &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
     &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, limit_seaice, seaice_limit
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, &
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, albi, albim, albsm, albs, albedoW_sim, &
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
