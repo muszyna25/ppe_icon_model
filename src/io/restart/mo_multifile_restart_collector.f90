@@ -831,7 +831,7 @@ CONTAINS
 #ifndef NOMPI
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
     TYPE(c_ptr)                     :: c_mem_ptr
-    INTEGER                         :: mpierr, nbytes
+    INTEGER                         :: mpierr, nbytes, ptr_size(1)
 
     ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
@@ -866,25 +866,23 @@ CONTAINS
     CALL MPI_ALLOC_MEM(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
     IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
 
+    ptr_size(1) = INT(mem_size)
     ! Create memory window for communication
     SELECT CASE (itype)
     CASE (REAL_T)
-      NULLIFY(buf%sendBuffer_d)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_d, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_d, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_d, mem_bytes, nbytes, MPI_INFO_NULL,&
         &                  p_comm_work_restart, mpi_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
       !
     CASE (SINGLE_T)
-      NULLIFY(buf%sendBuffer_s)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_s, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_s, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_s, mem_bytes, nbytes, MPI_INFO_NULL,&
         &                  p_comm_work_restart, mpi_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
       !
     CASE (INT_T)
-      NULLIFY(buf%sendBuffer_int)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_int, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_int, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_int, mem_bytes, nbytes, MPI_INFO_NULL,&
         &                  p_comm_work_restart, mpi_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
