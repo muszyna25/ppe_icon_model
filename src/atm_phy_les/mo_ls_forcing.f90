@@ -167,7 +167,7 @@ MODULE mo_ls_forcing
     REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb_hl, v_gb_hl, th_gb_hl, qv_gb_hl
     REAL(wp), DIMENSION(p_patch%nlev)   :: inv_dz, exner_gb, inv_exner_gb, var_gb
     REAL(wp) :: inv_no_gb_cells
-    INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
+    INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1, i
 
     !0) Initialize all passed ddt's to 0
 !$OMP PARALLEL
@@ -209,10 +209,17 @@ MODULE mo_ls_forcing
 
     IF(is_subsidence_heat)THEN
       !use theta instead of temperature for subsidence
+#ifdef __INTEL_COMPILER
+!$OMP PARALLEL DO SCHEDULE(STATIC)
+        DO i = i_startblk,i_endblk
+          varin(:,:,i) = p_diag%temp(:,:,i) / p_prog%exner(:,:,i)
+        ENDDO
+#else
 !$OMP PARALLEL WORKSHARE
         varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / &
                                          p_prog%exner(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
+#endif
       CALL global_hor_mean(p_patch, varin, var_gb, inv_no_gb_cells, i_nchdom)
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),var_gb,p_metrics%z_ifc(1,:,1),th_gb_hl)
 
