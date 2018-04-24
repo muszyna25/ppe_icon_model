@@ -17,7 +17,7 @@
 #define HAMOCC_OMP_END_WORKSHARE $omp end workshare
 !-----------------------------------------------
 
-#ifdef _CRAYFTN
+#if ( defined(_CRAYFTN) || defined(__INTEL_COMPILER) )
 #define HAMOCC_OMP_DEFAULT_SCHEDULE SCHEDULE(guided)
 #define HAMOCC_OMP_RUNTIME_SCHEDULE SCHEDULE(runtime)
 #define HAMOCC_OMP_GUIDED_SCHEDULE  SCHEDULE(guided)
