@@ -1046,7 +1046,12 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_block(start_bdydiff_e)
       i_endblk   = p_patch%edges%end_block(grf_bdywidth_e)
 
-!$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( p_patch, p_nh_prog, z_nabla2_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
+#else
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1094,8 +1099,10 @@ MODULE mo_nh_diffusion
         !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
-!DIR$ IVDEP, PREFERVECTOR
-          !$ACC LOOP VECTOR
+!DIR$ IVDEP
+#ifdef _CRAYFTN
+!DIR$ PREFERVECTOR
+#endif
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1321,8 +1328,10 @@ MODULE mo_nh_diffusion
           !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-!DIR$ IVDEP, PREFERVECTOR
-            !$ACC LOOP VECTOR
+!DIR$ IVDEP
+#ifdef _CRAYFTN
+!DIR$ PREFERVECTOR
+#endif
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
@@ -1362,8 +1371,10 @@ MODULE mo_nh_diffusion
           !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
-!DIR$ IVDEP, PREFERVECTOR
-            !$ACC LOOP VECTOR
+!DIR$ IVDEP
+#ifdef _CRAYFTN
+!DIR$ PREFERVECTOR
+#endif
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
@@ -1428,8 +1439,8 @@ MODULE mo_nh_diffusion
           ENDIF
           ishift = (jb-1)*nproma_zdiffu
 !CDIR NODEP,VOVERTAKE,VOB
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR
+!DIR$ IVDEP
+!$ACC LOOP VECTOR
           DO jc = 1, nlen_zdiffu
             ic = ishift+jc
             z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) =                                          &
