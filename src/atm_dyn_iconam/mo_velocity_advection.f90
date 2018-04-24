@@ -656,11 +656,12 @@ MODULE mo_velocity_advection
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Sum up terms of horizontal wind advection: grad(Ekin_h) + vt*(f+relvort_e) + wcon_e*dv/dz
-!$ACC PARALLEL PRESENT( p_patch, p_int, p_metrics, p_diag ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-!DIR$ IVDEP, PREFERVECTOR
+!DIR$ IVDEP
+#ifdef _CRAYFTN
+!DIR$ PREFERVECTOR
+#endif
         DO jk = 1, nlev
           p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &
            (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
