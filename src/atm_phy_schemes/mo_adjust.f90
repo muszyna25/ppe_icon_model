@@ -519,9 +519,9 @@ MODULE mo_adjust
       
       IF(kcall == 5) THEN  ! Same as 4 but with LDFLAG all true
         
-!DIR$ IVDEP
 !OCL NOVREC
         IF(n_vmass <= 0)  THEN ! Not using Vector MASS
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=foeewm(pt(jl,kk))*zqp
@@ -540,6 +540,7 @@ MODULE mo_adjust
             pq(jl,kk)=pq(jl,kk)-zcond1
           ENDDO
         ELSE ! Using Vector VMASS
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             ztmp1(jl-kidia+1)=r3les*(pt(jl,kk)-rtt)
             ztmp2(jl-kidia+1)=r3ies*(pt(jl,kk)-rtt)
@@ -552,6 +553,7 @@ MODULE mo_adjust
           CALL vexp(ztmp2,ztmp6,jlen)
           CALL vrec(ztmp5,ztmp3,jlen)
           CALL vrec(ztmp6,ztmp4,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=r2es*(foealfa(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -578,6 +580,7 @@ MODULE mo_adjust
           CALL vexp(ztmp2,ztmp6,jlen)
           CALL vrec(ztmp5,ztmp3,jlen)
           CALL vrec(ztmp6,ztmp4,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp  = ztmp0(jl-kidia+1)
             zqsat=r2es*(foealfa(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -598,9 +601,9 @@ MODULE mo_adjust
       
       IF(kcall == 3) THEN
 
-!DIR$ IVDEP 
 !OCL NOVREC
         IF(n_vmass <=  0)  THEN ! Not using Vector MASS
+!DIR$ IVDEP
            DO jl=kidia,kfdia
               zqp    =1.0_JPRB/psp(jl)
               zqsat=foeewmcu(pt(jl,kk))*zqp
@@ -619,6 +622,7 @@ MODULE mo_adjust
             pq(jl,kk)=pq(jl,kk)-zcond1
           ENDDO
         ELSE
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             ztmp1(jl-kidia+1)=r3les*(pt(jl,kk)-rtt)
             ztmp2(jl-kidia+1)=r3ies*(pt(jl,kk)-rtt)
@@ -629,6 +633,7 @@ MODULE mo_adjust
           CALL vdiv(ztmp6,ztmp2,ztmp4,jlen)
           CALL vexp(ztmp1,ztmp5,jlen)
           CALL vexp(ztmp2,ztmp6,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=r2es*(foealfcu(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -648,6 +653,7 @@ MODULE mo_adjust
           CALL vdiv(ztmp6,ztmp2,ztmp4,jlen)
           CALL vexp(ztmp1,ztmp5,jlen)
           CALL vexp(ztmp2,ztmp6,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp  = ztmp0(jl-kidia+1)
             zqsat=r2es*(foealfcu(pt(jl,kk))*ztmp1(jl-kidia+1)+&

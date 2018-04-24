@@ -1116,9 +1116,9 @@ END SUBROUTINE cuascn
     !!*    1.           CALCULATE ENTRAINMENT AND DETRAINMENT RATES
     !!                  -------------------------------------------
 
-!DIR$ IVDEP
 !OCL NOVREC
     IF (lhook) CALL dr_hook('CUBASMCN',0,zhook_handle)
+!DIR$ IVDEP
     DO jl=kidia,kfdia
 
       IF(.NOT.ldcum(jl).AND.klab(jl,kk+1) == 0 ) THEN

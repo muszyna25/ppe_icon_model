@@ -5158,12 +5158,12 @@ SUBROUTINE turbdiff
                   frm(i,k)=(frh(i,k)+frh(i,k-1))/(len_scale(i,k)+len_scale(i,k-1)) !interpolierte Flussdichte auf HF
                END DO
             END DO
-!DIR$ IVDEP
 
 !Achtung: In COSMO-Version ist "imode_tkediff=1".
 !Da 'frh' bereits durch 'tke' dividiert wurde, muss fuer die exakte COSMO-Version der 'tke'-Faktor in 'dicke'
 !wieder beseitigt werden:
             k=2
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                upd_prof(i,k)=sav_prof(i,k)+frm(i,k+1)/dicke(i,k)
 !upd_prof(i,k)=sav_prof(i,k)+frm(i,k+1)*tke(i,k,ntur)/dicke(i,k)
@@ -7557,8 +7557,8 @@ INTEGER (KIND=iintegers) :: &
          END DO
       END DO
    ELSE !without preconditioning
-!DIR$ IVDEP
       k=k_tp+1
+!DIR$ IVDEP
       DO i=i_st, i_en
          invs_mom(i,k)=z1/(disc_mom(i,k)+impl_mom(i,k+1))
       END DO
