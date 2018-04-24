@@ -788,9 +788,13 @@ CONTAINS
       & CALL finish(method_name, "start_vertical > end_vertical")
 
 !ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+#ifdef _OPENMP
 !$  myThreadNo = omp_get_thread_num()
+#endif
 !ICON_OMP_SINGLE
+#ifdef _OPENMP
 !$  no_of_threads = OMP_GET_NUM_THREADS()
+#endif
 !ICON_OMP_END_SINGLE NOWAIT
     sum_value(:,  myThreadNo) = 0.0_wp
     sum_weight(:,  myThreadNo) = 0.0_wp
@@ -971,9 +975,13 @@ CONTAINS
       & CALL finish(method_name, "allocated_levels < end_vertical")
 
 !ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+#ifdef _OPENMP
 !$  myThreadNo = omp_get_thread_num()
+#endif
 !ICON_OMP_SINGLE
+#ifdef _OPENMP
 !$  no_of_threads = OMP_GET_NUM_THREADS()
+#endif
 !ICON_OMP_END_SINGLE NOWAIT
     sum_value(:,  myThreadNo) = 0.0_wp
     sum_weight(:,  myThreadNo) = 0.0_wp
@@ -1066,6 +1074,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
+<<<<<<< HEAD
   REAL(wp)  FUNCTION Sum_2D_InRange(values, in_subset, mean) 
     REAL(wp), INTENT(in) :: values(:,:) ! in
     TYPE(t_subset_range), TARGET :: in_subset
@@ -1151,7 +1160,7 @@ CONTAINS
 
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
-    REAL(wp):: total_sum, total_weight
+    REAL(wp):: total_weight
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_2D_2Dweights_InRange'
@@ -1168,9 +1177,13 @@ CONTAINS
       & sum_weight(0:no_of_threads-1) )
 
 !ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+#ifdef _OPENMP
 !$  myThreadNo = omp_get_thread_num()
+#endif
 !ICON_OMP_SINGLE
+#ifdef _OPENMP
 !$  no_of_threads = OMP_GET_NUM_THREADS()
+#endif
 !ICON_OMP_END_SINGLE NOWAIT
     sum_value(myThreadNo) = 0.0_wp
     sum_weight(myThreadNo) = 0.0_wp
@@ -1224,7 +1237,6 @@ CONTAINS
       mean = total_sum / total_weight
     ENDIF
     Sum_2D_2Dweights_InRange = total_sum
-    
   END FUNCTION Sum_2D_2Dweights_InRange
   !-----------------------------------------------------------------------
 

@@ -929,8 +929,9 @@ CONTAINS
       CALL message ('',message_text,all_print=.TRUE.)
 
       max_threads = 1
+#ifdef _OPENMP
 !$    max_threads = omp_get_max_threads()
-
+#endif
       IF (max_threads > 1) THEN
         WRITE (message_text,'(a)') '(master thread only)'
         CALL message ('',message_text,all_print=.TRUE.)
