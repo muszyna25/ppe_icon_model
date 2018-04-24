@@ -33,6 +33,13 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+
+#ifdef __INTEL_COMPILER
+#define USE_LAXFR_MACROS
+#define laxfr_upflux LAXFR_UPFLUX_MACRO
+#endif
 !----------------------------
 MODULE mo_advection_limiter
 
@@ -48,8 +55,10 @@ MODULE mo_advection_limiter
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell
-  USE mo_advection_utils,     ONLY: laxfr_upflux, ptr_delp_mc_now,         &
-    &                               ptr_delp_mc_new
+#ifndef USE_LAXFR_MACROS
+  USE mo_advection_utils,     ONLY: laxfr_upflux
+#endif
+  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
 #ifdef _OPENACC
   USE mo_sync,                ONLY: check_patch_array
   USE mo_mpi,                 ONLY: i_am_accel_node
@@ -287,8 +296,7 @@ CONTAINS
           ! div operator
           !
           z_mflx_low(je,jk,jb) =  &
-            &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                                        p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
 
 
           ! calculate antidiffusive flux for each edge
@@ -635,9 +643,13 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
+#ifndef __INTEL_COMPILER
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
       &  z_mflx(nproma,slev:elev,3) !< [kg m^-3]
 
+#else
+     REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
+#endif
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
       &  r_m(nproma,slev:elev,ptr_patch%nblks_c) !< of cell jc to guarantee
@@ -645,9 +657,13 @@ CONTAINS
 
     REAL(wp) :: z_signum                     !< sign of mass flux
                                              !< >0: out; <0: in
+#ifndef __INTEL_COMPILER
     REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
                                              !< [kg m^-3]
 
+#else
+    REAL(wp) :: p_m(nproma,slev:elev)
+#endif
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
 
@@ -748,6 +764,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
 
+#ifndef __INTEL_COMPILER
           z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
@@ -784,6 +801,31 @@ CONTAINS
           r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
             &                        /(p_m + dbl_eps) )
 
+#else
+          z_mflx1 = ptr_int%geofac_div(jc,1,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+          z_mflx2 = ptr_int%geofac_div(jc,2,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+          z_mflx3 = ptr_int%geofac_div(jc,3,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+          ! Sum of all outgoing fluxes out of cell jc
+          p_m(jc,jk) = MAX(0._wp,z_mflx1) + &
+            &          MAX(0._wp,z_mflx2) + &
+            &          MAX(0._wp,z_mflx3)
+        ENDDO
+      ENDDO
+      DO jk = slev, elev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          ! fraction which must multiply all fluxes out of cell jc to guarantee
+          ! no
+          ! undershoot
+          ! Nominator: maximum allowable decrease of \rho q
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+            &                        /(p_m(jc,jk) + dbl_eps) )
+
+          
+#endif
         ENDDO
       ENDDO
 !$ACC END PARALLEL
