@@ -128,7 +128,11 @@ MODULE mo_async_latbc
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
     USE mo_latbc_read_recv,           ONLY: prefetch_proc_send, compute_data_receive
     USE mo_sync,                      ONLY: sync_patch_array, SYNC_E, SYNC_C
-    
+#ifdef YAC_coupling
+    USE mo_coupling_config,           ONLY: is_coupled_run
+    USE mo_io_coupling,               ONLY: construct_io_coupler, destruct_io_coupler
+#endif
+
     IMPLICIT NONE
 
     INCLUDE 'netcdf.inc'
@@ -184,6 +188,15 @@ MODULE mo_async_latbc
       LOGICAL                 :: done
       TYPE(t_latbc_data)      :: latbc
 
+#ifdef YAC_coupling
+      ! The initialisation of YAC needs to be called by all (!) MPI processes
+      ! in MPI_COMM_WORLD.
+      ! construct_io_coupler needs to be called before init_name_list_output
+      ! due to calling sequence in subroutine atmo_model for other atmosphere
+      ! processes
+      IF ( is_coupled_run() ) CALL construct_io_coupler ( "prefetch_input_io" )
+#endif
+
       ! call to initalize the prefetch processor with grid data
       CALL init_prefetch(latbc)
       ! Enter prefetch loop
@@ -200,6 +213,9 @@ MODULE mo_async_latbc
       CALL close_prefetch()
       ! clean up
       CALL latbc%finalize()
+#ifdef YAC_coupling
+      IF ( is_coupled_run() ) CALL destruct_io_coupler ( "prefetch_input_io" )
+#endif
       ! Shut down MPI
       CALL stop_mpi
 

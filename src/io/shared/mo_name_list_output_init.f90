@@ -1859,7 +1859,7 @@ CONTAINS
           CALL finish(routine, "Internal error!")
         END SELECT
       ELSE
-        CALL setup_zaxes_oce(p_of%verticalAxisList)
+        CALL setup_zaxes_oce(p_of%verticalAxisList,p_of%level_selection)
       END IF
     END DO
   END SUBROUTINE create_vertical_axes

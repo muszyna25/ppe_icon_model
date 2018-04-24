@@ -53,8 +53,6 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_ocean_bulk,             ONLY: update_surface_flux
-  USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
@@ -273,18 +271,10 @@ CONTAINS
       !In case of a time-varying forcing:
       ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
       start_timer(timer_upd_flx,3)
-      IF (surface_module == 1) THEN
-        CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & jstep, current_time, operators_coefficients)
-      ELSEIF (surface_module == 2) THEN
-        CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & jstep, current_time, operators_coefficients)
-      ELSEIF (surface_module == 3) THEN
-        CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
-          & current_time, operators_coefficients)
-      ENDIF
 
-    
+      CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
+           & current_time, operators_coefficients)
+
       IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, current_time)
       stop_timer(timer_upd_flx,3)
 
@@ -490,6 +480,14 @@ CONTAINS
       ! check whether time has come for writing restart file
       IF (isCheckpoint()) THEN
         IF (.NOT. output_mode%l_none ) THEN
+          !
+          ! For multifile restart (restart_write_mode = "joint procs multifile")
+          ! the domain flag must be set to .TRUE. in order to activate the domain,
+          ! even though we have one currently in the ocean. Without this the
+          ! processes won't write out their data into a the patch restart files.
+          !
+          patch_2d%ldom_active = .TRUE.
+          !
           IF (i_ice_dyn == 1) CALL ice_fem_update_vel_restart(patch_2d, sea_ice) ! write FEM vel to restart or checkpoint file
           CALL restartDescriptor%updatePatch(patch_2d, &
                                             &opt_nice_class=1, &
@@ -528,6 +526,8 @@ CONTAINS
       END IF
             
     ENDDO TIME_LOOP
+
+    CALL restartDescriptor%destruct()
  
     CALL deallocateDatetime(current_time)
    

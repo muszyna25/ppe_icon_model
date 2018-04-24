@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine echam_phy_main calls all the parameterization schemes
+!! @brief Subroutine interface_echam_cld calls the Lohmann&Roeckner cloud scheme.
 !!
 !! @author Hui Wan, MPI-M
 !! @author Marco Giorgetta, MPI-M
@@ -21,50 +21,57 @@
 MODULE mo_interface_echam_cld
 
   USE mo_kind                ,ONLY: wp
-
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config          ,ONLY: nlev, iqv, iqc, iqi
-
   USE mtime                  ,ONLY: datetime
+
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
-    &                               t_echam_phy_tend,  prm_tend
+       &                            t_echam_phy_tend,  prm_tend
 
-  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_cloud
+  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_cld
 
+  USE mo_run_config          ,ONLY: iqv, iqc, iqi
   USE mo_cloud               ,ONLY: cloud
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_cld
+  PUBLIC  :: interface_echam_cld
 
 CONTAINS
 
-  SUBROUTINE echam_cld(is_in_sd_ed_interval, &
-       &               is_active,            &
-       &               jg,jb,jcs,jce,        &
-       &               datetime_old,         &
-       &               pdtime                )
+  SUBROUTINE interface_echam_cld(jg,jb,jcs,jce        ,&
+       &                         nproma,nlev          ,& 
+       &                         is_in_sd_ed_interval ,&
+       &                         is_active            ,&
+       &                         datetime_old         ,&
+       &                         pdtime               )
 
+    ! Arguments
+    !
+    INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
+    INTEGER                 ,INTENT(in) :: nproma,nlev
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
-    INTEGER                 ,INTENT(in) :: jg                  !< grid  index
-    INTEGER                 ,INTENT(in) :: jb                  !< block index
-    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
-    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_sso
+    TYPE(datetime)          ,POINTER    :: datetime_old
     REAL(wp)                ,INTENT(in) :: pdtime
+
+    ! Pointers
+    !
+    LOGICAL                 ,POINTER    :: lparamcpl
+    INTEGER                 ,POINTER    :: fc_cld
+    TYPE(t_echam_phy_field) ,POINTER    :: field
+    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
     ! Local variables
     !
-    TYPE(t_echam_phy_field) ,POINTER    :: field
-    TYPE(t_echam_phy_tend)  ,POINTER    :: tend
-    !
     INTEGER  :: itype(nproma)    !< type of convection
 
-    IF (ltimer) call timer_start(timer_cloud)
+    IF (ltimer) call timer_start(timer_cld)
 
     ! associate pointers
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    lparamcpl => echam_phy_config(jg)%lparamcpl
+    fc_cld    => echam_phy_config(jg)%fc_cld
+    field     => prm_field(jg)
+    tend      => prm_tend (jg)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -86,8 +93,6 @@ CONTAINS
                &     field% qtrc     (:,:,jb,iqv), &! in  qm1
                &     field% qtrc     (:,:,jb,iqc), &! in  xlm1
                &     field% qtrc     (:,:,jb,iqi), &! in  xim1
-               &      tend%   ta_phy (:,:,jb),     &! in  tte
-               &      tend% qtrc_phy (:,:,jb,iqv), &! in  qte
                !
                &     itype,                        &! inout
                &     field% aclc     (:,:,jb),     &! inout
@@ -114,11 +119,28 @@ CONTAINS
        ! accumulate heating
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_cld(jcs:jce,:,jb)
        !
-       ! accumulate tendencies
-       tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend%   ta_cld(jcs:jce,:,jb)
-       tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend% qtrc_cld(jcs:jce,:,jb,iqv)
-       tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend% qtrc_cld(jcs:jce,:,jb,iqc)
-       tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend% qtrc_cld(jcs:jce,:,jb,iqi)
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_cld)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend%   ta_cld(jcs:jce,:,jb)
+          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend% qtrc_cld(jcs:jce,:,jb,iqv)
+          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend% qtrc_cld(jcs:jce,:,jb,iqc)
+          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend% qtrc_cld(jcs:jce,:,jb,iqi)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend%   ta_cld(jcs:jce,:,jb)    *pdtime
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cld(jcs:jce,:,jb,iqv)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_cld(jcs:jce,:,jb,iqc)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_cld(jcs:jce,:,jb,iqi)*pdtime
+       END IF
        !
     ELSE
        !
@@ -130,9 +152,14 @@ CONTAINS
        !
     END IF
 
-    IF (ltimer) call timer_stop(timer_cloud)
+    ! disassociate pointers
+    NULLIFY(lparamcpl)
+    NULLIFY(fc_cld)
+    NULLIFY(field)
+    NULLIFY(tend)
 
-  END SUBROUTINE echam_cld
-  !-------------------------------------------------------------------
+    IF (ltimer) call timer_stop(timer_cld)
+
+  END SUBROUTINE interface_echam_cld
 
 END MODULE mo_interface_echam_cld

@@ -674,6 +674,10 @@ MODULE mo_initicon_utils
         ! 3D fields
         DO jk = 1, nlev
           DO jc = 1, nlen
+            !
+            ! Diagnostic pressure
+            p_nh_state(jg)%diag%pres(jc,jk,jb)         = initicon(jg)%atm%pres(jc,jk,jb)
+            !
             ! Dynamic prognostic variables on cell points
             p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = initicon(jg)%atm%w(jc,jk,jb)
             p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb) = initicon(jg)%atm%theta_v(jc,jk,jb)

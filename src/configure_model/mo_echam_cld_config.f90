@@ -134,7 +134,7 @@ CONTAINS
     ! --------------------------------------
     !
     ! general thresholds
-    echam_cld_config(:)% jks      = 1
+    echam_cld_config(:)% jks      = 15             ! L47: jks=15 is at ca. 30km
     echam_cld_config(:)% ccwmin   = 1.e-7_wp
     echam_cld_config(:)% cqtmin   = 1.e-12_wp
     !

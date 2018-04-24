@@ -14,7 +14,10 @@
 MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
-USE mo_exception,            ONLY: message, finish
+USE mo_exception,            ONLY: message, finish, print_value
+USE mtime,                   ONLY: datetimeToString, timeDelta, newTimeDelta,               &
+  &                                getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
+  &                                deallocateTimedelta, OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
@@ -35,11 +38,12 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
-  &                                nlev,                 &
-  &                                iqv, iqc, iqt, ico2,  &
+  &                                iqc, iqt,             &
+  &                                ico2, io3,            &
   &                                number_of_grid_used
-USE mo_radiation_config,     ONLY: mmr_co2, irad_co2
-USE mo_bc_greenhouse_gases,  ONLY: ghg_co2mmr
+USE mo_nh_testcases,         ONLY: init_nh_testcase
+USE mo_ls_forcing_nml,       ONLY: is_ls_forcing
+USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
@@ -47,6 +51,10 @@ USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
+! Vertical grid
+USE mo_vertical_grid,        ONLY: set_nh_metrics
+! Grid nesting
+USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
@@ -63,8 +71,9 @@ USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
+USE mo_interface_les,        ONLY: init_les_phy_interface
 ! Time integration
-USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
+USE mo_nh_stepping,          ONLY: perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
 USE mo_initicon_config,     ONLY: timeshift
@@ -83,15 +92,16 @@ USE mo_level_selection,     ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
-! LGS - for the implementation of ECHAM physics in iconam
-USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
+! ECHAM physics
+USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
+USE mo_psrad_memory,        ONLY: construct_psrad_forcing_list
+USE mo_physical_constants,  ONLY: amd, amco2
+USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
+USE mo_echam_rad_config,    ONLY: echam_rad_config
+USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
+   &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
-USE mo_nh_testcases_nml,    ONLY: nh_test_name
-
-USE mtime,                  ONLY: datetimeToString, timeDelta, newTimeDelta,               &
-  &                               getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
-  &                               deallocateTimedelta
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
@@ -102,6 +112,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_sync,                ONLY: sync_patch_array, sync_c
 
 !-------------------------------------------------------------------------
 
@@ -118,7 +129,7 @@ CONTAINS
   SUBROUTINE atmo_nonhydrostatic
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
-!!$    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
+!!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
     CALL construct_atmo_nonhydrostatic(latbc)
 
@@ -269,126 +280,170 @@ CONTAINS
        &                      p_nh_state_lists(jg)%tracer_list(:)  )
     ENDDO
 
-
-    !---------------------------------------------------------------------
-    ! 5. Perform time stepping
-    !---------------------------------------------------------------------
-      !------------------------------------------------------------------
-      ! Prepare for time integration
-      !------------------------------------------------------------------
-
-
-    ! CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
-
-    CALL prepare_nh_integration( )
-
-! LGS
-!
-    IF ( iforcing == iecham ) THEN
-      CALL init_echam_phy( p_patch(1:), nh_test_name, nlev, time_config%tc_current_date )
-      !! many of the initial conditions for the echam 'field' are set here
-      !! Note: it is not certain that p_nh_state(jg)%diag%temp has been initialized at this point in time.
-      !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.
-      !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
-      !!       is initialized with IFS analyses.
-      !! NOTE: tracer variables, e.g. o3 or co2 are not part of the IFS analyses.
-      DO jg = 1,n_dom
-        CALL initcond_echam_phy( p_patch(jg)                                        ,&
-          &                      p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
-          &                      p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
-          &                      p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
-          &                      p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
-          &                      p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
-          &                      p_nh_state(jg)% diag% temp             (:,:,:)     ,&
-          &                      p_nh_state(jg)% prog(nnow(jg))% tracer (:,:,:,iqv) ,&
-          &                      nh_test_name                                        )
-      END DO
+    IF (iforcing == iecham) THEN
+      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
-!---
 
-    !
-    ! Read restart files (if necessary)
-    !
-    IF (isRestart()) THEN
-      ! This is a resumed integration. Read model state from restart file(s).
+    !------------------------------------------------------------------
+    ! Prepare for time integration
+    !------------------------------------------------------------------
 
-      IF (timers_level > 5) CALL timer_start(timer_read_restart)
+    CALL set_nh_metrics(p_patch(1:)     ,&
+         &              p_nh_state      ,&
+         &              p_int_state(1:) ,&
+         &              ext_data        )
 
-      DO jg = 1,n_dom
-        IF (p_patch(jg)%ldom_active) THEN
-          CALL read_restart_files( p_patch(jg), n_dom)
-        ENDIF
-      END DO
+    IF (n_dom > 1) THEN
+      CALL complete_nesting_setup()
+    END IF
 
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
-      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
-
-    ENDIF
-
-
+    ! init LES
+    DO jg = 1 , n_dom
+      IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
+        CALL init_les_phy_interface(jg, p_patch(jg)       ,&
+           &                        p_int_state(jg)       ,&
+           &                        p_nh_state(jg)%metrics)
+      END IF
+    END DO
 
     !------------------------------------------------------------------
     ! Prepare initial conditions for time integration.
     !------------------------------------------------------------------
     !
-    ! Initialize model with real atmospheric data if appropriate switches are set
-    !
-    IF (.NOT. ltestcase .AND. .NOT. isRestart() ) THEN
-
-      IF (iforcing == inwp) THEN
-
-        ! Initialize atmosphere, surface and land
-
-        IF (timers_level > 5) CALL timer_start(timer_init_icon)
-        CALL init_icon (p_patch(1:)     ,&
-          &             p_int_state(1:) ,&
-          &             p_grf_state(1:) ,&
-          &             p_nh_state(1:)  ,&
-          &             ext_data(1:)    ,&
-          &             prm_diag(1:)    ,&
-          &             p_lnd_state(1:) )
-        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
-
+    IF (isRestart()) THEN
+      !
+      ! This is a resumed integration. Read model state from restart file(s).
+      !
+      IF (timers_level > 5) CALL timer_start(timer_read_restart)
+      !
+      DO jg = 1,n_dom
+        IF (p_patch(jg)%ldom_active) THEN
+          CALL read_restart_files( p_patch(jg), n_dom)
+        END IF
+      END DO
+      !
+      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      !
+      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      !
+    ELSE
+      !
+      ! This is a new integration.
+      !
+      IF (ltestcase) THEN
+        !
+        ! Initialize testcase analytically
+        !
+        CALL init_nh_testcase(p_patch(1:)     ,&
+          &                   p_nh_state      ,&
+          &                   p_int_state(1:) ,&
+          &                   p_lnd_state(1:) ,&
+          &                   ext_data        ,&
+          &                   ntl=2           )
+        !
+        IF (is_ls_forcing) CALL init_ls_forcing(p_nh_state(1)%metrics)
+        !
       ELSE
-
-        ! Initialize the atmosphere only
-
+        !
+        ! Initialize with real atmospheric data
+        !
         IF (timers_level > 5) CALL timer_start(timer_init_icon)
-
-        ! initialize standard meteorological variables from an analysis file
-        CALL init_icon (p_patch(1:)     ,&
-          &             p_int_state(1:) ,&
-          &             p_grf_state(1:) ,&
-          &             p_nh_state(1:)  ,&
-          &             ext_data(1:)    )
-
-        ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
-        ! in the analysis file
+        !
+        IF (iforcing == inwp) THEN
+          !
+          ! Initialize atmosphere, surface and land
+          !
+          CALL init_icon (p_patch(1:)     ,&
+            &             p_int_state(1:) ,&
+            &             p_grf_state(1:) ,&
+            &             p_nh_state(1:)  ,&
+            &             ext_data(1:)    ,&
+            &             prm_diag(1:)    ,&
+            &             p_lnd_state(1:) )
+          !
+        ELSE ! iforcing == iecham, inoforcing, ...
+          !
+          ! Initialize the atmosphere only
+          !
+          CALL init_icon (p_patch(1:)     ,&
+            &             p_int_state(1:) ,&
+            &             p_grf_state(1:) ,&
+            &             p_nh_state(1:)  ,&
+            &             ext_data(1:)    )
+          !
+        END IF ! iforcing
+        !
+        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+        !
+      END IF ! ltestcase
+      !
+      ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
+      ! but may be used with ECHAM physics, for real cases or test cases.
+      !
+      IF (iforcing == iecham ) THEN
         DO jg = 1,n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          DO jt = iqt,ntracer
-!$OMP PARALLEL
-            CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
-!$OMP END PARALLEL
-          END DO
+          !
+          ! CO2 tracer
           IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
-            IF (irad_co2 == 2) THEN
 !$OMP PARALLEL
-              CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),mmr_co2)
+            CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),echam_rad_config(jg)% vmr_co2*amco2/amd)
 !$OMP END PARALLEL
-            ELSE IF (irad_co2 == 4) THEN
+            CALL print_value(TRIM(routine)//': CO2 tracer initialized with constant vmr', &
+              &              echam_rad_config(jg)% vmr_co2*amco2/amd)
+          END IF
+          !
+          ! O3 tracer
+          IF ( iqt <= io3 .AND. io3 <= ntracer) THEN
+            IF (echam_phy_tc(jg)%dt_car > dt_zero) THEN
+              CALL init_o3_lcariolle( time_config%tc_current_date                          ,&
+                &                     p_patch(jg)                                          ,&
+                &                     p_nh_state(jg)%diag% pres               (:,:,:)      ,&
+                &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
+              CALL sync_patch_array ( sync_c,p_patch(jg)                                   ,&
+                &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
+              CALL message(TRIM(routine),'o3 tracer is initialized by the Cariolle lin. o3 scheme')
+            ELSE
 !$OMP PARALLEL
-              CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),ghg_co2mmr)
+              CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3),0.0_wp)
 !$OMP END PARALLEL
+              CALL message(TRIM(routine),'o3 tracer is initialized to zero, check setup')
             END IF
           END IF
+          !
         END DO
-
-        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
-
+        !
       END IF
+      !
+    END IF ! isRestart()
 
+
+    ! Now set up ECHAM physics fields
+    !
+    IF ( iforcing == iecham ) THEN
+      !
+      ! read external data for real case
+      IF (.NOT. ltestcase) THEN 
+        CALL init_echam_phy_external( p_patch(1:)                 ,&
+           &                          time_config%tc_current_date )
+      END IF
+      !
+      ! prepare fields of the physics state, real and test case
+      DO jg = 1,n_dom
+        CALL init_echam_phy_field( p_patch(jg)                                        ,&
+          &                        ext_data  (jg)% atm%topography_c       (:,  :)     ,&
+          &                        p_nh_state(jg)% metrics% z_ifc         (:,:,:)     ,&
+          &                        p_nh_state(jg)% metrics% z_mc          (:,:,:)     ,&
+          &                        p_nh_state(jg)% metrics% ddqz_z_full   (:,:,:)     ,&
+          &                        p_nh_state(jg)% metrics% geopot_agl_ifc(:,:,:)     ,&
+          &                        p_nh_state(jg)% metrics% geopot_agl    (:,:,:)     ,&
+          &                        p_nh_state(jg)% diag% temp             (:,:,:)     )
+      END DO
+      !
     END IF
+
 
     ! Copy prognostic variables, for which no tendencies are computed,
     ! from time level "now" to time level "new", so that they are correctly set
@@ -421,6 +476,11 @@ CONTAINS
          END DO
       END DO
     END IF
+
+
+    !------------------------------------------------------------------
+    ! Asynchronous pre-fetching
+    !------------------------------------------------------------------
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
