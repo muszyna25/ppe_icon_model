@@ -548,7 +548,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#ifdef __INTEL_COMPILER
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -579,8 +583,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+!$omp do private(i1,i2,i3)
 #else
 !$omp do collapse(3)
 #endif
@@ -616,8 +620,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+!$omp do private(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -656,7 +660,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -694,7 +702,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -732,7 +744,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -767,7 +783,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -800,7 +820,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -836,7 +860,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -867,8 +895,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3)
 #else
 !$omp do collapse(3)
 #endif
@@ -902,8 +930,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -939,8 +967,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -975,7 +1003,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1006,7 +1038,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -1034,7 +1070,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1065,7 +1105,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
+#else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -1120,7 +1164,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -1150,7 +1198,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1182,7 +1234,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1216,7 +1272,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -1254,7 +1314,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -1293,7 +1357,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1322,7 +1390,11 @@ CONTAINS
     m1 = SIZE(var, 1)
     m2 = SIZE(var, 2)
     m3 = SIZE(var, 3)
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -1351,7 +1423,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
+#else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
