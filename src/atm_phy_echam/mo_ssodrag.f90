@@ -400,7 +400,12 @@ SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
   !
   DO 524 jk=1,klev
 !CDIR NODEP
+
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
      DO 523 jl=1,kgwd
         ji=kdx(jl)
         !
@@ -654,7 +659,11 @@ SUBROUTINE orosetup                                           &
   !*      define top of low level flow
   !       ----------------------------
   DO 2002 jk=klev,ilevh,-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
     DO 2003 ji=1,kgwd
        jl = kdx(ji)
@@ -672,7 +681,11 @@ SUBROUTINE orosetup                                           &
 2002 END DO
 
   DO 2004 jk=klev,ilevh,-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 2005 ji=1,kgwd
         jl = kdx(ji)
@@ -731,7 +744,11 @@ SUBROUTINE orosetup                                           &
   !
   DO 223 jk=klev,2,-1
 !IBM* NOVECTOR
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 222 ji=1,kgwd
         jl = kdx(ji)
@@ -748,7 +765,11 @@ SUBROUTINE orosetup                                           &
   !*     define Low level flow (between ground and peacks-valleys)
   !      ---------------------------------------------------------
   DO 2115 jk=klev,ilevh,-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 2116 ji=1,kgwd
         jl = kdx(ji)
@@ -801,7 +822,11 @@ SUBROUTINE orosetup                                           &
   !  ************ Find critical levels...                 *************
   !
   DO 213 jk=1,klev
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 212 ji=1,kgwd
         jl = kdx(ji)
@@ -817,7 +842,11 @@ SUBROUTINE orosetup                                           &
 
 !!  DO 215 jk=2,klev-1  ! BUG FIX FOR NaN (undefined values)
   DO 215 jk=2,klev
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 214 ji=1,kgwd
         jl = kdx(ji)
@@ -835,7 +864,11 @@ SUBROUTINE orosetup                                           &
   !*         2.3     mean flow richardson number.
   !
   DO 232 jk=2,klev
+#ifdef _CRAYFTN
  !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
     DO 231 ji=1,kgwd
        jl = kdx(ji)
@@ -851,9 +884,13 @@ SUBROUTINE orosetup                                           &
   znum(:) = 0.0_wp
   !
   DO jk=2,klev-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
 !DIR$ PREFERVECTOR
 !DIR$ PREFERSTREAM
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO ji=1,kgwd
         jl = kdx(ji)
@@ -882,7 +919,11 @@ SUBROUTINE orosetup                                           &
   znum(:) = 0.0_wp
   !
   DO jk=klev-1,2,-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
     DO ji=1,kgwd
        jl = kdx(ji)
@@ -910,7 +951,11 @@ SUBROUTINE orosetup                                           &
   !     directional info for flow blocking *************************
   !
   DO 251 jk=1,klev
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
 !IBM* ASSERT(NODEPS)
      DO 252 ji=1,kgwd
         jl = kdx(ji)
@@ -1086,7 +1131,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
   ptau(:,:) = 0.0_wp
   
 !CDIR NODEP
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
   DO 400 ji=1,kgwd
      jl=kdx(ji)
      zoro(jl)=psig(jl)*pdmod(jl)/4._wp/pstd(jl)
@@ -1102,9 +1151,13 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
      !                 low-level breaking/trapped layer
 
      !
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
 !DIR$ PREFERVECTOR
 !DIR$ PREFERSTREAM
+#else
+!DIR$ IVDEP
+#endif
      DO 411 ji=1,kgwd
         jl=kdx(ji)
         IF(jk > kkcrith(jl)) THEN
@@ -1136,7 +1189,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
   !
 
   DO 440 jk=klev,2,-1
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
      DO 441 ji=1,kgwd
         jl=kdx(ji)
         znorm(jl)=prho(jl,jk)*SQRT(pstab(jl,jk))*pvph(jl,jk)
@@ -1144,7 +1201,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 441  END DO
 
 !CDIR NODEP
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
      DO 442 ji=1,kgwd
         jl=kdx(ji)
         IF(jk < kkcrith(jl)) THEN
@@ -1173,7 +1234,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
   !  REORGANISATION OF THE STRESS PROFILE AT LOW LEVEL
 
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
   DO 530 ji=1,kgwd
      jl=kdx(ji)
      ztau(jl,kkcrith(jl))=ptau(jl,kkcrith(jl))
@@ -1181,7 +1246,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 530 END DO
 
   DO 531 jk=1,klev
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
      DO 532 ji=1,kgwd
         jl=kdx(ji)
 
@@ -1199,7 +1268,11 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
      !  REORGANISATION AT THE MODEL TOP....
 
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#else
+!DIR$ IVDEP
+#endif
      DO 533 ji=1,kgwd
         jl=kdx(ji)
 
