@@ -18,7 +18,7 @@
 ! (GZ, 2013-08-30): So far, the Cray compiler is the only one for which an OpenMP parallelization
 ! of copying data into / back from the MPI-buffer seems to give a benefit. Further compilers may
 ! be added here once the OpenMP implementation is sufficiently efficient
-#if (defined(_CRAYFTN) && !defined(_OPENACC) )
+#if ((defined(_CRAYFTN) && !defined(_OPENACC)) || defined(__INTEL_COMPILER))
 #define __OMPPAR_COPY__
 #endif
 
@@ -1923,7 +1923,7 @@ CONTAINS
       ENDIF
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl)
+!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
       DO i = 1, p_pat%n_send
         jb = p_pat%send_src_blk(i)
@@ -2042,7 +2042,7 @@ CONTAINS
       ENDDO
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
 #endif
       DO i = 1, p_pat%n_pnts
         jb = p_pat%recv_dst_blk(i)
@@ -2247,7 +2247,7 @@ CONTAINS
       ENDIF
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl)
+!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
       DO i = 1, p_pat%n_send
         jb = p_pat%send_src_blk(i)
@@ -2405,7 +2405,7 @@ CONTAINS
       ENDDO
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
 #endif
       DO i = 1, p_pat%n_pnts
         jb = p_pat%recv_dst_blk(i)
@@ -2499,7 +2499,7 @@ CONTAINS
     ENDIF
 
 #if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
-!$OMP PARALLEL DO PRIVATE(jb,jl,koffset)
+!$OMP PARALLEL DO PRIVATE(jb,jl,koffset,k,n)
 #else
 !$ACC PARALLEL &
 !$ACC PRESENT( p_pat, send, recv, send_buf ), &
@@ -2609,7 +2609,7 @@ CONTAINS
 
     ! Fill in receive buffer
 #if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset,k,n)
 #else
 !$ACC PARALLEL &
 !$ACC PRESENT( p_pat, recv_buf, recv ), &
@@ -2951,7 +2951,7 @@ CONTAINS
 #endif
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jl)
+!$OMP DO PRIVATE(jl,n,k)
 #endif
         DO i = 1, p_pat(np)%p%n_send
           jl = idx_1d(p_pat(np)%p%send_src_idx(i), &
@@ -3062,7 +3062,7 @@ CONTAINS
         ENDDO
       ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL PRIVATE(ioffset,pid,isum,iss,ise,isum1)
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,iss,ise,isum1,np,n,i)
 #endif
         ioffset = 0
         DO np = 1, num_send ! loop over PEs where to send the data
@@ -3122,7 +3122,7 @@ CONTAINS
       ! Copy exchanged data back to receive buffer
 
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1)
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1,n,i)
 #endif
 
       ioffset = 0
@@ -3181,7 +3181,7 @@ CONTAINS
 #else
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jb,jl,ik)
+!$OMP DO PRIVATE(jb,jl,ik,n,k)
 #endif
         DO i = 1, p_pat(np)%p%n_pnts
           jb = p_pat(np)%p%recv_dst_blk(i)

@@ -18,7 +18,7 @@
 ! (GZ, 2013-08-30): So far, the Cray compiler is the only one for which an OpenMP parallelization
 ! of copying data into / back from the MPI-buffer seems to give a benefit. Further compilers may
 ! be added here once the OpenMP implementation is sufficiently efficient
-#if (defined(_CRAYFTN) && !defined(_OPENACC) )
+#if ((defined(_CRAYFTN) && !defined(_OPENACC)) || defined(__INTEL_COMPILER))
 #define __OMPPAR_COPY__
 #endif
 
