@@ -313,7 +313,7 @@ CONTAINS
         TYPE(t_MultifilePatchData), POINTER :: patchData
         INTEGER                             :: error, jg, myProcId, writerCount, writerProcId, writerRank,  &
           &                                    i, sourceRank_start, sourceRank_end, jg0, chunksize,         &
-          &                                    jfile, nrestart_streams, this_proc, start_, end_, size_, j
+          &                                    jfile, nrestart_streams, this_proc, nsourceRanks
 
         IF(.NOT.my_process_is_work() .AND. .NOT.my_process_is_restart()) RETURN
 
@@ -339,34 +339,19 @@ CONTAINS
         !      need to be adapted accordingly.
         writerProcId = MODULO(myProcId, writerCount)
         writerRank = restartWorkProcId2Rank(writerProcId)
+        nsourceRanks = 1 + (workProcCount() + dedicatedRestartProcCount() - writerProcId)/writerCount
 
-        ! little workaround for replacing {{{
-        ! sourceRanks = [(restartWorkProcId2Rank(i), &
-        !  &             i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount)]
-        start_ = writerProcId
-        end_   = workProcCount() + dedicatedRestartProcCount() - 1
-        size_  = 1+(end_-start_)/writerCount
-
-        ! just to make sure to exit asap
-        IF ( end_ < start_ ) CALL finish(routine,"Bad config for multifile restart &
-            &(workProcCount:"//TRIM(int2string(workProcCount()))//" ,&
-            &RestartProcCount:"//TRIM(int2string(dedicatedRestartProcCount()))//")")
-
-        ALLOCATE(sourceRanks(size_))
-        j = 1
-        DO i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount
-          sourceRanks(j) = restartWorkProcId2Rank(i)
-          j = j + 1
-        ENDDO
-        ! }}}
-
+        ALLOCATE(sourceRanks(nsourceRanks))
+        sourceRanks = [(restartWorkProcId2Rank(i), &
+          &             i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount)]
 
         ! Each work can send its data only to one restart
         ! PE. Therefore it is not possible to have more restart files
         ! than source PEs.
-        IF (nrestart_streams > SIZE(sourceRanks)) THEN
-          CALL finish(routine, "You have requested more horizontal multifile chunks than there are worker ranks!&
-          &nrestart_streams: "//TRIM(int2string(nrestart_streams))//" sourceRanks: "//TRIM(int2string(SIZE(sourceRanks))))
+
+        IF (nrestart_streams > nsourceRanks) THEN
+          print*,"nrestart_streams, nsourceRanks",nrestart_streams,nsourceRanks
+          CALL finish(routine, "You have requested more horizontal multifile chunks than there are worker ranks!")
         END IF
 
         ! allocate patch data structure
@@ -599,7 +584,7 @@ CONTAINS
         CALL me%updatePatchData()
 
         !create the multifile directory
-        filename = getRestartFilename('multifile', 0, restartArgs)
+        CALL getRestartFilename('multifile', 0, restartArgs, filename)
         IF(my_process_is_restart_master()) THEN
             IF(createEmptyMultifileDir(filename) /= SUCCESS) CALL finish(routine, "error creating restart multifile")
         END IF
@@ -758,7 +743,7 @@ CONTAINS
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
 
-        effectiveFilename = multifileAttributesPath(filename)
+        CALL multifileAttributesPath(filename, effectiveFilename)
 
         !open the file as a CDI stream AND create a vlist to carry our attributes
         file = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
@@ -836,7 +821,7 @@ CONTAINS
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
 
-        effectiveFilename = multifileMetadataPath(baseFilename, jg)
+        CALL multifileMetadataPath(baseFilename, jg, effectiveFilename)
         CALL metadataPack%construct()
         CALL me%patchData(jg)%description%packer(kPackOp, metadataPack)
         IF(0 /= putFile(effectiveFilename, metadataPack%getData(), INT(o'640', C_INT))) THEN

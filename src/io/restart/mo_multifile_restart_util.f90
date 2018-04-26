@@ -18,6 +18,7 @@ MODULE mo_multifile_restart_util
     USE mo_std_c_lib,      ONLY: strerror
     USE mo_util_file,      ONLY: createSymlink
     USE mo_util_string,    ONLY: int2string
+    USE mo_restart_util,   ONLY: alloc_string
 
     IMPLICIT NONE
 
@@ -59,48 +60,61 @@ MODULE mo_multifile_restart_util
 
 CONTAINS
 
-    FUNCTION multifileRestartLinkName(modelType) RESULT(resultVar)
-        CHARACTER(:), ALLOCATABLE :: resultVar
+    SUBROUTINE multifileRestartLinkName(modelType, resultVar)
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
         CHARACTER(*), INTENT(IN) :: modelType
+        INTEGER :: fn_len
 
+        fn_len = LEN_TRIM("multifile_restart_"//modelType//".mfr")
+        CALL alloc_string(fn_len, resultVar)
         resultVar = "multifile_restart_"//modelType//".mfr"
-    END FUNCTION multifileRestartLinkName
+    END SUBROUTINE multifileRestartLinkName
 
     SUBROUTINE createMultifileRestartLink(filename, modelType)
         CHARACTER(*), INTENT(IN) :: filename, modelType
-
+        CHARACTER(:), ALLOCATABLE :: linkname
         INTEGER :: error
         CHARACTER(*), PARAMETER :: routine = modname//":createMultifileRestartLink"
 
-        error = createSymlink(filename, multifileRestartLinkName(modelType))
+        CALL multifileRestartLinkName(modelType, linkname)
+        error = createSymlink(filename, linkname)
         IF(error /= SUCCESS) CALL finish(routine, "error creating symlink to restart file: '"//strerror(error)//"'")
     END SUBROUTINE createMultifileRestartLink
 
     !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-    FUNCTION multifileAttributesPath(multifilePath) RESULT(resultVar)
+    SUBROUTINE multifileAttributesPath(multifilePath, resultVar)
         CHARACTER(*), INTENT(IN) :: multifilePath
         CHARACTER(*), PARAMETER :: suffix = "/attributes.nc"
-        CHARACTER(LEN(multifilePath) + LEN(suffix)) :: resultVar
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
+        INTEGER :: fn_len
 
+        fn_len = LEN(multifilePath) + LEN(suffix)
+        CALL alloc_string(fn_len, resultVar)
         resultVar = multifilePath//suffix
-    END FUNCTION multifileAttributesPath
+    END SUBROUTINE multifileAttributesPath
 
     !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-    FUNCTION multifileMetadataPath(multifilePath, domain) RESULT(resultVar)
-        CHARACTER(:), ALLOCATABLE :: resultVar
+    SUBROUTINE multifileMetadataPath(multifilePath, domain, resultVar)
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
         CHARACTER(*), INTENT(IN) :: multifilePath
         INTEGER, VALUE :: domain
+        INTEGER :: fn_len
 
+        fn_len=LEN_TRIM(multifilePath//"/patch"//TRIM(int2string(domain))//"_metadata")
+        CALL alloc_string(fn_len, resultVar)
         resultVar = multifilePath//"/patch"//TRIM(int2string(domain))//"_metadata"
-    END FUNCTION multifileMetadataPath
+    END SUBROUTINE multifileMetadataPath
 
     !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-    FUNCTION multifilePayloadPath(multifilePath, domain, procId) RESULT(resultVar)
-        CHARACTER(:), ALLOCATABLE :: resultVar
+    SUBROUTINE multifilePayloadPath(multifilePath, domain, procId, resultVar)
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
         CHARACTER(*), INTENT(IN) :: multifilePath
         INTEGER, VALUE :: domain, procId
+        INTEGER :: fn_len
 
+        fn_len = LEN_TRIM(multifilePath//"/patch"//TRIM(int2string(domain))//"_"//TRIM(int2string(procId))//".nc")
+        CALL alloc_string(fn_len, resultVar)
         resultVar = multifilePath//"/patch"//TRIM(int2string(domain))//"_"//TRIM(int2string(procId))//".nc"
-    END FUNCTION multifilePayloadPath
+    END SUBROUTINE multifilePayloadPath
 
 END MODULE mo_multifile_restart_util

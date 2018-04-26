@@ -154,13 +154,15 @@ CONTAINS
         LOGICAL :: haveCellCount, haveEdgeCount, haveVertCount
         CHARACTER(KIND = C_CHAR), POINTER :: nameCharArray(:)
         CHARACTER(*), PARAMETER :: routine = modname//":payloadFile_construct"
+        CHARACTER(:), ALLOCATABLE :: pathname
 
         IF(timers_level >= 7) CALL timer_start(timer_load_restart_io)
 
         ! open the file AND cache the most important CDI IDs
-        me%streamId = streamOpenRead(multifilePayloadPath(multifilePath, domain, partId))
+        CALL multifilePayloadPath(multifilePath, domain, partId, pathname)
+        me%streamId = streamOpenRead(pathname)
         IF (me%streamId < 0) THEN
-          WRITE (0,*) "failed to open ", multifilePayloadPath(multifilePath, domain, partId), " for reading"
+          WRITE (0,*) "failed to open ", pathname, " for reading"
         END IF
         me%vlistId = streamInqVlist(me%streamId)
         me%varCount = vlistNvars(me%vlistId)

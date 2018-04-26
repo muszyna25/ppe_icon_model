@@ -35,7 +35,7 @@ MODULE mo_restart_namelist
     PUBLIC :: namelistArchive
 
     TYPE t_Namelist
-        CHARACTER(:), ALLOCATABLE :: name, text
+        CHARACTER(:), ALLOCATABLE :: att_key, att_text
     END TYPE t_Namelist
 
     TYPE t_NamelistArchive
@@ -96,15 +96,16 @@ CONTAINS
         CHARACTER(len=*), INTENT(in) :: namelist_name
         TYPE(t_Namelist), POINTER :: resultVar
 
-        INTEGER :: i, error
+        INTEGER :: i, attlen, error
         TYPE(t_Namelist), POINTER :: temp(:)
         CHARACTER(:), ALLOCATABLE :: fullName
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_find"
 
-        ! check whether we already have an entry of that NAME
+        ! check whether we already have an entry of that att_key
+        ALLOCATE(CHARACTER(LEN=LEN('nml_'//TRIM(namelist_name))) :: fullName)
         fullName = 'nml_'//TRIM(namelist_name)
         DO i = 1, me%namelistCount
-            IF(fullName == me%namelists(i)%NAME) THEN
+            IF(fullName == me%namelists(i)%att_key) THEN
                 resultVar => me%namelists(i)
                 DEALLOCATE(fullName)
                 RETURN
@@ -117,10 +118,15 @@ CONTAINS
             ALLOCATE(temp(2*me%namelistCount), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
             DO i = 1, me%namelistCount
-                temp(i)%name = me%namelists(i)%name
-                IF(temp(i)%name /= me%namelists(i)%name) CALL finish(routine, "assertion failed")
-                temp(i)%text = me%namelists(i)%text
-                IF(temp(i)%text /= me%namelists(i)%text) CALL finish(routine, "assertion failed")
+                attlen = LEN(me%namelists(i)%att_key)
+                ALLOCATE(CHARACTER(LEN=attlen) :: temp(i)%att_key)
+                temp(i)%att_key = me%namelists(i)%att_key
+                IF(temp(i)%att_key /= me%namelists(i)%att_key) CALL finish(routine, "assertion failed")
+                attlen = LEN(me%namelists(i)%att_text)
+                ALLOCATE(CHARACTER(LEN=attlen) :: temp(i)%att_text)
+                temp(i)%att_text = me%namelists(i)%att_text
+                IF(temp(i)%att_text /= me%namelists(i)%att_text) CALL finish(routine, "assertion failed")
+                DEALLOCATE( me%namelists(i)%att_text, me%namelists(i)%att_key)
             END DO
             DEALLOCATE(me%namelists)
             me%namelists => temp
@@ -129,8 +135,9 @@ CONTAINS
         ! add an entry
         me%namelistCount = me%namelistCount + 1
         resultVar => me%namelists(me%namelistCount)
-        resultVar%NAME = fullName
-        IF(resultVar%NAME /= fullName) CALL finish(routine, "assertion failed")
+        ALLOCATE(CHARACTER(LEN=LEN(fullName)) :: resultVar%att_key)
+        resultVar%att_key = fullName
+        IF(resultVar%att_key /= fullName) CALL finish(routine, "assertion failed")
     END FUNCTION namelistArchive_find
 
     SUBROUTINE namelistArchive_setNamelist(me, namelistName, namelistText)
@@ -144,11 +151,11 @@ CONTAINS
         list_entry => me%find(namelistName)
         textLength = LEN_TRIM(namelistText)
 
-        IF(ALLOCATED(list_entry%text)) DEALLOCATE(list_entry%text)
-        ALLOCATE(CHARACTER(textLength) :: list_entry%text, STAT = error)
+        IF(ALLOCATED(list_entry%att_text)) DEALLOCATE(list_entry%att_text)
+        ALLOCATE(CHARACTER(LEN=textLength) :: list_entry%att_text, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
-        list_entry%text(1:textLength) = namelistText(1:textLength)
+        list_entry%att_text(1:textLength) = namelistText(1:textLength)
     END SUBROUTINE namelistArchive_setNamelist
 
     SUBROUTINE namelistArchive_getNamelist(me, namelistName, namelistText)
@@ -160,8 +167,9 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_getNamelist"
 
         list_entry => me%find(namelistName)
-        IF(.NOT.ALLOCATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelistName)//' not available in restart file.')
-        namelistText = list_entry%text
+        IF(.NOT.ALLOCATED(list_entry%att_text)) CALL finish(routine, 'namelist '//TRIM(namelistName)//' not available in restart file.')
+        ALLOCATE(CHARACTER(LEN=LEN(list_entry%att_text)) :: namelistText)
+        namelistText = list_entry%att_text
     END SUBROUTINE namelistArchive_getNamelist
 
     SUBROUTINE namelistArchive_print(me)
@@ -173,7 +181,7 @@ CONTAINS
         WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
         PRINT *,'restart name lists count = ',me%namelistCount
         DO i = 1, me%namelistCount
-            PRINT *, ' restart name list = "'//me%namelists(i)%NAME//'", text = "'//me%namelists(i)%text//'"'
+            PRINT *, ' restart name list = "'//me%namelists(i)%att_key//'", text = "'//me%namelists(i)%att_text//'"'
         ENDDO
     END SUBROUTINE namelistArchive_print
 
@@ -185,8 +193,8 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_writeToCdiVlist"
 
         DO i = 1, me%namelistCount
-            error = cdiDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%name, LEN(me%namelists(i)%text), &
-                                  &me%namelists(i)%text)
+            error = cdiDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%att_key, LEN(me%namelists(i)%att_text), &
+                                  &me%namelists(i)%att_text)
             IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
         END DO
     END SUBROUTINE namelistArchive_writeToCdiVlist
@@ -243,6 +251,10 @@ CONTAINS
             ! ensure sufficient space for the contents of the message
             allocSize = MAX(8, me%namelistCount)
             IF(allocSize > SIZE(me%namelists)) THEN
+                DO i = 1, SIZE(me%namelists)
+                  IF(ALLOCATED(me%namelists(i)%att_key)) DEALLOCATE(me%namelists(i)%att_key)
+                  IF(ALLOCATED(me%namelists(i)%att_text)) DEALLOCATE(me%namelists(i)%att_text)
+                ENDDO
                 DEALLOCATE(me%namelists)
                 ALLOCATE(me%namelists(allocSize), STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
@@ -253,24 +265,24 @@ CONTAINS
         ! (un)pack the payload contents
         DO i = 1, me%namelistCount
             length = 0
-            IF(ALLOCATED(me%namelists(i)%NAME)) length = LEN(me%namelists(i)%NAME)
+            IF(ALLOCATED(me%namelists(i)%att_key)) length = LEN(me%namelists(i)%att_key)
             CALL packedMessage%packer(operation, length)
             IF(operation == kUnpackOp) THEN
-                IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
-                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%NAME, STAT = error)
+                IF(ALLOCATED(me%namelists(i)%att_key)) DEALLOCATE(me%namelists(i)%att_key)
+                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%att_key, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
             END IF
-            CALL packedMessage%packer(operation, me%namelists(i)%NAME)
+            CALL packedMessage%packer(operation, me%namelists(i)%att_key)
 
             length = 0
-            IF(ALLOCATED(me%namelists(i)%text)) length = LEN(me%namelists(i)%text)
+            IF(ALLOCATED(me%namelists(i)%att_text)) length = LEN(me%namelists(i)%att_text)
             CALL packedMessage%packer(operation, length)
             IF(operation == kUnpackOp) THEN
-                IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
-                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%text, STAT = error)
+                IF(ALLOCATED(me%namelists(i)%att_text)) DEALLOCATE(me%namelists(i)%att_text)
+                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%att_text, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
             END IF
-            CALL packedMessage%packer(operation, me%namelists(i)%text)
+            CALL packedMessage%packer(operation, me%namelists(i)%att_text)
         END DO
     END SUBROUTINE namelistArchive_packer
 
@@ -296,8 +308,8 @@ CONTAINS
         INTEGER :: i
 
         DO i = 1, me%namelistCount
-            IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
-            IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
+            IF(ALLOCATED(me%namelists(i)%att_key)) DEALLOCATE(me%namelists(i)%att_key)
+            IF(ALLOCATED(me%namelists(i)%att_text)) DEALLOCATE(me%namelists(i)%att_text)
         END DO
     END SUBROUTINE namelistArchive_reset
 
@@ -315,9 +327,9 @@ CONTAINS
              DELIM='apostrophe')
     END FUNCTION open_tmpfile
 
-    SUBROUTINE store_and_close_namelist(funit, name)
+    SUBROUTINE store_and_close_namelist(funit, nmlname)
         INTEGER, INTENT(in) :: funit
-        CHARACTER(len=*), INTENT(in) :: name
+        CHARACTER(len=*), INTENT(in) :: nmlname
 
         CHARACTER(len=filename_max) :: filename
         INTEGER :: nmllen, error
@@ -331,7 +343,7 @@ CONTAINS
 
         nmllen = util_filesize(filename)
         IF (nmllen == 0) THEN
-            CALL message(routine, 'namelist '//TRIM(name)//' is empty, saving in restart file fails.')
+            CALL message(routine, 'namelist '//TRIM(nmlname)//' is empty, saving in restart file fails.')
         ENDIF
         ALLOCATE(CHARACTER(LEN = nmllen) :: nmlbuf, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
@@ -343,14 +355,14 @@ CONTAINS
 
         CALL tocompact(nmlbuf)
         archive => namelistArchive()
-        CALL archive%setNamelist(TRIM(name), TRIM(nmlbuf))
+        CALL archive%setNamelist(TRIM(nmlname), TRIM(nmlbuf))
 
         error = util_unlink(TRIM(filename))
     END SUBROUTINE store_and_close_namelist
 
-    FUNCTION open_and_restore_namelist(name) RESULT(funit)
+    FUNCTION open_and_restore_namelist(nmlname) RESULT(funit)
         INTEGER :: funit
-        CHARACTER(len=*), INTENT(in) :: name
+        CHARACTER(len=*), INTENT(in) :: nmlname
 
         TYPE(t_NamelistArchive), POINTER :: archive
         INTEGER :: flen
@@ -358,7 +370,7 @@ CONTAINS
         CHARACTER(LEN = :), ALLOCATABLE :: nmlbuf
 
         archive => namelistArchive()
-        CALL archive%getNamelist(name, nmlbuf)
+        CALL archive%getNamelist(nmlname, nmlbuf)
 
         funit = find_next_free_unit(10,100)
         flen = util_tmpnam(filename, filename_max)

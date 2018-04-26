@@ -34,6 +34,7 @@ MODULE mo_restart_util
     PRIVATE
 
     PUBLIC :: t_restart_args
+    PUBLIC :: alloc_string
 
     PUBLIC :: workProcCount
     PUBLIC :: dedicatedRestartProcCount
@@ -70,6 +71,20 @@ MODULE mo_restart_util
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_util"
 
 CONTAINS
+
+    SUBROUTINE alloc_string(str_len, str)
+        INTEGER, INTENT(IN) :: str_len
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: str
+
+        IF(ALLOCATED(str)) THEN
+          IF(LEN(str) .NE. str_len) THEN
+            DEALLOCATE(str)
+            ALLOCATE(CHARACTER(LEN=str_len) :: str)
+          ENDIF
+        ELSE
+          ALLOCATE(CHARACTER(LEN=str_len) :: str)
+        ENDIF
+    END SUBROUTINE alloc_string
 
     INTEGER FUNCTION workProcCount() RESULT(resultVar)
         resultVar = num_work_procs
@@ -189,14 +204,14 @@ CONTAINS
         STOP
     END SUBROUTINE shutdownRestartProc
 
-    FUNCTION getRestartFilename(baseName, domain, restartArgs) RESULT(resultVar)
+    SUBROUTINE getRestartFilename(baseName, domain, restartArgs, resultVar)
         CHARACTER(LEN = *), INTENT(IN) :: baseName
         INTEGER, VALUE :: domain
         TYPE(t_restart_args), INTENT(IN) :: restartArgs
-        CHARACTER(LEN = :), ALLOCATABLE :: resultVar
+        CHARACTER(LEN = :), ALLOCATABLE, INTENT(INOUT) :: resultVar
 
         CHARACTER(LEN=32) :: datetimeString
-        INTEGER :: restartModule
+        INTEGER :: restartModule, fn_len
         TYPE(t_keyword_list), POINTER :: keywords
         TYPE(datetime), POINTER :: dt
 
@@ -219,8 +234,10 @@ CONTAINS
         END IF
 
         ! replace keywords in file name
+        fn_len = LEN_TRIM(with_keywords(keywords, TRIM(restart_filename)))
+        CALL alloc_string(fn_len, resultVar)
         resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
-    END FUNCTION getRestartFilename
+    END SUBROUTINE getRestartFilename
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, this_datetime, n_dom, jstep, opt_output_jfile)
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
@@ -273,11 +290,13 @@ CONTAINS
         INTEGER, VALUE :: jg
         REAL(wp), OPTIONAL, INTENT(IN) :: opt_t_elapsed_phy(:)
 
-        INTEGER :: i
+        INTEGER :: i, fn_len
         CHARACTER(LEN = :), ALLOCATABLE :: prefix
 
         ! F2008: A null pointer or unallocated allocatable can be used to denote an absent optional argument
         IF (PRESENT(opt_t_elapsed_phy)) THEN
+          fn_len = LEN_TRIM('t_elapsed_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY')
+          ALLOCATE(CHARACTER(LEN=fn_len) :: prefix)
           prefix = 't_elapsed_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
           DO i = 1, SIZE(opt_t_elapsed_phy)
               CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), opt_t_elapsed_phy(i) )
@@ -286,13 +305,13 @@ CONTAINS
 
     END SUBROUTINE setPhysicsRestartAttributes
 
-    FUNCTION restartSymlinkName(modelType, jg, opt_ndom) RESULT(resultVar)
-        CHARACTER(:), ALLOCATABLE :: resultVar
+    SUBROUTINE restartSymlinkName(modelType, jg, resultVar, opt_ndom)
+        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
         CHARACTER(*), INTENT(IN) :: modelType
         INTEGER, VALUE :: jg
         INTEGER, INTENT(IN), OPTIONAL :: opt_ndom
 
-        INTEGER :: ndom
+        INTEGER :: ndom, fn_len
 
         ! IN CASE we have ONLY a single domain / no domain information, USE "_DOM01" IN the link NAME
         ndom = 1
@@ -300,8 +319,10 @@ CONTAINS
         IF(ndom == 1) jg = 1
 
         ! build link name
+        fn_len = LEN_TRIM('restart_'//modelType//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc')
+        CALL alloc_string(fn_len, resultVar)
         resultVar = 'restart_'//modelType//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
-    END FUNCTION restartSymlinkName
+    END SUBROUTINE restartSymlinkName
 
     SUBROUTINE create_restart_file_link(filename, modelType, jg, opt_ndom)
         CHARACTER(LEN = *), INTENT(IN) :: filename, modelType
@@ -312,7 +333,7 @@ CONTAINS
         CHARACTER(:), ALLOCATABLE :: linkname
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_restart_file_link'
 
-        linkname = restartSymlinkName(modelType, jg, opt_ndom)
+        CALL restartSymlinkName(modelType, jg, linkname, opt_ndom)
         error = createSymlink(filename, linkname)
         IF(error /= SUCCESS) CALL finish(routine, "error creating symlink at '"//linkname//"': "//strerror(error))
     END SUBROUTINE create_restart_file_link

@@ -32,7 +32,7 @@ MODULE mo_restart_file
     PRIVATE
 
     TYPE t_RestartFile
-        CHARACTER(LEN=filename_max) :: filename
+        CHARACTER(:), ALLOCATABLE :: filename
         TYPE(t_CdiIds) :: cdiIds
     CONTAINS
         PROCEDURE :: open => restartFile_open
@@ -76,7 +76,7 @@ CONTAINS
                 CALL finish(routine, "file format for restart variables must be NetCDF")
         END SELECT
 
-        me%filename = getRestartFilename(description%base_filename, description%id, restart_args)
+        CALL getRestartFilename(description%base_filename, description%id, restart_args, me%filename)
 
         IF(ALLOCATED(description%opt_pvct)) THEN
             CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restartType, description%n_patch_cells_g, &

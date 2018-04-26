@@ -353,7 +353,7 @@ CONTAINS
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
 
     description => me%description
-    effectiveFilename = multifilePayloadPath(filename, description%id, ifile)
+    CALL multifilePayloadPath(filename, description%id, ifile, effectiveFilename)
 
     CALL cdiIds%init()
     IF (ALLOCATED(description%opt_pvct)) THEN
