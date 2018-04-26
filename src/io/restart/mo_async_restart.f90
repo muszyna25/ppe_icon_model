@@ -725,6 +725,7 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, "memory allocation failure")
 
     ioff(:) = 0
+    CALL me%commData%sync(.true., .false.)
 
     ! go over the all restart variables in the associated array
     VAR_LOOP : DO iv = 1, SIZE(me%varData)
@@ -799,6 +800,8 @@ CONTAINS
 #endif
     ENDDO VAR_LOOP
 
+    CALL me%commData%sync(.true., .false.)
+
     IF (ALLOCATED(buffer_dp)) THEN
       DEALLOCATE(buffer_dp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed!')
@@ -846,7 +849,7 @@ CONTAINS
 
     ! offset in RMA window for async restart
     offset = 0
-
+    CALL asyncPatchData%commData%sync(.false., .false.)
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
 #ifdef DEBUG
@@ -877,6 +880,8 @@ CONTAINS
           ! allocation
         END IF
     END DO
+    CALL asyncPatchData%commData%sync(.false., .true.)
+
   END SUBROUTINE compute_write_var_list
 
 #endif
