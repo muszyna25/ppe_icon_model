@@ -32,7 +32,13 @@ MODULE mo_util_sort
   INTERFACE quicksort
     MODULE PROCEDURE quicksort_real
     MODULE PROCEDURE quicksort_int
-  END INTERFACE
+    MODULE PROCEDURE quicksort_permutation_int
+  END INTERFACE quicksort
+
+  INTERFACE swap
+    MODULE PROCEDURE swap_permutation_int
+    MODULE PROCEDURE swap_int
+  END INTERFACE swap
 
   INTERFACE insertion_sort
     MODULE PROCEDURE insertion_sort_int
@@ -113,21 +119,17 @@ CONTAINS
   END SUBROUTINE quicksort_real
 
 
-  SUBROUTINE swap_int(a, i,j, permutation)
-    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
-    INTEGER,  INTENT(IN)              :: i,j            !< indices to be exchanged
-    INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
+  SUBROUTINE swap_int(a, i,j)
+    !> array for in-situ sorting
+    INTEGER,  INTENT(INOUT)           :: a(:)
+    !> indices to be exchanged
+    INTEGER,  INTENT(IN)              :: i,j
     ! local variables
     INTEGER :: t, t_p
 
     t    = a(i)
     a(i) = a(j)
     a(j) = t
-    IF (PRESENT(permutation)) THEN
-      t_p            = permutation(i)
-      permutation(i) = permutation(j)
-      permutation(j) = t_p
-    END IF
   END SUBROUTINE swap_int
 
 
@@ -137,9 +139,87 @@ CONTAINS
   ! 
   !  Ordering after the sorting process: smallest...largest.
   !
-  RECURSIVE SUBROUTINE quicksort_int(a, permutation, l_in, r_in)
+  RECURSIVE SUBROUTINE quicksort_int(a, l_in, r_in)
     INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
-    INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
+    INTEGER,  INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
+    ! local variables
+    INTEGER :: i,j,l,r,t_p,t,v,m
+
+    IF (PRESENT(l_in)) THEN
+      l = l_in
+    ELSE
+      l = 1
+    END IF
+    IF (PRESENT(r_in)) THEN
+      r = r_in
+    ELSE
+      r = SIZE(a,1)
+    END IF
+    IF (r>l) THEN
+      i = l-1
+      j = r
+
+      ! median-of-three selection of partitioning element
+      IF ((r-l) > 3) THEN
+        m = (l+r)/2
+        IF (a(l)>a(m)) CALL swap(a, l,m)
+        IF (a(l)>a(r)) THEN
+          CALL swap(a, l,r)
+        ELSE IF (a(r)>a(m)) THEN
+          CALL swap(a, r,m)
+        END IF
+      END IF
+
+      v = a(r)
+      LOOP : DO
+        CNTLOOP1 : DO
+          i = i+1
+          IF (a(i) >= v) EXIT CNTLOOP1
+        END DO CNTLOOP1
+        CNTLOOP2 : DO
+          j = j-1
+          IF ((a(j) <= v) .OR. (j==1)) EXIT CNTLOOP2
+        END DO CNTLOOP2
+        t    = a(i)
+        a(i) = a(j)
+        a(j) = t
+        IF (j <= i) EXIT LOOP
+      END DO LOOP
+      a(j) = a(i)
+      a(i) = a(r)
+      a(r) = t
+      CALL quicksort(a,l,i-1)
+      CALL quicksort(a,i+1,r)
+    END IF
+  END SUBROUTINE quicksort_int
+
+  SUBROUTINE swap_permutation_int(a, i,j, permutation)
+    !> array for in-situ sorting
+    INTEGER,  INTENT(INOUT)           :: a(:)
+    !> indices to be exchanged
+    INTEGER,  INTENT(IN)              :: i,j
+    !> (optional) permutation of indices
+    INTEGER,  INTENT(INOUT)           :: permutation(:)
+    ! local variables
+    INTEGER :: t, t_p
+
+    t    = a(i)
+    a(i) = a(j)
+    a(j) = t
+    t_p            = permutation(i)
+    permutation(i) = permutation(j)
+    permutation(j) = t_p
+  END SUBROUTINE swap_permutation_int
+
+  ! --------------------------------------------------------------------
+  !> Simple recursive implementation of Hoare's QuickSort algorithm
+  !  for a 1D array of INTEGER values.
+  ! 
+  !  Ordering after the sorting process: smallest...largest.
+  !
+  RECURSIVE SUBROUTINE quicksort_permutation_int(a, permutation, l_in, r_in)
+    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
+    INTEGER,  INTENT(INOUT)           :: permutation(:) !< (optional) permutation of indices
     INTEGER,  INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
     ! local variables
     INTEGER :: i,j,l,r,t_p,t,v,m
@@ -161,11 +241,11 @@ CONTAINS
       ! median-of-three selection of partitioning element
       IF ((r-l) > 3) THEN 
         m = (l+r)/2
-        IF (a(l)>a(m))  CALL swap_int(a, l,m, permutation)
+        IF (a(l)>a(m))  CALL swap(a, l,m, permutation)
         IF (a(l)>a(r)) THEN
-          CALL swap_int(a, l,r, permutation)
+          CALL swap(a, l,r, permutation)
         ELSE IF (a(r)>a(m)) THEN
-          CALL swap_int(a, r,m, permutation)
+          CALL swap(a, r,m, permutation)
         END IF
       END IF
 
@@ -182,25 +262,24 @@ CONTAINS
         t    = a(i)
         a(i) = a(j)
         a(j) = t
-        IF (PRESENT(permutation)) THEN
-          t_p            = permutation(i)
-          permutation(i) = permutation(j)
-          permutation(j) = t_p
-        END IF
+
+        t_p            = permutation(i)
+        permutation(i) = permutation(j)
+        permutation(j) = t_p
+
         IF (j <= i) EXIT LOOP
       END DO LOOP
       a(j) = a(i)
       a(i) = a(r)
       a(r) = t
-      IF (PRESENT(permutation)) THEN
-        permutation(j) = permutation(i)
-        permutation(i) = permutation(r)
-        permutation(r) = t_p
-      END IF
+
+      permutation(j) = permutation(i)
+      permutation(i) = permutation(r)
+      permutation(r) = t_p
       CALL quicksort(a,permutation,l,i-1)
       CALL quicksort(a,permutation,i+1,r)
     END IF
-  END SUBROUTINE quicksort_int
+  END SUBROUTINE quicksort_permutation_int
 
   SUBROUTINE insertion_sort_int(a)
     INTEGER, INTENT(inout) :: a(:)
