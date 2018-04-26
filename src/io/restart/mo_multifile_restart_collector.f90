@@ -38,6 +38,8 @@ MODULE mo_multifile_restart_collector
   
   PRIVATE
   
+  LOGICAL, SAVE :: have_MPI_RGet = .false.
+
 
   ! buffers for linearizing the data before sending it to the writer
   ! process
@@ -331,13 +333,16 @@ CONTAINS
     INTEGER,                              INTENT(INOUT) :: sourceOffset(:,:)    
 
     CHARACTER(*), PARAMETER :: routine = modname//":t_multifileRestartCollector_construct"
-    INTEGER     :: i, error
+    INTEGER     :: i, error, majver_mpi, minver_mpi
     INTEGER(i8) :: itype_offset
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
 
     me%idx         => idx
     me%glb_sendbuf => glb_sendbuf
+
+    CALL MPI_Get_version(majver_mpi, minver_mpi, error)
+    IF (majver_mpi .GE. 3) have_MPI_RGet = .true.
 
     ! allocate the start offset:
 
@@ -451,7 +456,8 @@ CONTAINS
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
-      &        target_count, target_datatype
+      &        target_count, target_datatype, n_openreqs
+    INTEGER :: get_reqs(me%idx%sourceProcCount)
 
     !Collect the data on the writer PEs.
     j = 1
@@ -468,20 +474,37 @@ CONTAINS
       target_datatype = origin_datatype
 
       IF (me%idx%sourcePointCounts(i) > 0) THEN
-        CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
-          &               me%glb_sendbuf%mpi_win_sendbuf_d,ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
-          &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        IF (have_MPI_RGet) THEN
+          n_openreqs = n_openreqs + 1         
+          CALL MPI_RGET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_d, get_reqs(n_openreqs), ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ELSE
+          CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
+            &               me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+          CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!          CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+!          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ENDIF
       ENDIF
+
 
       j = j + me%idx%sourcePointCounts(i)
     END DO
+
+    IF (have_MPI_Rget) THEN
+      CALL MPI_WAITALL(n_openreqs, get_reqs ,MPI_STATUSES_IGNORE, ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+    ELSE
+      DO i = 1, me%idx%sourceProcCount
+        IF (me%idx%sourcePointCounts(i) > 0) &
+          &  CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+      ENDDO
+    ENDIF
 
     !sanity check
     IF(j /= me%idx%receivePointCount + 1) CALL finish(routine, "assertion failed")
@@ -500,11 +523,13 @@ CONTAINS
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
-      &        target_count, target_datatype
+      &        target_count, target_datatype, n_openreqs
+    INTEGER :: get_reqs(me%idx%sourceProcCount)
 
     !Collect the data on the writer PEs.
     j = 1
     outputData(:) = 0._sp
+    n_openreqs = 0
     DO i = 1, me%idx%sourceProcCount
       
 
@@ -517,20 +542,37 @@ CONTAINS
       target_datatype = origin_datatype
 
       IF (me%idx%sourcePointCounts(i) > 0) THEN
-        CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
-          &               me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
-          &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        IF (have_MPI_RGet) THEN
+          n_openreqs = n_openreqs + 1
+          CALL MPI_RGET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_s, get_reqs(n_openreqs), ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ELSE
+          CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
+            &               me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+          CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!          CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+!          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ENDIF
       ENDIF
 
       j = j + me%idx%sourcePointCounts(i)
     END DO
+
+    IF (have_MPI_Rget) THEN
+      CALL MPI_WAITALL(n_openreqs, get_reqs ,MPI_STATUSES_IGNORE, ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+    ELSE
+      DO i = 1, me%idx%sourceProcCount
+        IF (me%idx%sourcePointCounts(i) > 0) &
+          &  CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+      ENDDO
+    ENDIF
+
 
     !sanity check
     IF(j /= me%idx%receivePointCount + 1) CALL finish(routine, "assertion failed")
@@ -549,11 +591,14 @@ CONTAINS
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
-      &        target_count, target_datatype
+      &        target_count, target_datatype, n_openreqs
+    INTEGER :: get_reqs(me%idx%sourceProcCount)
+    
 
     !Collect the data on the writer PEs.
     j = 1
     outputData(:) = 0
+    n_openreqs = 0
     DO i = 1, me%idx%sourceProcCount
       
 
@@ -566,20 +611,36 @@ CONTAINS
       target_datatype = origin_datatype
 
       IF (me%idx%sourcePointCounts(i) > 0) THEN
-        CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
-          &               me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
-          &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
-
-        CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
-        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        IF (have_MPI_RGet) THEN
+          n_openreqs = n_openreqs + 1
+          CALL MPI_RGET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_int, get_reqs(n_openreqs), ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ELSE
+          CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, me%idx%sourceProcs(i), MPI_MODE_NOCHECK, &
+            &               me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+          CALL MPI_GET(outputData(origin_addr), origin_count, origin_datatype, target_rank, target_disp, &
+            &          target_count, target_datatype, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!          CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+!          IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+        ENDIF
       ENDIF
 
       j = j + me%idx%sourcePointCounts(i)
     END DO
+
+    IF (have_MPI_Rget) THEN
+      CALL MPI_WAITALL(n_openreqs, get_reqs ,MPI_STATUSES_IGNORE, ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+    ELSE
+      DO i = 1, me%idx%sourceProcCount
+        IF (me%idx%sourcePointCounts(i) > 0) &
+          &  CALL MPI_WIN_UNLOCK(me%idx%sourceProcs(i), me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+      ENDDO
+    ENDIF
 
     !sanity check
     IF(j /= me%idx%receivePointCount + 1) CALL finish(routine, "assertion failed")
@@ -606,8 +667,8 @@ CONTAINS
 
     IF (me%idx%sendPointCount > 0) THEN
       myRank = p_comm_rank(p_comm_work_restart)
-      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
 
       !Fill the send buffer.
       ioffset = me%buf(ilev)%send_buffer_offset
@@ -622,8 +683,8 @@ CONTAINS
         me%glb_sendbuf%sendBuffer_d(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
 
-      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_d, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
     ENDIF
 #else
     CALL finish(routine, "Not implemented!")
@@ -648,8 +709,8 @@ CONTAINS
 
     IF (me%idx%sendPointCount > 0) THEN
       myRank = p_comm_rank(p_comm_work_restart)
-      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
 
       !Fill the send buffer.
       ioffset = me%buf(ilev)%send_buffer_offset
@@ -664,8 +725,8 @@ CONTAINS
         me%glb_sendbuf%sendBuffer_s(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
 
-      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_s, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
     ENDIF
 #else
     CALL finish(routine, "Not implemented!")
@@ -690,8 +751,8 @@ CONTAINS
 
     IF (me%idx%sendPointCount > 0) THEN
       myRank = p_comm_rank(p_comm_work_restart)
-      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_LOCK(MPI_LOCK_EXCLUSIVE, myRank, MPI_MODE_NOCHECK, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
 
       !Fill the send buffer.
       ioffset = me%buf(ilev)%send_buffer_offset
@@ -706,8 +767,8 @@ CONTAINS
         me%glb_sendbuf%sendBuffer_int(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
 
-      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
-      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
+!      CALL MPI_WIN_UNLOCK(myRank, me%glb_sendbuf%mpi_win_sendbuf_int, ierror)
+!      IF (ierror /= SUCCESS) CALL finish(routine, "MPI error!")
     ENDIF
 #else
     CALL finish(routine, "Not implemented!")
@@ -777,7 +838,7 @@ CONTAINS
 #ifndef NOMPI
     INTEGER :: iassert, mpierr
 
-    iassert = MPI_MODE_NOSTORE
+    iassert = IOR(MPI_MODE_NOSTORE, MPI_MODE_NOPUT)
     CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_d,    mpierr)
     IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
     CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_s,    mpierr)
@@ -820,11 +881,11 @@ CONTAINS
   !
   !  @note Implementation for non-Cray pointers
   !
-  SUBROUTINE t_CollectorSendBuffer_allocate_mem(buf, isize, itype, mpi_win)
+  SUBROUTINE t_CollectorSendBuffer_allocate_mem(buf, isize, itype, coll_win)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
     INTEGER(i8),              INTENT(IN)    :: isize
     INTEGER,                  INTENT(IN)    :: itype
-    INTEGER,                  INTENT(INOUT) :: mpi_win
+    INTEGER,                  INTENT(INOUT) :: coll_win
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_allocate_mem"
 
@@ -872,19 +933,19 @@ CONTAINS
     CASE (REAL_T)
       CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_d, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_d, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, mpi_win, mpierr )
+        &                  p_comm_work_restart, coll_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
       !
     CASE (SINGLE_T)
       CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_s, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_s, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, mpi_win, mpierr )
+        &                  p_comm_work_restart, coll_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
       !
     CASE (INT_T)
       CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_int, ptr_size )
       CALL MPI_WIN_CREATE( buf%sendBuffer_int, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, mpi_win, mpierr )
+        &                  p_comm_work_restart, coll_win, mpierr )
       IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
       !
     CASE DEFAULT
@@ -892,7 +953,8 @@ CONTAINS
     END SELECT
 
     ! No local operations prior to this epoch, so give an assertion
-    CALL MPI_WIN_FENCE(MPI_MODE_NOPRECEDE, mpi_win, mpierr)
+
+    CALL MPI_WIN_FENCE(MPI_MODE_NOPRECEDE, coll_win, mpierr)
     IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
 
 #else

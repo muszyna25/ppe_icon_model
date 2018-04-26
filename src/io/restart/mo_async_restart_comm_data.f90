@@ -26,8 +26,11 @@ MODULE mo_async_restart_comm_data
     USE mo_restart_var_data,     ONLY: t_RestartVarData
     USE mo_timer,                ONLY: timer_start, timer_stop, timer_write_restart_communication, timers_level
     USE mo_util_string,          ONLY: int2string
-    USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
-      &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS
+    USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED,       &
+      &                                MPI_MODE_NOCHECK, MPI_MODE_NOSTORE, MPI_MODE_NOPRECEDE, &
+      &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS,          &
+      &                                MPI_REQUEST_NULL, MPI_MODE_NOSUCCEED, MPI_MODE_NOPUT,   &
+      &                                MPI_STATUS_IGNORE, MPI_UNDEFINED, MPI_INTEGER
 #ifdef DEBUG
     USE mo_mpi,                  ONLY: p_pe
 #endif
@@ -38,14 +41,62 @@ MODULE mo_async_restart_comm_data
 
     PRIVATE
 
+    INTEGER, PARAMETER        :: max_inflight = 4
+    INTEGER, PARAMETER        :: reset_hard   = 1
+
+    TYPE inbuffer_t
+      PRIVATE
+      INTEGER                             :: srcProc
+      INTEGER                             :: itype
+      INTEGER                             :: levelCount
+      INTEGER(KIND=i8)                    :: bytes2fetch
+      REAL(sp),                   POINTER :: dest_sp(:,:)
+      REAL(dp),                   POINTER :: dest_dp(:,:)
+      TYPE(t_AsyncRestartPacker), POINTER :: reorderData
+      REAL(dp),                   POINTER :: inbuffer(:)
+
+    CONTAINS
+
+      PROCEDURE :: reset => asyncRestartCommData_inbuffer_reset
+
+    END TYPE inbuffer_t
+
+
+    TYPE inbufhandler_t
+      PRIVATE
+
+      LOGICAL                   :: is_init
+      INTEGER                   :: in_use
+      INTEGER                   :: req_pool(max_inflight)
+      TYPE(inbuffer_t)          :: inbuffers(max_inflight)
+      INTEGER                   :: win
+      INTEGER                   :: server_group, client_group
+      LOGICAL                   :: handshaked
+      
+    CONTAINS
+
+      PROCEDURE         :: prepare   => asyncRestartCommData_inbuffer_prepare
+      PROCEDURE         :: clear     => asyncRestartCommData_inbuffer_clear
+      PROCEDURE         :: aquire    => asyncRestartCommData_inbuffer_aquire
+      PROCEDURE         :: waitall   => asyncRestartCommData_inbuffer_waitall
+      PROCEDURE         :: apply     => asyncRestartCommData_inbuffer_apply
+      PROCEDURE         :: iterate   => asyncRestartCommData_inbuffer_iterate
+      PROCEDURE         :: handshake => asyncRestartCommData_inbuffer_handshake
+      PROCEDURE         :: sync      => asyncRestartCommData_inbuffer_sync
+
+    END TYPE inbufhandler_t
+
+
     ! this combines all the DATA that's relevant for transfering the
     ! payload DATA from the worker PEs to the restart PEs
     TYPE t_AsyncRestartCommData
         PRIVATE
 
         ! DATA for remote memory access
-        INTEGER :: mpiWindow
-        REAL(dp), POINTER :: windowPtr(:)
+        INTEGER           :: win
+        REAL(dp), POINTER :: win_buf(:)
+
+        TYPE(inbufhandler_t), ALLOCATABLE :: inbufhandler
 
         ! reorder data
         TYPE(t_AsyncRestartPacker), PUBLIC :: cells
@@ -72,12 +123,240 @@ MODULE mo_async_restart_comm_data
         PROCEDURE :: collectData_sp  => asyncRestartCommData_collectData_sp 
         GENERIC, PUBLIC :: collectData => collectData_dp, collectData_sp
 
+        PROCEDURE, PUBLIC :: sync => asyncRestartCommData_sync
+
         PROCEDURE :: destruct     => asyncRestartCommData_destruct
     END TYPE t_AsyncRestartCommData
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_async_restart_comm_data"
 
 CONTAINS
+
+
+
+    SUBROUTINE asyncRestartCommData_inbuffer_iterate(this,                       &
+                                                     reorderData_in, levelCount, &
+                                                     elapsedTime, bytesFetched,  &
+                                                     offsets,                    &
+                                                     dest_sp_in, dest_dp_in)
+      CLASS(inbufhandler_t), TARGET,       INTENT(INOUT) :: this
+      TYPE(t_AsyncRestartPacker), POINTER, INTENT(IN)    :: reorderData_in
+      INTEGER,                             INTENT(IN)    :: levelCount
+      REAL(KIND=dp),                       INTENT(INOUT) :: elapsedTime
+      INTEGER(KIND=i8),                    INTENT(INOUT) :: bytesFetched
+      INTEGER(KIND=MPI_ADDRESS_KIND),      INTENT(INOUT) :: offsets(0:num_work_procs-1)
+      REAL(KIND=sp), DIMENSION(:,:), POINTER, INTENT(INOUT) :: dest_sp_in
+      REAL(KIND=dp), DIMENSION(:,:), POINTER, INTENT(INOUT) :: dest_dp_in
+      CHARACTER(LEN=*), PARAMETER                        :: procedure_name = &
+                                  modname//'::inbufferhandler_iterate'
+      INTEGER                                            :: srcProc
+      REAL(KIND=sp), DIMENSION(:,:), POINTER                :: dest_sp
+      REAL(KIND=dp), DIMENSION(:,:), POINTER                :: dest_dp
+      IF(ASSOCIATED(dest_sp_in)) THEN
+        dest_sp => dest_sp_in
+        NULLIFY(dest_dp)
+      ENDIF
+      IF(ASSOCIATED(dest_dp_in)) THEN
+        dest_dp => dest_dp_in
+        NULLIFY(dest_sp)
+      ENDIF
+      DO srcProc = 0, num_work_procs-1
+        IF(reorderData_in%pe_own(srcProc) == 0) CYCLE
+        CALL this%aquire(srcProc, levelCount, elapsedTime, bytesFetched, &
+         &               offsets, reorderData_in, dest_sp, dest_dp)
+      ENDDO
+      CALL this%waitall(elapsedTime)
+    END SUBROUTINE asyncRestartCommData_inbuffer_iterate
+
+    SUBROUTINE asyncRestartCommData_inbuffer_reset(this, hard)
+      CLASS(inbuffer_t),        INTENT(INOUT)          :: this
+      INTEGER,                  INTENT(IN),   OPTIONAL :: hard
+      this%srcProc = -1
+      this%itype        = -1
+      this%bytes2fetch  = 0
+      this%levelCount   = 0
+      NULLIFY(this%dest_sp)
+      NULLIFY(this%dest_dp)
+      NULLIFY(this%reorderData)
+      IF (PRESENT(hard)) THEN
+        IF (hard .EQ. reset_hard) THEN
+          IF (ASSOCIATED(this%inbuffer)) THEN
+            IF (ALLOCATED(this%inbuffer)) THEN
+              DEALLOCATE(this%inbuffer)
+              NULLIFY(this%inbuffer)
+            ELSE
+              NULLIFY(this%inbuffer)
+            ENDIF
+          ELSE
+            NULLIFY(this%inbuffer)
+          ENDIF
+        ENDIF
+      ENDIF
+    END SUBROUTINE asyncRestartCommData_inbuffer_reset
+
+    SUBROUTINE asyncRestartCommData_inbuffer_waitall(this, elapsedTime)
+      CLASS(inbufhandler_t), TARGET,  INTENT(INOUT) :: this
+      REAL(dp),                       INTENT(INOUT) :: elapsedTime
+      INTEGER                                       :: i_slot, my_slot, &
+       &                                               remaining, err,  &
+       &                                               inbuffer_map(this%in_use)
+      CHARACTER(LEN=*), PARAMETER                   :: procedure_name = &
+       &                          modname//'::inbufferhandler_waitall'
+      DO i_slot = 1, this%in_use
+        inbuffer_map(i_slot) = i_slot
+      ENDDO
+      DO remaining = this%in_use, 1, -1
+        elapsedTime = elapsedTime - p_mpi_wtime()
+        CALL MPI_Waitany(remaining, this%req_pool, my_slot, &
+         &               MPI_STATUS_IGNORE, err)
+        CALL ar_checkmpi(err, procedure_name, ': MPI_Waitany failed')
+        elapsedTime = elapsedTime + p_mpi_wtime()
+        CALL this%apply(inbuffer_map(my_slot))
+        CALL this%inbuffers(inbuffer_map(my_slot))%reset()
+        i_slot = inbuffer_map(my_slot)
+        inbuffer_map(my_slot) = remaining
+        inbuffer_map(remaining) = i_slot
+        this%req_pool(my_slot) = this%req_pool(remaining)
+        this%req_pool(remaining) = MPI_REQUEST_NULL
+      ENDDO
+    END SUBROUTINE asyncRestartCommData_inbuffer_waitall
+
+    SUBROUTINE asyncRestartCommData_inbuffer_apply(this, my_slot)
+      CLASS(inbufhandler_t), TARGET,  INTENT(INOUT) :: this
+      INTEGER,                        INTENT(IN)    :: my_slot
+      INTEGER                                       :: reorderOffset, &
+                                                       ilevel
+      CHARACTER(LEN=*), PARAMETER                   :: procedure_name = &
+       &                          modname//'::inbufferhandler_apply'
+ 
+      reorderOffset = 1
+      SELECT CASE(this%inbuffers(my_slot)%itype)
+        CASE(1)
+          DO ilevel = 1, this%inbuffers(my_slot)%levelCount
+            CALL this%inbuffers(my_slot)%reorderData%unpackLevelFromPe( &
+             &        ilevel, this%inbuffers(my_slot)%srcProc,          &
+             &        this%inbuffers(my_slot)%inbuffer(reorderOffset:), &
+             &        this%inbuffers(my_slot)%dest_sp)
+            reorderOffset = reorderOffset + &
+             &              this%inbuffers(my_slot)%reorderData%pe_own( &
+                             & this%inbuffers(my_slot)%srcProc)
+          ENDDO
+        CASE(2)
+          DO ilevel = 1, this%inbuffers(my_slot)%levelCount
+            CALL this%inbuffers(my_slot)%reorderData%unpackLevelFromPe( &
+             &        ilevel, this%inbuffers(my_slot)%srcProc,          &
+             &        this%inbuffers(my_slot)%inbuffer(reorderOffset:), &
+             &        this%inbuffers(my_slot)%dest_dp)
+            reorderOffset = reorderOffset + &
+             &              this%inbuffers(my_slot)%reorderData%pe_own( &
+                             & this%inbuffers(my_slot)%srcProc)
+          ENDDO
+        CASE DEFAULT
+      END SELECT
+    END SUBROUTINE asyncRestartCommData_inbuffer_apply
+
+    SUBROUTINE ar_checkmpi(mpierr, caller, msg)
+      INTEGER,                        INTENT(IN) :: mpierr
+      CHARACTER(LEN=*),               INTENT(IN) :: caller, msg
+      IF (MPI_SUCCESS .NE. mpierr) THEN
+        CALL finish(caller, msg)
+      ENDIF
+    END SUBROUTINE ar_checkmpi
+
+    SUBROUTINE asyncRestartCommData_inbuffer_aquire(this, srcProc_in, levelCount_in, elapsedTime, bytesFetched, &
+     &                                              offsets, reorderData_in, dest_sp, dest_dp)
+      CLASS(inbufhandler_t), TARGET,          INTENT(INOUT)   :: this
+      REAL(KIND=sp), DIMENSION(:,:), POINTER, INTENT(INOUT)   :: dest_sp
+      REAL(KIND=dp), DIMENSION(:,:), POINTER, INTENT(INOUT)   :: dest_dp
+      INTEGER,                                INTENT(IN)      :: srcProc_in, levelCount_in
+      REAL(KIND=dp),                          INTENT(INOUT)   :: elapsedTime
+      INTEGER(KIND=i8),                       INTENT(INOUT)   :: bytesFetched
+      INTEGER(KIND=MPI_ADDRESS_KIND),         INTENT(INOUT)   :: offsets(0:num_work_procs-1)
+      TYPE(t_AsyncRestartPacker),    POINTER                  :: reorderData_in
+      CHARACTER(LEN=*), PARAMETER                             :: procedure_name = &
+       &                          modname//'::inbufferhandler_aquire'
+      INTEGER                                                :: rx_size, my_slot, mpierr
+      IF (.NOT.this%is_init) THEN
+        CALL ar_checkmpi(-99, procedure_name, ': cannot use uninitialized buffer')
+      ENDIF
+      IF (this%in_use .LT. max_inflight) THEN
+        IF (srcProc_in .GE. 0) THEN
+          this%in_use = this%in_use  + 1
+          my_slot = this%in_use
+        ENDIF
+      ELSE
+        elapsedTime = elapsedTime - p_mpi_wtime()
+        CALL MPI_Waitany(max_inflight, this%req_pool, my_slot, &
+         &               MPI_STATUS_IGNORE, mpierr)
+        CALL ar_checkmpi(mpierr, procedure_name, ': MPI_Waitany failed')
+        elapsedTime = elapsedTime + p_mpi_wtime()
+        CALL this%apply(my_slot)
+      ENDIF
+      CALL ensureSize(this%inbuffers(my_slot)%inbuffer, reorderData_in%pe_own(srcProc_in))
+      this%inbuffers(my_slot)%srcProc = srcProc_in
+      this%inbuffers(my_slot)%levelCount   = levelCount_in
+      rx_size = reorderData_in%pe_own(srcProc_in) * levelCount_in
+      this%inbuffers(my_slot)%bytes2fetch = INT(rx_size, i8)*8
+      offsets(srcProc_in) = offsets(srcProc_in) + INT(rx_size, i8)
+      elapsedTime = elapsedTime - p_mpi_wtime()
+      CALL MPI_Rget(this%inbuffers(my_slot)%inbuffer(1), rx_size, p_real_dp, &
+       &            srcProc_in, offsets(srcProc_in),     rx_size, p_real_dp, &
+       &            this%win, this%req_pool(my_slot), mpierr)
+      CALL ar_checkmpi(mpierr, procedure_name, ': MPI_Rget failed')
+      elapsedTime = elapsedTime - p_mpi_wtime()
+      IF (ASSOCIATED(dest_sp)) THEN
+        this%inbuffers(my_slot)%itype = 1
+        this%inbuffers(my_slot)%dest_sp => dest_sp
+        NULLIFY(this%inbuffers(my_slot)%dest_dp)
+      ELSE IF (ASSOCIATED(dest_dp)) THEN
+        this%inbuffers(my_slot)%itype = 2
+        this%inbuffers(my_slot)%dest_dp => dest_dp
+        NULLIFY(this%inbuffers(my_slot)%dest_sp)
+      ELSE
+        CALL ar_checkmpi(-99, procedure_name, ': no destiation pointer')
+      ENDIF
+      IF(ASSOCIATED(reorderData_in)) THEN
+        this%inbuffers(my_slot)%reorderData => reorderData_in
+      ELSE
+        CALL ar_checkmpi(-99, procedure_name, ': no reorderData pointer')
+      ENDIF
+    END SUBROUTINE asyncRestartCommData_inbuffer_aquire
+
+    SUBROUTINE asyncRestartCommData_inbuffer_prepare(this, win_in)
+      CLASS(inbufhandler_t), TARGET, INTENT(INOUT) :: this
+      INTEGER,               TARGET, INTENT(IN)    :: win_in
+      CHARACTER(LEN=*), PARAMETER                  :: procedure_name = &
+       &                          modname//'::inbufferhandler_prepare'
+      INTEGER                                      :: i
+      IF (this%is_init) THEN
+        CALL ar_checkmpi(-99, procedure_name, ': buffer already initialized')
+      ENDIF
+      this%win        = win_in
+      this%in_use     = 0
+      this%handshaked = .false.
+      DO i = 1, max_inflight
+        this%req_pool(i) = MPI_REQUEST_NULL
+        CALL this%inbuffers(i)%reset()
+      ENDDO
+      this%is_init = .true.
+    END SUBROUTINE asyncRestartCommData_inbuffer_prepare
+
+    SUBROUTINE asyncRestartCommData_inbuffer_clear(this)
+      CLASS(inbufhandler_t), TARGET, INTENT(INOUT) :: this
+      CHARACTER(LEN=*), PARAMETER :: procedure_name = &
+       &                          modname//'::inbufferhandler_clear'
+      INTEGER                                      :: i
+      IF (this%in_use .NE. 0) THEN
+        CALL ar_checkmpi(-99, procedure_name, ' dirty buffer')
+      ENDIF
+      this%win = MPI_WIN_NULL
+      DO i = 1, max_inflight
+        this%req_pool(i) = MPI_REQUEST_NULL
+        CALL this%inbuffers(i)%reset(reset_hard)
+      ENDDO
+      this%is_init = .false.
+    END SUBROUTINE asyncRestartCommData_inbuffer_clear
+
 
     ! Opens an MPI memory window for the given amount of double
     ! values, returning both the ALLOCATED buffer AND the MPI window
@@ -105,9 +384,7 @@ CONTAINS
         ! doubleCount is calculated as number of variables above, get number of bytes
         ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
         CALL MPI_Type_extent(p_real_dp, nbytes_real, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Type_extent returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        CALL ar_checkmpi(mpi_error, routine, 'MPI_Type_extent returned error '//TRIM(int2string(mpi_error)))
 
         ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
         mem_bytes = MAX(doubleCount, 1_i8)*INT(nbytes_real, i8)
@@ -133,9 +410,7 @@ CONTAINS
         END IF
 
         CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Alloc_mem returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        CALL ar_checkmpi(mpi_error, routine, 'MPI_Alloc_mem returned error '//TRIM(int2string(mpi_error)))
 
         NULLIFY(mem_ptr_dp)
         CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [doubleCount] )
@@ -144,27 +419,19 @@ CONTAINS
         ! IBM specific RMA hint, that we don't want window caching
         rma_cache_hint = MPI_INFO_NULL
         CALL MPI_Info_create(rma_cache_hint, mpi_error);
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Info_create returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        CALL ar_checkmpi(mpi_error, routine, 'MPI_Info_create returned error '//TRIM(int2string(mpi_error)))
         CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache", "0", mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Info_set returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        CALL ar_checkmpi(mpi_error, routine, 'MPI_Info_set returned error '//TRIM(int2string(mpi_error)))
 #endif
 
         ! create memory window for communication
         mem_ptr_dp(:) = 0._dp
         CALL MPI_Win_create(mem_ptr_dp, mem_bytes, nbytes_real, MPI_INFO_NULL, communicator, mpi_win, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_create returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        CALL ar_checkmpi(mpi_error, routine, 'MPI_Win_create returned error '//TRIM(int2string(mpi_error)))
 
 #ifdef __xlC__
         CALL MPI_Info_free(rma_cache_hint, mpi_error);
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Info_free returned error '//TRIM(int2string(mpi_error)))
-        END IF
+        ar_checkmpi(mpi_error, CALL finish(routine, 'MPI_Info_free returned error '//TRIM(int2string(mpi_error)))
 #endif
 
     END SUBROUTINE openMpiWindow
@@ -177,8 +444,6 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":closeMpiWindow"
 
         ! release RMA window
-        CALL MPI_Win_fence(0, mpiWindow, mpi_error)
-        CALL warnMpiError('MPI_Win_fence')
         CALL MPI_Win_free(mpiWindow, mpi_error)
         CALL warnMpiError('MPI_Win_free')
 
@@ -244,7 +509,8 @@ CONTAINS
         END IF
 
         ! actually open the memory window
-        CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%windowPtr, me%mpiWindow)
+        CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%win_buf, me%win)
+        CALL me%inbufhandler%prepare(me%win)
     END SUBROUTINE asyncRestartCommData_construct
 
     INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(resultVar)
@@ -280,35 +546,16 @@ CONTAINS
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType
         TYPE(t_ptr_2d), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
-        !TODO: Replace this by an index within the t_AsyncRestartCommData structure.
         INTEGER(i8), INTENT(INOUT) :: offset
-
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
-        INTEGER :: mpi_error, i
+        INTEGER :: i
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_dp"
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
-        ! get pointer to reorder data
         reorderData => me%getPacker(hgridType, routine)
-
-        ! lock own window before writing to it
-        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
-        END IF
-
-        ! just copy the OWN data points to the memory window
         DO i = 1, SIZE(dataPointers)
-            CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+            CALL reorderData%packLevel(dataPointers(i)%p, me%win_buf, offset)
         END DO
-
-        ! unlock RMA window
-        CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-        END IF
-
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
     END SUBROUTINE asyncRestartCommData_postData_dp
 
@@ -316,35 +563,16 @@ CONTAINS
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType
         TYPE(t_ptr_2d_sp), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
-        !TODO: Replace this by an index within the t_AsyncRestartCommData structure.
         INTEGER(i8), INTENT(INOUT) :: offset
-
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
-        INTEGER :: mpi_error, i
+        INTEGER :: i
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_sp"
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
-        ! get pointer to reorder data
         reorderData => me%getPacker(hgridType, routine)
-
-        ! lock own window before writing to it
-        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
-        END IF
-
-        ! just copy the OWN data points to the memory window
         DO i = 1, SIZE(dataPointers)
-            CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+            CALL reorderData%packLevel(dataPointers(i)%p, me%win_buf, offset)
         END DO
-
-        ! unlock RMA window
-        CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-        END IF
-
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
       END SUBROUTINE asyncRestartCommData_postData_sp
 
@@ -352,98 +580,34 @@ CONTAINS
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType
         TYPE(t_ptr_2d_int), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
-        !TODO[NH]: Replace this by an index within the t_AsyncRestartCommData structure.
         INTEGER(i8), INTENT(INOUT) :: offset
-
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
-        INTEGER :: mpi_error, i
+        INTEGER :: i
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_int"
 
-        ! get pointer to reorder data
         reorderData => me%getPacker(hgridType, routine)
-
-        ! lock own window before writing to it
-        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
-        END IF
-
-        ! just copy the OWN data points to the memory window
         DO i = 1, SIZE(dataPointers)
-            CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+            CALL reorderData%packLevel(dataPointers(i)%p, me%win_buf, offset)
         END DO
-
-        ! unlock RMA window
-        CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
-        IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-        END IF
       END SUBROUTINE asyncRestartCommData_postData_int
 
     SUBROUTINE asyncRestartCommData_collectData_dp(me, hgridType, levelCount, dest, offsets, &
       &                                            elapsedTime, bytesFetched)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType, levelCount
-        REAL(dp), INTENT(INOUT) :: dest(:,:)
-        !TODO: Replace this by an index within the t_AsyncRestartCommData structure.
-
-        ! This remembers the current offsets within all the different
-        ! processes RMA windows. Pass a zero initialized array to the
-        ! first collectData() CALL, THEN keep passing the array
-        ! without external modifications:
+        REAL(dp), TARGET, INTENT(INOUT) :: dest(:,:)
         INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: offsets(0:num_work_procs-1)
-
         REAL(dp), INTENT(INOUT) :: elapsedTime
         INTEGER(i8), INTENT(INOUT) :: bytesFetched
-
-        INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
-        REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_collectData_dp"
-
+        REAL(KIND=sp), DIMENSION(:,:), POINTER                :: dest_sp
+        REAL(KIND=dp), DIMENSION(:,:), POINTER                :: dest_dp
+        dest_dp => dest
+        NULLIFY(dest_sp)
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
         reorderData => me%getPacker(hgridType, routine)
-
-        ! retrieve part of variable from every worker PE using MPI_Get
-        DO sourceProc = 0, num_work_procs-1
-            IF(reorderData%pe_own(sourceProc) == 0) CYCLE
-
-            ! number of words to transfer
-            doubleCount = reorderData%pe_own(sourceProc) * levelCount
-            CALL ensureSize(buffer, doubleCount)
-
-            elapsedTime = elapsedTime -  p_mpi_wtime()
-            CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            CALL MPI_Get(buffer(1), doubleCount, p_real_dp, sourceProc, offsets(sourceProc), &
-                                  & doubleCount, p_real_dp, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Get returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            CALL MPI_Win_unlock(sourceProc, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            elapsedTime  = elapsedTime + p_mpi_wtime()
-            bytesFetched = bytesFetched + INT(doubleCount, i8)*8
-
-            ! update the offset in the RMA window on compute PEs
-            offsets(sourceProc) = offsets(sourceProc) + INT(doubleCount, i8)
-
-            ! separate the levels received from PE "sourceProc":
-            reorderOffset = 1
-            DO curLevel = 1, levelCount
-                CALL reorderData%unpackLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
-                reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
-            END DO
-        END DO
-
+        CALL me%inbufhandler%iterate(reorderData, levelCount, elapsedTime, bytesFetched, offsets, dest_sp, dest_dp)
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
     END SUBROUTINE asyncRestartCommData_collectData_dp
 
@@ -451,78 +615,218 @@ CONTAINS
       &                                            elapsedTime, bytesFetched)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType, levelCount
-        REAL(sp), INTENT(INOUT) :: dest(:,:)
-        !TODO: Replace this by an index within the t_AsyncRestartCommData structure.
-
-        ! This remembers the current offsets within all the different
-        ! processes RMA windows. Pass a zero initialized array to the
-        ! first collectData() CALL, THEN keep passing the array
-        ! without external modifications:
+        REAL(sp), TARGET, INTENT(INOUT) :: dest(:,:)
         INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: offsets(0:num_work_procs-1)
-
         REAL(dp), INTENT(INOUT) :: elapsedTime
         INTEGER(i8), INTENT(INOUT) :: bytesFetched
-
-        INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
-        REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_collectData_sp"
-
+        REAL(KIND=sp), DIMENSION(:,:), POINTER                :: dest_sp
+        REAL(KIND=dp), DIMENSION(:,:), POINTER                :: dest_dp
+        dest_sp => dest
+        NULLIFY(dest_dp)
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
         reorderData => me%getPacker(hgridType, routine)
-
-        ! retrieve part of variable from every worker PE using MPI_Get
-        DO sourceProc = 0, num_work_procs-1
-            IF(reorderData%pe_own(sourceProc) == 0) CYCLE
-
-            ! number of words to transfer
-            doubleCount = reorderData%pe_own(sourceProc) * levelCount
-            CALL ensureSize(buffer, doubleCount)
-
-            elapsedTime = elapsedTime -  p_mpi_wtime()
-            CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            CALL MPI_Get(buffer(1), doubleCount, p_real_dp, sourceProc, offsets(sourceProc), &
-                                  & doubleCount, p_real_dp, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Get returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            CALL MPI_Win_unlock(sourceProc, me%mpiWindow, mpi_error)
-            IF(mpi_error /= MPI_SUCCESS) THEN
-              CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-            END IF
-
-            elapsedTime  = elapsedTime + p_mpi_wtime()
-            bytesFetched = bytesFetched + INT(doubleCount, i8)*8
-
-            ! update the offset in the RMA window on compute PEs
-            offsets(sourceProc) = offsets(sourceProc) + INT(doubleCount, i8)
-
-            ! separate the levels received from PE "sourceProc":
-            reorderOffset = 1
-            DO curLevel = 1, levelCount
-                CALL reorderData%unpackLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
-                reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
-            END DO
-        END DO
-
+        CALL me%inbufhandler%iterate(reorderData, levelCount, elapsedTime, bytesFetched, offsets, dest_sp, dest_dp)
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
     END SUBROUTINE asyncRestartCommData_collectData_sp
 
-    SUBROUTINE asyncRestartCommData_destruct(me)
-        CLASS(t_AsyncRestartCommData), INTENT(INOUT) :: me
-
-        CALL closeMpiWindow(me%windowPtr, me%mpiWindow)
-
-        CALL me%cells%destruct()
-        CALL me%verts%destruct()
-        CALL me%edges%destruct()
+    SUBROUTINE asyncRestartCommData_destruct(this)
+        CLASS(t_AsyncRestartCommData), INTENT(INOUT) :: this
+        CALL this%inbufhandler%sync(.NOT.my_process_is_work(), .NOT.my_process_is_work(), .true.)
+        CALL closeMpiWindow(this%win_buf, this%win)
+        IF (ALLOCATED(this%inbufhandler)) THEN
+          CALL this%inbufhandler%clear()
+          DEALLOCATE(this%inbufhandler)
+        ENDIF
+        CALL this%cells%destruct()
+        CALL this%verts%destruct()
+        CALL this%edges%destruct()
     END SUBROUTINE asyncRestartCommData_destruct
+
+    SUBROUTINE asyncRestartCommData_sync(this, i_are_baboon, after_update, goodbye)
+      CLASS(t_AsyncRestartCommData), INTENT(INOUT) :: this
+      LOGICAL,                       INTENT(IN)    :: i_are_baboon, &
+                                                      after_update
+      LOGICAL,      OPTIONAL,        INTENT(IN)    :: goodbye
+      LOGICAL                                      :: goodbye_l
+      IF (PRESENT(goodbye)) THEN
+        goodbye_l = goodbye
+      ELSE
+        goodbye_l = .false.
+      ENDIF
+      CALL this%inbufhandler%sync(i_are_baboon, after_update, goodbye_l)
+    END SUBROUTINE asyncRestartCommData_sync
+
+    SUBROUTINE asyncRestartCommData_inbuffer_sync(this, i_are_baboon, after_update, goodbye)
+      CLASS(inbufhandler_t),         INTENT(INOUT) :: this
+      LOGICAL,                       INTENT(IN)    :: i_are_baboon, &
+                                                      after_update
+      LOGICAL,      OPTIONAL,        INTENT(IN)    :: goodbye
+      INTEGER                                      :: err, assert
+      LOGICAL                                      :: goodbye_l, hello_l
+      CHARACTER(LEN=*), PARAMETER                  :: procedure_name = &
+       &                          modname//'::inbufferhandler_sync'
+      CHARACTER(LEN=64)                            :: occasion
+      occasion = ''
+      hello_l = .false.
+      IF (PRESENT(goodbye)) THEN
+        goodbye_l = goodbye
+      ELSE
+        goodbye_l = .false.
+      ENDIF
+      IF (goodbye_l) THEN
+        occasion = '<last>'
+      ENDIF
+      IF (.NOT.this%handshaked) THEN
+        hello_l = .true.
+        occasion = '<first>'
+        CALL this%handshake(i_are_baboon)
+      ENDIF
+#ifdef tatatata
+!TODO do something with post/start/complete/wait here!
+      assert = MPI_MODE_NOPUT
+      IF (.NOT.this%handshaked) THEN
+        assert = IOR(assert, MPI_MODE_NOPRECEDE)
+      ENDIF
+      IF (goodbye_l) THEN
+        assert =IOR(assert, MPI_MODE_NOSUCCEED)
+      ENDIF
+      IF (i_are_baboon) THEN
+        occasion = occasion//'<server>'
+        assert = IOR(assert, MPI_MODE_NOSTORE)
+        IF (after_update) THEN
+          occasion = occasion//'<ready_for_unexpose>'
+        ELSE
+          occasion = occasion//'<ready_for_expose>'
+          assert = IOR(assert, MPI_MODE_NOPRECEDE)
+        ENDIF
+      ELSE
+        occasion = occasion//'<client>'
+        IF (after_update) THEN
+          assert = IOR(assert, MPI_MODE_NOPRECEDE)
+          occasion = occasion//'<window_expose>'
+        ELSE
+          assert = IOR(assert, MPI_MODE_NOSTORE)
+          occasion = occasion//'<window_unexpose>'
+        ENDIF
+      ENDIF
+      CALL MPI_Win_fence(assert, this%win, err)
+      CALL ar_checkmpi(err, procedure_name, ': MPI_Win_fence('//TRIM(occasion)//') failed')
+#else
+      IF (.NOT.this%handshaked) THEN
+        hello_l = .true.
+        occasion = '<first>'
+        CALL this%handshake(i_are_baboon)
+      ENDIF
+      assert = MPI_MODE_NOPUT
+      IF (i_are_baboon) THEN
+        occasion = occasion//'<server>'
+        IF (after_update) THEN
+          occasion = occasion//'<ready_for_unexpose>'
+          CALL MPI_Win_complete(this%win, err)
+          CALL ar_checkmpi(err, procedure_name, ': MPI_Win_complete('//TRIM(occasion)//') failed')
+        ELSE
+          occasion = occasion//'<ready_for_expose>'
+          IF (.NOT.goodbye_l) THEN
+            CALL MPI_Win_start(this%client_group, assert, this%win, err)
+            CALL ar_checkmpi(err, procedure_name, ': MPI_Win_start('//TRIM(occasion)//') failed')
+          ENDIF
+        ENDIF
+      ELSE
+        occasion = occasion//'<client>'
+        IF (after_update) THEN
+          occasion = occasion//'<window_expose>'
+          IF (.NOT.goodbye_l) THEN
+            CALL MPI_Win_post(this%server_group, assert, this%win, err)
+            CALL ar_checkmpi(err, procedure_name, ': MPI_Win_post('//TRIM(occasion)//') failed')
+          ENDIF
+        ELSE
+          occasion = occasion//'<window_unexpose>'
+          IF (.NOT.hello_l) THEN
+            CALL MPI_Win_wait(this%win, err)
+            CALL ar_checkmpi(err, procedure_name, ': MPI_Win_wait('//TRIM(occasion)//') failed')
+          ENDIF
+        ENDIF
+      ENDIF
+      IF (goodbye_l) THEN
+        CALL MPI_Group_free(this%client_group, err)
+        CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
+        CALL MPI_Group_free(this%server_group, err)
+        CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
+      ENDIF
+#endif
+      IF (goodbye_l) THEN
+        this%handshaked = .false.
+      ENDIF
+    END SUBROUTINE asyncRestartCommData_inbuffer_sync
+
+    SUBROUTINE asyncRestartCommData_inbuffer_handshake(this, i_are_baboon)
+      CLASS(inbufhandler_t), INTENT(INOUT) :: this
+      LOGICAL,                       INTENT(IN)    :: i_are_baboon
+#ifdef tatatata
+! do nothing!
+      this%handshaked = .true.
+#else
+      INTEGER, ALLOCATABLE, DIMENSION(:)           :: flags
+      INTEGER                                      :: my_flags(2)
+      INTEGER                                      :: wgrp_size, wgrp_rank, &
+       &                                              tgrp_size,            &
+       &                                              err, wgrp, tgrp, i, ii
+      INTEGER, ALLOCATABLE, DIMENSION(:)           :: ranks_list
+      CHARACTER(LEN=*), PARAMETER                  :: procedure_name =      &
+       &                          modname//'::handshake'
+      IF (.NOT.this%is_init) THEN
+        CALL ar_checkmpi(-99, procedure_name, ": window+buffers not initialized!")
+      ENDIF
+      CALL MPI_Win_get_group(this%win, tgrp, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Win_get_group failed")
+      CALL MPI_Group_size(wgrp, wgrp_size, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_size failed")
+      CALL MPI_Group_rank(wgrp, wgrp_rank, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_rank failed")
+      my_flags(1) = MERGE(wgrp_rank, MPI_UNDEFINED, i_are_baboon)
+      my_flags(2) = MERGE(wgrp_rank, MPI_UNDEFINED, my_process_is_work())
+      ALLOCATE(flags(wgrp_size*2))
+      CALL MPI_Allgather(my_flags,  2, MPI_INTEGER, flags,  2, MPI_INTEGER, &
+       &                 p_comm_work_restart, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Allgather failed")
+      IF (0 .NE. COUNT((flags(1::2).NE.MPI_UNDEFINED)  .AND. &
+                       (flags(2::2).NE.MPI_UNDEFINED)) ) THEN
+        CALL ar_checkmpi(-99, procedure_name, ": roles not consistent")
+      ENDIF
+      tgrp_size = COUNT(flags(1::2).NE.MPI_UNDEFINED)
+      ALLOCATE(ranks_list(tgrp_size))
+      i = 0
+      DO ii = 1, wgrp_size
+        IF ( flags(1 + (ii - 1) * 2) .NE. MPI_UNDEFINED) THEN
+          i = i + 1
+          ranks_list(i) = flags(1 + (ii - 1) * 2)
+        ENDIF
+      ENDDO
+      CALL MPI_Group_incl(wgrp, tgrp_size, ranks_list, tgrp, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Group_incl failed")
+      this%server_group = tgrp
+      tgrp_size = COUNT(flags(2::2).NE.MPI_UNDEFINED)
+      IF (SIZE(ranks_list) .LT. tgrp_size) THEN
+        DEALLOCATE(ranks_list)
+        ALLOCATE(ranks_list(tgrp_size))
+      ENDIF
+      i = 0
+      DO ii = 1, wgrp_size
+        IF ( flags(2 + (ii - 1) * 2) .NE. MPI_UNDEFINED) THEN
+          i = i + 1
+          ranks_list(i) = flags(2 + (ii - 1) * 2)
+        ENDIF
+      ENDDO
+      CALL MPI_Group_incl(wgrp, tgrp_size, ranks_list, tgrp, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Group_incl failed")
+      this%client_group = tgrp
+      CALL MPI_Group_free(wgrp, err)
+      CALL ar_checkmpi(err, procedure_name, ": MPI_Group_free failed")
+      this%handshaked = .true.
+#endif
+    END SUBROUTINE asyncRestartCommData_inbuffer_handshake
 
 #endif
 END MODULE mo_async_restart_comm_data
