@@ -121,7 +121,8 @@ case "$fortran_compiler" in
         fi
         DEBUG_FLAGS = -O0 -Wc,-g -float-store -nan $FDEBUG
         STD_FLAGS   = $DEBUG_FLAGS
-        HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
+        HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native
+        FASTDEBUG_FLAGS = $HIOPT_FLAGS -float-store -nan $FDEBUG
         MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,xt_slice_c_loc -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
