@@ -429,12 +429,12 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 !        CALL add_time(dtime,0,0,0,this_datetime)
      
         ! update accumulated vars
-        CALL update_ocean_statistics(ocean_state(1),     &
-        & ocean_surface,                                &
-        & patch_2D%cells%owned,       &
-        & patch_2D%edges%owned,       &
-        & patch_2D%verts%owned,       &
-        & n_zlev)
+!       CALL update_ocean_statistics(ocean_state(1),     &
+!       & ocean_surface,                                &
+!       & patch_2D%cells%owned,       &
+!       & patch_2D%edges%owned,       &
+!       & patch_2D%verts%owned,       &
+!       & n_zlev)
           
         CALL output_ocean( patch_3d, &
           & ocean_state,             &
@@ -542,12 +542,12 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 !        CALL add_time(dtime,0,0,0,this_datetime)
       
         ! update accumulated vars
-        CALL update_ocean_statistics(ocean_state(1),&
-        & ocean_surface,                                &
-        & patch_2D%cells%owned,       &
-        & patch_2D%edges%owned,       &
-        & patch_2D%verts%owned,       &
-        & n_zlev)
+!       CALL update_ocean_statistics(ocean_state(1),&
+!       & ocean_surface,                                &
+!       & patch_2D%cells%owned,       &
+!       & patch_2D%edges%owned,       &
+!       & patch_2D%verts%owned,       &
+!       & n_zlev)
           
         CALL output_ocean( patch_3d, &
           & ocean_state,             &
@@ -656,21 +656,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       ! add noise {{{     
-      CALL add_random_noise_global(in_subset=patch_2D%cells%all, &
-        &  in_var=p_os(n_dom)%p_acc%tracer(:,:,:,1), &
-        & start_level=1,end_level=levels,noise_scale=10.0_wp,debug=.FALSE.)
-      CALL add_random_noise_global(in_subset=patch_2D%cells%all, &
-        &  in_var=p_os(n_dom)%p_acc%tracer(:,:,:,2), &
-        & start_level=1,end_level=levels,noise_scale=10.0_wp,debug=.FALSE.)
-      CALL add_random_noise_global(in_subset=patch_2D%cells%all, &
-        &  in_var=p_os(n_dom)%p_acc%u(:,:,:), &
-        & start_level=1,end_level=levels,noise_scale=10.0_wp,debug=.FALSE.)
-      CALL add_random_noise_global(in_subset=patch_2D%cells%all, &
-        &  in_var=p_os(n_dom)%p_acc%v(:,:,:), &
-        & start_level=1,end_level=levels,noise_scale=10.0_wp,debug=.FALSE.)
-      CALL add_random_noise_global(in_subset=patch_2D%cells%all, &
-        &  in_var=p_os(n_dom)%p_acc%w(:,:,:), &
-        & start_level=1,end_level=levels,noise_scale=10.0_wp,debug=.FALSE.)
                                                                                                 
       IF (no_tracer>=1) THEN
         CALL calc_potential_density( patch_3d,                            &
@@ -684,12 +669,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
         CALL dbg_print('calc_psi: u_vint' ,p_os(n_dom)%p_diag%u_vint, debug_string, 3, in_subset=patch_2d%cells%owned)
       END IF
       ! update accumulated vars
-      CALL update_ocean_statistics(p_os(1),&
-        & p_oce_sfc, &
-        & patch_2d%cells%owned,&
-        & patch_2d%edges%owned,&
-        & patch_2d%verts%owned,&
-        & n_zlev,p_phys_param=physics_parameters)
 !TODO     CALL calc_fast_oce_diagnostics( patch_2d,      &
 !TODO       & patch_3d%p_patch_1d(1)%dolic_c, &
 !TODO       & patch_3d%p_patch_1d(1)%prism_thick_c, &
@@ -1284,12 +1263,12 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       
       ! update accumulated vars
-      CALL update_ocean_statistics(p_os(n_dom), &
-        & p_oce_sfc,                       &
-        & patch_2D%cells%owned,                 &
-        & patch_2D%edges%owned,                 &
-        & patch_2D%verts%owned,                 &
-        & n_zlev)
+!     CALL update_ocean_statistics(p_os(n_dom), &
+!       & p_oce_sfc,                       &
+!       & patch_2D%cells%owned,                 &
+!       & patch_2D%edges%owned,                 &
+!       & patch_2D%verts%owned,                 &
+!       & n_zlev)
 
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
@@ -1521,11 +1500,11 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
 
-      ! update accumulated vars
-      CALL update_ocean_statistics(p_os(jg),p_oce_sfc, owned_cells, p_patch%edges%owned,&
-        &                                              p_patch%verts%owned, n_zlev)
-
-      CALL update_ice_statistic(p_ice%acc,p_ice,owned_cells)
+!      ! update accumulated vars
+!      CALL update_ocean_statistics(p_os(jg),p_oce_sfc, owned_cells, p_patch%edges%owned,&
+!        &                                              p_patch%verts%owned, n_zlev)
+!
+!      CALL update_ice_statistic(p_ice%acc,p_ice,owned_cells)
 
       CALL output_ocean( patch_3D, p_os(jg), mtime_current, p_oce_sfc,  &
         &                p_ice, jstep, jstep0)

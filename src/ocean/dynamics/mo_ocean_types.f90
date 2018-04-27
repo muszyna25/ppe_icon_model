@@ -27,13 +27,12 @@ MODULE mo_ocean_types
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d
-  !USE mo_ocean_nml,           ONLY: no_tracer  
+
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
-  PUBLIC :: t_hydro_ocean_acc
   PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
@@ -356,77 +355,6 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_aux
 
   !-------------------------------
-  ! variables to be accumulated
-  TYPE t_hydro_ocean_acc
-
-    onCells ::            &
-      & u                ,& ! reconstructed zonal velocity component. Unit [m/s]
-      & v                ,& ! reconstructed meridional velocity component. Unit [m/s]
-      & rho              ,& ! density. Unit: [kg/m^3]
-      & rhopot           ,& ! potential density. Unit: [kg/m^3]
-      & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
-      & opottempGMRedi, &
-      & osaltGMRedi, &
-      & kin                 ! kinetic energy. Unit [m/s].
-
-    onCells_HalfLevels :: &
-      & w                ,& ! vertical velocity. Unit [m/s].
-      & w_time_weighted  ,& ! weighted vertical velocity
-      & press_hyd           ! hydrostatic pressure. Unit [m]
-
-    onCells_2D ::         &
-      & h                ,&
-      & h_sqr            ,&
-      & u_vint           ,& ! barotropic zonal velocity. Unit [m*m/s]
-      & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
-      & div              ,& ! divergence. Unit [m/s]
-      & temp_insitu       
-    
-    onEdges :: &
-      & mass_flx_e       ,& ! mass flux at edges. Unit [?].
-      & ptp_vn           ,& ! normal velocity after mapping P^T P
-      & vn_pred          ,& ! predicted normal velocity vector at edges.
-      & vn_time_weighted ,&  ! predicted normal velocity vector at edges.
-      & veloc_adv_horz   ,& ! horizontal velocity advection
-      & laplacian_horz   ,& ! horizontal diffusion of horizontal velocity
-      & laplacian_vert   ,& ! vertical diffusion of horizontal velocity
-      & grad             ,& ! gradient of kinetic energy. Unit [m/s]
-      & press_grad          ! hydrostatic pressure gradient term. Unit [m/s]
-
-    onEdges_2D :: &
-      edgeFlux_total            ! vertically integrated normal velocity weighted by edge height
-
-
-    onVertices ::         &
-      & vort                ! vorticity at triangle vertices. Unit [1/s]
-      
-    onCells_tracers :: tracer
-    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
-
-    ! physics
-    ! diffusion coefficients for horizontal/vertical velocity,
-    !  temp. and salinity, dim=(nproma,n_zlev,nblks_ec)/(nproma,n_zlev+1,nblks_e)
-
-!     onEdges :: &
-!       & k_veloc_h             ! coefficient of horizontal velocity diffusion
-
-    onCells_HalfLevels_tracers ::    &
-      & a_tracer_v            ! coefficient of vertical tracer diffusion
-    
-    onEdges_HalfLevels ::    &
-      & a_veloc_v             ! coefficient of vertical velocity diffusion
-      
-    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_horz_physics_ptr(:)
-    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_vert_physics_ptr(:)
-
-    onCells ::   &
-      & k_tracer_isoneutral,  & ! coefficient of isoneutral tracer diffusion diffusion at cells
-      & k_tracer_dianeutral,  & ! coefficient of dianeutral tracer diffusion
-      & k_tracer_GM_kappa       ! coefficient of Gent-McWilliams mesoscale eddyparametrizations
-
-  END TYPE t_hydro_ocean_acc
-  
-  !-------------------------------
   INTEGER,PARAMETER :: max_tracers = 50
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)
@@ -566,7 +494,6 @@ MODULE mo_ocean_types
     TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux
-    TYPE(t_hydro_ocean_acc)  :: p_acc
     TYPE(t_operator_coeff), POINTER :: operator_coeff
 
   END TYPE t_hydro_ocean_state

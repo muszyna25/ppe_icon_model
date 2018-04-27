@@ -127,40 +127,27 @@ CONTAINS
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-    CALL calc_slow_oce_diagnostics( patch_3d       , &
-      &                             ocean_state(jg), &
-      &                             surface_fluxes      , &
-      &                             sea_ice          , &
-      &                             jstep-jstep0   , &
-      &                             this_datetime) ! , &
+   !CALL calc_slow_oce_diagnostics( patch_3d       , &
+   !  &                             ocean_state(jg), &
+   !  &                             surface_fluxes      , &
+   !  &                             sea_ice          , &
+   !  &                             jstep-jstep0   , &
+   !  &                             this_datetime) ! , &
           ! &                             oce_ts)
   
-    CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,surface_fluxes,nsteps_since_last_output)
-    CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
-
-    IF (diagnostics_level > 0 ) THEN
-      IF (no_tracer>=2) THEN
+!   IF (diagnostics_level > 0 ) THEN
+!     IF (no_tracer>=2) THEN
 !       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
-        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
-      ENDIF
-    ENDIF
+!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
+!     ENDIF
+!   ENDIF
 
-   ! set the output variable pointer to the correct timelevel
-!   CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
- 
     IF (output_mode%l_nml) CALL write_name_list_output(out_step)
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
     CALL message (TRIM(routine),message_text)
-  
-    ! reset accumulation vars
-    CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,surface_fluxes,nsteps_since_last_output)
-    IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
-
-    
-        
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
 

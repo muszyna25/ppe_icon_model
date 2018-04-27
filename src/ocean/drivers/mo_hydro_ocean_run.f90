@@ -410,18 +410,6 @@ CONTAINS
     !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
 
-      ! update accumulated vars
-      CALL update_ocean_statistics(ocean_state(1),&
-        & p_oce_sfc, &
-        & patch_2d%cells%owned,&
-        & patch_2d%edges%owned,&
-        & patch_2d%verts%owned,&
-        & n_zlev,p_phys_param=p_phys_param)
-        
-      IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc,sea_ice,patch_2d%cells%owned)
-
-   
-
     CALL calc_fast_oce_diagnostics( patch_2d, &
         & patch_3d, &
         & patch_3d%p_patch_1d(1)%dolic_c, &
@@ -564,46 +552,11 @@ CONTAINS
       & ocean_state%p_diag, operators_coefficients)
     ! CALL update_height_depdendent_variables( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
-    ! copy old tracer values to spot value fields for propper initial timestep
-    ! output
-    IF(no_tracer>=1)THEN
-      ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-      ! in general nml output is writen based on the nnew status of the
-      ! prognostics variables. Unfortunately, the initialization has to be written
-      ! to the nold state. That's why the following manual copying is nec.
-      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
-    ENDIF
-    IF(no_tracer>=2)THEN
-      ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-    ENDIF
-    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-!    IF(no_tracer>=1)THEN
-!      CALL calc_potential_density( patch_3d,                     &
-!        & ocean_state%p_prog(nold(1))%tracer,&
-!       & ocean_state%p_diag%rhopot )
-!        
-!      CALL calculate_density( patch_3d,                        &
-!        & ocean_state%p_prog(nold(1))%tracer, &
-!        & ocean_state%p_diag%rho )
-!    ENDIF
-
-    CALL update_ocean_statistics( &
-      & ocean_state,            &
-      & p_oce_sfc,              &
-      & patch_2d%cells%owned,   &
-      & patch_2d%edges%owned,   &
-      & patch_2d%verts%owned,   &
-      & n_zlev,p_phys_param=p_phys_param)
-    IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc, sea_ice,patch_2d%cells%owned)
-  
-
     CALL perform_accumulation(nnew(1),0)
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,p_oce_sfc)
     CALL reset_accumulation
-    IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
  
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
