@@ -7,11 +7,11 @@ require 'colorize'
 require 'iconPlot'
 #require 'unifiedPlot'
 #require 'gsl'
-begin
-  require 'facets'
-rescue
-  warn "Could not find 'facets'"
-end
+#begin
+#  require 'facets'
+#rescue
+#  warn "Could not find 'facets'"
+#end
 
 # load user settings
 RC = "#{ENV['HOME']}/.rake.rc"
@@ -990,6 +990,20 @@ task :openBuilders do
   url       = [baseUrl,branch,builders].join
   puts url
   sh "firefox #{url}"
+end
+
+task :logPerf,[:pattern] do |t,args|
+  logFiles = Dir.glob(args.pattern)
+  timers = Parallel.map(logFiles, :in_threads => 8) {|file|
+    File.open(file).readlines.grep(/ 00 total  /).map {|line| timer = line.split.last.to_f}
+  }.flatten
+
+
+  mean = timers.inject(0) {|sum,t| sum += t}/timers.size.to_f
+
+  puts "min : #{timers.min}"
+  puts "max : #{timers.max}"
+  puts "mean: #{mean}"
 end
 
 # vim:fdm=marker
