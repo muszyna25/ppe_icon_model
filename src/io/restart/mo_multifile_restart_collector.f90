@@ -461,7 +461,10 @@ CONTAINS
 
     !Collect the data on the writer PEs.
     j = 1
+    n_openreqs = 0
+!$OMP PARALLEL WORKSHARE
     outputData(:) = 0._dp
+!$OMP END PARALLEL WORKSHARE
     DO i = 1, me%idx%sourceProcCount
 
 
@@ -528,7 +531,9 @@ CONTAINS
 
     !Collect the data on the writer PEs.
     j = 1
+!$OMP PARALLEL WORKSHARE
     outputData(:) = 0._sp
+!$OMP END PARALLEL WORKSHARE
     n_openreqs = 0
     DO i = 1, me%idx%sourceProcCount
       
@@ -597,7 +602,9 @@ CONTAINS
 
     !Collect the data on the writer PEs.
     j = 1
+!$OMP PARALLEL WORKSHARE
     outputData(:) = 0
+!$OMP END PARALLEL WORKSHARE
     n_openreqs = 0
     DO i = 1, me%idx%sourceProcCount
       
@@ -679,6 +686,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
+!$OMP DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_d(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
@@ -721,6 +729,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
+!$OMP DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_s(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
@@ -763,6 +772,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
+!$OMP DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_int(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
