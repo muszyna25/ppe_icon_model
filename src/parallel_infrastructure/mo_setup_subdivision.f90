@@ -1902,12 +1902,16 @@ CONTAINS
 #endif
 
       ! remove duplicated inner edges
-      CALL insertion_sort(inner_edges(1:n_inner_edges))
-      CALL remove_duplicated_entries(inner_edges(1:n_inner_edges), n_inner_edges)
+      IF (n_inner_edges .GT. 1) THEN
+        CALL insertion_sort(inner_edges(1:n_inner_edges))
+        CALL remove_duplicated_entries(inner_edges(1:n_inner_edges), n_inner_edges)
+      ENDIF
       ! remove duplicated vertices
-      CALL insertion_sort(temp_vertices(1:n_temp_vertices))
-      CALL remove_duplicated_entries(temp_vertices(1:n_temp_vertices), &
+      IF (n_temp_vertices .GT. 1) THEN
+        CALL insertion_sort(temp_vertices(1:n_temp_vertices))
+        CALL remove_duplicated_entries(temp_vertices(1:n_temp_vertices), &
                                      n_temp_vertices)
+      ENDIF
 
       ! MoHa Note: vertices that are only adjacent to inner edges do not
       ! necessarily also have to be inner vertices...there are special cases...
@@ -2062,9 +2066,10 @@ CONTAINS
 
 #endif
         !remove duplicated entries
-        CALL insertion_sort(temp_cells(1:n_temp_cells))
-        CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
-
+        IF (n_temp_cells .GT. 1) THEN
+          CALL insertion_sort(temp_cells(1:n_temp_cells))
+          CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
+        ENDIF
         ! store cells of level 2*ilev-1
         n2_ilev_c(2*ilev-1) = n_temp_cells
         ALLOCATE(flag2_c_list(2*ilev-1)%idx(n_temp_cells), &
@@ -2134,14 +2139,16 @@ CONTAINS
 
 #endif
 
-        CALL insertion_sort(temp_cells(1:n_temp_cells))
-        CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
+        IF (n_temp_cells .GT. 1) THEN
+          CALL insertion_sort(temp_cells(1:n_temp_cells))
+          CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
         ! remove cells that are on level 2*ilev-2 and level 2*ilev-1
-        DO k = -2, -1
-          CALL remove_entries_from_ref_list(temp_cells(1:n_temp_cells), &
-            n_temp_cells, &
-            flag2_c_list(2 * ilev + k)%idx(1:n2_ilev_c(2 * ilev + k)))
-        END DO
+          DO k = -2, -1
+            CALL remove_entries_from_ref_list(temp_cells(1:n_temp_cells), &
+              n_temp_cells, &
+              flag2_c_list(2 * ilev + k)%idx(1:n2_ilev_c(2 * ilev + k)))
+          END DO
+        ENDIF
         ! store cells of level 2*ilev
         n2_ilev_c(2*ilev) = n_temp_cells
         ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells), &
@@ -2212,12 +2219,14 @@ CONTAINS
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
         CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
 #endif
-        CALL quicksort(temp_edges(1:n_temp_edges), edge_cells(1:n_temp_edges))
-        ! remove all edges of level 2*ilev-2 and 2*ilev-1
-        DO k = -2, -1
-          CALL remove_entries_from_ref_list(temp_edges(1:n_temp_edges), &
-            n_temp_edges, flag2_e_list(2*ilev+k)%idx(1:n2_ilev_e(2*ilev+k)))
-        END DO
+        IF (n_temp_edges .GT. 1) THEN
+          CALL quicksort(temp_edges(1:n_temp_edges), edge_cells(1:n_temp_edges))
+          ! remove all edges of level 2*ilev-2 and 2*ilev-1
+          DO k = -2, -1
+            CALL remove_entries_from_ref_list(temp_edges(1:n_temp_edges), &
+              n_temp_edges, flag2_e_list(2*ilev+k)%idx(1:n2_ilev_e(2*ilev+k)))
+          END DO
+        ENDIF
         ! collect inner edges
         IF(n_temp_edges > 1) THEN
           IF (SIZE(pack_mask(:)) < n_temp_edges) THEN
@@ -2338,14 +2347,16 @@ CONTAINS
 
         END DO
 
-        CALL insertion_sort(temp_vertices(1:n_temp_vertices))
-        CALL remove_duplicated_entries(temp_vertices(1:n_temp_vertices), &
+        IF (n_temp_vertices .GT. 1) THEN
+          CALL insertion_sort(temp_vertices(1:n_temp_vertices))
+          CALL remove_duplicated_entries(temp_vertices(1:n_temp_vertices), &
                                        n_temp_vertices)
-        ! remove vertices that are on level ilev and ilev - 1
-        DO k = -1, 0
-          CALL remove_entries_from_ref_list(temp_vertices(1:n_temp_vertices), &
-            n_temp_vertices, flag2_v_list(ilev+k)%idx(1:n2_ilev_v(ilev+k)))
-        END DO
+          ! remove vertices that are on level ilev and ilev - 1
+          DO k = -1, 0
+            CALL remove_entries_from_ref_list(temp_vertices(1:n_temp_vertices), &
+              n_temp_vertices, flag2_v_list(ilev+k)%idx(1:n2_ilev_v(ilev+k)))
+          END DO
+        ENDIF
 
         IF (SIZE(temp_vertices_owner(:)) < n_temp_vertices) THEN
           DEALLOCATE(temp_vertices_owner)
@@ -2560,7 +2571,9 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
                (/jv, j/), t_cells(j))
         END DO
-        CALL insertion_sort(t_cells(1:temp_num_edges))
+        IF (temp_num_edges .GT. 1) THEN
+          CALL insertion_sort(t_cells(1:temp_num_edges))
+        ENDIF
         DO j = 1, temp_num_edges
           CALL dist_mult_array_get(dist_cell_owner, 1, (/t_cells(j)/), &
             &                      t_cell_owner(j))

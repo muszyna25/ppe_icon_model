@@ -330,8 +330,10 @@ CONTAINS
 
     ALLOCATE(owner(n))
 
-    CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
-      & owner(:), basic_io_data)
+    IF (n .GT. 0) THEN
+      CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
+        & owner(:), basic_io_data)
+    END IF
     n_inner = SIZE(basic_io_data%glb2loc_index%inner_glb_index, 1)
     CALL setup_comm_pattern(n, owner(:), decomp_info%glb_index(:), &
       & basic_io_data%glb2loc_index, n_inner, &
