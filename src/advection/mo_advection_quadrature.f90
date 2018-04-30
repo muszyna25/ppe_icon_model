@@ -148,6 +148,9 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_x,z_y
+#endif
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), CREATE( z_x, z_y ), &
@@ -313,6 +316,9 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_x,z_y
+#endif
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
@@ -474,6 +480,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -678,6 +688,10 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
@@ -879,6 +893,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -1092,6 +1110,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -1373,6 +1395,10 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -1535,6 +1561,9 @@ CONTAINS
     REAL(wp) :: det_jac
 
     REAL(wp), DIMENSION(2,2) :: jacob
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: jacob
+#endif
 
   !-----------------------------------------------------------------------
 

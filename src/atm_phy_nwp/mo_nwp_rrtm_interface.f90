@@ -462,6 +462,9 @@ CONTAINS
 
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: aclcov
+#endif
 
     ! Local scalars:
     INTEGER:: jb
@@ -689,6 +692,25 @@ CONTAINS
         min_qv, min_qc, min_qi, min_cc
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: aclcov,dust_tunefac
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_fr_land,zrg_fr_glac,zrg_emis_rad,zrg_cosmu0
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_albvisdir,zrg_albnirdir,zrg_albvisdif
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_albnirdif,zrg_albdif,zrg_tsfc,zrg_rtype
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_ktype,zrg_pres_ifc,zlp_pres_ifc,zrg_pres
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_temp,zrg_o3,zrg_acdnc,zrg_tot_cld
+!DIR$ ATTRIBUTES ALIGN : 64 :: zlp_tot_cld,zrg_clc,zrg_aeq1,zrg_aeq2,zrg_aeq3
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_aeq4,zrg_aeq5,zrg_aclcov,zrg_lwflxall
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_trsolall,zrg_lwflx_up_sfc,zrg_trsol_up_toa
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_trsol_up_sfc,zrg_trsol_par_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_trsol_dn_sfc_diff,zrg_trsol_clr_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_albvisdir,min_albvisdir,max_albvisdif,min_albvisdif
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_albdif, min_albdif, max_tsfc, min_tsfc,max_psfc, min_psfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_lwflx,min_lwflx,max_swtrans,min_swtrans
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_pres_ifc, max_pres, max_temp, max_acdnc
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_qv,max_qc,max_qi,max_cc,min_pres_ifc,min_pres,min_temp,min_acdnc
+!DIR$ ATTRIBUTES ALIGN : 64 :: min_qv, min_qc, min_qi, min_cc
+#endif
 
     ! Local scalars:
     INTEGER:: jk,jb

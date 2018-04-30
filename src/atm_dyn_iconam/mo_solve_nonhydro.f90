@@ -151,8 +151,6 @@ MODULE mo_solve_nonhydro
                 z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), & ! used for iadv_rhotheta=1 only
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
 
-    REAL(vp) :: z_dwdz_dd       (nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
-
 #ifndef __LOOP_EXCHANGE
     TYPE(t_back_traj), SAVE :: btraj
 #endif
@@ -212,6 +210,21 @@ MODULE mo_solve_nonhydro
     REAL(wp) :: z_ntdistv_bary_1, distv_bary_1, z_ntdistv_bary_2, distv_bary_2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
+    REAL(vp) :: z_dwdz_dd(nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
+
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_theta_v_fl_e,z_theta_v_e,z_rho_e,z_mass_fl_div
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_theta_v_fl_div,z_theta_v_v,z_rho_v,z_dwdz_dd
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_th_ddz_exner_c,z_dexner_dz_c,z_vt_ie,z_kin_hor_e
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_exner_ex_pr,z_gradh_exner,z_rth_pr,z_grad_rth
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_w_concorr_me,z_graddiv_vn,z_w_expl,z_thermal_exp
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_vn_avg,z_mflx_top,z_contr_w_fl_l,z_rho_expl
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_exner_expl,z_alpha,z_beta,z_q,z_graddiv2_vn
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_theta_v_pr_ic,z_exner_ic,z_w_concorr_mc
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_flxdiv_mass,z_flxdiv_theta,z_hydro_corr
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_raylfac,scal_divdamp,bdy_divdamp,enh_divdamp_fac
+!DIR$ ATTRIBUTES ALIGN : 64 :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
+#endif
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos

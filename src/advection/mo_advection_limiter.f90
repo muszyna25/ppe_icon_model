@@ -208,6 +208,11 @@ CONTAINS
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_mflx_low,z_anti,z_mflx_anti_in,z_mflx_anti_out
+!DIR$ ATTRIBUTES ALIGN :64 :: z_fluxdiv_c,z_tracer_new_low,z_tracer_max,z_tracer_min
+!DIR$ ATTRIBUTES ALIGN :64 :: r_p,r_m,z_min,z_max
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),         &
@@ -677,6 +682,9 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: p_m,r_m
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ), &
@@ -970,6 +978,9 @@ CONTAINS
     INTEGER  :: jk, jb, jc     !< index of edge, vert level, block, cell
     INTEGER  :: jkp1, jkm1
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m,p_m
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
@@ -1150,6 +1161,9 @@ CONTAINS
     INTEGER  :: jk, jb, jc     !< index of edge, vert level, block, cell
     INTEGER  :: jkp1, jkm1
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &

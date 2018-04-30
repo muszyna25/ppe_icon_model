@@ -257,6 +257,9 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_real_vt
+#endif
     ! get patch ID
     jg = p_patch%id
 
@@ -947,6 +950,10 @@ CONTAINS
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
 !$ACC       PRESENT( p_patch, btraj%cell_idx, btraj%cell_blk), IF( i_am_accel_node .AND. acc_on)
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff
+#endif
+
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1330,6 +1337,10 @@ CONTAINS
     lsq_lin  = p_int%lsq_lin
 #else
     TYPE(t_lsq), POINTER :: lsq_lin          !< Pointer to p_int_state%lsq_lin
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff,z_tracer_mflx,z_rhofluxdiv_c
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_fluxdiv_c,z_tracer,z_rho
+#endif
     lsq_lin => p_int%lsq_lin
 #endif
 
@@ -2886,6 +2897,13 @@ CONTAINS
       &  patch1_cell_idx(:,:),   patch1_cell_blk(:,:),   & !< dim: (npoints,p_patch%nblks_e)
       &  patch2_cell_idx(:,:),   patch2_cell_blk(:,:)
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_lsq_coeff,dreg_patch0,dreg_patch1,dreg_patch2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_quad_vector_sum0,z_quad_vector_sum1,z_quad_vector_sum2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_dreg_area
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_idx,patch1_cell_idx,patch2_cell_idx
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_blk,patch1_cell_blk,patch2_cell_blk
+#endif
 
     TYPE(t_list2D), SAVE ::   &    !< list with points for which a local
       &  falist                    !< polynomial approximation is insufficient

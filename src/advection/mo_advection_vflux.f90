@@ -224,6 +224,9 @@ CONTAINS
     INTEGER :: iadv_min_slev           !< scheme specific minimum slev
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_mflx_contra_v
+#endif
     !-----------------------------------------------------------------------
 
     IF (timers_level > 2) CALL timer_start(timer_adv_vert)
@@ -460,6 +463,10 @@ CONTAINS
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
 !$ACC PRESENT( advection_config ),  IF( i_am_accel_node .AND. acc_on )
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: zparent_topflx
+#endif
+#ifdef _OPENACC
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! check optional arguments
@@ -681,6 +688,10 @@ CONTAINS
                                         !< based coordinate system (coeff_grid=-1)
 
     !-----------------------------------------------------------------------
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_face,z_face_up,z_face_low,z_cfl_m,z_cfl_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_slope,zparent_topflx
+#endif
 
 !$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_cfl_m, z_cfl_p, z_slope ), &
 !$ACC      PCOPYIN( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), &
@@ -1334,6 +1345,16 @@ CONTAINS
 
     REAL(wp) :: rdtime                  !< 1/dt
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_face,z_face_up,z_face_low,z_iflx_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_iflx_m,z_slope
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_cflfrac_m,max_cfl_blk,i_indlist_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_levlist_p,i_levlist_m,i_listdim_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_listdim_m,jk_int_p,jk_int_m
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_cfl,zparent_topflx,max_cfl_lay
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_aux_p,max_cfl_lay_tot,z_aux_m
+!DIR$ ATTRIBUTES ALIGN : 64 :: zfac_n
+#endif
     !-----------------------------------------------------------------------
 
     ! inverse of time step for computational efficiency
