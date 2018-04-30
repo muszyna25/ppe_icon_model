@@ -287,13 +287,6 @@ CONTAINS
 
     ! CALL check_global_indexes(patch_2d)
 
-    ! open file for MOC - extraordinary at this time
-    moc_fname='MOC.'//TRIM(datestring)
-    moc_unit = find_next_free_unit(10,99)
-    OPEN (moc_unit,FILE=moc_fname,FORM='unformatted')
-    WRITE(message_text,'(2a)') ' MOC-file opened successfully, filename=',TRIM(moc_fname)
-    CALL message (TRIM(routine), message_text)
-
     ! compute subsets for given sections path allong edges
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(1)%subset,      &
