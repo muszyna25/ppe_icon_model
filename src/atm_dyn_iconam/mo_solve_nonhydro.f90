@@ -223,7 +223,6 @@ MODULE mo_solve_nonhydro
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_theta_v_pr_ic,z_exner_ic,z_w_concorr_mc
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_flxdiv_mass,z_flxdiv_theta,z_hydro_corr
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_raylfac,scal_divdamp,bdy_divdamp,enh_divdamp_fac
-!DIR$ ATTRIBUTES ALIGN : 64 :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 #endif
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
