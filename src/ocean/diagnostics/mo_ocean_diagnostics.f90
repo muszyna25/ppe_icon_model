@@ -1009,11 +1009,13 @@ CONTAINS
       !}}}
 
       ! calc moc each timestep from non-accumulated vertical veloc
-      CALL calc_moc (patch_2d, patch_3d, &
-          & p_diag%w, &
-          & p_diag%global_moc, &
-          & p_diag%atlantic_moc, &
-          & p_diag%pacific_moc)
+      if ( isRegistered('global_moc') .or. isRegistered('atlant_moc') .or. isRegistered('pacind_moc') ) then
+        CALL calc_moc(patch_2d, patch_3d, &
+           & p_diag%w, &
+           & p_diag%global_moc, &
+           & p_diag%atlantic_moc, &
+           & p_diag%pacific_moc)
+      endif
 
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
       
