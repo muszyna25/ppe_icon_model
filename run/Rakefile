@@ -567,7 +567,7 @@ task :run, :name do |t,args|
 
   experimentList.each {|experiment|
     Rake::Task[experiment.to_sym].invoke
-    sh "rm #{experiment}.run"
+    sh" rm #{experiment}.run" if File.exist?("#{experiment}.run")
     Rake::Task["#{experiment}.run".to_sym].invoke
     sh "perl -pi -e 's/^mpi_procs_pernode=.*/mpi_procs_pernode=#{ENV['PROCS']}/' ./#{experiment}.run" if ENV.has_key?('PROCS')
     sh "#{submitCommand} ./#{experiment}.run"
