@@ -1470,7 +1470,7 @@ CONTAINS
   SUBROUTINE calc_moc_internal (patch_2d, patch_3D, w, global_moc, atlant_moc, pacind_moc)
 
     TYPE(t_patch), TARGET, INTENT(in)  :: patch_2d
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
+    TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3D
     REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
     ! dims: (nproma,nlev+1,alloc_cell_blocks)
     REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) !dims(n_zlev,180)
