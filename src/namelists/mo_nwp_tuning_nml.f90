@@ -38,7 +38,8 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
     &                               config_tune_entrorg   => tune_entrorg,   &  
-    &                               config_tune_capdcfac_et => tune_capdcfac_et, &  
+    &                               config_tune_capdcfac_et => tune_capdcfac_et, &
+    &                               config_tune_capdcfac_tr => tune_capdcfac_tr, &
     &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
     &                               config_tune_rhebc_ocean => tune_rhebc_ocean, &  
     &                               config_tune_rcucov      => tune_rcucov,      &  
@@ -95,6 +96,9 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
 
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  tune_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
   REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
     &  tune_rhebc_land
 
@@ -150,7 +154,7 @@ MODULE mo_nwp_tuning_nml
     &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
     &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
     &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
-    &                      lcalib_clcov, tune_box_liq_asy
+    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr
 
 CONTAINS
 
@@ -213,7 +217,8 @@ CONTAINS
     !
     ! convection
     tune_entrorg     = 1.95e-3_wp   ! entrainment parameter for deep convection
-    tune_capdcfac_et = 0.125_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    tune_capdcfac_et = 0.5_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    tune_capdcfac_tr = 0.5_wp       ! fraction of CAPE diurnal cycle correction applied in the tropics
     tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
     tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
     tune_rcucov      = 0.05_wp      ! Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)
@@ -317,6 +322,7 @@ CONTAINS
     config_tune_zvz0i            = tune_zvz0i
     config_tune_entrorg          = tune_entrorg
     config_tune_capdcfac_et      = tune_capdcfac_et
+    config_tune_capdcfac_tr      = tune_capdcfac_tr
     config_tune_rhebc_land       = tune_rhebc_land
     config_tune_rhebc_ocean      = tune_rhebc_ocean
     config_tune_rcucov           = tune_rcucov

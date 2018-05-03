@@ -178,7 +178,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, asyfac
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, asyfac, box_liq_asy, fac1, fac2
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -189,7 +189,8 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
-  & box_ice  = 0.05_wp !,  &  ! box width scale ice clouds
+  & box_ice  = 0.05_wp  , &  ! box width scale ice clouds
+  & tm10     = tmelt - 10.0_wp
 !  & zt_ice1 = tmelt -  5.0_wp, &
 !  & zt_ice2 = tmelt - 25.0_wp
 
@@ -217,9 +218,6 @@ zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
-! asymmetry factor for water clouds and derived parameters
-par1        = tune_box_liq_asy+1._wp
-par2        = par1**4
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -276,6 +274,7 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
+     !
      ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*asyfac*tune_box_liq)% and (100 + tune_box_liq)%;
      ! the additional asymmetry factor asyfac is 1.25 in subsaturated air at temperatures above freezing and smoothly
      ! decreases to 1 if clouds are present and/or cold temperatures.
@@ -286,7 +285,14 @@ CASE( 1 )
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        zaux = qv(jl,jk) + qc(jl,jk) + tune_box_liq_asy*deltaq - zqlsat(jl,jk)
+        ! asymmetry factor for water clouds and derived parameters
+        fac1 = 1._wp - MIN(1._wp,0.1_wp*MAX(0._wp,tt(jl,jk)-tm10))
+        fac2 = MIN(1._wp,qi(jl,jk)/(0.01_wp*zqisat_m50))
+        box_liq_asy = tune_box_liq_asy*(1._wp-fac1*fac2) + 2._wp*fac1*fac2
+        par1 = box_liq_asy+1._wp
+        par2 = par1**4
+        !
+        zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
           qc_turb  (jl,jk) = zaux**4 / (par2*asyfac*deltaq**3)

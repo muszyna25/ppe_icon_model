@@ -2201,6 +2201,9 @@ SUBROUTINE turbtran
 !                 Schubspannung abhaengiger Wellenhoehe:
                   IF (imode_charpar.EQ.1) THEN !constant Charnock-Parameter
                      fakt=alpha0
+                  ELSE IF (depth_lk(i) > z0) THEN
+                     ! enhanced Charnock parameter over lakes, parameterizing a non-equlibrium wave spectrum
+                     fakt = 0.1_ireals
                   ELSE
                      fakt=alpha0_char(vel_2d(i))
                      !Note: The argument of alpha0_char should be 'vel_10m', which might not yet be
@@ -3204,7 +3207,12 @@ SUBROUTINE turbtran
                   ELSE
                      velo=SQRT(u_10m(i)**2+v_10m(i)**2)
                   END IF
-                  fakt=alpha0_char(velo)
+                  IF (depth_lk(i) > z0) THEN
+                    ! enhanced Charnock parameter over lakes, parameterizing a non-equlibrium wave spectrum
+                    fakt = 0.1_ireals
+                  ELSE
+                    fakt=alpha0_char(velo)
+                  ENDIF
                END IF
                wert=MAX( grav*len_min, fakt*wert+grav*alpha1*con_m/SQRT(wert) )
                IF (ditsmot.GT.z0) THEN
@@ -4851,7 +4859,7 @@ SUBROUTINE turbdiff
                   fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 12500._ireals ) ) ! transition zone between 12.5 and 17.5 km
                   ! Wider transition zone in the tropics in order to avoid too strong diffusion in the tropopause region
                   x4  = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
-                  x4i = z1-z1d2*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
+                  x4i = z1-z2d3*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
                   fakt = fakt*MIN( x4*1.5_ireals, MAX( 0.25_ireals, SQRT(xri(i,k)) ) )
                   val1=MAX( val1, tkmmin_strat*MIN(x4,x4i)*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
                END IF

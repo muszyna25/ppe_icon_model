@@ -36,6 +36,9 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zvz0i
   PUBLIC :: tune_entrorg
   PUBLIC :: tune_capdcfac_et
+  PUBLIC :: tune_capdcfac_tr
+  PUBLIC :: tune_lowcapefac
+  PUBLIC :: limit_negpblcape
   PUBLIC :: tune_rhebc_land
   PUBLIC :: tune_rhebc_ocean
   PUBLIC :: tune_rcucov
@@ -89,6 +92,15 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  tune_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    &  tune_lowcapefac = 1._wp     ! (relevant only if icapdcycl = 3; not a namelist variable)
+
+  REAL(wp) :: &                    !< Minimum allowed negative PBL cape in diurnal cycle correction
+    &  limit_negpblcape = 0._wp    ! (relevant only if icapdcycl = 3; not a namelist variable)
 
   REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
     &  tune_rhebc_land

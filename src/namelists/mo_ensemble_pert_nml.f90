@@ -37,6 +37,9 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_zvz0i     => range_zvz0i,     &  
     &                               config_range_entrorg   => range_entrorg,   &  
     &                               config_range_capdcfac_et => range_capdcfac_et, &  
+    &                               config_range_capdcfac_tr => range_capdcfac_tr, &  
+    &                               config_range_lowcapefac  => range_lowcapefac,  &  
+    &                               config_range_negpblcape  => range_negpblcape,  &  
     &                               config_range_minsnowfrac => range_minsnowfrac, &
     &                               config_range_c_soil    => range_c_soil,    &
     &                               config_range_cwimax_ml => range_cwimax_ml, &
@@ -85,6 +88,15 @@ MODULE mo_ensemble_pert_nml
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  range_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  range_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    &  range_lowcapefac            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Minimum allowed negative PBL cape in diurnal cycle correction
+    &  range_negpblcape            ! (relevant only if icapdcycl = 3)
 
   REAL(wp) :: &                    !< RH thresholds for evaporation below cloud base
     &  range_rhebc
@@ -138,7 +150,8 @@ MODULE mo_ensemble_pert_nml
     &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
     &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
     &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
-    &                         range_gfrcrit, range_c_soil, range_cwimax_ml
+    &                         range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,             &
+    &                         range_lowcapefac, range_negpblcape
 
 CONTAINS
 
@@ -191,6 +204,9 @@ CONTAINS
     ! convection
     range_entrorg    = 0.2e-3_wp    ! entrainment parameter for deep convection
     range_capdcfac_et = 0.75_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    range_capdcfac_tr = 0.75_wp     ! fraction of CAPE diurnal cycle correction applied in the tropics
+    range_lowcapefac = 0.5_wp       ! Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    range_negpblcape = 500._wp      ! Minimum allowed negative PBL cape in diurnal cycle correction
     range_rhebc      = 0.05_wp      ! RH thresholds for evaporation below cloud base
     range_texc       = 0.05_wp      ! Excess value for temperature used in test parcel ascent
     !
@@ -271,6 +287,9 @@ CONTAINS
     config_range_zvz0i        = range_zvz0i
     config_range_entrorg      = range_entrorg
     config_range_capdcfac_et  = range_capdcfac_et
+    config_range_capdcfac_tr  = range_capdcfac_tr
+    config_range_lowcapefac   = range_lowcapefac
+    config_range_negpblcape   = range_negpblcape
     config_range_rhebc        = range_rhebc
     config_range_texc         = range_texc
     config_range_minsnowfrac  = range_minsnowfrac

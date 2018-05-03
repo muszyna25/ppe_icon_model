@@ -342,7 +342,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmfsolct
   REAL(KIND=jprb) :: rmfcmax
   REAL(KIND=jprb) :: rmfcmin
-  REAL(KIND=jprb) :: rmfdeps
+  REAL(KIND=jprb) :: rmfdeps, rmfdeps_ocean
   REAL(KIND=jprb) :: rprcon
   ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
@@ -485,10 +485,10 @@ MODULE mo_cuparameters
           & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
-          & entrdd   ,& ! njkt1                    ,&
+          & entrdd   ,& ! njkt1     ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
           & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
-          & rmfdeps, icapdcycl, lmfglac, lmfwetb
+          & rmfdeps, rmfdeps_ocean, icapdcycl, lmfglac, lmfwetb
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,rlpdrag
   !yoephy
@@ -1143,19 +1143,22 @@ ENTSHALP=2.0_JPRB
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
 IF (lshallow_only) THEN
-  ENTSTPC1=1.0_JPRB
-  ENTSTPC2=2.E-4_JPRB
+  entstpc1 = 1.0_JPRB
+  entstpc2 = 2.E-4_JPRB
 ELSE
-  ENTSTPC1=0.55_JPRB
-  ENTSTPC2=1.E-4_JPRB
+  entstpc1 = 0.55_JPRB
+  entstpc2 = 1.E-4_JPRB
 ENDIF
 !ENTSTPC1=0.8_JPRB        !40r3 default
 !ENTSTPC2=2.E-4_JPRB      !40r3 default
 
 !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
 !     ------
-
-entrdd =2.0E-4_JPRB
+IF (lshallow_only) THEN
+  entrdd       = 2.0E-4_JPRB
+ELSE
+  entrdd       = 3.0E-4_JPRB
+ENDIF
 !entrdd =3.0E-4_JPRB      !40r3 default
 
 !     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
@@ -1171,7 +1174,13 @@ rmfcmin=1.e-10_JPRB
 !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
 !     -------
 
-RMFDEPS=0.30_JPRB
+IF (lshallow_only) THEN
+  rmfdeps       = 0.30_JPRB
+  rmfdeps_ocean = rmfdeps
+ELSE
+  rmfdeps       = 0.25_JPRB
+  rmfdeps_ocean = 0.15_JPRB
+ENDIF
 
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
@@ -1184,7 +1193,7 @@ ENDIF
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
 
-rprcon =1.4E-3_JPRB
+rprcon = 1.4E-3_JPRB
 
 !                COEFFICIENTS FOR RAIN EVAPORATION BELOW CLOUD
 !                AND MELTING

@@ -38,7 +38,7 @@ MODULE mo_nwp_conv_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_run_config,           ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy
-  USE mo_physical_constants,   ONLY: grav, alf, cvd
+  USE mo_physical_constants,   ONLY: grav, alf, cvd, cpd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -102,7 +102,7 @@ CONTAINS
     INTEGER  :: jk,jc,jb,jg                !< block indeces
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
-    REAL(wp) :: ticeini, lfocvd, wfac
+    REAL(wp) :: ticeini, lfocvd, wfac, cpdocvd
     INTEGER  :: iqrd, iqsd
 
     ! local variables related to the blocking
@@ -121,6 +121,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     lfocvd  = alf/cvd
+    cpdocvd = cpd/cvd
     ticeini = 258.15_wp
 
     ! IDs for optional arguments for detrainment of rain and snow
@@ -229,7 +230,7 @@ CONTAINS
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
-&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
+&            phy_params = phy_params(jg),trop_mask=prm_diag%tropics_mask(:,jb),& !! IN
 &            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
@@ -278,7 +279,7 @@ CONTAINS
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
-&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
+&            phy_params = phy_params(jg),trop_mask=prm_diag%tropics_mask(:,jb),& !! IN
 &            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
@@ -322,10 +323,10 @@ CONTAINS
 
         ! Postprocessing on some fields
 
-
+        ! Conversion from temperature tendencies at constant pressure to constant volume is now done here
         prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =  &
-          &    z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
-          &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):)
+          &  ( z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
+          &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):) ) * cpdocvd
 
         prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
           &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &

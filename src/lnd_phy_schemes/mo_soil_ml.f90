@@ -1098,8 +1098,10 @@ END SUBROUTINE message
 !   Snow density
     ztau_snow      , & ! 'ageing constant' for snow density          (-)
     zrhosmax       , & ! temperature-dependent target density for snow ageing
+    zgrfrac        , & ! fraction of graupel / convective snow
     zrho_snowe     , & ! updated density of existing snow ('ageing') kg/m**3
     zrho_snowf     , & ! density of fresh snow                       kg/m**3
+    zrho_grauf     , & ! density of fresh graupel / convective snow  kg/m**3
     znorm          , & ! normalisation factor for weighted snow density mH2O
 !
 !
@@ -4923,17 +4925,27 @@ ENDIF
          zzz       = (t_snow_new(i)-csnow_tmin)/(t0_melt-csnow_tmin)
          ztau_snow = crhosmint+(crhosmaxt-crhosmint)*zzz
          ztau_snow = MAX(0.05_ireals,MIN(crhosmaxt,ztau_snow)) ! use 20 days in combination with temperature-dependent equilibrium density
-         zrhosmax  = crhosmax_tmin+MAX(0._ireals,zzz)*(crhosmax_ml-crhosmax_tmin)
+         zrhosmax  = crhosmax_tmin+MAX(-0.25_ireals,zzz)*(crhosmax_ml-crhosmax_tmin)
          zrho_snowe= MAX(rho_snow_now(i),zrhosmax+(rho_snow_now(i)-zrhosmax)* &
                      EXP(-ztau_snow*zdt/86400._ireals) )
 !
 !     b) density of fresh snow
 !
-         zrho_snowf= crhosminf+(crhosmaxf-crhosminf)* (zth_low(i)-csnow_tmin) &
-                                                     /(t0_melt   -csnow_tmin)
+         zrho_snowf= crhosminf+(crhosmaxf-crhosminf)* ((zth_low(i)-csnow_tmin)/(t0_melt-csnow_tmin))**2
          zrho_snowf= MAX(crhosminf,MIN(crhosmaxf,zrho_snowf))
+
+         zrho_grauf= crhogminf+(crhogmaxf-crhogminf)* ((zth_low(i)-csnow_tmin)/(t0_melt-csnow_tmin))**2
+         zrho_grauf= MAX(crhogminf,MIN(crhogmaxf,zrho_grauf))
+
+         ! graupel fraction
+         IF ( nclass_gscp >= 6 ) THEN
+           zgrfrac = (prg_gsp(i)+prs_con(i)) / MAX(zepsi,prs_gsp(i)+prs_con(i)+prg_gsp(i))
+         ELSE
+           zgrfrac = prs_con(i) / MAX(zepsi,prs_gsp(i)+prs_con(i))
+         ENDIF
+
 !
-!     c) new snow density is computed by adding depths of exisiting and new snow
+!     c) new snow density is computed by adding depths of existing and new snow
 !
          IF ( nclass_gscp >= 6 ) THEN
            zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
@@ -4975,7 +4987,7 @@ ENDIF
            w_snow_new(i) = MIN(w_snow_new(i),w_snow_now(i)+zzz)
          ENDIF
          rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
-          ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
+          ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/( (1._ireals-zgrfrac)*zrho_snowf + zgrfrac*zrho_grauf) )
 
     ! previous code based on weighted averaging of rho_snow
     !       znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
