@@ -130,7 +130,7 @@ MODULE mo_meteogram_output
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag
-  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
@@ -401,7 +401,7 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
   SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, p_nh_state, &
-    &                                  prm_diag, p_lnd_state, jg)
+    &                                  prm_diag, p_lnd_state, prm_nwp_tend, jg)
     ! station data from namelist
     TYPE(t_meteogram_output_config),     INTENT(IN) :: meteogram_config
     ! atmosphere external data
@@ -412,6 +412,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL      :: prm_diag
     ! model state for the NWP land physics
     TYPE(t_lnd_state), TARGET,           INTENT(IN) :: p_lnd_state
+    ! model state of physics tendencies
+    TYPE(t_nwp_phy_tend),                INTENT(IN) :: prm_nwp_tend 
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
 
@@ -443,6 +445,15 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "U", "m/s", "zonal wind", jg, diag%u(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "W", "m/s", "orthogonal vertical wind", jg, prog%w(:,:,:))
+
+    ! add some output for turbulence diagnostic
+    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKE", "m^2/s^2", "turbulent kinetic energy", &
+      & jg, prog%tke(:,:,:) )
+
+    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_hsh", "m^2/s^3", &
+     &     "TKE tendency horizonzal shear production", jg, prm_nwp_tend%ddt_tke_hsh )
+    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_pconv", "m^2/s^3",&
+     &     "TKE tendency due to subgrid-scale convection", jg, prm_nwp_tend%ddt_tke_pconv )
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
@@ -574,6 +585,12 @@ CONTAINS
       &              jg, prm_diag%v_10m(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VBMAX10M", "m/s", "gust in 10m", &
       &              jg, prm_diag%gust10(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "dyn_gust", "m/s", "dynamical gust", &
+      &              jg, prm_diag%dyn_gust(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "con_gust", "m/s", "convective gust", &
+      &              jg, prm_diag%con_gust(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "cape_ml", "J/kg", "cape of mean surface layer parcel", &
+      &              jg, prm_diag%cape_ml(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
@@ -603,6 +620,12 @@ CONTAINS
       &              jg, prm_diag%clcm(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
       &              jg, prm_diag%clch(:,:))
+
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "hbas_con", "m", "height of convective cloud base",&
+      &              jg, prm_diag%hbas_con(:,:))
+
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "htop_con", "m", "height of convective cloud top",&
+      &              jg, prm_diag%htop_con(:,:))
 
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "UMFL_S", "N m-2", "u-momentum flux at the surface", &
       &              jg, prm_diag%umfl_s(:,:))
@@ -639,6 +662,8 @@ CONTAINS
         &              jg, prm_diag%lwflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "FRAC_T", "-", "tile fractions (time dependent)", &
         &              jg, ext_data%atm%frac_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "snowfrac_t", "%", &
+        &   "local tile-based snow-cover fraction",  jg, p_lnd_diag%snowfrac_t(:,:,:))
     ENDIF
 
     ! -- vertical integrals
@@ -765,7 +790,7 @@ CONTAINS
   !!
   SUBROUTINE meteogram_init(meteogram_output_config, jg,     &
     &                       ptr_patch, ext_data, p_nh_state, &
-    &                       prm_diag, p_lnd_state, iforcing, &
+    &                       prm_diag, p_lnd_state, prm_nwp_tend, iforcing, &
     &                       grid_uuid, number_of_grid_used)
     ! station data from namelist
     TYPE(t_meteogram_output_config), INTENT(INOUT) :: meteogram_output_config
@@ -781,6 +806,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL  :: prm_diag
     ! model state for the NWP land physics
     TYPE(t_lnd_state), TARGET, INTENT(IN), OPTIONAL  :: p_lnd_state
+    ! model state for physics tendencies
+    TYPE(t_nwp_phy_tend),      INTENT(IN), OPTIONAL :: prm_nwp_tend 
     ! parameterized forcing (right hand side) of dynamics, affects
     ! topography specification, see "mo_extpar_config"
     INTEGER,                   INTENT(IN), OPTIONAL :: iforcing
@@ -816,6 +843,7 @@ CONTAINS
     l_my_process_is_mpi_workroot = my_process_is_mpi_workroot()
     !-- define the different roles in the MPI communication inside
     !-- this module
+
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
@@ -864,7 +892,8 @@ CONTAINS
     IF (.NOT. mtgrm(jg)%l_pure_io_pe .AND. &
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
       &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
-      &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing)) )) THEN
+      &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing))   .OR.  &    
+      &  (.NOT. PRESENT(prm_nwp_tend))   )   )                THEN
       CALL finish (routine, 'Missing argument(s)!')
     END IF
 
@@ -1017,7 +1046,8 @@ CONTAINS
 
     ! set up list of variables:
     IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
-      CALL meteogram_setup_variables(meteogram_output_config, ext_data, p_nh_state, prm_diag, p_lnd_state, jg)
+      CALL meteogram_setup_variables(meteogram_output_config, ext_data, p_nh_state, prm_diag,&
+           &  p_lnd_state, prm_nwp_tend, jg)
 
       IF (mtgrm(jg)%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)

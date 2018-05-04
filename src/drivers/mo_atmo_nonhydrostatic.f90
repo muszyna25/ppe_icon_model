@@ -59,8 +59,8 @@ USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
-USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
-  &                                destruct_nwp_phy_state
+USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
+  &                                construct_nwp_phy_state, destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 ! Time integration
@@ -507,7 +507,7 @@ CONTAINS
           ELSE
             CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
               &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
-              &                p_lnd_state(jg), iforcing,                     &
+              &                p_lnd_state(jg), prm_nwp_tend(jg), iforcing,                     &
               &                grid_uuid=p_patch(jg)%grid_uuid,               &
               &                number_of_grid_used=number_of_grid_used(jg) )
           END IF
