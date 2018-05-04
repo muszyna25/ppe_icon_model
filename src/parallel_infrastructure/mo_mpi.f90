@@ -710,6 +710,7 @@ MODULE mo_mpi
 
   INTERFACE p_field_sum
      MODULE PROCEDURE p_field_sum_1d
+     MODULE PROCEDURE p_field_sum_2d
   END INTERFACE
 
   !> generic interface for MPI communication calls
@@ -8565,6 +8566,34 @@ CONTAINS
 #endif
 
   END FUNCTION p_field_sum_1d
+
+  FUNCTION p_field_sum_2d (zfield, comm) RESULT (p_sum)
+
+    REAL(dp),          INTENT(in) :: zfield(:,:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(dp)                      :: p_sum (SIZE(zfield,1),SIZE(zfield,2))
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
+            p_sum_op(), process_mpi_root_id, p_comm, p_error)
+       IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
+    ELSE
+       p_sum = zfield
+    END IF
+#else
+    p_sum = zfield
+#endif
+
+  END FUNCTION p_field_sum_2d
 
   !> common code of min/max reductions
   SUBROUTINE p_minmax_common(in_field, out_field, n, op, loc_op, &
