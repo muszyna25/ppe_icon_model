@@ -412,13 +412,13 @@ CONTAINS
 
 #ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) then
-        call var_print(meanVariables)
+      call var_print(meanVariables)
       call print_routine(routine, 'meanMap%to_string()')
       call print_routine(routine, meanMap%to_string())
       call print_routine(routine, 'meanVariables%to_string()')
 
       call print_routine(routine, meanPrognosticPointers%to_string())
-        call var_print(meanPrognosticPointers%values())
+      call var_print(meanPrognosticPointers%values())
       call print_routine(routine, 'meanPrognosticPointers%to_string()')
       call print_routine(routine, meanPrognosticPointers%to_string())
     endif
