@@ -181,7 +181,6 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: frc_nir,zflxn_vis,zflxn,zflxd_vis,zflxd_nir,zflxd_par
 !DIR$ ATTRIBUTES ALIGN : 64 :: zflxd_diff,zflxd_vis_diff,zflxd_nir_diff,zflxd_par_diff
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrat_swdn,idx,zrmu0
-!DIR$ ASSUME (MOD(kbdim,8)==0)
 #endif
 
     !-----------------------------------------------------------------------
@@ -691,7 +690,6 @@ CONTAINS
 !DIR$ ASSUME_ALIGNED kindfor:64,pselffac:64,pselffrac:64,kindself:64
 !DIR$ ASSUME_ALIGNED pfac00:64,pfac01:64,pfac10:64,pfac11:64
 !DIR$ ASSUME_ALIGNED kjp:64,kjt:64,kjt1:64
-!DIR$ ASSUME (MOD(kbdim,8)==0)
 #endif
 
     z_stpfac = 296._wp/1013._wp
@@ -1023,7 +1021,6 @@ CONTAINS
 !DIR$ ASSUME_ALIGNED kindself:64,pfac00:64,pfac01:64,pfac10:64,pfac11:64
 !DIR$ ASSUME_ALIGNED kjp:64,kjt:64,kjt1:64,pbbfd:64,pbbfu:64,pbbcd:64,pbbcu:64
 !DIR$ ASSUME_ALIGNED psudu:64,psuduc:64
-!DIR$ ASSUME (MOD(kbdim,8)==0)
 #endif
     !     ------------------------------------------------------------------
 
@@ -1445,7 +1442,6 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: ztdn
 !DIR ASSUME_ALIGNED pref:64,prefd:64,ptra:64,ptrad:64,pdbt:64
 !DIR ASSUME_ALIGNED prdnd:64,prup:64,prupd:64,ptdbt:64,pfd:64,pfu:64
-!DIR$ ASSUME (MOD(kbdim,8)==0)
 #endif
 
     !------------------------------------------------------------------
@@ -1631,7 +1627,6 @@ CONTAINS
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: idxt,idxf,idxc,idxn,zgamma1,zgamma2,zgamma3,zcrit
 !DIR$ ATTRIBUTES ALIGN : 64 :: zrk,zem1,zem2,zep1,zep2
-!DIR$ ASSUME (MOD(kbdim,8)==0)
 #endif
 
 
