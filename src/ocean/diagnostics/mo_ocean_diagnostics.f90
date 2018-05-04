@@ -1482,130 +1482,96 @@ CONTAINS
     !
     ! local variables
     ! INTEGER :: i
-    INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
-    INTEGER :: blockNo, jc, jk, start_index, end_index !, il_e, ib_e
-    INTEGER :: lbrei, lbr, idate, itime
+    INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
+    INTEGER :: block, level, start_index, end_index, idx
+    INTEGER :: ilat, l, idate, itime
     INTEGER :: mpi_comm
-    INTEGER(i8) :: i1,i2,i3,i4
 
-    REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
+    REAL(wp) :: lat, ilat_inv, deltaMoc
     REAL(dp) :: local_moc(180), res_moc(180)
 
-    TYPE(t_subset_range), POINTER :: dom_cells
+    TYPE(t_subset_range), POINTER :: cells
 
     CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
 
     !-----------------------------------------------------------------------
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
+    mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
     global_moc(:,:) = 0.0_wp
     pacind_moc(:,:) = 0.0_wp
     atlant_moc(:,:) = 0.0_wp
 
-    ! set barrier:
-    ! CALL MPI_BARRIER(0)
-
     ! with all cells no sync is necessary
     !owned_cells => patch_2d%cells%owned
-    dom_cells   => patch_2d%cells%in_domain
+    cells   => patch_2d%cells%in_domain
 
-    !write(81,*) 'MOC: datetime:',datetime
+!    DO jk = 1, n_zlev   !  not yet on intermediate levels
+      DO block = cells%start_block, cells%end_block
+        CALL get_index_range(cells, block, start_index, end_index)
+        DO idx = start_index, end_index
+          lat = patch_2d%cells%center(idx,block)%lat*rad2deg
+          DO level = 1, cells%vertical_levels(idx,block)
 
-    DO jk = 1, n_zlev   !  not yet on intermediate levels
-      DO blockNo = dom_cells%start_block, dom_cells%end_block
-        CALL get_index_range(dom_cells, blockNo, start_index, end_index)
-        DO jc = start_index, end_index
+            deltaMoc = patch_2d%cells%area(idx,block) * OceanReferenceDensity * w(idx,level,block)
 
-          !  could be replaced by vertical loop to bottom
-          IF ( patch_3D%lsm_c(jc,jk,blockNo) <= sea_boundary ) THEN
-
-            ! lbrei: corresponding latitude row of 1 deg extension
+            ! lat: corresponding latitude row of 1 deg extension
             !       1 south pole
             !     180 north pole
-            z_lat = patch_2d%cells%center(jc,blockNo)%lat
-            z_lat_deg = z_lat*rad2deg
-            lbrei = NINT(90.0_wp + z_lat_deg)
-            lbrei = MAX(lbrei,1)
-            lbrei = MIN(lbrei,180)
-
-            ! get neighbor edge for scaling
-            !   il_e = patch_2d%cells%edge_idx(jc,blockNo,1)
-            !   ib_e = patch_2d%cells%edge_blk(jc,blockNo,1)
-
-            ! z_lat_dim: scale to 1 deg resolution
-            ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-            !   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
-            !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
-            z_lat_dim = 1.0_wp
+            ilat = NINT(90.0_wp + lat)
+            ilat = MAX(ilat,1)
+            ilat = MIN(ilat,180)
 
             ! distribute MOC over (2*jbrei)+1 latitude rows
             !  - no weighting with latitudes done
-            !  - lbrei: index of 180 X 1 deg meridional resolution
-            DO lbr = -jbrei, jbrei
-              lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
-              lbrei = MAX(lbrei,1)
-              lbrei = MIN(lbrei,180)
+            !  - lat: index of 180 X 1 deg meridional resolution
+            DO l = -latSmooth, latSmooth
+              ilat = NINT(90.0_wp + lat + REAL(l, wp))
+              ilat = MAX(ilat,1)
+              ilat = MIN(ilat,180)
+              ilat_inv = 1.0_wp / REAL(2*latSmooth + 1, wp)
 
-              global_moc(jk,lbrei) = global_moc(jk,lbrei) - &
-              !  multiply with wet (or loop to bottom)
-                & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
-                & patch_3D%wet_c(jc,jk,blockNo) / &
-                & REAL(2*jbrei + 1, wp)
-
-              IF (patch_3D%basin_c(jc,blockNo) == 1) THEN         !  1: Atlantic; 0: Land
-
-                atlant_moc(jk,lbrei) = atlant_moc(jk,lbrei) - &
-                  & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
-                  & patch_3D%wet_c(jc,jk,blockNo) / &
-                  & REAL(2*jbrei + 1, wp)
-              ELSE IF (patch_3D%basin_c(jc,blockNo) >= 2) THEN   !  2: Indian; 4: Pacific
-                pacind_moc(jk,lbrei) = pacind_moc(jk,lbrei) - &
-                  & patch_2d%cells%area(jc,blockNo) * OceanReferenceDensity * w(jc,jk,blockNo) * &
-                  & patch_3D%wet_c(jc,jk,blockNo) / &
-                  & REAL(2*jbrei + 1, wp)
-              END IF
-
+              global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*ilat_inv
+              atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
+              pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) >= 2)
             END DO
-
-          END IF
+          END DO
         END DO
       END DO
+!   END DO
 
       ! test parallelization:
       ! function field_sum_all using mpi_allreduce and working precisions wp does not exist
       ! res_moc(:) = p_field_sum_all_wp(global_moc(:,jk))
       ! res_moc(:) = p_field_sum_all_wp(atlant_moc(:,jk))
-      ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,jk))
+      ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,level))
 
-      ! function field_sum using mpi_reduce, then broadcast
-      local_moc(:)     = REAL(global_moc(jk,:),dp)
-      res_moc(:)       = p_field_sum(local_moc, mpi_comm)
-      CALL p_bcast(res_moc(:), p_io, mpi_comm)
-      global_moc(jk,:) = REAL(res_moc(:),wp)
+      global_moc = p_field_sum(global_moc,mpi_comm)
+      atlant_moc = p_field_sum(atlant_moc,mpi_comm)
+      pacind_moc = p_field_sum(pacind_moc,mpi_comm)
 
-      local_moc(:)     = REAL(atlant_moc(jk,:),dp)
-      res_moc(:)       = p_field_sum(local_moc, mpi_comm)
-      CALL p_bcast(res_moc(:), p_io, mpi_comm)
-      atlant_moc(jk,:) = REAL(res_moc(:),wp)
+,     ! function field_sum using mpi_reduce, then broadcast
+!     local_moc(:)     = REAL(global_moc(level,:),dp)
+!     res_moc(:)       = p_field_sum(local_moc,mpi_comm)
+!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
+!     global_moc(level,:) = REAL(res_moc(:),wp)
+!
+!     local_moc(:)     = REAL(atlant_moc(level,:),dp)
+!     res_moc(:)       = p_field_sum(local_moc, mpi_comm)
+!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
+!     atlant_moc(level,:) = REAL(res_moc(:),wp)
+!
+!     local_moc(:)     = REAL(pacind_moc(level,:),dp)
+!     res_moc(:)       = p_field_sum(local_moc, mpi_comm)
+!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
+!     pacind_moc(level,:) = REAL(res_moc(:),wp)
 
-      local_moc(:)     = REAL(pacind_moc(jk,:),dp)
-      res_moc(:)       = p_field_sum(local_moc, mpi_comm)
-      CALL p_bcast(res_moc(:), p_io, mpi_comm)
-      pacind_moc(jk,:) = REAL(res_moc(:),wp)
-
-    END DO  ! n_zlev-loop
 
     IF (my_process_is_mpi_workroot()) THEN
-      DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
+      DO l=179,1,-1   ! fixed to 1 deg meridional resolution
 
-        global_moc(:,lbr)=global_moc(:,lbr+1)+global_moc(:,lbr)
-        atlant_moc(:,lbr)=atlant_moc(:,lbr+1)+atlant_moc(:,lbr)
-        pacind_moc(:,lbr)=pacind_moc(:,lbr+1)+pacind_moc(:,lbr)
+        global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
+        atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
+        pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
 
       END DO
     END IF
@@ -1734,17 +1700,9 @@ CONTAINS
 
             z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + u_vint(jc,blockNo) / rsmth
 
-            ! 99 format('J lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
-            !      &    ' jlt=',i4,  ' jln=',i4,' uint=',1p10e12.3)
-            ! 98 format(' lat=',f8.2,' lon=',f8.2,' jlat=',i4,' jlon=',i4,' lsm=',i3, &
-            !      &    ' uint=',1p10e12.3)
-            !    if ((jlat==101 .and. jlon==270) &
-            !      & write(82,99) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_c(jc,1,blockNo), &
-            !      &              jlt,jln,z_uint_reg(jln,jlt)
 
           END DO
         END DO
-        !    write(82,98) z_lat_deg,z_lon_deg,jlat,jlon,v_base%lsm_c(jc,1,blockNo),z_uint_reg(jlon,jlat)
 
       END DO
     END DO
