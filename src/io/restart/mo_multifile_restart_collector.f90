@@ -686,7 +686,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_d(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
@@ -729,7 +729,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_s(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
@@ -772,7 +772,7 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
 
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, me%idx%sendPointCount
         me%glb_sendbuf%sendBuffer_int(ioffset+i) = inputData(me%idx%sendIdx(i), me%idx%sendBlk(i))
       END DO
