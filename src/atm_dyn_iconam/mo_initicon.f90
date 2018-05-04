@@ -2011,7 +2011,7 @@ MODULE mo_initicon
       ! Fill t_seasfc on nest boundary points (needed because the turbtran initialization done in nwp_phy_init
       ! includes nest boundary points)
 
-      IF (jg > 1) THEN
+      IF (jg > 1 .OR. l_limited_area) THEN
 
         rl_start = 1
         rl_end   = grf_bdywidth_c
