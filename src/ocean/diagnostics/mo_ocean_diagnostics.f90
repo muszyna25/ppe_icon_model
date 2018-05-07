@@ -25,7 +25,8 @@ MODULE mo_ocean_diagnostics
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices, check_global_indexes
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
-    & p_comm_work_test, p_comm_work, p_io, p_bcast, my_process_is_mpi_workroot
+    & p_comm_work_test, p_comm_work, p_io, p_bcast, my_process_is_mpi_workroot, p_sum, &
+    & my_process_is_mpi_parallel
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks, &
     &                              sync_c, sync_e, sync_patch_array
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
@@ -92,7 +93,6 @@ MODULE mo_ocean_diagnostics
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_CELL
   USE mo_zaxis_type,         ONLY: ZA_DEPTH_BELOW_SEA
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
   USE mo_name_list_output_init, ONLY: isRegistered
 
@@ -1501,81 +1501,52 @@ CONTAINS
     pacind_moc(:,:) = 0.0_wp
     atlant_moc(:,:) = 0.0_wp
 
-    ! with all cells no sync is necessary
-    !owned_cells => patch_2d%cells%owned
+    ! limit cells to in-domain because of summation
     cells   => patch_2d%cells%in_domain
 
-!    DO jk = 1, n_zlev   !  not yet on intermediate levels
-      DO block = cells%start_block, cells%end_block
-        CALL get_index_range(cells, block, start_index, end_index)
-        DO idx = start_index, end_index
-          lat = patch_2d%cells%center(idx,block)%lat*rad2deg
-          DO level = 1, cells%vertical_levels(idx,block)
+    DO block = cells%start_block, cells%end_block
+      CALL get_index_range(cells, block, start_index, end_index)
+      DO idx = start_index, end_index
+        lat = patch_2d%cells%center(idx,block)%lat*rad2deg
+        DO level = 1, cells%vertical_levels(idx,block)
 
-            deltaMoc = patch_2d%cells%area(idx,block) * OceanReferenceDensity * w(idx,level,block)
+          deltaMoc = patch_2d%cells%area(idx,block) * OceanReferenceDensity * w(idx,level,block)
 
-            ! lat: corresponding latitude row of 1 deg extension
-            !       1 south pole
-            !     180 north pole
-            ilat = NINT(90.0_wp + lat)
+          ! lat: corresponding latitude row of 1 deg extension
+          !       1 south pole
+          !     180 north pole
+          ilat = NINT(90.0_wp + lat)
+          ilat = MAX(ilat,1)
+          ilat = MIN(ilat,180)
+
+          ! distribute MOC over (2*jbrei)+1 latitude rows
+          !  - no weighting with latitudes done
+          !  - lat: index of 180 X 1 deg meridional resolution
+          DO l = -latSmooth, latSmooth
+            ilat = NINT(90.0_wp + lat + REAL(l, wp))
             ilat = MAX(ilat,1)
             ilat = MIN(ilat,180)
+            ilat_inv = 1.0_wp / REAL(2*latSmooth + 1, wp)
 
-            ! distribute MOC over (2*jbrei)+1 latitude rows
-            !  - no weighting with latitudes done
-            !  - lat: index of 180 X 1 deg meridional resolution
-            DO l = -latSmooth, latSmooth
-              ilat = NINT(90.0_wp + lat + REAL(l, wp))
-              ilat = MAX(ilat,1)
-              ilat = MIN(ilat,180)
-              ilat_inv = 1.0_wp / REAL(2*latSmooth + 1, wp)
-
-              global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*ilat_inv
-              atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
-              pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) >= 2)
-            END DO
+            global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*ilat_inv
+            atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
+            pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) >= 2)
           END DO
         END DO
       END DO
-!   END DO
+    END DO
 
-      ! test parallelization:
-      ! function field_sum_all using mpi_allreduce and working precisions wp does not exist
-      ! res_moc(:) = p_field_sum_all_wp(global_moc(:,jk))
-      ! res_moc(:) = p_field_sum_all_wp(atlant_moc(:,jk))
-      ! res_moc(:) = p_field_sum_all_wp(pacind_moc(:,level))
+    ! compute point-wise sum over all mpi ranks and store results there
+    global_moc = p_sum(global_moc,mpi_comm)
+    atlant_moc = p_sum(atlant_moc,mpi_comm)
+    pacind_moc = p_sum(pacind_moc,mpi_comm)
 
-      global_moc = p_field_sum(global_moc,mpi_comm)
-      atlant_moc = p_field_sum(atlant_moc,mpi_comm)
-      pacind_moc = p_field_sum(pacind_moc,mpi_comm)
-
-,     ! function field_sum using mpi_reduce, then broadcast
-!     local_moc(:)     = REAL(global_moc(level,:),dp)
-!     res_moc(:)       = p_field_sum(local_moc,mpi_comm)
-!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
-!     global_moc(level,:) = REAL(res_moc(:),wp)
-!
-!     local_moc(:)     = REAL(atlant_moc(level,:),dp)
-!     res_moc(:)       = p_field_sum(local_moc, mpi_comm)
-!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
-!     atlant_moc(level,:) = REAL(res_moc(:),wp)
-!
-!     local_moc(:)     = REAL(pacind_moc(level,:),dp)
-!     res_moc(:)       = p_field_sum(local_moc, mpi_comm)
-!     CALL p_bcast(res_moc(:), p_io, mpi_comm)
-!     pacind_moc(level,:) = REAL(res_moc(:),wp)
-
-
-    IF (my_process_is_mpi_workroot()) THEN
-      DO l=179,1,-1   ! fixed to 1 deg meridional resolution
-
-        global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
-        atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
-        pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
-
-      END DO
-    END IF
-
+    ! compute partial sums along meridian
+    DO l=179,1,-1   ! fixed to 1 deg meridional resolution
+      global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
+      atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
+      pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
+    END DO
   END SUBROUTINE calc_moc_internal
   !-------------------------------------------------------------------------
 
