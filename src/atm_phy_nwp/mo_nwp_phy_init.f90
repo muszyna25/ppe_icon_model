@@ -107,7 +107,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_initicon_config,     ONLY: init_mode, lread_tke
 
-  USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i
+  USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
@@ -586,6 +586,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,               &
       &                        tune_v0snow    = tune_v0snow,                  &
       &                        tune_zvz0i     = tune_zvz0i,                   &
+      &                      tune_icesedi_exp = tune_icesedi_exp,             &
       &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
       &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 

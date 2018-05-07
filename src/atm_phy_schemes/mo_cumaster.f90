@@ -605,7 +605,7 @@ DO jk=MAX(ktdia,phy_params%kcon2),klev
     IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
       ZDZ=(PAPH(JL,JK+1)-PAPH(JL,JK))
       zdhpbl(jl)=zdhpbl(jl)+(rlvtt*ptenq(jl,jk)+rcpd*ptent(jl,jk))*zdz
-      zcappbl(jl)=zcappbl(jl)+(ptent(jl,jk)+retv*ptenq(jl,jk))*zdz
+      zcappbl(jl)=zcappbl(jl)+(ptent(jl,jk)+retv*pten(jl,jk)*ptenq(jl,jk))*zdz
     ENDIF
   ENDDO
 ENDDO

@@ -205,7 +205,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
     zvz0i,     x13o12,    x2o3,      x5o24,     zasmel,                  &
-    zbsmel,    zcsmel,    x1o3,      zams => zams_gr,                    &
+    zbsmel,    zcsmel,    icesedi_exp, zams => zams_gr,                  &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb
@@ -545,7 +545,7 @@ SUBROUTINE graupel     (             &
     zdtdh             ,     & !
     z1orhog           ,     & ! 1/rhog
     zrho1o2           ,     & ! (rho0/rhog)**1/2
-    zrho1o3           ,     & ! (rho0/rhog)**1/3
+    zrhofac_qi        ,     & ! (rho0/rhog)**icesedi_exp
     zeln7o8qrk        ,     & !
     zeln7o4qrk        ,     & ! FR new  
     zeln27o16qrk      ,     & !
@@ -798,7 +798,7 @@ SUBROUTINE graupel     (             &
       z1orhog = 1.0_wp/rhog
       hlp     = LOG(zrho0*z1orhog)
       zrho1o2 = EXP(hlp*x1o2)
-      zrho1o3 = EXP(hlp*x1o3)
+      zrhofac_qi = EXP(hlp*icesedi_exp)
 
       zqrk = qrg * rhog
       zqsk = qsg * rhog
@@ -905,7 +905,7 @@ SUBROUTINE graupel     (             &
       !-------------------------------------------------------------------------
 
       IF (llqi) THEN
-        zlnqik = zvz0i * EXP (zbvi * LOG (zqik)) * zrho1o3
+        zlnqik = zvz0i * EXP (zbvi * LOG (zqik)) * zrhofac_qi
         zpki(iv) = zqik * zlnqik
         IF (zvzi(iv) == 0.0_wp) THEN
           zvzi(iv) = zlnqik * zbvi_ln1o2
@@ -1476,7 +1476,7 @@ SUBROUTINE graupel     (             &
         IF (qig+qi(iv,k+1) <= zqmin ) THEN
           zvzi(iv)= 0.0_wp
         ELSE
-          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrho1o3
+          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrhofac_qi
         ENDIF
           
       ELSE

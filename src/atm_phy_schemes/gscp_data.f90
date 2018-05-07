@@ -152,8 +152,8 @@ REAL (KIND=wp), PARAMETER ::  &
     zceff_min, & ! Minimum value for sticking efficiency
     v0snow,    & ! factor in the terminal velocity for snow
     v0snow_gr, & ! factor in the terminal velocity for snow (graupel scheme)
-    zvz0i        ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
-
+    zvz0i,     & ! Terminal fall velocity of ice  (original value of Heymsfield+Donner 1990: 3.29)
+    icesedi_exp  ! exponent for density correction for coud ice sedimentation
 
 ! More variables
 ! --------------
@@ -299,7 +299,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i, &
-  &                               tune_mu_rain, tune_rain_n0_factor)
+  &                               tune_mu_rain, tune_rain_n0_factor, tune_icesedi_exp)
 
 !------------------------------------------------------------------------------
 !> Description:
@@ -311,6 +311,7 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zceff_min
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_v0snow
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_zvz0i
+  REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_icesedi_exp
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_mu_rain
   REAL(wp) ,INTENT(IN) ,OPTIONAL ::  tune_rain_n0_factor
 
@@ -340,6 +341,12 @@ SUBROUTINE gscp_set_coefficients (idbg, tune_zceff_min, tune_v0snow, tune_zvz0i,
     zvz0i = tune_zvz0i
   ELSE
     zvz0i = 1.25_wp          ! COSMO default
+  ENDIF
+
+  IF (PRESENT(tune_icesedi_exp)) THEN
+    icesedi_exp = tune_icesedi_exp
+  ELSE
+    icesedi_exp = 0.33_wp
   ENDIF
 
   IF (PRESENT(tune_mu_rain)) THEN

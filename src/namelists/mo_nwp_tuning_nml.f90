@@ -36,8 +36,9 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_gfluxlaun => tune_gfluxlaun, &
     &                               config_tune_zceff_min => tune_zceff_min, &
     &                               config_tune_v0snow    => tune_v0snow,    &
-    &                               config_tune_zvz0i     => tune_zvz0i,     &  
-    &                               config_tune_entrorg   => tune_entrorg,   &  
+    &                               config_tune_zvz0i     => tune_zvz0i,     &
+    &                               config_tune_icesedi_exp => tune_icesedi_exp, &
+    &                               config_tune_entrorg     => tune_entrorg,     &  
     &                               config_tune_capdcfac_et => tune_capdcfac_et, &
     &                               config_tune_capdcfac_tr => tune_capdcfac_tr, &
     &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
@@ -89,6 +90,9 @@ MODULE mo_nwp_tuning_nml
 
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
+
+  REAL(wp) :: &                    !< Exponent for density correction of cloud ice sedimentation
+    &  tune_icesedi_exp
 
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
@@ -154,7 +158,8 @@ MODULE mo_nwp_tuning_nml
     &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
     &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
     &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
-    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr
+    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,&
+    &                      tune_icesedi_exp
 
 CONTAINS
 
@@ -211,9 +216,10 @@ CONTAINS
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
     !
     ! grid scale microphysics
-    tune_zceff_min  = 0.01_wp
-    tune_v0snow     = 25.0_wp      ! previous ICON value was 20
-    tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
+    tune_zceff_min   = 0.01_wp
+    tune_v0snow      = 25.0_wp      ! previous ICON value was 20
+    tune_zvz0i       = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
+    tune_icesedi_exp = 0.33_wp      ! exponent for density correction of cloud ice sedimentation
     !
     ! convection
     tune_entrorg     = 1.95e-3_wp   ! entrainment parameter for deep convection
@@ -320,6 +326,7 @@ CONTAINS
     config_tune_zceff_min        = tune_zceff_min 
     config_tune_v0snow           = tune_v0snow
     config_tune_zvz0i            = tune_zvz0i
+    config_tune_icesedi_exp      = tune_icesedi_exp
     config_tune_entrorg          = tune_entrorg
     config_tune_capdcfac_et      = tune_capdcfac_et
     config_tune_capdcfac_tr      = tune_capdcfac_tr

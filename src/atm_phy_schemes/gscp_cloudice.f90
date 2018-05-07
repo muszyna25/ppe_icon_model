@@ -202,7 +202,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
     zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
-    zbsmel,    zcsmel,    x1o3,                                          &
+    zbsmel,    zcsmel,    icesedi_exp,                                   &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb
@@ -507,7 +507,7 @@ SUBROUTINE cloudice (             &
     zdtdh       (nvec),     & !
     z1orhog     (nvec),     & ! 1/rhog
     zrho1o2     (nvec),     & ! (rho0/rhog)**1/2
-    zrho1o3     (nvec),     & ! (rho0/rhog)**1/3
+    zrhofac_qi  (nvec),     & ! (rho0/rhog)**icesedi_exp
     zeln7o8qrk  (nvec),     & !
     zeln7o4qrk  (nvec),     & ! FR new     
     zeln27o16qrk(nvec),     & !
@@ -764,7 +764,7 @@ SUBROUTINE cloudice (             &
         z1orhog(iv) = 1.0_wp/rhog
         hlp         = LOG(zrho0*z1orhog(iv))
         zrho1o2(iv) = EXP(hlp*x1o2) ! exponent 0.5 for rain and snow
-        zrho1o3(iv) = EXP(hlp*x1o3) ! exponent 1/3 for cloud ice
+        zrhofac_qi(iv) = EXP(hlp*icesedi_exp) ! user-defined exponent for cloud ice (default 0.33)
 
         zqrk(iv) = qrg * rhog
         zqsk(iv) = qsg * rhog
@@ -881,7 +881,7 @@ SUBROUTINE cloudice (             &
     loop_over_qi_sedi: DO i1d = 1, ic3
       iv = ivdx3(i1d)
       
-      zlnqik = zvz0i * EXP (zbvi * LOG (zqik(iv))) * zrho1o3(iv)
+      zlnqik = zvz0i * EXP (zbvi * LOG (zqik(iv))) * zrhofac_qi(iv)
       zpki(iv) = zqik (iv) * zlnqik
 
       IF (zvzi(iv) == 0.0_wp) THEN
@@ -1461,7 +1461,7 @@ SUBROUTINE cloudice (             &
           IF (qig+qi(iv,k+1) <= zqmin ) THEN
             zvzi(iv)= 0.0_wp
           ELSE
-            zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrho1o3(iv)
+            zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrhofac_qi(iv)
           ENDIF
 
         ELSE
