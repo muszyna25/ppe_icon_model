@@ -36,6 +36,7 @@ MODULE mo_ocean_diagnostics
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     & min_rlcell, min_rledge, min_rlcell, &
     & max_char_length, min_dolic
+  USE mo_timer,              ONLY: timer_calc_moc, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
     & GRID_UNSTRUCTURED_CELL
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
@@ -1010,11 +1011,13 @@ CONTAINS
 
       ! calc moc each timestep from non-accumulated vertical veloc
       if ( isRegistered('global_moc') .or. isRegistered('atlant_moc') .or. isRegistered('pacind_moc') ) then
+        CALL timer_start(timer_calc_moc)
         CALL calc_moc(patch_2d, patch_3d, &
            & p_diag%w, &
            & p_diag%global_moc, &
            & p_diag%atlantic_moc, &
            & p_diag%pacific_moc)
+        CALL timer_stop(timer_calc_moc)
       endif
 
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
