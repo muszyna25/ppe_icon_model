@@ -699,6 +699,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sum_dp_0s
      MODULE PROCEDURE p_sum_dp_0d
      MODULE PROCEDURE p_sum_dp_1d
+     MODULE PROCEDURE p_sum_dp_2d
      MODULE PROCEDURE p_sum_i8_1d
      MODULE PROCEDURE p_sum_i_1d
      MODULE PROCEDURE p_sum_i_0d
@@ -8427,6 +8428,43 @@ CONTAINS
 #endif
 
   END FUNCTION p_sum_dp_1d
+
+  !------------------------------------------------------
+  FUNCTION p_sum_dp_2d (zfield, comm, root) RESULT (p_sum)
+
+    REAL(dp),          INTENT(in) :: zfield(:,:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm, root
+    REAL(dp)                      :: p_sum (SIZE(zfield,1),SIZE(zfield,2))
+
+#ifndef NOMPI
+    INTEGER :: p_comm, my_rank
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+      IF (PRESENT(root)) THEN
+        CALL mpi_reduce(zfield, p_sum, SIZE(zfield), p_real_dp, &
+             mpi_sum, root, p_comm, p_error)
+        ! get local PE identification
+        CALL mpi_comm_rank(p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank) p_sum = zfield
+      ELSE
+        CALL mpi_allreduce (zfield, p_sum, SIZE(zfield), p_real_dp, &
+             mpi_sum, p_comm, p_error)
+      END IF
+    ELSE
+       p_sum = zfield
+    END IF
+#else
+    p_sum = zfield
+#endif
+
+  END FUNCTION p_sum_dp_2d
 
   FUNCTION p_sum_i8_1d (kfield, comm) RESULT (p_sum)
 
