@@ -139,6 +139,8 @@ MODULE mo_ocean_surface_types
       & pao                      (:,:), & ! Surface atmospheric pressure                     [hPa]
       & u                        (:,:), & ! wind in reference height                         [m/s]
       & v                        (:,:), &
+      & co2                      (:,:), & ! co2 mixing ratio
+      & co2flx                   (:,:), & ! co2 flux
 !      & precip                   (:,:), & ! precipitation rate                               [m/s]
 !      & evap                     (:,:), & ! evaporation   rate                               [m/s]
 !      & runoff                   (:,:), & ! river runoff  rate                               [m/s]

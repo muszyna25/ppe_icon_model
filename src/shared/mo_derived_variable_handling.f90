@@ -396,9 +396,6 @@ call print_summary("COPY variable:"//TRIM(name))
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
 
-    ! copy user defined vertical axes
-    dest_element%field%info%cdiZaxisID = source_element%field%info%cdiZaxisID
-
     ! add the subset for later accumulation on all types of horizontal grids
     select case (source_element%field%info%hgrid)
     case (GRID_UNSTRUCTURED_CELL)

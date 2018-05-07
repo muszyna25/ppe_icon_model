@@ -187,10 +187,9 @@ CONTAINS
           !
           ! add increment dcos_mu0 for the definition of the extended daylight area
           ! set day/night indicator to 1/0
+          daylight_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:)+dcos_mu0 < 0.0_wp)
              daylight_frc(:,:) = 0.0_wp
-          ELSEWHERE
-             daylight_frc(:,:) = 1.0_wp
           END WHERE
           !
           IF (dt_ext/=0.0_wp) THEN
@@ -266,10 +265,9 @@ CONTAINS
                 ! set day/night indicator of sampled longitudes to 1/0
                 ! and mask out cosmu0 values in day-only and night-only cells
                 !
-                WHERE (xsmpl(:) < EPSILON(1.0_wp))     ! night side
-                   xsmpl_day(:) = 0.0_wp
-                   xnmbr_day(:) = 0.0_wp
-                ELSEWHERE                              ! day side
+                xsmpl_day(:) = 0.0_wp
+                xnmbr_day(:) = 0.0_wp
+                WHERE (xsmpl(:) >= EPSILON(1.0_wp))     ! night side
                    xsmpl_day(:) = xsmpl(:)
                    xnmbr_day(:) = 1.0_wp
                 END WHERE

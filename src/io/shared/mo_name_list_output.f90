@@ -104,6 +104,10 @@ MODULE mo_name_list_output
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync,                   &
     &                                     config_lmask_boundary => lmask_boundary
+#ifdef YAC_coupling
+  USE mo_coupling_config,           ONLY: is_coupled_run
+  USE mo_io_coupling,               ONLY: construct_io_coupler, destruct_io_coupler
+#endif
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
        num_io_procs, io_proc_chunk_size
@@ -1557,10 +1561,18 @@ CONTAINS
       &                    lset_timers_for_idle_pe
     INTEGER             :: jg, jstep, i, action
     TYPE(t_par_output_event), POINTER :: ev
-
+    
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
+#ifdef YAC_coupling
+    ! The initialisation of YAC needs to be called by all (!) MPI processes
+    ! in MPI_COMM_WORLD.
+    ! construct_io_coupler needs to be called before init_name_list_output
+    ! due to calling sequence in subroutine atmo_model for other atmosphere
+    ! processes
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "name_list_io" )
+#endif
     ! Initialize name list output, this is a collective call for all PEs
     CALL init_name_list_output(sim_step_info)
 
@@ -1684,6 +1696,10 @@ CONTAINS
 
     CALL interval_write_psfile("output_schedule.ps", "Output Timings", &
       &                        int2string(p_pe,'(i0)'), p_comm_work)
+
+#ifdef YAC_coupling
+    IF ( is_coupled_run() ) CALL destruct_io_coupler ( "name_list_io" )
+#endif
 
     ! Shut down MPI
     CALL stop_mpi

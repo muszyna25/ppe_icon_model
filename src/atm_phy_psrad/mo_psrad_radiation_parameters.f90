@@ -37,7 +37,7 @@ IMPLICIT NONE
   PUBLIC :: rad_perm, rad_undef
   PUBLIC :: i_overlap, l_do_sep_clear_sky
   
-  INTEGER :: rad_perm = 0                       ! Integer for perturbing random number seeds
+  INTEGER :: rad_perm = 1                ! Integer for perturbing random number seeds
 
   ! Radiation driver
   LOGICAL :: l_do_sep_clear_sky = .TRUE. ! Compute clear-sky fluxes by removing clouds

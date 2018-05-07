@@ -99,7 +99,7 @@ MODULE mo_var_metadata_types
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
+  INTEGER, PARAMETER :: MAX_GROUPS = 120
 
   ! List of dynamic variable groups, which are used for tiles
   !
@@ -236,7 +236,6 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: cdiVarID
     INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

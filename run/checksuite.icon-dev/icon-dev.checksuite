@@ -161,6 +161,9 @@ function diff_results
         wheezy)
             module load cdo/1.6.5.1
             ;;
+	jessie)
+	    eval `/usr/bin/tclsh /sw/share/Modules/modulecmd.tcl bash load cdo/1.8.0-gccsys`
+	    ;;
     esac
     #TYPES: defined in main script and used from main script 
     #DATES: defined in main script and used from main script 
@@ -439,7 +442,7 @@ if [ "${EXPERIMENT}" == 'atm_jww_hs_test' ]; then
     RESTART_DATE=${RESTART_DATE='20080901T003000Z'}
 fi
 if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
-    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    TYPES=${TYPES='atm_2d_ml atm_3d_ml phy_3d_ml trc_3d_ml'}
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
