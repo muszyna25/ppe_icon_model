@@ -1474,21 +1474,18 @@ CONTAINS
   END SUBROUTINE calc_moc_acc
   SUBROUTINE calc_moc_internal (patch_2d, patch_3D, w, global_moc, atlant_moc, pacind_moc)
 
-    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3D
-    REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
-    ! dims: (nproma,nlev+1,alloc_cell_blocks)
-    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) !dims(n_zlev,180)
+    REAL(wp), INTENT(in)  :: w(:,:,:)   ! vertical velocity (nproma,nlev+1,alloc_cell_blocks)
+    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
     !
     ! local variables
-    ! INTEGER :: i
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
-    INTEGER :: block, level, start_index, end_index, idx
-    INTEGER :: ilat, l, idate, itime
+    INTEGER :: block, level, start_index, end_index, idx, ilat, l
     INTEGER :: mpi_comm
 
-    REAL(wp) :: lat, ilat_inv, deltaMoc
-    REAL(dp) :: local_moc(180), res_moc(180)
+    REAL(wp) :: lat, deltaMoc, smoothWeight
+    REAL(wp) :: allmocs(3,n_zlev,180)
 
     TYPE(t_subset_range), POINTER :: cells
 
@@ -1504,6 +1501,8 @@ CONTAINS
     ! limit cells to in-domain because of summation
     cells   => patch_2d%cells%in_domain
 
+    smoothWeight = 1.0_wp / REAL(2*latSmooth + 1, wp)
+
     DO block = cells%start_block, cells%end_block
       CALL get_index_range(cells, block, start_index, end_index)
       DO idx = start_index, end_index
@@ -1515,9 +1514,9 @@ CONTAINS
           ! lat: corresponding latitude row of 1 deg extension
           !       1 south pole
           !     180 north pole
-          ilat = NINT(90.0_wp + lat)
-          ilat = MAX(ilat,1)
-          ilat = MIN(ilat,180)
+          ilat     = NINT(90.0_wp + lat)
+          ilat     = MAX(ilat,1)
+          ilat     = MIN(ilat,180)
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
@@ -1526,20 +1525,25 @@ CONTAINS
             ilat = NINT(90.0_wp + lat + REAL(l, wp))
             ilat = MAX(ilat,1)
             ilat = MIN(ilat,180)
-            ilat_inv = 1.0_wp / REAL(2*latSmooth + 1, wp)
 
-            global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*ilat_inv
-            atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
-            pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*ilat_inv, 0.0_wp, patch_3D%basin_c(idx,block) >= 2)
+            global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*smoothWeight
+            atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*smoothWeight, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
+            pacind_moc(level,ilat) = MERGE(pacind_moc(level,ilat) - deltaMoc*smoothWeight, 0.0_wp, patch_3D%basin_c(idx,block) >= 2)
           END DO
         END DO
       END DO
     END DO
 
-    ! compute point-wise sum over all mpi ranks and store results there
-    global_moc = p_sum(global_moc,mpi_comm)
-    atlant_moc = p_sum(atlant_moc,mpi_comm)
-    pacind_moc = p_sum(pacind_moc,mpi_comm)
+    ! compute point-wise sum over all mpi ranks and store results
+    allmocs(1,:,:) = global_moc(:,:); allmocs(2,:,:) = atlant_moc(:,:); allmocs(3,:,:) = pacind_moc(:,:)
+    allmocs = p_sum(allmocs,mpi_comm)
+    global_moc(:,:) = allmocs(1,:,:); atlant_moc(:,:) = allmocs(2,:,:); pacind_moc(:,:) = allmocs(3,:,:)
+
+    ! old version {{{
+    ! global_moc = p_sum(global_moc,mpi_comm)
+    ! atlant_moc = p_sum(atlant_moc,mpi_comm)
+    ! pacind_moc = p_sum(pacind_moc,mpi_comm)
+    ! }}}
 
     ! compute partial sums along meridian
     DO l=179,1,-1   ! fixed to 1 deg meridional resolution
