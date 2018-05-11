@@ -1387,8 +1387,6 @@ MODULE mo_initicon
           CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
         ENDIF
 
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
-
         CALL init_w(p_patch(jg), p_int_state(jg), REAL(p_diag%vn_incr,wp), p_nh_state(jg)%metrics%z_ifc, w_incr)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
@@ -1476,6 +1474,7 @@ MODULE mo_initicon
 !$OMP END PARALLEL
 
         CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
 
         ! deallocate temporary arrays
         DEALLOCATE( w_incr, STAT=ist )

@@ -698,7 +698,7 @@ CONTAINS
                                & mtime_datetime,                   &
                                & lcall_lhn, lcall_lhn_v            )
       ELSE IF (msg_level >= 15) THEN
-        WRITE (message_text,'(a,i10,i5)') 'LHN not running because of specified times!',p_sim_time,jg
+        WRITE (message_text,'(a,f10.2,i5)') 'LHN not running because of specified times!',p_sim_time,jg
         CALL message('mo_nh_interface_nwp:', message_text)
       ENDIF
 
@@ -1814,8 +1814,8 @@ CONTAINS
 
 
 
-    IF (msg_level >= 18) THEN ! extended diagnostic
-      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
+    IF (lcall_phy_jg(itturb) .AND. msg_level >= 18) THEN ! extended diagnostic for turbulence quantities
+      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
 
 
