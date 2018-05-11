@@ -79,6 +79,7 @@ MODULE mo_initicon
                                     kInputSourceBoth, kInputSourceCold
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -1068,6 +1069,8 @@ MODULE mo_initicon
       !
       !
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+      CALL init(zvn_incr)
 
       ! include boundary interpolation zone of nested domains and halo points
       rl_start = 1
