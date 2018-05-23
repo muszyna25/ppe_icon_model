@@ -987,7 +987,7 @@ CONTAINS
     INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
       &                                     jp, idom, jg, local_i, idom_log,                  &
       &                                     grid_info_mode, ierrstat, jl, idummy, ifile,      &
-      &                                     npartitions, ifile_partition
+      &                                     npartitions, ifile_partition, errno
     INTEGER                              :: pe_placement(MAX_NUM_IO_PROCS)
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
@@ -1292,7 +1292,8 @@ CONTAINS
         mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
 
         IF (mtime_datetime_end > mtime_datetime_start) THEN
-          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
+          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
           
           mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
           CALL timedeltaToString(mtime_td, lower_bound_str)
@@ -1696,7 +1697,8 @@ CONTAINS
         END DO
 
         DO iintvl=1,nintvls
-          mtime_interval => newTimedelta(output_interval(iintvl))
+          mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
+          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
           mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
           !
           ! - The start_date gets an offset of
