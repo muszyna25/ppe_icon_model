@@ -1836,21 +1836,6 @@ CONTAINS
     CALL assign_if_present(my_has_missvals, has_missvals)
     CALL assign_if_present(my_miss, missval)
 
-    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, subset%vertical_levels(idx,block)
-          sum_field(idx,level,block) = MERGE(my_miss, &
-                                           & sum_field(idx,level,block) + field(idx,level,block), &
-                                           & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-    ELSE
       ! use constant levels
       mylevels                       = SIZE(sum_field, VerticalDim_Position)
       IF (PRESENT(levels))  mylevels = levels
@@ -1867,7 +1852,6 @@ CONTAINS
       END DO
 !ICON_OMP_END_PARALLEL_DO
 
-    ENDIF
   END SUBROUTINE add_fields_3d
   
   SUBROUTINE add_fields_2d(sum_field,field,subset,has_missvals, missval)
