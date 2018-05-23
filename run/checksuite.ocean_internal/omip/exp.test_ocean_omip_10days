@@ -207,10 +207,6 @@ cat > ${ocean_namelist} << EOF
    agulhas_long(1:10)           = 8024,8022,6036
    agulhas_longer(1:10)         = 8024,8022,6036,6025
 /
-&io_nml
-  dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .true.          ! sync after each timestep
-/
 EOF
 #-----------------------------------------------------------------------------
 
