@@ -61,6 +61,7 @@ cat > ${ocean_namelist} << EOF
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
+  operation        = "mean"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','group:ice_default', 'A_tracer_v_T' !, 'topBoundCond_windStress_u'
 /
@@ -70,6 +71,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "${output_interval}"
   file_interval    = "${file_interval}"
   output_grid      = .TRUE.
+  operation        = "mean"
   output_filename  = "${EXPNAME}_oceMonitor"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
