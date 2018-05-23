@@ -14,7 +14,7 @@ start_date="2001-01-01T00:00:00Z"
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 output_interval="P1D"
-steps_per_file = 999
+steps_per_file=999
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
