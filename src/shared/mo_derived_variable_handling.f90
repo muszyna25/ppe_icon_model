@@ -8,6 +8,9 @@ MODULE mo_derived_variable_handling
   USE self_vector
   USE self_map
   USE self_assert
+#ifdef DEBUG_MVSTREAM
+  USE mo_util_dbg_prnt, ONLY: dbg_print
+#endif
 
   USE mo_kind, ONLY: wp
   USE mo_model_domain, ONLY: t_patch
@@ -177,10 +180,10 @@ CONTAINS
     ! since the events cannot be saved a keys for a map because they are only
     ! C-pointers the same string representation of events is used as for
     ! "meanMap"
-    meanEvents         = map(verbose=.false.)
-    meanEventsActivity = map(verbose=.false.)
-    meanVarCounter     = map(verbose=.false.)
-    meanPrognostics    = vector(verbose=.false.)
+    meanEvents                = map(verbose=.false.)
+    meanEventsActivity        = map(verbose=.false.)
+    meanVarCounter            = map(verbose=.false.)
+    meanPrognostics           = vector(verbose=.false.)
     meanPrognosticPointers    = map(verbose=.false.)
 
     listname = 'mean_stream_list'
@@ -737,6 +740,9 @@ CONTAINS
                       counter => meanVarCounter%get(destination%field%info%name)
                       select type(counter)
                       type is (integer)
+#ifdef DEBUG_MVSTREAM
+                        IF ( my_process_is_stdio() ) write (0,*)' ------> MEAN VALUE counter:',counter
+#endif
                         destination%field%r_ptr = destination%field%r_ptr / REAL(counter,wp)
                         counter = 0
                       end select
@@ -841,7 +847,7 @@ CONTAINS
                           & stderr=.true.)
 #endif
 
-                      destination%field%r_ptr = 0.0_wp
+                      destination%field%r_ptr = 0.0_wp ! take the neutral element of addition
 #ifdef DEBUG_MVSTREAM
                     else
                       if (my_process_is_stdio()) call print_error("       eventActive is false",stderr=.true.)
