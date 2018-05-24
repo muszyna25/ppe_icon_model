@@ -405,8 +405,10 @@ CONTAINS
       END DO
 
       call meanMap%add(eventKey,meanVariables)
+#ifdef DEBUG_MVSTREAM
       if (my_process_is_stdio()) call print_error(routine//": meanPrognostics%to_string()")
       if (my_process_is_stdio()) call print_error(meanPrognostics%to_string())
+#endif
     ELSE
 #ifdef DEBUG_MVSTREAM
       if (my_process_is_stdio()) call print_routine(routine,'NO "mean" operation found')
