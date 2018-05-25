@@ -25,6 +25,10 @@ MODULE mo_restart
     USE mo_restart_descriptor, ONLY: t_RestartDescriptor
     USE mo_restart_util, ONLY: becomeDedicatedRestartProc, shutdownRestartProc
     USE mo_sync_restart, ONLY: t_SyncRestartDescriptor
+#ifdef YAC_coupling
+  USE mo_coupling_config, ONLY: is_coupled_run
+  USE mo_io_coupling, ONLY: construct_io_coupler, destruct_io_coupler
+#endif
 
     IMPLICIT NONE
 
@@ -95,6 +99,13 @@ CONTAINS
                         &is not available')
 #else
         ! Actually detach the restart processes.
+#ifdef YAC_coupling
+    ! The initialisation of YAC needs to be called by all (!) MPI processes
+    ! in MPI_COMM_WORLD. Thus we do it here for the restart processes.
+
+    IF ( is_coupled_run() ) CALL construct_io_coupler ( "restart_io" )
+#endif
+
         CALL becomeDedicatedRestartProc()
 
         CALL restartWritingParameters(opt_restartModule = restartModule)
@@ -109,7 +120,9 @@ CONTAINS
             CASE(kMultifileRestartModule)
                 CALL multifileRestart_mainLoop()
         END SELECT
-
+#ifdef YAC_coupling
+        IF ( is_coupled_run() ) CALL destruct_io_coupler ( "restart_io" )
+#endif
         ! This IS a FUNCTION of no RETURN!
         CALL shutdownRestartProc()
 #endif

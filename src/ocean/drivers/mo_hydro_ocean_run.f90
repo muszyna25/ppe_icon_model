@@ -477,6 +477,14 @@ CONTAINS
       ! check whether time has come for writing restart file
       IF (isCheckpoint()) THEN
         IF (.NOT. output_mode%l_none ) THEN
+          !
+          ! For multifile restart (restart_write_mode = "joint procs multifile")
+          ! the domain flag must be set to .TRUE. in order to activate the domain,
+          ! even though we have one currently in the ocean. Without this the
+          ! processes won't write out their data into a the patch restart files.
+          !
+          patch_2d%ldom_active = .TRUE.
+          !
           IF (i_ice_dyn == 1) CALL ice_fem_update_vel_restart(patch_2d, sea_ice) ! write FEM vel to restart or checkpoint file
           CALL restartDescriptor%updatePatch(patch_2d, &
                                             &opt_nice_class=1, &
@@ -515,6 +523,8 @@ CONTAINS
       END IF
             
     ENDDO TIME_LOOP
+
+    CALL restartDescriptor%destruct()
  
     CALL deallocateDatetime(current_time)
    
