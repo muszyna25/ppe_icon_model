@@ -38,7 +38,6 @@ load_modules=
 # cc is the gcc
 CC     = gcc
 CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4
-TIMERFLAGS =  -D__ALL_TIMERS__ -D__TIMERS__ -D_SYNC_TIMERS__
 
 case "$fortran_compiler" in
     default|gcc)
@@ -53,9 +52,9 @@ case "$fortran_compiler" in
         FOPTIONS    = $FCPP $FLANG $FWARN $FDEBUG $FCHECK
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
-        DEBUG_FLAGS = -g -O -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -DDEBUG_MVSTREAM ${TIMERFLAGS}
-        STD_FLAGS   = -g    -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -march=native -O2 -mpc64 -D__LOOP_EXCHANGE ${TIMERFLAGS}
-        HIOPT_FLAGS = -march=native -O3 -ffast-math -mpc64 -D__LOOP_EXCHANGE -g ${TIMERFLAGS}
+        DEBUG_FLAGS = -g -O -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -DDEBUG_MVSTREAM
+        STD_FLAGS   = -g    -march=native -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -march=native -O2 -mpc64 -D__LOOP_EXCHANGE
+        HIOPT_FLAGS = -march=native -O3 -ffast-math -mpc64 -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
         FFLAGS      = $FCPP $FLANG $FWARN $INCLUDES
@@ -199,8 +198,8 @@ case "$fortran_compiler" in
         CFLAGS      = $CFLAGS -DpgiFortran
         AR          = xiar
         FC          = ifort
-        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g ${TIMERFLAGS}
-        STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE ${TIMERFLAGS}
+        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
+        STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
@@ -610,9 +609,9 @@ case "$ac_sitename" in
                         CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
                         FPPFLAGS    = -fpp
-                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION -D__LOOP_EXCHANGE ${TIMERFLAGS}
-                        HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -D__LOOP_EXCHANGE ${TIMERFLAGS}
-                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_ ${TIMERFLAGS}
+                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION -D__LOOP_EXCHANGE
+                        HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -D__LOOP_EXCHANGE
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS
 
@@ -721,7 +720,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ  -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
-                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g ${TIMERFLAGS}
+                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-gcc62
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.4.0-gcc48
