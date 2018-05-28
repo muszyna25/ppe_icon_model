@@ -43,6 +43,7 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: total_salt(:)
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)
+    REAL(wp), POINTER :: ssh_global(:)
     REAL(wp), POINTER :: potential_enstrophy(:)
     REAL(wp), POINTER :: absolute_vertical_velocity(:)
     REAL(wp), POINTER :: HeatFlux_ShortWave(:)

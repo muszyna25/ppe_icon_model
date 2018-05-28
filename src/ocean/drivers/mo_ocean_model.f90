@@ -68,10 +68,11 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, &
+    & construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
-    & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
-    & init_patch_3d, construct_ocean_var_lists
+    & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
+    & init_patch_3d
   USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
     &                                destruct_hamocc_state         
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
@@ -372,7 +373,7 @@ MODULE mo_ocean_model
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
-    IF(lhamocc)CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
+    IF(lhamocc) CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -491,8 +492,6 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
-    CALL init_oce_config
-
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
     CALL init_dbg_index(patch_3d%p_patch_2d(1))!(patch_2D(1))
 
@@ -516,7 +515,7 @@ MODULE mo_ocean_model
     CALL construct_hydro_ocean_state(patch_3d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    if(lhamocc)CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
+    if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 

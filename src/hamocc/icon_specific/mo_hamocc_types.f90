@@ -30,7 +30,6 @@ MODULE mo_hamocc_types
   PUBLIC :: t_hamocc_state
   PUBLIC :: t_hamocc_tend
   PUBLIC :: t_hamocc_sed
-  PUBLIC :: t_hamocc_acc
   PUBLIC :: t_hamocc_bcond
 
 
@@ -75,27 +74,8 @@ MODULE mo_hamocc_types
   TYPE t_hamocc_diag
     !--------------------------------------------
     ! dimension: (nproma,n_zlev, nblks_e)
-    REAL(wp), POINTER ::  phy(:,:,:)           
-    REAL(wp), POINTER ::  zoo(:,:,:)       
-    REAL(wp), POINTER ::  doc(:,:,:)         
     REAL(wp), POINTER ::  hi(:,:,:)          
     REAL(wp), POINTER ::  co3(:,:,:)     
-    REAL(wp), POINTER ::  cya(:,:,:)         
-    REAL(wp), POINTER ::  det(:,:,:)         
-    REAL(wp), POINTER ::  dic(:,:,:)         
-    REAL(wp), POINTER ::  alk(:,:,:)         
-    REAL(wp), POINTER ::  no3(:,:,:)         
-    REAL(wp), POINTER ::  po4(:,:,:)         
-    REAL(wp), POINTER ::  n2(:,:,:)         
-    REAL(wp), POINTER ::  o2(:,:,:)         
-    REAL(wp), POINTER ::  si(:,:,:)         
-    REAL(wp), POINTER ::  iron(:,:,:)           
-    REAL(wp), POINTER ::  n2o(:,:,:)         
-    REAL(wp), POINTER ::  dms(:,:,:)         
-    REAL(wp), POINTER ::  h2s(:,:,:)         
-    REAL(wp), POINTER ::  calc(:,:,:)         
-    REAL(wp), POINTER ::  opal(:,:,:)         
-    REAL(wp), POINTER ::  dust(:,:,:)         
     !--------------------------------------------
   END TYPE t_hamocc_diag
   !
@@ -127,7 +107,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  bolay(:,:)       
   END TYPE t_hamocc_sed
 
-  TYPE t_hamocc_acc
+  TYPE t_hamocc_tend
     !--------------------------------------------
     ! dimension: (nproma,n_zlev, nblks_e)
     REAL(wp), POINTER ::  npp(:,:,:)           
@@ -208,12 +188,6 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  zo2min(:,:)       
     REAL(wp), POINTER ::  h2sprod(:,:,:)       
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
-  END TYPE t_hamocc_acc
-
-  TYPE, EXTENDS(t_hamocc_acc):: t_hamocc_tend
-    ! all tendencies (not all are accumulated)
-    !--------------------------------------------
-
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 
@@ -223,7 +197,7 @@ MODULE mo_hamocc_types
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hamocc_tend) :: p_tend
     TYPE(t_hamocc_sed)  :: p_sed
-    TYPE(t_hamocc_acc)  :: p_acc
+   
 
   END TYPE t_hamocc_state
 

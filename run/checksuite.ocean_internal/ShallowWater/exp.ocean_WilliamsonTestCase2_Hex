@@ -21,7 +21,7 @@ steps_per_file=6480   # output intervals per file interval (5days)
 autoPostProcessing=false
 grids_folder="${icon_data_poolFolder}/oes/grids/AquaPlanets"
 ocean_grids="AquaPlanet_IcosDual_0158km_springOpt.nc"
-dtime=600
+modelTimestep="PT10M"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -42,7 +42,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = $dtime               ! model timestep in seconds
+ modelTimestep = '${modelTimestep}'
  output      = 'nml'              ! output mechanism via namelist
  msg_timestamp        = .FALSE.
  profiling_output     = 2
@@ -60,8 +60,9 @@ cat > ${ocean_namelist} << EOF
   mode             =  2                       ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
+  operation        = "mean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'h_acc', 'u_acc', 'v_acc', 't_acc', 'vort_acc'
+  ml_varlist       =  'zos', 'u', 'v', 'to', 'vort'
 /
 &dbg_index_nml
   idbg_mxmn=3                     ! initialize MIN/MAX  debug output

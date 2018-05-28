@@ -132,13 +132,10 @@ CONTAINS
       & this_datetime,           &
       & ocean_surface,           &
       & ocean_ice,               &
-      & hamocc_state,            &
       & jstep, jstep0)
 
   END SUBROUTINE ocean_testbed
   !-------------------------------------------------------------------------
-
-
 
 END MODULE mo_ocean_testbed
 

@@ -692,6 +692,7 @@ use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
   start_header
   cat >>$output_script <<EOF
 ulimit -s 2097152
+ulimit -c 0
 $(case $use_flags_group in
     (debug)
       printf 'ulimit -c unlimited'

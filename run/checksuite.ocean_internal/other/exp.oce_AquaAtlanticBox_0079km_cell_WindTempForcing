@@ -77,7 +77,7 @@ cat > ${ocean_namelist} << EOF
   steps_per_file   = ${steps_per_file}                ! error with ""
   output_grid      = .true.
   !ml_varlist      =  'group:oce_essentials', 'vort'
-  ml_varlist       =  'group:oce_essentials', 'vort','topBoundCond_windStress_u','A_tracer_v_T'
+  ml_varlist       =  'group:oce_essentials', 'vort','topBoundCond_windStress_u'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output

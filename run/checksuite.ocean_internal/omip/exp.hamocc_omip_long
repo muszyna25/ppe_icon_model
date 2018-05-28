@@ -6,12 +6,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T04:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="2011-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P20Y"
-checkpoint_interval="P10Y"
+restart_interval="P2Y"
+checkpoint_interval="P1Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -29,12 +29,33 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
+
+# HAMOCC
+use_hamocc=yes
+if [  "x${use_hamocc}"  = "xyes" ]; then
+lhamocc=".true."
+lbgcadv=".true."
+nlev_eu=$ocean_vertical_levels
+# set nlev_eu to level belonging to approx 500m
+if [ "x$ocean_vertical_levels" = "x40" ];then
+nlev_eu=19
+fi
+if [ "x$ocean_vertical_levels" = "x64" ];then
+nlev_eu=26
+fi
+if [ "x$ocean_vertical_levels" = "x20" ];then
+nlev_eu=16
+fi
+else
+lhamocc=".false."
+lbgcadv=".false."
+fi
+
 #-----------------------------------------------------------------------------
-#icon_data_rootFolder=/pool/data/ICON
 #
 # write namelist parameters
 # -------------------------
-cat > ${ocean_namelist} << EOF
+cat > ${ocean_namelist} << EOF0
 !
 &parallel_nml
  nproma         = $nproma
@@ -50,27 +71,26 @@ cat > ${ocean_namelist} << EOF
  iequations           = -1           ! -1: hydrost. ocean model
 /
 &run_nml
- modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
+ dtime                = 3600         ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output     = 2
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
- restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
-  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
+  filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
-  operation        = "mean"
   file_interval="P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
+  operation       = 'mean'
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       = 'group:oce_essentials', 'group:ice_default'
 /
@@ -78,39 +98,93 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
-  operation        = "mean"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval    = "P10Y"
+  file_interval="P10Y"
+  operation       = 'mean'
   output_filename  = "${EXPNAME}_oceanMonitor"
+  filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
 /
+EOF0
+if [  "x${use_hamocc}"  = "xyes" ]; then
+cat >> ${ocean_namelist} << EOF1
 &output_nml
+  output_filename  = "${EXPNAME}_hamocc_monitor"
+  filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_grid      = .true.
-  operation        = "mean"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval    =  "P10Y"
-  output_filename  = "${EXPNAME}_MOC"
-  ml_varlist       =  'group:ocean_moc'
+  file_interval="P1Y"
+  output_grid      = .false.
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_MONI'
 /
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_fx"
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${start_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  filename_format  = "<output_filename>"
-  file_interval    = "P100Y"
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  file_interval="P1Y"
   output_grid      = .TRUE.
-  mode             =  1
-  include_last     = .false.
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_BASE'
 /
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_sediment"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_SED'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  file_interval="P1Y"
+  !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
+  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
+/
+EOF1
+fi
+
+cat >> ${ocean_namelist} << EOF2
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -121,6 +195,11 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
+! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
+!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+!  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+!                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
@@ -186,13 +265,14 @@ cat > ${ocean_namelist} << EOF
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
   GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-4                                   !1e-3 to 1e-5
-  S_d=0.00005                                 ! 5e-3 to 5e-5
+  S_max=1.0e-4                                   !1.0
+  S_critical=0.01                             ! 1e-1 to 1e-2
+  S_d=0.00005                                 ! 5e-3 to 5e-4
   k_tracer_GM_kappa_parameter     = 600.0     !
   k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.false.
+  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
   SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
@@ -201,6 +281,8 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
+  lhamocc                         = ${lhamocc}
+  lbgcadv                         = ${lbgcadv}
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
@@ -212,6 +294,31 @@ cat > ${ocean_namelist} << EOF
 ! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 
 /
+EOF2
+if [  "x${use_hamocc}"  = "xyes" ]; then
+cat >> ${ocean_namelist} << EOF3
+&hamocc_nml
+l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
+l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
+l_bgc_check                       = .FALSE.   ! mass check at every time step
+deltacalc                         = 0.        ! CaCO3 weathering rate [kmol/yr] 
+deltaorg                          = 0.        ! OC weathering rate [kmol/yr]
+deltasil                          = 0.        ! Si(OH)4 weathering rate [kmol/yr]
+atm_co2                           = 278.      ! atmospheric CO2 (default 278)
+atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
+atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
+sinkspeed_opal                    = 30.       ! opal sinking speed [m/d] (default 30)
+sinkspeed_calc                    = 30.       ! calc sinking speed [m/d] (default 30)
+i_settling                        = 1         ! 0 constant POC sinking speed, 1 Martin curve, 2 AGG module (not yet implemented)
+sinkspeed_poc                     = 5.        ! detritus sinking speed [m/d] for i_settling=0 (default 5)
+sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0, mc_depth) [m/d] for i_settling=1 (default 3.5)
+mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
+mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
+l_implsed                         =.FALSE.    ! implicit sediment formulation
+/
+EOF3
+fi
+cat >> ${ocean_namelist} << EOF4
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
@@ -229,7 +336,7 @@ cat > ${ocean_namelist} << EOF
 ! forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM; default: false
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
-  limit_seaice                    = .TRUE.    ! default: true
+! limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
 /
@@ -252,7 +359,10 @@ cat > ${ocean_namelist} << EOF
    agulhas_long(1:10)           = 8024,8022,6036
    agulhas_longer(1:10)         = 8024,8022,6036,6025
 /
-EOF
+&io_nml
+   lkeep_in_sync = .true.          ! sync after each timestep
+/
+EOF4
 #-----------------------------------------------------------------------------
 
 

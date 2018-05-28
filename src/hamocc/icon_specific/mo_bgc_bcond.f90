@@ -182,7 +182,7 @@ CONTAINS
     cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
       &                   'DUST', DATATYPE_FLT32)
     grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_ext_bgc_list, 'DUST', p_ext_bgc%dust,      &
+    CALL add_var( p_ext_bgc_list, 'DUSTin', p_ext_bgc%dust,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
     CALL add_var( p_ext_bgc_list, 'DUSTY', p_ext_data_bgc%dusty,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )

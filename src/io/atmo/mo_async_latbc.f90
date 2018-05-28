@@ -111,6 +111,7 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
+    USE mo_var_metadata,              ONLY: TIMELEVEL_SUFFIX
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
@@ -1355,7 +1356,7 @@ MODULE mo_async_latbc
          DO jp = 1, latbc%buffer%ngrp_vars
             ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
             IF((TRIM(StrLowCasegrp(jp)) == TRIM(latbc%patch_data%var_data(iv)%info%name)) .OR. &
-                 & (TRIM(StrLowCasegrp(jp))//'.TL1' == TRIM(latbc%patch_data%var_data(iv)%info%name))) THEN
+                 & (TRIM(StrLowCasegrp(jp))//TIMELEVEL_SUFFIX//'1' == TRIM(latbc%patch_data%var_data(iv)%info%name))) THEN
 
                nlevs = 0
                IF(.NOT. grp_vars_bool(jp))  THEN
