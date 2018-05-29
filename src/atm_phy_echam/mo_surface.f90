@@ -206,8 +206,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(IN)    :: rsus     (kbdim)           ! IN upward surface shortwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
     REAL(wp),OPTIONAL,INTENT(OUT)   :: lake_ice_frc(kbdim)        ! fraction of ice on lakes
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
@@ -334,6 +334,11 @@ CONTAINS
     zca(1:kproma,:) = 1._wp
     zcs(1:kproma,:) = 1._wp
 
+    !===========================================================================
+    ! all surfaces
+    !===========================================================================
+    rlns_tile(:,:) = 0._wp
+    rsns_tile(:,:) = 0._wp
     !===========================================================================
     ! Land surface
     !===========================================================================
