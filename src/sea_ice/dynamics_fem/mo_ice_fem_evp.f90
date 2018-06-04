@@ -184,8 +184,7 @@ subroutine init_evp_solver_coeffs
 ! Called once during the initialization step at ice_init_fem
 
   USE mo_run_config,          ONLY: dtime
-  USE mo_sea_ice_nml,         ONLY: evp_rheol_steps, Tevp_inv, theta_io
-  USE mo_physical_constants,  ONLY: ellipse
+  USE mo_sea_ice_nml,         ONLY: evp_rheol_steps, Tevp_inv, theta_io, ellipse
 
   val3=1.0_wp/3.0_wp
   vale=1.0_wp/(ellipse**2)
@@ -210,8 +209,7 @@ subroutine stress_tensor(elem)
 ! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
 ! sigma12). 
 
-  USE mo_sea_ice_nml,         ONLY: delta_min, Tevp_inv
-  USE mo_physical_constants,  ONLY: Pstar, c_pressure
+  USE mo_sea_ice_nml,         ONLY: delta_min, Tevp_inv, Pstar, c_pressure
 
 implicit none
 

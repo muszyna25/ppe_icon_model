@@ -102,6 +102,11 @@ MODULE mo_sea_ice_nml
                                        ! Tevp_inv=3/dtime is the default value
 !  REAL(wp),PUBLIC :: alpha_evp        ! Parameters  of modified EVP formulation in Bouillon (2013)
 !  REAL(wp),PUBLIC :: beta_evp
+
+  REAL(wp),PUBLIC :: Pstar
+  REAL(wp),PUBLIC :: ellipse          
+  REAL(wp),PUBLIC :: c_pressure       
+
   ! Motion
   INTEGER ,PUBLIC :: i_ice_advec     ! type of ice advection: 0 -- upwind on ICON grid; 1 -- FCT advection on FE grid
   REAL(wp),PUBLIC :: theta_io          ! ice/ocean rotation angle. Implemented in EVP, can beadded to VP
@@ -126,6 +131,9 @@ MODULE mo_sea_ice_nml
     &  albsm, &
     &  albi, &
     &  albim, &
+    &  pstar, &
+    &  ellipse, &
+    &  c_pressure, &
     &  t_heat_base, &
     &  use_IceInitialization_fromTemperature, &
     &  use_constant_tfreez, &
@@ -182,6 +190,13 @@ CONTAINS
     albsm        = 0.70_wp         ! Albedo of snow (melting)
     albi         = 0.75_wp         ! Albedo of ice (not melting)
     albim        = 0.70_wp         ! Albedo of ice (melting)
+
+
+   !RHEOLOGY
+    Pstar       = 27500._wp        ! MPIOM uses 20000 [N/m^2]
+    ellipse     = 2.0_wp
+    c_pressure  = 20.0_wp
+
 
 
     ramp_wind    = 1.0_wp
