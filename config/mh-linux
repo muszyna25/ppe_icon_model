@@ -675,40 +675,43 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             uc1*)
-               NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
-               NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
-               HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
-               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+               NETCDFROOT  =  /opt/netcdf/4.4_serial/
+               NETCDFFROOT =  /opt/netcdf-fortran/4.4_serial/
+               HDF5ROOT    = /opt/hdf5/1.8_serial/
+               SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
                ZLIBROOT    = /usr
-               MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
-               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+               MPIROOT     = /opt/bwhpc/common/mpi/openmpi/3.0.0-intel-17.0
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
                XML2ROOT    = /usr
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+               STD_FLAGS = $STD_FLAGS -standard-semantics               
                config_target=ic2
                make_command=make -j8
                submit=sbatch
                mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+
             ;;
             fh2*)
-                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
-                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
-                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
-                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+                NETCDFROOT  = /opt/netcdf/4.4_serial/
+                NETCDFFROOT = /opt/netcdf-fortran/4.4_serial
+                HDF5ROOT    = /opt/hdf5/1.8_serial/
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
                 ZLIBROOT    = /usr
-                MPIROOT     = /software/all/mpi/openmpi/1.10_intel
+                MPIROOT     = /software/all/mpi/openmpi/3.0_intel_17.0
                 XML2ROOT    = /usr
-                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
-                config_target=ic2
-                make_command=make -j8
-                submit=sbatch
-                mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
-                ;;
+                STD_FLAGS = $STD_FLAGS -standard-semantics               
+                config_target=fh2
+                make_command=make -j 16
+                submit=msub
+                mpi_startrun= mpirun               ;;
         esac
 
         ;;              
+       
 #===============================================
     zmaw.de|mpg.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')

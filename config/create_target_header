@@ -1345,7 +1345,29 @@ set_run_target_default()
   # create header
   start_header
 }
+#=============================================================================
+set_run_target_fh2()
+{
 
+  set_default use_nproma 8
+  use_nodes=1
+  icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
+  
+  if [[ $use_mpi == "yes" ]]; then
+    set_default use_mpi_procs_pernode 2
+  fi
+  if [[ $use_openmp == "yes" ]]; then
+    set_default use_openmp_threads 2
+  else
+    set_default use_openmp_threads 1
+  fi
+
+  # create header
+  start_header
+
+
+}
 
 
 #=============================================================================
