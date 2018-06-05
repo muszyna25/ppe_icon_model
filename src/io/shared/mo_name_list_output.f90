@@ -883,7 +883,7 @@ CONTAINS
         var_ref_pos = 3
         IF (info%lcontained)  var_ref_pos = info%var_ref_pos
 
-        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN !double precision
           SELECT CASE(var_ref_pos)
           CASE (1)
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(nindex,:,:,1,1)
@@ -894,7 +894,7 @@ CONTAINS
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN ! single precision
           SELECT CASE(var_ref_pos)
           CASE (1)
             s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(nindex,:,:,1,1)
@@ -905,7 +905,7 @@ CONTAINS
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN ! integer output
           SELECT CASE(var_ref_pos)
           CASE (1)
             i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(nindex,:,:,1,1)
@@ -1160,6 +1160,8 @@ CONTAINS
           ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
         IF (idata_type == iINTEGER) THEN
+          IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+          IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
           ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
 

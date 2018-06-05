@@ -833,7 +833,7 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, tracers, p_atm_f, hamocc, ice, lhamocc)
+          &  p_diag, sea_surface_height, tracers, p_atm_f, p_oce_sfc, hamocc, ice, lhamocc)
     TYPE(t_patch ),TARGET :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)     :: patch_3d
     INTEGER,  POINTER                           :: dolic(:,:)
@@ -843,6 +843,7 @@ CONTAINS
     REAL(wp), POINTER                           :: sea_surface_height(:,:)
     REAL(wp), POINTER                           :: tracers(:,:,:,:)
     TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
+    TYPE(t_ocean_surface), INTENT(IN)           :: p_oce_sfc
     TYPE(t_hamocc_state), TARGET, INTENT(inout) :: hamocc
     TYPE(t_sea_ice),          INTENT(inout)     :: ice
     LOGICAL, INTENT(IN)                         :: lhamocc
@@ -905,18 +906,18 @@ CONTAINS
 
       ! total heat flux
       total_heat_flux = 0.0_wp
-      IF (isRegistered('HeatFlux_Total_Global')) THEN
-      call levels_horizontal_mean( p_atm_f%HeatFlux_Total, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & total_heat_flux)
+      IF (isRegistered('HeatFlux_Total_global')) THEN
+        CALL levels_horizontal_mean( p_oce_sfc%HeatFlux_Total, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_heat_flux)
       END IF
       monitor%HeatFlux_Total = total_heat_flux
 
       ! total fresh water flux
       total_fresh_water_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Precipitation_Global')) THEN
-      call levels_horizontal_mean( p_atm_f%FrshFlux_Precipitation, &
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Precipitation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_fresh_water_flux)
@@ -926,7 +927,7 @@ CONTAINS
       ! total evaporation
       total_evaporation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Evaporation_Global')) THEN
-      call levels_horizontal_mean( p_atm_f%FrshFlux_Evaporation, &
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Evaporation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_evaporation_flux)
@@ -936,7 +937,7 @@ CONTAINS
       ! total runoff
       total_runoff_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Runoff_Global')) THEN
-      call levels_horizontal_mean( p_atm_f%FrshFlux_Runoff, &
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Runoff, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
           & total_runoff_flux)

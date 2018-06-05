@@ -127,54 +127,54 @@ CONTAINS
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
         &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-        &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+        &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     ! heat fluxes
     CALL add_var(ocean_restart_list, 'HeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'HeatFlux_Shortwave', p_oce_sfc%HeatFlux_Shortwave, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Shortwave', 'W/m2', 'Shortwave Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'HeatFlux_LongWave', p_oce_sfc%HeatFlux_LongWave , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Longwave', 'W/m2', 'Longwave Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'HeatFlux_Sensible', p_oce_sfc%HeatFlux_Sensible , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Sensible', 'W/m2', 'Sensible Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'HeatFlux_Latent', p_oce_sfc%HeatFlux_Latent , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Latent', 'W/m2', 'Latent Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     ! freshwater fluxes
     CALL add_var(ocean_restart_list, 'FrshFlux_Precipitation', p_oce_sfc%FrshFlux_Precipitation , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'FrshFlux_Evaporation', p_oce_sfc%FrshFlux_Evaporation , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'FrshFlux_SnowFall', p_oce_sfc%FrshFlux_SnowFall , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_restart_list, 'FrshFlux_Runoff', p_oce_sfc%FrshFlux_Runoff , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
 
     ELSE
 
@@ -182,54 +182,54 @@ CONTAINS
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
         &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-        &        ldims=(/nproma,alloc_cell_blocks/))
+        &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     ! heat fluxes
     CALL add_var(ocean_default_list, 'HeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'HeatFlux_Shortwave', p_oce_sfc%HeatFlux_Shortwave, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Shortwave', 'W/m2', 'Shortwave Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'HeatFlux_LongWave', p_oce_sfc%HeatFlux_LongWave , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Longwave', 'W/m2', 'Longwave Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'HeatFlux_Sensible', p_oce_sfc%HeatFlux_Sensible , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Sensible', 'W/m2', 'Sensible Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'HeatFlux_Latent', p_oce_sfc%HeatFlux_Latent , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Latent', 'W/m2', 'Latent Heat Flux', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     ! freshwater fluxes
     CALL add_var(ocean_default_list, 'FrshFlux_Precipitation', p_oce_sfc%FrshFlux_Precipitation , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_Evaporation', p_oce_sfc%FrshFlux_Evaporation , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_SnowFall', p_oce_sfc%FrshFlux_SnowFall , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_Runoff', p_oce_sfc%FrshFlux_Runoff , &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
 
     ENDIF  !  end coupled IF
 
@@ -237,59 +237,59 @@ CONTAINS
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('TopBC_WindStress_u', 'Pa', 'Zonal Wind Stress', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'TopBC_WindStress_v', p_oce_sfc%TopBC_WindStress_v, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('TopBC_WindStress_v', 'Pa', 'Meridional Wind Stress', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'SST', p_oce_sfc%SST, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('SST', 'C', 'Sea Surface Temperature', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'SSS', p_oce_sfc%SSS, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('SSS', 'psu', 'Sea Surface Salinity', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list,'SurfaceCellThicknessUnderIce', p_oce_sfc%cellThicknessUnderIce, &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('SurfaceCellThicknessUnderIce', 'm', 'Cell Thickness at Surface under Ice', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/))
+      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     ! auxillary ice salt/freshwater fluxes,
     CALL add_var(ocean_default_list, 'FrshFlux_TotalIce', p_oce_sfc%FrshFlux_TotalIce, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_TotalIce', 'm/s', 'Freshwater Flux due to Sea Ice Change', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal', p_oce_sfc%FrshFlux_VolumeTotal, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'Freshwater Flux due to Volume Change', datatype_flt), &
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_IceSalt', p_oce_sfc%FrshFlux_IceSalt, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_IceSalt', 'psu*m/s', 'Salt volume flux due to sea ice change', datatype_flt), &
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     ! auxillary freshwater fluxes, previously belonged to t_sfc_flx
     CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt', p_oce_sfc%FrshFlux_TotalSalt , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', datatype_flt),&
     &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean', p_oce_sfc%FrshFlux_TotalOcean , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', datatype_flt),&
     &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce', p_oce_sfc%FrshFlux_VolumeIce, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', datatype_flt),&
     &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
+    &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
 
     ! relaxation fields {{{
 !    IF(no_tracer>=1) THEN

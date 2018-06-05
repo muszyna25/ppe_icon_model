@@ -63,7 +63,7 @@ fi
 #
 #
 varnames="'so','zos','to'"
-varnames="'group:oce_diag','group:oce_prog'"
+varnames="'group:oce_diag','group:oce_prog','group:oce_force_essentials'"
 monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
 monitor_varnames="${monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # write namelist parameters
@@ -98,6 +98,19 @@ lkeep_in_sync = .true.
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 !test_mode            = 14
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_fx"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${start_date}"                    ! end date in ISO-format
+  output_interval  = "${monthly}"         ! interval in ISO-format
+  filename_format  = "<output_filename>"
+  steps_per_file   = 1
+  output_grid      = .TRUE.
+  mode             =  1
+  include_last     = .false.
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2

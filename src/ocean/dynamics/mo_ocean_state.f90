@@ -126,11 +126,17 @@ CONTAINS
 
     CHARACTER(LEN=max_char_length) :: listname
 
+    ! IMO the number of variable lists should be as small as possible
+    !
+    ! Restart list: everything belonging to that list will be written to the
+    ! restart file and is ready for output
     WRITE(listname,'(a)')  'ocean_restart_list'
     CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_restart_list,             &
       & lrestart=.TRUE.,loutput=.TRUE.,&
       & model_type='oce' )
+
+    ! default list: elements can be written to disk, but not to the restart file
     WRITE(listname,'(a)')  'ocean_default_list'
     CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_default_list,            &

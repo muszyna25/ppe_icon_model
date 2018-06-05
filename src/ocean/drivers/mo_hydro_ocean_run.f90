@@ -419,6 +419,7 @@ CONTAINS
         & ocean_state(jg)%p_prog(nnew(1))%h, &
         & ocean_state(jg)%p_prog(nnew(1))%tracer, &
         & p_atm_f, &
+        & p_oce_sfc, &
         & hamocc_state, &
         & sea_ice, &
         & lhamocc) 
@@ -527,7 +528,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_oce_sfc,sea_ice, &
-& hamocc_state, operators_coefficients, p_phys_param)
+          & hamocc_state, operators_coefficients, p_phys_param)
 
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
