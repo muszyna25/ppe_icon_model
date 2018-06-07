@@ -583,7 +583,8 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
     npromz_bdyintp = nproma_bdyintp
   ENDIF
 
-  epsi = TINY(1.0_wp)
+  epsi = 1.e3_wp*TINY(1.0_wp) ! factor 1000 is needed to safely prevent overflow in divisions
+
   ovsht_fac = 1.05_wp ! factor of allowed overshooting
   r_ovsht_fac = 1._wp/ovsht_fac
  
@@ -692,7 +693,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc),  &
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
-                             -TINY(1.0_wp) )
+                             -epsi )
             max_expval = MAX(grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc),  &
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
@@ -701,7 +702,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc),  &
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
-                             TINY(1.0_wp) )
+                             epsi )
 
             ! Allow a limited amount of over-/undershooting in the downscaled fields
             relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
