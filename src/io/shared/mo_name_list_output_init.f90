@@ -1444,8 +1444,8 @@ CONTAINS
           ENDDO
 
           IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
-            IF ( 1 == i ) THEN             ! use global domain, only
-              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(i))
+            IF ( p_of%log_patch_id == 1 ) THEN             ! use global domain, only
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(p_of%log_patch_id))
             ENDIF
           ENDIF
 
