@@ -27,7 +27,7 @@ MODULE mo_initicon
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -35,17 +35,18 @@ MODULE mo_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict, t_init_state_const
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
-    &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
+    &                               lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
     &                               fgFilename, fgFiletype, anaFilename, anaFiletype
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
     &                               min_rlcell_int, dzsoil_icon => dzsoil
-  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
+  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
@@ -80,6 +81,7 @@ MODULE mo_initicon
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
   USE mo_fortran_tools,       ONLY: init
+
 
   IMPLICIT NONE
 
@@ -473,7 +475,7 @@ MODULE mo_initicon
             IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
             ! Compute DA increments in terms of the NH set of
             ! prognostic variables
-            CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
+            CALL transform_dwdana_increment_atm(p_patch, p_nh_state, p_int_state)
         CASE(MODE_COMBINED, MODE_IFSANA)
             ! process IFS atmosphere analysis data
             CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
@@ -981,49 +983,60 @@ MODULE mo_initicon
 
 
   !>
-  !! Compute analysis increments in terms of the NH prognostic set of variables.
+  !! Transform atmospheric analysis increments originating from DWD's assimilation 
+  !! system.
   !!
-  !!
-  !! Compute analysis increments in terms of the NH prognostic set of variables
-  !! (atmosphere only).
+  !! Transform atmospheric analysis increments originating from DWD's assimilation 
+  !! system into increments of ICON's prognostic variables. 
+  !! I.e. the increment state vector (u,v,p,T,qv) is transformed 
+  !! into the increment state vector (vn, rho, exner (or rho*theta_v), rho*qv).
   !!
   !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !! Initial version by Daniel Reinert, DWD (2014-01-28)
+  !! Modification by Daniel Reinert, DWD, 2018-04-23
+  !! - introduce computation of rho*qv increment
+  !! - cleanup
   !!
-  SUBROUTINE create_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+  SUBROUTINE transform_dwdana_increment_atm (p_patch, p_nh_state, p_int_state)
 
     TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
-    INTEGER :: jc,je,jk,jb,jg,jt          ! loop indices
+    ! local
+    INTEGER :: jc,je,jk,jb,jg             ! loop indices
     INTEGER :: ist
     INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
-    INTEGER :: i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk
     INTEGER :: i_startidx, i_endidx
     TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf
     TYPE(t_nh_diag), POINTER :: p_diag
-    TYPE(t_nh_metrics), POINTER :: p_metrics
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:), iqidx(:,:,:), iqblk(:,:,:)
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla2_vn_incr, w_incr
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: nabla2_vn_incr, w_incr
     REAL(vp), ALLOCATABLE, DIMENSION(:,:,:) :: zvn_incr
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = modname//':create_dwdanainc_atm'
+      routine = modname//':transform_dwdana_increment_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: ddfac=0.1_wp, smtfac=0.075_wp
 
+    ! analysed water vapour partial density
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_rhov
+
     ! to sum up the water loading term
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
 
-    ! For vertical filtering of mass increments
-    REAL(wp), ALLOCATABLE :: rho_incr_smt(:,:), exner_ifc_incr(:,:), mass_incr_smt(:,:), mass_incr(:,:)
-    REAL(wp) :: mass_incr_int(nproma), mass_incr_smt_int(nproma)
+    ! virtual increment alpha: Tv=T*(1+\alpha)
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: alpha
+
+    ! List of tracer IDs which contain prognostic condensate.
+    ! Required for computing the water loading term 
+    INTEGER, POINTER :: condensate_list(:)
+
     INTEGER :: iter
 
     !-------------------------------------------------------------------------
@@ -1032,20 +1045,22 @@ MODULE mo_initicon
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
+      CALL message(modname,'transform_dwdana_increment_atm')
+
       ! number of vertical levels
       nlev      = p_patch(jg)%nlev
       nlevp1    = p_patch(jg)%nlevp1
 
       nblks_c   = p_patch(jg)%nblks_c
       nblks_e   = p_patch(jg)%nblks_e
-      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+      ! condensate tracer IDs
+      condensate_list => advection_config(jg)%trHydroMass%list
 
       ! allocate temporary arrays for DA increments and a filtering term for vn
-      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla2_vn_incr(nproma,nlev,nblks_e),   &
-               rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),               &
-               mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), z_qsum(nproma,nlev),&
-               zvn_incr(nlev,nproma,nblks_e),STAT=ist)
-
+      ALLOCATE(nabla2_vn_incr(nproma,nlev,nblks_e), z_qsum(nproma,nlev), &
+        &      zvn_incr(nlev,nproma,nblks_e), alpha(nproma,nlev),STAT=ist)
+      !
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
@@ -1055,17 +1070,19 @@ MODULE mo_initicon
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
       p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
       p_diag         => p_nh_state(jg)%diag
-      p_metrics      => p_nh_state(jg)%metrics
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
       iqidx          => p_patch(jg)%edges%quad_idx
       iqblk          => p_patch(jg)%edges%quad_blk
 
 
-      ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
-      !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v
-      !    increment is not necessary.
-      !    The prognostic state variables are initialized with the first guess
+      ! 1) Compute analysis increments for rho, exner (rho*theta_v), and rho*qv
+      ! 
+      !    The prognostic state variables which enter the increment computation 
+      !    are approximated with the first guess values.
+      !    Note that this is an approximation w.r.t. time, as the state variables 
+      !    should actually be taken from the first guess whose validity date 
+      !    matches that of the analysis increments.
       !
       !
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
@@ -1076,26 +1093,24 @@ MODULE mo_initicon
       rl_start = 1
       rl_end   = min_rlcell
 
-      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(rl_start)
+      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
-!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,alpha)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
+
         ! Sum up the hydrometeor species for the water loading term
-        z_qsum(:,:) = 0._wp
-        DO jt = 2, iqm_max
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              z_qsum(jc,jk) = z_qsum(jc,jk) + p_prog_now_rcf%tracer(jc,jk,jb,jt)
-            ENDDO
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            z_qsum(jc,jk) = SUM(p_prog_now_rcf%tracer (jc,jk,jb,condensate_list))
           ENDDO
         ENDDO
+
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -1114,10 +1129,13 @@ MODULE mo_initicon
             p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
               &                    * p_prog_now%exner(jc,jk,jb)
 
+            ! virtual increment
+            alpha(jc,jk) = vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk)
+
+
             ! compute temperature (based on first guess input)
             ! required for virtual temperature increment
-            p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk))
+            p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb) / (1._wp + alpha(jc,jk))
 
 
             ! compute thermodynamic increments
@@ -1125,84 +1143,20 @@ MODULE mo_initicon
             p_diag%exner_incr(jc,jk,jb) = rd_o_cpd * p_prog_now%exner(jc,jk,jb) &
               &                  / p_diag%pres(jc,jk,jb) * initicon(jg)%atm_inc%pres(jc,jk,jb)
 
-            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk)) &
-              &                   * initicon(jg)%atm_inc%temp(jc,jk,jb)                                 &
-              &                   + vtmpc1*p_diag%temp(jc,jk,jb)*initicon(jg)%atm_inc%qv(jc,jk,jb)
+            ! Note: alpha_incr = vtmpc1 * initicon(jg)%atm_inc%qv(jc,jk,jb)
+            p_diag%rho_incr(jc,jk,jb) = (p_prog_now%rho(jc,jk,jb)/p_diag%pres(jc,jk,jb))  &
+              &                        * initicon(jg)%atm_inc%pres(jc,jk,jb)              &
+              &                       - (p_prog_now%rho(jc,jk,jb)/p_diag%temp(jc,jk,jb))  &
+              &                        * initicon(jg)%atm_inc%temp(jc,jk,jb)              &
+              &                       - (p_prog_now%rho(jc,jk,jb)/(1._wp + alpha(jc,jk))) &
+              &                        * vtmpc1* initicon(jg)%atm_inc%qv(jc,jk,jb)
 
-            p_diag%rho_incr(jc,jk,jb) = ( initicon(jg)%atm_inc%pres(jc,jk,jb) &
-              &                / (rd*p_diag%tempv(jc,jk,jb)) )         &
-              &                - ((p_diag%pres(jc,jk,jb) * tempv_incr(jc,jk,jb)) &
-              &                / (rd*(p_diag%tempv(jc,jk,jb)**2)))
 
-            p_diag%qv_incr(jc,jk,jb) = initicon(jg)%atm_inc%qv(jc,jk,jb)
+            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
+              &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
 
           ENDDO  ! jc
         ENDDO  ! jk
-
-        ! Apply vertical filtering of density increments, including a correction that ensures conservation
-        ! of the vertically integrated mass increment
-        !
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            mass_incr(jc,jk) = p_diag%rho_incr(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
-          ENDDO
-        ENDDO
-
-        ! Filtered density increment
-        DO jk = 2, nlev-1
-          DO jc = i_startidx, i_endidx
-            rho_incr_smt(jc,jk) = (1._wp-2._wp*rho_incr_filter_wgt)*p_diag%rho_incr(jc,jk,jb) &
-              + rho_incr_filter_wgt*(p_diag%rho_incr(jc,jk-1,jb)+p_diag%rho_incr(jc,jk+1,jb))
-          ENDDO
-        ENDDO
-        DO jc = i_startidx, i_endidx
-          rho_incr_smt(jc,1) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,1,jb) &
-            + rho_incr_filter_wgt*p_diag%rho_incr(jc,2,jb)
-          rho_incr_smt(jc,nlev) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,nlev,jb) &
-            + rho_incr_filter_wgt*p_diag%rho_incr(jc,nlev-1,jb)
-          ! correction increment for Exner pressure (zero at surface)
-          exner_ifc_incr(jc,nlevp1) = 0._wp
-        ENDDO
-
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            mass_incr_smt(jc,jk) = rho_incr_smt(jc,jk)*p_metrics%ddqz_z_full(jc,jk,jb)
-          ENDDO
-        ENDDO
-
-        ! Vertically integrated mass increments
-        DO jc = i_startidx, i_endidx
-          mass_incr_int(jc)     = SUM(mass_incr(jc,1:nlev))
-          mass_incr_smt_int(jc) = SUM(mass_incr_smt(jc,1:nlev))
-        ENDDO
-
-        ! Apply conservation correction for vertically integrated mass increment.
-        ! Unfortunately, we have to care about possible pathological cases here
-        DO jc = i_startidx, i_endidx
-          IF (mass_incr_int(jc)*mass_incr_smt_int(jc) > 0._wp .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp &
-              .AND. grav*ABS(mass_incr_smt_int(jc)) > 0.5_wp) THEN
-            ! Multiplicative correction if mass increments are larger than 0.5 Pa and have the same sign
-            DO jk = 1, nlev
-              rho_incr_smt(jc,jk) = rho_incr_smt(jc,jk)                         &
-               * MAX(0.98_wp,MIN(1.02_wp,mass_incr_int(jc)/mass_incr_smt_int(jc)))
-            ENDDO
-          ENDIF
-        ENDDO
-
-        ! integrate Exner correction increment (assuming hydrostatic balance of perturbation) and add it to the existing one
-        DO jk = nlev, 1, -1
-          DO jc = i_startidx, i_endidx
-
-            exner_ifc_incr(jc,jk) = exner_ifc_incr(jc,jk+1) - rd_o_cpd*grav                   &
-              * p_prog_now%exner(jc,jk,jb)/p_diag%pres(jc,jk,jb)                              &
-              * (rho_incr_smt(jc,jk)-p_diag%rho_incr(jc,jk,jb))*p_metrics%ddqz_z_full(jc,jk,jb)
-
-            p_diag%exner_incr(jc,jk,jb) = p_diag%exner_incr(jc,jk,jb) &
-              + 0.5_wp*(exner_ifc_incr(jc,jk)+exner_ifc_incr(jc,jk+1))
-
-            p_diag%rho_incr(jc,jk,jb) = rho_incr_smt(jc,jk)
-          ENDDO
-        ENDDO
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1217,8 +1171,8 @@ MODULE mo_initicon
         ! include boundary interpolation zone of nested domains and the halo edges as far as possible
         rl_start = 2
         rl_end   = min_rledge_int - 2
-        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch(jg)%edges%start_block(rl_start)
+        i_endblk   = p_patch(jg)%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
@@ -1270,8 +1224,8 @@ MODULE mo_initicon
         rl_start = 3
         rl_end   = min_rledge_int
 
-        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch(jg)%edges%start_block(rl_start)
+        i_endblk   = p_patch(jg)%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
@@ -1305,8 +1259,8 @@ MODULE mo_initicon
           rl_start = 2
           rl_end   = min_rledge_int-2
 
-          i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-          i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+          i_startblk = p_patch(jg)%edges%start_block(rl_start)
+          i_endblk   = p_patch(jg)%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
           DO jb = i_startblk, i_endblk
@@ -1334,8 +1288,8 @@ MODULE mo_initicon
           rl_start = 3
           rl_end   = min_rledge_int
 
-          i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-          i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+          i_startblk = p_patch(jg)%edges%start_block(rl_start)
+          i_endblk   = p_patch(jg)%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
           DO jb = i_startblk, i_endblk
@@ -1371,8 +1325,7 @@ MODULE mo_initicon
       initicon(jg)%atm_inc%vn(:,:,:) = p_diag%vn_incr(:,:,:)
 
       ! deallocate temporary arrays
-      DEALLOCATE( tempv_incr, nabla2_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, z_qsum, zvn_incr, STAT=ist )
+      DEALLOCATE( nabla2_vn_incr, z_qsum, zvn_incr, alpha, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
@@ -1385,7 +1338,8 @@ MODULE mo_initicon
         ! For the special case that increments are added in one go,
         ! compute vertical wind increment consistent with the vn increment
         ! Note that here the filtered velocity increment is used.
-        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
+        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), &
+          &      z_rhov(nproma,nlev), STAT=ist)
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
         ENDIF
@@ -1396,10 +1350,10 @@ MODULE mo_initicon
 
         rl_start = 1
         rl_end   = min_rlcell
-        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch(jg)%cells%start_block(rl_start)
+        i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_rhov)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1410,12 +1364,16 @@ MODULE mo_initicon
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
 
+              ! analysed water vapour partial density
+              z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
+                &           + p_diag%rhov_incr(jc,jk,jb)
+
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
               ! make sure, that due to GRIB2 roundoff errors, qv does not drop
               ! below threshhold (currently 5E-7 kg/kg)
-              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv)  &
-                &                                 + p_diag%qv_incr(jc,jk,jb) )
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
+
 
               ! Remember to update theta_v
               p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
@@ -1430,8 +1388,8 @@ MODULE mo_initicon
 
         rl_start = 2
         rl_end   = min_rledge_int - 2
-        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch(jg)%edges%start_block(rl_start)
+        i_endblk   = p_patch(jg)%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
@@ -1454,8 +1412,8 @@ MODULE mo_initicon
         rl_start = 2
         rl_end   = min_rlcell_int
 
-        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch(jg)%cells%start_block(rl_start)
+        i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
@@ -1480,7 +1438,7 @@ MODULE mo_initicon
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
 
         ! deallocate temporary arrays
-        DEALLOCATE( w_incr, STAT=ist )
+        DEALLOCATE( w_incr, z_rhov, STAT=ist )
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
         ENDIF
@@ -1493,7 +1451,9 @@ MODULE mo_initicon
 
     ENDDO  ! jg domain loop
 
-  END SUBROUTINE create_dwdanainc_atm
+  END SUBROUTINE transform_dwdana_increment_atm
+
+
 
 
 

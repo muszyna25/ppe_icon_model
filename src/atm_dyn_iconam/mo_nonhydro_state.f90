@@ -1522,7 +1522,7 @@ MODULE mo_nonhydro_state
     &       p_diag%vn_incr, &
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
-    &       p_diag%qv_incr, &
+    &       p_diag%rhov_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -2371,10 +2371,10 @@ MODULE mo_nonhydro_state
 
     ENDIF  !  ntracer >0
 
-    p_diag%vn_incr    => NULL()
-    p_diag%exner_incr => NULL()
-    p_diag%rho_incr   => NULL()
-    p_diag%qv_incr    => NULL()
+
+    !
+    ! (Transformed) Analysis increments
+    !
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
@@ -2409,12 +2409,12 @@ MODULE mo_nonhydro_state
                   & lrestart=.FALSE., loutput=.TRUE.)
 
 
-      ! qv_incr   p_diag%qv_incr(nproma,nlev,nblks_c)
+      ! rhov_incr  p_diag%rhov_incr(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('qv_incr', ' ',                   &
-        &                   'specific humidity increment from DA', datatype_flt)
-      grib2_desc = grib2_var(  0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'qv_incr', p_diag%qv_incr,                     &
+      cf_desc    = t_cf_var('rhov_incr', ' ',                   &
+        &                   'partial density of water vapour increment from DA', datatype_flt)
+      grib2_desc = grib2_var(  0, 1, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rhov_incr', p_diag%rhov_incr,                    &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
@@ -2542,6 +2542,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & initval=0._wp,                                              &
                   & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
 
       ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
@@ -2565,7 +2566,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_extra,                                        &
+                  & initval=0._wp, ldims=shape3d_extra,                            &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
       ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))

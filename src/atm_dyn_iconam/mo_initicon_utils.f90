@@ -2244,9 +2244,9 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%rho_incr)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"rho_incr: ", &
         & p_nh_state(jg)%diag%rho_incr)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%qv_incr)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"qv_incr: ", &
-        & p_nh_state(jg)%diag%qv_incr)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%rhov_incr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"rhov_incr: ", &
+        & p_nh_state(jg)%diag%rhov_incr)
       IF(ASSOCIATED(p_nh_state(jg)%diag%u_avg)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"u_avg: ", &
         & p_nh_state(jg)%diag%u_avg)

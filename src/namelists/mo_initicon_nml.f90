@@ -54,7 +54,6 @@ MODULE mo_initicon_nml
     & config_iterate_iau         => iterate_iau,         &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
-    & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
     & config_ana_varnames_map_file => ana_varnames_map_file
@@ -123,8 +122,6 @@ MODULE mo_initicon_nml
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
-  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
@@ -167,7 +164,7 @@ MODULE mo_initicon_nml
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
-                          lconsistency_checks, rho_incr_filter_wgt,         &
+                          lconsistency_checks,                              &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, check_ana, check_fg,                &
@@ -220,7 +217,6 @@ CONTAINS
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
   iterate_iau = .FALSE.        ! no iteration of IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
-  rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
@@ -379,7 +375,6 @@ CONTAINS
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
-  config_rho_incr_filter_wgt   = rho_incr_filter_wgt
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
 

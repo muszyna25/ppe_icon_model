@@ -72,7 +72,6 @@ MODULE mo_initicon_config
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
-  PUBLIC :: rho_incr_filter_wgt
   PUBLIC :: niter_divdamp, niter_diffu
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
@@ -161,8 +160,6 @@ MODULE mo_initicon_config
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
-  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA

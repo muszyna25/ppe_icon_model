@@ -65,6 +65,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
+  USE mo_initicon_config,         ONLY: is_iau_active
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart, ldass_lhn
   USE mo_grid_config,             ONLY: l_limited_area
@@ -73,7 +74,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
-  USE mo_util_phys,               ONLY: nh_update_tracer_phy
+  USE mo_util_phys,               ONLY: tracer_add_phytend, iau_update_tracer
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,               ONLY: cover_koe
   USE mo_satad,                   ONLY: satad_v_3D
@@ -177,7 +178,6 @@ CONTAINS
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
 
     ! Local scalars:
 
@@ -209,7 +209,7 @@ CONTAINS
 #endif
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
-    REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
+    REAL(wp) :: z_ddt_alpha(nproma,pt_patch%nlev)  !< tendency of virtual increment
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
@@ -239,7 +239,6 @@ CONTAINS
 
     ! local variables related to the blocking
 
-    i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
     IF (pt_patch%n_childdom > 0) THEN
@@ -402,22 +401,39 @@ CONTAINS
 
       IF (.NOT. linit) THEN
 
+        IF (is_iau_active) THEN
+          ! add analysis increments from data assimilation to qv (during IAU phase)
+          CALL iau_update_tracer( pt_prog     = pt_prog,     & !in
+           &                      p_metrics   = p_metrics,   & !in
+           &                      pt_diag     = pt_diag,     & !inout
+           &                      pt_prog_rcf = pt_prog_rcf, & !inout tracer
+           &                      jg          = jg,          & !in
+           &                      jb          = jb,          & !in
+           &                      i_startidx  = i_startidx,  & !in
+           &                      i_endidx    = i_endidx,    & !in
+           &                      kend        = nlev         ) !in
+        ENDIF
+
+
         ! The provisional "new" tracer state, resulting from the advection 
         ! step, still needs to be updated with the SLOW-physics tracer tendencies 
         ! computed at the end of the last physics call for the then final 
         ! "new" state. The corresponding update for the dynamics variables has 
         ! already happened in the dynamical core.
         !
-        ! In addition: Update qv with DA increment (during IAU phase)
-        CALL nh_update_tracer_phy(pt_patch          ,& !in
-           &                  dt_phy_jg(itfastphy)  ,& !in
-           &                  pt_diag               ,& !in
-           &                  p_metrics             ,& !in
-           &                  prm_nwp_tend          ,& !in
-           &                  prm_diag              ,& !inout phyfields
-           &                  pt_prog_rcf           ,& !inout tracer
-           &                  pt_prog               ,& !in density
-           &                  jb, i_startidx, i_endidx ) !in
+        CALL tracer_add_phytend( pt_prog      = pt_prog,              & !in density
+          &                      prm_nwp_tend = prm_nwp_tend,         & !in
+          &                      pdtime       = dt_phy_jg(itfastphy), & !in
+          &                      prm_diag     = prm_diag,             & !inout phyfields
+          &                      pt_prog_rcf  = pt_prog_rcf,          & !inout tracer
+          &                      pt_diag      = pt_diag,              & !inout
+          &                      p_metrics    = p_metrics,            & !in
+          &                      jg           = jg,                   & !in
+          &                      jb           = jb,                   & !in
+          &                      i_startidx   = i_startidx,           & !in
+          &                      i_endidx     = i_endidx,             & !in
+          &                      kend         = nlev                  ) !in
+
       ENDIF  ! linit
 
 
@@ -711,8 +727,8 @@ CONTAINS
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
   
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = pt_patch%cells%start_block(rl_start)
+        i_endblk   = pt_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -773,8 +789,8 @@ CONTAINS
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
@@ -953,8 +969,8 @@ CONTAINS
       ENDIF
       rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = pt_patch%cells%start_block(rl_start)
+      i_endblk   = pt_patch%cells%end_block(rl_end)
 
       IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'cloud cover')
@@ -1076,8 +1092,8 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = pt_patch%cells%start_block(rl_start)
+      i_endblk   = pt_patch%cells%end_block(rl_end)
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
 #ifdef __CRAY8_5_5_WORKAROUND
@@ -1336,11 +1352,11 @@ CONTAINS
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = pt_patch%cells%start_block(rl_start)
+      i_endblk   = pt_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_alpha,vabs, &
 !$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric,convfac,sqrt_ri,n2,dvdz2,wfac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1402,14 +1418,21 @@ CONTAINS
    &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
 
 
-
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
+        IF (kstart_moist(jg) > 1) THEN
+          z_qsum(:,1:kstart_moist(jg)-1)      = 0._wp
+          z_ddt_alpha(:,1:kstart_moist(jg)-1) = 0._wp
+        ENDIF
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
+            ! summand of virtual increment
             z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
+            ! tendency of virtual increment
+            z_ddt_alpha(jc,jk) = vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)          &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
           ENDDO
         ENDDO
 
@@ -1419,17 +1442,15 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
-
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk)                             &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv)-z_ddt_qsum ))
-
+              &                             - z_qsum(jc,jk))                                 &
+              &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk))
           ENDDO
         ENDDO
+
+
 
         ! Accumulate wind tendencies of slow physics
         ! Strictly spoken, this would not be necessary if only radiation was called
@@ -1467,17 +1488,16 @@ CONTAINS
 
 
               ! Convert temperature tendency into Exner function tendency
-              z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-                &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
-                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
-                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
+              z_ddt_alpha(jc,jk) = z_ddt_alpha(jc,jk)                          &
+                &                + vtmpc1 * prm_nwp_tend%ddt_tracer_ls(jk,iqv) &
+                &                - prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
+                &                - prm_nwp_tend%ddt_tracer_ls(jk,iqi)
 
               pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
                 &                             * (z_ddt_temp(jc,jk)                             &
                 &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-                &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-                &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
-                &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
+                &                             - z_qsum(jc,jk))                                 &
+                &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk) )
 
 
               ! add u/v forcing tendency here
@@ -1643,8 +1663,8 @@ CONTAINS
         rl_start = min_rlcell_int-1
         rl_end   = min_rlcell
 
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = pt_patch%cells%start_block(rl_start)
+        i_endblk   = pt_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -1712,8 +1732,8 @@ CONTAINS
     rl_start = grf_bdywidth_e+1
     rl_end   = min_rledge_int
 
-    i_startblk = pt_patch%edges%start_blk(rl_start,1)
-    i_endblk   = pt_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%edges%start_block(rl_start)
+    i_endblk   = pt_patch%edges%end_block(rl_end)
 
 
 !$OMP DO PRIVATE(jb,jk,jce,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
