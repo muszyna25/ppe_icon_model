@@ -1296,40 +1296,40 @@ CONTAINS
         ! First initialize fields to zero in order to prepare
         ! subsequent summation over the tiles
         !
-        lnd_diag%t_snow   (:,jb)  = 0._wp
-        lnd_diag%t_s      (:,jb)  = 0._wp
-        lnd_diag%w_snow   (:,jb)  = 0._wp
-        lnd_diag%rho_snow (:,jb)  = 0._wp
-        lnd_diag%w_i      (:,jb)  = 0._wp
-        lnd_diag%h_snow   (:,jb)  = 0._wp
-        lnd_diag%freshsnow(:,jb)  = 0._wp
-        lnd_diag%snowfrac (:,jb)  = 0._wp
-        lnd_diag%runoff_s (:,jb)  = 0._wp
-        lnd_diag%runoff_g (:,jb)  = 0._wp
-        lnd_diag%rstom    (:,jb)  = 0._wp
+        lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%w_snow   (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%rho_snow (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%w_i      (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%freshsnow(i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%snowfrac (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%runoff_s (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%runoff_g (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%rstom    (i_startidx:i_endidx,jb)  = 0._wp
 
-        lnd_diag%t_so    (:,:,jb) = 0._wp
-        lnd_diag%w_so    (:,:,jb) = 0._wp
-        lnd_diag%w_so_ice(:,:,jb) = 0._wp
+        lnd_diag%t_so    (i_startidx:i_endidx,:,jb) = 0._wp
+        lnd_diag%w_so    (i_startidx:i_endidx,:,jb) = 0._wp
+        lnd_diag%w_so_ice(i_startidx:i_endidx,:,jb) = 0._wp
 
         IF (itype_interception == 2) THEN
-          lnd_diag%w_p    (:,jb)  = 0._wp
-          lnd_diag%w_s    (:,jb)  = 0._wp
+          lnd_diag%w_p    (i_startidx:i_endidx,jb)  = 0._wp
+          lnd_diag%w_s    (i_startidx:i_endidx,jb)  = 0._wp
         ENDIF
 
         IF (itype_trvg == 3) THEN
-          lnd_diag%plantevap(:,jb) = 0._wp
+          lnd_diag%plantevap(i_startidx:i_endidx,jb) = 0._wp
         ENDIF
 
         IF (l2lay_rho_snow .OR. lmulti_snow) THEN
-          lnd_diag%rho_snow_mult(:,:,jb) = 0._wp
+          lnd_diag%rho_snow_mult(i_startidx:i_endidx,:,jb) = 0._wp
         ENDIF
 
         IF (lmulti_snow) THEN
-          lnd_diag%t_snow_mult  (:,:,jb) = 0._wp
-          lnd_diag%wliq_snow    (:,:,jb) = 0._wp
-          lnd_diag%wtot_snow    (:,:,jb) = 0._wp
-          lnd_diag%dzh_snow     (:,:,jb) = 0._wp
+          lnd_diag%t_snow_mult  (i_startidx:i_endidx,:,jb) = 0._wp
+          lnd_diag%wliq_snow    (i_startidx:i_endidx,:,jb) = 0._wp
+          lnd_diag%wtot_snow    (i_startidx:i_endidx,:,jb) = 0._wp
+          lnd_diag%dzh_snow     (i_startidx:i_endidx,:,jb) = 0._wp
         ENDIF
 
 
