@@ -656,7 +656,9 @@ CONTAINS
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
@@ -678,7 +680,9 @@ CONTAINS
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
@@ -702,7 +706,9 @@ CONTAINS
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
@@ -747,7 +753,9 @@ CONTAINS
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           IF (.NOT. isrestart()) THEN
             DO jc = jcs,jce
@@ -782,7 +790,9 @@ CONTAINS
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           ! initial and re-start
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
@@ -802,7 +812,9 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
+          !
           CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+          IF (jcs>jce) CYCLE 
           !
           ! Set the surface temperature to the same value as the lowest model
           ! level above surface. For this test case, currently we assume
@@ -827,7 +839,9 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       ! initial and re-start
       DO jb = jbs,jbe
+        !
         CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+        IF (jcs>jce) CYCLE 
         !
         ! Set surface tiling fractions, wrt. the cell area
         DO jc = jcs,jce
@@ -926,7 +940,9 @@ CONTAINS
     jbe     = p_patch%cells%  end_blk(rle,ncd)
     !
     DO jb = jbs,jbe
+      !
       CALL get_indices_c(p_patch, jb,jbs,jbe, jcs,jce, rls,rle)
+      IF (jcs>jce) CYCLE 
       !
       pfull(:,:)          =  pres (:,:,jb)
       avi%pres            => pfull

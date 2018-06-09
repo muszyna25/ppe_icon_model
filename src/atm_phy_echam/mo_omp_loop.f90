@@ -105,6 +105,7 @@ CONTAINS
     DO jb = jbs,jbe
        !
        CALL get_indices_c(patch,jb,jbs,jbe,jcs,jce,rls,rle)
+       IF (jcs>jce) CYCLE
        !
        CALL routine(jg,jb,jcs,jce        ,&
             &       nproma,nlev          ,&
@@ -163,6 +164,7 @@ CONTAINS
     DO jb = jbs,jbe
        !
        CALL get_indices_c(patch,jb,jbs,jbe,jcs,jce,rls,rle)
+       IF (jcs>jce) CYCLE
        !
        CALL routine(jg,jb,jcs,jce ,&
             &       nproma,nlev   )
