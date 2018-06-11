@@ -75,7 +75,7 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict,                   &
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, linvert_dict,     &
     &                                             config_lmask_boundary => lmask_boundary
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
     &                                             first_output_name_list,                         &
@@ -463,7 +463,7 @@ CONTAINS
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
-        CALL dict_loadfile(varnames_dict, cfilename)
+        CALL dict_loadfile(varnames_dict, cfilename, linverse=linvert_dict)
       END IF
       IF(netcdf_dict /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, netcdf_dict))
