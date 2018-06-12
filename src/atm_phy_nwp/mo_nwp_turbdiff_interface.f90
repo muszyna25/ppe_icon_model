@@ -322,7 +322,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb),                            & !in
         &  rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb),                          & !in
         &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc),        & !in
-        &  ptr=ptr(:), ndtr=art_config(jg)%nturb_tracer,                              & !diffusion of additional tracer variables!
+        &  ptr=ptr(:), ndtr=art_config(jg)%nturb_tracer+ncloud_offset,                & !diffusion of additional tracer variables!
         &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb),                            & !out
         &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb),                            & !inout
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb),    & !inout
