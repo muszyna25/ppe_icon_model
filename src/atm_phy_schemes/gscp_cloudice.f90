@@ -1264,7 +1264,14 @@ SUBROUTINE cloudice (             &
         ENDIF
         zsvidep   = 0.0_wp
         zsvisub   = 0.0_wp
-        zsimax    = qig*zdtr 
+        ! for sedimenting quantities the maximum 
+        ! allowed depletion is determined by the predictor value. 
+        IF (lsedi_ice .OR. lorig_icon) THEN
+          zsimax  = zzai(iv)*z1orhog(iv)*zdtr
+        ELSE
+          zsimax  = qig*zdtr
+        ENDIF
+        !
         IF( zsidep > 0.0_wp ) THEN
           IF (lred_depgrowth ) THEN
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
@@ -1294,9 +1301,6 @@ SUBROUTINE cloudice (             &
           zssdep = MIN(zssdep, zsvmax-zsvidep)
         END IF
         
-        ! Check for maximal depletion of snow by sdep
-        IF (zssdep < 0.0_wp) zssdep = MAX(zssdep, -qsg*zdtr)
-
         zsisum = zsiau + zsdau + zsagg + zsicri + zsvisub
         zcorr  = 0.0_wp
         IF( zsimax > 0.0_wp ) zcorr  = zsimax / MAX( zsimax, zsisum )
@@ -1317,7 +1321,11 @@ SUBROUTINE cloudice (             &
       !------------------------------------------------------------------------
 
       ELSE ! tg > 0
-        simelt(iv) = qig*zdtr
+        IF (lsedi_ice .OR. lorig_icon) THEN
+          simelt(iv) = zzai(iv)*z1orhog(iv)*zdtr
+        ELSE
+          simelt(iv) = qig*zdtr
+        ENDIF
         zqvsw0      = zpvsw0 / (rhog * r_v * tg)
         zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
         zx2         = 1.0_wp + zbsmel * zeln5o24qsk(iv)
@@ -1384,7 +1392,7 @@ SUBROUTINE cloudice (             &
         zssmax = zzas(iv)*z1orhog(iv)*zdtr
         zsrsum = sev(iv) + srfrz(iv) + srcri(iv)
         zcorr  = 1.0_wp
-        IF(zsrsum > 0) THEN
+        IF(zsrsum > 0._wp) THEN
           zcorr  = zsrmax / MAX( zsrmax, zsrsum )
         ENDIF
         sev  (iv) = zcorr*sev(iv)
@@ -1482,7 +1490,7 @@ SUBROUTINE cloudice (             &
 
         ! Update of prognostic variables or tendencies
         qr (iv,k) = qrg
-        qs (iv,k) = MAX ( 0.0_wp, qsg )
+        qs (iv,k) = qsg
         qi (iv,k) = qig
 !        qrs(iv,k   ) = qrg+qsg+qig       !qrs is now computed outside
         t  (iv,k) = t (iv,k) + ztt*zdt 

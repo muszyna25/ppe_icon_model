@@ -1222,7 +1222,13 @@ SUBROUTINE graupel     (             &
             sidep     = zcidep * znid * EXP(0.33_wp * zlnlogmi) * zqvsidiff
             zsvidep   = 0.0_wp
             zsvisub   = 0.0_wp
-            zsimax    = qig*zdtr
+            ! for sedimenting quantities the maximum 
+            ! allowed depletion is determined by the predictor value. 
+            IF (lsedi_ice) THEN
+              zsimax  = zzai*z1orhog*zdtr
+            ELSE
+              zsimax  = qig*zdtr
+            ENDIF
             IF( sidep > 0.0_wp ) THEN
               IF (lred_depgrow ) THEN
                 sidep = sidep * reduce_dep  !FR new: depositional growth reduction
@@ -1284,7 +1290,11 @@ SUBROUTINE graupel     (             &
           !------------------------------------------------------------------------
 
           ! cloud ice melts instantaneously
-          simelt = qig*zdtr
+          IF (lsedi_ice) THEN
+            simelt = zzai*z1orhog*zdtr
+          ELSE
+            simelt = qig*zdtr
+          ENDIF
 
 #ifdef __COSMO__
           zqvsw0     = fqvs( zpvsw0, ppg)
