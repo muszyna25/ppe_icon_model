@@ -2573,6 +2573,17 @@ I & 1 &  & Type of snow-fraction diagnosis:\\
 20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow&
 \tabularnewline
 
+
+%\hline
+itype\_snowevap &
+I & 2 &  & Tuning of snow evaporation in vegetated areas:\\ 
+1: Tuning turned off\\
+2: First level of tuning without additional control variables \\ 
+3: Second level of tuning with additional I/O variables for snow age and maximum snow depth&
+lsnowtile=.TRUE.
+\tabularnewline
+
+
 %\hline
 itype\_lndtbl &
 I & 3 &  & Table values used for associating surface parameters to land-cover classes: \\
@@ -6867,7 +6878,8 @@ itype\_vegetation\_cycle&
 I & 1& &
 1: annual cycle of LAI solely based on NDVI climatology \\
 2: additional use of monthly T2M climatology to get more realistic values in extratropics 
-(requires external parameter data contining this field) &
+(requires external parameter data contining this field) \\
+3: as 2 with additional coupling of vegetation parameters to T2M bias in transitional seasons &
 \tabularnewline
 
 

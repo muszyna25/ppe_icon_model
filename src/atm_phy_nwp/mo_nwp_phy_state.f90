@@ -68,12 +68,13 @@ USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
+USE mo_extpar_config,       ONLY: itype_vegetation_cycle
 USE mo_data_turbdiff,       ONLY: ltkecon
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_groups,          ONLY: groups
+USE mo_var_groups,          ONLY: groups, MAX_GROUPS
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
@@ -296,9 +297,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(LEN=128)         :: longname, unit
     CHARACTER(len=max_timedelta_str_len) :: gust_int
     !
-    INTEGER :: constituentType                        ! for variable of class 'chem'
+    INTEGER :: constituentType                 ! for variable of class 'chem'
 
-    INTEGER                    :: datatype_flt
+    INTEGER :: datatype_flt
+    LOGICAL :: in_group(MAX_GROUPS)            ! for adding a variable to one or more groups 
 
     IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
@@ -1991,14 +1993,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & initval=0.01_wp )
 
     ! &      diag%t_2m(nproma,nblks_c)
+    IF (itype_vegetation_cycle == 3) THEN
+      in_group = groups("pbl_vars","dwd_fg_atm_vars","mode_iau_ana_in")
+    ELSE
+      in_group = groups("pbl_vars","dwd_fg_atm_vars")
+    ENDIF
     cf_desc    = t_cf_var('t_2m', 'K ','temperature in 2m', datatype_flt)
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 't_2m', diag%t_2m,                           &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.FALSE.,                                  &
-      & in_group=groups("pbl_vars","dwd_fg_atm_vars"),                    &
+      & in_group=in_group,                                                &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
 
     ! &      diag%t_2m_land(nproma,nblks_c)
     cf_desc    = t_cf_var('t_2m_land', 'K ','temperature in 2m over land fraction', &

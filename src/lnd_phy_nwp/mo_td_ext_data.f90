@@ -130,7 +130,7 @@ CONTAINS
       ENDIF
 
       ! updates plcov, tai and sai, which depend on ndvi
-      CALL update_ndvi_dependent_fields(p_patch, ext_data)
+      CALL update_ndvi_dependent_fields(p_patch, ext_data, p_lnd_state%diag_lnd)
     END IF
 
 

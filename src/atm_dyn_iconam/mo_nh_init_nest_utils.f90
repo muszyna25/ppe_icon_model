@@ -51,7 +51,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice, itype_trvg, &
-    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, itype_snowevap
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
@@ -204,7 +204,7 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+5+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc, qv_s and plantevap + aux variable for lake temp
+                  5+7+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, snow_age + aux variable for lake temp
     num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
@@ -379,6 +379,13 @@ MODULE mo_nh_init_nest_utils
             lndvars_par(jc,jk1+10,jb) = p_parent_ldiag%plantevap(jc,jb)
           ELSE
             lndvars_par(jc,jk1+10,jb) = 0._wp
+          ENDIF
+          IF (itype_snowevap == 3) THEN
+            lndvars_par(jc,jk1+11,jb) = p_parent_ldiag%hsnow_max(jc,jb)
+            lndvars_par(jc,jk1+12,jb) = p_parent_ldiag%snow_age(jc,jb)
+          ELSE
+            lndvars_par(jc,jk1+11,jb) = 0._wp
+            lndvars_par(jc,jk1+12,jb) = 0._wp
           ENDIF
         ENDDO
       ENDIF
@@ -656,7 +663,12 @@ MODULE mo_nh_init_nest_utils
             p_child_ldiag%t_seasfc(jc,jb) = lndvars_chi(jc,jk1+8,jb)
             p_child_ldiag%qv_s(jc,jb)     = lndvars_chi(jc,jk1+9,jb)
             IF (itype_trvg == 3) THEN
+              p_child_ldiag%plantevap(jc,jb)      = lndvars_chi(jc,jk1+10,jb)
               p_child_ldiag%plantevap_t(jc,jb,jt) = p_child_ldiag%plantevap(jc,jb)
+            ENDIF
+            IF (itype_snowevap == 3) THEN
+              p_child_ldiag%hsnow_max(jc,jb) = lndvars_chi(jc,jk1+11,jb)
+              p_child_ldiag%snow_age(jc,jb)  = lndvars_chi(jc,jk1+12,jb)
             ENDIF
           ENDDO
         ENDDO

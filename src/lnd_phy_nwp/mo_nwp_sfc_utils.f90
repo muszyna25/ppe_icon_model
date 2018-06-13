@@ -51,7 +51,8 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               itype_interception, l2lay_rho_snow, lprog_albsi, itype_trvg
+    &                               itype_interception, l2lay_rho_snow, lprog_albsi, itype_trvg, &
+                                    itype_snowevap
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
@@ -202,6 +203,7 @@ CONTAINS
 
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_snow_mult_now_t(nproma, 1:nlev_snow+1, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_rhosnowini_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_s_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_g_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -390,6 +392,11 @@ CONTAINS
             z0_t(ic,jb,isubs)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
           ENDIF
 
+          IF (itype_vegetation_cycle >= 2) THEN ! use climatological temperature to specify snow density on glaciers
+            t_rhosnowini_t(ic,jb,isubs)      = ext_data%atm%t2m_clim_hc(jc,jb)
+          ELSE
+            t_rhosnowini_t(ic,jb,isubs)      = t_snow_now_t(ic,jb,isubs)
+          ENDIF
         ENDDO
 
         IF(l2lay_rho_snow .OR. lmulti_snow) THEN
@@ -509,6 +516,7 @@ CONTAINS
         &  plcov             = plcov_t(:,jb,isubs)             , & ! surface fraction covered by plants ( -  )
         &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
+        &  t_rhosnowini      = t_rhosnowini_t(:,jb,isubs)       , & ! temperature used for snow density initialization (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
@@ -525,7 +533,7 @@ CONTAINS
         &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
         &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       ) ! layer thickness between half levels in snow  (  m  )
 
-        IF (.NOT. lsnowtile_warmstart) THEN
+        IF (.NOT. lsnowtile_warmstart .OR. isubs > ntiles_lnd) THEN
 
           CALL diag_snowfrac_tg(                           &
             &  istart = 1, iend = i_count                , & ! start/end indices
@@ -560,6 +568,10 @@ CONTAINS
             p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
             p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
           ENDIF
+          IF (isubs > ntiles_lnd) THEN
+            p_lnd_diag%snowfrac_lcu_t(jc,jb,isubs) = MAX(snowfrac_t(ic,jb,isubs),p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+            p_lnd_diag%snowfrac_lcu_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lcu_t(jc,jb,isubs)
+          ENDIF
         ENDDO
 
         IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
@@ -578,6 +590,14 @@ CONTAINS
                                                    MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
           ENDDO
 
+        ENDIF
+
+        IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+            IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) &
+              p_lnd_diag%snow_age(jc,jb) = 365._wp
+          ENDDO
         ENDIF
 
         IF(l2lay_rho_snow .OR. lmulti_snow) THEN
@@ -1831,7 +1851,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE diag_snowfrac_tg(istart, iend, lc_class, i_lc_urban, t_snow, t_soiltop, w_snow, &
-    & rho_snow, freshsnow, sso_sigma, z0, snowfrac, t_g, meltrate)
+    & rho_snow, freshsnow, sso_sigma, z0, snowfrac, t_g, meltrate, snowfrac_u)
 
     INTEGER, INTENT (IN) :: istart, iend ! start and end-indices of the computation
 
@@ -1842,6 +1862,7 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(IN), OPTIONAL :: meltrate ! snow melting rate in kg/(m**2*s)
 
     REAL(wp), DIMENSION(:), INTENT(INOUT) :: snowfrac, t_g
+    REAL(wp), DIMENSION(:), INTENT(INOUT), OPTIONAL :: snowfrac_u ! unmodified snow-cover fraction
 
     INTEGER  :: ic
     REAL(wp) :: h_snow, snowdepth_fac, sso_fac, lc_fac, lc_limit
@@ -1921,6 +1942,7 @@ CONTAINS
     CASE (20, 30, 40)
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
+      IF (PRESENT(snowfrac_u)) snowfrac_u(istart:iend) = snowfrac(istart:iend) ! save unmodified snow-cover fraction
       IF (PRESENT(meltrate)) THEN
         DO ic = istart, iend
           snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-30000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
@@ -2723,10 +2745,11 @@ CONTAINS
   !! Initial release by Pilar Ripodas (2013-02)
   !!
   !!
-  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data )
+  SUBROUTINE update_ndvi_dependent_fields( p_patch, ext_data, lnd_diag )
 
     TYPE(t_patch)        , INTENT(IN)    :: p_patch
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
+    TYPE(t_lnd_diag),      INTENT(IN)    :: lnd_diag
 
     ! local
     INTEGER  :: jb,jt,ic,jc, jt_in
@@ -2817,8 +2840,8 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-    IF (itype_vegetation_cycle == 2) THEN
-      CALL vege_clim (p_patch, ext_data)
+    IF (itype_vegetation_cycle >= 2) THEN
+      CALL vege_clim (p_patch, ext_data, lnd_diag)
     ENDIF
 
     CALL diagnose_ext_aggr (p_patch, ext_data)

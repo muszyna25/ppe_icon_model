@@ -218,6 +218,9 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< Climatological 2m-temperature [K] interpolated from monthly means
       &  t2m_clim(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< Height-corrected climatological 2m-temperature [K] interpolated from monthly means
+      &  t2m_clim_hc(:,:)      ! index1=1,nproma, index2=1,nblks_c
+
     REAL(wp), POINTER ::   &   !< Climatological 2m-temperature gradient [K/month]
       &  t2m_climgrad(:,:)     ! index1=1,nproma, index2=1,nblks_c
 

@@ -31,7 +31,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
-  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, vege_clim
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
@@ -47,6 +47,7 @@ MODULE mo_nwp_phy_init
     &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename, icpl_aero_conv, iprog_aero
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
@@ -132,7 +133,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
                        &  p_prog_wtr_now, p_prog_wtr_new,      &
                        &  p_diag_lnd,                          &
                        &  ext_data, phy_params, ini_date, &
-                       &  lnest_start)
+                       &  lnest_start, lreset)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -146,7 +147,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
   TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
-  LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start
+  LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start, lreset
 
   INTEGER             :: jk, jk1
   REAL(wp)            :: rsltn   ! horizontal resolution
@@ -178,7 +179,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   LOGICAL :: lland, lglac, lshallow, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
-  LOGICAL :: linit_mode, lturb_init
+  LOGICAL :: linit_mode, lturb_init, lreset_mode
 
   INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -222,6 +223,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     lturb_init = .TRUE.
   ELSE
     linit_mode = .NOT. isRestart()
+  ENDIF
+
+  IF (PRESENT(lreset)) THEN
+    lreset_mode = lreset
+  ELSE
+    lreset_mode = .FALSE.
   ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -272,6 +279,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! for both restart and non-restart runs. Could not be included into
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
   CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
+
+
+  IF (.NOT. lreset_mode .AND. itype_vegetation_cycle >= 2) THEN
+    CALL vege_clim (p_patch, ext_data, p_diag_lnd)
+  ENDIF
 
 
   ! Diagnose aggregated external parameter fields

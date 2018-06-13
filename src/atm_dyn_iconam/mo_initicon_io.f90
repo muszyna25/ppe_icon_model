@@ -56,7 +56,9 @@ MODULE mo_initicon_io
   USE mo_util_cdi,            ONLY: trivial_tileId
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake, lprog_albsi, itype_trvg
+    &                               isub_lake, llake, lprog_albsi, itype_trvg, &
+    &                               itype_snowevap
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
@@ -1436,6 +1438,13 @@ MODULE mo_initicon_io
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
+            IF (itype_vegetation_cycle == 3) THEN
+              CALL fetchSurface(params, 't2m_bias', jg, lnd_diag%t2m_bias)
+            ENDIF
+            IF (itype_snowevap == 3) THEN
+              CALL fetchSurface(params, 'hsnow_max', jg, lnd_diag%hsnow_max)
+              CALL fetchSurface(params, 'snow_age',  jg, lnd_diag%snow_age)
+            ENDIF
 
             IF (lmulti_snow) THEN
                 ! multi layer snow fields
@@ -1759,6 +1768,13 @@ MODULE mo_initicon_io
                 my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
                 CALL fetch3d(params, 'w_so', jg, my_ptr3d)
             END IF
+
+            ! t_2m bias
+            IF (itype_vegetation_cycle == 3 .AND. init_mode == MODE_IAU ) THEN
+               my_ptr2d => initicon(jg)%sfc_inc%t_2m(:,:)
+               CALL fetchSurface(params, 't_2m', jg, my_ptr2d)
+            ENDIF
+
         END IF
     END DO ! loop over model domains
 

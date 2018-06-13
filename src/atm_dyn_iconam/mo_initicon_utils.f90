@@ -52,6 +52,7 @@ MODULE mo_initicon_utils
     &                               isub_lake, frlnd_thrhld,             &
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
     &                               l2lay_rho_snow, lprog_albsi
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -1618,13 +1619,15 @@ MODULE mo_initicon_utils
             ! allocate additional fields for MODE_IAU
             IF (init_mode == MODE_IAU) THEN
                 ALLOCATE(sfc_inc%h_snow   (nproma,nblks_c), &
-                &        sfc_inc%freshsnow(nproma,nblks_c)  )
+                &        sfc_inc%freshsnow(nproma,nblks_c) )
+                IF (itype_vegetation_cycle == 3) ALLOCATE(sfc_inc%t_2m(nproma,nblks_c))
 
                 ! initialize with 0, since some increments are only read
                 ! for specific times
 !$OMP PARALLEL 
                 CALL init(sfc_inc%h_snow   (:,:))
                 CALL init(sfc_inc%freshsnow(:,:))
+                IF (itype_vegetation_cycle == 3) CALL init(sfc_inc%t_2m(:,:))
 !$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 

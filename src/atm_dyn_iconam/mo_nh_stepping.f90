@@ -2731,7 +2731,7 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
            & phy_params(jg)                        ,&
-           & datetime_current)
+           & datetime_current, lreset=.TRUE.)
 
     ENDDO
 

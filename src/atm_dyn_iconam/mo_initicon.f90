@@ -56,6 +56,7 @@ MODULE mo_initicon
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
     &                               frlake_thrhld, lprog_albsi
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_phyparam_soil,       ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -401,7 +402,7 @@ MODULE mo_initicon
 #ifndef __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
                 CASE DEFAULT
@@ -498,7 +499,7 @@ MODULE mo_initicon
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
-                CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
+                CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data, inputInstructions)
             END IF
             ! get SST from first soil level t_so or t_seasfc
             ! perform consistency checks
@@ -1473,12 +1474,13 @@ MODULE mo_initicon
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
+  SUBROUTINE create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data, inputInstructions)
 
-    TYPE(t_patch)             ,INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state) , TARGET ,INTENT(IN)    :: p_nh_state(:)
-    TYPE(t_lnd_state), TARGET ,INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)     ,INTENT(IN)    :: ext_data(:)
+    TYPE(t_patch)                 ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state) , TARGET     ,INTENT(IN)    :: p_nh_state(:)
+    TYPE(t_lnd_state), TARGET     ,INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)         ,INTENT(IN)    :: ext_data(:)
+    TYPE(t_readInstructionListPtr),INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, jb, jt, jk, jc, ic    ! loop indices
     INTEGER :: nblks_c                   ! number of blocks
@@ -1494,7 +1496,7 @@ MODULE mo_initicon
 
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
     REAL(wp) :: wso_inc(nproma,nlev_soil)          ! local copy of w_so increment
-    REAL(wp) :: snowfrac_lim
+    REAL(wp) :: snowfrac_lim, wfac
 
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
@@ -1517,7 +1519,7 @@ MODULE mo_initicon
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1676,11 +1678,16 @@ MODULE mo_initicon
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
               ! fresh snow 'missed' by the model
+              ! GZ: this ideally should always be fresh snow, but if the analyzed snow cover extent fluctuates due to
+              ! due varying data availability, old snow missing in the previous analysis might be misinterpreted as fresh snow.
+              ! We therefore use a temperature-dependent snow density initialization
               IF ( (h_snow_t_fg(jc,jt) == 0._wp)                        .AND. &
                 &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > min_hsnow_inc) .AND. &
                 &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) > 0._wp) ) THEN
 
-                lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmaxf   ! maximum density of fresh snow (150 kg/m**3)
+                wfac = MAX(0._wp,MIN(1._wp, 0.5_wp*(lnd_prog_now%t_g_t(jc,jb,jt)-tmelt) ))
+                ! density ranges between 150 kg/m**3 below freezing and 400 kg/m**3 above 2 deg C
+                lnd_prog_now%rho_snow_t(jc,jb,jt) = wfac*crhosmax_ml + (1._wp-wfac)*crhosmaxf
               ENDIF
 
               ! old snow that is re-created by the analysis (i.e. snow melted away too fast in the model)
@@ -1710,6 +1717,16 @@ MODULE mo_initicon
               &            w_snow    = lnd_prog_now%w_snow_t(:,jb,jt) )
 
           ENDDO  ! jt
+
+          ! Time-filtering of analyzed T2M bias
+          ! only if t_2m is read from analysis
+          IF (itype_vegetation_cycle == 3 .AND.  &
+            & inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
+            DO jc = i_startidx, i_endidx
+              lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
+                0.25_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+            ENDDO
+          ENDIF
 
         ENDIF  ! MODE_IAU
 

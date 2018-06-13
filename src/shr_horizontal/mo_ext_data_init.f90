@@ -66,6 +66,7 @@ MODULE mo_ext_data_init
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run, nproma
   USE mo_ext_data_types,     ONLY: t_external_data
+  USE mo_nwp_lnd_types,      ONLY: t_lnd_diag
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
   USE mo_master_config,      ONLY: getModelBaseDir
@@ -1941,12 +1942,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-      IF (itype_vegetation_cycle == 2) THEN
-        CALL vege_clim (p_patch(jg), ext_data(jg))
-      ENDIF
-
-
     END DO  !jg
 
   END SUBROUTINE init_index_lists
@@ -2183,10 +2178,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2017-10-30)
   !!
-  SUBROUTINE vege_clim (p_patch, ext_data)
+  SUBROUTINE vege_clim (p_patch, ext_data, lnd_diag)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
+    TYPE(t_lnd_diag),  INTENT(IN)        :: lnd_diag
 
     INTEGER  :: jb,jt,ic,jc,i
     INTEGER  :: rl_start, rl_end
@@ -2264,11 +2260,19 @@ CONTAINS
 
       ! height-corrected climatological 2m-temperature
       DO jc = i_startidx, i_endidx
-        t2mclim_hc(jc) = ext_data%atm%t2m_clim(jc,jb) + dtdz_clim * &
+        ext_data%atm%t2m_clim_hc(jc,jb) = ext_data%atm%t2m_clim(jc,jb) + dtdz_clim * &
           (ext_data%atm%topography_c(jc,jb) - ext_data%atm%topo_t2mclim(jc,jb))
-        t_asyfac(jc) = SIGN(MIN(1._wp,ABS(ext_data%atm%t2m_climgrad(jc,jb))/2.5_wp), &
-                             -1._wp*ext_data%atm%t2m_climgrad(jc,jb))
+
+        t2mclim_hc(jc) = ext_data%atm%t2m_clim_hc(jc,jb) ! local copy needed for option 3
+        t_asyfac(jc)   = SIGN(MIN(1._wp,ABS(ext_data%atm%t2m_climgrad(jc,jb))/2.5_wp), &
+                                 -1._wp*ext_data%atm%t2m_climgrad(jc,jb))
       ENDDO
+
+      IF (itype_vegetation_cycle == 3) THEN
+        DO jc = i_startidx, i_endidx
+          t2mclim_hc(jc) = t2mclim_hc(jc) + 1.5_wp*SIGN(MIN(2.5_wp,ABS(lnd_diag%t2m_bias(jc,jb))),lnd_diag%t2m_bias(jc,jb))
+        ENDDO
+      ENDIF
 
       DO jt = 1, ntiles_total
         i_count = ext_data%atm%lp_count_t(jb,jt)
@@ -2308,6 +2312,15 @@ CONTAINS
             wfac = (t2mclim_hc(jc)-(threshold_temp(ilu)-temp_asymmetry(ilu)))/(temp_asymmetry(ilu)+trans_width)
             ext_data%atm%rootdp_t(jc,jb,jt) = ext_data%atm%rootdp_t(jc,jb,jt)*(wfac + (1._wp-wfac)/rd_fac(ilu))
           ENDIF
+
+          IF (itype_vegetation_cycle == 3) THEN
+            IF (lnd_diag%t2m_bias(jc,jb) < 0._wp) THEN
+              ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)*(1._wp-0.25_wp*lnd_diag%t2m_bias(jc,jb))
+            ELSE
+              ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)/(1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb))
+            ENDIF
+          ENDIF
+
         ENDDO
       ENDDO
 

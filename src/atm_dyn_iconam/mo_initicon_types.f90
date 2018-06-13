@@ -170,6 +170,7 @@ MODULE mo_initicon_types
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: w_so
     REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: h_snow
     REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: freshsnow
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:)   :: t_2m
 
   CONTAINS
     PROCEDURE :: finalize => t_sfc_inc_finalize   !< destructor
@@ -208,7 +209,7 @@ MODULE mo_initicon_types
   ! state for saving initial state
   TYPE :: t_saveinit_state
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0,                         &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, snow_age,    &
                                              t_mnw_lk, t_wml_lk, h_ml_lk, t_bot_lk, c_t_lk, t_b1_lk, h_b1_lk
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn,                                  &
@@ -345,6 +346,7 @@ CONTAINS
     CALL DO_DEALLOCATE(sfc_inc%w_so)
     CALL DO_DEALLOCATE(sfc_inc%h_snow)
     CALL DO_DEALLOCATE(sfc_inc%freshsnow)
+    CALL DO_DEALLOCATE(sfc_inc%t_2m)
   END SUBROUTINE t_sfc_inc_finalize
 
 
@@ -388,6 +390,8 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%c_t_lk)
     CALL DO_DEALLOCATE(saveinit_data%t_b1_lk)
     CALL DO_DEALLOCATE(saveinit_data%h_b1_lk)
+    CALL DO_DEALLOCATE(saveinit_data%hsnow_max)
+    CALL DO_DEALLOCATE(saveinit_data%snow_age)
     CALL DO_DEALLOCATE(saveinit_data%theta_v)
     CALL DO_DEALLOCATE(saveinit_data%rho)
     CALL DO_DEALLOCATE(saveinit_data%exner)

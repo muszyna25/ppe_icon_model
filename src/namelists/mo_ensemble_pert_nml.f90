@@ -223,7 +223,7 @@ CONTAINS
                                     ! Charnock parameter
     !
     ! snow cover diagnosis
-    range_minsnowfrac = 0.05_wp     ! Minimum value to which the snow cover fraction is artificially reduced
+    range_minsnowfrac = 0.1_wp      ! Minimum value to which the snow cover fraction is artificially reduced
                                     ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
     !
     ! TERRA

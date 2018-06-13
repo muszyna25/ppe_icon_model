@@ -59,7 +59,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lseaice, lprog_albsi, llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
-             itype_hydbound, idiag_snowfrac, cwimax_ml, c_soil, c_soil_urb
+             itype_hydbound, idiag_snowfrac, itype_snowevap, cwimax_ml, c_soil, c_soil_urb
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -91,6 +91,7 @@ MODULE mo_lnd_nwp_config
   REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
+  INTEGER ::  itype_snowevap     !< treatment of snow evaporation in the presence of vegetation      
 
   LOGICAL ::  lseaice     !> forecast with sea-ice model
   LOGICAL ::  lprog_albsi !> sea-ice albedo is computed prognostically from a rate equation

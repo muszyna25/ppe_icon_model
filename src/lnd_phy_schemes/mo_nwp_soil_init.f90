@@ -82,6 +82,7 @@ CONTAINS
                   plcov            , & ! fraction of surface covered by plants         ( -  )
                   t_snow_now       , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
+                  t_rhosnowini     , & ! temperature used for snow density initialization on glaciers (  K  )
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
                   w_snow_now       , & ! water content of snow                         (m H2O)
@@ -130,6 +131,8 @@ CONTAINS
                   t_snow_now              ! temperature of the snow-surface (K)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_snow), INTENT(INOUT) :: &
                   t_snow_mult_now      ! temperature of the snow-surface               (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
+                  t_rhosnowini         ! temperature used for snow density initialization on glaciers (K)
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
@@ -908,7 +911,7 @@ CONTAINS
       ! rho_snow_now and w_snow_now contain the first guess.
       CALL get_wsnow(h_snow,         &  ! in
         &            rho_snow_now,   &  ! inout
-        &            t_snow_now,     &  ! in
+        &            t_rhosnowini,   &  ! in
         &            istarts, iends, &  ! in
         &            soiltyp_subs,   &  ! in
         &            w_snow_now      )  ! out

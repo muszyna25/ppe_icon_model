@@ -239,8 +239,8 @@ CONTAINS
 
     !
     ! snow cover diagnosis
-    tune_minsnowfrac = 0.125_wp     ! Minimum value to which the snow cover fraction is artificially reduced
-                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    tune_minsnowfrac = 0.20_wp     ! Minimum value to which the snow cover fraction is artificially reduced
+                                   ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
     !
     ! cloud cover
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds

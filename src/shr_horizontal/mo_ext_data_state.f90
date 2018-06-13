@@ -1026,6 +1026,15 @@ CONTAINS
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
           &           isteptype=TSTEP_CONSTANT )
 
+        ! t2m_clim_hc         p_ext_atm%t2m_clim_hc(nproma,nblks_c)
+        cf_desc    = t_cf_var('Height-corrected 2m_temperature', 'K',                  &
+          &                   'Height-corrected T2M interpolated from monthly climatology', datatype_flt)
+        grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 't2m_clim_hc', p_ext_atm%t2m_clim_hc,   &
+          &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
+          &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
+          &           isteptype=TSTEP_CONSTANT )
+
         ! t2m_climgrad         p_ext_atm%t2m_climgrad(nproma,nblks_c)
         cf_desc    = t_cf_var('2m_temperature_gradient', 'K/month',      &
           &                   'climatology T2M gradient', datatype_flt)
