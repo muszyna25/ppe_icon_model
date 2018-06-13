@@ -3,7 +3,7 @@
 !! i.e. the sea ice and coupling between the atmopshere and the ocean model.
 !!
 !! Types are grouped as follows:
-!! - Sea ice:                                   t_sea_ice, t_sea_ice_acc, t_sea_ice_budgets
+!! - Sea ice:                                   t_sea_ice, t_sea_ice_budgets
 !! - Surface fluxes (categories):               t_atmos_fluxes
 !!
 !! @par Revision History
@@ -26,7 +26,6 @@ MODULE mo_sea_ice_types
   PRIVATE
 
   PUBLIC  :: t_sea_ice
-  PUBLIC  :: t_sea_ice_acc
   PUBLIC  :: t_sea_ice_budgets
 
   PUBLIC  :: t_atmos_fluxes
@@ -42,24 +41,6 @@ MODULE mo_sea_ice_types
   ! Sea ice types
   ! -----------------
   !
-  TYPE t_sea_ice_acc
-  ! accumulated fields of the sea-ice state
-    REAL(wp), POINTER :: &
-      & hi         (:,:,:)       ,   & ! Ice thickness                                 [m]
-      & hs         (:,:,:)       ,   & ! Snow thickness                                [m]
-      & conc       (:,:,:)       ,   & ! ice concentration in each ice class
-      & u          (:,:)         ,   & ! Zonal velocity on cell centre (diagnostic)    [m/s]
-      & v          (:,:)         ,   & ! Meridional velocity on cell centre (diagn.)   [m/s]
-      & draftave   (:,:)         ,   & ! Averaged water equivalent of ice and snow over grid area [m]
-      & zUnderIce  (:,:)         ,   & ! water in upper ocean grid cell below ice      [m]
-      & Qtop       (:,:,:)       ,   & ! Energy flux available for surface melting     [W/m2]
-      & Qbot       (:,:,:)       ,   & ! Energy flux at ice-ocean interface            [W/m2]
-      & zHeatOceI  (:,:,:)       ,   & ! Heat flux that goes into ice from below       [W/m^2]
-      & heatOceI   (:,:,:)       ,   & ! Heat flux to ocean due to the ice growth      [W/m^2]
-      & heatOceW   (:,:)         ,   & ! Heat flux to ocean from the atmosphere        [W/m^2]
-      & CondHeat   (:,:,:)             ! Conductive Heat flux through ice              [W/m^2]
-  END TYPE t_sea_ice_acc
-
   TYPE t_sea_ice_budgets
   ! accumulated fields of the sea-ice state
     REAL(wp), POINTER :: &
@@ -131,7 +112,6 @@ MODULE mo_sea_ice_types
     ! not currently used categorywise limiter
     REAL(wp), ALLOCATABLE :: hi_lim(:) ! Thickness limit                                        [m]
 
-    TYPE(t_sea_ice_acc)     :: acc
     TYPE(t_sea_ice_budgets) :: budgets
 
   END TYPE t_sea_ice
@@ -237,89 +217,5 @@ MODULE mo_sea_ice_types
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
   END TYPE t_atmos_fluxes
-
-! ---------------------------------------------------------------------------------------
-
-
-!! ----------------------------------------------------------------------------------------
-!! ------------------- OBSOLETE, replaced by p_oce_sfc: -----------------------------------
-!! ----------------------------------------------------------------------------------------
-!! - Surface fluxes for coupling:               t_sfc_flx, t_ptr2d
-!! ----------------------------------------------------------------------------------------
-!
-!  TYPE t_ptr2d
-!    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
-!  END TYPE t_ptr2d
-
-!  TYPE t_sfc_flx
-!
-!    ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
-!    ! dimension: (nproma, nblks_c)
-!    REAL(wp), POINTER ::   &
-!      &  topBoundCond_windStress_u (:,:), & ! forcing of zonal component of velocity equation           [Pa]
-!      &  topBoundCond_windStress_v (:,:), & ! forcing of meridional component of velocity equation      [Pa]
-!      &  HeatFlux_ShortWave        (:,:), & ! surface short wave heat flux                              [W/m2]
-!      &  HeatFlux_LongWave         (:,:), & ! surface long wave heat flux                               [W/m2]
-!      &  HeatFlux_Sensible         (:,:), & ! surface sensible heat flux                                [W/m2]
-!      &  HeatFlux_Latent           (:,:), & ! surface latent heat flux                                  [W/m2]
-!      &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
-!      &  FrshFlux_Precipitation    (:,:), & ! total precipitation flux                                  [m/s]
-!      &  FrshFlux_SnowFall         (:,:), & ! total snow flux                                           [m/s]
-!      &  FrshFlux_Evaporation      (:,:), & ! evaporation flux                                          [m/s]
-!      &  FrshFlux_Runoff           (:,:), & ! river runoff flux                                         [m/s]
-!      &  FrshFlux_TotalSalt        (:,:), & ! sum of forcing surface freshwater flux from BC            [m/s]
-!      &  FrshFlux_TotalOcean       (:,:), & ! forcing surface freshwater flux at open ocean             [m/s]
-!      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux under sea ice             [m/s]
-!      &  FrshFlux_VolumeIce        (:,:), & ! forcing volume flux for height equation under sea ice     [m/s]
-!      &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
-!      &  topBoundCond_Temp_vdiff   (:,:), & ! forcing of temperature in vertical diffusion equation     [K*m/s]
-!      &  topBoundCond_Salt_vdiff   (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
-!      &  data_surfRelax_Temp       (:,:), & ! contains data to which temperature is relaxed             [K]
-!      &  data_surfRelax_Salt       (:,:), & ! contains data to which salinity is relaxed                [psu]
-!      &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
-!      &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
-!      &  TempFlux_Relax            (:,:), & ! temperature tracer flux due to relaxation                 [K/s]
-!      &  SaltFlux_Relax            (:,:), & ! salinity tracer flux due to relaxation                    [psu/s]
-!      !
-!      !  accumulations variables - comments see above
-!      &  topBoundCond_windStress_u_acc  (:,:),  &
-!      &  topBoundCond_windStress_v_acc  (:,:),  &
-!      &  HeatFlux_ShortWave_acc         (:,:),  &
-!      &  HeatFlux_LongWave_acc          (:,:),  &
-!      &  HeatFlux_Sensible_acc          (:,:),  &
-!      &  HeatFlux_Latent_acc            (:,:),  &
-!      &  HeatFlux_Total_acc             (:,:),  &
-!      &  FrshFlux_Precipitation_acc     (:,:),  &
-!      &  FrshFlux_SnowFall_acc          (:,:),  &
-!      &  FrshFlux_Evaporation_acc       (:,:),  &
-!      &  FrshFlux_Runoff_acc            (:,:),  &
-!      &  FrshFlux_TotalSalt_acc         (:,:),  &
-!      &  FrshFlux_TotalOcean_acc        (:,:),  &
-!      &  FrshFlux_TotalIce_acc          (:,:),  &
-!      &  FrshFlux_VolumeIce_acc         (:,:),  &
-!      &  FrshFlux_VolumeTotal_acc       (:,:),  &
-!      &  topBoundCond_Temp_vdiff_acc    (:,:),  &
-!      &  topBoundCond_Salt_vdiff_acc    (:,:),  &
-!      &  HeatFlux_Relax_acc             (:,:),  &
-!      &  FrshFlux_Relax_acc             (:,:),  &
-!      &  TempFlux_Relax_acc             (:,:),  &
-!      &  SaltFlux_Relax_acc             (:,:),  &
-!      &  data_surfRelax_Temp_acc        (:,:),  &
-!      &  data_surfRelax_Salt_acc        (:,:),  &
-!      !
-!      !
-!      &  cellThicknessUnderIce          (:,:)
-!
-!    TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-!      & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
-!
-!    TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
-!  END TYPE t_sfc_flx
-!
-!  ! global type variables
-!  TYPE(t_sfc_flx), PUBLIC, TARGET :: v_sfc_flx
-
-! ---------------------------------------------------------------------------------------
-! ---------------------------------------------------------------------------------------
 
 END MODULE mo_sea_ice_types

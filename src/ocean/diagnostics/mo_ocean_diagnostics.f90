@@ -1026,6 +1026,11 @@ CONTAINS
       ! hamocc global diagnostics
       IF (lhamocc) CALL get_monitoring( hamocc, sea_surface_height , tracers, patch_3d)
 
+      ! square of ssh
+      IF ( isRegistered('zos_square') ) THEN
+        p_diag%zos_square = sea_surface_height*sea_surface_height
+      END IF
+
     END SELECT
   END SUBROUTINE calc_fast_oce_diagnostics
   !-------------------------------------------------------------------------

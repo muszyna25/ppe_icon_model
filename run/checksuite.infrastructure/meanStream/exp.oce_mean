@@ -62,8 +62,7 @@ fi
 
 #
 #
-varnames="'so','zos','to'"
-varnames="'group:oce_diag','group:oce_prog','group:oce_force_essentials'"
+varnames="'group:oce_diag','group:oce_prog','group:oce_force_essentials','group:ice_diag','group:ice_default'"
 monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
 monitor_varnames="${monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # write namelist parameters

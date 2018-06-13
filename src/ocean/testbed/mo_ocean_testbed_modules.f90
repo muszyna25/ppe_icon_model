@@ -49,7 +49,6 @@ MODULE mo_ocean_testbed_modules
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ice_diagnostics,        ONLY: energy_in_surface, salt_in_surface
-  USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_master_config,          ONLY: isRestart
@@ -647,14 +646,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
 
       !------------------------------------------------------------------------
       ! output: TODO not working for 3d prognostics
-
-      ! add values to output field
-
-      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
-      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
-      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
-      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
-      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       ! add noise {{{     
                                                                                                 
       IF (no_tracer>=1) THEN
@@ -1256,11 +1247,6 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
    !  CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
    !  CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
 
-      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
-      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
-      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
-      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
-      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       
       ! update accumulated vars
 !     CALL update_ocean_statistics(p_os(n_dom), &
@@ -1494,18 +1480,11 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
       !  p_ice%u(:,:) = energyDits(:,:)
       !  p_ice%v(:,:) = saltBudget(:,:)
       !---------------------------------------------------------------------
-      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
-      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
-      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
-      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
-      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
 
 !      ! update accumulated vars
 !      CALL update_ocean_statistics(p_os(jg),p_oce_sfc, owned_cells, p_patch%edges%owned,&
 !        &                                              p_patch%verts%owned, n_zlev)
 !
-!      CALL update_ice_statistic(p_ice%acc,p_ice,owned_cells)
-
       CALL output_ocean( patch_3D, p_os(jg), mtime_current, p_oce_sfc,  &
         &                p_ice, jstep, jstep0)
 

@@ -201,7 +201,7 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
-      & h                ,&! dummy pointer for output variables 
+      & zos_square     ,&
       & Rossby_Radius    ,&      
       & Wavespeed_baroclinic ,&
       & global_moc       ,& ! MOC global

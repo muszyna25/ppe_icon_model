@@ -62,10 +62,11 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
-  filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
+  operation        = "mean"
   file_interval    = "${file_interval}"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
@@ -77,11 +78,38 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
+  operation        = "mean"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval    = "${file_interval}"
   output_filename  = "${EXPNAME}_oceanMonitor"
-  filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
+/
+&output_nml
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_grid      = .true.
+  operation        = "mean"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  file_interval    = "${file_interval}"
+  output_filename  = "${EXPNAME}_MOC"
+  ml_varlist       =  'group:ocean_moc'
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_fx"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${start_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  filename_format  = "<output_filename>"
+  file_interval    = "P100Y"
+  output_grid      = .TRUE.
+  mode             =  1
+  include_last     = .false.
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -181,13 +209,13 @@ cat > ${ocean_namelist} << EOF
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
 ! use_no_flux_gradients           = .FALSE.   ! default: true
-! leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
-! leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
-  albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
-  albs         = 0.85         ! Albedo of snow (not melting)
-  albsm        = 0.70         ! Albedo of snow (melting)
-  albi         = 0.75         ! Albedo of ice (not melting)
-  albim        = 0.70         ! Albedo of ice (melting)
+ leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
+ leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
+ albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
+ albs         = 0.85         ! Albedo of snow (not melting)
+ albsm        = 0.70         ! Albedo of snow (melting)
+ albi         = 0.75         ! Albedo of ice (not melting)
+ albim        = 0.70         ! Albedo of ice (melting)
 
 /
 &ocean_forcing_nml
