@@ -448,7 +448,10 @@ MODULE mo_nh_stepping
         IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
       ENDDO!jg
-
+    ELSE
+      ! Restart case: Compute diagnostic physics fields because some of them are used
+      ! in prognostic equations
+      CALL aggr_landvars
     ENDIF!is_restart
   CASE (iecham)
     IF (.NOT.isRestart()) THEN

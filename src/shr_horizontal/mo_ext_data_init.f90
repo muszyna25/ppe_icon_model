@@ -761,7 +761,7 @@ CONTAINS
                  &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 100.0_wp,  -1.0_wp, 1._wp, & ! mosaic crop / shrub / grass
                  &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! bare areas
                  &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! water
-                 &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! snow & ice
+                 &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! snow & ice
                  &   1.00_wp,  0.2_wp,  1.0_wp, 0.6_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! artificial surface
                  &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp,  40.0_wp,  -1.0_wp,-1._wp / ! undefined
 
@@ -1636,9 +1636,9 @@ CONTAINS
                        ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                        ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
 
-                       ! the snowtile flag is initialized with -1 here because the snow/ice class is not
-                       ! eligible for separate consideration of a snow-free and a snow-covered part
-                       ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = -1
+                       ! the snowtile flag is initialized with 1 here because the snow/ice class is
+                       ! supposed to be located on the snowtiles (if activated)
+                       ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = 1
 
                        ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
                        ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = ext_data(jg)%atm%fr_land(jc,jb)
