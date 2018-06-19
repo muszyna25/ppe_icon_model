@@ -1124,6 +1124,7 @@ scripts/gmt_scripts/banner/iconR2B04-cell_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
+scripts/nagfor_wrapper/nagfor -text
 scripts/postprocessing/.hluresfile -text
 scripts/postprocessing/amip_quickplots/PREPAREatm_2d -text
 scripts/postprocessing/amip_quickplots/PREPAREatm_2d_diff -text

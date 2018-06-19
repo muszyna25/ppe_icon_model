@@ -196,6 +196,8 @@ MODULE mo_mpi
   PUBLIC :: set_comm_input_bcast
   ! set other parameters
   PUBLIC :: set_process_mpi_name
+  ! generates a intercomm between the work PEs of two model components
+  PUBLIC :: get_mpi_work_intercomm
 
   PUBLIC :: push_glob_comm, pop_glob_comm, get_glob_proc0
 
@@ -314,6 +316,13 @@ MODULE mo_mpi
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
 
   PUBLIC ::get_mpi_time,ellapsed_mpi_time
+
+  TYPE t_work_root_process
+    INTEGER :: comp_id
+    INTEGER :: global_mpi_id
+  END TYPE t_work_root_process
+
+  TYPE (t_work_root_process), ALLOCATABLE :: p_work_root_processes(:)
 
   ! old fashioned method (MPI-1)
 
@@ -1105,18 +1114,24 @@ CONTAINS
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-    &                                   num_restart_procs, num_prefetch_proc)
+    &                                   num_restart_procs, num_prefetch_proc, &
+    &                                   opt_comp_id)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
     INTEGER,INTENT(INOUT), OPTIONAL :: num_prefetch_proc
+    INTEGER,INTENT(IN), OPTIONAL :: opt_comp_id
 
 !   !local variables
-    INTEGER :: my_color, peer_comm, peer_comm_restart, peer_comm_pref, p_error
+    INTEGER :: my_color, peer_comm, peer_comm_restart, peer_comm_pref, &
+               p_error, global_dup_comm
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
     INTEGER :: sizeof_prefetch_processes
+    INTEGER :: num_component, i
+    INTEGER, ALLOCATABLE :: root_buffer(:)
+    INTEGER :: comp_id
     CHARACTER(len=1000) :: message_text = ''
 
     IF (PRESENT(num_prefetch_proc)) THEN
@@ -1125,6 +1140,11 @@ CONTAINS
       sizeof_prefetch_processes = 0
     ENDIF
 
+    IF (PRESENT(opt_comp_id)) THEN
+      comp_id = opt_comp_id
+    ELSE
+      comp_id = -1
+    END IF
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1529,6 +1549,48 @@ CONTAINS
     process_is_mpi_parallel = (num_work_procs > 1)
     IF (my_process_is_mpi_test()) process_is_mpi_parallel = .false.
 
+#ifdef NOMPI
+    p_work_root_processes(1)%comp_id = comp_id
+    p_work_root_processes(1)%global_mpi_id = my_global_mpi_id
+#else
+    ! gather information of work root processes from all components
+    CALL MPI_Comm_dup(global_mpi_communicator, global_dup_comm, p_error)
+
+    num_component = SIZE(p_work_root_processes)
+    ALLOCATE(root_buffer(2 * num_component))
+    IF (my_global_mpi_id == 0) THEN
+
+      IF (my_process_mpi_all_id == 0) THEN
+        root_buffer(1) = comp_id
+        root_buffer(2) = my_global_mpi_id
+      END IF
+
+      DO i = MERGE(1, 0, my_process_mpi_all_id == 0), num_component - 1
+
+        CALL MPI_RECV(root_buffer(2*i+1:2*i+2), 2, p_int, MPI_ANY_SOURCE, 0, &
+                      global_dup_comm, p_status, p_error)
+      END DO
+
+    ELSE IF (my_process_mpi_all_id == 0) THEN
+
+      root_buffer(1) = comp_id
+      root_buffer(2) = my_global_mpi_id
+      CALL MPI_SEND(root_buffer, 2, p_int, 0, 0, global_dup_comm, p_error)
+
+    END IF
+
+    CALL MPI_BCAST(root_buffer, 2 * num_component, p_int, 0, global_dup_comm, &
+                   p_error)
+    CALL MPI_COMM_FREE(global_dup_comm, p_error)
+
+    DO i = 1, num_component
+      p_work_root_processes(i)%comp_id = root_buffer(2*i-1)
+      p_work_root_processes(i)%global_mpi_id = root_buffer(2*i)
+    END DO
+
+    DEALLOCATE(root_buffer)
+#endif
+
     ! still to be filled
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
@@ -1556,6 +1618,52 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE set_mpi_work_communicators
+  !-------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION get_mpi_work_intercomm(other_comp_id)
+
+    INTEGER, INTENT(IN) :: other_comp_id
+    CHARACTER(len=*), PARAMETER :: method_name = 'get_mpi_work_intercomm'
+
+    INTEGER :: peer_comm, num_component, other_comp_root_global_mpi_id, i, &
+               intercomm
+
+#ifdef NOMPI
+    get_mpi_work_intercomm = -1
+#else
+
+    IF (my_mpi_function /= work_mpi_process) THEN
+      WRITE (nerr,'(a,a)') method_name, ' Process type is not work_mpi_process.'
+      STOP
+    END IF
+    num_component = SIZE(p_work_root_processes)
+    other_comp_root_global_mpi_id = -1
+
+    DO i = 1, num_component
+      IF (p_work_root_processes(i)%comp_id == other_comp_id) THEN
+        other_comp_root_global_mpi_id = p_work_root_processes(i)%global_mpi_id
+      END IF
+    END DO
+
+    IF (other_comp_root_global_mpi_id == -1) THEN
+      WRITE (nerr,'(a,a)') method_name, ' Other component not found.'
+      STOP
+    END IF
+
+    ! Perform the same as above, but create the intra-communicators between
+    ! the worker PEs and the prefetching PEs.
+    CALL MPI_COMM_DUP(global_mpi_communicator, peer_comm, p_error)
+    CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, &
+                              other_comp_root_global_mpi_id, 0, intercomm, &
+                              p_error)
+    CALL MPI_COMM_FREE(peer_comm, p_error)
+
+    get_mpi_work_intercomm = intercomm
+#endif
+
+  END FUNCTION get_mpi_work_intercomm
   !-------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1622,13 +1730,14 @@ CONTAINS
   !>
   !! Splits the global communicator into this component's communicator
   !! Should be called before the component configuration
-  SUBROUTINE split_global_mpi_communicator(component_no)
-    INTEGER, INTENT(in) :: component_no
+  SUBROUTINE split_global_mpi_communicator(component_no, num_components)
+    INTEGER, INTENT(in) :: component_no, num_components
 
     INTEGER :: new_communicator
     LOGICAL             :: l_mpi_is_initialised
     CHARACTER(len=*), PARAMETER :: method_name = 'split_process_mpi_communicator'
 #ifdef NOMPI
+    ALLOCATE(p_work_root_processes(1))
     RETURN
 #else
     !--------------------------------------------
@@ -1649,6 +1758,7 @@ CONTAINS
       STOP
     END IF
     CALL set_process_mpi_communicator(new_communicator)
+    ALLOCATE(p_work_root_processes(num_components))
 #endif
 
   END SUBROUTINE split_global_mpi_communicator

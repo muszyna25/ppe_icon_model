@@ -132,13 +132,14 @@ CONTAINS
             &                          (echam_phy_tc(jg)%ed_rad >  datetime_old)
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
-       CALL message_forcing_action('LW and SW radiation (rad)'     ,&
+
+      CALL message_forcing_action('LW and SW radiation (rad)'     ,&
             &                      is_in_sd_ed_interval, is_active )
        !
        ! radiative fluxes
-       CALL omp_loop_cell_tc(patch, interface_echam_rad      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL interface_echam_rad(is_in_sd_ed_interval, is_active, &
+            &                   patch,                           &
+            &                   datetime_old                     )
        !
        ! always compute radiative heating
        is_active = .TRUE.

@@ -1503,6 +1503,7 @@ CONTAINS
          &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
+    !-----------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at radiation times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air_at_rad_time'    , &
@@ -1606,7 +1607,7 @@ CONTAINS
          &       lrestart = .TRUE.                           , &
          &       ldims=shape2d                               )
 
-
+    !-----------------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at all times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air', &
@@ -1709,7 +1710,7 @@ CONTAINS
          &       cf_desc, grib2_desc                   , &
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
-
+    !---------------------------------------------------------
 
 
     !

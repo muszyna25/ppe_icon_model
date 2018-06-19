@@ -585,7 +585,7 @@ PACKAGE_STRING='icon 2.1.0'
 PACKAGE_BUGREPORT='luis.kornblueh@mpimet.mpg.de'
 PACKAGE_URL=''
 
-ac_default_prefix=.
+ac_default_prefix=$(pwd)
 ac_unique_file="src/drivers/icon.f90"
 ac_header_list=
 # Factoring default headers for most tests.
@@ -624,6 +624,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
+enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 use_flags_group
@@ -643,6 +644,11 @@ config_compiler
 config_target
 OBJDIRS
 SRCDIRS
+YAXT_VERSION
+YAXT_INCLUDE
+YAXT_LIB
+subdirs
+YAXTROOT
 MODDIR
 LIB
 F77FLAGS
@@ -769,10 +775,12 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_psrad
 enable_serialization
 enable_mh_file
 with_fortran
 with_openmp
+with_yaxt
 with_yac
 with_messy
 with_flags
@@ -801,8 +809,9 @@ LIBS
 CC
 CFLAGS
 CPPFLAGS
-CPP'
-
+CPP
+YAXTROOT'
+ac_subdirs_all='externals/yaxt'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -1420,6 +1429,7 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-psrad          Use psrad model component.
   --enable-serialization  Enable Serialbox2 serialization. Three modes are
                           available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
@@ -1430,6 +1440,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-fortran=COMPILER select_available compiler (see README.compiler)
   --with-openmp           enable OpenMP, if available for selected compiler
+  --with-yaxt             enable experimental use of yaxt
   --with-yac              enable use of yac
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
@@ -1446,7 +1457,7 @@ Optional Packages:
   --with-grib_api=DIR     Optional GRIB2 package
   --with-sct=DIR          Optional SCT timer package
   --with-sctlibs=PATHS    Optional libs needed for SCT
-  --with-mpi=DIR          MPI library
+  --with-mpi=DIR          use MPI installed in DIR (default from machine file)
 
 
 Some influential environment variables:
@@ -1460,6 +1471,7 @@ Some influential environment variables:
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
   CPP         C preprocessor
+  YAXTROOT    directory YAXT is installed in
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2625,6 +2637,14 @@ else
 fi
 
 
+# Check whether --enable-psrad was given.
+if test "${enable_psrad+set}" = set; then :
+  enableval=$enable_psrad;
+else
+  enable_psrad=yes
+fi
+
+
 
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then :
@@ -2687,6 +2707,23 @@ if test "${with_openmp+set}" = set; then :
 fi
 
 
+
+
+# Check whether --with-yaxt was given.
+if test "${with_yaxt+set}" = set; then :
+  withval=$with_yaxt; if test -d "$with_yaxt"; then :
+  YAXTROOT=$with_yaxt
+fi
+else
+  with_yaxt=no
+fi
+
+
+if test "x$with_yaxt" = "xno"; then :
+  use_yaxt="no"
+else
+  use_yaxt="yes"
+fi
 
 
 
@@ -3064,6 +3101,10 @@ fi
 
 if test "x$enable_testbed" = "xno"; then :
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
+fi
+
+if test "x$enable_psrad" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"
 fi
 
 
@@ -4313,12 +4354,12 @@ if test -n "$SZIPROOT" ; then
   fi
   case $ac_hostname in
   mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+    case x"$WLFLAG" in
+    x-Wl,-Wl,)
+      SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    x-Wl)
+      SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
       ;;
     esac
     ;;
@@ -4364,12 +4405,12 @@ if test -n "$HDF5ROOT" ; then
   fi
   case $ac_hostname in
   mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+    case x"$WLFLAG" in
+    x-Wl,-Wl,)
+      HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    x-Wl)
+      HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
      ;;
     esac
     ;;
@@ -4439,12 +4480,12 @@ if test -n "$NETCDFROOT" ; then
   fi
   case $ac_hostname in
   mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+    case x"$WLFLAG" in
+    x-Wl,-Wl,)
+      NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+    x-Wl)
+      NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
       ;;
     esac
     ;;
@@ -4466,14 +4507,14 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
          mlogin*|btlogin*)
-           case $FC in
-           nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+           case x"$WLFLAG" in
+           x-Wl,-Wl,)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
-           *)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+           x-Wl)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
            esac
            ;;
@@ -4631,14 +4672,21 @@ fi
        FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
        CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
        case $ac_hostname in #(
-  mlogin*|btlogin*|daint*|kesch*) :
+  daint*|kesch*) :
     case $FC in #(
-  nagfor) :
-    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
   cray) :
-    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g') ;; #(
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g') ;; #(
   *) :
-    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+esac ;; #(
+  mlogin*|btlogin*) :
+    case x"$WLFLAG" in #(
+  x-Wl,-Wl,) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
+  x-Wl) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;; #(
+  *) :
+     ;;
 esac ;; #(
   *) :
      ;;
@@ -4783,6 +4831,8 @@ MPI_INCLUDE=""
 # Check whether --with-mpi was given.
 if test "${with_mpi+set}" = set; then :
   withval=$with_mpi;
+else
+  with_mpi=yes
 fi
 
 
@@ -4806,13 +4856,13 @@ else
 fi
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf "%s ", $i}}}') "$MPI_LIB
       ;;
     *)
-      MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
+      MPI_LIB="-L$MPIROOT/lib "$MPI_LIB
       ;;
     esac
-    MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
+    MPI_I_INCLUDE="-I$MPIROOT/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
       mod_file=$(find $MPIROOT -name mpi.mod -print 2>/dev/null | grep mpi.mod | grep ${MPI_INCLUDE_THREAD})
@@ -4851,7 +4901,7 @@ esac
     if test -r $mod_file ; then
        mod_file=${mod_file#$real_path}
        mod_file=${mod_file#$MPIROOT}
-       mod_file="\$(MPIROOT)"${mod_file}
+       mod_file="$MPIROOT"${mod_file}
        MPI_M_INCLUDE=${MODOPT}${mod_file%/*}
     else
        echo "cannot read $mod_file/mpi.mod"
@@ -6373,7 +6423,7 @@ if [ "x$use_art" = xyes ] ; then
     FFLAGS="${FFLAGS} $ART_FFLAGS"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ] ; then
-        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+        FFLAGS="`echo ${FFLAGS} | $SED -e s/-std=f2003/-std=gnu/`"
     fi
 fi
 
@@ -6735,6 +6785,87 @@ MODDIR=$MODDIR
 LDFLAGS=$LDFLAGS
 
 
+
+
+
+if test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"; then :
+  if test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x; then :
+  PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH
+fi
+   if test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt; then :
+  YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_MAJOR_VERSION=`expr "$YAXT_VERSION" : "[0-9]*"`
+      YAXT_MINOR_VERSION=`echo "$YAXT_VERSION" | sed -e 's/^[0-9]*\.\([0-9]*\).*/\1/'`
+      YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
+      FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
+      YAXT_LIB=`pkg-config --libs yaxt`
+      if test "$YAXT_MAJOR_VERSION" -gt 0 -o "$YAXT_MINOR_VERSION" -gt 4; then :
+  YAXT_LIB="$YAXT_LIB -lyaxt_c"
+fi
+      case $host in #(
+  *-*-linux-*) :
+    YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\([^ ]*\)/-L\1 '"$WLFLAG"',-rpath,\1/'` ;; #(
+  *) :
+     ;;
+esac
+else
+
+       ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=^'\''*//
+s/ '\''FCFLAGS=^'\''*//
+s/ '\''CC=^'\''*//
+s/ '\''CXX=^'\''*//
+s/ '\''CFLAGS=^'\''*//
+s/ '\''LDFLAGS=^'\''*//
+s/ '\''LIBS=^'\''*//
+s/ '\''F77=^'\''*//
+s/ '\''FFLAGS=^'\''*//
+s/^ //
+s/ $//
+')
+if test x${MPI_LAUNCH+set} != xset ; then
+  if test "x$mpi_startrun" = "x" ; then
+    if  test "x$MPIROOT" = "x" ; then
+      MPI_LAUNCH=mpiexec
+    else
+      MPI_LAUNCH="$MPIROOT/bin/mpiexec"
+    fi
+  else
+    MPI_LAUNCH=$mpi_startrun
+  fi
+fi
+       FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
+       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
+       ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
+       ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
+       subdirs="$subdirs externals/yaxt"
+
+       YAXTROOT=externals/yaxt
+       if test -f $YAXTROOT/src/yaxt.f90; then :
+  YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt"
+              if grep MPI_FC_INCLUDE $YAXTROOT/src/Makefile.in; then :
+
+else
+  YAXT_LIB="$YAXT_LIB -lyaxt_c"
+fi
+              YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"
+              YAXT_CFLAGS="-I${YAXTROOT}/inst_headers"
+              YAXT_VERSION="internal"
+              FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
+else
+  as_fn_error $? "internal YAXT sources not found" "$LINENO" 5
+fi
+       ac_srcdirs="externals/yaxt ${ac_srcdirs}"
+       ac_objdirs="externals/yaxt ${ac_objdirs}"
+fi
+else
+  YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=
+fi
+
+
+
+
+
+
 SRCDIRS=$ac_srcdirs
 
 
@@ -6756,7 +6887,7 @@ case $host in
     ;;
   sx*-*-*)
     f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 |  -e 's/.c.*$//' | $SED -e 's/C++\/SX Compiler //' | $SED -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
     ;;
   *-ibm-aix*)
     f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
@@ -8281,6 +8412,7 @@ ac_clean_files=$ac_clean_files_save
 test $ac_write_fail = 0 ||
   as_fn_error $? "write failure creating $CONFIG_STATUS" "$LINENO" 5
 
+ac_configure_args=$ac_sub_configure_args
 
 # configure is writing to config.log, and then calls config.status.
 # config.status does its own redirection, appending to config.log.
@@ -8301,6 +8433,151 @@ if test "$no_create" != yes; then
   # Use ||, not &&, to avoid exiting from the if with $? = 1, which
   # would make configure fail if this is the last instruction.
   $ac_cs_success || as_fn_exit 1
+fi
+
+#
+# CONFIG_SUBDIRS section.
+#
+if test "$no_recursion" != yes; then
+
+  # Remove --cache-file, --srcdir, and --disable-option-checking arguments
+  # so they do not pile up.
+  ac_sub_configure_args=
+  ac_prev=
+  eval "set x $ac_configure_args"
+  shift
+  for ac_arg
+  do
+    if test -n "$ac_prev"; then
+      ac_prev=
+      continue
+    fi
+    case $ac_arg in
+    -cache-file | --cache-file | --cache-fil | --cache-fi \
+    | --cache-f | --cache- | --cache | --cach | --cac | --ca | --c)
+      ac_prev=cache_file ;;
+    -cache-file=* | --cache-file=* | --cache-fil=* | --cache-fi=* \
+    | --cache-f=* | --cache-=* | --cache=* | --cach=* | --cac=* | --ca=* \
+    | --c=*)
+      ;;
+    --config-cache | -C)
+      ;;
+    -srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
+      ac_prev=srcdir ;;
+    -srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
+      ;;
+    -prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
+      ac_prev=prefix ;;
+    -prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=* | --pr=* | --p=*)
+      ;;
+    --disable-option-checking)
+      ;;
+    *)
+      case $ac_arg in
+      *\'*) ac_arg=`$as_echo "$ac_arg" | sed "s/'/'\\\\\\\\''/g"` ;;
+      esac
+      as_fn_append ac_sub_configure_args " '$ac_arg'" ;;
+    esac
+  done
+
+  # Always prepend --prefix to ensure using the same prefix
+  # in subdir configurations.
+  ac_arg="--prefix=$prefix"
+  case $ac_arg in
+  *\'*) ac_arg=`$as_echo "$ac_arg" | sed "s/'/'\\\\\\\\''/g"` ;;
+  esac
+  ac_sub_configure_args="'$ac_arg' $ac_sub_configure_args"
+
+  # Pass --silent
+  if test "$silent" = yes; then
+    ac_sub_configure_args="--silent $ac_sub_configure_args"
+  fi
+
+  # Always prepend --disable-option-checking to silence warnings, since
+  # different subdirs can have different --enable and --with options.
+  ac_sub_configure_args="--disable-option-checking $ac_sub_configure_args"
+
+  ac_popdir=`pwd`
+  for ac_dir in : $subdirs; do test "x$ac_dir" = x: && continue
+
+    # Do not complain, so a configure script can configure whichever
+    # parts of a large source tree are present.
+    test -d "$srcdir/$ac_dir" || continue
+
+    ac_msg="=== configuring in $ac_dir (`pwd`/$ac_dir)"
+    $as_echo "$as_me:${as_lineno-$LINENO}: $ac_msg" >&5
+    $as_echo "$ac_msg" >&6
+    as_dir="$ac_dir"; as_fn_mkdir_p
+    ac_builddir=.
+
+case "$ac_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo "$ac_dir" | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+
+    cd "$ac_dir"
+
+    # Check for guested configure; otherwise get Cygnus style configure.
+    if test -f "$ac_srcdir/configure.gnu"; then
+      ac_sub_configure=$ac_srcdir/configure.gnu
+    elif test -f "$ac_srcdir/configure"; then
+      ac_sub_configure=$ac_srcdir/configure
+    elif test -f "$ac_srcdir/configure.in"; then
+      # This should be Cygnus configure.
+      ac_sub_configure=$ac_aux_dir/configure
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: no configuration information is in $ac_dir" >&5
+$as_echo "$as_me: WARNING: no configuration information is in $ac_dir" >&2;}
+      ac_sub_configure=
+    fi
+
+    # The recursion is here.
+    if test -n "$ac_sub_configure"; then
+      # Make the cache file name correct relative to the subdirectory.
+      case $cache_file in
+      [\\/]* | ?:[\\/]* ) ac_sub_cache_file=$cache_file ;;
+      *) # Relative name.
+	ac_sub_cache_file=$ac_top_build_prefix$cache_file ;;
+      esac
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: running $SHELL $ac_sub_configure $ac_sub_configure_args --cache-file=$ac_sub_cache_file --srcdir=$ac_srcdir" >&5
+$as_echo "$as_me: running $SHELL $ac_sub_configure $ac_sub_configure_args --cache-file=$ac_sub_cache_file --srcdir=$ac_srcdir" >&6;}
+      # The eval makes quoting arguments work.
+      eval "\$SHELL \"\$ac_sub_configure\" $ac_sub_configure_args \
+	   --cache-file=\"\$ac_sub_cache_file\" --srcdir=\"\$ac_srcdir\"" ||
+	as_fn_error $? "$ac_sub_configure failed for $ac_dir" "$LINENO" 5
+    fi
+
+    cd "$ac_popdir"
+  done
 fi
 if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5

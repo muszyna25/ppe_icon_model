@@ -29,6 +29,7 @@ MODULE mo_bc_aeropt_kinne
   USE mtime,                   ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
+  USE mo_master_control,      ONLY: get_my_process_type, ps_radiation_process
   
   IMPLICIT NONE
 
@@ -58,6 +59,8 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
 
   INTEGER                         :: nblks_len, nblks
   
+!   IF (get_my_process_type() == ps_radiation_process) &
+!     write(0,*) "psrad su_bc_aeropt_kinne..."
   nblks=p_patch%nblks_c
   nblks_len=nproma
 ! allocate memory for optical properties
@@ -84,6 +87,8 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
   asy_c_f(:,:,:,:)=0._wp
   z_km_aer_c_mo(:,:,:,:)=0._wp
   z_km_aer_f_mo(:,:,:,:)=0._wp
+!   IF (get_my_process_type() == ps_radiation_process) &
+!     write(0,*) "psrad su_bc_aeropt_kinne done"
 END SUBROUTINE su_bc_aeropt_kinne
 
   !> SUBROUTINE shift_months_bc_aeropt_kinne -- shifts December of current year into imonth=0 and 
@@ -115,6 +120,8 @@ SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
   INTEGER                       :: imonthb, imonthe
 
   IF (year > pre_year) THEN
+!     IF (get_my_process_type() == ps_radiation_process) &
+!       write(0,*) "psrad read_bc_aeropt_kinne..."
     IF (ALLOCATED(aod_c_s)) THEN
       CALL shift_months_bc_aeropt_kinne
       imonthb=2
@@ -127,18 +134,22 @@ SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_coa', p_patch      )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_lw_b16_coa', p_patch             )
+                     imonthe,          year,     'bc_aeropt_kinne_lw_b16_coa', p_patch      )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch             )
+                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch      )
     rdz_clim=1._wp/dz_clim
     pre_year=year
-  END IF    
+  END IF   
+
+!   IF (get_my_process_type() == ps_radiation_process) &
+!       write(0,*) "psrad read_bc_aeropt_kinne done"
+
 END SUBROUTINE read_bc_aeropt_kinne
 !-------------------------------------------------------------------------
 !> SUBROUTINE set_bc_aeropt_kinne
@@ -213,6 +224,15 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
         kindex(1:kproma)=MAX(INT(zh_vr(1:kproma,jk)*rdz_clim+0.5_wp),1)
         DO jl=1,kproma
            IF (kindex(jl) > 0 .and. kindex(jl) <= lev_clim ) THEN
+!               IF (get_my_process_type() == ps_radiation_process) THEN
+!                 write(0,*) "z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month1_index)=", z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month1_index)
+!                 write(0,*) "tiw%weight1=", tiw%weight1
+!                 write(0,*) "z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month2_index)=", z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month2_index)
+!                 write(0,*) "tiw%weight2=", tiw%weight2
+!                 write(0,*) "z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month1_index)=", z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month1_index)
+!                 write(0,*) "z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month2_index)=", z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month2_index)
+!               ENDIF
+
               zq_aod_c(jl,jk)= &
                 & z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month1_index)*tiw%weight1+ &
                 & z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month2_index)*tiw%weight2
@@ -320,7 +340,7 @@ END SUBROUTINE set_bc_aeropt_kinne
 SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   caod,             cssa,             casy,               caer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
-  imnthe,           iyear,            cfname,             p_patch          )
+  imnthe,           iyear,            cfname,             p_patch   )
 !
   CHARACTER(len=*), INTENT(in)   :: caod,    &! name of variable containing optical depth of column
                                     cssa,    &! name of variable containing single scattering albedo 

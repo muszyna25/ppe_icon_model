@@ -14,13 +14,13 @@
 !!
 MODULE mo_echam_phy_cleanup
 
-  USE mtime,                 ONLY: OPERATOR(>)
-  USE mo_grid_config,        ONLY: n_dom
-  USE mo_echam_phy_memory,   ONLY: destruct_echam_phy_state
-  USE mo_psrad_memory,       ONLY: destruct_psrad_forcing_list
-  USE mo_echam_phy_config,   ONLY: echam_phy_tc, dt_zero
-  USE mo_echam_cnv_config,   ONLY: dealloc_echam_cnv_config
-  USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
+  USE mtime,                   ONLY: OPERATOR(>)
+  USE mo_grid_config,          ONLY: n_dom
+  USE mo_echam_phy_memory,     ONLY: destruct_echam_phy_state
+  USE mo_psrad_forcing_memory, ONLY: destruct_psrad_forcing_list
+  USE mo_echam_phy_config,     ONLY: echam_phy_tc, dt_zero
+  USE mo_echam_cnv_config,     ONLY: dealloc_echam_cnv_config
+  USE mo_vdiff_solver,         ONLY: cleanup_vdiff_solver
 
   IMPLICIT NONE
   PRIVATE

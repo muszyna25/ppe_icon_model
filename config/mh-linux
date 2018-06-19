@@ -43,7 +43,7 @@ case "$fortran_compiler" in
     default|gcc)
         config_compiler  = gcc
         compiler_version = $(gfortran --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
-        CFLAGS      = $CFLAGS -DpgiFortran
+        CFLAGS      = $CFLAGS -DgFortran
         FCPP        = -cpp
         FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising
@@ -114,14 +114,19 @@ case "$fortran_compiler" in
         FC          = nagfor
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all
-        GEN_FLAGS   = -colour -fpp
+        GEN_FLAGS   = -colour -fpp -Wc=$(which gcc) -Dlib_free=free_c
+        eq="="
+        if gcc --help${eq}params | grep max-vartrack-size >/dev/null ; then
+          GEN_FLAGS = $GEN_FLAGS -Wc,--param,max-vartrack-size=200000000
+        fi
         DEBUG_FLAGS = -O0 -Wc,-g -float-store -nan $FDEBUG
         STD_FLAGS   = $DEBUG_FLAGS
         HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
-        MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double -w=uep
+        MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,xt_slice_c_loc -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
         F77FLAGS    = $GEN_FLAGS -w=obs -O -dcfuns -mismatch_all
+        LDFLAGS     = -g
         case "$with_openmp" in
           yes)
             FFLAGS=${FFLAGS/ -gline / }
@@ -139,7 +144,7 @@ case "$fortran_compiler" in
     pgi)
         config_compiler  = pgi
         compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
-        CFLAGS      = $CFLAGS -DpgiFortran
+        CFLAGS      = $CFLAGS -DgFortran
         FC          = pgfortran
         FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O $GEN_FLAGS $FDEBUG -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
@@ -192,10 +197,10 @@ case "$fortran_compiler" in
     intel*)
         config_compiler  = intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
-        # CC          = icc
+        CC          = icc
         # ccversion   = $(icc --version 2>&1 | awk 'NR==1')
-        # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF
-        CFLAGS      = $CFLAGS -DpgiFortran
+        # CFLAGS      = -fpe0 -msse2 -pc64  -DgFortran -DHAVE_LIBNETCDF
+        CFLAGS      = $CFLAGS -DgFortran
         AR          = xiar
         FC          = ifort
         DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
@@ -249,7 +254,7 @@ case "$ac_sitename" in
                     intel)
                         config_target=daint_cpu
                         load_modules = PrgEnv-intel cray-netcdf
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -std=gnu99 -march=native -DgFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
                         F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
                         FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
@@ -259,7 +264,7 @@ case "$ac_sitename" in
                     pgi)
                         config_target=daint_cpu 
                         load_modules = PrgEnv-pgi cray-netcdf
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                         SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/pgi
 			;;
@@ -311,13 +316,13 @@ case "$ac_sitename" in
                     gcc)
                         config_target=tave_knl
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
 			;;
                     intel)
                         config_target=tave_knl
                         load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -std=gnu99 -march=native -DgFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
@@ -613,6 +618,7 @@ case "$ac_sitename" in
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
                         OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
                         FFLAGS      = $FPPFLAGS
+                        LDFLAGS     = -g
                         F77FLAGS    = $FPPFLAGS
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
@@ -624,14 +630,14 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/5.1.0.038_dapl2.1.6")
+                            "$software_tree/intel/impi/5.1.0.038_dapl2.1.6/compilers_and_libraries_2016.0.079/linux/mpi/intel64")
                                 load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $with_mpi/compilers_and_libraries_2016.0.079/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
-                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
-                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
-                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.4.0-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.16-parallel-impi-intel14
                                 ;;
                             "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
                                 FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
@@ -720,6 +726,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ  -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
+                        LDFLAGS     = -g
                         OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-$compiler_version
@@ -751,9 +758,9 @@ case "$ac_sitename" in
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DgFortran -DWITHOUT_PACK_EXTERNAL
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -DHAVE_LIBSZ -DNAGf90Fortran -DWITHOUT_PACK_EXTERNAL
                         F77    = nagfor
-                        FC     = nagfor
+                        FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-static-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
@@ -912,6 +919,7 @@ case "$ac_sitename" in
                         GRIBAPIROOT  = $software_tree/grib_api-1.14.3-static-${compiler_version}
                         SYS_LIBS     = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
                         SYS_LIBS     = -ljasper -ljpeg $SYS_LIBS
+                        OTHER_LIBS   = -ljasper -ljpeg -lm -ldl -lrt -lutil -lpthread -lpciaccess
                         XML2ROOT     = /usr
                         case "$fortran_compiler" in
                             default|gcc)
@@ -921,13 +929,14 @@ case "$ac_sitename" in
                                 ;;
                             nag)
                                 load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
+                                FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
                                 LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl
                                 MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS
                                 ;;
                             intel)
-                                load_modules=gcc/5.2.0 intel/16.0.2 ${load_modules}
+                                load_modules=intel/16.0.2 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
@@ -1032,7 +1041,7 @@ case "$ac_sitename" in
                 ### ### intel/13.1-2 openmpi/1.6.4/intel/13.1.0
                 config_compiler = intel
                 CC       = mpicc
-                CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DpgiFortran
+                CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DgFortran
                 F77 = mpif90
                 FC = mpif90
                 ##### F95 EXTENSIONS
@@ -1057,7 +1066,7 @@ case "$ac_sitename" in
                 echo "Compiler GFORTRAN detected."
                 ### ### openmpi/1.4.4/gfortran/4.6.2
                 CC       = mpicc
-                # CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DpgiFortran
+                # CFLAGS = -std=gnu99 -O2 -DHAVE_LIBNETCDF -DgFortran
                 # CFLAGS   = -std=gnu99 -march=native -O2 -Df2cFortran
                 # CFLAGS   = ${CFLAGS} -Df2cFortran
                 # CFLAGS   = -O -Df2cFortran

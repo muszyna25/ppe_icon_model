@@ -106,6 +106,9 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
+  ! psrad
+  USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
+
 
   IMPLICIT NONE
 
@@ -310,6 +313,12 @@ CONTAINS
       CALL init_methox
     END IF
 
+     !-------------------------------------------------------------------
+    ! 5. If there are concurrent psrad processes, set up communication between the
+    ! atmo and psrad processes
+    !-------------------------------------------------------------------
+    CALL setup_atmo_2_psrad()
+   
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy_params

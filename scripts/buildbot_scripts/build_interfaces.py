@@ -39,7 +39,7 @@ def make_all_binaries(configure_flags):
   return 0
     
 def make_ocean_binaries(configure_flags):
-  ocean_flags=" --disable-atmo --disable-jsbach --with-yac=no"
+  ocean_flags=" --disable-atmo --disable-jsbach --disable-psrad --with-yac=no --with-flags=ocean"
   os.chdir(paths.basePath)
   ocean_folder = paths.basePath+"/ocean_build"
   status = runCommand("scripts/building/get_ocean "+paths.basePath+" "+ocean_folder)

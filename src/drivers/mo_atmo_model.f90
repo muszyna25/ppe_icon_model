@@ -64,6 +64,7 @@ MODULE mo_atmo_model
   USE mo_jsb_base,                ONLY: jsbach_setup => jsbach_setup_models, jsbach_setup_tiles
   USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
 #endif
+  USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -264,8 +265,9 @@ CONTAINS
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
-               &                    num_prefetch_proc)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
+               &                    dedicatedRestartProcs, num_prefetch_proc, &
+               &                    opt_comp_id=atmo_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -372,8 +374,9 @@ CONTAINS
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
     IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
 
+
     !--------------------------------------------------------------------------------
-    ! 5. Construct interpolation state, compute interpolation coefficients.
+    ! 6. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
@@ -407,7 +410,7 @@ CONTAINS
     ENDDO
 
     !-----------------------------------------------------------------------------
-    ! 6. Construct grid refinment state, compute coefficients
+    ! 7. Construct grid refinment state, compute coefficients
     !-----------------------------------------------------------------------------
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
@@ -443,7 +446,7 @@ CONTAINS
     CALL setup_phys_patches
 
     !-------------------------------------------------------------------
-    ! 7. Constructing data for lon-lat interpolation
+    ! 8. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
     
     CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
