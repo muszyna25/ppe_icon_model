@@ -913,7 +913,7 @@ CONTAINS
             ptenq(jl,jk)=ptenq(jl,jk)+(zr2(jl,jk)-pqen(jl,jk))*ztsphy
             ! PTENT(JL,JK)=(ZR1(JL,JK)-PTEN(JL,JK))*ZTSPHY
             ! PTENQ(JL,JK)=(ZR2(JL,JK)-PQEN(JL,JK))*ZTSPHY
-            penth(jl,jk)=(zr1(jl,jk)-pten(jl,jk))*ztsphy
+            penth(jl,jk)=(zr1(jl,jk)-pten(jl,jk))*ztsphy*rcpd
           ENDIF
         ENDDO
       ENDDO
