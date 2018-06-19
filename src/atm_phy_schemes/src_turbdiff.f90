@@ -5504,7 +5504,7 @@ SUBROUTINE turbdiff
 !itndcon=0
 !test
 
-            IF (lsfli(n) .AND. (.NOT.lturatm .OR. (n.NE.tem .AND. n.NE.vap))) THEN
+            IF (lsfli(n)) THEN
                !Load effective surface layer gradients due to given flux values:
 
 !DIR$ IVDEP

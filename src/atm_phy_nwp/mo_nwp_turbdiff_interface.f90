@@ -106,7 +106,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
-  INTEGER :: i_nchdom                !< domain index
 
   ! Local scalars:
 
@@ -160,25 +159,25 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !--------------------------------------------------------------
 
 
+  IF (msg_level >= 15) CALL message('mo_nwp_turbdiff:', 'turbulence')
+
+  jg = p_patch%id
+
   ! number of vertical levels
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
   nlevcm = nlevp1
 
-  IF (msg_level >= 15) CALL message('mo_nwp_turbdiff:', 'turbulence')
-    
+   
   ! local variables related to the blocking
-  
-  i_nchdom  = MAX(1,p_patch%n_childdom)
-  jg        = p_patch%id
-  
+  !
   ! exclude boundary interpolation zone of nested domains
   rl_start = grf_bdywidth_c+1
   rl_end   = min_rlcell_int
 
-  i_startblk = p_patch%cells%start_blk(rl_start,1)
-  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = p_patch%cells%start_block(rl_start)
+  i_endblk   = p_patch%cells%end_block(rl_end)
 
   
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
