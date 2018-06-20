@@ -39,7 +39,7 @@ MODULE mo_derived_variable_handling
   USE mtime_datetime, ONLY: datetimeToString
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, GRID_ZONAL
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, GRID_ZONAL, TSTEP_CONSTANT
 
   IMPLICIT NONE
 
@@ -366,6 +366,10 @@ CONTAINS
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
+
+          ! avoid mean processing for instantaneous fields
+          if (TSTEP_CONSTANT .eq. src_element%field%info%isteptype) CYCLE
+
 
           ! add new mean variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
@@ -736,7 +740,8 @@ CONTAINS
                     if ( isactive ) then
 
 #ifdef DEBUG_MVSTREAM
-                    if (my_process_is_stdio()) CALL print_summary(" --> PERFORM MEAN VALUE COMP!!!!",stderr=.true.)
+                    if (my_process_is_stdio()) &
+                        & CALL print_summary(" --> PERFORM MEAN VALUE COMP for"//trim(destination%field%info%name),stderr=.true.)
 #endif
 
                       counter => meanVarCounter%get(destination%field%info%name)
@@ -847,6 +852,8 @@ CONTAINS
                       if (my_process_is_stdio()) call print_error("       eventActive is true",stderr=.true.)
                       if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> PERFORM RESET',&
                           & stderr=.true.)
+if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> '//trim(destination%field%info%name),&
+    & stderr=.true.)
 #endif
 
                       destination%field%r_ptr = 0.0_wp ! take the neutral element of addition
