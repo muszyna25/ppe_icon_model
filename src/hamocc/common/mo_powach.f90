@@ -7,6 +7,7 @@ MODULE mo_powach
 
  USE mo_kind, ONLY        : wp
  USE mo_sedmnt_diffusion, ONLY: powadi, dipowa
+ USE mo_hamocc_nml,       ONLY: ks,porwat
 
  IMPLICIT NONE
 
@@ -33,7 +34,7 @@ CONTAINS
         &                     powtra, prcaca, prorca, produs,             &
         &                     pown2bud, powh2obud, sred_sed,              &
         &                     porsol, pors2w, calcon,                     &
-        &                     disso_op, disso_cal,  ks, o2thresh,         &
+        &                     disso_op, disso_cal,  o2thresh,         &
         &                     sedtend, isremins, isremino, isreminn,      &
         &                     silsat
 
@@ -369,8 +370,8 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro, produs,      &
        &                     powtra, prcaca, prorca,              &
        &                     pown2bud, powh2obud,                        &
-       &                     porsol, porwat, rno3, calcon,               &
-       &                     sred_sed, ks, silsat,     &
+       &                     porsol, rno3, calcon,               &
+       &                     sred_sed, silsat,     &
        &                     seddenit,disso_op,disso_cal, &
        &                     sedtend, isremins, isremino, isreminn
 

@@ -27,11 +27,11 @@ MODULE mo_ini_bgc
        &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
-       &                     o2ut, rno3, claydens, sred_sed, ks, silsat, &
+       &                     o2ut, rno3, claydens, sred_sed, silsat, &
                              o2thresh 
 
   USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_cyadyn, l_diffat, i_settling, &
-       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc, &
+       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc, ks,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
        &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
 

@@ -10,8 +10,8 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P5Y"
-checkpoint_interval="P5Y"
+restart_interval="P1Y"
+checkpoint_interval="P1Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -19,10 +19,11 @@ output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
-modelTimeStep="PT600S"
+
+modelTimeStep="PT300S"
 restartSemaphoreFilename='isRestartRun.sem'
 if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-  modelTimeStep="PT1800S"
+  modelTimeStep="PT300S"
 fi
 
 autoPostProcessing="false"                         # submit postprocessing job
@@ -33,7 +34,9 @@ iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
 ocean_vertical_levels=64
-ocean_grids="OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc"
+ocean_grids="EarthOceanOnly_Icos_0010km_srtm30.nc"
+grids_folder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
+ocean_data_InputFolder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -168,10 +171,10 @@ cat > ${ocean_namelist} << EOF
   VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
 
   BiharmonicViscosity_scaling     =  1
-  BiharmonicViscosity_reference   =  1.5E12  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_reference   =  1.0E10  !  [m2/s] constant horizontal viscosity coefficient for velocity
   BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_scaling     =  1
-  HarmonicViscosity_reference   =  100.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_reference   =  0.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
@@ -197,13 +200,13 @@ cat > ${ocean_namelist} << EOF
   Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
   GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-3                               
-  S_d=0.0001                                 ! 1e-3 to 1e-4
-  k_tracer_GM_kappa_parameter     = 250.0     !
-  k_tracer_isoneutral_parameter   = 250.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  S_max=1.0e-3                                   !1.0
+  S_d=0.0001                                 ! 5e-3 to 5e-4
+  k_tracer_GM_kappa_parameter     = 0.0     !
+  k_tracer_isoneutral_parameter   = 0.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.TRUE.
@@ -261,7 +264,10 @@ cat > ${ocean_namelist} << EOF
   diagnose_for_horizontalVelocity = .false.
 /
 &io_nml
+  restart_file_type = 5
   write_last_restart = .true.
+  lkeep_in_sync = .true.          ! sync after each timestep
+  restart_write_mode = "joint procs multifile"
 /
 EOF
 #-----------------------------------------------------------------------------

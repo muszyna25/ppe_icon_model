@@ -35,7 +35,7 @@ MODULE mo_name_list_output_init
     &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
     &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
     &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
-    &                                             gridDefYpole, vlistDefVarDblKey
+    &                                             gridDefYpole, vlistDefVarDblKey, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -64,6 +64,7 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, real2string
+  USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
@@ -193,12 +194,14 @@ MODULE mo_name_list_output_init
   PUBLIC :: setup_output_vlist
   PUBLIC :: collect_requested_ipz_levels
   PUBLIC :: create_vertical_axes
+  PUBLIC :: isRegistered
 
   !------------------------------------------------------------------------------------------------
 
   TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
   TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
+  TYPE(vector), SAVE                         :: outputRegiser
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
@@ -329,6 +332,10 @@ CONTAINS
       nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
     END DO
 #endif
+
+    ! create variable of registering output variables. should be used later for
+    ! triggering computation only in case of output request
+    outputRegiser = vector(verbose=.FALSE.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -980,7 +987,7 @@ CONTAINS
     INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
       &                                     jp, idom, jg, local_i, idom_log,                  &
       &                                     grid_info_mode, ierrstat, jl, idummy, ifile,      &
-      &                                     npartitions, ifile_partition
+      &                                     npartitions, ifile_partition, errno
     INTEGER                              :: pe_placement(MAX_NUM_IO_PROCS)
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
@@ -1285,7 +1292,8 @@ CONTAINS
         mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
 
         IF (mtime_datetime_end > mtime_datetime_start) THEN
-          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
+          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
           
           mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
           CALL timedeltaToString(mtime_td, lower_bound_str)
@@ -1429,6 +1437,7 @@ CONTAINS
               p_of%cdiEdgeGridID   = CDI_UNDEFID
               p_of%cdiVertGridID   = CDI_UNDEFID
               p_of%cdiLonLatGridID = CDI_UNDEFID
+              p_of%cdiZonal1DegID  = CDI_UNDEFID
               p_of%cdiTaxisID      = CDI_UNDEFID
               p_of%cdiVlistID      = CDI_UNDEFID
 
@@ -1688,7 +1697,8 @@ CONTAINS
         END DO
 
         DO iintvl=1,nintvls
-          mtime_interval => newTimedelta(output_interval(iintvl))
+          mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
+          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
           mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
           !
           ! - The start_date gets an offset of
@@ -1851,7 +1861,7 @@ CONTAINS
           CALL finish(routine, "Internal error!")
         END SELECT
       ELSE
-        CALL setup_zaxes_oce(p_of%verticalAxisList)
+        CALL setup_zaxes_oce(p_of%verticalAxisList,p_of%level_selection)
       END IF
     END DO
   END SUBROUTINE create_vertical_axes
@@ -1956,6 +1966,11 @@ CONTAINS
 
           ! Check for matching name
           IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
+
+          ! register variable 
+          CALL registerOutputVariable(varlist(ivar))
+          ! register shortnames, which are used by mvstream and possibly by the users
+          IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
@@ -2509,6 +2524,15 @@ CONTAINS
       CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
       CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
 
+      ! Zonal 1 degree grid
+      of%cdiZonal1DegID  = gridCreate(GRID_LONLAT,180)
+      CALL griddefxsize(of%cdiZonal1DegID, 1)
+      CALL griddefxvals(of%cdiZonal1DegID, (/0.0_wp/))
+      CALL griddefysize(of%cdiZonal1DegID, 180)
+      ALLOCATE(p_lonlat(180))
+      DO k=1,180; p_lonlat(k) = -90.5_wp + REAL(k,KIND=wp); END DO
+      CALL griddefyvals(of%cdiZonal1DegID, p_lonlat)
+      DEALLOCATE(p_lonlat)
 
       ! Verts
 
@@ -2681,6 +2705,8 @@ CONTAINS
         info%cdiGridID = of%cdiCellGridID
       CASE(GRID_LONLAT)
         info%cdiGridID = of%cdiSingleGridID
+      CASE(GRID_ZONAL)
+        info%cdiGridID = of%cdiZonal1DegID
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = of%cdiVertGridID
       CASE(GRID_UNSTRUCTURED_EDGE)
@@ -3117,7 +3143,21 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
+  
+  SUBROUTINE registerOutputVariable(name)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
 
+    INTEGER :: key
+
+    key = util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0)
+    CALL outputRegiser%add(key)
+  END SUBROUTINE registerOutputVariable
+
+  LOGICAL FUNCTION isRegistered(name)
+    CHARACTER(LEN=*), INTENT(IN) :: name
+
+    isRegistered = outputRegiser%includes(util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0))
+  END FUNCTION
 
 #ifndef NOMPI
 

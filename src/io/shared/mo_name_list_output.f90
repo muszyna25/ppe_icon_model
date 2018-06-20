@@ -86,7 +86,7 @@ MODULE mo_name_list_output
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, GRID_ZONAL, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
@@ -207,7 +207,7 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
     INTEGER                        :: tsID
     LOGICAL                        :: lexist, lappend
- 
+
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
     filename            = TRIM(get_current_filename(of%out_event))
@@ -883,7 +883,7 @@ CONTAINS
         var_ref_pos = 3
         IF (info%lcontained)  var_ref_pos = info%var_ref_pos
 
-        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
+        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN !double precision
           SELECT CASE(var_ref_pos)
           CASE (1)
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(nindex,:,:,1,1)
@@ -894,7 +894,7 @@ CONTAINS
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN ! single precision
           SELECT CASE(var_ref_pos)
           CASE (1)
             s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(nindex,:,:,1,1)
@@ -905,7 +905,7 @@ CONTAINS
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN ! integer output
           SELECT CASE(var_ref_pos)
           CASE (1)
             i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(nindex,:,:,1,1)
@@ -1078,7 +1078,10 @@ CONTAINS
 #endif
 
       var_ignore_level_selection = .FALSE.
-      IF(info%ndims < 3) THEN
+
+      IF (info%hgrid .eq. GRID_ZONAL) THEN ! zonal grids are 2-dim but WITH a vertical axis
+        nlevs = info%used_dimensions(1)
+      ELSE IF(info%ndims < 3) THEN ! other 2-dim. var are supposed to be horizontal only
         nlevs = 1
       ELSE
         ! handle the case that a few levels have been selected out of
@@ -1120,6 +1123,7 @@ CONTAINS
         p_ri  => patch_info(i_dom)%cells
         p_pat => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
+      CASE (GRID_ZONAL)
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri  => patch_info(i_dom)%edges
         p_pat => patch_info(i_dom)%p_pat_e
@@ -1140,6 +1144,8 @@ CONTAINS
 
         IF (info%hgrid == GRID_LONLAT) THEN
           n_points = 1
+        ELSE IF (info%hgrid == GRID_ZONAL) THEN
+          n_points = 180
         ELSE
           n_points = p_ri%n_glb
         END IF
@@ -1154,6 +1160,8 @@ CONTAINS
           ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
         IF (idata_type == iINTEGER) THEN
+          IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+          IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
           ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
         END IF
 
@@ -1200,7 +1208,7 @@ CONTAINS
           !
           ! gather the array on stdio PE and write it out there
 
-          IF ( n_points == 1 ) THEN
+          IF ( n_points == 1 ) THEN ! single values
             IF (my_process_is_mpi_workroot()) THEN
               !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
               IF      (idata_type == iREAL ) THEN
@@ -1209,6 +1217,17 @@ CONTAINS
                 r_out_sp(:)  = s_ptr(:,1,1)
               ELSE IF (idata_type == iINTEGER) THEN
                 r_out_int(:) = i_ptr(:,1,1)
+              END IF
+            END IF
+          ELSE IF ( n_points == 180 ) THEN ! 1deg zonal grid
+            lev_idx = lev
+            IF (my_process_is_mpi_workroot()) THEN
+              IF      (idata_type == iREAL ) THEN
+                r_out_dp(:)  = r_ptr(lev_idx,1,:)
+              ELSE IF (idata_type == iREAL_sp ) THEN
+                r_out_sp(:)  = s_ptr(lev_idx,1,:)
+              ELSE IF (idata_type == iINTEGER) THEN
+                r_out_int(:) = i_ptr(lev_idx,1,:)
               END IF
             END IF
           ELSE ! n_points
@@ -1293,7 +1312,7 @@ CONTAINS
               & config_lmask_boundary ) THEN
               missval = BOUNDARY_MISSVAL
               IF (info%lmiss)  missval = info%missval%rval
-              
+
               IF ( lwrite_single_precision ) THEN
                 r_out_sp(1:last_bdry_index) = missval
               ELSE

@@ -77,9 +77,7 @@ ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T04:00:00Z"        # ISO-format date+time
-#start_date="2196-01-01T00:00:00Z"        # ISO-format date+time
-#  end_date="2196-01-01T04:00:00Z"        # ISO-format date+time
+  end_date="1979-01-01T06:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
@@ -109,7 +107,7 @@ checkpoint_interval="P20Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
 #  - Warning: restart_interval must be multiple of radiation time step (see below).
-restart_interval="PT4H"
+restart_interval="P1D"
 atm_output_interval="PT2H"
 lnd_output_interval="PT2H"
 oce_output_interval="PT2H"
@@ -129,7 +127,7 @@ oce_output_interval="PT2H"
 # standard long-term output switches - _min=yes only:
 output_atm_min=yes
 output_oce_min=yes
-output_lnd_min=yes
+output_lnd_min=no
 
 atm_file_interval="P20Y"
 lnd_file_interval="P20Y"
@@ -146,6 +144,11 @@ output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
 
+
+# varnames for ocean from the oce_mean test
+oce_varnames="'so','zos','to','global_moc','atlantic_moc','pacific_moc','Qtop', 'Qbot', 'mld','condep','u_vint','hi','hs','conc','atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible','Wind_Speed_10m'"
+oce_monitor_varnames="'ssh_global','HeatFlux_Total_global','FrshFlux_Evaporation_global','FrshFlux_Runoff_global','FrshFlux_Precipitation_global','Qtop','ice_volume_nh','ice_volume_sh','ice_extent_nh','ice_extent_sh'"
+oce_monitor_varnames="${oce_monitor_varnames},'pot_energy_global','kin_energy_global','total_energy_global'"
 # namelist files
 # --------------
 
@@ -156,10 +159,22 @@ cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_usecase=jsbach_lite                # jsbach_lite/jsbach_pfts
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
-jsbach_check_wbal=yes                     # check water balance
+jsbach_usecase=jsbach_lite    # jsbach_lite or jsbach_pfts
+jsbach_check_wbal=yes          # check water balance
+#
+[[ $jsbach_with_lakes == yes ]] || jsbach_usecase=${jsbach_usecase}_nolake
+[[ $jsbach_with_hd == yes ]] && jsbach_usecase=${jsbach_usecase}_with_hd
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  pft_file_tag="11pfts_"
+  nproma=64
+else
+  pft_file_tag=""
+fi
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -168,19 +183,7 @@ jsbach_check_wbal=yes                     # check water balance
 # II.1 Define the atmosphere and land model configuration
 # -------------------------------------------------------
 
-# II.1.1 Some further processing for land configuration
-# ---------------------------------------
-
-ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
-if [[ $jsbach_usecase == *pfts* ]]
-then
-  pft_file_tag="11pfts_"
-else
-  pft_file_tag=""
-fi
-
-# II.1.2 Atmospheric dynamics and physics
+# II.1.1 Atmospheric dynamics and physics
 # ---------------------------------------
 
 cat > ${atm_namelist} << EOF
@@ -245,73 +248,71 @@ cat > ${atm_namelist} << EOF
  itype_hlimit     =   3,  4,  4,  4
  ihadv_tracer     =  52,  2,  2, 52
 /
-&echam_phy_nml
+&mpi_phy_nml
 !
 ! domain 1
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT2H"
- echam_phy_config(1)%dt_vdf = "PT10M"
- echam_phy_config(1)%dt_cnv = "PT10M"
- echam_phy_config(1)%dt_cld = "PT10M"
- echam_phy_config(1)%dt_gwd = "PT10M"
- echam_phy_config(1)%dt_sso = "PT10M"
+ mpi_phy_config(1)%dt_rad = "PT2H"
+ mpi_phy_config(1)%dt_vdf = "PT10M"
+ mpi_phy_config(1)%dt_cnv = "PT10M"
+ mpi_phy_config(1)%dt_cld = "PT10M"
+ mpi_phy_config(1)%dt_gwd = "PT10M"
+ mpi_phy_config(1)%dt_sso = "PT10M"
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = ""
- echam_phy_config(1)%dt_car = ""
- echam_phy_config(1)%dt_art = ""
+ mpi_phy_config(1)%dt_mox = ""
+ mpi_phy_config(1)%dt_car = ""
+ mpi_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb  = ${ljsbach}
- echam_phy_config(1)%lamip = .FALSE.
- echam_phy_config(1)%lice  = .TRUE.
- echam_phy_config(1)%lmlo  = .FALSE.
- echam_phy_config(1)%llake = ${llake}
+ mpi_phy_config(1)%ljsb  = ${ljsbach}
+ mpi_phy_config(1)%lamip = .FALSE.
+ mpi_phy_config(1)%lice  = .TRUE.
+ mpi_phy_config(1)%lmlo  = .FALSE.
+ mpi_phy_config(1)%llake  = ${llake}
 !
 /
-&echam_rad_nml
-!
-! domain 1
-! --------
-!
- echam_rad_config(1)%isolrad    =  6
- echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  2
- echam_rad_config(1)%irad_ch4   =  2
- echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  8
- echam_rad_config(1)%irad_o2    =  2
- echam_rad_config(1)%irad_cfc11 =  0
- echam_rad_config(1)%irad_cfc12 =  0
- echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%ighg       =  0
- echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
- echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
- echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
+&mpi_sso_nml
 /
-&echam_gwd_nml
+&radiation_nml
+ irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
+ irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
+ irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o2          = 2           ! 2: horizontally and vertically constant
+ irad_cfc11       = 0           ! 0: no cfc
+ irad_cfc12       = 0           ! 0: no cfc
+ irad_aero        = 0           ! 0: no aerosol
+ lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
+ ighg             = 0           ! 0: select default values; 1: transient well mixed greenhouse gas concentrations
+ izenith          = 4           ! 4: seasonal and diurnal cycle
+ isolrad          = 6           ! 6: pre-industrial CMIP6 solar constant
+ vmr_co2          = 284.317e-6  ! constant volume mixing ration
+ vmr_ch4          = 808.249e-9  ! constant volume mixing ration
+ vmr_n2o          = 273.021e-9  ! constant volume mixing ration
 /
-&echam_sso_nml
+&psrad_nml
+rad_perm          = 1           ! Integer for perturbing random number seeds
 /
-&echam_vdf_nml
+&echam_conv_nml
 /
-&echam_cnv_nml
+&echam_cloud_nml
 /
-&echam_cld_nml
+&gw_hines_nml
 /
 &sea_ice_nml
 /
 EOF
 
-# II.1.3 Land surface and soil
+# II.1.2 Land surface and soil
 # ----------------------------
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
-  use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
   l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
 /
@@ -376,7 +377,8 @@ fi
 # II.2.1 Model files
 # ------------------
 
-add_link_file ${basedir}/data/lsdata.nc                               ./
+add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # II.2.2 Namelist files
@@ -454,6 +456,8 @@ add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runo
 #  - add links to standard names, will be overwritten during model run
 #add_link_file ./init_restart_atm.nc                                     ./restart_atm_DOM01.nc
 #add_link_file ./init_restart_oce.nc                                     ./restart_oce_DOM01.nc
+# set restart to true (default is false):
+#restart=.true.
 
 #--------------------------------------------------------------------------------------------------
 
@@ -539,6 +543,7 @@ fi
 #  'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
 #  'tauu_sso', 'tauv_sso', 'diss_sso', 
 #  'sh_vdiff', 'qv_vdiff',
+#  'ch_concloud',
 #  'con_dtrl', 'con_dtri', 'con_iteqv',
 #  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
 #  'dew2'
@@ -671,7 +676,7 @@ if [[ "$output_lnd_min" == "yes" ]]; then
                     'rad_alb_vis_box'             , 'rad_alb_nir_box'        ,
                     'rad_rad_srf_net_box'         , 'rad_lw_srf_net_box'     , 'rad_sw_srf_net_box',
                     'seb_latent_hflx_box'         , 'seb_sensible_hflx_box'  , 'pheno_lai_box'     ,
-                    'hydro_evapotrans_box'        , 'hydro_w_soil_column_box',
+                    'hydro_evapotranspiration_box', 'hydro_w_soil_column_box',
                     'hydro_runoff_box'            , 'hydro_drainage_box'     ,
                     'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
 /
@@ -709,17 +714,6 @@ cat > ${oce_namelist} << EOF
  profiling_output     = 2
  timers_level         = 10
  debug_check_level    = 1
-/
-&output_nml
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_oceanMonitor"
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
   idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
@@ -852,6 +846,17 @@ cat > ${oce_namelist} << EOF
 &io_nml
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
+&output_nml
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  output_grid      = .TRUE.
+  output_filename  = "${EXPNAME}_oceanMonitor"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  ${oce_monitor_varnames}
+/
 EOF
 
 if [[ "$output_oce_min" == "yes" ]]; then
@@ -859,29 +864,70 @@ if [[ "$output_oce_min" == "yes" ]]; then
 
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_oce_min"
+  output_filename  = "${EXPNAME}_oce_spot"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  output_interval  = "PT1H"
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-  m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
-  operation        = "mean"
-  ml_varlist       =  'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
-                      'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
-                      'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
-                      'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
-                      'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
-                      'FrshFlux_TotalOcean', 'Wind_Speed_10m'
+  ml_varlist       =  ${oce_varnames}
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_oce_fx"
+  output_filename  = "${EXPNAME}_oce_mean1TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "PT1H"
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  output_grid      = .TRUE.
+  mode             =  2                               ! 1: forecast mode (relative t-axis),
+                                                      ! 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  operation = "mean"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  ${oce_varnames}
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_oce_mean2TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "PT2H"
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  output_grid      = .TRUE.
+  mode             =  2                               ! 1: forecast mode (relative t-axis),
+                                                      ! 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  operation = "mean"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  ${oce_varnames}
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_oce_mean3TS"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "PT3H"
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  output_grid      = .TRUE.
+  mode             =  2                               ! 1: forecast mode (relative t-axis),
+                                                      ! 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  operation = "mean"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  ${oce_varnames}
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_oce_static"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
@@ -891,7 +937,6 @@ if [[ "$output_oce_min" == "yes" ]]; then
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-  m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
@@ -906,7 +951,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
 
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_oce_def"
+  output_filename  = "${EXPNAME}_oce_diag"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
@@ -914,12 +959,10 @@ if [[ "$output_oce_def" == "yes" ]]; then
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
   mode             =  2                               ! 1: forecast mode (relative t-axis),
-  operation        = "mean"
+                                                      ! 2: climate mode (absolute t-axis)
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:oce_essentials'
-  !ml_varlist       =  'group:oce_default','group:ice_diag'
-  !ml_varlist       =  'group:oce_diag','group:ice_diag','group:oce_geometry'
+  ml_varlist       =  'group:oce_diag','group:ice_diag'
 /
 EOF
 fi
@@ -1050,7 +1093,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1069,7 +1111,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1088,7 +1129,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1107,7 +1147,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1126,7 +1165,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1145,7 +1183,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1164,7 +1201,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1183,7 +1219,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1202,7 +1237,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>1</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1221,9 +1255,8 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation filename="runoff_a2o.weights.nc" method="user_file"/>
+               <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
@@ -1239,7 +1272,6 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="false" use_target_mask="true">
                <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
@@ -1250,7 +1282,7 @@ cat > ${cpl_xmlctrfn} << EOF
          </transient_couple>
       </couple>
    </couples>
-   <created date="22-09-2017 13:45" tool="YAC-CouplingGUI v.1.3.0"/>
+   <created date="19-04-2016 15:39" tool="YAC-CouplingGUI v.1.2.0"/>
 </coupling>
 EOF
 
@@ -1266,9 +1298,9 @@ EOF
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_xmlctrfn}                  ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
-add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
+add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
+add_required_file ${basedir}/run/coupling.xsd  ./
+add_required_file ${basedir}/run/component.xsd ./
 
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""

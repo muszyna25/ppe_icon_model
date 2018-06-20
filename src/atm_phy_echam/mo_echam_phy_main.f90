@@ -30,6 +30,7 @@ MODULE mo_echam_phy_main
   USE mo_exception           ,ONLY: message
   USE mtime                  ,ONLY: datetime, isCurrentEventActive, &
        &                            OPERATOR(<=), OPERATOR(>)
+  USE mo_echam_diagnostics,            ONLY: echam_global_diagnostics
 
   USE mo_model_domain        ,ONLY: t_patch
 
@@ -315,6 +316,9 @@ CONTAINS
     END IF
 
 
+
+    ! global diagnostics
+    CALL echam_global_diagnostics(patch)
     !-------------------------------------------------------------------
     ! Finalize (diagnostic)
     !-------------------------------------------------------------------

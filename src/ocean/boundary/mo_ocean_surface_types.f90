@@ -76,39 +76,7 @@ MODULE mo_ocean_surface_types
       &  TempFlux_Relax            (:,:), & ! temperature tracer flux due to relaxation                 [C/s]
       &  SaltFlux_Relax            (:,:), & ! salinity tracer flux due to relaxation                    [psu/s]
       &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
-      &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
-
-      !  accumulation variables - comments see above
-      &  Wind_Speed_10m_acc             (:,:),  &
-      &  TopBC_WindStress_u_acc         (:,:),  &
-      &  TopBC_WindStress_v_acc         (:,:),  &
-!      &  cellThicknessUnderIce_acc      (:,:),  &
-
-      &  HeatFlux_Total_acc             (:,:),  &
-      &  HeatFlux_Shortwave_acc         (:,:),  &
-      &  HeatFlux_LongWave_acc          (:,:),  &
-      &  HeatFlux_Sensible_acc          (:,:),  &
-      &  HeatFlux_Latent_acc            (:,:),  &
-
-      &  FrshFlux_TotalIce_acc          (:,:),  &
-      &  FrshFlux_VolumeTotal_acc       (:,:),  &
-      &  FrshFlux_Precipitation_acc     (:,:),  &
-      &  FrshFlux_SnowFall_acc          (:,:),  &
-      &  FrshFlux_Evaporation_acc       (:,:),  &
-      &  FrshFlux_Runoff_acc            (:,:),  &
-      &  FrshFlux_TotalSalt_acc         (:,:),  &
-      &  FrshFlux_TotalOcean_acc        (:,:),  &
-      &  FrshFlux_VolumeIce_acc         (:,:),  &
-
-      ! Are these relaxation-related accumulated fields really necessary?
-      &  data_surfRelax_Temp_acc        (:,:),  &
-      &  data_surfRelax_Salt_acc        (:,:),  &
-      &  TopBC_Temp_vdiff_acc           (:,:),  &
-      &  TopBC_Salt_vdiff_acc           (:,:),  &
-!      &  TempFlux_Relax_acc             (:,:),  &
-!      &  SaltFlux_Relax_acc             (:,:),  &
-      &  HeatFlux_Relax_acc             (:,:),  &
-      &  FrshFlux_Relax_acc             (:,:)
+      &  FrshFlux_Relax            (:,:)    ! surface freshwater flux due to relaxation                 [m/s]
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: TopBC_WindStress_cc(:,:)

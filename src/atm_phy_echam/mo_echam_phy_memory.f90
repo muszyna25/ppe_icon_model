@@ -60,11 +60,10 @@ MODULE mo_echam_phy_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
-    &                               DATATYPE_INT,                      &
-    &                               GRID_UNSTRUCTURED,                 &
+    &                               GRID_UNSTRUCTURED, GRID_LONLAT,    &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
-    &                               cdiInqMissval
+    &                               cdiInqMissval, DATATYPE_INT
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
@@ -490,6 +489,9 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
+    ! global diagnostics
+    REAL(wp),POINTER :: tas_gmean(:)
+   
     ! coupling to HAMOCC lcpl_co2_atmoce
     REAL(wp),POINTER :: &
       & co2mmr(:,:),   &  !< co2 mixing ratio
@@ -3418,6 +3420,13 @@ CONTAINS
                   & lmiss=.TRUE., missval=cdimissval )
 
     END DO
+
+    ! global diagnostics
+    cf_desc    = t_cf_var('tas_gmean', 'K', 'temperature at 2m', datatype_flt,'tas_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'tas_gmean', field%tas_gmean,              &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

@@ -49,7 +49,7 @@ USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend,    
 USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop,                                                &
   &                                timer_exch_data, timer_exch_data_async, timer_barrier, timer_exch_data_wait
-USE mo_run_config,           ONLY: msg_level
+USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string

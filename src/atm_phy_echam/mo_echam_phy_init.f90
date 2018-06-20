@@ -48,7 +48,9 @@ MODULE mo_echam_phy_init
   ! test cases
   USE mo_nh_testcases_nml,     ONLY: nh_test_name, ape_sst_case, th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
-  USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW, amd, amo3
+  USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3
+
+  USE mo_sea_ice_nml,           ONLY: albi
 
   ! echam phyiscs
   USE mo_echam_phy_config,     ONLY: eval_echam_phy_config, eval_echam_phy_tc, print_echam_phy_config, &

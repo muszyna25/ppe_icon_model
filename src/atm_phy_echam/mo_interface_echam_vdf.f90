@@ -637,6 +637,8 @@ CONTAINS
        field% lhflx_tile     (jcs:jce,  jb,:) = 0.0_wp
        field% shflx_tile     (jcs:jce,  jb,:) = 0.0_wp
        field%  evap_tile     (jcs:jce,  jb,:) = 0.0_wp
+       field% lwflxsfc_tile  (jcs:jce,  jb,:) = 0.0_wp
+       field% swflxsfc_tile  (jcs:jce,  jb,:) = 0.0_wp
        field% rlus           (jcs:jce,  jb  ) = 0.0_wp
        field% rsus           (jcs:jce,  jb  ) = 0.0_wp
        field% csat           (jcs:jce,  jb  ) = 0.0_wp
