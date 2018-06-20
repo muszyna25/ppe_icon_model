@@ -1074,7 +1074,6 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-<<<<<<< HEAD
   REAL(wp)  FUNCTION Sum_2D_InRange(values, in_subset, mean) 
     REAL(wp), INTENT(in) :: values(:,:) ! in
     TYPE(t_subset_range), TARGET :: in_subset
@@ -1160,7 +1159,7 @@ CONTAINS
 
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
-    REAL(wp):: total_weight
+    REAL(wp):: total_weight, total_sum
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_2D_2Dweights_InRange'
