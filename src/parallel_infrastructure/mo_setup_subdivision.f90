@@ -2148,7 +2148,7 @@ CONTAINS
               n_temp_cells, &
               flag2_c_list(2 * ilev + k)%idx(1:n2_ilev_c(2 * ilev + k)))
           END DO
-        ENDIF
+        END IF
         ! store cells of level 2*ilev
         n2_ilev_c(2*ilev) = n_temp_cells
         ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells), &
@@ -2226,9 +2226,7 @@ CONTAINS
             CALL remove_entries_from_ref_list(temp_edges(1:n_temp_edges), &
               n_temp_edges, flag2_e_list(2*ilev+k)%idx(1:n2_ilev_e(2*ilev+k)))
           END DO
-        ENDIF
         ! collect inner edges
-        IF(n_temp_edges > 1) THEN
           IF (SIZE(pack_mask(:)) < n_temp_edges) THEN
             DEALLOCATE(pack_mask)
             ALLOCATE(pack_mask(n_temp_edges))
@@ -2356,7 +2354,7 @@ CONTAINS
             CALL remove_entries_from_ref_list(temp_vertices(1:n_temp_vertices), &
               n_temp_vertices, flag2_v_list(ilev+k)%idx(1:n2_ilev_v(ilev+k)))
           END DO
-        ENDIF
+        END IF
 
         IF (SIZE(temp_vertices_owner(:)) < n_temp_vertices) THEN
           DEALLOCATE(temp_vertices_owner)

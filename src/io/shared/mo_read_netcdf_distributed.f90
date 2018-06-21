@@ -328,7 +328,7 @@ CONTAINS
 
     n = SIZE(decomp_info%glb_index)
 
-    ALLOCATE(owner(n))
+    ALLOCATE(owner(MAX(1,n)))
 
     IF (n .GT. 0) THEN
       CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
