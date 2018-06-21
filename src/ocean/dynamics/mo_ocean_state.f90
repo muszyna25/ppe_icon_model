@@ -1211,7 +1211,7 @@ CONTAINS
       & za_surface, &
       & t_cf_var('zos_square', 'm^2', 'squera of sea surface hight', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
      CALL add_var(ocean_default_list,'Rossby_Radius',ocean_state_diag%Rossby_Radius,grid_unstructured_cell,&
       & za_depth_below_sea, &
