@@ -339,8 +339,7 @@ CONTAINS
         !      need to be adapted accordingly.
         writerProcId = MODULO(myProcId, writerCount)
         writerRank = restartWorkProcId2Rank(writerProcId)
-        nsourceRanks = 1 + (workProcCount() + dedicatedRestartProcCount() - writerProcId)/writerCount
-
+        nsourceRanks = (workProcCount() + dedicatedRestartProcCount() - writerProcId + writerCount - 1)/writerCount
         ALLOCATE(sourceRanks(nsourceRanks))
         sourceRanks = [(restartWorkProcId2Rank(i), &
           &             i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount)]

@@ -544,9 +544,9 @@ CONTAINS
     ! This FUNCTION performs the distribution of the payload files
     ! among the restart processes, subsequent code just has to iterate
     ! over the array returned by this FUNCTION.
-    SUBROUTINE openPayloadFiles(multifilePath, multifile_file_count, files, domain, out_totalCellCount, &
-      &                      out_totalEdgeCount, out_totalVertCount)
-        TYPE(t_PayloadFile), ALLOCATABLE :: files(:)
+    SUBROUTINE openPayloadFiles(multifilePath, multifile_file_count, domain, out_totalCellCount, &
+      &                      out_totalEdgeCount, out_totalVertCount,files)
+        TYPE(t_PayloadFile), ALLOCATABLE, TARGET, INTENT(INOUT) :: files(:)
         CHARACTER(*), INTENT(IN) :: multifilePath
         INTEGER, VALUE :: multifile_file_count, domain
         INTEGER, INTENT(OUT) :: out_totalCellCount, out_totalEdgeCount, out_totalVertCount
@@ -576,6 +576,7 @@ CONTAINS
           myFileCount = (multifile_file_count - myRank + procCount - 1)/procCount
         ENDIF
         ! Allocate space to open all our files IN parallel.
+        IF (ALLOCATED(files)) DEALLOCATE(files)
         ALLOCATE(files(myFileCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
@@ -783,9 +784,9 @@ CONTAINS
         END IF
 
         me%domain = p_patch%id
-        call openPayloadFiles(multifilePath, multifile_file_count, me%files, p_patch%id, &
-                                   &totalCellCount, totalEdgeCount, totalVertCount)
-
+        CALL openPayloadFiles(multifilePath, multifile_file_count, p_patch%id, &
+                                   & totalCellCount, totalEdgeCount, totalVertCount, &
+                                   & me%files)
         ! Allocate the global index arrays.
         ALLOCATE(globalCellIndices(totalCellCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -800,6 +801,7 @@ CONTAINS
         curEdgeOffset = 1
         curVertOffset = 1
         DO curFileIndex = 1, SIZE(me%files)
+
             curFile => me%files(curFileIndex)
 
             ! If the restart file has been created in a run with

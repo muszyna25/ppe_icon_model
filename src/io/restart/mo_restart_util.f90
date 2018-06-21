@@ -205,6 +205,7 @@ CONTAINS
     END SUBROUTINE shutdownRestartProc
 
     SUBROUTINE getRestartFilename(baseName, domain, restartArgs, resultVar)
+        USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
         CHARACTER(LEN = *), INTENT(IN) :: baseName
         INTEGER, VALUE :: domain
         TYPE(t_restart_args), INTENT(IN) :: restartArgs
@@ -214,6 +215,7 @@ CONTAINS
         INTEGER :: restartModule, fn_len
         TYPE(t_keyword_list), POINTER :: keywords
         TYPE(datetime), POINTER :: dt
+        CHARACTER(len=MAX_CHAR_LENGTH) :: tempname
 
         dt => restartArgs%restart_datetime
         WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')    &
@@ -234,9 +236,10 @@ CONTAINS
         END IF
 
         ! replace keywords in file name
-        fn_len = LEN_TRIM(with_keywords(keywords, TRIM(restart_filename)))
+        tempname = with_keywords(keywords, TRIM(restart_filename))
+        fn_len = LEN_TRIM(tempname)
         CALL alloc_string(fn_len, resultVar)
-        resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+        resultVar = tempname(1:fn_len)
     END SUBROUTINE getRestartFilename
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, this_datetime, n_dom, jstep, opt_output_jfile)
