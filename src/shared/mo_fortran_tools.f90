@@ -53,6 +53,7 @@ MODULE mo_fortran_tools
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
   PUBLIC :: insert_dimension
+  LOGICAL, PARAMETER, PUBLIC :: no_copy = .false.
 
   PRIVATE
 
@@ -435,13 +436,21 @@ CONTAINS
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
   END SUBROUTINE alloc_single_1d
 
-  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
+  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize, do_copy_in)
     REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
     INTEGER, VALUE ::requiredSize
-
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
     REAL(wp), POINTER :: newBuffer(:)
     INTEGER :: oldSize, error
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
+
+    IF (PRESENT(do_copy_in)) THEN
+        do_copy = do_copy_in
+    ELSE
+        do_copy = .true.
+    END IF
+
 
     IF(ASSOCIATED(buffer)) THEN
         oldSize = SIZE(buffer, 1)
@@ -451,8 +460,10 @@ CONTAINS
         ALLOCATE(newBuffer(requiredSize), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
-        newBuffer(1:oldSize) = buffer(1:oldSize)
-        newBuffer(oldSize + 1:requiredSize) = 0.0
+        IF (do_copy) THEN
+          newBuffer(1:oldSize) = buffer(1:oldSize)
+          newBuffer(oldSize + 1:requiredSize) = 0.0
+        END IF
 
         DEALLOCATE(buffer)
         buffer => newBuffer
@@ -460,8 +471,9 @@ CONTAINS
     ELSE
         ALLOCATE(buffer(requiredSize), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-
-        buffer(1:requiredSize) = 0.0
+        IF (do_copy) THEN
+            buffer(1:requiredSize) = 0.0
+        END IF
     END IF
   END SUBROUTINE ensureSize_dp_1d
 
