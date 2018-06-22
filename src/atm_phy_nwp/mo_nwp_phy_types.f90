@@ -310,9 +310,11 @@ MODULE mo_nwp_phy_types
       umfl_s(:,:)      ,   & !! u-momentum flux at the surface                 (N/m2)
       vmfl_s(:,:)      ,   & !! v-momentum flux at the surface                 (N/m2)
       aumfl_s(:,:)     ,   & !! u-momentum flux at the surface (N/m2), accumulated or mean since model start
-      avmfl_s(:,:)           !! v-momentum flux at the surface (N/m2), accumulated or mean since model start
+      avmfl_s(:,:)     ,   & !! v-momentum flux at the surface (N/m2), accumulated or mean since model start
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
+      qcfl_s(:,:)      ,   & !! cloud water turbulent deposition flux         (kg/m2/s)
+      qifl_s(:,:)            !! cloud ice turbulent deposition flux           (kg/m2/s)
 
     ! need only for EDMF
     REAL(wp), POINTER       &

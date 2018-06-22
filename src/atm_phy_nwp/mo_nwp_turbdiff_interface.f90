@@ -36,7 +36,7 @@ MODULE mo_nwp_turbdiff_interface
     &                                  max_ntracer
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_loopindices,            ONLY: get_indices_c
-  USE mo_physical_constants,     ONLY: alv, grav
+  USE mo_physical_constants,     ONLY: alv, grav, vtmpc1, rd
   USE mo_ext_data_types,         ONLY: t_external_data
   USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,          ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -124,6 +124,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   REAL(wp) :: l_hori(nproma)                        !< horizontal length scale
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
+  REAL(wp) :: tempv_sfc(nproma)                     !< surface virtual temperature [K]
+  REAL(wp) :: rho_sfc(nproma)                       !< surface density [Pa]
 
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
@@ -191,7 +193,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !$OMP            pdifts   , pdiftq  , pdiftl  , pdifti  , pstrtu  , pstrtv , pkh , pkm ,   &
 !$OMP            z_omega_p, zchar   , zucurr  , zvcurr  , zsoteu  , zsotev , zsobeta   ,   &
 !$OMP            zz0m     , zz0h    , zae     , ztskrad , zsigflt ,                        &
-!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t)                        &
+!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t, rho_sfc, tempv_sfc)    &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -342,6 +344,36 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  tket_hshr=prm_nwp_tend%ddt_tke_hsh(:,:,jb),                                & !out
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb),                & !in
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+
+
+
+       ! re-diagnose turbulent deposition fluxes for qc and qi (positive downward)
+       ! So far these fluxes only serve diagnostic purposes. I.e. they 
+       ! must be taken into account when checking the atmospheric water mass balance.
+       !
+       ! ToDo: In the midterm, these fluxes should rather be computed by turbtran and 
+       !       being treated analogous to qhfl_s. I.e. they should also be passed to 
+       !       the soil/surface scheme TERRA.
+       !
+       DO jc = i_startidx, i_endidx
+         tempv_sfc(jc) = lnd_prog_now%t_g(jc,jb) * (1._wp + vtmpc1*lnd_diag%qv_s(jc,jb))
+         rho_sfc(jc)   = p_diag%pres_sfc(jc,jb)/(rd*tempv_sfc(jc))
+         prm_diag%qcfl_s(jc,jb) = rho_sfc(jc) * prm_diag%tvh(jc,jb) * p_prog_rcf%tracer(jc,nlev,jb,iqc)
+      ENDDO
+      IF (turbdiff_config(jg)%ldiff_qi) THEN
+        DO jc = i_startidx, i_endidx
+          prm_diag%qifl_s(jc,jb) = rho_sfc(jc) * prm_diag%tvh(jc,jb) * p_prog_rcf%tracer(jc,nlev,jb,iqi)
+        ENDDO
+      ENDIF
+
+!DR If accumulated deposition fluxes are required ...
+!!$      DO jc = i_startidx, i_endidx
+!!$        p_diag%extra_2d(jc,jb,1) = p_diag%extra_2d(jc,jb,1) + tcall_turb_jg*prm_diag%qcfl_s(jc,jb)
+!!$        p_diag%extra_2d(jc,jb,2) = p_diag%extra_2d(jc,jb,2) + tcall_turb_jg*prm_diag%qifl_s(jc,jb)
+!!$      ENDDO
+!DR End Test
+
+
 
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
