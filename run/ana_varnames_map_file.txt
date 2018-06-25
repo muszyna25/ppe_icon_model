@@ -32,6 +32,8 @@ snowfrac_lc         SNOWC
 w_snow              W_SNOW
 rho_snow            RHO_SNOW
 h_snow              H_SNOW
+hsnow_max           HSNOW_MAX
+snow_age            SNOAG
 t_snow_mult         T_SNOW_M
 rho_snow_mult       RHO_SNOW_M
 wtot_snow           W_SNOW_M

@@ -495,12 +495,12 @@ CONTAINS
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 29000.0_wp
       tune_ozone_zmid2  = 26000.0_wp
-      tune_ozone_zmid   = 20000.0_wp
-      tune_ozone_zbot   = 17000.0_wp
-      tune_ozone_fac    = 0.2_wp
+      tune_ozone_zmid   = 18000.0_wp
+      tune_ozone_zbot   = 15000.0_wp
+      tune_ozone_fac    = 0.25_wp
       ozone_shapemode   = 2
       tune_ozone_lat    = 30._wp
-      tune_ozone_maxinc = 1.e-6_wp
+      tune_ozone_maxinc = 1.25e-6_wp
     CASE DEFAULT
       ltuning_ozone     = .FALSE.
       tune_ozone_ztop   = 30000.0_wp
@@ -550,7 +550,7 @@ CONTAINS
           ELSE IF (ozone_shapemode == 2 .AND. tune_ozone_lat > 0._wp) THEN
             IF (ABS(p_patch(jg)%cells%center(jc,jb)%lat) < tune_ozone_lat * deg2rad) THEN
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = &
-                1._wp - 0.75_wp*SQRT(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))
+                1._wp - 0.8_wp*SQRT(COS(p_patch(jg)%cells%center(jc,jb)%lat * 90._wp/tune_ozone_lat))
             ELSE
               atm_phy_nwp_config(jg)%shapefunc_ozone(jc,jb) = 1._wp
             END IF
