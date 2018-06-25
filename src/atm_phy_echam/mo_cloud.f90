@@ -84,8 +84,6 @@ CONTAINS
                            , pacdnc                                                  &
                            , ptm1                                                    &
                            , pqm1,         pxlm1,        pxim1                       &
-                           , ptte                                                    &
-                           , pqte                                                    &
     ! - INPUT/OUTPUT 1D .
                            , ktype                                                   &
     ! - INPUT/OUTPUT 2D .
@@ -116,9 +114,7 @@ CONTAINS
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
       & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
-      & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
-      & ptte     (kbdim,klev)     ,&!< tendency of temperature
-      & pqte     (kbdim,klev)       !< tendency of specific humidity
+      & pxim1    (kbdim,klev)       !< cloud ice                                 (n-1)
     REAL(wp), INTENT(INOUT) ::     &
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(OUT)    ::     &
@@ -525,10 +521,10 @@ CONTAINS
       !         cond1(jl) = 0
       !       END IF
 
-        zlo2(jl)  = FSEL(ptm1(jl,jk)+ptte(jl,jk)*pdtime-tmelt, 0._wp, 1._wp)
+        zlo2(jl)  = FSEL(ptm1(jl,jk)-tmelt, 0._wp, 1._wp)
         zlo2(jl)  = FSEL(csecfrl-zxised(jl), 0._wp, zlo2(jl))
       !!$  zlo2(jl)  = FSEL(zsupsatw(jl)-zeps, 0._wp, zlo2(jl))
-        zlo2(jl)  = FSEL(ptm1(jl,jk)+ptte(jl,jk)*pdtime-cthomi, zlo2(jl), 1._wp)
+        zlo2(jl)  = FSEL(ptm1(jl,jk)-cthomi, zlo2(jl), 1._wp)
         cond1(jl) = INT(zlo2(jl))
         zlo2(jl)  = zlo2(jl)-0.5_wp ! zlo2 >= 0  <==> cond1 = 1
 421   END DO
@@ -582,12 +578,12 @@ CONTAINS
         zqsm1(jl)   = zqsm1(jl)*zcor
         zdqsdt      = zpapm1_inv(jl)*zcor**2*zdua
         zlcdqsdt    = zlc*zdqsdt
-        zdtdt(jl)   = ptte(jl,jk)*pdtime-zlvdcp(jl)*(zevp(jl)+zxlevap(jl))           &
-                    - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                              &
-                    - (zlsdcp(jl)-zlvdcp(jl))*(zsmlt(jl)+zimlt(jl))
-        zstar1(jl)  = zclcaux(jl)*zlc*pqte(jl,jk)*pdtime
+        zdtdt(jl)   = - zlvdcp(jl)*(zevp(jl)+zxlevap(jl))                            &
+                      - zlsdcp(jl)*(zsub(jl)+zxievap(jl))                            &
+                      -(zlsdcp(jl)-zlvdcp(jl))*(zsmlt(jl)+zimlt(jl))
+        zstar1(jl)  = 0._wp
         zdqsat1(jl) = zdqsdt/(1._wp+zclcaux(jl)*zlcdqsdt)
-        zqvdt(jl)   = pqte(jl,jk)*pdtime+zevp(jl)+zsub(jl)+zxievap(jl)+zxlevap(jl)
+        zqvdt(jl)   = zevp(jl)+zsub(jl)+zxievap(jl)+zxlevap(jl)
         zqp1(jl)    = MAX(pqm1(jl,jk)+zqvdt(jl),0.0_wp)
         ztp1(jl)    = ptm1(jl,jk)+zdtdt(jl)
         zgenti(jl)  = 0.0_wp
@@ -606,7 +602,7 @@ CONTAINS
         zdtdtstar = zdtdt(jl)+zstar1(jl)
         zdqsat    = zdtdtstar*zdqsat1(jl)
         zxilb     = zxib(jl)+zxlb(jl)
-        zqcdif    = (pqte(jl,jk)*pdtime-zdqsat)*zclcaux(jl)
+        zqcdif    = -zdqsat*zclcaux(jl)
         zqcdif    = MAX(zqcdif,-zxilb*zclcaux(jl))
         zqcdif    = MIN(zqcdif,zqsec*zqp1(jl))
         ztmp1(jl) = zqcdif
@@ -1168,7 +1164,7 @@ CONTAINS
        zclcov(jl) = 1.0_wp-paclc(jl,1)
 921 END DO
     !
-    DO 923 jk      = 2,klev
+    DO 923 jk      = jks+1,klev
 !IBM* NOVECTOR
       DO 922 jl    = 1,kproma
          zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))         &

@@ -78,24 +78,19 @@ CONTAINS
     &              )
     !---------------------------------------------------------------------------------
     !
-    INTEGER, INTENT(IN)    :: jg
-    INTEGER, INTENT(IN)    :: kbdim, klevp1, klev, kproma
-    INTEGER, INTENT(IN)    ::  &
-      & ktype(kbdim)          !< type of convection
-    REAL(wp),INTENT(IN)    ::  &
-      & pfrw(kbdim)         ,&!< water mask
-      & pfri(kbdim)           !< ice mask
-    REAL(wp),INTENT(IN)    ::  &
-      & zf(kbdim,klev)      ,&!< geometric height thickness [m]
-      & paphm1(kbdim,klevp1),&!< pressure at half levels                   (n-1)
-      & papm1(kbdim,klev)   ,&!< pressure at full levels                   (n-1)
-      & pqm1(kbdim,klev)    ,&!< specific humidity                         (n-1)
-      & ptm1(kbdim,klev)    ,&!< temperature                               (n-1)
-      & pxim1(kbdim,klev)     !< cloud ice                                 (n-1)
-    REAL(wp),INTENT(INOUT) ::  &
-      & paclc(kbdim,klev)     !< cloud cover
-    REAL(wp),INTENT(OUT)   ::  &
-      & printop(kbdim)
+    INTEGER, INTENT(in)    :: jg
+    INTEGER, INTENT(in)    :: kbdim, klevp1, klev, kproma
+    INTEGER, INTENT(in)    :: ktype(kbdim)          !< type of convection
+    REAL(wp),INTENT(in)    :: pfrw(kbdim)         ,&!< water mask
+      &                       pfri(kbdim)           !< ice mask
+    REAL(wp),INTENT(in)    :: zf(kbdim,klev)      ,&!< geometric height thickness [m]
+      &                       paphm1(kbdim,klevp1),&!< pressure at half levels
+      &                       papm1(kbdim,klev)   ,&!< pressure at full levels
+      &                       pqm1(kbdim,klev)    ,&!< specific humidity
+      &                       ptm1(kbdim,klev)    ,&!< temperature
+      &                       pxim1(kbdim,klev)     !< cloud ice
+    REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
+    REAL(wp),INTENT(out)   :: printop(kbdim)
 
     INTEGER :: jl, jk, jb
     INTEGER :: locnt, nl, ilev
@@ -141,6 +136,12 @@ CONTAINS
 
     !
     !   Initialize variables
+    !
+    DO jk = 1,jks-1
+      DO jl = 1,kproma
+         paclc(jl,jk) = 0.0_wp
+      END DO
+    END DO
     !
     DO jl = 1,kproma
       zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate

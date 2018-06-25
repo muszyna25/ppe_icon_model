@@ -33,7 +33,8 @@ MODULE mo_var_list
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, groups, group_id,         &
-    &                            actions, add_member_to_vargroup
+    &                            actions, add_member_to_vargroup,   &
+    &                            TIMELEVEL_SUFFIX
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element
@@ -43,7 +44,7 @@ MODULE mo_var_list
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
-  USE mo_util_string,      ONLY: remove_duplicates, toupper
+  USE mo_util_string,      ONLY: remove_duplicates, toupper, tolower
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
@@ -67,6 +68,7 @@ MODULE mo_var_list
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
   PUBLIC :: print_var_list
+  PUBLIC :: print_all_var_lists
   PUBLIC :: print_memory_use
 
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
@@ -402,7 +404,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> @return Plain variable name (i.e. without time level suffix ".TL")
+  !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
   !
   FUNCTION get_var_name(var)
     CHARACTER(LEN=VARNAME_LEN) :: get_var_name
@@ -410,7 +412,7 @@ CONTAINS
     ! local variable
     INTEGER :: idx
 
-    idx = INDEX(var%info%name,'.TL')
+    idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
     IF (idx==0) THEN
       get_var_name = TRIM(var%info%name)
     ELSE
@@ -438,11 +440,11 @@ CONTAINS
 
     CHARACTER(len=4) :: suffix
 
-    WRITE(suffix,'(".TL",i1)') timelevel
+    WRITE(suffix,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
   END FUNCTION get_timelevel_string
 
   !------------------------------------------------------------------------------------------------
-  !> @return time level (extracted from time level suffix ".TL") or "-1"
+  !> @return time level (extracted from time level suffix) or "-1"
   !
   FUNCTION get_var_timelevel(info)
     INTEGER :: get_var_timelevel
@@ -451,7 +453,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
     INTEGER :: idx
 
-    idx = INDEX(info%name,'.TL')
+    idx = INDEX(info%name,TIMELEVEL_SUFFIX)
     IF (idx == 0) THEN
       get_var_timelevel = -1
       RETURN
@@ -459,10 +461,29 @@ CONTAINS
 
     ! Get time level
     get_var_timelevel = ICHAR(info%name(idx+3:idx+3)) - ICHAR('0')
-    IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
+    IF(get_var_timelevel<=0 .OR. get_var_timelevel>MAX_TIME_LEVELS) &
       CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
   END FUNCTION get_var_timelevel
 
+  ! return logical if a variable name has a timelevel encoded
+  LOGICAL FUNCTION has_time_level(varname,timelevel)
+    CHARACTER(LEN=*) :: varname
+    INTEGER, INTENT(INOUT), OPTIONAL :: timelevel
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:has_time_level'
+    INTEGER :: idx
+
+    idx = INDEX(varname,TIMELEVEL_SUFFIX)
+    has_time_level = (0 .EQ. idx)
+
+    IF (.NOT. has_time_level) RETURN
+    
+    IF (PRESENT(timelevel)) THEN
+      timelevel = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
+      IF(timelevel <= 0 .OR. timelevel > MAX_TIME_LEVELS) &
+      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
+    ENDIF
+  END FUNCTION 
 
   !------------------------------------------------------------------------------------------------
   !> @return tile index (extracted from tile index suffix "t_") or "-1"
@@ -751,14 +772,14 @@ CONTAINS
       info%ncontained   =  0
       info%var_ref_pos  = -1 ! UNDEFINED
     END IF
-    CALL struct_assign_if_present (info%resetval,resetval)
-    CALL assign_if_present (info%isteptype,     isteptype)
-    CALL assign_if_present (info%lmiss,         lmiss)
-    CALL struct_assign_if_present (info%missval,       missval)
-    CALL assign_if_present (info%lrestart,      lrestart)
-    CALL assign_if_present (info%lrestart_cont, lrestart_cont)
-    CALL struct_assign_if_present (info%initval,       initval)
-    CALL assign_if_present (info%tlev_source,   tlev_source)
+    CALL struct_assign_if_present(info%resetval,resetval)
+    CALL assign_if_present(info%isteptype, isteptype)
+    CALL assign_if_present(info%lmiss, lmiss)
+    CALL struct_assign_if_present(info%missval, missval)
+    CALL assign_if_present(info%lrestart, lrestart)
+    CALL assign_if_present(info%lrestart_cont, lrestart_cont)
+    CALL struct_assign_if_present(info%initval, initval)
+    CALL assign_if_present(info%tlev_source, tlev_source)
     !
     ! set flags concerning vertical interpolation
     CALL struct_assign_if_present (info%vert_interp,   vert_interp )
@@ -945,6 +966,13 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
 
     ! consistency check for restart and output
+    TYPE(t_list_element), POINTER :: duplicate
+
+    duplicate => find_element(name)
+    IF (ASSOCIATED(duplicate)) THEN
+      CALL message('ADD_VAR:','Found double entry for varname:'//TRIM(name))
+      NULLIFY(duplicate)
+    ENDIF
 
     is_restart_var = this_list%p%lrestart
     CALL assign_if_present(is_restart_var, lrestart)
@@ -1014,6 +1042,7 @@ CONTAINS
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
+
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%s_ptr)
       NULLIFY(new_list_element%field%i_ptr)
@@ -3602,10 +3631,12 @@ CONTAINS
     LOGICAL, OPTIONAL :: lshort
     !
     TYPE(t_list_element), POINTER :: this_list_element
-    CHARACTER(len=32) :: dimension_text, dtext
+    CHARACTER(len=32) :: dimension_text, dtext,keytext
     INTEGER :: i, igrp, ivintp_type
     CHARACTER(len=4) :: localMode = '----'
+    LOGICAL :: short = .FALSE.
 
+    CALL assign_if_present(short,lshort)
     CALL message('','')
     CALL message('','')
     CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
@@ -3615,7 +3646,7 @@ CONTAINS
     !
     DO WHILE (ASSOCIATED(this_list_element))
       !
-      IF (lshort) THEN
+      IF (short) THEN
 
         IF (this_list_element%field%info%name /= '' .AND. &
              .NOT. this_list_element%field%info%lcontainer) THEN
@@ -3657,6 +3688,12 @@ CONTAINS
         WRITE (message_text,'(a,a)')       &
              'Table entry name                            : ', &
              TRIM(this_list_element%field%info%name)
+        CALL message('', message_text)
+        WRITE (keytext,'(i32.1)') this_list_element%field%info%key
+
+        WRITE (message_text,'(a,a)')       &
+             'Key entry                                   : ', &
+             TRIM(keytext)
         CALL message('', message_text)
         !
         IF (ASSOCIATED(this_list_element%field%r_ptr) .OR. &
@@ -3859,6 +3896,16 @@ CONTAINS
   END SUBROUTINE print_var_list
   !------------------------------------------------------------------------------------------------
   !
+  ! print all var lists
+  !
+  SUBROUTINE print_all_var_lists
+    INTEGER :: i
+    DO i=1,nvar_lists
+      CALL print_var_list(var_lists(i))
+    END DO
+  END SUBROUTINE print_all_var_lists
+  !------------------------------------------------------------------------------------------------
+  !
   ! print current stat table
   !
   SUBROUTINE print_sinfo (this_list)
@@ -4023,17 +4070,39 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
+  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
+    INTEGER :: key2look4
+    CHARACTER(len=*),   INTENT(in) :: name2look4
+    TYPE(t_list_element) :: element
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
+
+    LOGICAL :: caseInsensitive
+    caseInsensitive = .FALSE.
+    CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
+
+    ! go forward only if both variables have NO or THE SAME timelevel
+    IF (has_time_level(name2look4) .NEQV. has_time_level(element%field%info%name)) THEN
+      elementFoundByName = .FALSE. 
+      RETURN
+    ENDIF
+
+    elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
+        &                      key2look4 == element%field%info%key, &
+        &                      caseInsensitive)
+
+  END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
-  !
+  
   ! Should be overloaded to be able to search for the different information 
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name, opt_hgrid) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(this_list_element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
     !
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: key,hgrid
@@ -4045,7 +4114,7 @@ CONTAINS
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
-      IF (key == this_list_element%field%info%key) THEN
+      IF ( elementFoundByName(key,name,this_list_element,opt_caseInsensitive) ) THEN
         IF (-1 == hgrid) THEN
           RETURN
         ELSE
@@ -4063,15 +4132,16 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(this_list_element)
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
+    LOGICAL, OPTIONAL              :: opt_caseInsensitive
 
     TYPE(t_list_element), POINTER :: this_list_element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name,opt_hgrid)
+      this_list_element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
       IF (ASSOCIATED (this_list_element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists

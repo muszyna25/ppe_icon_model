@@ -96,7 +96,6 @@ MODULE mo_nh_stepping
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
-  USE mo_nh_testcases,             ONLY: init_nh_testcase
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
@@ -111,7 +110,7 @@ MODULE mo_nh_stepping
   USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
-                                         complete_nesting_setup, prep_bdy_nudging,      &
+                                         prep_bdy_nudging,                              &
                                          outer_boundary_nudging, nest_boundary_nudging, &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging, save_progvars
@@ -140,7 +139,6 @@ MODULE mo_nh_stepping
   USE mo_interface_iconam_echam,   ONLY: interface_iconam_echam
   USE mo_echam_phy_memory,         ONLY: prm_tend
   USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf, copy_rrg_ubc
-  USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_master_config,            ONLY: isRestart
@@ -166,8 +164,6 @@ MODULE mo_nh_stepping
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
-  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
-  USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
     &                                    read_latbc_data_sync=>read_latbc_data, &
     &                                    deallocate_latbc_data, p_latbc_data,   &
@@ -188,7 +184,6 @@ MODULE mo_nh_stepping
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state
-  USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString,     &
        &                                 timedelta, newTimedelta, deallocateTimedelta, timedeltaToString, &
@@ -235,7 +230,6 @@ MODULE mo_nh_stepping
 
   TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()
 
-  PUBLIC :: prepare_nh_integration
   PUBLIC :: perform_nh_stepping
 
   TYPE t_datetime_ptr
@@ -243,54 +237,6 @@ MODULE mo_nh_stepping
   END TYPE t_datetime_ptr
 
   CONTAINS
-
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!
-!
-  !>
-  !! Initialisation of the nonhydrostatic state and initial conditions.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann, (2009-03-06)
-  !!
-  SUBROUTINE prepare_nh_integration
-!
-  INTEGER :: ntl, jg
-
-!-----------------------------------------------------------------------
-
-  ! for the split explict scheme, ntl is always 2
-  ntl = 2
-
-
-  CALL set_nh_metrics(p_patch(1:), p_nh_state, p_int_state(1:), ext_data)
-
-  IF (n_dom > 1) THEN
-    CALL complete_nesting_setup()
-  ENDIF
-
-  IF (ltestcase) THEN
-
-    CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
-                        & ext_data, ntl)
-
-    IF(is_ls_forcing) &
-       CALL init_ls_forcing(p_nh_state(1)%metrics)
-  ENDIF
-
-  ! init LES
-  DO jg = 1 , n_dom
-   IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
-     CALL init_les_phy_interface(jg, p_patch(jg), p_int_state(jg), &
-       p_nh_state(jg)%metrics)
-   END IF
-  END DO
-
-  END SUBROUTINE prepare_nh_integration
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
@@ -311,7 +257,6 @@ MODULE mo_nh_stepping
     &  routine = modname//':perform_nh_stepping'
 
   INTEGER                              :: jg, jgc, jn
-  INTEGER                              :: ierr
 
 
 !!$  INTEGER omp_get_num_threads
@@ -1826,11 +1771,7 @@ MODULE mo_nh_stepping
                 &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !in
                 &                         ,p_nh_state(jg)%prog(nnew(jg))             & !inout
                 &                         ,p_nh_state(jg)%prog(n_new_rcf)            & !inout
-                &                         ,p_nh_state(jg)%diag                       &            
-#ifdef __ICON_ART
-                &                         ,p_nh_state_lists(jg)%prog_list(n_new_rcf) &
-#endif
-                &                                                                    )
+                &                         ,p_nh_state(jg)%diag                       )
               !
               IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
@@ -2427,7 +2368,7 @@ MODULE mo_nh_stepping
       SELECT CASE (iforcing)
 
       CASE (inwp) ! iforcing
-
+        !
         ! nwp physics, slow physics forcing
         CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
           &                  .TRUE.,                             & !in
@@ -2455,20 +2396,12 @@ MODULE mo_nh_stepping
 
 
       CASE (iecham) ! iforcing
-
-        SELECT CASE (echam_phy_config(jg)%idcphycpl)
-
-        CASE (1) ! idcphycpl
-
-          ! echam physics, fast physics coupling
-          ! the physics forcing in the dynamical core is zero
-          p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
-          p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
-          prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
-
-        CASE (2) ! idcphycpl
-
+        !
+        IF (echam_phy_config(jg)%ldcphycpl) THEN
+          !
           ! echam physics, slow physics coupling
+          ! physics tendencies used as forcing in the dynamical core
+          !
           IF (ltimer) CALL timer_start(timer_iconam_echam)
           !
           CALL interface_iconam_echam( dt_loc                                    & !in
@@ -2480,19 +2413,21 @@ MODULE mo_nh_stepping
             &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
             &                         ,p_nh_state(jg)%prog(nnow(jg))             & !inout
             &                         ,p_nh_state(jg)%prog(n_now_rcf)            & !inout
-            &                         ,p_nh_state(jg)%diag                       &
-#ifdef __ICON_ART
-            &                         ,p_nh_state_lists(jg)%prog_list(n_now_rcf) &
-#endif
-            &                                                                    )
+            &                         ,p_nh_state(jg)%diag                       )
           !
           IF (ltimer) CALL timer_stop(timer_iconam_echam)
+          !
+        ELSE
 
-        CASE DEFAULT ! idcphycpl
-
-          CALL finish (routine, 'echam_phy_config(jg)%idcphycpl /= 1,2 currently not implemented')
-
-        END SELECT ! idcphycpl
+          ! echam physics, fast physics coupling
+          ! physics tendencies used for updating the model state
+          ! the dynamical core evolves without forcing
+          !
+          p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
+          p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
+          prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
+          !
+        END IF
 
       END SELECT ! iforcing
 

@@ -14,7 +14,7 @@
        &                                 bgc_land, bgc_ind, &
        &                                 bgc_soce, bgc_npac, bgc_carb
 
-      USE mo_sedmnt,               ONLY: ks, powtra, sedlay, burial, sedhpl
+      USE mo_sedmnt,               ONLY: powtra, sedlay, burial, sedhpl
 
       USE mo_exception, ONLY      : message, finish
 
@@ -32,7 +32,7 @@
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_acc, t_hamocc_monitor                    
+    &                                  t_hamocc_monitor                    
    
 
       USE mo_bgc_constants,      ONLY: molw_co2
@@ -40,7 +40,7 @@
        
       USE mo_parallel_config,     ONLY: nproma
 
-      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2
+      USE mo_hamocc_nml,         ONLY: io_stdo_bgc, l_cpl_co2, ks
 
 
       IMPLICIT NONE
@@ -212,43 +212,6 @@
 !HAMOCC_OMP_END_PARALLEL
       END SUBROUTINE
 
-!================================================================================== 
-   SUBROUTINE set_bgc_output_pointers(timelevel,p_diag,p_prog)
-    
-    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
-&                            iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                            ian2o, idet, iiron, icalc, iopal,&
-&                            idust, idms, ih2s
-
-    INTEGER, INTENT(in) :: timelevel
-    TYPE(t_hamocc_diag) :: p_diag
-    TYPE(t_hydro_ocean_prog) :: p_prog
-    
-    CHARACTER(LEN=max_char_length) :: timelevel_str
-    !-------------------------------------------------------------------------
-    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
-
-    p_diag%dic(:,:,:)        =  p_prog%tracer(:,:,:,isco212+no_tracer)
-    p_diag%alk(:,:,:)        =  p_prog%tracer(:,:,:,ialkali+no_tracer)
-    p_diag%po4(:,:,:)        =  p_prog%tracer(:,:,:,iphosph+no_tracer)
-    p_diag%no3(:,:,:)        =  p_prog%tracer(:,:,:,iano3+no_tracer)
-    p_diag%n2(:,:,:)         =  p_prog%tracer(:,:,:,igasnit+no_tracer)
-    p_diag%phy(:,:,:)        =  p_prog%tracer(:,:,:,iphy+no_tracer)
-    p_diag%zoo(:,:,:)        =  p_prog%tracer(:,:,:,izoo+no_tracer)
-    p_diag%cya(:,:,:)        =  p_prog%tracer(:,:,:,icya+no_tracer)
-    p_diag%o2(:,:,:)         =  p_prog%tracer(:,:,:,ioxygen+no_tracer)
-    p_diag%si(:,:,:)         =  p_prog%tracer(:,:,:,isilica+no_tracer)
-    p_diag%doc(:,:,:)        =  p_prog%tracer(:,:,:,idoc+no_tracer)
-    p_diag%n2o(:,:,:)        =  p_prog%tracer(:,:,:,ian2o+no_tracer)
-    p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,idet+no_tracer)
-    p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,iiron+no_tracer)
-    p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,idms+no_tracer)
-    p_diag%h2s(:,:,:)        =  p_prog%tracer(:,:,:,ih2s+no_tracer)
-    p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,icalc+no_tracer)
-    p_diag%opal(:,:,:)       =  p_prog%tracer(:,:,:,iopal+no_tracer)
-    p_diag%dust(:,:,:)       =  p_prog%tracer(:,:,:,idust+no_tracer)
-   
-  END SUBROUTINE 
 !================================================================================== 
   SUBROUTINE set_bgc_tendencies_output(start_idx, end_idx, &
 &             klevs,pddpo,jb,p_tend, p_diag, p_sed)

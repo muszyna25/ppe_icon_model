@@ -55,7 +55,6 @@ MODULE mo_hydro_ocean_run
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
-  USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
@@ -69,8 +68,8 @@ MODULE mo_hydro_ocean_run
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
+  USE mo_var_list
   USE mo_ocean_statistics
-  USE mo_hamocc_statistics,      ONLY: update_hamocc_statistics, reset_hamocc_statistics
   USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
   USE mo_ocean_output
@@ -78,7 +77,7 @@ MODULE mo_hydro_ocean_run
   USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
   USE mo_hamocc_diagnostics,     ONLY: get_inventories
   USE mo_hamocc_nml,             ONLY: io_stdo_bgc
-
+  USE mo_end_bgc,                ONLY: cleanup_hamocc
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
 
   IMPLICIT NONE
@@ -157,6 +156,7 @@ CONTAINS
   SUBROUTINE end_ho_stepping()
 
     CALL destruct_ho_lhs_fields_mimetic()
+    if(lhamocc)call cleanup_hamocc
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
@@ -180,11 +180,11 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
     TYPE(t_ocean_surface)                            :: p_oce_sfc
-    TYPE (t_ho_params)                               :: p_phys_param
+    TYPE(t_ho_params)                                :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
-    TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)                :: hamocc_state
+    TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
+    TYPE(t_hamocc_state), INTENT(INOUT)              :: hamocc_state
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
 
@@ -319,7 +319,6 @@ CONTAINS
          & this_datetime=current_time, &
          & surface_fluxes=p_oce_sfc, &
          & sea_ice=sea_ice,            &
-         & hamocc=hamocc_state,        &
          & jstep=jstep, jstep0=jstep0, &
          & force_output=.true.)
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
@@ -410,27 +409,20 @@ CONTAINS
     !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
 
-      ! update accumulated vars
-      CALL update_ocean_statistics(ocean_state(1),&
-        & p_oce_sfc, &
-        & patch_2d%cells%owned,&
-        & patch_2d%edges%owned,&
-        & patch_2d%verts%owned,&
-        & n_zlev,p_phys_param=p_phys_param)
-        
-      IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc,sea_ice,patch_2d%cells%owned)
-
-      IF(lhamocc)CALL update_hamocc_statistics(hamocc_state,&
-        & patch_2d%cells%owned,&
-        & patch_2d%edges%owned,&
-        & patch_2d%verts%owned,&
-        & n_zlev)
-
-      CALL calc_fast_oce_diagnostics( patch_2d,      &
+    CALL calc_fast_oce_diagnostics( patch_2d, &
+        & patch_3d, &
         & patch_3d%p_patch_1d(1)%dolic_c, &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &
         & patch_3d%p_patch_1d(1)%zlev_m, &
-        & ocean_state(jg)%p_diag)
+        & ocean_state(jg)%p_diag, &
+        & ocean_state(jg)%p_prog(nnew(1))%h, &
+        & ocean_state(jg)%p_prog(nnew(1))%tracer, &
+        & p_atm_f, &
+        & p_oce_sfc, &
+        & hamocc_state, &
+        & sea_ice, &
+        & lhamocc) 
+
 
       stop_detail_timer(timer_extra20,5)
 
@@ -440,7 +432,6 @@ CONTAINS
         &                current_time,              &
         &                p_oce_sfc,             &
         &                sea_ice,                 &
-        &                hamocc_state,            &
         &                jstep, jstep0)
       
       CALL reset_accumulation
@@ -477,6 +468,14 @@ CONTAINS
       ! check whether time has come for writing restart file
       IF (isCheckpoint()) THEN
         IF (.NOT. output_mode%l_none ) THEN
+          !
+          ! For multifile restart (restart_write_mode = "joint procs multifile")
+          ! the domain flag must be set to .TRUE. in order to activate the domain,
+          ! even though we have one currently in the ocean. Without this the
+          ! processes won't write out their data into a the patch restart files.
+          !
+          patch_2d%ldom_active = .TRUE.
+          !
           IF (i_ice_dyn == 1) CALL ice_fem_update_vel_restart(patch_2d, sea_ice) ! write FEM vel to restart or checkpoint file
           CALL restartDescriptor%updatePatch(patch_2d, &
                                             &opt_nice_class=1, &
@@ -515,6 +514,8 @@ CONTAINS
       END IF
             
     ENDDO TIME_LOOP
+
+    CALL restartDescriptor%destruct()
  
     CALL deallocateDatetime(current_time)
    
@@ -526,7 +527,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_oce_sfc,sea_ice, &
-& hamocc_state, operators_coefficients, p_phys_param)
+          & hamocc_state, operators_coefficients, p_phys_param)
 
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
@@ -551,53 +552,12 @@ CONTAINS
       & ocean_state%p_diag, operators_coefficients)
     ! CALL update_height_depdendent_variables( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
-    ! copy old tracer values to spot value fields for propper initial timestep
-    ! output
-    IF(no_tracer>=1)THEN
-      ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-      ! in general nml output is writen based on the nnew status of the
-      ! prognostics variables. Unfortunately, the initialization has to be written
-      ! to the nold state. That's why the following manual copying is nec.
-      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
-    ENDIF
-    IF(no_tracer>=2)THEN
-      ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-    ENDIF
-    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-!    IF(no_tracer>=1)THEN
-!      CALL calc_potential_density( patch_3d,                     &
-!        & ocean_state%p_prog(nold(1))%tracer,&
-!       & ocean_state%p_diag%rhopot )
-!        
-!      CALL calculate_density( patch_3d,                        &
-!        & ocean_state%p_prog(nold(1))%tracer, &
-!        & ocean_state%p_diag%rho )
-!    ENDIF
-
-    CALL update_ocean_statistics( &
-      & ocean_state,            &
-      & p_oce_sfc,              &
-      & patch_2d%cells%owned,   &
-      & patch_2d%edges%owned,   &
-      & patch_2d%verts%owned,   &
-      & n_zlev,p_phys_param=p_phys_param)
-    IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc, sea_ice,patch_2d%cells%owned)
-      IF (lhamocc) CALL update_hamocc_statistics( &
-      & hamocc_state,            &
-      & patch_2d%cells%owned,   &
-      & patch_2d%edges%owned,   &
-      & patch_2d%verts%owned,   &
-      & n_zlev)
-
     CALL perform_accumulation(nnew(1),0)
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,p_oce_sfc)
     CALL reset_accumulation
-    IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
-    IF (lhamocc) CALL reset_hamocc_statistics(hamocc_state%p_acc)
-
+ 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 

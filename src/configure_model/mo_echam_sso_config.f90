@@ -76,6 +76,9 @@ MODULE mo_echam_sso_config
      INTEGER  :: ntop      ! An estimate to qualify the upper levels of the
      !                       model where one wants to impose stress profiles
      !
+     ! scaling with sftlf, the cell area fraction of land incl. lakes
+     LOGICAL  :: lsftlf    ! true: *lsftlf, false: *1
+
   END TYPE t_echam_sso_config
 
   !>
@@ -123,6 +126,9 @@ CONTAINS
     ! parameters related to the vertical grid
     echam_sso_config(:)% ntop    = 1
     echam_sso_config(:)% nktopg  = 0 ! needs to be derived
+    !
+    ! cell area fraction scaling for SSO effects, .FALSE.: *1, .TRUE.: *sftlf
+    echam_sso_config(:)% lsftlf  = .TRUE.
     !
   END SUBROUTINE init_echam_sso_config
 
@@ -190,6 +196,9 @@ CONTAINS
        CALL print_value('    echam_sso_config('//TRIM(cg)//')% gkdrag   ',echam_sso_config(jg)% gkdrag   )
        CALL print_value('    echam_sso_config('//TRIM(cg)//')% gkwake   ',echam_sso_config(jg)% gkwake   )
        CALL print_value('    echam_sso_config('//TRIM(cg)//')% gklift   ',echam_sso_config(jg)% gklift   )
+       CALL message    ('','')
+       !
+       CALL print_value('    echam_sso_config('//TRIM(cg)//')% lsftlf   ',echam_sso_config(jg)% lsftlf   )
        CALL message    ('','')
        !
     END DO

@@ -48,11 +48,14 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   &                  ppic          ,& ! in,  SSO Peaks elevation (m)
   &                  pval          ,& ! in,  SSO Valleys elevation (m)
   !
+  &                  psftlf        ,& ! in,  area fraction of land incl. lakes
+  !                                          where the SSO params are valid
+  !
   &                  pustrgw       ,& ! out, u-gravity wave stress
   &                  pvstrgw       ,& ! out, v-gravity wave stress
   &                  pvdisgw       ,& ! out, dissipation by gravity wave drag
   !
-  &                  pdis_sso      ,& ! out, sso tendency of temperature
+  &                  pdis_sso      ,& ! out, sso energy dissipation per mass
   &                  pdu_sso       ,& ! out, sso tendency of zonal wind
   &                  pdv_sso        ) ! out, sso tendency of meridional wind
 
@@ -90,6 +93,9 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   REAL(wp), INTENT(in)    :: pthe(kbdim)          ! SSO Angle
   REAL(wp), INTENT(in)    :: ppic(kbdim)          ! SSO Peacks elevation (m)
   REAL(wp), INTENT(in)    :: pval(kbdim)          ! SSO Valleys elevation (m)
+  !
+  REAL(wp), INTENT(in)    :: psftlf(kbdim)        ! area fraction of land incl. lakes
+  !
   ! 2D
   REAL(wp), INTENT(in)    :: paphm1(kbdim,klev+1) ! half level pressure (t-dt)
   REAL(wp), INTENT(in)    :: papm1(kbdim,klev)    ! full level pressure (t-dt)
@@ -208,13 +214,18 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
   ! STRESS FROM TENDENCIES
 
+  ! Scale with the area fraction of land incl. lakes psftlf, because:
+  ! - the SSO parameters are derived for this part of the surface only
+  ! - the effects happen only above this part of the surface, assuming
+  !   perfect vertical propagation of gravity waves as used here.
+
   DO jk = 1, klev
 !CDIR NODEP
      DO jl = 1, igwd
         ji=idx(jl)
-        pustrgw(ji) = pustrgw(ji)+( zdu_oro(ji,jk)+ zdu_lif(ji,jk))*pmair(ji,jk)
-        pvstrgw(ji) = pvstrgw(ji)+( zdv_oro(ji,jk)+ zdv_lif(ji,jk))*pmair(ji,jk)
-        pvdisgw(ji) = pvdisgw(ji)+(zdis_oro(ji,jk)+zdis_lif(ji,jk))*pmair(ji,jk)
+        pustrgw(ji) = pustrgw(ji)+( zdu_oro(ji,jk)+ zdu_lif(ji,jk))*pmair(ji,jk)*psftlf(ji)
+        pvstrgw(ji) = pvstrgw(ji)+( zdv_oro(ji,jk)+ zdv_lif(ji,jk))*pmair(ji,jk)*psftlf(ji)
+        pvdisgw(ji) = pvdisgw(ji)+(zdis_oro(ji,jk)+zdis_lif(ji,jk))*pmair(ji,jk)*psftlf(ji)
      ENDDO
   ENDDO
   !
@@ -225,9 +236,9 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 !CDIR NODEP
     do jl=1,igwd
       ji=idx(jl)
-      pdis_sso(ji,jk)= zdis_oro(ji,jk) +zdis_lif(ji,jk)
-      pdu_sso(ji,jk) =  zdu_oro(ji,jk) + zdu_lif(ji,jk)
-      pdv_sso(ji,jk) =  zdv_oro(ji,jk) + zdv_lif(ji,jk)
+      pdis_sso(ji,jk)= (zdis_oro(ji,jk) +zdis_lif(ji,jk))*psftlf(ji)
+      pdu_sso(ji,jk) = ( zdu_oro(ji,jk) + zdu_lif(ji,jk))*psftlf(ji)
+      pdv_sso(ji,jk) = ( zdv_oro(ji,jk) + zdv_lif(ji,jk))*psftlf(ji)
     enddo
   enddo
 

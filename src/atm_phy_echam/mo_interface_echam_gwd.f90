@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine echam_phy_main calls all the parameterization schemes
+!! @brief Subroutine interface_echam_gwd calls the Hines gravity wave scheme.
 !!
 !! @author Hui Wan, MPI-M
 !! @author Marco Giorgetta, MPI-M
@@ -21,54 +21,59 @@
 MODULE mo_interface_echam_gwd
 
   USE mo_kind                ,ONLY: wp
-
-  USE mo_parallel_config     ,ONLY: nproma
-  USE mo_run_config          ,ONLY: nlev
-
   USE mtime                  ,ONLY: datetime
-  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
-    &                               t_echam_phy_tend,  prm_tend
 
-  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_gw_hines
+  USE mo_echam_phy_config    ,ONLY: echam_phy_config
+  USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field, &
+       &                            t_echam_phy_tend,  prm_tend
+
+  USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_gwd
 
   USE mo_gw_hines            ,ONLY: gw_hines
 !!$  USE mo_math_constants      ,ONLY: pi
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_gwd
+  PUBLIC  :: interface_echam_gwd
 
 CONTAINS
 
-  !-------------------------------------------------------------------
-  SUBROUTINE echam_gwd(is_in_sd_ed_interval, &
-       &               is_active,            &
-       &               jg, jb,jcs,jce,       &
-       &               datetime_old,         &
-       &               pdtime                )
+  SUBROUTINE interface_echam_gwd(jg, jb,jcs,jce       ,&
+       &                         nproma,nlev          ,& 
+       &                         is_in_sd_ed_interval ,&
+       &                         is_active            ,&
+       &                         datetime_old         ,&
+       &                         pdtime               )
 
+    ! Arguments
+    !
+    INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
+    INTEGER                 ,INTENT(in) :: nproma,nlev
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
-    INTEGER                 ,INTENT(in) :: jg
-    INTEGER                 ,INTENT(in) :: jb                  !< block index
-    INTEGER                 ,INTENT(in) :: jcs, jce            !< start/end column index within this block
-    TYPE(datetime)          ,POINTER    :: datetime_old        !< generic input, not used in echam_gwd
-    REAL(wp)                ,INTENT(in) :: pdtime              !< generic input, not used in echam_gwd
+    TYPE(datetime)          ,POINTER    :: datetime_old
+    REAL(wp)                ,INTENT(in) :: pdtime
 
-    ! Local variables
+    ! Pointers
     !
+    LOGICAL                 ,POINTER    :: lparamcpl
+    INTEGER                 ,POINTER    :: fc_gwd
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+
+    ! Local variables
     !
     REAL(wp) :: zdis_gwd(nproma,nlev) !< out, energy dissipation rate [J/s/kg]
     INTEGER  :: nc                    !< number of cells/columns from jcs to jce
 !!$    REAL(wp) :: zlat_deg(nproma)       !< latitude in deg N
 
-    IF (ltimer) call timer_start(timer_gw_hines)    
+    IF (ltimer) call timer_start(timer_gwd)    
 
     ! associate pointers
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    lparamcpl => echam_phy_config(jg)%lparamcpl
+    fc_gwd    => echam_phy_config(jg)%fc_gwd
+    field     => prm_field(jg)
+    tend      => prm_tend (jg)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -114,10 +119,26 @@ CONTAINS
        ! accumulate heating
        field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_gwd(jcs:jce,:,jb)
        !
-       ! tendencies accumulated
-       tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)
-       tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)
-       tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)
+       ! accumulate tendencies for later updating the model state
+       SELECT CASE(fc_gwd)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1)
+          ! use tendency to update the model state
+          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)
+          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)
+          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)
+!!$       CASE(2)
+!!$          ! use tendency as forcing in the dynamics
+!!$          ...
+       END SELECT
+       !
+       ! update physics state for input to the next physics process
+       IF (lparamcpl) THEN
+          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)*pdtime
+          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)*pdtime
+          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)*pdtime
+       END IF
        !
     ELSE
        !
@@ -127,9 +148,14 @@ CONTAINS
        !
     END IF
 
-    IF (ltimer) call timer_stop(timer_gw_hines)
+    ! disassociate pointers
+    NULLIFY(lparamcpl)
+    NULLIFY(fc_gwd)
+    NULLIFY(field)
+    NULLIFY(tend )
 
-  END SUBROUTINE echam_gwd
-  !-------------------------------------------------------------------
+    IF (ltimer) call timer_stop(timer_gwd)
+
+  END SUBROUTINE interface_echam_gwd
 
 END MODULE mo_interface_echam_gwd

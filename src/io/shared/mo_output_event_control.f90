@@ -208,7 +208,7 @@ CONTAINS
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
-    INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile
+    INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
     CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
@@ -252,7 +252,8 @@ CONTAINS
       ! case b): file_interval
       ifile      =  1
       ipart      =  0
-      delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
+      delta     =>  newTimedelta(TRIM(fname_metadata%file_interval),errno)
+      IF (errno /= SUCCESS) CALL finish(routine,"Wrong file_interval")
       file_end  =>  newDatetime(date_string(1))
 
       file_end   =  file_end + delta

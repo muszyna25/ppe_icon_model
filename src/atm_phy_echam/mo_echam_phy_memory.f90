@@ -60,11 +60,10 @@ MODULE mo_echam_phy_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
-    &                               DATATYPE_INT,                      &
-    &                               GRID_UNSTRUCTURED,                 &
+    &                               GRID_UNSTRUCTURED, GRID_LONLAT,    &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
     &                               TSTEP_MIN, TSTEP_MAX,              &
-    &                               cdiInqMissval
+    &                               cdiInqMissval, DATATYPE_INT
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
@@ -152,6 +151,7 @@ MODULE mo_echam_phy_memory
       & mair      (:,:,:),  &!< [kg/m2] air content
       & mdry      (:,:,:),  &!< [kg/m2] dry air content
       & mref      (:,:,:),  &!< [kg/m2] reference air content
+      & xref      (:,:,:),  &!< []      ratio mair/mdry
       & mh2ovi    (:,:),    &!< [kg/m2] h2o content, vertically integrated through the atmospheric column
       & mairvi    (:,:),    &!< [kg/m2] air content, vertically integrated through the atmospheric column
       & mdryvi    (:,:),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
@@ -251,7 +251,11 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
-      & totprec   (:,  :)    !< total precipitation flux,[kg m-2 s-1]
+      & pr        (:,  :)    !< precipitation flux         [kg m-2 s-1]
+
+    ! Tropopause
+    REAL(wp),POINTER ::     &
+      & ptp       (:,  :)    !< tropopause air pressure [Pa]
 
     REAL(wp),POINTER ::     &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)
@@ -268,7 +272,6 @@ MODULE mo_echam_phy_memory
 
     REAL(wp),POINTER ::     &
       & siced  (:,  :),     &!< ice depth
-      & alake  (:,  :),     &!< lake mask
       & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
@@ -403,16 +406,17 @@ MODULE mo_echam_phy_memory
 
     ! Surface variables
 
-    LOGICAL, POINTER :: &
-      & lfland(:,:),        &!< .TRUE. when fraction of land > 0.
-      & lfglac(:,:)          !< .TRUE. when fraction of glaciated land > 0.
-
     REAL(wp),POINTER :: &
-      & lsmask(:,:),        &!< land-sea mask. (1. = land, 0. = sea/lakes) (slm in memory_g3b)
-      & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
-      & lake_ice_frc(:,:),  &!< fraction of ice on lakes
+      & orog(:,:),          &!< surface altitude [m]
+      & sftlf (:,:),        &!< cell area fraction occupied by land including lakes (1. = land and/or lakes only, 0. = ocean only)
+      & sftgif(:,:),        &!< cell area fraction occupied by land ice             (1. = land ice only, 0. = no land ice)
+      & sftof (:,:),        &!< cell area fraction occupied by ocean                (1. = ocean only, 0. = land and/or lakes only)
+      & lsmask(:,:),        &!< cell area fraction occupied by land excluding lakes (1. = land, 0. = ocean or lake only) 
+      & alake (:,:),        &!< cell area fraction occupied by lakes
+      & glac  (:,:),        &!< land area fraction that is glaciated
+      & lake_ice_frc(:,:),  &!< lake area fraction that is ice covered
       & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
-      & ts_tile(:,:,:),     &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
+      & ts_tile(:,:,:),     &!< surface temperature over land/water/ice
       & ts     (:,  :),     &!< surface temperature, grid box mean
       & qs_sfc_tile(:,:,:)   !< saturation specific humidity at surface 
 
@@ -442,7 +446,10 @@ MODULE mo_echam_phy_memory
       & lhflx_tile(:,:,:),    &!< latent   heat flux at surface on tiles
       & shflx_tile(:,:,:),    &!< sensible heat flux at surface on tiles
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
-      & frac_tile(:,:,:)       !< surface fraction of tiles
+      & frac_tile(:,:,:)       !< surface fraction of tiles:
+                               !  - fraction of land without lakes
+                               !  - fraction of ice covered water in the grid box, for sea and lakes
+                               !  - fraction of open water in the grid box, for sea and lakes
 
     TYPE(t_ptr_2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: shflx_tile_ptr(:)
@@ -480,6 +487,9 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
+    ! global diagnostics
+    REAL(wp),POINTER :: tas_gmean(:)
+   
     ! coupling to HAMOCC lcpl_co2_atmoce
     REAL(wp),POINTER :: &
       & co2mmr(:,:),   &  !< co2 mixing ratio
@@ -609,10 +619,10 @@ CONTAINS
   !>
   !! Top-level procedure for building the physics state
   !!
-  SUBROUTINE construct_echam_phy_state( ntracer, patch_array )
+  SUBROUTINE construct_echam_phy_state( patch_array, ntracer )
 
-    INTEGER,INTENT(IN) :: ntracer
     TYPE(t_patch),INTENT(IN) :: patch_array(:)
+    INTEGER,INTENT(IN) :: ntracer
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
     CHARACTER(len=MAX_CHAR_LENGTH) :: ctracer(ntracer) !< tracer acronyms
     INTEGER :: ndomain, jg, ist, nblks, nlev, jtrc
@@ -774,7 +784,7 @@ CONTAINS
     cf_desc    = t_cf_var('cell_longitude', 'rad',                              &
                 &         'cell center longitude',                              &
                 &         datatype_flt)
-    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0,191,2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'clon', field%clon,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
                 & ldims=shape2d,                                                &
@@ -784,7 +794,7 @@ CONTAINS
     cf_desc    = t_cf_var('cell_latitude', 'rad',                               &
                 &         'cell center latitude',                               &
                 &         datatype_flt)
-    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0,191,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'clat', field%clat,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
                 & ldims=shape2d,                                                &
@@ -1211,6 +1221,20 @@ CONTAINS
          &        ldims=shape2d,                                               &
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT )
+
+    ! &       field% xref        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('ratio_mair_mdry', '', 'ratio mair/mdry', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'xref_phy', field%xref,                  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)
@@ -1841,7 +1865,7 @@ CONTAINS
     grib2_desc = grib2_var(10,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'sit', field%siced,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape2d )
+                & lrestart = .TRUE., ldims=shape2d )
 
     cf_desc    = t_cf_var('alb', '', 'surface albedo from external file', datatype_flt)
     grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1902,18 +1926,17 @@ CONTAINS
     !------------------
     !
 
-    ! Topography
-    ! - resolved
+    
+    ! Parameterized topography
     !
     cf_desc    = t_cf_var('surface_height_above_sea_level', 'm',   &
-                &         'Mean height above sea level of orography', datatype_flt)
+                &         'Mean height of orography above sea level', datatype_flt)
     grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'oromea', field%oromea,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_CONSTANT )
 
-    ! - unresolved
     cf_desc    = t_cf_var('standard_deviation_of_height', 'm',     &
                 &         'Standard deviation of height above sea level of sub-grid scale orography', &
                 &         datatype_flt)
@@ -2152,7 +2175,7 @@ CONTAINS
          &                'precipitation flux',                  &
          &                datatype_flt)
     grib2_desc = grib2_var(0, 1, 52, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pr', field%totprec,       &
+    CALL add_var( field_list, prefix//'pr', field%pr,            &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
@@ -2213,6 +2236,20 @@ CONTAINS
     CALL add_var( field_list, prefix//'thvsig', field%thvsig,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., initval = 1.e-2_wp, ldims=shape2d )
+
+    !---------------------------
+    ! WMO tropopause
+    !---------------------------
+
+    ! &       field% ptp (nproma,       nblks), &
+    cf_desc    = t_cf_var('ptp', 'Pa', 'tropopause air pressure', datatype_flt)
+    grib2_desc = grib2_var(0,6,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ptp', field%ptp,          &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE., initval = 20000.0_wp,       &
+         &        isteptype=TSTEP_INSTANT )
 
     !---------------------------
     ! Variables for energy diagnostic of echam6 physics
@@ -2711,26 +2748,43 @@ CONTAINS
     !-----------------------
     ! Surface
     !-----------------------
-   !ALLOCATE( field% lfland (nproma, nblks),                 &
-    cf_desc    = t_cf_var('lfland', '', '', datatype_flt)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'lfland', field%lfland,        &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                  &
-              & cf_desc, grib2_desc, ldims=shape2d, lrestart=.FALSE. )
 
-    ! &       field% lfglac (nproma, nblks),                 &
-    cf_desc    = t_cf_var('lfglac', '', '', datatype_flt)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'lfglac', field%lfglac,         &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                   &
-              & cf_desc, grib2_desc, ldims=shape2d, lrestart=.FALSE. )
+    cf_desc    = t_cf_var('surface_altitude', 'm',   &
+                &         'surface altitude', datatype_flt)
+    grib2_desc = grib2_var(2,0,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'orog', field%orog,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
-  ! ALLOCATE( field% lfland (kproma, kblks), &
-  !         & field% lfglac (kproma, kblks)  ) 
+    cf_desc    = t_cf_var('land_area_fraction', 'm2/m2',   &
+                &         'cell area fraction occupied by land including lakes', datatype_flt)
+    grib2_desc = grib2_var(2,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'sftlf', field%sftlf,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
+
+    cf_desc    = t_cf_var('land_ice_area_fraction', 'm2/m2',   &
+                &         'cell area fraction occupied by land ice', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'sftgif', field%sftgif,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
+
+    cf_desc    = t_cf_var('ocean_area_fraction', 'm2/m2',   &
+                &         'cell area fraction occupied by ocean', datatype_flt)
+    grib2_desc = grib2_var(2,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'sftof', field%sftof,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
+
 
     ! &       field% lsmask (nproma, nblks),                 &
     cf_desc    = t_cf_var('land_cover', '', 'land cover', datatype_flt)
-    grib2_desc = grib2_var(2, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(1, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'land', field%lsmask,              &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.FALSE., ldims=shape2d )
@@ -2755,7 +2809,7 @@ CONTAINS
     ! &       field% alake (nproma, nblks),                 &
     cf_desc    = t_cf_var('alake', '', 'fraction of lakes', &
          &                datatype_flt)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(1,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'alake', field%alake,              &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.FALSE., ldims=shape2d )
@@ -2763,18 +2817,10 @@ CONTAINS
     ! &       field% lake_ice_frc (nproma, nblks),                 &
     cf_desc    = t_cf_var('lake_ice_frc', '', 'fraction of ice on lakes', & 
          &                datatype_flt)
-    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(1,2,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'lake_ice_frc', field%lake_ice_frc,  &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
               & initval=0._wp, lrestart=.TRUE., ldims=shape2d )
-
-    ! &       field% icefrc (nproma, nblks),                 &
-    cf_desc    = t_cf_var('ice_cover', '', 'ice cover given as fraction of grid box', & 
-         &                datatype_flt)
-    grib2_desc = grib2_var(10,2,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'icefrc', field%icefrc,            &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-              & lrestart=.FALSE., ldims=shape2d )
 
     !-----------------------------------
     ! &       field% ts(nproma,nblks), &
@@ -3360,6 +3406,13 @@ CONTAINS
                   & lmiss=.TRUE., missval=cdimissval )
 
     END DO
+
+    ! global diagnostics
+    cf_desc    = t_cf_var('tas_gmean', 'K', 'temperature at 2m', datatype_flt,'tas_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'tas_gmean', field%tas_gmean,              &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------
