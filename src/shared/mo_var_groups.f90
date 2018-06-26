@@ -266,6 +266,19 @@ CONTAINS
     ENDIF
     grp_id = var_groups%group_id(TRIM(group_name_plain), opt_lcheck=.FALSE.)
 
+    ! If the group does not exist, create it.
+    IF (grp_id == 0) THEN
+      !
+      ! increase dynamic groups array by one element
+      CALL resize_arr_c1d(var_groups%name,1)
+      !
+      ! add new group
+      var_groups%name(SIZE(var_groups%name)) = toupper(TRIM(group_name_plain))
+      !
+      ! return its group ID (including offset from static groups array)
+      grp_id = var_groups%group_id(TRIM(group_name_plain))
+    ENDIF
+
     !
     ! update in_group metainfo
     in_group_new(:) = groups()   ! initialization
