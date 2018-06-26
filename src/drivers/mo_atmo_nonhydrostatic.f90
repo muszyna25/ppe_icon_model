@@ -96,11 +96,14 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
 USE mo_psrad_memory,        ONLY: construct_psrad_forcing_list
 USE mo_physical_constants,  ONLY: amd, amco2
-USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
+USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+#ifndef __NO_JSBACH__
+  USE mo_jsb_model_init,    ONLY: jsbach_init_after_restart
+#endif
 
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
@@ -327,6 +330,15 @@ CONTAINS
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       !
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      !
+#ifndef __NO_JSBACH__
+      DO jg = 1,n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        IF (echam_phy_config(jg)%ljsb) THEN
+          CALL jsbach_init_after_restart(jg)
+        END IF
+      END DO
+#endif
       !
     ELSE
       !
