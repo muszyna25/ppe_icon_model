@@ -1,4 +1,4 @@
-#!/usr/bin/env ksh
+#!/bin/ksh
 #==============================================================================
 #
 # This script makes the run scripts for the icon_testbed 

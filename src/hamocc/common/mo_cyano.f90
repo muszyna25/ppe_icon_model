@@ -97,9 +97,9 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
       USE mo_memory_bgc, ONLY      : cycdec, pi_alpha_cya,cya_growth_max,          &
        &                            Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P,      &
-       &                            fPAR, strahl, ro2ut,       &
+       &                            fPAR, strahl, ro2ut, ro2ut_cya,ralk,      &
        &                            doccya_fac, rnit, riron, rcar, rn2, &
-       &                            strahl,bkcya_fe,   wcya, rnoi, &
+       &                            strahl,bkcya_fe,   wcya, rnoi, cyamin, &
        &                            bgctra, bgctend, swr_frac, meanswr, satoxy
 
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
@@ -133,12 +133,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
       REAL(wp) :: l_I, l_T
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
-      REAL(wp) :: xn_p,xn_fe
+      REAL(wp) :: xn_p,xn_fe, phosy_cya
       REAL(wp) :: dyn_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
-!HAMOCC_OMP            sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,&
+!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,phosy_cya, &
 !HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
@@ -185,61 +185,58 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
               l_fe = xa_fe / (bkcya_fe + xa_fe)                  !iron limitation
               bgctend(j,k,kcFlim) = l_fe 
 
-              pho_fe = dtb*cya_growth_max*l_I*l_T*l_fe  
-              pho_p  = dtb*cya_growth_max*l_I*l_T*l_P
-
-        
+                 
               pho=dtb*cya_growth_max*l_I*l_T*l_P*l_fe            !growth 
 
-              xn_p = xa_p/ (1._wp + pho_fe*avcyabac/(bkcya_p + xa_p))
-              xn_fe = xa_fe/ (1._wp + pho_p*avcyabac/(bkcya_fe + xa_fe))
-
-              pho = MIN(xa_p-xn_p, xa_fe-xn_fe)
-
+        
              
               cyapro = MIN(avnit-1.e-11_wp*rnoi, &
    &                       avcyabac*pho*avnit**2/(bkcya_N**2 + avnit**2))
 
 
-
+              phosy_cya = pho*avcyabac  
               ! ---------- nutrient uptake
 
-              bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - pho    
-              bgctra(j,k,iiron) = bgctra(j,k,iiron) - pho * riron  
-
-              bgctra(j,k,igasnit) = bgctra(j,k,igasnit) - (pho - cyapro)*rnit/rn2  ! gasnit [N2]
+              bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - phosy_cya    
+              bgctra(j,k,iiron) = bgctra(j,k,iiron) - phosy_cya * riron  
+              
+              oldigasnit = bgctra(j,k,igasnit)  
+              bgctra(j,k,igasnit) = bgctra(j,k,igasnit) - (phosy_cya - cyapro)*rnit/rn2  ! gasnit [N2]
+             
   
            
 
-              bgctend(j,k,knfix) =  (pho - cyapro)*rnit/rn2/dtbgc  ! N fixation
-              bgctend(j,k,kpho_cya) =  pho/dtbgc   
-              bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (pho -cyapro) * rnit
+              bgctend(j,k,knfix) =  -1._wp * rn2 *(bgctra(j,k,igasnit) - oldigasnit)/dtbgc   ! N fixation
+              bgctend(j,k,kpho_cya) =  phosy_cya/dtbgc   
+              bgctend(j,k,kn2b) = bgctend(j,k,kn2b) - (phosy_cya -cyapro) * rnit
  
               bgctra(j,k,iano3) = bgctra(j,k,iano3) - cyapro*rnit                                                           
 
               ! ---------- change of alkalinity 
               !(only for production on nitrate, no change of alkalinity 
               !for N2 fixation Wolf-Gladrow et al.(2007))
-              bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + cyapro*rnit
+              ! P uptake due to N2fixation changes alkalinity by 1, as 
+              ! total phosphorous is considered in alk
+
+              bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + cyapro*ralk + (phosy_cya-cyapro)
 
               ! ---------- oxygen production
               ! O2 from cyano growth using NO3: cyapro [NO3] --> ro2ut 
               ! O2 from cyano growth fixing N2: (pho - cyapro) [NO3]
               ! -> ro2ut - 3 * rnit/rno2 = 172 - 3*16/2 = 148
-              bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen) + (pho - cyapro)*148._wp &
+              bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen) + (phosy_cya - cyapro)*ro2ut_cya &
             &                       + cyapro*ro2ut                                            
               
               bgctend(j,k, kaou)   = satoxy(j,k) - bgctra(j,k,ioxygen)
 
               ! --------- change of total CO2
-              bgctra(j,k,isco212) = bgctra(j,k,isco212) - pho*rcar
+              bgctra(j,k,isco212) = bgctra(j,k,isco212) - phosy_cya*rcar
 
               ! --------- decay of cyanobacteria
-              xn = bgctra(j,k,icya)/(1._wp + cycdec *dtb)
-              cyaloss = max(0._wp,bgctra(j,k,icya) - xn)                                
+              cyaloss = cycdec * max(0._wp,bgctra(j,k,icya) - 2._wp*cyamin)                                
 
               ! --------- change of cyanobacteria
-              bgctra(j,k,icya) = bgctra(j,k,icya) + pho - cyaloss
+              bgctra(j,k,icya) = bgctra(j,k,icya) + phosy_cya - cyaloss
               bgctend(j,k,kcyaloss) =  cyaloss/dtbgc   
 
               ! --------- decaying cyanobacteria are distributed to DOCCYA and detritus  

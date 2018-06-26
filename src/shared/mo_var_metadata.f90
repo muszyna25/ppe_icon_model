@@ -47,6 +47,7 @@ MODULE mo_var_metadata
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
 
+
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
   PUBLIC  :: post_op
@@ -54,6 +55,7 @@ MODULE mo_var_metadata
   PUBLIC  :: vintp_type_id
   PUBLIC  :: new_action
   PUBLIC  :: actions
+
 
 CONTAINS
 
@@ -179,7 +181,6 @@ CONTAINS
     CALL assign_if_present(vert_interp_meta%lower_limit        , lower_limit       )
 
   END FUNCTION create_vert_interp_metadata
-
 
 
   !----------------------------------------------------------------------------------------

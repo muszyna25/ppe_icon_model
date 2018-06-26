@@ -1425,6 +1425,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE( je, level, start_edge_index, end_edge_index, &
 !ICON_OMP cell_1_index, cell_2_index, cell_1_block, cell_2_block, &
 !ICON_OMP edge_11_index, edge_12_index, edge_13_index, &
+!ICON_OMP edge_11_block, edge_12_block, edge_13_block, &
 !ICON_OMP edge_21_index, edge_22_index, edge_23_index, &
 !ICON_OMP edge_21_block, edge_22_block, edge_23_block) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block

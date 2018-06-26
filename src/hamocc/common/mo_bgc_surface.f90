@@ -55,10 +55,10 @@ END SUBROUTINE
 
 SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
 ! apply nitrogen deposition
-  USE mo_memory_bgc, ONLY         : bgctra
-  USE mo_param1_bgc, ONLY     : iano3
+  USE mo_memory_bgc, ONLY     : bgctra, bgctend
+  USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b
   USE mo_control_bgc, ONLY    : dtb
-  USE mo_bgc_constants, ONLY : rmnit
+  USE mo_bgc_constants, ONLY  : rmnit
 
 
   !Arguments
@@ -83,6 +83,8 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
        ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
 
        bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
+       bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) - ninp
+       bgctend(jc,1,kn2b)   = bgctend(jc,1,kn2b) - ninp * (pddpo(jc,1) + za(jc)) 
 
   endif
 
@@ -224,7 +226,11 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            kwn2o = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
                 &           * (660._wp / scn2o)**0.5_wp
 
-           atco2 = atm_co2
+           if(l_cpl_co2)then 
+            atco2 = atm(j,iatmco2)
+           else
+            atco2 = atm_co2
+           endif
            ato2  = atm_o2
            atn2  = atm_n2
 

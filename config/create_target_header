@@ -602,6 +602,22 @@ set_run_target_bullx()
       add_free_var OMPI_MCA_coll_fca_enable 1
       add_free_var OMPI_MCA_coll_fca_priority 95
       ;;
+    *openmpi*)
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll ^fca
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
+      add_free_var HCOLL_ML_DISABLE_BARRIER 1
+      add_free_var HCOLL_ML_DISABLE_IBARRIER 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 1
+      add_free_var HCOLL_ENABLE_MCAST_ALL 1
+      add_free_var HCOLL_ENABLE_MCAST 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+      add_free_var MXM_HANDLE_ERRORS bt
+      add_free_var UCX_HANDLE_ERRORS bt
+      ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
       add_free_var I_MPI_DAPL_UD enable
@@ -676,6 +692,7 @@ use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
   start_header
   cat >>$output_script <<EOF
 ulimit -s 2097152
+ulimit -c 0
 $(case $use_flags_group in
     (debug)
       printf 'ulimit -c unlimited'
@@ -876,13 +893,13 @@ set_run_target_daint_cpu()
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
       set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 6
+      set_default use_openmp_threads 3
     else
-      set_default use_mpi_procs_pernode 12
+      set_default use_mpi_procs_pernode 6
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 12
+      set_default use_openmp_threads 6
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
@@ -906,7 +923,7 @@ set_run_target_daint_cpu()
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=6"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -1181,6 +1198,178 @@ EOF
   # create header
   start_header
 
+}
+
+#=============================================================================
+set_run_target_kesch_cpu()
+{
+
+  set_default use_nproma 16
+  set_default use_nodes 1
+  # use_OMP_SCHEDULE="static,1"
+  use_OMP_SCHEDULE="static,12"
+  icon_data_rootFolder=${icon_data_rootFolder:=/project/c15/ICON/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/project/c15/ICON/pool/data/ICON}
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 2
+      set_default use_openmp_threads 6
+    else
+      set_default use_mpi_procs_pernode 24
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 24
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
+  else
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# kesch batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --partition=debug
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --nodes=$use_nodes
+#SBATCH --ntasks-per-core=1
+#$SBATCH_ntasks_per_node
+#$SBATCH_cpus_per_task
+#$s_cpu_time
+#========================================
+EOF
+  # create header
+  start_header
+
+}
+
+#=============================================================================
+set_run_target_kesch_gpu()
+{
+
+  set_default use_nproma 256
+  set_default use_nodes 1
+  use_OMP_SCHEDULE="static,1"
+  icon_data_rootFolder=${icon_data_rootFolder:=/project/c15/ICON/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/project/c15/ICON/pool/data/ICON}
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 1
+      set_default use_openmp_threads 1
+    else
+      set_default use_mpi_procs_pernode 1
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 1
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+  else
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# daint batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --gres=gpu:1
+#SBATCH --partition=debug
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+  # create header
+  start_header
 }
 
 #=============================================================================

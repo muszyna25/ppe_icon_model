@@ -1,5 +1,6 @@
 ! we want SINGULARITY_CHECKS to be enabled, since the high-res grids have
 ! problems with the default values.
+
 #ifndef _CRAYFTN
 #define SINGULARITY_CHECKS
 #endif

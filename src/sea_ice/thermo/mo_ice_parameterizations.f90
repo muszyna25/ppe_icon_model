@@ -34,9 +34,8 @@ MODULE mo_ice_parameterizations
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, clw, Cd_io, Ch_io,             &
-    &                               albi, albim, albsm, albs,                           &
     &                               alb_sno_vis, alb_sno_nir, alb_ice_vis, alb_ice_nir
-  USE mo_sea_ice_nml,         ONLY: i_ice_albedo, i_Qio_type, i_ice_therm
+  USE mo_sea_ice_nml,         ONLY: i_ice_albedo, i_Qio_type, i_ice_therm, albi, albim, albsm, albs
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice
 
@@ -166,16 +165,29 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
 !    ! Initialization
 !    ice%zheatOceI(:,:,:) = 0.0_wp ! initialized in ice_zero
 
-!    CALL dbg_print('O-I-HeatFlx: SST'       ,sst           ,str_module,4, in_subset=p_patch%cells%owned)
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+     CALL dbg_print('O-I-HeatFlx: SST'       ,sst           ,str_module,4, in_subset=p_patch%cells%owned)
+     CALL dbg_print('O-I-HeatFlx: zUnderIce' ,ice%zUnderIce ,str_module,4, in_subset=p_patch%cells%owned)
 !    CALL dbg_print('O-I-HeatFlx: Tfw'       ,ice%Tfw       ,str_module,4, in_subset=p_patch%cells%owned)
-!    CALL dbg_print('O-I-HeatFlx: zUnderIce' ,ice%zUnderIce ,str_module,4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
 
     IF (i_ice_therm == 3) RETURN ! if analytical atmospheric fluxes, NO heatflux from the "ocean" is applied
 
     SELECT CASE ( i_Qio_type )
 
+    CASE (0)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          ice%zHeatOceI(jc,:,jb) = 0.0_wp
+        ENDDO
+      ENDDO
+
     CASE (1)
+
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc) SCHEDULE(dynamic)
       DO jb = 1,p_patch%nblks_c
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -225,7 +237,9 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
 
     END SELECT
     
-!    CALL dbg_print('O-I-HeatFlx: zHeatOceI' ,ice%zHeatOceI ,str_module,3, in_subset=p_patch%cells%owned)
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('O-I-HeatFlx: zHeatOceI ' ,ice%zHeatOceI , str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE oce_ice_heatflx 
   
@@ -325,6 +339,15 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
         p_ice%vol   (:,1,:) = 0._wp
         p_ice%vols  (:,1,:) = 0._wp
       ENDWHERE
+
+!fixme !ICON_OMP_END_WORKSHARE
+!fixme      
+!fixme      ! fix possible undershoots in snow depth 
+!fixme      ! quick fix preliminary, what should we do with negative snow?
+!fixme !ICON_OMP_WORKSHARE
+!fixme       WHERE ( p_ice%hs(:,1,:) < 0._wp )
+!fixme         p_ice%hs   (:,1,:) = 0._wp
+!fixme      ENDWHERE
 !ICON_OMP_END_WORKSHARE
 
 !ICON_OMP_END_PARALLEL

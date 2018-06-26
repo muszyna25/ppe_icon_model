@@ -10,11 +10,12 @@
 !!
 MODULE mo_var_groups
 
-  USE mo_impl_constants,        ONLY: VARNAME_LEN
+  USE mo_impl_constants,        ONLY: VARNAME_LEN, TIMELEVEL_SUFFIX
   USE mo_exception,             ONLY: finish
   USE mo_util_string,           ONLY: toupper
   USE mo_fortran_tools,         ONLY: resize_arr_c1d
   USE mo_util_sort,             ONLY: quicksort
+
 
   IMPLICIT NONE
 
@@ -25,7 +26,10 @@ MODULE mo_var_groups
 
 
   ! maximum number of variable groups supported by a single info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
+  INTEGER, PARAMETER :: MAX_GROUPS = 120
+
+
+
 
 
   ! ---------------------------------------------------------------
@@ -52,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(55) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -88,6 +92,8 @@ MODULE mo_var_groups
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &
+    &  "OCEAN_MOC             ",  &  ! meant o hold all kinds of overturning fields (atl, pac, global,...)
+    &  "OCEAN_FLOWS           ",  &  ! meant o hold all through flows
     &  "HAMOCC_BASE           ",  &
     &  "HAMOCC_TEND           ",  &
     &  "HAMOCC_MONI           ",  &
@@ -136,6 +142,12 @@ MODULE mo_var_groups
   ! e.g., for tiles.
   !
   TYPE(t_var_groups) :: var_groups_dyn
+
+
+  INTERFACE groups
+    MODULE PROCEDURE groups_arg
+    MODULE PROCEDURE groups_vec
+  END INTERFACE
 
 
   PUBLIC :: MAX_GROUPS
@@ -246,7 +258,7 @@ CONTAINS
     ! check whether a group with name 'group_name_plain' exists and return its ID.
     !
     ! remove time level string from group name
-    idx = INDEX(group_name,'.TL')
+    idx = INDEX(group_name, TIMELEVEL_SUFFIX)
     IF (idx > 0) THEN
       group_name_plain = TRIM(group_name(1:idx-1))
     ELSE
@@ -254,18 +266,6 @@ CONTAINS
     ENDIF
     grp_id = var_groups%group_id(TRIM(group_name_plain), opt_lcheck=.FALSE.)
 
-    ! If the group does not exist, create it.
-    IF (grp_id == 0) THEN
-      !
-      ! increase dynamic groups array by one element
-      CALL resize_arr_c1d(var_groups%name,1)
-      !
-      ! add new group
-      var_groups%name(SIZE(var_groups%name)) = toupper(TRIM(group_name_plain))
-      !
-      ! return its group ID (including offset from static groups array)
-      grp_id = var_groups%group_id(TRIM(group_name_plain))
-    ENDIF
     !
     ! update in_group metainfo
     in_group_new(:) = groups()   ! initialization
@@ -301,24 +301,43 @@ CONTAINS
   !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
   !  function.
   !
-  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
-    LOGICAL :: groups(MAX_GROUPS)
+  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
+    LOGICAL :: groups_arg(MAX_GROUPS)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
       &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11
 
-    groups(:) = .FALSE.
-    groups(var_groups_dyn%group_id("ALL")) = .TRUE.
-    IF (PRESENT(g01)) groups(var_groups_dyn%group_id(g01)) = .TRUE.
-    IF (PRESENT(g02)) groups(var_groups_dyn%group_id(g02)) = .TRUE.
-    IF (PRESENT(g03)) groups(var_groups_dyn%group_id(g03)) = .TRUE.
-    IF (PRESENT(g04)) groups(var_groups_dyn%group_id(g04)) = .TRUE.
-    IF (PRESENT(g05)) groups(var_groups_dyn%group_id(g05)) = .TRUE.
-    IF (PRESENT(g06)) groups(var_groups_dyn%group_id(g06)) = .TRUE.
-    IF (PRESENT(g07)) groups(var_groups_dyn%group_id(g07)) = .TRUE.
-    IF (PRESENT(g08)) groups(var_groups_dyn%group_id(g08)) = .TRUE.
-    IF (PRESENT(g09)) groups(var_groups_dyn%group_id(g09)) = .TRUE.
-    IF (PRESENT(g10)) groups(var_groups_dyn%group_id(g10)) = .TRUE.
-    IF (PRESENT(g11)) groups(var_groups_dyn%group_id(g11)) = .TRUE.
-  END FUNCTION groups
+    groups_arg(:) = .FALSE.
+    groups_arg(var_groups_dyn%group_id("ALL")) = .TRUE.
+    IF (PRESENT(g01)) groups_arg(var_groups_dyn%group_id(g01)) = .TRUE.
+    IF (PRESENT(g02)) groups_arg(var_groups_dyn%group_id(g02)) = .TRUE.
+    IF (PRESENT(g03)) groups_arg(var_groups_dyn%group_id(g03)) = .TRUE.
+    IF (PRESENT(g04)) groups_arg(var_groups_dyn%group_id(g04)) = .TRUE.
+    IF (PRESENT(g05)) groups_arg(var_groups_dyn%group_id(g05)) = .TRUE.
+    IF (PRESENT(g06)) groups_arg(var_groups_dyn%group_id(g06)) = .TRUE.
+    IF (PRESENT(g07)) groups_arg(var_groups_dyn%group_id(g07)) = .TRUE.
+    IF (PRESENT(g08)) groups_arg(var_groups_dyn%group_id(g08)) = .TRUE.
+    IF (PRESENT(g09)) groups_arg(var_groups_dyn%group_id(g09)) = .TRUE.
+    IF (PRESENT(g10)) groups_arg(var_groups_dyn%group_id(g10)) = .TRUE.
+    IF (PRESENT(g11)) groups_arg(var_groups_dyn%group_id(g11)) = .TRUE.
+  END FUNCTION groups_arg
+
+
+  !> The same, but provide list of groups as one character vector of group names.
+  !  Attention: the strings passed in group_list must be of length VARNAME_LEN !
+  !
+  FUNCTION groups_vec(group_list)
+    LOGICAL :: groups_vec(MAX_GROUPS)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: group_list(:)
+
+    INTEGER :: i
+
+    groups_vec(:) = .FALSE.
+    groups_vec(var_groups_dyn%group_id("ALL")) = .TRUE.
+    DO i=1,SIZE(group_list)
+      IF (TRIM(group_list(i)) == "ALL") CYCLE
+      groups_vec(var_groups_dyn%group_id(TRIM(group_list(i)))) = .TRUE.
+    END DO
+
+  END FUNCTION groups_vec
 
 END MODULE mo_var_groups

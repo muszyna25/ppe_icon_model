@@ -78,7 +78,7 @@ MODULE mo_name_list_output_zaxes
 #endif
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
-  USE mo_sedmnt,                            ONLY: ks, ksp, dzsed
+  USE mo_hamocc_nml,                        ONLY: ks, ksp, dzsed
 #endif
 
   IMPLICIT NONE
@@ -381,22 +381,26 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Setup of vertical axes for output module: Ocean component
   !
-  SUBROUTINE setup_zaxes_oce(verticalAxisList)
+  SUBROUTINE setup_zaxes_oce(verticalAxisList, level_selection)
     TYPE(t_verticalAxisList), INTENT(INOUT) :: verticalAxisList
+    TYPE(t_level_selection),  INTENT(IN), POINTER :: level_selection
     ! local variables
     REAL(wp), ALLOCATABLE             :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE             :: levels_s(:), levels_sp(:)
 
-    TYPE(t_level_selection), POINTER :: level_selection => NULL()
 
 #ifndef __NO_ICON_OCEAN__
     ALLOCATE(levels_i(n_zlev+1), levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
 
     CALL verticalAxisList%append(single_level_axis(ZA_surface))
-    CALL verticalAxisList%append(vertical_axis(ZA_depth_below_sea, n_zlev, levels = REAL(levels_m,wp), &
+    CALL verticalAxisList%append(vertical_axis(ZA_depth_below_sea, &
+      &                          n_zlev,                           &
+      &                          levels = REAL(levels_m,wp), &
       &                          level_selection=level_selection))
-    CALL verticalAxisList%append(vertical_axis(ZA_depth_below_sea_half, n_zlev+1, levels = REAL(levels_i,wp), &
+    CALL verticalAxisList%append(vertical_axis(ZA_depth_below_sea_half, &
+      &                          n_zlev+1,                              &
+      &                          levels = REAL(levels_i,wp),            &
       &                          level_selection=level_selection))
     CALL verticalAxisList%append(single_level_axis(ZA_GENERIC_ICE))
 
@@ -407,7 +411,7 @@ CONTAINS
     ! ocean sediment
     ALLOCATE(levels_s(ks), levels_sp(ksp))
 
-    CALL set_zlev(levels_sp, levels_s, ks, dzsed*1000._dp)
+    CALL set_zlev(levels_sp, levels_s, ks, dzsed)
     CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_OCEAN_SEDIMENT), ks, &
       &                                         zaxisLevels=REAL(levels_s,dp)))
     DEALLOCATE(levels_s, levels_sp)

@@ -608,6 +608,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
 
+  ! separator for varname and time level
+  CHARACTER(LEN=3), PARAMETER, PUBLIC :: TIMELEVEL_SUFFIX = '.TL'
+
   !-------------------------!
   !  RTTOV FIELD CATEGORIES !
   !-------------------------!

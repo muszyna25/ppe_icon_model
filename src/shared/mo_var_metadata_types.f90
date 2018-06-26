@@ -30,6 +30,7 @@ MODULE mo_var_metadata_types
   ! CONSTANTS
   ! ---------------------------------------------------------------
 
+
   ! list of vertical interpolation types
   ! 
   ! A variable can have any combination of this which means that it
@@ -160,7 +161,6 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: cdiVarID
     INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

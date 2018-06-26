@@ -40,21 +40,6 @@ MODULE mo_radiation_config
     LOGICAL :: ldiur        !< .TRUE. : with diurnal cycle
     !                       !< .FALSE.: zonally averaged irradiation
     !
-    !                       ! PROVISIONAL - ONLY BEST METHOD WILL BE KEPT ("0" or "3")
-    INTEGER :: icosmu0      !< selects method for the definition of cosmu0_rt in the extended
-    !                       !  sunlit area, as needed if solar fluxes are adjusted to the
-    !                       !  current time between radiation time steps.
-    !                       !  0: no adjustment, the original cosmu0 is used for the rad. transfer
-    !                       !     Has small effects on land temperture (less smooth intraday time series)
-    !                       !  1: MAX(0.1,cosmu0), as used in ECHAM6 and icon-aes-1.0 and -1.1.
-    !                       !  2: (cosmu0+dcosmu0)/(1+dcosmu0), dcosmu0 = SIN(dmu0), dmu0=pi*dt_rad/86400s
-    !                       !     DO NOT USE! Strong effects on MA temp. and wind and land surface temp.
-    !                       !  3: 0.5*SIN(dmu0)*(1+(pi/2-mu0)/dmu0), dmu0=pi*dt_rad/86400s
-    !                       !     Has small effects on the MA temp. and wind and the land surface temp.
-    !                       !  4: sin(mu0s)*(pi/2+dmu0-mu0), , dmu0=pi*dt_rad/86400s, mu0s = tangent point
-    !                       !     Has moderate effects on the MA temp. and wind and the land surface temp.
-    !              
-    !
     ! -- Switches for Earth orbit
     !
     INTEGER :: nmonth       !< i=0    : Earth circles on orbit, i.e. with annual cycle
@@ -116,12 +101,6 @@ MODULE mo_radiation_config
     INTEGER  :: irad_aero   !< aerosols
     LOGICAL  :: lrad_aero_diag  !< diagnose aerosols
     !
-    ! --- Select dynamic greenhouse gases scenario (read from file)
-    !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-    !     ighg = 1 : transient CMIP5 scenario from file
-    !
-    INTEGER :: ighg
-    !
     ! --- Default gas mixing ratios - 1990 values (CMIP5)
     !
     REAL(wp) :: vmr_co2  , mmr_co2   !< CO2
@@ -130,17 +109,6 @@ MODULE mo_radiation_config
     REAL(wp) :: vmr_ch4  , mmr_ch4   !< CH4
     REAL(wp) :: vmr_cfc11, mmr_cfc11 !< CFC 11
     REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
-
-    !
-    ! --- Scaling factor for mixing ratios
-    !
-    REAL(wp) :: fh2o
-    REAL(wp) :: fco2
-    REAL(wp) :: fn2o
-    REAL(wp) :: fo3
-    REAL(wp) :: fo2
-    REAL(wp) :: fch4
-    REAL(wp) :: fcfc
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 

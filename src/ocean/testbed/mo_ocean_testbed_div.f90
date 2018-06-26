@@ -69,7 +69,7 @@ MODULE mo_ocean_testbed_div
 
   REAL(wp) :: minmaxmean(3), L2Diff, L2DivAn, LInfDiff, LInfDivAn
 
-  TYPE(t_patch_3d ),POINTER           :: patch_3d
+  TYPE(t_patch_3D ),POINTER           :: patch_3d
   TYPE(t_patch), POINTER              :: patch_2d
   TYPE(t_hydro_ocean_state), POINTER  :: ocean_state
   TYPE(t_operator_coeff),POINTER      :: operators_coefficients

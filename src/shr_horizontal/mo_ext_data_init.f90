@@ -41,7 +41,7 @@ MODULE mo_ext_data_init
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -54,7 +54,8 @@ MODULE mo_ext_data_init
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
     &                              itype_vegetation_cycle
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_mpi_phy_config,     ONLY: mpi_phy_config
+  USE mo_echam_rad_config,   ONLY: echam_rad_config
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
@@ -239,7 +240,9 @@ CONTAINS
       END IF
 
       ! call read_ext_data_atm to read O3
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM ) THEN
+      IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
+         & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) &
+         & .OR. sstice_mode == SSTICE_CLIM) THEN
         CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
           &                     extpar_varnames_dict)
         CALL message( TRIM(routine),'read_ext_data_atm completed' )
@@ -604,11 +607,17 @@ CONTAINS
       nlev_o3 = 1
       nmonths   = 1
 
-      O3 : IF ((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
+      O3 : IF (                        irad_o3 == io3_clim .OR.                      irad_o3 == io3_ape &
+           & .OR. echam_rad_config(jg)%irad_o3 == io3_clim .OR. echam_rad_config(jg)%irad_o3 == io3_ape ) THEN
 
-        IF(irad_o3 == io3_ape ) THEN
+        IF(iforcing == inwp .AND. irad_o3 == io3_ape) THEN
           levelname = 'level'
           cellname  = 'ncells'
+          o3name    = 'O3'
+          o3unit    = 'g/g'
+        ELSE IF(iforcing == iecham .AND. echam_rad_config(jg)%irad_o3 == io3_ape) THEN
+          levelname = 'plev'
+          cellname  = 'cell'
           o3name    = 'O3'
           o3unit    = 'g/g'
         ELSE ! o3_clim
@@ -918,7 +927,7 @@ CONTAINS
 
       DO jg = 1,n_dom
 
-        IF ( mpi_phy_config(jg)%ljsb ) THEN
+        IF ( echam_phy_config(jg)%ljsb ) THEN
 
           stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
      
@@ -1239,7 +1248,8 @@ CONTAINS
     ! Read ozone
     !-------------------------------------------------------
 
-    IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape)) THEN
+    IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
+       & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) ) THEN
 
       DO jg = 1,n_dom
 
@@ -1282,19 +1292,25 @@ CONTAINS
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
-        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 ppmv', &
-           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
-        CALL message(routine, TRIM(message_text))
-
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of
         ! the incoming ozone file.  Often, the incoming units are not ppmv.
-        IF(irad_o3 == io3_ape) &
-         ! &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
-          &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+        !
+        IF(iforcing == inwp .AND. irad_o3 == io3_ape) THEN
+           ! ozone input expected in units of ppmv
+           WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 ppmv', &
+                & MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+           CALL message(routine, TRIM(message_text))
+           ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+        ELSE IF(iforcing == iecham .AND. echam_rad_config(jg)%irad_o3 == io3_ape) THEN
+           ! ozone input expected in units of mole/mole
+           WRITE(message_text,'(a,e12.4,e12.4)')'MAX/MIN o3 mole/mole', &
+                & MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+           CALL message(routine, TRIM(message_text))
+           ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
+        END IF
 
-
-        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 g/g', &
+        WRITE(message_text,'(a,e12.4,e12.4)')'MAX/MIN o3 g/g', &
            MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
         CALL message(routine, TRIM(message_text))
 

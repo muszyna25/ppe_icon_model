@@ -367,7 +367,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, ptr_delp_mc_now, p_mflx_contra_v, ptr_delp_mc_new ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -419,7 +419,7 @@ CONTAINS
 !$ACC          ptr_delp_mc_new, p_tracer_new  ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jt,jc,nt,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -490,7 +490,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, p_delp_mc_new, p_mflx_contra_v, ptr_delp_mc_new  ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -548,7 +548,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, p_delp_mc_new, p_mflx_contra_v, ptr_delp_mc_new  ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -625,7 +625,7 @@ CONTAINS
 !$ACC PRESENT( p_tracer_new, opt_ddt_tracer_adv ),                     &
 !$ACC PRIVATE( z_fluxdiv_c ),                                          &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -754,7 +754,7 @@ CONTAINS
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_tracer_now, p_grf_tend_tracer, p_tracer_new ),   &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,nt) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -848,7 +848,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, advection_config, ptr_current_tracer) ,       &
 !$ACC PRESENT( ptr_delp_mc_now, ptr_delp_mc_new, p_mflx_tracer_v ),   & 
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,nt,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
@@ -985,7 +985,7 @@ CONTAINS
 !$ACC PRESENT( p_patch, advection_config, p_tracer_now, p_tracer_new ), & 
 !$ACC PRESENT( opt_ddt_tracer_adv ),                                   & 
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb,jk,jt,jc,nt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif

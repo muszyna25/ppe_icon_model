@@ -355,7 +355,6 @@ CONTAINS
     INTEGER :: start_level, end_level
     INTEGER :: blockNo
     INTEGER ::start_index, end_index
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_subset
     !-----------------------------------------------------------------------
     IF (PRESENT(subset_range)) THEN

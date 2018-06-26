@@ -34,8 +34,13 @@ MODULE mo_restart_patch_description
 
 #ifndef __NO_ICON_OCEAN__
     USE mo_ocean_nml, ONLY: lhamocc
-    USE mo_sedmnt, ONLY: ks, dzsed
+    USE mo_hamocc_nml, ONLY: ks, dzsed
     USE mo_math_utilities, ONLY: set_zlev
+#endif
+
+#ifndef __NO_JSBACH__
+    USE mo_echam_phy_config,  ONLY: echam_phy_config
+    USE mo_jsb_vertical_axes, ONLY: set_vertical_grids_jsbach
 #endif
 
     IMPLICIT NONE
@@ -330,6 +335,11 @@ CONTAINS
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
         END IF
+
+#ifndef __NO_JSBACH__
+        IF (ANY(echam_phy_config(:)%ljsb)) CALL set_vertical_grids_jsbach(me%v_grid_defs, me%v_grid_count)
+#endif
+
 #ifndef __NO_ICON_OCEAN__
         IF(lhamocc) THEN
             ! HAMOCC sediment
@@ -342,6 +352,7 @@ CONTAINS
             DEALLOCATE(levels, levels_sp)
         END IF
 #endif
+
     END SUBROUTINE restartPatchDescription_updateVGrids
 
     SUBROUTINE restartPatchDescription_setRestartAttributes(me, restartAttributes)

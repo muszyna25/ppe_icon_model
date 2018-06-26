@@ -48,9 +48,10 @@ MODULE mo_statistics
   PUBLIC :: L2Norm, LInfNorm
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
-  PUBLIc :: print_value_location
-  PUBLIc :: add_verticallyIntegrated_field
-  PUBLIc :: add_verticalSum_field
+  PUBLIC :: print_value_location
+  PUBLIC :: add_verticallyIntegrated_field
+  PUBLIC :: add_verticalSum_field
+  PUBLIC :: gather_sums
   
   ! simple min max mean (no weights)
   ! uses the range in_subset
@@ -77,6 +78,7 @@ MODULE mo_statistics
   INTERFACE subset_sum
     MODULE PROCEDURE Sum_3D_AllLevels_3Dweights_InIndexed
     MODULE PROCEDURE Sum_2D_2Dweights_InRange
+    MODULE PROCEDURE Sum_2D_InRange
     ! MODULE PROCEDURE globalspace_3d_sum_max_level_array
   END INTERFACE subset_sum
 
@@ -245,6 +247,7 @@ MODULE mo_statistics
   INTERFACE add_fields
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
+    MODULE PROCEDURE add_fields_2d_nosubset
   END INTERFACE add_fields
   
   INTERFACE add_sqr_fields
@@ -1063,11 +1066,89 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
+  REAL(wp)  FUNCTION Sum_2D_InRange(values, in_subset, mean) 
+    REAL(wp), INTENT(in) :: values(:,:) ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), OPTIONAL   :: mean  ! in
+
+
+    REAL(wp), ALLOCATABLE :: sum_value(:)
+    REAL(wp):: total_sum
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
+    INTEGER :: no_of_threads, myThreadNo, no_of_additions
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_2D_InRange'
+
+    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+
+    no_of_threads = 1
+    myThreadNo = 0
+    no_of_additions = 0
+#ifdef _OPENMP
+    no_of_threads = omp_get_max_threads()
+#endif
+
+    ALLOCATE( sum_value(0:no_of_threads-1) )
+
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+!$  myThreadNo = omp_get_thread_num()
+!ICON_OMP_SINGLE
+!$  no_of_threads = OMP_GET_NUM_THREADS()
+!ICON_OMP_END_SINGLE NOWAIT
+    sum_value(myThreadNo) = 0.0_wp
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, MIN(1, in_subset%vertical_levels(idx,block))
+            sum_value(myThreadNo)  = sum_value(myThreadNo) + values(idx, block)
+            no_of_additions = no_of_additions + 1
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ELSE ! no in_subset%vertical_levels
+
+!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          sum_value(myThreadNo)  = sum_value(myThreadNo) + values(idx, block)
+          no_of_additions = no_of_additions + 1
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ENDIF
+!ICON_OMP_END_PARALLEL
+
+    ! gather the total level sum of this process in total_sum(level)
+    total_sum     = 0.0_wp
+    DO myThreadNo=0, no_of_threads-1
+      ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo)
+      total_sum    = total_sum    + sum_value( myThreadNo)
+    ENDDO
+    DEALLOCATE(sum_value)
+
+    ! Collect the value (at all procs)
+    Sum_2D_InRange = gather_sum(total_sum)
+
+    IF (PRESENT(mean)) THEN
+      ! Get average
+      mean = Sum_2D_InRange / REAL(no_of_additions, KIND=wp)
+    ENDIF
+    
+  END FUNCTION Sum_2D_InRange
+  !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !>
   REAL(wp)  FUNCTION Sum_2D_2Dweights_InRange(values, weights, in_subset, mean) 
     REAL(wp), INTENT(in) :: values(:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), TARGET :: in_subset
     REAL(wp), OPTIONAL   :: mean  ! in
+
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
     REAL(wp):: total_sum, total_weight
@@ -1142,6 +1223,7 @@ CONTAINS
       ! Get average
       mean = total_sum / total_weight
     ENDIF
+    Sum_2D_2Dweights_InRange = total_sum
     
   END FUNCTION Sum_2D_2Dweights_InRange
   !-----------------------------------------------------------------------
@@ -1754,21 +1836,6 @@ CONTAINS
     CALL assign_if_present(my_has_missvals, has_missvals)
     CALL assign_if_present(my_miss, missval)
 
-    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, subset%vertical_levels(idx,block)
-          sum_field(idx,level,block) = MERGE(my_miss, &
-                                           & sum_field(idx,level,block) + field(idx,level,block), &
-                                           & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-    ELSE
       ! use constant levels
       mylevels                       = SIZE(sum_field, VerticalDim_Position)
       IF (PRESENT(levels))  mylevels = levels
@@ -1785,7 +1852,6 @@ CONTAINS
       END DO
 !ICON_OMP_END_PARALLEL_DO
 
-    ENDIF
   END SUBROUTINE add_fields_3d
   
   SUBROUTINE add_fields_2d(sum_field,field,subset,has_missvals, missval)
@@ -1815,6 +1881,30 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
 
+  SUBROUTINE add_fields_2d_nosubset(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+    
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_fields_2d_nosubset
   
   SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)

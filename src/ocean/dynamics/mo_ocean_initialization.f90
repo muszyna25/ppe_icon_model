@@ -40,7 +40,7 @@ MODULE mo_ocean_initialization
     & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude,   &
-    & use_smooth_ocean_boundary
+    & use_smooth_ocean_boundary, max_allocated_levels
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -64,13 +64,7 @@ MODULE mo_ocean_initialization
   USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
-  USE mo_ocean_types, ONLY: t_hydro_ocean_state, &
-    & t_hydro_ocean_base, &
-    & t_hydro_ocean_prog, &
-    & t_hydro_ocean_diag, &
-    & t_hydro_ocean_aux, &
-    & t_oce_config, &
-    & t_ocean_tracer
+  USE mo_ocean_types, ONLY: t_hydro_ocean_base
   USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
@@ -78,8 +72,7 @@ MODULE mo_ocean_initialization
     & t_ocean_basins
   USE mo_ocean_state, ONLY:  ocean_restart_list, &
     & ocean_default_list, &
-    & v_base, &
-    & oce_config
+    & v_base
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   
   USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
@@ -96,8 +89,6 @@ MODULE mo_ocean_initialization
   PUBLIC :: init_ho_basins
   PUBLIC :: init_coriolis_oce
   PUBLIC :: is_initial_timestep
-  PUBLIC :: init_oce_config
-  PUBLIC :: construct_ocean_var_lists
   PUBLIC :: check_ocean_subsets
   
   PUBLIC :: init_patch_3d
@@ -105,26 +96,6 @@ MODULE mo_ocean_initialization
   
 CONTAINS
   
-  !-------------------------------------------------------------------------
-  !
-  !
-!<Optimize:inUse>
-  SUBROUTINE construct_ocean_var_lists(patch_2d)
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
-    
-    CHARACTER(LEN=max_char_length) :: listname
-    
-    WRITE(listname,'(a)')  'ocean_restart_list'
-    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
-    WRITE(listname,'(a)')  'ocean_default_list'
-    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-  END SUBROUTINE construct_ocean_var_lists
-  !-------------------------------------------------------------------------
   
 
   
@@ -1924,7 +1895,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
     INTEGER,  INTENT(IN) :: n_zlev
-    REAL(wp), INTENT(IN) :: dzlev_m(100)
+    REAL(wp), INTENT(IN) :: dzlev_m(max_allocated_levels)
     REAL(wp)             :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
     REAL(wp)             :: zlev_i(n_zlev+1)  , zlev_m(n_zlev)
 
@@ -1944,21 +1915,6 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   
-  !------------------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE init_oce_config()
-    oce_config%tracer_names(1)     = 'T'
-    oce_config%tracer_longnames(1) = 'potential temperature'
-    oce_config%tracer_units(1)     = 'deg C'
-    oce_config%tracer_codes(1)     = 200
-    oce_config%tracer_tags(1)      = '_'//TRIM(oce_config%tracer_names(1))
-    
-    oce_config%tracer_names(2)     = 'S'
-    oce_config%tracer_longnames(2) = 'salinity'
-    oce_config%tracer_units(2)     = 'psu'
-    oce_config%tracer_codes(2)     = 201
-    oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
-  END SUBROUTINE
 !<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

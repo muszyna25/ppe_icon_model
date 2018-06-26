@@ -40,17 +40,16 @@
 !
 MODULE mo_psrad_orbit
 
-  USE mo_kind,      ONLY : wp, i8
+  USE mo_kind,           ONLY : wp, i8
   USE mo_math_constants, ONLY : pi
-  USE mo_exception, ONLY : finish, message, message_text, em_param
-  USE mtime, ONLY: julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
-       &           datetime, no_of_ms_in_a_day
-  USE mo_psrad_orbit_config, ONLY: psrad_orbit_config
+  USE mo_exception,      ONLY : finish, message, message_text, em_param
+  USE mtime,             ONLY: julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
+       &                       datetime, no_of_ms_in_a_day
 
   IMPLICIT NONE
   PRIVATE 
   PUBLIC :: orbit_kepler, orbit_vsop87, inquire_declination, &
-            cecc, cobld, clonp, get_orbit_times
+            clonp, get_orbit_times
 
   TYPE terms 
     REAL(wp) :: A
@@ -64,8 +63,6 @@ MODULE mo_psrad_orbit
   REAL(wp), PARAMETER :: sec2rad = deg2rad/3600.0_wp
   REAL(wp), SAVE      :: declination
 
-  REAL(wp)       :: cecc                  !< eccentricity
-  REAL(wp)       :: cobld                 !< obliquity in degrees
   REAL(wp), SAVE :: clonp  =  282.7000_wp !< Long. of Perihelion (from v.eqin)
 
 CONTAINS
@@ -85,11 +82,13 @@ CONTAINS
   !!   Monin, A. S.: An Introduction to the Theory of Climate  D. Reidel 
   !!    Publishing Company, Dordrecht, 1986 (pp 10-12).
   !
-  SUBROUTINE orbit_kepler (time, rasc_sun, decl_sun, dist_sun)
+  SUBROUTINE orbit_kepler (cecc, cobld, time, rasc_sun, decl_sun, dist_sun)
 
     REAL(wp), PARAMETER   :: ceps = 1.0e-9_wp        
 
-    REAL(wp), INTENT(in)  :: time !< Time of year rel. to vernal equinox [rad]
+    REAL(wp), INTENT(in)  :: cecc  !< Eccentricity of the Kepler orbit
+    REAL(wp), INTENT(in)  :: cobld !< Obliquity of the Earth axis [Deg]
+    REAL(wp), INTENT(in)  :: time  !< Time of year rel. to vernal equinox [rad]
     REAL(wp), INTENT(out) :: &
          rasc_sun,           & !< Right Ascension of the Sun
          decl_sun,           & !< Declination of the Sun
@@ -103,8 +102,6 @@ CONTAINS
 
     !
     ! set local variables for eccentricity and obliquity
-    cecc  = psrad_orbit_config%cecc
-    cobld = psrad_orbit_config%cobld
     obl_rad = cobld*deg2rad
     phl_rad = clonp*deg2rad
     WRITE(message_text, '(a14,f9.3,a23,f9.3)') &

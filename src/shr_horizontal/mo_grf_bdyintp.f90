@@ -694,6 +694,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
                              -epsi )
+
             max_expval = MAX(grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc),  &
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
