@@ -63,6 +63,7 @@ MODULE mo_atmo_model
   USE mo_master_control,          ONLY: master_namelist_filename
   USE mo_jsb_base,                ONLY: jsbach_setup => jsbach_setup_models, jsbach_setup_tiles
   USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
+  USE mo_jsb_model_final,         ONLY: jsbach_finalize
 #endif
 
   ! time stepping
@@ -597,6 +598,9 @@ CONTAINS
     ! Destruct ART data fields
     CALL art_init_interface(n_dom,'destruct')
 
+#ifndef __NO_JSBACH__
+    CALL jsbach_finalize()
+#endif
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE destruct_atmo_model

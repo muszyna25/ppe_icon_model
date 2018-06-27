@@ -322,7 +322,6 @@ cat > ${lnd_namelist} << EOF
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
-  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
   output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
@@ -341,16 +340,17 @@ cat > ${lnd_namelist} << EOF
 &jsb_sse_nml
   l_heat_cap_map  = .FALSE.
   l_heat_cond_map = .FALSE.
-  l_heat_cap_dyn  = .TRUE.
-  l_heat_cond_dyn = .TRUE.
+  l_heat_cap_dyn  = .FALSE.
+  l_heat_cond_dyn = .FALSE.
   l_snow          = .TRUE.
   l_dynsnow       = .TRUE.
-  l_freeze        = .FALSE.
-  l_supercool     = .FALSE.
+  l_freeze        = .TRUE.
+  l_supercool     = .TRUE.
   bc_filename     = 'bc_land_soil.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_hydro_nml
+  l_organic       = .FALSE.
   bc_filename     = 'bc_land_soil.nc'
   ic_filename     = 'ic_land_soil.nc'
   bc_sso_filename = 'bc_land_sso.nc'
@@ -435,7 +435,7 @@ datadir=/pool/data/ICON/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=$grids_folder/Land
+datadir=$grids_folder/Land/r0002
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
@@ -462,7 +462,7 @@ add_link_file $datadir/bc_sic.pre04.ff.nc                               ./bc_sic
 add_link_file $datadir/bc_sst.pre04.ff.nc                               ./bc_sst.nc
 
 # - land parameters
-datadir=$grids_folder/Land
+datadir=$grids_folder/Land/r0002
 add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
