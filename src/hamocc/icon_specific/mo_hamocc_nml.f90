@@ -38,12 +38,15 @@ MODULE mo_hamocc_nml
   REAL(wp), PUBLIC :: sinkspeed_martin_ez
   REAL(wp), PUBLIC :: mc_fac
   REAL(wp), PUBLIC :: mc_depth
-
+  REAL(wp), PUBLIC, ALLOCATABLE :: dzs(:)
+  REAL(wp), PUBLIC :: dzsed(100),inpw(100)
+  REAL(wp), PUBLIC, ALLOCATABLE :: porwat(:)
   REAL(wp), PUBLIC :: deltacalc
   REAL(wp), PUBLIC :: deltaorg
   REAL(wp), PUBLIC :: deltasil
  
   INTEGER, PUBLIC  :: io_stdo_bgc        !<  io unit for HAMOCC LOG file
+  INTEGER, PUBLIC  :: ks,ksp
 
   LOGICAL, PUBLIC :: l_cyadyn         = .TRUE.   !  prognostic cyanobacteria
   LOGICAL, PUBLIC :: l_cpl_co2        = .FALSE.   !  co2 coupling to atm
@@ -64,6 +67,7 @@ MODULE mo_hamocc_nml
 
   NAMELIST /hamocc_nml/ &
     &  i_settling, &
+    &  ks, dzsed,inpw,&
     &  l_cyadyn, &
     &  sinkspeed_opal, &
     &  sinkspeed_calc, &
@@ -131,6 +135,38 @@ CONTAINS
        atm_n2  = 802000._wp
     ENDIF
 
+   ks=12
+   dzsed(:) =-1._wp
+   dzsed(1) = 0.001_wp
+   dzsed(2) = 0.003_wp
+   dzsed(3) = 0.005_wp
+   dzsed(4) = 0.007_wp
+   dzsed(5) = 0.009_wp
+   dzsed(6) = 0.011_wp
+   dzsed(7) = 0.013_wp
+   dzsed(8) = 0.015_wp
+   dzsed(9) = 0.017_wp
+   dzsed(10) = 0.019_wp
+   dzsed(11) = 0.021_wp
+   dzsed(12) = 0.023_wp
+   dzsed(13) = 0.025_wp
+
+   inpw(:)=1._wp
+   inpw(1) = 0.85_wp
+   inpw(2) = 0.83_wp
+   inpw(3) = 0.8_wp
+   inpw(4) = 0.79_wp
+   inpw(5) = 0.77_wp
+   inpw(6) = 0.75_wp
+   inpw(7) = 0.73_wp
+   inpw(8) = 0.7_wp
+   inpw(9) = 0.68_wp
+   inpw(10) = 0.66_wp
+   inpw(11) = 0.64_wp
+   inpw(12) = 0.62_wp
+
+
+
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -167,6 +203,13 @@ CONTAINS
     IF (i_settling > 1 ) THEN
       CALL finish(TRIM(routine), 'Aggregation not yet implemented, i_settling must be 0 or 1')
     END IF
+
+    ksp=ks+1
+    ALLOCATE(porwat(ks))
+    ALLOCATE(dzs(ksp))
+    porwat(1:ks)=inpw(1:ks)
+    dzs(1:ksp)=dzsed(1:ksp)
+    dzsed(1:ksp)=dzs(1:ksp)*1000._wp ! for zaxis in output
 
     !------------------------------------------------------------------
     ! Store the namelist for restart

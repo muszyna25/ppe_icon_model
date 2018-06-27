@@ -205,19 +205,11 @@ MODULE mo_physical_constants
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albedoW      = 0.07_wp,         & ! albedo of the ocean used in atmosphere
-! MPIOM albedo scheme for OMIP, tuned for MPIOM
-    albedoW_sim  = 0.10_wp,         & ! albedo of the ocean used in sea ice model
-    albs         = 0.85_wp,         & ! Albedo of snow (not melting)
-    albsm        = 0.70_wp,         & ! Albedo of snow (melting)    
-    albi         = 0.75_wp,         & ! Albedo of ice (not melting)
-    albim        = 0.70_wp,         & ! Albedo of ice (melting)    
+
+
     fr_fac       = 1.1925_wp,       & ! Frank Roeske energy budget closing factor for OMIP
 !   fr_fac       = 1.0_wp,          ! factor not active
-! changed snow and ice albedo for tuning tests in coupled model (+0.01, not for OMIP or AMIP)
-!    albs         = 0.86_wp,         & ! Albedo of snow (not melting)
-!    albsm        = 0.71_wp,         & ! Albedo of snow (melting)    
-!    albi         = 0.76_wp,         & ! Albedo of ice (not melting)
-!    albim        = 0.71_wp,         & ! Albedo of ice (melting)    
+
 ! CCSM3 albedo scheme - not used for coupling
     alb_ice_vis  = 0.73_wp,         & ! Albedo of dry ice  (visible)
     alb_ice_nir  = 0.33_wp,         & ! Albedo of dry ice  (near-infrared)
@@ -227,11 +219,7 @@ MODULE mo_physical_constants
     I_0          = 0.17_wp,         & ! Ice-surface penetrating shortwave fraction
     Cd_ia        =  1.2e-3_wp,       & ! Ice-atmosphere drag coefficient
     Cd_io        =  3.0e-3_wp,       & ! Ice-ocean drag coefficient
-    Ch_io        = 12.0e-3_wp,        & ! Ice-ocean heat transfer coefficient
-  ! RHEOLOGY
-    Pstar       = 27500._wp,       & !15000 !was 20000.   ![N/m^2]
-    ellipse     = 2.0_wp,           & !
-    c_pressure  = 20.0_wp!,         & !
+    Ch_io        = 12.0e-3_wp         ! Ice-ocean heat transfer coefficient
 
 !--------- parameters for NWP sea-ice model (we should agree on a single value)-----
 !_cdm>

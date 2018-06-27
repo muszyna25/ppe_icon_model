@@ -77,7 +77,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output

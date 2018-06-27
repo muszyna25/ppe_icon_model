@@ -74,8 +74,8 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'div_of_GMRedi_flux','t', 'rho', 'A_tracer_v_T','u','v','h','div_mass_flx_c' 
-  !ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'div_of_GMRedi_flux','t', 'rho','u','v','h','div_mass_flx_c' 
+  !ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u'
 /
 &output_nml
  output_start     = "${start_date}"

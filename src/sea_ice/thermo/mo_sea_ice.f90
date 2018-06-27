@@ -42,14 +42,14 @@ MODULE mo_sea_ice
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
     &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
     &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
-    &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf,    &
+    &                               fr_fac, mu, alf, alv, clw, cpd, zemiss_def, rd, &
     &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
     &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, limit_seaice, seaice_limit
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, &
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, albi, albim, albsm, albs, albedoW_sim, &
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
@@ -63,8 +63,7 @@ MODULE mo_sea_ice
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
   USE mo_zaxis_type,          ONLY: ZA_GENERIC_ICE, ZA_SURFACE
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, &
-    &                               t_sea_ice_acc, t_sea_ice_budgets
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_sea_ice_budgets
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -103,7 +102,6 @@ MODULE mo_sea_ice
   PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
-  PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   PUBLIC :: salt_content_in_surface
   PUBLIC :: energy_content_in_surface
 
@@ -2159,60 +2157,6 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce
-
-  SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
-    TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
-    TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
-    TYPE(t_subset_range), INTENT(IN)    :: subset
-    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%u   , p_ice%u   , subset)
-    CALL add_fields(p_acc%v   , p_ice%v   , subset)
-    CALL add_fields(p_acc%HeatOceW , p_ice%HeatOceW , subset)
-    CALL add_fields(p_acc%zUnderIce, p_ice%zUnderIce, subset)
-    CALL add_fields(p_acc%draftave , p_ice%draftave , subset)
-    CALL add_fields(p_acc%Qtop     , p_ice%Qtop     , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%Qbot     , p_ice%Qbot     , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%CondHeat , p_ice%CondHeat , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%HeatOceI , p_ice%HeatOceI , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%zHeatOceI, p_ice%zHeatOceI, subset , levels=p_ice%kice)
-  END SUBROUTINE update_ice_statistic
-
-  SUBROUTINE compute_mean_ice_statistics(p_acc,nsteps_since_last_output)
-    TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
-    INTEGER,INTENT(IN)                 :: nsteps_since_last_output
-    p_acc%hi                        = p_acc%hi       /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs       /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u        /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v        /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc     /REAL(nsteps_since_last_output,wp)
-    p_acc%Qtop                      = p_acc%Qtop     /REAL(nsteps_since_last_output,wp)
-    p_acc%Qbot                      = p_acc%Qbot     /REAL(nsteps_since_last_output,wp)
-    p_acc%CondHeat                  = p_acc%CondHeat /REAL(nsteps_since_last_output,wp)
-    p_acc%HeatOceI                  = p_acc%HeatOceI /REAL(nsteps_since_last_output,wp)
-    p_acc%HeatOceW                  = p_acc%HeatOceW /REAL(nsteps_since_last_output,wp)
-    p_acc%zHeatOceI                 = p_acc%zHeatOceI/REAL(nsteps_since_last_output,wp)
-    p_acc%zUnderIce                 = p_acc%zUnderIce/REAL(nsteps_since_last_output,wp)
-    p_acc%draftave                  = p_acc%draftave /REAL(nsteps_since_last_output,wp)
-  END SUBROUTINE compute_mean_ice_statistics
-
-  SUBROUTINE reset_ice_statistics(p_acc)
-    TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
-    p_acc%hi                        = 0.0_wp
-    p_acc%hs                        = 0.0_wp
-    p_acc%u                         = 0.0_wp
-    p_acc%v                         = 0.0_wp
-    p_acc%conc                      = 0.0_wp
-    p_acc%Qtop                      = 0.0_wp
-    p_acc%Qbot                      = 0.0_wp
-    p_acc%CondHeat                  = 0.0_wp
-    p_acc%HeatOceI                  = 0.0_wp
-    p_acc%HeatOceW                  = 0.0_wp
-    p_acc%zHeatOceI                 = 0.0_wp
-    p_acc%zUnderIce                 = 0.0_wp
-    p_acc%draftave                  = 0.0_wp
-  END SUBROUTINE reset_ice_statistics
 
   SUBROUTINE finish_unless_allocate(ist, routine, tag)
     INTEGER :: ist

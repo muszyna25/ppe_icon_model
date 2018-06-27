@@ -100,9 +100,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   CALL set_parameters_bgc
 
 
-  CALL print_bgc_parameters 
-
-  CALL message(TRIM(routine), 'bgc_param_conv_unit')
 
 
   ! region indices
@@ -140,13 +137,18 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   ! convert 1/d to 1/ts
   CALL bgc_param_conv_unit
 
+  CALL print_bgc_parameters 
+
+  CALL message(TRIM(routine), 'bgc_param_conv_unit')
 
   CALL message(TRIM(routine), 'ini weathering fluxes')
   totalarea = 0._wp
   DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc=start_index, end_index
-           totalarea = totalarea + p_patch%cells%area(jc,jb) 
+           totalarea = totalarea + p_patch%cells%area(jc,jb) * &
+ &             p_patch_3d%wet_halo_zero_c(jc,1,jb)
+
         ENDDO
   ENDDO
   totalarea     = global_sum_array(totalarea)

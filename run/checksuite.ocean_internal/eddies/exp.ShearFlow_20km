@@ -61,7 +61,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}                ! error with ""
   output_grid      = .true.
-  ml_varlist       =  'group:oce_essentials', 'A_tracer_v_T', 'veloc_adv_horz_u', 'veloc_adv_horz_v', 
+  ml_varlist       =  'group:oce_essentials', 'veloc_adv_horz_u', 'veloc_adv_horz_v', 
     'laplacian_horz_u', 'laplacian_horz_v', 'div_mass_flx_c_acc', 'vort_acc', 'vn_u', 'vn_v', 'mass_flx_e_u', 'mass_flx_e_v', 
     'h', 'u', 'v', 't', 'press_hyd', 'pressure_grad_u', 'pressure_grad_v'
 /
