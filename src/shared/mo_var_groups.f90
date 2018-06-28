@@ -222,6 +222,19 @@ CONTAINS
       END IF
     END DO LOOP_GROUPS
 
+    ! If the group does not exist, create it.
+    IF (group_id == 0) THEN
+      !
+      ! increase dynamic groups array by one element
+      CALL resize_arr_c1d(var_groups%name,1)
+      !
+      ! add new group
+      var_groups%name(SIZE(var_groups%name)) = toupper(TRIM(in_str))
+      !
+      ! return its group ID (including offset from static groups array)
+      group_id = SIZE(var_groups%name)
+    ENDIF
+
     ! paranoia:
     lcheck = .TRUE.
     IF (PRESENT(opt_lcheck))  lcheck = opt_lcheck
@@ -335,6 +348,7 @@ CONTAINS
   END FUNCTION groups_arg
 
 
+  !----------------------------------------------------------------------------------------
   !> The same, but provide list of groups as one character vector of group names.
   !  Attention: the strings passed in group_list must be of length VARNAME_LEN !
   !
@@ -342,15 +356,17 @@ CONTAINS
     LOGICAL :: groups_vec(MAX_GROUPS)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: group_list(:)
 
-    INTEGER :: i
+    CHARACTER(*), PARAMETER :: routine = modname//"::groups_vec"
+    INTEGER :: i, grp_id
 
     groups_vec(:) = .FALSE.
     groups_vec(var_groups_dyn%group_id("ALL")) = .TRUE.
     DO i=1,SIZE(group_list)
       IF (TRIM(group_list(i)) == "ALL") CYCLE
-      groups_vec(var_groups_dyn%group_id(TRIM(group_list(i)))) = .TRUE.
+      grp_id = var_groups_dyn%group_id(TRIM(group_list(i)))
+      IF (grp_id > MAX_GROUPS)  CALL finish(routine, TRIM(group_list(i)))
+      groups_vec(grp_id) = .TRUE.
     END DO
-
   END FUNCTION groups_vec
 
 END MODULE mo_var_groups
