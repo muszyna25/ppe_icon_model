@@ -148,6 +148,8 @@ MODULE mo_fortran_tools
   ! The association status of the POINTER that IS passed IN must be defined.
   INTERFACE ensureSize
     MODULE PROCEDURE ensureSize_dp_1d
+    MODULE PROCEDURE ensureSize_sp_1d
+    MODULE PROCEDURE ensureSize_int_1d
   END INTERFACE ensureSize
 
   !> this is meant to make it easier for compilers to circumvent
@@ -437,46 +439,112 @@ CONTAINS
   END SUBROUTINE alloc_single_1d
 
   SUBROUTINE ensureSize_dp_1d(buffer, requiredSize, do_copy_in)
-    REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
+    REAL(dp), POINTER, INTENT(INOUT) :: buffer(:)
     INTEGER, VALUE ::requiredSize
     LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
-    REAL(wp), POINTER :: newBuffer(:)
+    REAL(dp), POINTER :: newBuffer(:)
     INTEGER :: oldSize, error
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
     LOGICAL :: do_copy
 
     IF (PRESENT(do_copy_in)) THEN
-        do_copy = do_copy_in
+      do_copy = do_copy_in
     ELSE
-        do_copy = .true.
+      do_copy = .true.
     END IF
-
-
     IF(ASSOCIATED(buffer)) THEN
-        oldSize = SIZE(buffer, 1)
-        IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
-        requiredSize = MAX(requiredSize, 2*oldSize) ! avoid quadratic complexity
-
-        ALLOCATE(newBuffer(requiredSize), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-
-        IF (do_copy) THEN
-          newBuffer(1:oldSize) = buffer(1:oldSize)
-          newBuffer(oldSize + 1:requiredSize) = 0.0
-        END IF
-
-        DEALLOCATE(buffer)
-        buffer => newBuffer
-        newBuffer => NULL()
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp)) ! avoid quadratic complexity
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0._dp
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
     ELSE
-        ALLOCATE(buffer(requiredSize), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-        IF (do_copy) THEN
-            buffer(1:requiredSize) = 0.0
-        END IF
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        buffer(1:requiredSize) = 0._dp
+      END IF
     END IF
   END SUBROUTINE ensureSize_dp_1d
 
+  SUBROUTINE ensureSize_sp_1d(buffer, requiredSize, do_copy_in)
+    REAL(sp), POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
+    REAL(sp), POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
+
+    IF (PRESENT(do_copy_in)) THEN
+      do_copy = do_copy_in
+    ELSE
+      do_copy = .true.
+    END IF
+    IF(ASSOCIATED(buffer)) THEN
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0._sp
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
+    ELSE
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+          buffer(1:requiredSize) = 0._sp
+      END IF
+    END IF
+  END SUBROUTINE ensureSize_sp_1d
+
+  SUBROUTINE ensureSize_int_1d(buffer, requiredSize, do_copy_in)
+    INTEGER, POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
+    INTEGER, POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
+
+    IF (PRESENT(do_copy_in)) THEN
+      do_copy = do_copy_in
+    ELSE
+      do_copy = .true.
+    END IF
+    IF(ASSOCIATED(buffer)) THEN
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
+    ELSE
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        buffer(1:requiredSize) = 0
+      END IF
+    END IF
+  END SUBROUTINE ensureSize_int_1d
 
   !>
   !! Swap content of two Integers
@@ -497,8 +565,6 @@ CONTAINS
     a    = b
     b    = temp
   END SUBROUTINE swap_int
-
-
 
   !>
   !! Expand array by given size
