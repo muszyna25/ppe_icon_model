@@ -12,7 +12,7 @@ MODULE mo_var_groups
 
   USE mo_impl_constants,        ONLY: VARNAME_LEN, TIMELEVEL_SUFFIX
   USE mo_exception,             ONLY: finish
-  USE mo_util_string,           ONLY: toupper
+  USE mo_util_string,           ONLY: toupper, int2string
   USE mo_fortran_tools,         ONLY: resize_arr_c1d
   USE mo_util_sort,             ONLY: quicksort
 
@@ -241,7 +241,7 @@ CONTAINS
     IF (lcheck) THEN
       max_size = SIZE(var_groups%name)
       IF ((group_id < 1) .OR. (group_id > max_size)) &
-        &  CALL finish(routine, "Invalid group ID: "//TRIM(in_str))
+        &  CALL finish(routine, "Invalid group ID: "//TRIM(in_str)//" = "//TRIM(int2string(group_id,"(i0)")))
     ENDIF
   END FUNCTION t_var_groups_group_id
 
