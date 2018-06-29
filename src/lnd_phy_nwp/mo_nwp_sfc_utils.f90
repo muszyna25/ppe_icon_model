@@ -1938,11 +1938,12 @@ CONTAINS
       ENDDO
     ENDIF
 
+    IF (PRESENT(snowfrac_u)) snowfrac_u(istart:iend) = snowfrac(istart:iend) ! save unmodified snow-cover fraction
+
     SELECT CASE (idiag_snowfrac)
     CASE (20, 30, 40)
       ! Artificially reduce snow-cover fraction in case of melting snow in order to reduce the ubiquitous
       ! cold bias in such situations
-      IF (PRESENT(snowfrac_u)) snowfrac_u(istart:iend) = snowfrac(istart:iend) ! save unmodified snow-cover fraction
       IF (PRESENT(meltrate)) THEN
         DO ic = istart, iend
           snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-30000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
