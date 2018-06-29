@@ -221,7 +221,6 @@ CONTAINS
         WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')    &
              & dt%date%year, dt%date%month, dt%date%day , 'T', &
              & dt%time%hour, dt%time%minute, dt%time%second, 'Z'
-        
         NULLIFY(keywords)
         ! build the keyword list
         CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
@@ -236,10 +235,10 @@ CONTAINS
         END IF
 
         ! replace keywords in file name
-        tempname = with_keywords(keywords, TRIM(restart_filename))
+        WRITE(tempname, "(a)") TRIM(with_keywords(keywords, TRIM(restart_filename)))
         fn_len = LEN_TRIM(tempname)
         CALL alloc_string(fn_len, resultVar)
-        resultVar = tempname(1:fn_len)
+        WRITE(resultVar, '(a)') TRIM(tempname)
     END SUBROUTINE getRestartFilename
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, this_datetime, n_dom, jstep, opt_output_jfile)
