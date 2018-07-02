@@ -20,6 +20,7 @@ MODULE mo_var_list
        &                         CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
+  USE mo_run_config,       ONLY: msg_level
   USE mo_var_groups,       ONLY: var_groups_dyn, groups
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
     &                            t_var_metadata_dynamic,            &
@@ -973,11 +974,17 @@ CONTAINS
     ! consistency check for restart and output
     TYPE(t_list_element), POINTER :: duplicate
 
-    duplicate => find_element(name)
-    IF (ASSOCIATED(duplicate)) THEN
-      CALL message('ADD_VAR:','Found double entry for varname:'//TRIM(name))
-      NULLIFY(duplicate)
-    ENDIF
+    ! Check for a variable of the same name. This consistency check
+    ! only makes sense for single-domain setups which, in addition,
+    ! must not use internal post-processing (lon-lat or vertically
+    ! interpolated output).
+    IF (msg_level > 20) THEN
+      duplicate => find_element(name)
+      IF (ASSOCIATED(duplicate)) THEN
+        CALL message('ADD_VAR:','Found double entry for varname:'//TRIM(name))
+        NULLIFY(duplicate)
+      ENDIF
+    END IF
 
     is_restart_var = this_list%p%lrestart
     CALL assign_if_present(is_restart_var, lrestart)
