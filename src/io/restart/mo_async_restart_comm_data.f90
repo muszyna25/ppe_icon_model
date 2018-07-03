@@ -207,29 +207,27 @@ CONTAINS
     CLASS(inbufhandler_t), TARGET,  INTENT(INOUT) :: this
     TYPE(inbuffer_t), POINTER                     :: my_inbuf
     INTEGER,                        INTENT(IN)    :: my_slot
-    INTEGER                                       :: reorderOffset, &
-                                                     ilevel, reorderOffsetNext
+    INTEGER                                       :: rordOff, ilevel, rordOffN
     CHARACTER(LEN=*), PARAMETER                   :: procedure_name = &
      &                          modname//'::inbufferhandler_apply'
 
-    reorderOffset = 1
+    rordOff = 1
     my_inbuf => this%inbuffers(my_slot)
     DO ilevel = 1, my_inbuf%levelCount
-      reorderOffsetNext = reorderOffset - 1 + &
-        &                  my_inbuf%reorderData%pe_own(my_inbuf%srcProc)
+      rordOffN = rordOff + my_inbuf%reorderData%pe_own(my_inbuf%srcProc)
       SELECT CASE(my_inbuf%itype)
       CASE(1)
         CALL my_inbuf%reorderData%unpackLevelFromPe( &
           &       ilevel, my_inbuf%srcProc,          &
-          &       my_inbuf%inbuffer(reorderOffset:reorderOffsetNext), &
+          &       my_inbuf%inbuffer(rordOff:rordOffN-1), &
           &       my_inbuf%dest_sp)
       CASE(2)
         CALL my_inbuf%reorderData%unpackLevelFromPe( &
           &       ilevel, my_inbuf%srcProc,          &
-          &       my_inbuf%inbuffer(reorderOffset:reorderOffsetNext), &
+          &       my_inbuf%inbuffer(rordOff:rordOffN-1), &
           &       my_inbuf%dest_dp)
-      reorderOffset = reorderOffsetNext + 1
       END SELECT
+      rordOff = rordOffN
     ENDDO
   END SUBROUTINE asyncRestartCommData_inbuffer_apply
 
