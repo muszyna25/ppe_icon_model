@@ -112,23 +112,23 @@ CONTAINS
         CALL me%cdiIds%finalizeVlist(restart_args%restart_datetime)
     END SUBROUTINE restartFile_open
 
-    SUBROUTINE restartFile_writeLevel_r(me, varId, levelId, data)
+    SUBROUTINE restartFile_writeLevel_r(me, varId, levelId, data_out)
         CLASS(t_RestartFile), INTENT(IN) :: me
         INTEGER, VALUE :: varId, levelId
-        REAL(dp), INTENT(IN) :: data(:)
+        REAL(dp), INTENT(IN) :: data_out(:)
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-        CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, data, 0)
+        CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, data_out, 0)
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
     END SUBROUTINE restartFile_writeLevel_r
 
-    SUBROUTINE restartFile_writeLevel_s(me, varId, levelId, data)
+    SUBROUTINE restartFile_writeLevel_s(me, varId, levelId, data_out)
         CLASS(t_RestartFile), INTENT(IN) :: me
         INTEGER, VALUE :: varId, levelId
-        REAL(sp), INTENT(IN) :: data(:)
+        REAL(sp), INTENT(IN) :: data_out(:)
 
         IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-        CALL streamWriteVarSliceF(me%cdiIds%file, varId, levelId, data, 0)
+        CALL streamWriteVarSliceF(me%cdiIds%file, varId, levelId, data_out, 0)
         IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
     END SUBROUTINE restartFile_writeLevel_s
 
