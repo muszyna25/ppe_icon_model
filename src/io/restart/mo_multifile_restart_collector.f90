@@ -55,16 +55,6 @@ MODULE mo_multifile_restart_collector
     PROCEDURE, PRIVATE :: allocate_mem => t_CollectorSendBuffer_allocate_mem
   END TYPE t_CollectorSendBuffer
 
-
-  TYPE :: t_CollectorVarBuffer
-    INTEGER(i8) :: send_buffer_offset
-    INTEGER     :: send_buffer_size
-  CONTAINS
-    PROCEDURE :: construct => t_CollectorVarBuffer_construct
-    PROCEDURE :: finalize  => t_CollectorVarBuffer_finalize
-  END TYPE t_CollectorVarBuffer
-
-
   TYPE :: t_CollectorIndices
     !All allocatable arrays are allocated on both work and restart
     !processes, however, they may be empty on either dedicated
@@ -97,7 +87,6 @@ MODULE mo_multifile_restart_collector
     PROCEDURE :: construct => t_CollectorIndices_construct
     PROCEDURE :: finalize  => t_CollectorIndices_finalize
   END TYPE t_CollectorIndices
-
 
   ! This class is used to gather the restart payload DATA onto the
   ! restart writing processes.
@@ -134,7 +123,7 @@ MODULE mo_multifile_restart_collector
     ! pointer to global send buffer / MPI window
     TYPE(t_CollectorSendBuffer),  POINTER    :: glb_sendbuf
     ! send buffers (pointing into global send buffer)
-    TYPE(t_CollectorVarBuffer), ALLOCATABLE  :: buf(:)
+    INTEGER(KIND=i8), ALLOCATABLE :: send_buffer_offset(:)
     ! on receiving PEs: start index in send buffer for every source
     ! PE:
     INTEGER, ALLOCATABLE :: sourcePointStart(:)
@@ -157,21 +146,6 @@ MODULE mo_multifile_restart_collector
   CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_collector"
 
 CONTAINS
-
-  SUBROUTINE t_CollectorVarBuffer_construct(me, ioffset, isize)
-    CLASS(t_CollectorVarBuffer), INTENT(INOUT) :: me
-    INTEGER(i8),                 INTENT(INOUT) :: ioffset
-    INTEGER,                     INTENT(IN)    :: isize
-
-    me%send_buffer_offset = ioffset
-    me%send_buffer_size   = isize
-    ioffset = ioffset + isize
-  END SUBROUTINE t_CollectorVarBuffer_construct
-
-  SUBROUTINE t_CollectorVarBuffer_finalize(me)
-    CLASS(t_CollectorVarBuffer), INTENT(INOUT) :: me
-    ! do nothing
-  END SUBROUTINE t_CollectorVarBuffer_finalize
 
   ! On the restart writers, this returns an array with the global
   ! indices of the points collected by this PE. The return value is
@@ -279,7 +253,6 @@ CONTAINS
     INTEGER,                              INTENT(INOUT) :: sourceOffset(:,:)    
     CHARACTER(*), PARAMETER :: routine = modname//":t_multifileRestartCollector_construct"
     INTEGER     :: i, error, majver_mpi, minver_mpi
-    INTEGER(i8) :: itype_offset
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
     me%idx         => idx
@@ -295,14 +268,12 @@ CONTAINS
     END IF
     ! build send buffers for each variable (which point into the
     ! global send buffer):
-    ALLOCATE(me%buf(nlev), STAT=error)
+    ALLOCATE(me%send_buffer_offset(nlev), STAT=error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    DO i=1,nlev
-      ! note: the following call modifies the offset!
-      itype_offset = ioffset(itype)
-      CALL me%buf(i)%construct(itype_offset, idx%sendPointCount)
-      ioffset(itype) = itype_offset
+    DO i = 1, nlev
+      me%send_buffer_offset(i) = ioffset(itype) + (i - 1) * idx%sendPointCount
     END DO
+    ioffset(itype) = ioffset(itype) + idx%sendPointCount * nlev
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
   END SUBROUTINE t_multifileRestartCollector_construct
 
@@ -311,13 +282,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_finalize"
     INTEGER :: i, ierror
 
-    IF (ALLOCATED(me%buf)) THEN
-      DO i=1,SIZE(me%buf)
-        CALL me%buf(i)%finalize()
-      END DO
-      DEALLOCATE(me%buf, STAT=ierror)
-      IF(ierror /= SUCCESS) CALL finish(routine, "memory deallocation failure")
-    END IF
+    IF (ALLOCATED(me%send_buffer_offset)) &
+    &  DEALLOCATE(me%send_buffer_offset)
     NULLIFY(me%idx)
     DEALLOCATE(me%sourcePointStart, STAT=ierror)
     IF (ierror /= SUCCESS) CALL finish(routine, "memory deallocation failure")
@@ -373,36 +339,27 @@ CONTAINS
     IF(j /= idx%receivePointCount + 1) CALL finish(routine, "assertion failed")
   END SUBROUTINE collectBuffer_blocking
 
-  SUBROUTINE multifileRestartCollector_receiveBuffer_generic(me, levStart, used_size, outputData_s, outputData_d, outputData_i, levCount_in)
+  SUBROUTINE multifileRestartCollector_receiveBuffer_generic(me, levStart, used_size, levCount, outputData_s, outputData_d, outputData_i)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,       INTENT(IN   )                      :: levStart
+    INTEGER,       INTENT(IN   )                      :: levStart, levCount
     INTEGER,       INTENT(INOUT)                      :: used_size
     REAL(KIND=sp), INTENT(INOUT), OPTIONAL, POINTER   :: outputData_s(:)
     REAL(KIND=dp), INTENT(INOUT), OPTIONAL, POINTER   :: outputData_d(:)
     INTEGER,       INTENT(INOUT), OPTIONAL, POINTER   :: outputData_i(:)
-    INTEGER,       INTENT(IN   ), OPTIONAL            :: levCount_in
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_receiveBuffer_generic"
 #ifndef NOMPI
     INTEGER, PARAMETER :: n_openreqs_max = 32
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
       &        target_count, target_datatype, n_openreqs
-    INTEGER :: get_reqs(n_openreqs_max), i_req, outType
-    INTEGER :: stride, optinCount, the_win, levCount, ddt
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: lb, extent, true_lb, true_extent
+    INTEGER :: get_reqs(n_openreqs_max), i_req, outType, stride, the_win, ddt
+
     stride = SUM(me%idx%sourcePointCounts(:))
     n_openreqs = 0
-    optinCount = 0
-    IF (PRESENT(levCount_in)) THEN
-      levCount = levCount_in
-    ELSE
-      levCount = 1
-    END IF
     IF (PRESENT(outputData_s)) THEN
       CALL ensureSize(outputData_s, stride*levCount, no_copy)
       outType = 1
       target_datatype = p_real_sp
-      optinCount = optinCount + 1
       the_win = me%glb_sendbuf%mpi_win_sendbuf_s
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
@@ -413,7 +370,6 @@ CONTAINS
       CALL ensureSize(outputData_d, stride*levCount, no_copy)
       outType = 2
       target_datatype = p_real_dp
-      optinCount = optinCount + 1
       the_win = me%glb_sendbuf%mpi_win_sendbuf_d
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
@@ -424,20 +380,17 @@ CONTAINS
       CALL ensureSize(outputData_i, stride*levCount, no_copy)
       outType = 3
       target_datatype = p_int
-      optinCount = optinCount + 1
       the_win = me%glb_sendbuf%mpi_win_sendbuf_int
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_i(i) = 0
       END DO
     END IF
-    IF (optinCount /= 1) CALL finish(routine, "assertion failed")
     origin_addr  = 1
     origin_count = 1
     DO i = 1, me%idx%sourceProcCount
       ddt = MPI_DATATYPE_NULL
       IF (me%idx%sourcePointCounts(i) > 0) THEN
-!        WRITE(0, "(a,3(i8))") 'get from: ', me%idx%sourceProcs(i), me%idx%sourcePointCounts(i), levCount
         CALL MPI_Type_vector(levCount, me%idx%sourcePointCounts(i), stride, &
                              target_datatype, ddt, ierror)
         IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
@@ -512,40 +465,31 @@ CONTAINS
 #endif
   END SUBROUTINE multifileRestartCollector_receiveBuffer_generic
 
-  SUBROUTINE multifileRestartCollector_receiveBuffer_s(me, levStart, outputData, used_size, levCount_in)
+  SUBROUTINE multifileRestartCollector_receiveBuffer_s(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,                    INTENT(IN)    :: levStart
-    REAL(sp),          POINTER, INTENT(INOUT) :: outputData(:)
-    INTEGER,                    INTENT(INOUT) :: used_size
-    INTEGER, OPTIONAL,          INTENT(IN)    :: levCount_in
-    INTEGER :: levCount
-    levCount = 1
-    IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%receiveBuffer_generic(levStart, used_size, outputData_s=outputData, levCount_in=levCount)
+    INTEGER,                            INTENT(IN   ) :: levStart, levCount
+    REAL(sp),                  POINTER, INTENT(INOUT) :: outputData(:)
+    INTEGER,                            INTENT(  OUT) :: used_size
+
+    CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_s=outputData)
   END SUBROUTINE multifileRestartCollector_receiveBuffer_s
 
-  SUBROUTINE multifileRestartCollector_receiveBuffer_d(me, levStart, outputData, used_size, levCount_in)
+  SUBROUTINE multifileRestartCollector_receiveBuffer_d(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,                    INTENT(IN)    :: levStart
-    REAL(dp),          POINTER, INTENT(INOUT) :: outputData(:)
-    INTEGER,                    INTENT(INOUT) :: used_size
-    INTEGER, OPTIONAL,          INTENT(IN)    :: levCount_in
-    INTEGER :: levCount
-    levCount = 1
-    IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%receiveBuffer_generic(levStart, used_size, outputData_d=outputData, levCount_in=levCount)
+    INTEGER,                            INTENT(IN   ) :: levStart, levCount
+    REAL(dp),                  POINTER, INTENT(INOUT) :: outputData(:)
+    INTEGER,                            INTENT(  OUT) :: used_size
+
+    CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_d=outputData)
   END SUBROUTINE multifileRestartCollector_receiveBuffer_d
 
-  SUBROUTINE multifileRestartCollector_receiveBuffer_int(me, levStart, outputData, used_size, levCount_in)
+  SUBROUTINE multifileRestartCollector_receiveBuffer_int(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER,                    INTENT(IN)    :: levStart
-    INTEGER,           POINTER, INTENT(INOUT) :: outputData(:)
-    INTEGER,                    INTENT(INOUT) :: used_size
-    INTEGER, OPTIONAL,          INTENT(IN)    :: levCount_in
-    INTEGER :: levCount
-    levCount = 1
-    IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%receiveBuffer_generic(levStart, used_size, outputData_i=outputData, levCount_in=levCount)
+    INTEGER,                            INTENT(IN   ) :: levStart, levCount
+    INTEGER,                   POINTER, INTENT(INOUT) :: outputData(:)
+    INTEGER,                            INTENT(  OUT) :: used_size
+
+    CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_i=outputData)
   END SUBROUTINE multifileRestartCollector_receiveBuffer_int
 
   SUBROUTINE multifileRestartCollector_sendField_generic(me, levStart, inputData_s, &
@@ -595,7 +539,7 @@ CONTAINS
       myRank = p_comm_rank(p_comm_work_restart)
       DO ilev = levStart, levStart -1 + levCount
         !Fill the send buffer.
-        ioffset = me%buf(ilev)%send_buffer_offset
+        ioffset = me%send_buffer_offset(ilev)
         IF (glb_size < ioffset + me%idx%sendPointCount) THEN
           WRITE (message_text,*) "Internal error: SIZE(sendBuffer_generic(",TRIM(my_type_is),")) = ", glb_size,    &
             &                    " < ioffset + me%idx%sendPointCount) = ", ioffset + me%idx%sendPointCount, &
@@ -670,16 +614,11 @@ CONTAINS
     IF (.NOT. ASSOCIATED(me%idx)) THEN
       CALL finish(routine, "Internal error!")
     END IF
-    IF (.NOT. ALLOCATED(me%buf)) THEN
-      CALL finish(routine, "Internal error: me%buf unallocated!")
+    IF (.NOT. ALLOCATED(me%send_buffer_offset)) THEN
+      CALL finish(routine, "Internal error: me%send_buffer_offset unallocated!")
     END IF
-    IF ((ilev < 1) .OR. (ilev > SIZE(me%buf))) THEN
+    IF ((ilev < 1) .OR. (ilev > SIZE(me%send_buffer_offset))) THEN
       WRITE (message_text, *) "Internal error: Invalid level index: ", ilev, "!"
-      CALL finish(routine, message_text)
-    END IF
-    IF (me%idx%sendPointCount > me%buf(ilev)%send_buffer_size) THEN
-      WRITE (message_text,*) "Internal error: send buffer has wrong size; sendPointCount=", &
-        &                    me%idx%sendPointCount, "!"
       CALL finish(routine, message_text)
     END IF
   END SUBROUTINE multifileRestartCollector_checkArguments
