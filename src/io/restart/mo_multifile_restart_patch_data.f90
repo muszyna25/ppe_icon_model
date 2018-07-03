@@ -386,23 +386,14 @@ CONTAINS
     INTEGER                         :: nchunks, ichunk, nlevels, ilevel_start, i
     REAL(KIND=dp), POINTER, DIMENSION(:) :: ptr2level_dp
     REAL(KIND=sp), POINTER, DIMENSION(:) :: ptr2level_sp
-    LOGICAL :: actually_has_data_to_write
-    actually_has_data_to_write = .false.
-    IF (ASSOCIATED(me%glb_indices_cell)) THEN
-      IF (SIZE(me%glb_indices_cell) .GT. 0) &
-        actually_has_data_to_write = .true.
+
+    IF (.NOT.ASSOCIATED(me%glb_indices_cell)) THEN !checking one of cell/edge/vert should suffice
+      RETURN
+    ELSE
+      IF (SIZE(me%glb_indices_cell) .LE. 0) &
+        RETURN
     END IF
-    IF (ASSOCIATED(me%glb_indices_vert)) THEN
-      IF (SIZE(me%glb_indices_vert) .GT. 0) &
-        actually_has_data_to_write = .true.
-    END IF
-    IF (ASSOCIATED(me%glb_indices_edge)) THEN
-      IF (SIZE(me%glb_indices_edge) .GT. 0) &
-        actually_has_data_to_write = .true.
-    END IF
-    IF(.NOT. actually_has_data_to_write) RETURN
     NULLIFY(ptr2level_dp, ptr2level_sp)
-    
     LOOP_VAR2 : DO curVar = 1, SIZE(me%varData)
       curInfo => me%varData(curVar)%info
       startLevel = 1
@@ -413,6 +404,9 @@ CONTAINS
       ! no valid time level -> no output:
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
         &                          me%description%nnew_rcf)) CYCLE LOOP_VAR2
+      IF (nchunks .EQ. 1 .AND. endLevel .LT. restart_chunk_size) THEN
+        WRITE(0, "(3(a))") "variable ", TRIM(curInfo%name), " is an aggregation candidate...."
+      ENDIF
       LOOP_IO: DO ichunk = 1, nchunks
         ilevel_start = restart_chunk_size*(ichunk - 1) + 1
         nlevels      = MIN(restart_chunk_size * ichunk, endLevel) - ilevel_start + 1
@@ -422,28 +416,20 @@ CONTAINS
           CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_dp, used_size, nlevels)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-!          IF (used_size .GT. 0) THEN
-            DO ilevel = 1, nlevels
-              ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-              CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, &
-                &                      ilevel+ilevel_start-2, &
-                &                      ptr2level_dp, 0)
-            END DO
-!          END IF
+          DO ilevel = 1, nlevels
+            ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId,  ilevel+ilevel_start-2, ptr2level_dp, 0)
+          END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
           !
         CASE(SINGLE_T)
           CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_sp, used_size, nlevels)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-!          IF (used_size .GT. 0) THEN
-            DO ilevel = 1, nlevels
-              ptr2level_sp => me%commonRecvBuf_sp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-              CALL streamWriteVarSliceF(fileId, curInfo%cdiVarId, &
-                &                       ilevel-2+ilevel_start, &
-                &                       ptr2level_sp, 0)
-            END DO
-!          END IF
+          DO ilevel = 1, nlevels
+            ptr2level_sp => me%commonRecvBuf_sp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            CALL streamWriteVarSliceF(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_sp, 0)
+          END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 4_i8
           !               
         CASE(INT_T)
@@ -451,19 +437,15 @@ CONTAINS
           CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_int, used_size, nlevels)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-!          IF (used_size .GT. 0) THEN
-            CALL ensureSize(me%commonRecvBuf_dp, used_size, no_copy)
+          CALL ensureSize(me%commonRecvBuf_dp, used_size, no_copy)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
-            DO i = 1, used_size
-              me%commonRecvBuf_dp(i) = REAL(me%commonRecvBuf_int(i), dp)
-            END DO
-            DO ilevel = 1, nlevels
-              ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-              CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, &
-                &                      ilevel-2+ilevel_start, &
-                &                      ptr2level_dp, 0)
-            END DO
-!          END IF
+          DO i = 1, used_size
+            me%commonRecvBuf_dp(i) = REAL(me%commonRecvBuf_int(i), dp)
+          END DO
+          DO ilevel = 1, nlevels
+            ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_dp, 0)
+          END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
         CASE DEFAULT
           CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
