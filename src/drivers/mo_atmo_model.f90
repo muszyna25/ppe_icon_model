@@ -27,6 +27,7 @@ MODULE mo_atmo_model
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
+  USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -590,6 +591,9 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
+
+    ! close memory logging files
+    CALL memory_log_terminate
 
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()

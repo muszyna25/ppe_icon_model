@@ -578,12 +578,13 @@ set_run_target_bullx()
       ;;
   esac
 
-  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
-  case $use_flags_group in
-    debug)
-      use_mpi_startrun="${use_mpi_startrun},CORE"
-      ;;
-  esac
+  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+# TODO: disabled because other core files are generated
+# case $use_flags_group in
+#   debug)
+#     use_mpi_startrun="${use_mpi_startrun},CORE"
+#     ;;
+# esac
 
   case _$use_compiler in
     "_intel" )

@@ -325,7 +325,8 @@ CONTAINS
     IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
       WRITE (0,*) 'build local copies of "val", "glbidx", sorted by "glbidx":'
     END IF
-    ALLOCATE(val_sorted(nrow,nval), permutation(nval), glbidx_sorted(nval))
+    ALLOCATE(val_sorted(nrow,nval), permutation(nval), glbidx_sorted(nval), &
+      &      glbidx(nval))
     glbidx        = in_glbidx
     permutation   = (/ ( i, i=1,nval ) /)
     CALL quicksort_int(glbidx, permutation)

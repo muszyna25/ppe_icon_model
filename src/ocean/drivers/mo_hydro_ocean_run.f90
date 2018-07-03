@@ -29,6 +29,7 @@ MODULE mo_hydro_ocean_run
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
+  USE mo_memory_log,             ONLY: memory_log_add
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
        &                               i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
        &                               cfl_write, surface_module
@@ -246,7 +247,8 @@ CONTAINS
     jstep = jstep0
     TIME_LOOP: DO
       
-     
+      ! optional memory loggin
+      CALL memory_log_add
 
       jstep = jstep + 1
       ! update model date and time mtime based
