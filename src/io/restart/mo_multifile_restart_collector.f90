@@ -13,7 +13,7 @@
 
 MODULE mo_multifile_restart_collector
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_NULL_PTR
 
 #ifndef NOMPI
   USE mpi
@@ -41,18 +41,28 @@ MODULE mo_multifile_restart_collector
   LOGICAL, SAVE :: have_MPI_RGet = .false.
   ! buffers for linearizing the data before sending it to the writer
   ! process
+
+  TYPE :: ptr_arr_t
+    REAL(KIND=dp), POINTER :: p(:)
+  END TYPE ptr_arr_t
+
   TYPE :: t_CollectorSendBuffer
     REAL(dp), POINTER :: sendBuffer_d(:)
     REAL(sp), POINTER :: sendBuffer_s(:)
-    INTEGER,  POINTER :: sendBuffer_int(:)  
-    ! One-Sided MPI window handles
-    INTEGER :: mpi_win_sendbuf_d, mpi_win_sendbuf_s, mpi_win_sendbuf_int  
+    INTEGER,  POINTER :: sendBuffer_int(:)
+    INTEGER :: win_d, win_s, win_int
+    INTEGER,           PRIVATE :: winComm, &
+      &                          winClGroup, winSvGroup
+    INTEGER(KIND=i8),  PRIVATE :: winSizes(3)
+    TYPE(ptr_arr_t),   PRIVATE :: winPtr(3)
+    LOGICAL,           PRIVATE :: allocd, handshaked, &
+      &                          win_posted, win_started
   CONTAINS
     PROCEDURE :: construct    => t_CollectorSendBuffer_construct
+    PROCEDURE, PRIVATE :: handshake  => t_CollectorSendBuffer_handshake
     PROCEDURE :: finalize     => t_CollectorSendBuffer_finalize
     PROCEDURE :: start_local_access  => t_CollectorSendBuffer_start_local_access
     PROCEDURE :: start_remote_access => t_CollectorSendBuffer_start_remote_access
-    PROCEDURE, PRIVATE :: allocate_mem => t_CollectorSendBuffer_allocate_mem
   END TYPE t_CollectorSendBuffer
 
   TYPE :: t_CollectorIndices
@@ -209,13 +219,15 @@ CONTAINS
       END DO
     END IF
     !Collect the source point counts.
-    DO i = 1, me%sourceProcCount
-      IF(me%sourceProcs(i) == myRank) THEN
-        me%sourcePointCounts(i) = me%sendPointCount
-      ELSE
-        CALL p_recv(me%sourcePointCounts(i), me%sourceProcs(i), 0, comm = p_comm_work_restart)
-      END IF
-    END DO
+    IF (my_process_is_restart_writer()) THEN
+      DO i = 1, me%sourceProcCount
+        IF(me%sourceProcs(i) == myRank) THEN
+          me%sourcePointCounts(i) = me%sendPointCount
+        ELSE
+          CALL p_recv(me%sourcePointCounts(i), me%sourceProcs(i), 0, comm = p_comm_work_restart)
+        END IF
+      END DO
+    END IF
     IF (me%destProc /= myRank) THEN
       CALL p_send(me%sendPointCount, me%destProc, 0, comm = p_comm_work_restart)
     END IF
@@ -348,6 +360,7 @@ CONTAINS
     INTEGER,       INTENT(INOUT), OPTIONAL, POINTER   :: outputData_i(:)
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_receiveBuffer_generic"
 #ifndef NOMPI
+    CONTIGUOUS :: outputData_s, outputData_d, outputData_i
     INTEGER, PARAMETER :: n_openreqs_max = 32
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
@@ -360,7 +373,7 @@ CONTAINS
       CALL ensureSize(outputData_s, stride*levCount, no_copy)
       outType = 1
       target_datatype = p_real_sp
-      the_win = me%glb_sendbuf%mpi_win_sendbuf_s
+      the_win = me%glb_sendbuf%win_s
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_s(i) = 0._sp
@@ -370,7 +383,7 @@ CONTAINS
       CALL ensureSize(outputData_d, stride*levCount, no_copy)
       outType = 2
       target_datatype = p_real_dp
-      the_win = me%glb_sendbuf%mpi_win_sendbuf_d
+      the_win = me%glb_sendbuf%win_d
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_d(i) = 0._dp
@@ -380,7 +393,7 @@ CONTAINS
       CALL ensureSize(outputData_i, stride*levCount, no_copy)
       outType = 3
       target_datatype = p_int
-      the_win = me%glb_sendbuf%mpi_win_sendbuf_int
+      the_win = me%glb_sendbuf%win_int
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_i(i) = 0
@@ -468,7 +481,7 @@ CONTAINS
   SUBROUTINE multifileRestartCollector_receiveBuffer_s(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
     INTEGER,                            INTENT(IN   ) :: levStart, levCount
-    REAL(sp),                  POINTER, INTENT(INOUT) :: outputData(:)
+    REAL(sp), CONTIGUOUS,      POINTER, INTENT(INOUT) :: outputData(:)
     INTEGER,                            INTENT(  OUT) :: used_size
 
     CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_s=outputData)
@@ -477,7 +490,7 @@ CONTAINS
   SUBROUTINE multifileRestartCollector_receiveBuffer_d(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
     INTEGER,                            INTENT(IN   ) :: levStart, levCount
-    REAL(dp),                  POINTER, INTENT(INOUT) :: outputData(:)
+    REAL(dp), CONTIGUOUS,      POINTER, INTENT(INOUT) :: outputData(:)
     INTEGER,                            INTENT(  OUT) :: used_size
 
     CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_d=outputData)
@@ -486,7 +499,7 @@ CONTAINS
   SUBROUTINE multifileRestartCollector_receiveBuffer_int(me, levStart, outputData, used_size, levCount)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
     INTEGER,                            INTENT(IN   ) :: levStart, levCount
-    INTEGER,                   POINTER, INTENT(INOUT) :: outputData(:)
+    INTEGER, CONTIGUOUS,       POINTER, INTENT(INOUT) :: outputData(:)
     INTEGER,                            INTENT(  OUT) :: used_size
 
     CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_i=outputData)
@@ -503,8 +516,8 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: levCount_in
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField_d"
 #ifndef NOMPI
-    INTEGER     :: i, myRank, ierror, ilev, optinCount, inType, levCount
-    INTEGER(i8) :: ioffset,glb_size
+    INTEGER     :: i, ierror, ilev, optinCount, inType, levCount
+    INTEGER(i8) :: ioffset, glb_size
     CHARACTER(LEN=3) :: my_type_is
     
     CALL me%checkArguments(levStart)
@@ -536,7 +549,6 @@ CONTAINS
       CALL finish(routine, "Unassociated send buffer!")
     END IF
     IF (me%idx%sendPointCount > 0) THEN
-      myRank = p_comm_rank(p_comm_work_restart)
       DO ilev = levStart, levStart -1 + levCount
         !Fill the send buffer.
         ioffset = me%send_buffer_offset(ilev)
@@ -623,44 +635,181 @@ CONTAINS
     END IF
   END SUBROUTINE multifileRestartCollector_checkArguments
 
-  SUBROUTINE t_CollectorSendBuffer_construct(buf, isize)
-    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
+  SUBROUTINE t_CollectorSendBuffer_construct(this, isize, idx)
+    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     INTEGER(i8),                  INTENT(IN)    :: isize(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_construct"
+    TYPE(t_CollectorIndices),     INTENT(INOUT) :: idx
+    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_add_domain"
+#ifdef NOMPI
+    CALL finish(routine, "Not implemented!")
+#else
+    INTEGER, PARAMETER :: typeId(3) = (/ REAL_T, SINGLE_T, INT_T /)
+    INTEGER :: ierr, splitKey, wcGrp, wcGrp_size, i, j, ii, iStart, myRank
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: rank_list, rank_map, &
+                                          tmpSrcCounts, tmpSrcProcs
 
-    CALL buf%allocate_mem(isize(REAL_T),   REAL_T,   buf%mpi_win_sendbuf_d)
-    CALL buf%allocate_mem(isize(SINGLE_T), SINGLE_T, buf%mpi_win_sendbuf_s)
-    CALL buf%allocate_mem(isize(INT_T),    INT_T,    buf%mpi_win_sendbuf_int)
+    this%allocd      = .false.
+    this%handshaked  = .false.
+    this%win_posted  = .false.
+    this%win_started = .false.
+    DO i = 1, 3
+      this%winSizes(i) = isize(typeId(i))
+      NULLIFY(this%winPtr(i)%p)
+    END DO
+    myRank = p_comm_rank(p_comm_work_restart)
+    splitKey = MERGE(1, myRank + 2, my_process_is_restart_writer())
+    CALL MPI_Comm_split(p_comm_work_restart, idx%destProc, splitKey, this%winComm, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    idx%destProc = 0
+    CALL MPI_Comm_group(this%winComm, wcGrp, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL MPI_Group_size(wcGrp, wcGrp_size, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    ALLOCATE(rank_list(wcGrp_size), rank_map(wcGrp_size))
+    rank_list(1:wcGrp_size) = (/ (i, i = 0, wcGrp_size-1) /)
+    CALL MPI_Group_incl(wcGrp, 1, rank_list(1:1), this%winSvGroup, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL MPI_Gather(myRank, 1, p_int, rank_map, 1, p_int, 0, this%winComm, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    IF (my_process_is_restart_writer()) THEN
+      iStart = MERGE(1, 2, my_process_is_work())
+      CALL MPI_Group_incl(wcGrp, wcGrp_size-iStart+1, rank_list(iStart:wcGrp_size), &
+        &                 this%winClGroup, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      ALLOCATE(tmpSrcProcs (idx%sourceProcCount))
+      tmpSrcProcs(:)  = idx%sourceProcs(:)
+      DO i = 1, idx%sourceProcCount
+        DO j = 1, wcGrp_size
+          IF (rank_map(j) .EQ. tmpSrcProcs(i)) ii = j - 1
+        END DO
+        idx%sourceProcs(i) = ii
+      END DO
+      DEALLOCATE(tmpSrcProcs)
+    ELSE
+      this%winClGroup = MPI_GROUP_NULL
+    END IF
+    CALL MPI_Group_free(wcGrp, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    DEALLOCATE(rank_list, rank_map)
+#endif
   END SUBROUTINE t_CollectorSendBuffer_construct
 
-  SUBROUTINE t_CollectorSendBuffer_finalize(buf)
-    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
+  SUBROUTINE t_CollectorSendBuffer_handshake(this)
+    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
+    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_construct"
+#ifdef NOMPI
+    CALL finish(routine, "Not implemented!")
+#else
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: memSize(1), memBytes, typeBytes, typeLB, dpBytes
+    TYPE(c_ptr) :: cMemPtr
+    INTEGER :: ierr, iType, typeIdMPI(3)
+    INTEGER, PARAMETER :: idummy(1) = (/ 1 /)
+
+    typeIdMPI(1:3) = (/ p_real_dp, p_real_sp, p_int /)
+    CALL MPI_Type_get_extent(p_real_dp, typeLB, dpBytes, ierr)
+    DO iType = 1, 3
+      CALL MPI_Type_get_extent(typeIdMPI(iType), typeLB, typeBytes, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      memSize(1) = MAX(INT(this%winSizes(iType), MPI_ADDRESS_KIND), 1_MPI_ADDRESS_KIND)
+      memBytes = MAX(memSize(1) * typeBytes, dpBytes)
+! as of MPI3.0 standard the following MPI_Alloc_mem interface must be present, if
+! the compiler provides ISO_C_BINDING
+      CALL MPI_Alloc_mem(memBytes, MPI_INFO_NULL, cMemPtr, ierr)
+      CALL C_F_POINTER(cMemPtr, this%winPtr(iType)%p, idummy)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      SELECT CASE (iType)
+      CASE (1)
+        CALL C_F_POINTER(cMemPtr, this%sendBuffer_d, INT(memSize))
+        CALL MPI_Win_create(this%sendBuffer_d, memBytes, INT(typeBytes), &
+          &                  MPI_INFO_NULL, this%winComm, this%win_d, ierr)
+      CASE (2)
+        CALL C_F_POINTER(cMemPtr, this%sendBuffer_s, INT(memSize))
+        CALL MPI_Win_create(this%sendBuffer_s, memBytes, INT(typeBytes), &
+          &                 MPI_INFO_NULL, this%winComm, this%win_s, ierr)
+      CASE (3)
+        CALL C_F_POINTER(cMemPtr, this%sendBuffer_int, INT(memSize))
+        CALL MPI_Win_create(this%sendBuffer_int, memBytes, INT(typeBytes), &
+          &                 MPI_INFO_NULL, this%winComm, this%win_int, ierr)
+      END SELECT
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    END DO
+    CALL MPI_Comm_free(this%winComm, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    this%winComm    = MPI_COMM_NULL
+    this%handshaked = .true.
+    this%allocd     = .true.
+#endif
+  END SUBROUTINE t_CollectorSendBuffer_handshake
+
+  SUBROUTINE t_CollectorSendBuffer_finalize(this)
+    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_finalize"
 #ifndef NOMPI
-    INTEGER :: mpierr
+    INTEGER :: ierr, i
 
-    CALL MPI_WIN_FREE( buf%mpi_win_sendbuf_d,   mpierr )
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FREE( buf%mpi_win_sendbuf_s,   mpierr )
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FREE( buf%mpi_win_sendbuf_int, mpierr )
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
+    IF (this%handshaked) THEN
+      IF(this%win_posted .OR. this%win_started) &
+        CALL this%start_local_access()
+      CALL MPI_Win_free(this%win_d, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_free(this%win_s, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_free(this%win_int, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%handshaked  = .false.
+    END IF
+    IF (this%allocd) THEN
+! cumbersome: MPI_Free_mem only accepts Fortran variables/references NOT TYPE(C_PTR)/MPI_ADDRESS_KIND as base-address, while MPI_Alloc_mem returns an TYPE(C_PTR)/MPI_ADDRESS_KIND !!
+      DO i = 1, 3
+        CALL MPI_Free_mem(this%winPtr(i)%p, ierr)
+        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      END DO
+      NULLIFY(this%sendBuffer_d, this%sendBuffer_s, this%sendBuffer_int)
+      this%allocd = .false.
+    END IF
+    IF (this%winClGroup .NE. MPI_GROUP_NULL) THEN
+      CALL MPI_Group_free(this%winClGroup, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    END IF
+    CALL MPI_Group_free(this%winSvGroup, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    IF (this%winComm .NE. MPI_COMM_NULL) THEN
+      CALL MPI_Comm_free(this%winComm, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%winComm    = MPI_COMM_NULL
+    END IF
+    this%win_posted  = .false.
+    this%win_started = .false.
 #endif
   END SUBROUTINE t_CollectorSendBuffer_finalize
 
-  SUBROUTINE t_CollectorSendBuffer_start_local_access(buf)
-    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
+  SUBROUTINE t_CollectorSendBuffer_start_local_access(this)
+    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_start_local_access"
 #ifndef NOMPI
-    INTEGER :: iassert, mpierr
+    INTEGER :: iassert, ierr
 
-    iassert = IOR(MPI_MODE_NOSTORE, MPI_MODE_NOPUT)
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_d,    mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_s,    mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_int,  mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
+    IF (.NOT.this%handshaked) CALL this%handshake()
+    IF (.NOT.this%win_started .OR. .NOT.this%win_posted) &
+      CALL this%start_remote_access()
+    IF (this%win_started) THEN
+      CALL MPI_Win_complete(this%win_d, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_complete(this%win_s, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_complete(this%win_int, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%win_started = .false.
+    END IF
+    IF (this%win_posted) THEN
+      CALL MPI_Win_wait(this%win_d, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_wait(this%win_s, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_wait(this%win_int, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%win_posted  = .false.
+    ENDIF
 #else
     CALL finish(routine, "Not implemented!")
 #endif
@@ -669,98 +818,37 @@ CONTAINS
   ! Start MPI epoch where windows may not be accessed locally and
   ! not via MPI_PUT operations.
   !
-  SUBROUTINE t_CollectorSendBuffer_start_remote_access(buf)
-    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
+  SUBROUTINE t_CollectorSendBuffer_start_remote_access(this)
+    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_start_remote_access"
 #ifndef NOMPI
-    INTEGER :: iassert, mpierr
+    INTEGER :: iassert, ierr
 
-    iassert = IOR(MPI_MODE_NOPUT, MPI_MODE_NOPRECEDE)
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_d,  mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_s,  mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    CALL MPI_WIN_FENCE(iassert, buf%mpi_win_sendbuf_int,  mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
+    IF (.NOT.this%handshaked) CALL finish(routine, "there is no buffer to get!")
+    IF (this%win_started .OR. this%win_posted) RETURN ! nothing to do
+    IF (my_process_is_work()) THEN
+      iassert = MPI_MODE_NOPUT
+      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_d, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_s, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_int, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%win_posted  = .true.
+    END IF
+    IF (my_process_is_restart_writer()) THEN
+      iassert = 0
+      CALL MPI_Win_start(this%winClGroup, iassert, this%win_d, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_start(this%winClGroup, iassert, this%win_s, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL MPI_Win_start(this%winClGroup, iassert, this%win_int, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      this%win_started  = .true.
+    END IF
 #else
     CALL finish(routine, "Not implemented!")
 #endif
   END SUBROUTINE t_CollectorSendBuffer_start_remote_access
-
-
-
-  !------------------------------------------------------------------------------------------------
-  !> allocate amount of memory needed with MPI_Alloc_mem
-  !
-  !  @note Implementation for non-Cray pointers
-  !
-  SUBROUTINE t_CollectorSendBuffer_allocate_mem(buf, isize, itype, coll_win)
-    CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: buf
-    INTEGER(i8),              INTENT(IN)    :: isize
-    INTEGER,                  INTENT(IN)    :: itype
-    INTEGER,                  INTENT(INOUT) :: coll_win
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_allocate_mem"
-#ifndef NOMPI
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
-    TYPE(c_ptr)                     :: c_mem_ptr
-    INTEGER                         :: mpierr, nbytes, ptr_size(1)
-
-    ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
-    ! communication)
-    SELECT CASE (itype)
-    CASE (REAL_T)
-      CALL MPI_Type_extent(p_real_dp, nbytes, mpierr)
-    CASE (SINGLE_T)
-      CALL MPI_Type_extent(p_real_sp, nbytes, mpierr)
-    CASE (INT_T)
-      CALL MPI_Type_extent(p_int,     nbytes, mpierr)
-    CASE DEFAULT
-      CALL finish(routine, "Internal error!")
-    END SELECT
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_size  = isize
-    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes,i8)
-    ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(c_ptr) does not have the size indicated
-    ! by c_intptr_t since the standard only requires c_intptr_t is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
-    IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
-    CALL MPI_ALLOC_MEM(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
-    IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-    ptr_size(1) = INT(mem_size)
-    ! Create memory window for communication
-    SELECT CASE (itype)
-    CASE (REAL_T)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_d, ptr_size )
-      CALL MPI_WIN_CREATE( buf%sendBuffer_d, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, coll_win, mpierr )
-      IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-      !
-    CASE (SINGLE_T)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_s, ptr_size )
-      CALL MPI_WIN_CREATE( buf%sendBuffer_s, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, coll_win, mpierr )
-      IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-      !
-    CASE (INT_T)
-      CALL C_F_POINTER(c_mem_ptr, buf%sendBuffer_int, ptr_size )
-      CALL MPI_WIN_CREATE( buf%sendBuffer_int, mem_bytes, nbytes, MPI_INFO_NULL,&
-        &                  p_comm_work_restart, coll_win, mpierr )
-      IF (mpierr /= SUCCESS) CALL finish(routine, "MPI error!")
-      !
-    CASE DEFAULT
-      CALL finish(routine, "Internal error!")
-    END SELECT
-#else
-    CALL finish(routine, "Not implemented!")
-#endif
-  END SUBROUTINE t_CollectorSendBuffer_allocate_mem
 
 END MODULE mo_multifile_restart_collector

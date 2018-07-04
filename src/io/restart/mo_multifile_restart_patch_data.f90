@@ -206,9 +206,9 @@ CONTAINS
       END SELECT
     END DO
     ! finally, allocate the global send buffers:
-    CALL me%glb_sendbuf_cell%construct(ioffset_cell)
-    CALL me%glb_sendbuf_edge%construct(ioffset_edge)
-    CALL me%glb_sendbuf_vert%construct(ioffset_vert)
+    CALL me%glb_sendbuf_cell%construct(ioffset_cell, me%cellCollector)
+    CALL me%glb_sendbuf_edge%construct(ioffset_edge, me%edgeCollector)
+    CALL me%glb_sendbuf_vert%construct(ioffset_vert, me%vertCollector)
     ! clean up
     DEALLOCATE(sourceOffset_cell, sourceOffset_Edge, sourceOffset_Vert, STAT=error)
     IF (error /= SUCCESS) CALL finish(routine, "memory deallocation failure")
@@ -404,9 +404,6 @@ CONTAINS
       ! no valid time level -> no output:
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
         &                          me%description%nnew_rcf)) CYCLE LOOP_VAR2
-      IF (nchunks .EQ. 1 .AND. endLevel .LT. restart_chunk_size) THEN
-        WRITE(0, "(3(a))") "variable ", TRIM(curInfo%name), " is an aggregation candidate...."
-      ENDIF
       LOOP_IO: DO ichunk = 1, nchunks
         ilevel_start = restart_chunk_size*(ichunk - 1) + 1
         nlevels      = MIN(restart_chunk_size * ichunk, endLevel) - ilevel_start + 1
