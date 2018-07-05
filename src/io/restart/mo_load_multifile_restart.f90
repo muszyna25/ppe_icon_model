@@ -59,7 +59,7 @@ MODULE mo_load_multifile_restart
       &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
       &                                  timer_load_restart_get_var_id, timers_level
     USE mo_util_cdi,               ONLY: get_cdi_varID
-    USE mo_util_string,            ONLY: charArray_equal, real2string
+    USE mo_util_string,            ONLY: charArray_equal, real2string, int2string
 
     IMPLICIT NONE
 
@@ -541,9 +541,9 @@ CONTAINS
     ! This FUNCTION performs the distribution of the payload files
     ! among the restart processes, subsequent code just has to iterate
     ! over the array returned by this FUNCTION.
-    FUNCTION openPayloadFiles(multifilePath, multifile_file_count, domain, out_totalCellCount, &
-      &                      out_totalEdgeCount, out_totalVertCount) RESULT(files)
-        TYPE(t_PayloadFile), ALLOCATABLE, TARGET :: files(:)
+    SUBROUTINE openPayloadFiles(multifilePath, multifile_file_count, files, domain, out_totalCellCount, &
+      &                      out_totalEdgeCount, out_totalVertCount)
+        TYPE(t_PayloadFile), ALLOCATABLE :: files(:)
         CHARACTER(*), INTENT(IN) :: multifilePath
         INTEGER, VALUE :: multifile_file_count, domain
         INTEGER, INTENT(OUT) :: out_totalCellCount, out_totalEdgeCount, out_totalVertCount
@@ -607,7 +607,7 @@ CONTAINS
           out_totalVertCount = out_totalVertCount + files(curFileIndex)%vertCount
         ENDIF
         IF(curFileIndex /= myFileCount) CALL finish(routine, "assertion failed: myFileCount IS too large")
-    END FUNCTION openPayloadFiles
+    END SUBROUTINE openPayloadFiles
 
     ! globalSize: Total count of different global indices.
     ! providedGlobalIndices(N): Global indices of the points provided
@@ -768,7 +768,7 @@ CONTAINS
         END IF
 
         me%domain = p_patch%id
-        me%files = openPayloadFiles(multifilePath, multifile_file_count, p_patch%id, &
+        call openPayloadFiles(multifilePath, multifile_file_count, me%files, p_patch%id, &
                                    &totalCellCount, totalEdgeCount, totalVertCount)
 
         ! Allocate the global index arrays.

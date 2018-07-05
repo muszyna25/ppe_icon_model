@@ -22,6 +22,7 @@ MODULE mo_ocean_model
        &                            my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
+  USE mo_memory_log,              ONLY: memory_log_terminate
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
@@ -48,7 +49,8 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc, &
+    & initialize_fromRestart
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
 
@@ -67,10 +69,11 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, &
+    & construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
-    & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
-    & init_patch_3d, construct_ocean_var_lists
+    & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
+    & init_patch_3d
   USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
     &                                destruct_hamocc_state         
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
@@ -96,21 +99,20 @@ MODULE mo_ocean_model
   USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
 
-  USE mo_alloc_patches,       ONLY: destruct_patches
+  USE mo_alloc_patches,        ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
-  USE mo_time_config,         ONLY: time_config
-  USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
-  USE mo_output_event_types,  ONLY: t_sim_step_info
-  USE mo_grid_tools,          ONLY: create_dummy_cell_closure
-  USE mo_ocean_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
-  USE mo_ocean_testbed,       ONLY: ocean_testbed
+  USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
+  USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
+  USE mo_output_event_types,   ONLY: t_sim_step_info
+  USE mo_grid_tools,           ONLY: create_dummy_cell_closure
+  USE mo_ocean_diagnostics,    ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
+  USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
-  USE mo_io_config,           ONLY: write_initial_state, restartWritingParameters
-  USE mo_bgc_icon_comm,       ONLY: hamocc_state
-
+  USE mo_io_config,            ONLY: write_initial_state, restartWritingParameters
+  USE mo_bgc_icon_comm,        ONLY: hamocc_state
+  USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
@@ -136,38 +138,31 @@ MODULE mo_ocean_model
   CONTAINS
 
 
-    !--------------------------------------------------------------------------
-    !>
-    !!
-  !<Optimize:inUse>
-    SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
+  !--------------------------------------------------------------------------
+  !>
+  SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
 
-      CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
-      CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
-
-      INTEGER                             :: jg
-      TYPE(t_sim_step_info)               :: sim_step_info
-      INTEGER                             :: jstep0
-      TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-
-
-      !-------------------------------------------------------------------
-      IF (isRestart()) THEN
-        CALL read_restart_header("oce")
-      END IF
-
-      !-------------------------------------------------------------------
-      ! initialize dynamic list of vertical axes
-      !-------------------------------------------------------------------
-
-      zaxisTypeList = t_zaxisTypeList()
-
-      !-------------------------------------------------------------------
-      CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
+    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
+    INTEGER                             :: jg
 
     !-------------------------------------------------------------------
     IF (isRestart()) THEN
+      CALL read_restart_header("oce")
+    END IF
+
+    !-------------------------------------------------------------------
+    ! initialize dynamic list of vertical axes
+    !-------------------------------------------------------------------
+
+    zaxisTypeList = t_zaxisTypeList()
+
+    !-------------------------------------------------------------------
+    CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
+
+    !-------------------------------------------------------------------
+    IF (isRestart() .OR. initialize_fromRestart) THEN
       ! This is an resumed integration. Read model state from restart file(s).
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(1) )
       CALL message(TRIM(method_name),'normal exit from read_restart_files')
@@ -186,34 +181,10 @@ MODULE mo_ocean_model
     ! Write out initial conditions.
     !------------------------------------------------------------------
 
-    IF (output_mode%l_nml) THEN
-!       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
-!       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
-      CALL parse_variable_groups()
-      ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
-
-      sim_step_info%dtime      = dtime
-      jstep0 = 0
-
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
-      sim_step_info%jstep0    = jstep0
-      CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
-      CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
-      CALL create_mipz_level_selections(output_file)
-      CALL create_vertical_axes(output_file)
-    ENDIF
+    CALL prepare_output()
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1), v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+      & ocean_state(1),p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
 
     !------------------------------------------------------------------
     ! write initial state
@@ -225,7 +196,7 @@ MODULE mo_ocean_model
     SELECT CASE (test_mode)
       CASE (0)  !  ocean model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
-          & ext_data, time_config%tc_current_date,             &
+          & ext_data,                                          &
           & v_oce_sfc, v_params, p_as, atmos_fluxes,v_sea_ice, &
           & hamocc_state,                                      &
           & operators_coefficients,                            &
@@ -234,7 +205,7 @@ MODULE mo_ocean_model
       CASE (1 : 1999) !
         CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename,   &
           & ocean_patch_3d, ocean_state,                                   &
-          & ext_data, time_config%tc_current_date,                         &
+          & ext_data,                                                      &
           & v_oce_sfc, v_params, p_as, atmos_fluxes, v_sea_ice,            &
           & operators_coefficients,                                        &
           & solverCoefficients_sp)
@@ -328,6 +299,9 @@ MODULE mo_ocean_model
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
 
+    ! close memory logging files
+    CALL memory_log_terminate
+
     CALL message(TRIM(method_name),'clean-up finished')
 
   END SUBROUTINE destruct_ocean_model
@@ -368,6 +342,9 @@ MODULE mo_ocean_model
     CALL configure_run
 
     !-------------------------------------------------------------------
+    CALL init_ocean_time_events()
+
+    !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
@@ -400,7 +377,7 @@ MODULE mo_ocean_model
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
-    IF(lhamocc)CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
+    IF(lhamocc) CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -474,6 +451,8 @@ MODULE mo_ocean_model
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(ocean_patch_3D, ocean_state(1), v_sea_ice, v_oce_sfc%cellThicknessUnderIce)
 
+    IF (ltimer) CALL timer_stop(timer_model_init)
+
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------
 
@@ -500,7 +479,7 @@ MODULE mo_ocean_model
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     ! local variables
-    CHARACTER(LEN=32)               :: datestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: datestring
     INTEGER, PARAMETER :: kice = 1
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:construct_ocean_states'
@@ -517,8 +496,6 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
-    CALL init_oce_config
-
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
     CALL init_dbg_index(patch_3d%p_patch_2d(1))!(patch_2D(1))
 
@@ -542,7 +519,7 @@ MODULE mo_ocean_model
     CALL construct_hydro_ocean_state(patch_3d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    if(lhamocc)CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
+    if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 
@@ -558,7 +535,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
-    CALL datetimeToString(time_config%tc_current_date, datestring)
+    datestring = getCurrentDate_to_String()
     CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
     !------------------------------------------------------------------
@@ -569,6 +546,7 @@ MODULE mo_ocean_model
 
   !-------------------------------------------------------------------------
   SUBROUTINE init_io_processes()
+    USE mo_time_config,         ONLY: time_config
 
     TYPE(t_sim_step_info)   :: sim_step_info
     INTEGER                 :: jstep0
@@ -599,9 +577,6 @@ MODULE mo_ocean_model
       CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
       ! consistency check
       IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        ! Stop timer which is already started but would not be stopped
-        ! since xxx_io_main_proc never returns
-        IF (ltimer) CALL timer_stop(timer_model_init)
 
         ! compute sim_start, sim_end
         CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
@@ -630,6 +605,50 @@ MODULE mo_ocean_model
     
   END SUBROUTINE init_io_processes
   !-------------------------------------------------------------------
+
+  !--------------------------------------------------------------------------
+  SUBROUTINE prepare_output()
+    USE mo_time_config,         ONLY: time_config
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:prepare_output"
+
+    TYPE(t_sim_step_info)               :: sim_step_info
+    INTEGER                             :: jstep0
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+
+    !------------------------------------------------------------------
+    ! Initialize output file if necessary;
+    ! Write out initial conditions.
+    !------------------------------------------------------------------
+
+    IF (output_mode%l_nml) THEN
+!       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
+!       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
+      CALL parse_variable_groups()
+      ! compute sim_start, sim_end
+      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+
+      sim_step_info%dtime      = dtime
+      jstep0 = 0
+
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
+
+        ! get start counter for time loop from restart file:
+        jstep0 = restartAttributes%getInteger("jstep")
+      END IF
+      sim_step_info%jstep0    = jstep0
+      CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
+      CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
+      CALL create_mipz_level_selections(output_file)
+      CALL create_vertical_axes(output_file)
+    ENDIF
+  
+  END SUBROUTINE prepare_output
+  !--------------------------------------------------------------------------
 
 END MODULE mo_ocean_model
 

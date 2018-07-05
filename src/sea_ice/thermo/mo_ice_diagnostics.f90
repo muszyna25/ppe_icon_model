@@ -33,7 +33,7 @@ MODULE mo_ice_diagnostics
 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, clw, alf, sice, tf
   USE mo_sea_ice_nml,         ONLY: t_heat_base
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sea_ice_acc
+  USE mo_sea_ice_types,       ONLY: t_sea_ice
 
   IMPLICIT NONE
 
@@ -41,7 +41,6 @@ MODULE mo_ice_diagnostics
 
   PUBLIC :: salt_in_surface
   PUBLIC :: energy_in_surface
-  PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
 
   CHARACTER(len=12)           :: str_module = 'IceDiag'  ! Output of module for 1 line debug
 
@@ -205,40 +204,5 @@ CONTAINS
 
   END FUNCTION energy_in_surface
 
-
-  !-------------------------------------
-  !
-  ! Sea ice statistics
-  !
-
-    SUBROUTINE update_ice_statistic(p_acc, p_ice, subset)
-    TYPE(t_sea_ice_acc),  INTENT(INOUT) :: p_acc
-    TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
-    TYPE(t_subset_range), INTENT(IN)    :: subset
-
-    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
-    CALL add_fields(p_acc%u   , p_ice%u   , subset)
-    CALL add_fields(p_acc%v   , p_ice%v   , subset)
-  END SUBROUTINE update_ice_statistic
-  SUBROUTINE compute_mean_ice_statistics(p_acc,nsteps_since_last_output)
-    TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
-    INTEGER,INTENT(IN)                 :: nsteps_since_last_output
-
-    p_acc%hi                        = p_acc%hi  /REAL(nsteps_since_last_output,wp)
-    p_acc%hs                        = p_acc%hs  /REAL(nsteps_since_last_output,wp)
-    p_acc%u                         = p_acc%u   /REAL(nsteps_since_last_output,wp)
-    p_acc%v                         = p_acc%v   /REAL(nsteps_since_last_output,wp)
-    p_acc%conc                      = p_acc%conc/REAL(nsteps_since_last_output,wp)
-  END SUBROUTINE compute_mean_ice_statistics
-  SUBROUTINE reset_ice_statistics(p_acc)
-    TYPE(t_sea_ice_acc), INTENT(INOUT) :: p_acc
-    p_acc%hi                        = 0.0_wp
-    p_acc%hs                        = 0.0_wp
-    p_acc%u                         = 0.0_wp
-    p_acc%v                         = 0.0_wp
-    p_acc%conc                      = 0.0_wp
-  END SUBROUTINE reset_ice_statistics
 
   END MODULE mo_ice_diagnostics

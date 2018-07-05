@@ -238,7 +238,7 @@ MODULE mo_velocity_advection
 !$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag, z_vt_ie, z_w_concorr_me, z_kin_hor_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -356,7 +356,7 @@ __COLLAPSE_2_LOOPS
 #ifdef _OPENACC
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_prog, p_diag, z_vt_ie ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
@@ -417,7 +417,7 @@ __COLLAPSE_2_LOOPS
 !$ACC PRESENT( z_kin_hor_e, z_w_concorr_me ), &
 !$ACC PRIVATE( z_w_concorr_mc, z_w_con_c, cfl_clipping ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
 !$OMP            z_w_concorr_mc, ic, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
@@ -630,7 +630,7 @@ __COLLAPSE_2_LOOPS
 #ifdef _OPENACC
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, difcoef) ICON_OMP_DEFAULT_SCHEDULE
 #endif

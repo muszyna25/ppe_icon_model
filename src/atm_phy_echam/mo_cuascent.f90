@@ -51,29 +51,19 @@
 MODULE mo_cuascent
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
-  USE mo_echam_conv_config,    ONLY : echam_conv_config
+  USE mo_echam_cnv_config,     ONLY : echam_cnv_config
   USE mo_cuadjust,             ONLY : cuadjtq
-
-#ifdef _PROFILE
-  USE mo_profile,              ONLY : trace_start, trace_stop
-#endif
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cuasc, cubasmc, cuentr
 
-  ! to simplify access to components of echam_conv_config
-  LOGICAL , POINTER :: lmfmid, lmfdudv
-  INTEGER , POINTER :: nmctop
-  REAL(wp), POINTER :: entrmid, cprcon, cmfctop, cmfcmin, cmfcmax, cminbuoy, cmaxbuoy, cbfac, centrmax
-  REAL(wp), POINTER :: dlev_land, dlev_ocean
-
-
 CONTAINS
   !>
   !!
-  SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,                          &
-    &        pzf,      pzh,      pmdry,                                              &
+  SUBROUTINE cuasc(    jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
+    &        pzf,      pzh,      pmref,                                              &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
     &        pdtime,                                                                 &
@@ -91,11 +81,12 @@ CONTAINS
     &        kcbot,    kctop,    kctop0                                              &
     &        )
 
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
     REAL(wp),INTENT (IN) :: pdtime
     REAL(wp),INTENT (IN) :: pzf(kbdim,klev),  pzh(kbdim,klevp1)
-    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
+    REAL(wp),INTENT (IN) :: pmref(kbdim,klev)
     
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -141,26 +132,26 @@ CONTAINS
     !
     !      Intrinsic functions
     INTRINSIC MAX, MIN, LOG
-    !
-#ifdef _PROFILE
-    CALL trace_start ('cuasc', 40)
-#endif
 
+    ! Shortcuts to components of echam_cnv_config
     !
-
-    ! to simplify access to components of echam_conv_config
-    lmfmid   => echam_conv_config% lmfmid
-    lmfdudv  => echam_conv_config% lmfdudv
-    nmctop   => echam_conv_config% nmctop
-    cprcon   => echam_conv_config% cprcon
-    cmfctop  => echam_conv_config% cmfctop
-    cmfcmin  => echam_conv_config% cmfcmin
-    cminbuoy => echam_conv_config% cminbuoy
-    cmaxbuoy => echam_conv_config% cmaxbuoy
-    cbfac    => echam_conv_config% cbfac
-    centrmax => echam_conv_config% centrmax
-    dlev_land => echam_conv_config% dlev_land
-    dlev_ocean=> echam_conv_config% dlev_ocean
+    LOGICAL , POINTER :: lmfmid, lmfdudv
+    INTEGER , POINTER :: nmctop
+    REAL(wp), POINTER :: cprcon, cmfctop, cmfcmin, cminbuoy, cmaxbuoy, cbfac, centrmax
+    REAL(wp), POINTER :: dlev_land, dlev_ocean
+    !
+    lmfmid     => echam_cnv_config(jg)% lmfmid
+    lmfdudv    => echam_cnv_config(jg)% lmfdudv
+    nmctop     => echam_cnv_config(jg)% nmctop
+    cprcon     => echam_cnv_config(jg)% cprcon
+    cmfctop    => echam_cnv_config(jg)% cmfctop
+    cmfcmin    => echam_cnv_config(jg)% cmfcmin
+    cminbuoy   => echam_cnv_config(jg)% cminbuoy
+    cmaxbuoy   => echam_cnv_config(jg)% cmaxbuoy
+    cbfac      => echam_cnv_config(jg)% cbfac
+    centrmax   => echam_cnv_config(jg)% centrmax
+    dlev_land  => echam_cnv_config(jg)% dlev_land
+    dlev_ocean => echam_cnv_config(jg)% dlev_ocean
 
     !---------------------------------------------------------------------------------
     !
@@ -279,7 +270,8 @@ CONTAINS
     !
       ik=jk
       IF(lmfmid.AND.ik.LT.klevm1.AND.ik.GT.nmctop) THEN
-        CALL cubasmc(kproma, kbdim, klev, ik, klab,                                  &
+        CALL cubasmc(jg,                                                             &
+          &          kproma,   kbdim,    klev,     ik,       klab,                   &
           &          pten,     pqen,     pqsen,    puen,     pven,                   &
           &          ktrac,                                                          &
           &          pxten,    pxtu,     pmfuxt,                                     &
@@ -300,7 +292,7 @@ CONTAINS
         END IF
         zph(jl)=paphp1(jl,jk)
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=pmdry(jl,jk-1)*zcons
+          zmfmax=pmref(jl,jk-1)*zcons
           IF(pmfub(jl).GT.zmfmax) THEN
             zfac=zmfmax/pmfub(jl)
             pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
@@ -314,7 +306,7 @@ CONTAINS
       DO jt=1,ktrac
         DO jl=1,kproma
           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-            zmfmax=pmdry(jl,jk-1)*zcons
+            zmfmax=pmref(jl,jk-1)*zcons
             IF(pmfub(jl).GT.zmfmax) THEN
               zfac=zmfmax/pmfub(jl)
               pmfuxt(jl,jk+1,jt)=pmfuxt(jl,jk+1,jt)*zfac
@@ -327,7 +319,7 @@ CONTAINS
       !
       DO jl=1,kproma
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
-          zmfmax=pmdry(jl,jk-1)*zcons
+          zmfmax=pmref(jl,jk-1)*zcons
           pmfub(jl)=MIN(pmfub(jl),zmfmax)
         END IF
       END DO
@@ -337,8 +329,9 @@ CONTAINS
       !    --------------------------------------------------------
       !
       ik=jk
-      CALL cuentr(    kproma, kbdim, klev, klevp1, ik,                                &
-        &   pzh,      pmdry,                                                          &
+      CALL cuentr(    jg,                                                             &
+        &   kproma,   kbdim,    klev,     klevp1,   ik,                               &
+        &   pzh,      pmref,                                                          &
         &   ptenh,    pqenh,    pqte,     paphp1,                                     &
         &   klwmin,   ldcum,    ktype,    kcbot,    kctop0,                           &
         &   zpbase,   pmfu,     pentr,    zodetr,                                     &
@@ -357,7 +350,7 @@ CONTAINS
 
         IF(jk.LT.kcbot(jl)) THEN
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
-          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
+          zmfmax=MIN(zmftest,pmref(jl,jk-1)*zcons)
           zdmfen(jl)=MAX(zdmfen(jl)-MAX(zmftest-zmfmax,0._wp),0._wp)
         END IF
         zdmfde(jl)=MIN(zdmfde(jl),0.75_wp*pmfu(jl,jk+1))
@@ -366,7 +359,7 @@ CONTAINS
           zdprho=pzh(jl,jk)-pzh(jl,jk+1)
           zoentr(jl,jk)=zoentr(jl,jk)*zdprho*pmfu(jl,jk+1)
           zmftest=pmfu(jl,jk)+zoentr(jl,jk)-zodetr(jl,jk)
-          zmfmax=MIN(zmftest,pmdry(jl,jk-1)*zcons)
+          zmfmax=MIN(zmftest,pmref(jl,jk-1)*zcons)
           zoentr(jl,jk)=MAX(zoentr(jl,jk)-MAX(zmftest-zmfmax,0._wp),0._wp)
         ELSE
           zoentr(jl,jk)=0._wp
@@ -582,14 +575,12 @@ CONTAINS
       END DO
     END IF
     !
-#ifdef _PROFILE
-    CALL trace_stop ('cuasc', 40)
-#endif
 
   END SUBROUTINE cuasc
   !!
   !!
-  SUBROUTINE cubasmc(  kproma, kbdim, klev, kk, klab,                                &
+  SUBROUTINE cubasmc(  jg,                                                           &
+    &        kproma,   kbdim,    klev,     kk,       klab,                           &
     &        pten,     pqen,     pqsen,    puen,     pven,                           &
     &        ktrac,                                                                  &
     &        pxten,    pxtu,     pmfuxt,                                             &
@@ -600,6 +591,7 @@ CONTAINS
     &        pcpen,                                                                  &
     &        pmfuv                                                                 )
     !
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, kk
     REAL(wp) :: pten(kbdim,klev),        pqen(kbdim,klev),                           &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -624,11 +616,15 @@ CONTAINS
     INTEGER  :: jl, jt
     REAL(wp) :: zzzmb
 
-    ! to simplify access to components of echam_conv_config
-    lmfdudv  => echam_conv_config% lmfdudv
-    entrmid  => echam_conv_config% entrmid
-    cmfcmin  => echam_conv_config% cmfcmin
-    cmfcmax  => echam_conv_config% cmfcmax
+    ! Shortcuts to components of echam_cnv_config
+    !
+    LOGICAL , POINTER :: lmfdudv
+    REAL(wp), POINTER :: entrmid, cmfcmin, cmfcmax
+    !
+    lmfdudv  => echam_cnv_config(jg)% lmfdudv
+    entrmid  => echam_cnv_config(jg)% entrmid
+    cmfcmin  => echam_cnv_config(jg)% cmfcmin
+    cmfcmax  => echam_cnv_config(jg)% cmfcmax
 
     !---------------------------------------------------------------------------------
     !
@@ -682,17 +678,19 @@ CONTAINS
   END SUBROUTINE cubasmc
   !!
   !!
-  SUBROUTINE cuentr(   kproma, kbdim, klev, klevp1, kk,                              &
-    &        pzh,      pmdry,                                                        &
+  SUBROUTINE cuentr(   jg,                                                           &
+    &        kproma,   kbdim,    klev,     klevp1,   kk,                             &
+    &        pzh,      pmref,                                                        &
     &        ptenh,    pqenh,    pqte,     paphp1,                                   &
     &        klwmin,   ldcum,    ktype,    kcbot,    kctop0,                         &
     &        ppbase,   pmfu,     pentr,    podetr,                                   &
     &        khmin,                                                                  &
     &        pdmfen,   pdmfde)
     !
+    INTEGER, INTENT (IN) :: jg
     INTEGER, INTENT (IN) :: kbdim, klev, klevp1, kproma, kk
     !
-    REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmdry(kbdim,klev)
+    REAL(wp),INTENT (IN) :: pzh(kbdim,klevp1), pmref(kbdim,klev)
 
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         paphp1(kbdim,klevp1),                                                &
@@ -713,9 +711,12 @@ CONTAINS
     REAL(wp) :: zrrho(kbdim),zdprho(kbdim)
     INTEGER  :: icond1(kbdim),icond2(kbdim),icond3(kbdim),idx(kbdim)
 
-    ! to simplify access to components of echam_conv_config
-    cmfcmin  => echam_conv_config% cmfcmin
-    centrmax => echam_conv_config% centrmax
+    ! Shortcuts to components of echam_cnv_config
+    !
+    REAL(wp), POINTER :: cmfcmin, centrmax
+    !
+    cmfcmin  => echam_cnv_config(jg)% cmfcmin
+    centrmax => echam_cnv_config(jg)% centrmax
 
     !
     !---------------------------------------------------------------------------------
@@ -725,15 +726,11 @@ CONTAINS
     !           Specify entrainment rates for deep clouds
     !           --------------------------------------------
     !
-#ifdef _PROFILE
-    CALL trace_start ('cuentr', 41)
-#endif
-    !
 !IBM* NOVECTOR
     DO jl=1,kproma
       ppbase(jl) = paphp1(jl,kcbot(jl))
       zrrho(jl)  = (rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))/paphp1(jl,kk+1)
-      zdprho(jl) = pmdry(jl,kk)
+      zdprho(jl) = pmref(jl,kk)
       zpmid      = 0.5_wp*(ppbase(jl)+paphp1(jl,kctop0(jl)))
       icond1(jl) = FSEL(zpmid-paphp1(jl,kk),0._wp,1._wp)
       icond2(jl) = FSEL(0.2e5_wp - (ppbase(jl)-paphp1(jl,kk)),0._wp,1._wp)
@@ -792,16 +789,12 @@ CONTAINS
             ztmzk  =-(pzh(jl,ikh)-pzh(jl,ikt))
             zarg  =3.1415_wp*(zzmzk/ztmzk)*0.5_wp
             zorgde=TAN(zarg)*3.1415_wp*0.5_wp/ztmzk
-            zdprho(jl)=pmdry(jl,kk)*zrrho(jl)
+            zdprho(jl)=pmref(jl,kk)*zrrho(jl)
             podetr(jl,kk)=MIN(zorgde,centrmax)*pmfu(jl,kk+1)*zdprho(jl)
           ENDIF
         ENDIF
       END DO
     END IF
-    !
-#ifdef _PROFILE
-    CALL trace_stop ('cuentr', 41)
-#endif
     !
   END SUBROUTINE cuentr
 

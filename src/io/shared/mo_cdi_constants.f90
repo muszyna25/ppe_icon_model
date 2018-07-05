@@ -10,7 +10,6 @@
 !!
 MODULE mo_cdi_constants
 
-  USE mo_zaxis_type, ONLY: ZA_SURFACE, ZA_DEPTH_BELOW_LAND
   PUBLIC
 
   !------------------------------------------------!
@@ -27,13 +26,5 @@ MODULE mo_cdi_constants
 
   INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 45
 
-  ! Some constants and variables are re-published
-  ! (backward-compatibility needed for JSBACH adapter)
-  !
-  ! Intermediate fix, until GRID_REFERENCE has completely been removed
-  ! from ICON
-  INTEGER, PARAMETER :: GRID_REFERENCE = 9
-
-  PUBLIC :: ZA_SURFACE, ZA_DEPTH_BELOW_LAND
 
 END MODULE mo_cdi_constants

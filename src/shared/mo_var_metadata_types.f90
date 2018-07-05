@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(55) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -85,6 +85,8 @@ MODULE mo_var_metadata_types
     &  "oce_force_essentials  ",  &
     &  "OCE_AUX               ",  &
     &  "OCEAN_MONITOR         ",  &
+    &  "OCEAN_MOC             ",  &  ! meant o hold all kinds of overturning fields (atl, pac, global,...)
+    &  "OCEAN_FLOWS           ",  &  ! meant o hold all through flows
     &  "OCE_GEOMETRY          ",  &
     &  "OCE_PHYSICS           ",  &
     &  "OCE_COEFFS            ",  &
@@ -99,7 +101,7 @@ MODULE mo_var_metadata_types
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
-  INTEGER, PARAMETER :: MAX_GROUPS = 99
+  INTEGER, PARAMETER :: MAX_GROUPS = 120
 
   ! List of dynamic variable groups, which are used for tiles
   !
@@ -236,7 +238,6 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: cdiVarID
     INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
     !
     ! Metadata for "post-ops" (small arithmetic operations)
     !

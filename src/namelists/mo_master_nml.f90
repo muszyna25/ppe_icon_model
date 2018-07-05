@@ -28,7 +28,7 @@ MODULE mo_master_nml
        &                       timedelta, newTimedelta, deallocateTimedelta,                 &
        &                       datetimeToString, OPERATOR(+), register_print_mtime_procedure 
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
-       &                       setInstitution, setRestart,                                   &
+       &                       setInstitution, setRestart, setReadRestartNamelists,          &
        &                       setRestartWriteLast, setModelBaseDir,                         &
        &                       cfg_experimentReferenceDate => experimentReferenceDate,       &
        &                       cfg_experimentStartDate     => experimentStartDate,           &
@@ -68,6 +68,9 @@ CONTAINS
     !  This is independent from the settings of the restart interval.
     LOGICAL :: lrestart_write_last  = .TRUE.
 
+    ! if is restart, the flag indecates if we should read the restart namelists
+    LOGICAL :: read_restart_namelists  = .TRUE.
+
     CHARACTER(len=filename_max) :: model_base_dir          = ''
     CHARACTER(len=132)          :: model_name              = ''
     CHARACTER(len=filename_max) :: model_namelist_filename = ''
@@ -94,7 +97,8 @@ CONTAINS
          &    institute,               &
          &    lRestart,                &
          &    lrestart_write_last,     &
-         &    model_base_dir
+         &    model_base_dir,          &
+         &    read_restart_namelists  
     
     NAMELIST /master_time_control_nml/ &
          &    calendar,                &
@@ -158,6 +162,7 @@ CONTAINS
     CALL setRestart(lRestart)
     CALL setRestartWriteLast(lrestart_write_last)
     CALL setModelBaseDir(model_base_dir)
+    CALL setReadRestartNamelists(read_restart_namelists)
    
 
     ! --------------------------------------------------------------------------------

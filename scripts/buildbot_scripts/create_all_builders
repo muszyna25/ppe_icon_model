@@ -12,13 +12,21 @@ fi
 # mistral builders
 machine=mistral
 ./addmachine $machine --list $list
-./addbuilder MISTRAL_gcc          --machine $machine --configureflags="--with-fortran=gcc"                  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel        --machine $machine --configureflags="--with-fortran=intel"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_hybrid --machine $machine --configureflags="--with-fortran=intel --with-openmp"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_openmp --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_nag          --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_nag_serial   --machine $machine --configureflags="--with-fortran=nag --without-mpi --without-yac"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_ocean        --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
+./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc"                  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel_openmp   --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag_serial     --machine $machine --configureflags="--with-fortran=nag --without-mpi --without-yac"  --builderflags="build_only"  --list $list
+
+./addbuilder MISTRAL_ocean          --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
+./addbuilder MISTRAL_ocean_intel17  --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
 
 # breeze builders
 machine=breeze
@@ -33,12 +41,14 @@ machine=breeze
 #CSCS builders
 machine=daint
 ./addmachine $machine --list $list
-./addbuilder DAINT_CPU_cce        --machine $machine --configureflags=""   --builderflags="Active"  --list $list
-./addbuilder DAINT_GPU_cce        --machine $machine --configureflags=""   --builderflags="Active"  --list $list
+./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu" \
+--builderflags="Active"      --list $list
+./addbuilder DAINT_GPU_cce        --machine $machine \
+--configureflags="--with-fortran=cray_gpu --without-grib_api --disable-jsbach --disable-ocean --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu" \
+--builderflags="build_only"  --list $list
 
 #DWD machines
 machine=dwd_cray
 ./addmachine $machine --list $list
-./addbuilder DWD_cray            --machine $machine --configureflags="--with-fortran=cray"   --builderflags="Active"  --list $list
-./addbuilder DWD_cray_production --machine $machine --configureflags="--with-fortran=cray"   --builderflags="Active"  --list $list
+./addbuilder DWD_cray            --machine $machine --configureflags="--with-fortran=cray"   --builderflags="build_only"  --list $list
 

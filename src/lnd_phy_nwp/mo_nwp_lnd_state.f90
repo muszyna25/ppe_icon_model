@@ -66,7 +66,8 @@ MODULE mo_nwp_lnd_state
   USE mo_var_list,             ONLY: default_var_list_settings,  &
     &                                add_var, add_ref,           &
     &                                new_var_list,               &
-    &                                delete_var_list
+    &                                delete_var_list,            &
+    &                                get_timelevel_string
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
     &                                groups, post_op
@@ -351,7 +352,7 @@ MODULE mo_nwp_lnd_state
 
     ! Suffix (mandatory for time level dependent variables)
 
-    WRITE(suffix,'(".TL",i1)') timelev
+    suffix = get_timelevel_string(timelev)
 
 
     !------------------------------
@@ -920,7 +921,7 @@ MODULE mo_nwp_lnd_state
 
     ! Suffix (mandatory for time level dependent variables)
 
-    WRITE(suffix,'(".TL",i1)') timelev
+    suffix = get_timelevel_string(timelev)
 
 
     !------------------------------

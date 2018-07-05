@@ -394,44 +394,56 @@ cat > $atmo_namelist << EOF
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
 /
-&mpi_phy_nml
+&echam_phy_nml
 !
 ! domain 1
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- mpi_phy_config(1)%dt_rad = "PT2H"
- mpi_phy_config(1)%dt_vdf = "PT10M"
- mpi_phy_config(1)%dt_cnv = "PT10M"
- mpi_phy_config(1)%dt_cld = "PT10M"
- mpi_phy_config(1)%dt_gwd = "PT10M"
- mpi_phy_config(1)%dt_sso = ""
+ echam_phy_config(1)%dt_rad = "PT2H"
+ echam_phy_config(1)%dt_vdf = "PT10M"
+ echam_phy_config(1)%dt_cnv = "PT10M"
+ echam_phy_config(1)%dt_cld = "PT10M"
+ echam_phy_config(1)%dt_gwd = "PT10M"
+ echam_phy_config(1)%dt_sso = ""
 !
 ! atmospheric chemistry (""=never)
- mpi_phy_config(1)%dt_mox = ""
- mpi_phy_config(1)%dt_car = ""
- mpi_phy_config(1)%dt_art = ""
+ echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- mpi_phy_config(1)%ljsb  = .FALSE.
- mpi_phy_config(1)%lamip = .FALSE.
- mpi_phy_config(1)%lice  = .FALSE.
- mpi_phy_config(1)%lmlo  = .FALSE.
+ echam_phy_config(1)%ljsb   = .FALSE.
+ echam_phy_config(1)%lamip  = .FALSE.
+ echam_phy_config(1)%lice   = .FALSE.
+ echam_phy_config(1)%lmlo   = .FALSE.
 !
 /
-&mpi_sso_nml
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_ch4   =  0
+ echam_rad_config(1)%irad_n2o   =  0
+ echam_rad_config(1)%irad_o3    =  4
+ echam_rad_config(1)%irad_o2    =  0
+ echam_rad_config(1)%irad_cfc11 =  0
+ echam_rad_config(1)%irad_cfc12 =  0
+ echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%ighg       =  0
 /
-&radiation_nml
- irad_o3    = 4             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
- irad_aero  = 0             ! switch off aerosols
- izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
- irad_co2   = 2             ! constant co2 vmr
- irad_ch4   = 0             ! switch off ch4
- irad_n2o   = 0             ! switch off n2o
- irad_h2o   = 1             ! prognostic vapor, liquid and ice
- irad_o2    = 0             ! switch off o2
- irad_cfc11 = 0             ! switch off cfc11
- irad_cfc12 = 0             ! switch off cfc12
+&echam_gwd_nml
+/
+&echam_sso_nml
+/
+&echam_vdf_nml
+/
+&echam_cnv_nml
+/
+&echam_cld_nml
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 10          ! dtime/dt_dyn
@@ -754,8 +766,7 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/rrtmg_lw.nc           ./
-add_required_file ${basedir}/data/rrtmg_sw.nc           ./
+add_required_file ${basedir}/data/lsdata.nc           ./
 add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
 #
 # namelist files
@@ -776,8 +787,8 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 # ------------------------------
 #
 # - ozone
-ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${icon_data_poolFolder}/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
+datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
 # -----------------------------
@@ -791,7 +802,7 @@ add_required_file ${basedir}/run/${dict_file}  ./
 # -------------------------
 #
 add_required_file ${basedir}/run/coupling.xml  ./
-add_required_file ${basedir}/run/coupling.xsd  ./
-add_required_file ${basedir}/run/component.xsd ./
+add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
 #
 #-----------------------------------------------------------------------------

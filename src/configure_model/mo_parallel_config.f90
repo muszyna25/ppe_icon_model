@@ -45,6 +45,7 @@ MODULE mo_parallel_config
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
+  !$acc declare copyin(nproma)
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
@@ -250,6 +251,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: new_nproma
 
     nproma = new_nproma
+    !$acc update device(nproma)
 
   END SUBROUTINE set_nproma
   !-------------------------------------------------------------------------

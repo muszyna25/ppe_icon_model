@@ -508,7 +508,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC PARALLEL &
 !$ACC PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node )
-!$ACC LOOP GANG
+!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE

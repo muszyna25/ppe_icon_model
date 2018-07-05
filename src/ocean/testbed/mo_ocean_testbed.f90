@@ -44,9 +44,9 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_solverMatrix,ONLY: createSolverMatrix
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
   USE mtime,                        ONLY: datetime
-  USE mo_hamocc_types,          ONLY: t_hamocc_state
+  USE mo_hamocc_types,              ONLY: t_hamocc_state
   USE mo_ocean_output
-  
+  USE mo_ocean_time_events,         ONLY: get_OceanCurrentTime_Pointer  
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -60,7 +60,7 @@ CONTAINS
   !>
   SUBROUTINE ocean_testbed( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,          &
-    & this_datetime, ocean_surface, physics_parameters,             &
+    & ocean_surface, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solverCoeff_sp)
 
@@ -70,7 +70,6 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
-    TYPE(datetime), POINTER                          :: this_datetime
     TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
@@ -82,6 +81,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
     TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jstep0
+    TYPE(datetime), POINTER                          :: this_datetime
+
+    this_datetime => get_OceanCurrentTime_Pointer()
 
     CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
 
@@ -130,13 +132,10 @@ CONTAINS
       & this_datetime,           &
       & ocean_surface,           &
       & ocean_ice,               &
-      & hamocc_state,            &
       & jstep, jstep0)
 
   END SUBROUTINE ocean_testbed
   !-------------------------------------------------------------------------
-
-
 
 END MODULE mo_ocean_testbed
 

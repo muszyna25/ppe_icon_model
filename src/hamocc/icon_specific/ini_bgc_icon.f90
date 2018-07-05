@@ -1,6 +1,6 @@
 #ifndef __NO_ICON_OCEAN__
 
-SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
+SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
   USE mo_kind, ONLY           : wp, dp
   USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc
@@ -37,6 +37,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: global_sum_array
   USE mo_math_utilities,      ONLY: set_zlev
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean 
  ! USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
   IMPLICIT NONE
@@ -44,6 +45,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   !! Arguments
   TYPE(t_patch_3D),             TARGET,INTENT(IN)    :: p_patch_3D
   TYPE(t_hydro_ocean_state)                   :: p_os
+  TYPE(t_atmos_for_ocean)                     :: p_as
   LOGICAL, INTENT(in):: l_is_restart
 
   INTEGER :: alloc_cell_blocks
@@ -98,9 +100,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   CALL set_parameters_bgc
 
 
-  CALL print_bgc_parameters 
-
-  CALL message(TRIM(routine), 'bgc_param_conv_unit')
 
 
   ! region indices
@@ -138,13 +137,18 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   ! convert 1/d to 1/ts
   CALL bgc_param_conv_unit
 
+  CALL print_bgc_parameters 
+
+  CALL message(TRIM(routine), 'bgc_param_conv_unit')
 
   CALL message(TRIM(routine), 'ini weathering fluxes')
   totalarea = 0._wp
   DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc=start_index, end_index
-           totalarea = totalarea + p_patch%cells%area(jc,jb) 
+           totalarea = totalarea + p_patch%cells%area(jc,jb) * &
+ &             p_patch_3d%wet_halo_zero_c(jc,1,jb)
+
         ENDDO
   ENDDO
   totalarea     = global_sum_array(totalarea)
@@ -182,6 +186,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
           CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
+             &,p_as%co2(:,jb)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
 
           CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
@@ -202,7 +207,8 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
               &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
               &              jb, &
               &              p_os%p_prog(nold(1))%tracer(:,:,jb,:),&
-              &              hamocc_state%p_sed, hamocc_state%p_diag)
+              &              hamocc_state%p_sed, hamocc_state%p_diag,&
+              &              p_as%co2flx(:,jb))
      
 
   ENDDO

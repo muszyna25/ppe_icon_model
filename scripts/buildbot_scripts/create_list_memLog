@@ -1,0 +1,40 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=memLog
+./rmlist $listname
+# ./mklist $listname
+./create_all_builders $listname
+
+./set_builder_flags Inactive --builders MISTRAL_nag --list $listname
+./set_builder_flags Inactive --builders MISTRAL_nag_serial --list $listname
+./set_builder_flags Inactive --builders BREEZE_gcc --list $listname
+./set_builder_flags Inactive --builders BREEZE_gcc_openmp --list $listname
+./set_builder_flags Inactive --builders BREEZE_intel --list $listname
+./set_builder_flags Inactive --builders BREEZE_intel_openmp --list $listname
+./set_builder_flags Inactive --builders BREEZE_nag --list $listname
+./set_builder_flags Inactive --builders DWD_cray --list $listname
+./set_builder_flags Inactive --builders DAINT_CPU_cce --list $listname
+./set_builder_flags Inactive --builders DAINT_GPU_cce --list $listname
+
+./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
+./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname
+
+# test memory loggin in amip setup
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.oce_memLog --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+
+$addexp checksuite.infrastructure/memLog/exp.oce_memLog --without-configureflags without-mpi --builders MISTRAL_ocean         --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.oce_memLog --without-configureflags without-mpi --builders MISTRAL_ocean_intel17 --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+
+#-----------------------------------------------------------
+#lets see the list
+./lslist $listname
+#-----------------------------------------------------------
+

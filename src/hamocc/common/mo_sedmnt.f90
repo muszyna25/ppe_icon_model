@@ -8,7 +8,7 @@ MODULE mo_sedmnt
   USE mo_kind, ONLY        : wp
   USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra
   USE mo_control_bgc, ONLY: dtbgc, bgc_nproma, bgc_zlevs 
-  USE mo_hamocc_nml, ONLY : isac
+  USE mo_hamocc_nml, ONLY : isac,ks,ksp,dzs,porwat
   USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin, wdust
   USE mo_bgc_constants, ONLY: g,rhoref_water
 
@@ -21,8 +21,6 @@ MODULE mo_sedmnt
   &        isreminn =2,&
   &        isremins =3   
 
-  !TODO: These are used IN currently 29 different source code file - the absolutely need more descriptive names
-  INTEGER, PARAMETER :: ks=12, ksp=ks+1 ! sediment layering
 
   REAL(wp), ALLOCATABLE, TARGET :: sedlay (:,:,:)
   REAL(wp), ALLOCATABLE, TARGET :: powtra (:,:,:)
@@ -34,11 +32,8 @@ MODULE mo_sedmnt
   REAL(wp), ALLOCATABLE :: seddw(:)
   REAL(wp), ALLOCATABLE :: porsol(:)
   REAL(wp), ALLOCATABLE :: porwah(:)
-  REAL(wp), ALLOCATABLE :: porwat(:)
   REAL(wp), ALLOCATABLE :: pors2w(:)
 
-  REAL(wp), ALLOCATABLE :: dzs(:)
-  REAL(wp)              :: dzsed(100)
   REAL(wp), ALLOCATABLE :: seddzi(:)
   REAL(wp), ALLOCATABLE :: z_sed(:)
 
@@ -67,41 +62,6 @@ SUBROUTINE sediment_bottom
  REAL(wp) :: sumsed, dustd1, dustd2
  INTEGER:: k
   !
-  !---------------------------------------------------------------------
-  !
-  ! put into nml to allow for variable layer numbers (also ks, ksp)
- 
-  dzsed(:)=-1._wp
-
-  dzs(1) = 0.001_wp
-  dzs(2) = 0.003_wp
-  dzs(3) = 0.005_wp
-  dzs(4) = 0.007_wp
-  dzs(5) = 0.009_wp
-  dzs(6) = 0.011_wp
-  dzs(7) = 0.013_wp
-  dzs(8) = 0.015_wp
-  dzs(9) = 0.017_wp
-  dzs(10) = 0.019_wp
-  dzs(11) = 0.021_wp
-  dzs(12) = 0.023_wp
-  dzs(13) = 0.025_wp
-
-  dzsed(1:13) = dzs(:)
-
-  porwat(1) = 0.85_wp
-  porwat(2) = 0.83_wp
-  porwat(3) = 0.8_wp
-  porwat(4) = 0.79_wp
-  porwat(5) = 0.77_wp
-  porwat(6) = 0.75_wp
-  porwat(7) = 0.73_wp
-  porwat(8) = 0.7_wp
-  porwat(9) = 0.68_wp
-  porwat(10) = 0.66_wp
-  porwat(11) = 0.64_wp
-  porwat(12) = 0.62_wp
-
 
   seddzi(1) = 500._wp
 
@@ -258,13 +218,11 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
     prcaca(:) = 0._wp
     ALLOCATE (produs(bgc_nproma))
     produs(:) = 0._wp
-    ALLOCATE (dzs(ksp))
     ALLOCATE (seddzi(ksp))
     ALLOCATE (z_sed(ks))
     ALLOCATE (seddw(ks))
     ALLOCATE (porsol(ks))
     ALLOCATE (porwah(ks))
-    ALLOCATE (porwat(ks))
     ALLOCATE (pors2w(ks))
     ALLOCATE (pown2bud(bgc_nproma,ks))
     pown2bud(:,:) = 0._wp

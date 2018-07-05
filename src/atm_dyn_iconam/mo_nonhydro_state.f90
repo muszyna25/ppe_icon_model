@@ -608,6 +608,10 @@ MODULE mo_nonhydro_state
         ! used. Thus, make sure to use the right one when adding additional tracers.
         ! create_tracer_metadata[...] are described in more detail in mo_tracer_metadata.
         !
+        ! Be careful. The sequence in which the tracers are listed here is sensitive
+        ! to the sequence how the tracers are written to restart files and should to be
+        ! identical to the listing in configure_model/mo_nml_crosscheck.f90
+        !
         !QV
         IF ( iqv /= 0 ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
@@ -741,6 +745,26 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
 
+        !O3
+        IF ( iqt <= io3 .AND. io3 <= ntracer .AND. .NOT. lart) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'qo3',                            &
+            &            'kg kg-1','o3_mass_mixing_ratio', datatype_flt),              &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qo3'//suffix,   &
+            &                       ihadv_tracer=advconf%ihadv_tracer(io3),            &
+            &                       ivadv_tracer=advconf%ivadv_tracer(io3)),           & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! io3
+
         !CO2
         IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
@@ -800,26 +824,6 @@ MODULE mo_nonhydro_state
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       lower_limit=0.0_wp )                               )
         END IF ! in2o
-
-        !O3
-        IF ( iqt <= io3 .AND. io3 <= ntracer .AND. .NOT. lart) THEN
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qo3',                            &
-            &            'kg kg-1','o3_mass_mixing_ratio', datatype_flt),              &
-            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       name        = TRIM(vname_prefix)//'qo3'//suffix,   &
-            &                       ihadv_tracer=advconf%ihadv_tracer(io3),            &
-            &                       ivadv_tracer=advconf%ivadv_tracer(io3)),           & 
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       lower_limit=0.0_wp )                               )
-        END IF ! io3
 
         !CK>
         IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN
@@ -1929,7 +1933,7 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(suffix,'(".TL",i1)') jt
+        suffix = get_timelevel_string(jt)
         CALL add_ref( p_diag_list, 'ddt_vn_adv',                                   &
                     & 'ddt_vn_adv'//suffix, p_diag%ddt_vn_adv_ptr(jt)%p_3d,        &
                     & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE,                           &
@@ -1951,7 +1955,7 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(suffix,'(".TL",i1)') jt
+        suffix = get_timelevel_string(jt)
         CALL add_ref( p_diag_list, 'ddt_w_adv',                                     &
                     & 'ddt_w_adv'//suffix, p_diag%ddt_w_adv_ptr(jt)%p_3d,           &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                       &

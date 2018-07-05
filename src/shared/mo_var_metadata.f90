@@ -24,7 +24,7 @@ MODULE mo_var_metadata
   USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF, &
-    &                              MAX_CHAR_LENGTH
+    &                              MAX_CHAR_LENGTH, VARNAME_LEN
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
@@ -46,6 +46,7 @@ MODULE mo_var_metadata
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
+  CHARACTER(LEN=3), PARAMETER :: TIMELEVEL_SUFFIX = '.TL'        ! separator for varname and time level
 
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
@@ -57,6 +58,12 @@ MODULE mo_var_metadata
   PUBLIC  :: new_action
   PUBLIC  :: actions
   PUBLIC  :: add_member_to_vargroup
+  PUBLIC  :: TIMELEVEL_SUFFIX
+
+  INTERFACE groups
+    MODULE PROCEDURE groups_arg
+    MODULE PROCEDURE groups_vec
+  END INTERFACE
 
 CONTAINS
 
@@ -196,7 +203,7 @@ CONTAINS
     INTEGER                       :: group_id, igrp
     CHARACTER(LEN=*) , INTENT(IN) :: in_str
     LOGICAL, OPTIONAL, INTENT(IN) :: opt_lcheck           
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:group_id")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_metadata:group_id")
     !
     ! Local
     LOGICAL :: lcheck
@@ -226,6 +233,19 @@ CONTAINS
         END IF
       END DO LOOP_DYN_GROUPS
     ENDIF  ! group_id == 0
+
+    ! If the group does not exist, create it.
+    IF (group_id == 0) THEN
+      !
+      ! increase dynamic groups array by one element
+      CALL resize_arr_c1d(var_groups_dyn,1)
+      !
+      ! add new group
+      var_groups_dyn(SIZE(var_groups_dyn)) = toupper(TRIM(in_str))
+      !
+      ! return its group ID (including offset from static groups array)
+      group_id = SIZE(var_groups_dyn) + SIZE(VAR_GROUPS)
+    ENDIF
     !
     ! paranoia:
     IF (lcheck) THEN
@@ -249,25 +269,43 @@ CONTAINS
   !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
   !  function.
   !
-  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
-    LOGICAL :: groups(MAX_GROUPS)
+  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
+    LOGICAL :: groups_arg(MAX_GROUPS)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
       &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11
 
-    groups(:) = .FALSE.
-    groups(group_id("ALL")) = .TRUE.
-    IF (PRESENT(g01)) groups(group_id(g01)) = .TRUE.
-    IF (PRESENT(g02)) groups(group_id(g02)) = .TRUE.
-    IF (PRESENT(g03)) groups(group_id(g03)) = .TRUE.
-    IF (PRESENT(g04)) groups(group_id(g04)) = .TRUE.
-    IF (PRESENT(g05)) groups(group_id(g05)) = .TRUE.
-    IF (PRESENT(g06)) groups(group_id(g06)) = .TRUE.
-    IF (PRESENT(g07)) groups(group_id(g07)) = .TRUE.
-    IF (PRESENT(g08)) groups(group_id(g08)) = .TRUE.
-    IF (PRESENT(g09)) groups(group_id(g09)) = .TRUE.
-    IF (PRESENT(g10)) groups(group_id(g10)) = .TRUE.
-    IF (PRESENT(g11)) groups(group_id(g11)) = .TRUE.
-  END FUNCTION groups
+    groups_arg(:) = .FALSE.
+    groups_arg(group_id("ALL")) = .TRUE.
+    IF (PRESENT(g01)) groups_arg(group_id(g01)) = .TRUE.
+    IF (PRESENT(g02)) groups_arg(group_id(g02)) = .TRUE.
+    IF (PRESENT(g03)) groups_arg(group_id(g03)) = .TRUE.
+    IF (PRESENT(g04)) groups_arg(group_id(g04)) = .TRUE.
+    IF (PRESENT(g05)) groups_arg(group_id(g05)) = .TRUE.
+    IF (PRESENT(g06)) groups_arg(group_id(g06)) = .TRUE.
+    IF (PRESENT(g07)) groups_arg(group_id(g07)) = .TRUE.
+    IF (PRESENT(g08)) groups_arg(group_id(g08)) = .TRUE.
+    IF (PRESENT(g09)) groups_arg(group_id(g09)) = .TRUE.
+    IF (PRESENT(g10)) groups_arg(group_id(g10)) = .TRUE.
+    IF (PRESENT(g11)) groups_arg(group_id(g11)) = .TRUE.
+  END FUNCTION groups_arg
+
+  !> The same, but provide list of groups as one character vector of group names.
+  !  Attention: the strings passed in group_list must be of length VARNAME_LEN !
+  !
+  FUNCTION groups_vec(group_list)
+    LOGICAL :: groups_vec(MAX_GROUPS)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: group_list(:)
+
+    INTEGER :: i
+
+    groups_vec(:) = .FALSE.
+    groups_vec(group_id("ALL")) = .TRUE.
+    DO i=1,SIZE(group_list)
+      IF (TRIM(group_list(i)) == "ALL") CYCLE
+      groups_vec(group_id(TRIM(group_list(i)))) = .TRUE.
+    END DO
+
+  END FUNCTION groups_vec
 
   !>
   !! Add new (tile) member to variable group
@@ -293,26 +331,13 @@ CONTAINS
     ! check whether a group with name 'group_name_plain' exists and return its ID.
     !
     ! remove time level string from group name
-    idx = INDEX(group_name,'.TL')
+    idx = INDEX(group_name,TIMELEVEL_SUFFIX)
     IF (idx > 0) THEN
       group_name_plain = TRIM(group_name(1:idx-1))
     ELSE
       group_name_plain = TRIM(group_name)
     ENDIF
     grp_id = group_id(TRIM(group_name_plain),opt_lcheck=.FALSE.)
-
-    ! If the group does not exist, create it.
-    IF (grp_id == 0) THEN
-      !
-      ! increase dynamic groups array by one element
-      CALL resize_arr_c1d(var_groups_dyn,1)
-      !
-      ! add new group
-      var_groups_dyn(SIZE(var_groups_dyn)) = toupper(TRIM(group_name_plain))
-      !
-      ! return its group ID (including offset from static groups array)
-      grp_id = group_id(TRIM(group_name_plain))
-    ENDIF
     !
     ! update in_group metainfo
     in_group_new(:) = groups()   ! initialization
