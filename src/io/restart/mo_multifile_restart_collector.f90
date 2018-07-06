@@ -13,10 +13,12 @@
 
 MODULE mo_multifile_restart_collector
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_NULL_PTR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_NULL_PTR, C_LOC
 
 #ifndef NOMPI
   USE mpi
+#else
+#define MPI_ADDRESS_KIND i8
 #endif
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
@@ -50,11 +52,16 @@ MODULE mo_multifile_restart_collector
     REAL(dp), POINTER :: sendBuffer_d(:)
     REAL(sp), POINTER :: sendBuffer_s(:)
     INTEGER,  POINTER :: sendBuffer_int(:)
-    INTEGER :: win_d, win_s, win_int
+    INTEGER :: the_win
+    INTEGER(KIND=MPI_ADDRESS_KIND), ALLOCATABLE :: typeOffSv(:)
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: facDpSp, facIntSp
+    INTEGER(KIND=MPI_ADDRESS_KIND), PRIVATE, ALLOCATABLE :: typeOffCl(:)
+!    INTEGER :: win_d, win_s, win_int
     INTEGER,           PRIVATE :: winComm, &
       &                          winClGroup, winSvGroup
     INTEGER(KIND=i8),  PRIVATE :: winSizes(3)
-    TYPE(ptr_arr_t),   PRIVATE :: winPtr(3)
+!    TYPE(ptr_arr_t),   PRIVATE :: winPtr(3)
+    TYPE(ptr_arr_t),   PRIVATE :: winPtr
     LOGICAL,           PRIVATE :: allocd, handshaked, &
       &                          win_posted, win_started
   CONTAINS
@@ -362,43 +369,44 @@ CONTAINS
 #ifndef NOMPI
     CONTIGUOUS :: outputData_s, outputData_d, outputData_i
     INTEGER, PARAMETER :: n_openreqs_max = 32
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp, facDisp
     INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
       &        target_count, target_datatype, n_openreqs
-    INTEGER :: get_reqs(n_openreqs_max), i_req, outType, stride, the_win, ddt
+    INTEGER :: get_reqs(n_openreqs_max), i_req, outType, stride, ddt, the_win, iType
 
     stride = SUM(me%idx%sourcePointCounts(:))
     n_openreqs = 0
-    IF (PRESENT(outputData_s)) THEN
-      CALL ensureSize(outputData_s, stride*levCount, no_copy)
-      outType = 1
-      target_datatype = p_real_sp
-      the_win = me%glb_sendbuf%win_s
-!$OMP PARALLEL DO SCHEDULE(STATIC)
-      DO i = 1, stride*levCount
-        outputData_s(i) = 0._sp
-      END DO
-    END IF
     IF (PRESENT(outputData_d)) THEN
       CALL ensureSize(outputData_d, stride*levCount, no_copy)
-      outType = 2
+      outType = 1
+      facDisp = me%glb_sendbuf%facDpSp
       target_datatype = p_real_dp
-      the_win = me%glb_sendbuf%win_d
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_d(i) = 0._dp
       END DO
     END IF
+    IF (PRESENT(outputData_s)) THEN
+      CALL ensureSize(outputData_s, stride*levCount, no_copy)
+      outType = 2
+      facDisp = 1_MPI_ADDRESS_KIND
+      target_datatype = p_real_sp
+!$OMP PARALLEL DO SCHEDULE(STATIC)
+      DO i = 1, stride*levCount
+        outputData_s(i) = 0._sp
+      END DO
+    END IF
     IF (PRESENT(outputData_i)) THEN
       CALL ensureSize(outputData_i, stride*levCount, no_copy)
       outType = 3
+      facDisp = me%glb_sendbuf%facIntSp
       target_datatype = p_int
-      the_win = me%glb_sendbuf%win_int
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1, stride*levCount
         outputData_i(i) = 0
       END DO
     END IF
+    the_win = me%glb_sendbuf%the_win
     origin_addr  = 1
     origin_count = 1
     DO i = 1, me%idx%sourceProcCount
@@ -411,7 +419,10 @@ CONTAINS
         IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
         origin_datatype = ddt
         target_rank     = me%idx%sourceProcs(i)
-        target_disp     = me%sourcePointStart(i) + (levStart-1)*me%idx%sourcePointCounts(i)
+        target_disp     = me%sourcePointStart(i) &
+          &               + (levStart-1)*me%idx%sourcePointCounts(i)
+        target_disp     = target_disp * facDisp &
+          &               + me%glb_sendbuf%typeOffSv(4 * (i - 1) + outType)
         target_count    = me%idx%sourcePointCounts(i) * levCount
         IF (have_MPI_RGet) THEN
           IF (n_openreqs .LT. n_openreqs_max) THEN
@@ -424,11 +435,11 @@ CONTAINS
           END IF
           SELECT CASE(outType)
             CASE(1)
-              CALL MPI_RGET(outputData_s(origin_addr), origin_count, origin_datatype, &
+              CALL MPI_RGET(outputData_d(origin_addr), origin_count, origin_datatype, &
                             target_rank, target_disp,  target_count, target_datatype, &
                             the_win, get_reqs(i_req), ierror)
             CASE(2)
-              CALL MPI_RGET(outputData_d(origin_addr), origin_count, origin_datatype, &
+              CALL MPI_RGET(outputData_s(origin_addr), origin_count, origin_datatype, &
                             target_rank, target_disp,  target_count, target_datatype, &
                             the_win, get_reqs(i_req), ierror)
             CASE(3)
@@ -442,11 +453,11 @@ CONTAINS
           IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
           SELECT CASE(outType)
             CASE(1)
-              CALL MPI_GET(outputData_s(origin_addr), origin_count, origin_datatype, &
+              CALL MPI_GET(outputData_d(origin_addr), origin_count, origin_datatype, &
                            target_rank, target_disp,  target_count, target_datatype, &
                            the_win, ierror)
             CASE(2)
-              CALL MPI_GET(outputData_d(origin_addr), origin_count, origin_datatype, &
+              CALL MPI_GET(outputData_s(origin_addr), origin_count, origin_datatype, &
                            target_rank, target_disp,  target_count, target_datatype, &
                            the_win, ierror)
             CASE(3)
@@ -505,46 +516,38 @@ CONTAINS
     CALL me%receiveBuffer_generic(levStart, used_size, levCount, outputData_i=outputData)
   END SUBROUTINE multifileRestartCollector_receiveBuffer_int
 
-  SUBROUTINE multifileRestartCollector_sendField_generic(me, levStart, inputData_s, &
-                                                         inputData_d, inputData_i,  &
-                                                         levCount_in)
+  SUBROUTINE multifileRestartCollector_sendField_generic(me, levStart, levCount, &
+                                                         inputData_d, inputData_s, &
+                                                         inputData_i)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: me
-    INTEGER, INTENT(IN)            :: levStart
-    REAL(sp), INTENT(IN), OPTIONAL :: inputData_s(:,:)
+    INTEGER, INTENT(IN)            :: levStart, levCount
     REAL(dp), INTENT(IN), OPTIONAL :: inputData_d(:,:)
+    REAL(sp), INTENT(IN), OPTIONAL :: inputData_s(:,:)
     INTEGER, INTENT(IN),  OPTIONAL :: inputData_i(:,:)
-    INTEGER, INTENT(IN), OPTIONAL  :: levCount_in
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_sendField_d"
 #ifndef NOMPI
-    INTEGER     :: i, ierror, ilev, optinCount, inType, levCount
+    INTEGER     :: i, ierror, ilev, inType
     INTEGER(i8) :: ioffset, glb_size
     CHARACTER(LEN=3) :: my_type_is
     
     CALL me%checkArguments(levStart)
-    optinCount = 0
-    IF (PRESENT(inputData_s)) THEN
-      inType = 1
-      optinCount = optinCount + 1
-      my_type_is = "sp"
-      glb_size = SIZE(me%glb_sendbuf%sendBuffer_s)
-    END IF
     IF (PRESENT(inputData_d)) THEN
-      inType = 2
-      optinCount = optinCount + 1
+      inType = 1
       my_type_is = "dp"
       glb_size = SIZE(me%glb_sendbuf%sendBuffer_d)
     END IF
+    IF (PRESENT(inputData_s)) THEN
+      inType = 2
+      my_type_is = "sp"
+      glb_size = SIZE(me%glb_sendbuf%sendBuffer_s)
+    END IF
     IF (PRESENT(inputData_i)) THEN
       inType = 3
-      optinCount = optinCount + 1
       my_type_is = "int"
       glb_size = SIZE(me%glb_sendbuf%sendBuffer_int)
     END IF
-    IF(optinCount /= 1) CALL finish(routine, "assertion failed")
-    IF (PRESENT(levCount_in)) THEN 
-      levCount = levCount_in 
+    IF (levCount .NE. 1) & 
       CALL me%checkArguments(levStart - 1 + levCount)
-    END IF
     IF (.NOT. ASSOCIATED(me%glb_sendbuf%sendBuffer_d)) THEN
       CALL finish(routine, "Unassociated send buffer!")
     END IF
@@ -562,12 +565,12 @@ CONTAINS
           CASE(1)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
             DO i = 1, me%idx%sendPointCount
-              me%glb_sendbuf%sendBuffer_s(ioffset+i) = inputData_s(me%idx%sendIdx(i), me%idx%sendBlk(i))
+              me%glb_sendbuf%sendBuffer_d(ioffset+i) = inputData_d(me%idx%sendIdx(i), me%idx%sendBlk(i))
             END DO
           CASE(2)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
             DO i = 1, me%idx%sendPointCount
-              me%glb_sendbuf%sendBuffer_d(ioffset+i) = inputData_d(me%idx%sendIdx(i), me%idx%sendBlk(i))
+              me%glb_sendbuf%sendBuffer_s(ioffset+i) = inputData_s(me%idx%sendIdx(i), me%idx%sendBlk(i))
             END DO
           CASE(3)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
@@ -591,7 +594,7 @@ CONTAINS
 
     levCount = 1
     IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%sendField_generic(levStart, inputData_s=inputData, levCount_in=levCount)
+    CALL me%sendField_generic(levStart, levCount, inputData_s=inputData)
   END SUBROUTINE multifileRestartCollector_sendField_s
 
   SUBROUTINE multifileRestartCollector_sendField_d(me, inputData, levStart, levCount_in)
@@ -603,7 +606,7 @@ CONTAINS
 
     levCount = 1
     IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%sendField_generic(levStart, inputData_d=inputData, levCount_in=levCount)
+    CALL me%sendField_generic(levStart, levCount, inputData_d=inputData)
   END SUBROUTINE multifileRestartCollector_sendField_d
 
   SUBROUTINE multifileRestartCollector_sendField_int(me, inputData, levStart, levCount_in)
@@ -615,7 +618,7 @@ CONTAINS
 
     levCount = 1
     IF (PRESENT(levCount_in)) levCount = levCount_in
-    CALL me%sendField_generic(levStart, inputData_i=inputData, levCount_in=levCount)
+    CALL me%sendField_generic(levStart, levCount, inputData_i=inputData)
   END SUBROUTINE multifileRestartCollector_sendField_int
 
   SUBROUTINE multifileRestartCollector_checkArguments(me, ilev)
@@ -644,18 +647,39 @@ CONTAINS
     CALL finish(routine, "Not implemented!")
 #else
     INTEGER, PARAMETER :: typeId(3) = (/ REAL_T, SINGLE_T, INT_T /)
-    INTEGER :: ierr, splitKey, wcGrp, wcGrp_size, i, j, ii, iStart, myRank
+    INTEGER :: ierr, splitKey, wcGrp, wcGrp_size, i, j, ii, iStart, myRank, &
+      &        typeIdMPI(3), p_addr, addrBytes
     INTEGER, ALLOCATABLE, DIMENSION(:) :: rank_list, rank_map, &
                                           tmpSrcCounts, tmpSrcProcs
+    INTEGER, PARAMETER :: addr = MPI_ADDRESS_KIND
+    INTEGER(KIND=addr), PARAMETER :: one = 1_addr, zero = 0_addr
+    INTEGER(KIND=addr) :: typeBytes(3), typeLB, dpBytes, facDpSp, facIntSp
+    INTEGER(KIND=addr), ALLOCATABLE :: tmpOffSv(:)
 
+    typeIdMPI(1:3) = (/ p_real_dp, p_real_sp, p_int /)
     this%allocd      = .false.
     this%handshaked  = .false.
     this%win_posted  = .false.
     this%win_started = .false.
+    NULLIFY(this%winPtr%p)
     DO i = 1, 3
       this%winSizes(i) = isize(typeId(i))
-      NULLIFY(this%winPtr(i)%p)
+      CALL MPI_Type_get_extent(typeIdMPI(i), typeLB, typeBytes(i), ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     END DO
+    this%facDpSp = typeBytes(1) / typeBytes(2)
+    IF (this%facDpSp .NE. (typeBytes(1)+typeBytes(2)-1)/typeBytes(2)) &
+      CALL finish(routine, "sizeof(DP) not an integer multiple of sizeof(SP)!")
+    this%facIntSp = typeBytes(3) / typeBytes(2)
+    IF (this%facIntSp .NE. (typeBytes(2)+typeBytes(3)-1)/typeBytes(3)) &
+      CALL finish(routine, "sizeof(DP) not an integer multiple of sizeof(INT)!")
+    ALLOCATE(this%typeOffCl(4))
+    this%typeOffCl(:) = zero
+    IF (my_process_is_work()) THEN
+      this%typeOffCl(2) = this%typeOffCl(1) + INT(this%winSizes(1), addr) * this%facDpSp
+      this%typeOffCl(3) = this%typeOffCl(2) + INT(this%winSizes(2), addr)
+      this%typeOffCl(4) = this%typeOffCl(3) + INT(this%winSizes(3), addr) * this%facIntSp - one
+    END IF
     myRank = p_comm_rank(p_comm_work_restart)
     splitKey = MERGE(1, myRank + 2, my_process_is_restart_writer())
     CALL MPI_Comm_split(p_comm_work_restart, idx%destProc, splitKey, this%winComm, ierr)
@@ -665,24 +689,37 @@ CONTAINS
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     CALL MPI_Group_size(wcGrp, wcGrp_size, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    ALLOCATE(rank_list(wcGrp_size), rank_map(wcGrp_size))
+    ALLOCATE(rank_list(wcGrp_size))
     rank_list(1:wcGrp_size) = (/ (i, i = 0, wcGrp_size-1) /)
     CALL MPI_Group_incl(wcGrp, 1, rank_list(1:1), this%winSvGroup, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    IF (my_process_is_restart_writer()) THEN
+      ALLOCATE(tmpOffSv(4*wcGrp_size), rank_map(wcGrp_size))
+    ELSE
+       ALLOCATE(tmpOffSv(1), rank_map(1))
+    END IF
     CALL MPI_Gather(myRank, 1, p_int, rank_map, 1, p_int, 0, this%winComm, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL MPI_Sizeof(one, addrBytes, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL MPI_Type_match_size(MPI_TYPECLASS_INTEGER, addrBytes, p_addr, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL MPI_Gather(this%typeOffCl, 4, p_addr, tmpOffSv, 4, p_addr, 0, this%winComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     IF (my_process_is_restart_writer()) THEN
       iStart = MERGE(1, 2, my_process_is_work())
       CALL MPI_Group_incl(wcGrp, wcGrp_size-iStart+1, rank_list(iStart:wcGrp_size), &
         &                 this%winClGroup, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      ALLOCATE(tmpSrcProcs (idx%sourceProcCount))
+      ALLOCATE(tmpSrcProcs (idx%sourceProcCount), &
+               this%typeOffSv(4*idx%sourceProcCount))
       tmpSrcProcs(:)  = idx%sourceProcs(:)
       DO i = 1, idx%sourceProcCount
         DO j = 1, wcGrp_size
           IF (rank_map(j) .EQ. tmpSrcProcs(i)) ii = j - 1
         END DO
         idx%sourceProcs(i) = ii
+        this%typeOffSv((i-1)*4+1:i*4) = tmpOffSv(ii*4+1:(ii+1)*4)
       END DO
       DEALLOCATE(tmpSrcProcs)
     ELSE
@@ -690,7 +727,7 @@ CONTAINS
     END IF
     CALL MPI_Group_free(wcGrp, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    DEALLOCATE(rank_list, rank_map)
+    DEALLOCATE(rank_list, rank_map, tmpOffSv)
 #endif
   END SUBROUTINE t_CollectorSendBuffer_construct
 
@@ -700,39 +737,36 @@ CONTAINS
 #ifdef NOMPI
     CALL finish(routine, "Not implemented!")
 #else
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: memSize(1), memBytes, typeBytes, typeLB, dpBytes
+    INTEGER, PARAMETER :: idummy(1) = (/ 1 /), addr = MPI_ADDRESS_KIND
+    INTEGER(KIND=addr) :: memSize(1), memBytes, typeLB, spBytes
+    INTEGER(KIND=addr), PARAMETER :: one = 1_MPI_ADDRESS_KIND
     TYPE(c_ptr) :: cMemPtr
-    INTEGER :: ierr, iType, typeIdMPI(3)
-    INTEGER, PARAMETER :: idummy(1) = (/ 1 /)
+    INTEGER :: ierr
+    REAL(KIND=sp), POINTER :: tmp_sp(:)
 
-    typeIdMPI(1:3) = (/ p_real_dp, p_real_sp, p_int /)
-    CALL MPI_Type_get_extent(p_real_dp, typeLB, dpBytes, ierr)
-    DO iType = 1, 3
-      CALL MPI_Type_get_extent(typeIdMPI(iType), typeLB, typeBytes, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      memSize(1) = MAX(INT(this%winSizes(iType), MPI_ADDRESS_KIND), 1_MPI_ADDRESS_KIND)
-      memBytes = MAX(memSize(1) * typeBytes, dpBytes)
-! as of MPI3.0 standard the following MPI_Alloc_mem interface must be present, if
-! the compiler provides ISO_C_BINDING
-      CALL MPI_Alloc_mem(memBytes, MPI_INFO_NULL, cMemPtr, ierr)
-      CALL C_F_POINTER(cMemPtr, this%winPtr(iType)%p, idummy)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      SELECT CASE (iType)
-      CASE (1)
-        CALL C_F_POINTER(cMemPtr, this%sendBuffer_d, INT(memSize))
-        CALL MPI_Win_create(this%sendBuffer_d, memBytes, INT(typeBytes), &
-          &                  MPI_INFO_NULL, this%winComm, this%win_d, ierr)
-      CASE (2)
-        CALL C_F_POINTER(cMemPtr, this%sendBuffer_s, INT(memSize))
-        CALL MPI_Win_create(this%sendBuffer_s, memBytes, INT(typeBytes), &
-          &                 MPI_INFO_NULL, this%winComm, this%win_s, ierr)
-      CASE (3)
-        CALL C_F_POINTER(cMemPtr, this%sendBuffer_int, INT(memSize))
-        CALL MPI_Win_create(this%sendBuffer_int, memBytes, INT(typeBytes), &
-          &                 MPI_INFO_NULL, this%winComm, this%win_int, ierr)
-      END SELECT
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    END DO
+    CALL MPI_Type_get_extent(p_real_sp, typeLB, spBytes, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    memSize(1) = this%typeOffCl(4)
+    memBytes = MAX(memSize(1) * spBytes, spBytes)
+! as of MPI3.0 standard the following MPI_Alloc_mem interface must be 
+! present, if the compiler provides ISO_C_BINDING
+    CALL MPI_Alloc_mem(memBytes, MPI_INFO_NULL, cMemPtr, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    CALL C_F_POINTER(cMemPtr, this%winPtr%p, idummy)
+    CALL C_F_POINTER(cMemPtr, tmp_sp, INT(memSize))
+    CALL MPI_Win_create(tmp_sp, memBytes, INT(spBytes), MPI_INFO_NULL, &
+      &                 this%winComm, this%the_win, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+    cMemPtr = C_LOC(tmp_sp(this%typeOffCl(1) + one))
+    memSize(1) = INT(this%winSizes(1), addr)
+    CALL C_F_POINTER(cMemPtr, this%sendBuffer_d,   INT(memSize))
+    cMemPtr = C_LOC(tmp_sp(this%typeOffCl(2) + one))
+    memSize(1) = INT(this%winSizes(2), addr)
+    CALL C_F_POINTER(cMemPtr, this%sendBuffer_s,   INT(memSize))
+    cMemPtr = C_LOC(tmp_sp(this%typeOffCl(3)+ one))
+    memSize(1) = INT(this%winSizes(3), addr)
+    CALL C_F_POINTER(cMemPtr, this%sendBuffer_int, INT(memSize))
+    DEALLOCATE(this%typeOffCl)
     CALL MPI_Comm_free(this%winComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     this%winComm    = MPI_COMM_NULL
@@ -750,21 +784,16 @@ CONTAINS
     IF (this%handshaked) THEN
       IF(this%win_posted .OR. this%win_started) &
         CALL this%start_local_access()
-      CALL MPI_Win_free(this%win_d, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_free(this%win_s, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_free(this%win_int, ierr)
+      CALL MPI_Win_free(this%the_win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%handshaked  = .false.
     END IF
     IF (this%allocd) THEN
 ! cumbersome: MPI_Free_mem only accepts Fortran variables/references NOT TYPE(C_PTR)/MPI_ADDRESS_KIND as base-address, while MPI_Alloc_mem returns an TYPE(C_PTR)/MPI_ADDRESS_KIND !!
-      DO i = 1, 3
-        CALL MPI_Free_mem(this%winPtr(i)%p, ierr)
-        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      END DO
-      NULLIFY(this%sendBuffer_d, this%sendBuffer_s, this%sendBuffer_int)
+      CALL MPI_Free_mem(this%winPtr%p, ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      NULLIFY(this%winPtr%p, this%sendBuffer_d, this%sendBuffer_s, this%sendBuffer_int)
+      this%winSizes(:) = 0_i8
       this%allocd = .false.
     END IF
     IF (this%winClGroup .NE. MPI_GROUP_NULL) THEN
@@ -793,20 +822,12 @@ CONTAINS
     IF (.NOT.this%win_started .OR. .NOT.this%win_posted) &
       CALL this%start_remote_access()
     IF (this%win_started) THEN
-      CALL MPI_Win_complete(this%win_d, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_complete(this%win_s, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_complete(this%win_int, ierr)
+      CALL MPI_Win_complete(this%the_win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%win_started = .false.
     END IF
     IF (this%win_posted) THEN
-      CALL MPI_Win_wait(this%win_d, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_wait(this%win_s, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_wait(this%win_int, ierr)
+      CALL MPI_Win_wait(this%the_win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%win_posted  = .false.
     ENDIF
@@ -815,9 +836,6 @@ CONTAINS
 #endif
   END SUBROUTINE t_CollectorSendBuffer_start_local_access
 
-  ! Start MPI epoch where windows may not be accessed locally and
-  ! not via MPI_PUT operations.
-  !
   SUBROUTINE t_CollectorSendBuffer_start_remote_access(this)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_start_remote_access"
@@ -828,21 +846,13 @@ CONTAINS
     IF (this%win_started .OR. this%win_posted) RETURN ! nothing to do
     IF (my_process_is_work()) THEN
       iassert = MPI_MODE_NOPUT
-      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_d, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_s, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_post(this%winSvGroup, iassert, this%win_int, ierr)
+      CALL MPI_Win_post(this%winSvGroup, iassert, this%the_win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%win_posted  = .true.
     END IF
     IF (my_process_is_restart_writer()) THEN
       iassert = 0
-      CALL MPI_Win_start(this%winClGroup, iassert, this%win_d, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_start(this%winClGroup, iassert, this%win_s, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      CALL MPI_Win_start(this%winClGroup, iassert, this%win_int, ierr)
+      CALL MPI_Win_start(this%winClGroup, iassert, this%the_win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%win_started  = .true.
     END IF
