@@ -43,7 +43,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
-  USE mo_radiation,            ONLY: radiation, radiation_nwp
+  USE mo_radiation,            ONLY: radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_aerosol_util,         ONLY: tune_dust
@@ -577,7 +577,6 @@ CONTAINS
         & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
         & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
         & dust_tunefac = dust_tunefac (:,:)          ,&!< in LW tuning factor for dust aerosol
-        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
                               !
@@ -1063,7 +1062,6 @@ CONTAINS
           & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
           & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
           & dust_tunefac = dust_tunefac (:,:)   ,&!< in LW tuning factor for dust aerosol
-          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 !
                                 ! output
                                 ! ------
