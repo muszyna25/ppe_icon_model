@@ -28,8 +28,7 @@ MODULE mo_multifile_restart_patch_data
   USE mo_multifile_restart_collector, ONLY: t_MultifileRestartCollector,                                       &
     &                                       t_CollectorIndices, t_CollectorSendBuffer
   USE mo_multifile_restart_util,      ONLY: multifilePayloadPath, kVarName_globalCellIndex,                    &
-    &                                       kVarName_globalEdgeIndex, kVarName_globalVertIndex,                &
-    &                                       t_ptr_1d_generic
+    &                                       kVarName_globalEdgeIndex, kVarName_globalVertIndex
   USE mo_restart_attributes,          ONLY: t_RestartAttributeList
   USE mo_restart_descriptor,          ONLY: t_RestartPatchData
   USE mo_restart_patch_description,   ONLY: t_restart_patch_description
@@ -322,12 +321,11 @@ CONTAINS
   SUBROUTINE multifilePatchData_exposeData(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_exposeData"
-    INTEGER                         :: curVar, curLevel
     TYPE(t_var_metadata), POINTER   :: curInfo
     TYPE(t_ptr_2d),     ALLOCATABLE :: dataPointers_d(:)
     TYPE(t_ptr_2d_sp),  ALLOCATABLE :: dataPointers_s(:)
     TYPE(t_ptr_2d_int), ALLOCATABLE :: dataPointers_int(:)
-    INTEGER                         :: startLevel, endLevel, error
+    INTEGER                         :: startLevel, nLevel, curVar
 
     IF (.NOT. my_process_is_work()) THEN
       CALL finish(routine, "assertion failed.")
@@ -338,38 +336,26 @@ CONTAINS
       ! no valid time level -> no output:
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
         &                          me%description%nnew_rcf)) CYCLE LOOP_VAR1
-      ! get the actual data pointers
+      startLevel = 1
+      nLevel   = 1
+      IF (curInfo%ndims == 3) nLevel = curInfo%used_dimensions(2)
       SELECT CASE(curInfo%data_type)
       CASE(REAL_T)
         CALL getLevelPointers(curInfo, me%varData(curVar)%r_ptr, dataPointers_d)
+        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_d=dataPointers_d)
+        DEALLOCATE(dataPointers_d)
       CASE(SINGLE_T)
         CALL getLevelPointers(curInfo, me%varData(curVar)%s_ptr, dataPointers_s)
+        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_s=dataPointers_s)
+        DEALLOCATE(dataPointers_s)
       CASE(INT_T)
         CALL getLevelPointers(curInfo, me%varData(curVar)%i_ptr, dataPointers_int)
+        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_i=dataPointers_int)
+        DEALLOCATE(dataPointers_int)
       CASE DEFAULT
         CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
       END SELECT
-      startLevel = 1
-      endLevel   = 1
-      IF (curInfo%ndims == 3) endLevel = curInfo%used_dimensions(2)
-
-      LOOP_COLLECT: DO curLevel = startLevel, endLevel
-        SELECT CASE(curInfo%data_type)
-        CASE(REAL_T)
-          CALL me%collectors(curVar)%sendField(dataPointers_d(curLevel)%p,   curLevel)
-        CASE(SINGLE_T)
-          CALL me%collectors(curVar)%sendField(dataPointers_s(curLevel)%p,   curLevel)
-        CASE(INT_T)
-          CALL me%collectors(curVar)%sendField(dataPointers_int(curLevel)%p, curLevel)
-        CASE DEFAULT
-          CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
-        END SELECT
-      END DO LOOP_COLLECT
     END DO LOOP_VAR1
-    ! clean-up
-    IF (ALLOCATED(dataPointers_d))    DEALLOCATE(dataPointers_d)
-    IF (ALLOCATED(dataPointers_s))    DEALLOCATE(dataPointers_s)
-    IF (ALLOCATED(dataPointers_int))  DEALLOCATE(dataPointers_int)
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE multifilePatchData_exposeData
 
@@ -410,7 +396,8 @@ CONTAINS
         IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
         SELECT CASE(curInfo%data_type)
         CASE(REAL_T)
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_dp, used_size, nlevels)
+          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
+            &                          output_d=me%commonRecvBuf_dp)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
           DO ilevel = 1, nlevels
@@ -420,7 +407,8 @@ CONTAINS
           bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
           !
         CASE(SINGLE_T)
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_sp, used_size, nlevels)
+          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
+            &                          output_s=me%commonRecvBuf_sp)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
           DO ilevel = 1, nlevels
@@ -431,7 +419,8 @@ CONTAINS
           !               
         CASE(INT_T)
           ! integer data type: copy to double precision field
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, me%commonRecvBuf_int, used_size, nlevels)
+          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
+            &                          output_i=me%commonRecvBuf_int)
           IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
           IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
           CALL ensureSize(me%commonRecvBuf_dp, used_size, no_copy)
