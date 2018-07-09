@@ -25,7 +25,7 @@ MODULE mo_multifile_restart_patch_data
   USE mo_kind,                        ONLY: dp, sp, i8
   USE mo_model_domain,                ONLY: p_patch
   USE mo_mpi,                         ONLY: my_process_is_work
-  USE mo_multifile_restart_collector, ONLY: t_MultifileRestartCollector,                                       &
+  USE mo_multifile_restart_collector, ONLY: t_MultifileRestartCollector, commonBuf_t, dataPtrs_t,              &
     &                                       t_CollectorIndices, t_CollectorSendBuffer
   USE mo_multifile_restart_util,      ONLY: multifilePayloadPath, kVarName_globalCellIndex,                    &
     &                                       kVarName_globalEdgeIndex, kVarName_globalVertIndex
@@ -47,36 +47,21 @@ MODULE mo_multifile_restart_patch_data
   PUBLIC :: toMultifilePatchData
 
   PRIVATE
-  
+
   TYPE, EXTENDS(t_RestartPatchData) :: t_MultifilePatchData
-    ! global receive buffers
-    REAL(dp), POINTER :: commonRecvBuf_dp(:)
-    REAL(sp), POINTER :: commonRecvBuf_sp(:)
-    INTEGER,  POINTER :: commonRecvBuf_int(:)
+    PRIVATE
+    TYPE(commonBuf_t) :: RecvBuffer
     REAL(dp), POINTER :: glb_indices_cell(:)
     REAL(dp), POINTER :: glb_indices_edge(:)
     REAL(dp), POINTER :: glb_indices_vert(:)
-    ! --- send buffer
-    ! global sender buffers attached to single MPI memory windows; all
-    ! collectors point into these data structures.
-    TYPE (t_CollectorSendBuffer) :: glb_sendbuf_cell, &
-      &                             glb_sendbuf_edge, &
-      &                             glb_sendbuf_vert
-    ! --- "collector" objects     
-    ! three index sets which we need to aggregate the data on the
-    ! restart writers
+    INTEGER,  POINTER :: varReordered(:)
+    TYPE (t_CollectorSendBuffer) :: glb_sendbuf
     TYPE(t_CollectorIndices) :: cellCollector, edgeCollector, vertCollector
-    ! for each variable: "collector" aggregating the data, including
-    ! the send buffer for each variable
-    TYPE(t_MultifileRestartCollector), ALLOCATABLE :: collectors(:)
+    TYPE(t_MultifileRestartCollector) :: collector
   CONTAINS
-    ! override, collective across both work and restart procs, must
-    ! be followed by a CALL to createCollectors()
     PROCEDURE :: construct => multifilePatchData_construct
-    ! no communication, but entered by all procs
     PROCEDURE :: createCollectors => multifilePatchData_createCollectors
     PROCEDURE :: openPayloadFile => multifilePatchData_openPayloadFile  ! restart writers only
-    ! collective across both work and restart procs:
     PROCEDURE :: start_local_access  => multifilePatchData_start_local_access
     PROCEDURE :: start_remote_access => multifilePatchData_start_remote_access
     PROCEDURE :: exposeData  => multifilePatchData_exposeData    
@@ -109,7 +94,7 @@ CONTAINS
     INTEGER,                     INTENT(IN)    :: domain
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_construct"
 
-    NULLIFY(me%commonRecvBuf_dp, me%commonRecvBuf_sp, me%commonRecvBuf_int, &
+    NULLIFY(me%RecvBuffer%d, me%RecvBuffer%s, me%RecvBuffer%i, &
      &      me%glb_indices_cell, me%glb_indices_edge, me%glb_indices_vert)
     
     CALL me%t_RestartPatchData%construct(modelType, domain)
@@ -130,12 +115,10 @@ CONTAINS
     LOGICAL,                     INTENT(IN) :: lthis_pe_active
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_createCollectors"
     INTEGER, PARAMETER :: TYPE_LEN = MAXVAL([REAL_T, SINGLE_T, INT_T])
-    INTEGER                         :: curVar, error, jg, nlevs, itype
-    INTEGER(i8)                     :: ioffset_cell(TYPE_LEN), ioffset_edge(TYPE_LEN), &
-      &                                ioffset_vert(TYPE_LEN)
+    INTEGER                         :: curVar, ierr, jg, nLevs, iType, nVar, i
+    INTEGER(i8)                     :: iOffset(TYPE_LEN)
     TYPE(t_var_metadata), POINTER   :: curInfo
-    INTEGER, ALLOCATABLE            :: sourceOffset_cell(:,:), sourceOffset_Edge(:,:), &
-      &                                sourceOffset_Vert(:,:)
+    INTEGER, ALLOCATABLE            :: sourceOffset(:,:)
     TYPE(t_grid_domain_decomp_info) :: dummyInfo
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_setup)
@@ -161,56 +144,49 @@ CONTAINS
       me%glb_indices_vert => me%vertCollector%construct(0, dummyInfo, writerRank, &
         &                                     sourceRanks, lthis_pe_active)
     END IF
-    ! allocate variable indexed arrays
-    ALLOCATE(me%collectors(SIZE(me%varData)), STAT = error)
-    IF (error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-
+    nVar = SIZE(me%varData)
     IF (my_process_is_restart_writer()) THEN
-      ALLOCATE(sourceOffset_Cell(TYPE_LEN, me%cellCollector%sourceProcCount), &
-        &      sourceOffset_Edge(TYPE_LEN, me%edgeCollector%sourceProcCount), &
-        &      sourceOffset_Vert(TYPE_LEN, me%vertCollector%sourceProcCount), STAT=error)
+      ALLOCATE(sourceOffset(TYPE_LEN, me%cellCollector%sourceProcCount), STAT=ierr)
+      IF ( &
+        & me%cellCollector%sourceProcCount .NE. me%edgeCollector%sourceProcCount .OR. &
+        & me%cellCollector%sourceProcCount .NE. me%vertCollector%sourceProcCount .OR. &
+        & me%edgeCollector%sourceProcCount .NE. me%vertCollector%sourceProcCount) &
+        & CALL finish(routine, "inconsistent!!!")
     ELSE
-      ALLOCATE(sourceOffset_Cell(TYPE_LEN, 1), &
-        &      sourceOffset_Edge(TYPE_LEN, 1), &
-        &      sourceOffset_Vert(TYPE_LEN, 1), STAT=error)
+      ALLOCATE(sourceOffset(TYPE_LEN, 1), STAT=ierr)
     END IF
-    IF (error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    sourceOffset_Cell(:,:) = 0
-    sourceOffset_Edge(:,:) = 0
-    sourceOffset_Vert(:,:) = 0
-    ioffset_cell(:) = 0
-    ioffset_edge(:) = 0
-    ioffset_vert(:) = 0
-    DO curVar = 1, SIZE(me%varData)
-      curInfo => me%varData(curVar)%info
-      itype = curInfo%data_type
+    IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    sourceOffset(:,:) = 0
+    ioffset(:) = 0
+    ALLOCATE(me%varReordered(nVar))
+    i = 0
+    DO iType = 1, TYPE_LEN   
+      DO curVar = 1, nVar
+        curInfo => me%varData(curVar)%info
+        IF (curInfo%data_type .EQ. iType) THEN
+          i = i + 1
+          me%varReordered(i) = curVar
+        END IF
+      END DO
+    END DO
+    IF (i .NE. nVar) CALL finish(routine, "inconsistentcy!!!")
+    CALL me%collector%construct(me%cellCollector, me%edgeCollector, me%vertCollector, &
+                                me%glb_sendbuf, nVar)
+    DO curVar = 1, nVar
+      curInfo => me%varData(me%varReordered(curVar))%info
+      iType = curInfo%data_type
       !get the effective level count
-      nlevs = 1
-      IF (curInfo%ndims == 3) nlevs = curInfo%used_dimensions(2)
+      nLevs = 1
+      IF (curInfo%ndims == 3) nLevs = curInfo%used_dimensions(2)
       IF (curInfo%ndims > 3) CALL finish(routine, "ndims > 3 is not supported")
       ! get the correct collector and buffer for the first level
-      SELECT CASE(curInfo%hgrid)
-      CASE(GRID_UNSTRUCTURED_CELL)
-        ! note: the send buffers are allocated for all levels.
-        CALL me%collectors(curVar)%construct(me%cellCollector, me%glb_sendbuf_cell, nlevs, itype, &
-          &                                  ioffset_cell, sourceOffset_Cell)
-      CASE(GRID_UNSTRUCTURED_EDGE)
-        CALL me%collectors(curVar)%construct(me%edgeCollector, me%glb_sendbuf_edge, nlevs, itype, &
-          &                                  ioffset_edge, sourceOffset_Edge)
-      CASE(GRID_UNSTRUCTURED_VERT)
-        CALL me%collectors(curVar)%construct(me%vertCollector, me%glb_sendbuf_vert, nlevs, itype, &
-          &                                  ioffset_vert, sourceOffset_Vert)
-      CASE DEFAULT
-        CALL finish(routine, "Internal error!")
-      END SELECT
+      CALL me%collector%defVar(curVar, nLevs, iType, curInfo%hgrid, iOffset, sourceOffset)
     END DO
     ! finally, allocate the global send buffers:
-    CALL me%glb_sendbuf_cell%construct(ioffset_cell, me%cellCollector)
-    CALL me%glb_sendbuf_edge%construct(ioffset_edge, me%edgeCollector)
-    CALL me%glb_sendbuf_vert%construct(ioffset_vert, me%vertCollector)
+    CALL me%glb_sendbuf%construct(ioffset, me%cellCollector, me%edgeCollector, me%vertCollector)
     ! clean up
-    DEALLOCATE(sourceOffset_cell, sourceOffset_Edge, sourceOffset_Vert, STAT=error)
-    IF (error /= SUCCESS) CALL finish(routine, "memory deallocation failure")
+    DEALLOCATE(sourceOffset, STAT=ierr)
+    IF (ierr /= SUCCESS) CALL finish(routine, "memory deallocation failure")
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
   END SUBROUTINE multifilePatchData_createCollectors
 
@@ -298,9 +274,7 @@ CONTAINS
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-    CALL me%glb_sendbuf_cell%start_local_access()
-    CALL me%glb_sendbuf_edge%start_local_access()
-    CALL me%glb_sendbuf_vert%start_local_access()
+    CALL me%glb_sendbuf%start_local_access()
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE multifilePatchData_start_local_access
 
@@ -310,9 +284,7 @@ CONTAINS
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-    CALL me%glb_sendbuf_cell%start_remote_access()
-    CALL me%glb_sendbuf_edge%start_remote_access()
-    CALL me%glb_sendbuf_vert%start_remote_access()
+    CALL me%glb_sendbuf%start_remote_access()
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE multifilePatchData_start_remote_access
 
@@ -322,16 +294,15 @@ CONTAINS
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_exposeData"
     TYPE(t_var_metadata), POINTER   :: curInfo
-    TYPE(t_ptr_2d),     ALLOCATABLE :: dataPointers_d(:)
-    TYPE(t_ptr_2d_sp),  ALLOCATABLE :: dataPointers_s(:)
-    TYPE(t_ptr_2d_int), ALLOCATABLE :: dataPointers_int(:)
-    INTEGER                         :: startLevel, nLevel, curVar
+    TYPE(dataPtrs_t)                :: dataPointers
+    INTEGER                         :: startLevel, nLevel, curVar, curVar_o
 
     IF (.NOT. my_process_is_work()) THEN
       CALL finish(routine, "assertion failed.")
     END IF
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-    LOOP_VAR1 : DO curVar = 1, SIZE(me%varData)
+    LOOP_VAR1 : DO curVar_o = 1, SIZE(me%varData)
+      curVar = me%varReordered(curVar_o)
       curInfo => me%varData(curVar)%info
       ! no valid time level -> no output:
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
@@ -341,20 +312,15 @@ CONTAINS
       IF (curInfo%ndims == 3) nLevel = curInfo%used_dimensions(2)
       SELECT CASE(curInfo%data_type)
       CASE(REAL_T)
-        CALL getLevelPointers(curInfo, me%varData(curVar)%r_ptr, dataPointers_d)
-        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_d=dataPointers_d)
-        DEALLOCATE(dataPointers_d)
+        CALL getLevelPointers(curInfo, me%varData(curVar)%r_ptr, dataPointers%d)
       CASE(SINGLE_T)
-        CALL getLevelPointers(curInfo, me%varData(curVar)%s_ptr, dataPointers_s)
-        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_s=dataPointers_s)
-        DEALLOCATE(dataPointers_s)
+        CALL getLevelPointers(curInfo, me%varData(curVar)%s_ptr, dataPointers%s)
       CASE(INT_T)
-        CALL getLevelPointers(curInfo, me%varData(curVar)%i_ptr, dataPointers_int)
-        CALL me%collectors(curVar)%sendField(startLevel, nLevel, input_i=dataPointers_int)
-        DEALLOCATE(dataPointers_int)
+        CALL getLevelPointers(curInfo, me%varData(curVar)%i_ptr, dataPointers%i)
       CASE DEFAULT
         CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
       END SELECT
+      CALL me%collector%sendField(startLevel, nLevel, curVar_o, dataPointers)
     END DO LOOP_VAR1
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
   END SUBROUTINE multifilePatchData_exposeData
@@ -381,7 +347,7 @@ CONTAINS
     END IF
     NULLIFY(ptr2level_dp, ptr2level_sp)
     LOOP_VAR2 : DO curVar = 1, SIZE(me%varData)
-      curInfo => me%varData(curVar)%info
+      curInfo => me%varData(me%varReordered(curVar))%info
       startLevel = 1
       endLevel   = 1
       IF (curInfo%ndims == 3) endLevel = curInfo%used_dimensions(2)
@@ -394,42 +360,31 @@ CONTAINS
         ilevel_start = restart_chunk_size*(ichunk - 1) + 1
         nlevels      = MIN(restart_chunk_size * ichunk, endLevel) - ilevel_start + 1
         IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+        CALL me%collector%fetch(curVar, ilevel_start, used_size, nlevels, me%RecvBuffer)
+        IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+        IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
         SELECT CASE(curInfo%data_type)
         CASE(REAL_T)
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
-            &                          output_d=me%commonRecvBuf_dp)
-          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
           DO ilevel = 1, nlevels
-            ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            ptr2level_dp => me%recvBuffer%d(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
             CALL streamWriteVarSlice(fileId, curInfo%cdiVarId,  ilevel+ilevel_start-2, ptr2level_dp, 0)
           END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
-          !
         CASE(SINGLE_T)
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
-            &                          output_s=me%commonRecvBuf_sp)
-          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
           DO ilevel = 1, nlevels
-            ptr2level_sp => me%commonRecvBuf_sp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            ptr2level_sp => me%RecvBuffer%s(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
             CALL streamWriteVarSliceF(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_sp, 0)
           END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 4_i8
-          !               
         CASE(INT_T)
           ! integer data type: copy to double precision field
-          CALL me%collectors(curVar)%receiveBuffer(ilevel_start, used_size, nlevels, &
-            &                          output_i=me%commonRecvBuf_int)
-          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-          IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-          CALL ensureSize(me%commonRecvBuf_dp, used_size, no_copy)
+          CALL ensureSize(me%RecvBuffer%d, used_size, no_copy)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, used_size
-            me%commonRecvBuf_dp(i) = REAL(me%commonRecvBuf_int(i), dp)
+            me%RecvBuffer%d(i) = REAL(me%RecvBuffer%i(i), dp)
           END DO
           DO ilevel = 1, nlevels
-            ptr2level_dp => me%commonRecvBuf_dp(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
+            ptr2level_dp => me%RecvBuffer%d(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
             CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_dp, 0)
           END DO
           bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
@@ -454,49 +409,51 @@ CONTAINS
   SUBROUTINE multifilePatchData_destruct(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_destruct"
-    INTEGER :: i, ierrstat
+    INTEGER :: i, ierr
 
     CALL me%cellCollector%finalize()
     CALL me%edgeCollector%finalize()
     CALL me%vertCollector%finalize()
-    DO i=1,SIZE(me%collectors)
-      CALL me%collectors(i)%finalize()
-    END DO
-    DEALLOCATE(me%collectors, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "memory deallocation failure")
+    CALL me%collector%finalize()
     CALL me%t_RestartPatchData%destruct()
-    CALL me%glb_sendbuf_cell%finalize()
-    CALL me%glb_sendbuf_edge%finalize()
-    CALL me%glb_sendbuf_vert%finalize()
-    CALL dealloc_pointerarr_dp(me%commonRecvBuf_dp)
-    IF (ASSOCIATED(me%commonRecvBuf_sp)) THEN
-      DEALLOCATE(me%commonRecvBuf_sp, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) &
+    CALL me%glb_sendbuf%finalize()
+    CALL dealloc_pointerarr_dp(me%RecvBuffer%d)
+    IF (ASSOCIATED(me%RecvBuffer%s)) THEN
+      DEALLOCATE(me%RecvBuffer%s, STAT=ierr)
+      IF (ierr /= SUCCESS) &
         CALL finish(routine, "memory deallocation failure")
     END IF
-    IF (ASSOCIATED(me%commonRecvBuf_int)) THEN
-      DEALLOCATE(me%commonRecvBuf_int, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) &
-        CALL finish(routine, "memory deallocation failure")
-    END IF
-    NULLIFY(me%commonRecvBuf_sp, me%commonRecvBuf_int)
+    NULLIFY(me%RecvBuffer%s)
+    CALL dealloc_pointerarr_int(me%RecvBuffer%i)
     CALL dealloc_pointerarr_dp(me%glb_indices_cell)
     CALL dealloc_pointerarr_dp(me%glb_indices_edge)
     CALL dealloc_pointerarr_dp(me%glb_indices_vert)
+    CALL dealloc_pointerarr_int(me%varReordered)
   CONTAINS
 
     SUBROUTINE dealloc_pointerarr_dp(ptr)
       REAL(KIND=dp), POINTER, INTENT(INOUT) :: ptr(:)
-      INTEGER :: ierrstat
+      INTEGER :: ierr
 
       IF (ASSOCIATED(ptr)) THEN
-        DEALLOCATE(ptr, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) &
+        DEALLOCATE(ptr, STAT=ierr)
+        IF (ierr /= SUCCESS) &
          CALL finish(routine, "memory deallocation failure")
       END IF
       NULLIFY(ptr)
     END SUBROUTINE dealloc_pointerarr_dp
 
+    SUBROUTINE dealloc_pointerarr_int(ptr)
+      INTEGER, POINTER, INTENT(INOUT) :: ptr(:)
+      INTEGER :: ierr
+
+      IF (ASSOCIATED(ptr)) THEN
+        DEALLOCATE(ptr, STAT=ierr)
+        IF (ierr /= SUCCESS) &
+         CALL finish(routine, "memory deallocation failure")
+      END IF
+      NULLIFY(ptr)
+    END SUBROUTINE dealloc_pointerarr_int
   END SUBROUTINE multifilePatchData_destruct
 
 END MODULE mo_multifile_restart_patch_data
