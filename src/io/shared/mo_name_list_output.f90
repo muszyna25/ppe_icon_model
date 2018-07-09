@@ -1237,7 +1237,7 @@ CONTAINS
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
     INTEGER,  INTENT(in) :: i_ptr(:,:,:)
-    TYPE(t_reorder_info),  INTENT(in) :: p_ri
+    TYPE(t_reorder_info), INTENT(in), POINTER :: p_ri
 
     REAL(dp), ALLOCATABLE :: r_out_dp(:)
     INTEGER, ALLOCATABLE :: r_out_int(:)
