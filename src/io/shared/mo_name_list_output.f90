@@ -1139,6 +1139,7 @@ CONTAINS
       ENDIF
 
       ! Get pointer to appropriate reorder_info
+      nullify(p_ri, p_pat)
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri  => patch_info(i_dom)%cells
@@ -1339,7 +1340,7 @@ CONTAINS
     REAL(dp), POINTER, INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), POINTER, INTENT(in) :: s_ptr(:,:,:)
     INTEGER, POINTER, INTENT(in) :: i_ptr(:,:,:)
-    TYPE(t_reorder_info),  INTENT(in) :: p_ri
+    TYPE(t_reorder_info), INTENT(in), POINTER :: p_ri
 
     REAL(dp), ALLOCATABLE :: r_out_dp(:)
     INTEGER, ALLOCATABLE :: r_out_int(:)
@@ -1349,7 +1350,7 @@ CONTAINS
     REAL(wp) :: missval
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::gather_on_workroot_and_write"
 
-    TYPE(t_comm_gather_pattern), INTENT(in) :: p_pat
+    TYPE(t_comm_gather_pattern), INTENT(in), POINTER :: p_pat
     TYPE (t_var_metadata), INTENT(in) :: info
 
 
