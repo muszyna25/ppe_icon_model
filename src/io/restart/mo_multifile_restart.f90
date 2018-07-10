@@ -235,7 +235,8 @@ MODULE mo_multifile_restart
   USE mo_serialized_data,              ONLY: t_SerializedData
   USE mo_timer,                        ONLY: timer_start, timer_stop, timer_write_restart,               &
     &                                        timer_write_restart_communication, timer_write_restart_io,  &
-    &                                        timers_level, timer_write_restart_setup
+    &                                        timers_level, timer_write_restart_setup,                    &
+                                             timer_write_restart_wait
   USE mo_util_cdi,                     ONLY: cdiGetStringError
   USE mo_util_file,                    ONLY: putFile
   USE mo_util_string,                  ONLY: int2string, real2string
@@ -384,7 +385,7 @@ CONTAINS
     !In the CASE of dedicated proc mode, we need to inform the restart processes.
     CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode)
     IF(lDedicatedProcMode) THEN
-      IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       CALL packedMessage%construct()
       CALL packedMessage%pack(kWriteRestartOp)
       CALL resultVar%packer(kPackOp, packedMessage)
@@ -392,7 +393,7 @@ CONTAINS
       CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
       IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
       CALL packedMessage%destruct()
-      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
       IF(my_process_is_mpi_workroot()) THEN
         WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ',time_end-time_start,' sec for dedicated restart procs to be ready...'
         CALL message(routine, message_text)             
@@ -409,14 +410,14 @@ CONTAINS
     REAL(KIND=dp) :: time_start, time_end
     CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode)
     IF(lDedicatedProcMode) THEN
-      IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       CALL packedMessage%construct()
       CALL packedMessage%pack(kShutdownOp)
       IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
       CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
       IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
       CALL packedMessage%destruct()
-      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
       IF(my_process_is_mpi_workroot()) THEN
         WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ',time_end-time_start,' sec for dedicated restart procs to finish...'
         CALL message(routine, message_text)
@@ -442,7 +443,7 @@ CONTAINS
     REAL(KIND=dp) :: time_start, time_end
 
     !receive the message from the work processes
-    IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL packedMessage%construct()
     IF(my_process_is_restart_master()) time_start = p_mpi_wtime()
     CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
@@ -458,7 +459,7 @@ CONTAINS
                                      ' sec for next event triggered by computes...'
       CALL message(routine, message_text)
     END IF
-    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
 
   END FUNCTION createRestartArgs_restart
 
@@ -548,10 +549,6 @@ CONTAINS
     TYPE(t_MultifilePatchData), POINTER   :: patchData
 
     namelists => namelistArchive()
-    !start the timer
-    IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-    CALL p_barrier(p_comm_work_restart)
-    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
     me%startTime = p_mpi_wtime()
     me%bytesWritten = 0_i8
     !ensure that all processes have up-to-date patch DATA
@@ -561,11 +558,11 @@ CONTAINS
     IF(my_process_is_restart_master()) THEN
         IF(createEmptyMultifileDir(filename) /= SUCCESS) CALL finish(routine, "error creating restart multifile")
     END IF
-    IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     !ensure that the other processes DO NOT continue before the
     !directory has been created:
     CALL p_bcast(dummy, restartWorkProcId2Rank(0), p_comm_work_restart) 
-    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
     !WRITE the attributes.nc file
     IF(my_process_is_restart_master()) THEN
       restartAttributes => RestartAttributeList_make()
@@ -651,22 +648,14 @@ CONTAINS
     !zero IN this CASE.
 #ifndef NOMPI
     IF(isDedicatedProcMode().AND.my_process_is_work()) THEN
-    !IN dedicated proc mode we must avoid blocking the work
-    !processes
       !dedicated proc mode: work processes
-      IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-      CALL p_barrier(p_comm_work)
-      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-      !the previous CALL has synchronized us, so now it's safe
-      !to stop the timer
       elapsedTime = p_mpi_wtime() - me%startTime
       IF(my_process_is_mpi_workroot()) THEN
-        WRITE(message_text, *) "restart: finished streaming of data to restart &
-                               &processes, took "//TRIM(real2string(elapsedTime))//"s"
+        WRITE(message_text, *) "restart: preparing checkpoint-data took "//TRIM(real2string(elapsedTime))//"s"
         CALL message(routine, message_text)
       END IF
     ELSE
-      IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       IF(my_process_is_restart()) THEN
         !dedicated proc mode: restart processes
         totalBytesWritten = p_reduce(me%bytesWritten, p_sum_op(), 0, p_comm_work)
@@ -674,7 +663,7 @@ CONTAINS
         !joint proc mode: all processes
         totalBytesWritten = p_reduce(me%bytesWritten, p_sum_op(), 0, p_comm_work_restart)
       END IF
-      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
       !the previous CALL has synchronized us, so now it's safe
       !to stop the timer
       elapsedTime = p_mpi_wtime() - me%startTime
@@ -682,7 +671,7 @@ CONTAINS
         gibibytesWritten = REAL(totalBytesWritten, dp)/1024.0_dp/1024.0_dp/1024.0_dp
         WRITE(message_text,*) "restart: finished writing, "//TRIM(real2string(gibibytesWritten))//"GiB of data in "//&
                    &TRIM(real2string(elapsedTime))//"s ("//TRIM(real2string(gibibytesWritten/elapsedTime))//"GiB/s)"
-        CALL message(routine, message_text)
+        CALL message(routine, message_text, all_print=.true.)
       END IF
     END IF
 #endif
@@ -696,15 +685,15 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: filename
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_NamelistArchive), INTENT(INOUT) :: namelists
-    INTEGER :: file, grid, zaxis, variable, vlist
+    INTEGER :: metaFile, grid, zaxis, variable, vlist
     CHARACTER(:), ALLOCATABLE :: effectiveFilename
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_writeAttributeFile"
 
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
     CALL multifileAttributesPath(filename, effectiveFilename)
     !open the file as a CDI stream AND create a vlist to carry our attributes
-    file = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
-    CALL checkCdiId(file, "error opening file '"//effectiveFilename//"' for writing")
+    metaFile = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
+    CALL checkCdiId(metaFile, "error opening file '"//effectiveFilename//"' for writing")
     vlist = vlistCreate()
     CALL checkCdiId(vlist, "error creating CDI vlist")
     !XXX: Unfortunately, CDI does NOT WRITE attributes to the file
@@ -728,12 +717,12 @@ CONTAINS
     !write the restart attributes AND the namelist archive to the vlist attributes
     CALL namelists%writeToCdiVlist(vlist)
     CALL restartAttributes%writeToCdiVlist(vlist)
-    CALL streamDefVlist(file, vlist)
+    CALL streamDefVlist(metaFile, vlist)
     !this IS the point where we actually convince CDI to output
     !the attributes
-    CALL streamDefRecord(file, variable, 0)
+    CALL streamDefRecord(metaFile, variable, 0)
     !cleanup
-    CALL streamClose(file)
+    CALL streamClose(metaFile)
     CALL vlistDestroy(vlist)
     CALL gridDestroy(grid)
     CALL zaxisDestroy(zaxis)

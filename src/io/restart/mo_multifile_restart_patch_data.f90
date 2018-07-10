@@ -37,7 +37,7 @@ MODULE mo_multifile_restart_patch_data
   USE mo_restart_var_data,            ONLY: has_valid_time_level, getLevelPointers
   USE mo_timer,                       ONLY: timer_start, timer_stop, timer_write_restart_io,                   &
     &                                       timer_write_restart_communication, timers_level,                   &
-    &                                       timer_write_restart_setup
+    &                                       timer_write_restart_setup, timer_write_restart_wait
   USE mo_var_metadata_types,          ONLY: t_var_metadata
   USE mo_parallel_config,             ONLY: restart_chunk_size
 
@@ -283,9 +283,9 @@ CONTAINS
   SUBROUTINE multifilePatchData_start_remote_access(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
-    IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL me%glb_sendbuf%start_remote_access()
-    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
   END SUBROUTINE multifilePatchData_start_remote_access
 
   ! Collect the data, optionally writing it immediately.
@@ -300,7 +300,7 @@ CONTAINS
     IF (.NOT. my_process_is_work()) THEN
       CALL finish(routine, "assertion failed.")
     END IF
-    IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
     LOOP_VAR1 : DO curVar_o = 1, SIZE(me%varData)
       curVar = me%varReordered(curVar_o)
       curInfo => me%varData(curVar)%info
@@ -322,7 +322,7 @@ CONTAINS
       END SELECT
       CALL me%collector%sendField(startLevel, nLevel, curVar_o, dataPointers)
     END DO LOOP_VAR1
-    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_io)
   END SUBROUTINE multifilePatchData_exposeData
 
   ! Collect the data, optionally writing it immediately.
