@@ -97,9 +97,9 @@ cat > ${atmo_namelist} << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = $(echo $(( 1 * ( mpi_total_procs > 5 ))))
+ num_io_procs   = $(echo $(( 1 * ( mpi_total_procs > 11 ))))
  io_proc_chunk_size = 26
- num_restart_procs = $(echo $(( 1 * ( mpi_total_procs > 5 ))))
+ num_restart_procs = $(echo $(( 1 * ( mpi_total_procs > 11 ))))
  restart_chunk_size = 26
  num_prefetch_proc = 0
 /
