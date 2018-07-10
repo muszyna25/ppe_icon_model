@@ -22,6 +22,7 @@ MODULE mo_ocean_model
        &                            my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
+  USE mo_memory_log,              ONLY: memory_log_terminate
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
@@ -297,6 +298,9 @@ MODULE mo_ocean_model
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
+
+    ! close memory logging files
+    CALL memory_log_terminate
 
     CALL message(TRIM(method_name),'clean-up finished')
 

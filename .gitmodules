@@ -12,7 +12,7 @@
 [submodule "externals/self"]
 	path = externals/self
 	url = git@git.mpimet.mpg.de:libself.git
-	branch = libself-icon_v0.1
+	branch = libself-icon_v0.2
 
 [submodule "externals/tixi"]
 	path = externals/tixi

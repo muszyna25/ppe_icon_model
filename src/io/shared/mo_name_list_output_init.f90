@@ -335,7 +335,7 @@ CONTAINS
 
     ! create variable of registering output variables. should be used later for
     ! triggering computation only in case of output request
-    outputRegiser = vector(verbose=.FALSE.)
+    call outputRegiser%init(verbose=.FALSE.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 

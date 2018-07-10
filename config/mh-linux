@@ -598,6 +598,9 @@ case "$ac_sitename" in
                           intel17)
                             load_modules = intel/17.0.6 ${load_modules}
                             ;;
+                          intel18)
+                            load_modules = intel/18.0.2 ${load_modules}
+                            ;;
                           intel16|intel*)
                             load_modules = intel/16.0 ${load_modules}
                             ;;
@@ -738,10 +741,16 @@ case "$ac_sitename" in
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
 
                         case "$with_mpi" in
-                            "${software_tree}/intel/impi/2017.0.098")
-                                load_modules = ${load_modules} intelmpi/2017.0.098
+                            "${software_tree}/intel/impi/2017.2.174")
+                                load_modules = ${load_modules} intelmpi/2017.2.174
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/2017.0.098/compilers_and_libraries_2017.0.098/linux/mpi/intel64
+                                MPIROOT      = $software_tree/intel/impi/2017.2.174/compilers_and_libraries_2017.2.174/linux/mpi/intel64
+                                MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                ;;
+                            "${software_tree}/intel/impi/2018.1.163")
+                                load_modules = ${load_modules} intelmpi/2018.1.163
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                MPIROOT      = $software_tree/intel/impi/2018.1.163/compilers_and_libraries_2018.1.163/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
                             "$software_tree/mpi/openmpi/2.0.2p1_hpcx-gcc64"|*)

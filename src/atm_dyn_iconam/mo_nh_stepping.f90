@@ -128,6 +128,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
+  USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
 
 #ifdef NOMPI
@@ -708,6 +709,9 @@ MODULE mo_nh_stepping
 #endif
 
   TIME_LOOP: DO
+
+    ! optional memory loggin
+    CALL memory_log_add
 
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom

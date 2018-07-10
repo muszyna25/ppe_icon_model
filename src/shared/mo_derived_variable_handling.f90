@@ -174,17 +174,17 @@ CONTAINS
     ! main map for automatical mean value computation:
     ! key: eventString
     ! value: self-vector of t_list_elements objects that belong to that event
-    meanMap            = map(verbose=.false.)
+    call meanMap%init(verbose=.false.)
 
     ! map for holding the events itself
     ! since the events cannot be saved a keys for a map because they are only
     ! C-pointers the same string representation of events is used as for
     ! "meanMap"
-    meanEvents                = map(verbose=.false.)
-    meanEventsActivity        = map(verbose=.false.)
-    meanVarCounter            = map(verbose=.false.)
-    meanPrognostics           = vector(verbose=.false.)
-    meanPrognosticPointers    = map(verbose=.false.)
+    call meanEvents%init(verbose=.false.)
+    call meanEventsActivity%init(verbose=.false.)
+    call meanVarCounter%init(verbose=.false.)
+    call meanPrognostics%init(verbose=.false.)
+    call meanPrognosticPointers%init(verbose=.false.)
 
     listname = 'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -286,7 +286,7 @@ CONTAINS
         end select
       ELSE
         ! create new variable list
-        meanVariables = vector_ref()
+        call meanVariables%init()
 
         ! wrap c-pointer for events into a fortran type - look weird, but does the trick
         event_wrapper = t_event_wrapper(this=newEvent(eventKey, &
