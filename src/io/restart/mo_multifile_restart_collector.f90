@@ -41,8 +41,6 @@ MODULE mo_multifile_restart_collector
   
   PRIVATE
   
-  LOGICAL, SAVE :: have_MPI_RGet = .false.
-
   TYPE :: commonBuf_t
     REAL(dp), POINTER :: d(:)
     REAL(sp), POINTER :: s(:)
@@ -211,7 +209,7 @@ CONTAINS
     TYPE(t_CollectorSendBuffer), TARGET, INTENT(IN)    :: glb_sendbuf
     INTEGER,                             INTENT(IN)    :: nVar
     CHARACTER(*), PARAMETER :: routine = modname//":t_multifileRestartCollector_construct"
-    INTEGER     :: ierr, majver_mpi, minver_mpi
+    INTEGER     :: ierr
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
     this%idx(1)%p => idx_cell
@@ -219,8 +217,6 @@ CONTAINS
     this%idx(3)%p => idx_vert
     this%glb_sendbuf => glb_sendbuf
     this%nVar = nVar
-    CALL MPI_Get_version(majver_mpi, minver_mpi, ierr)
-    IF (majver_mpi .GE. 3) have_MPI_RGet = .true.
     ALLOCATE(this%varGrid(nVar), this%varType(nVar), &
       &      this%send_buffer_offset(nVar), STAT=ierr)
     IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -261,17 +257,11 @@ CONTAINS
     IF(.NOT.ALLOCATED(this%sourcePointStart)) THEN
       ALLOCATE(this%sourcePointStart(SIZE(sourceOffset,2), this%nVar),  STAT=ierr)
       IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    ELSE
-      IF (SIZE(this%sourcePointStart, 1) .NE. SIZE(sourceOffset,2) .OR. &
-          SIZE(this%sourcePointStart, 2) .NE. this%nVar) &
-        & CALL finish(routine, "inconsistency!")
     END IF
     IF (my_process_is_restart_writer()) THEN
       this%sourcePointStart(:,iVar) = sourceOffset(itype,:)
       sourceOffset(itype,:)  = sourceOffset(itype,:) + nLevs*idx%sourcePointCounts(:)
     END IF
-    ! build send buffers for each variable (which point into the
-    ! global send buffer):
     ALLOCATE(this%send_buffer_offset(iVar)%a(nLevs), STAT=ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
     DO i = 1, nLevs
@@ -355,9 +345,8 @@ CONTAINS
 #ifndef NOMPI
     INTEGER, PARAMETER :: n_openreqs_max = 32
     INTEGER(KIND=MPI_ADDRESS_KIND) :: target_disp, facDisp
-    INTEGER :: i, j, ierror, origin_addr, origin_count, origin_datatype, target_rank, &
-      &        target_count, target_datatype, n_openreqs
-    INTEGER :: get_reqs(n_openreqs_max), i_req, stride, ddt, the_win
+    INTEGER :: i, ierr, origin_addr, origin_dtype, target_rank, target_count, target_dtype, &
+      &        n_openreqs, get_reqs(n_openreqs_max), i_req, stride
     TYPE(t_CollectorIndices), POINTER :: idx
 
     idx => me%idx(me%varGrid(iVar))%p
@@ -367,104 +356,61 @@ CONTAINS
     CASE(1)
       CALL ensureSize(output%d, stride*levCount, no_copy)
       facDisp = me%glb_sendbuf%facDpSp
-      target_datatype = p_real_dp
-!$OMP PARALLEL DO SCHEDULE(STATIC)
-      DO i = 1, stride*levCount
-        output%d(i) = 0._dp
-      END DO
+      target_dtype = p_real_dp
     CASE(2)
       CALL ensureSize(output%s, stride*levCount, no_copy)
       facDisp = 1_MPI_ADDRESS_KIND
-      target_datatype = p_real_sp
-!$OMP PARALLEL DO SCHEDULE(STATIC)
-      DO i = 1, stride*levCount
-        output%s(i) = 0._sp
-      END DO
+      target_dtype = p_real_sp
     CASE(3)
       CALL ensureSize(output%i, stride*levCount, no_copy)
       facDisp = me%glb_sendbuf%facIntSp
-      target_datatype = p_int
-!$OMP PARALLEL DO SCHEDULE(STATIC)
-      DO i = 1, stride*levCount
-        output%i(i) = 0
-      END DO
+      target_dtype = p_int
     END SELECT
-    the_win = me%glb_sendbuf%the_win
     origin_addr  = 1
-    origin_count = 1
     DO i = 1, idx%sourceProcCount
-      ddt = MPI_DATATYPE_NULL
+      origin_dtype = MPI_DATATYPE_NULL
       IF (idx%sourcePointCounts(i) > 0) THEN
         CALL MPI_Type_vector(levCount, idx%sourcePointCounts(i), stride, &
-                             target_datatype, ddt, ierror)
-        IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-        CALL MPI_Type_commit(ddt, ierror)
-        IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-        origin_datatype = ddt
+                             target_dtype, origin_dtype, ierr)
+        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+        CALL MPI_Type_commit(origin_dtype, ierr)
+        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
         target_rank     = idx%sourceProcs(i)
         target_disp     = me%sourcePointStart(i,iVar) &
           &               + (levStart-1)*idx%sourcePointCounts(i)
         target_disp     = target_disp * facDisp &
           &               + me%glb_sendbuf%typeOffSv(4 * (i - 1) + me%varType(iVar))
         target_count    = idx%sourcePointCounts(i) * levCount
-        IF (have_MPI_RGet) THEN
-          IF (n_openreqs .LT. n_openreqs_max) THEN
-            n_openreqs = n_openreqs + 1
-            i_req = n_openreqs
-          ELSE
-            CALL MPI_Waitany(n_openreqs, get_reqs, i_req, MPI_STATUS_IGNORE, ierror)
-            get_reqs(i_req) = MPI_REQUEST_NULL
-            IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-          END IF
-          SELECT CASE(me%varType(iVar))
-            CASE(1)
-              CALL MPI_RGET(output%d(origin_addr), origin_count, origin_datatype, &
-                            target_rank, target_disp,  target_count, target_datatype, &
-                            the_win, get_reqs(i_req), ierror)
-            CASE(2)
-              CALL MPI_RGET(output%s(origin_addr), origin_count, origin_datatype, &
-                            target_rank, target_disp,  target_count, target_datatype, &
-                            the_win, get_reqs(i_req), ierror)
-            CASE(3)
-              CALL MPI_RGET(output%i(origin_addr), origin_count, origin_datatype, &
-                            target_rank, target_disp,  target_count, target_datatype, &
-                            the_win, get_reqs(i_req), ierror)
-          END SELECT
+        IF (n_openreqs .LT. n_openreqs_max) THEN
+          n_openreqs = n_openreqs + 1
+          i_req = n_openreqs
         ELSE
-          CALL MPI_WIN_LOCK(MPI_LOCK_SHARED, target_rank, MPI_MODE_NOCHECK, &
-            &               the_win, ierror)
-          IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-          SELECT CASE(me%varType(iVar))
-            CASE(1)
-              CALL MPI_GET(output%d(origin_addr), origin_count, origin_datatype, &
-                           target_rank, target_disp,  target_count, target_datatype, &
-                           the_win, ierror)
-            CASE(2)
-              CALL MPI_GET(output%s(origin_addr), origin_count, origin_datatype, &
-                           target_rank, target_disp,  target_count, target_datatype, &
-                           the_win, ierror)
-            CASE(3)
-              CALL MPI_GET(output%i(origin_addr), origin_count, origin_datatype, &
-                           target_rank, target_disp,  target_count, target_datatype, &
-                           the_win, ierror)
-          END SELECT
+          CALL MPI_Waitany(n_openreqs, get_reqs, i_req, MPI_STATUS_IGNORE, ierr)
+          get_reqs(i_req) = MPI_REQUEST_NULL
+          IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
         END IF
-        IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-        CALL MPI_Type_free(ddt, ierror)
-        IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+        SELECT CASE(me%varType(iVar))
+        CASE(1)
+          CALL MPI_RGET(output%d(origin_addr), 1, origin_dtype, &
+                        target_rank, target_disp, target_count, target_dtype, &
+                        me%glb_sendbuf%the_win, get_reqs(i_req), ierr)
+        CASE(2)
+          CALL MPI_RGET(output%s(origin_addr), 1, origin_dtype, &
+                        target_rank, target_disp, target_count, target_dtype, &
+                        me%glb_sendbuf%the_win, get_reqs(i_req), ierr)
+        CASE(3)
+          CALL MPI_RGET(output%i(origin_addr), 1, origin_dtype, &
+                        target_rank, target_disp, target_count, target_dtype, &
+                        me%glb_sendbuf%the_win, get_reqs(i_req), ierr)
+        END SELECT
+        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+        CALL MPI_Type_free(origin_dtype, ierr)
+        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
         origin_addr = origin_addr + idx%sourcePointCounts(i)
       END IF
     END DO
-    IF (have_MPI_Rget) THEN
-      CALL MPI_WAITALL(n_openreqs, get_reqs ,MPI_STATUSES_IGNORE, ierror)
-      IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    ELSE
-      DO i = 1, idx%sourceProcCount
-        IF (idx%sourcePointCounts(i) > 0) &
-          &  CALL MPI_WIN_UNLOCK(idx%sourceProcs(i), the_win, ierror)
-        IF (ierror /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      ENDDO
-    ENDIF
+    CALL MPI_WAITALL(n_openreqs, get_reqs ,MPI_STATUSES_IGNORE, ierr)
+    IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     IF (origin_addr .NE. stride + 1) CALL finish(routine, "Inconsistent!")
     used_size = levCount * stride
 #else
@@ -511,24 +457,24 @@ CONTAINS
           CALL finish(routine, message_text)
         END IF
         SELECT CASE(me%varType(iVar))
-          CASE(1)
+        CASE(1)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
-            DO i = 1, idx%sendPointCount
-              me%glb_sendbuf%sendBuffer%d(ioffset+i) = &
-                &  input%d(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
-            END DO
-          CASE(2)
+          DO i = 1, idx%sendPointCount
+            me%glb_sendbuf%sendBuffer%d(ioffset+i) = &
+              &  input%d(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
+          END DO
+        CASE(2)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
-            DO i = 1, idx%sendPointCount
-              me%glb_sendbuf%sendBuffer%s(ioffset+i) = &
-                &  input%s(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
-            END DO
-          CASE(3)
+          DO i = 1, idx%sendPointCount
+            me%glb_sendbuf%sendBuffer%s(ioffset+i) = &
+              &  input%s(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
+          END DO
+        CASE(3)
 !$OMP PARALLEL DO SCHEDULE(STATIC)
-            DO i = 1, idx%sendPointCount
-              me%glb_sendbuf%sendBuffer%i(ioffset+i) = &
-                &  input%i(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
-            END DO
+          DO i = 1, idx%sendPointCount
+            me%glb_sendbuf%sendBuffer%i(ioffset+i) = &
+              &  input%i(ilev)%p(idx%sendIdx(i), idx%sendBlk(i))
+          END DO
         END SELECT
       END DO
       SELECT CASE(me%varType(iVar))
@@ -724,7 +670,6 @@ CONTAINS
       this%handshaked  = .false.
     END IF
     IF (this%allocd) THEN
-! cumbersome: MPI_Free_mem only accepts Fortran variables/references NOT TYPE(C_PTR)/MPI_ADDRESS_KIND as base-address, while MPI_Alloc_mem returns an TYPE(C_PTR)/MPI_ADDRESS_KIND !!
       CALL MPI_Free_mem(this%winPtr%p, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       NULLIFY(this%winPtr%p, this%sendBuffer%d, this%sendBuffer%s, this%sendBuffer%i)
