@@ -452,6 +452,7 @@ SUBROUTINE graupel     (             &
     zdtr ,             & ! reciprocal of timestep for integration
     zscsum, zscmax, zcorr,  & ! terms for limiting  total cloud water depletion
     zsrsum,            & ! terms for limiting  total rain water depletion
+    zsssum,            & ! terms for limiting snow depletion
     znin,              & ! number of cloud ice crystals at nucleation
     fnuc,              & !FR: coefficient needed for Forbes (2012) SLW layer parameterization 
     znid,              & ! number of cloud ice crystals for deposition
@@ -1403,13 +1404,33 @@ SUBROUTINE graupel     (             &
 
       zsrsum = sev + srfrz + srcri
       zcorr  = 1.0_wp
-      IF(zsrsum > 0) THEN
+      IF(zsrsum > 0._wp) THEN
         zcorr  = zsrmax / MAX( zsrmax, zsrsum )
       ENDIF
       sev   = zcorr*sev
       srfrz = zcorr*srfrz
       srcri = zcorr*srcri
-      
+
+      ! limit snow depletion in order to avoid negative values of qs
+      zcorr  = 1.0_wp
+      IF (ssdep <= 0._wp) THEN
+        zsssum = ssmelt + sconsg - ssdep
+        IF(zsssum > 0._wp) THEN
+          zcorr  = zssmax / MAX( zssmax, zsssum )
+        ENDIF
+        ssmelt = zcorr * ssmelt
+        sconsg = zcorr * sconsg
+        ssdep  = zcorr * ssdep
+      ELSE
+        zsssum = ssmelt + sconsg
+        IF(zsssum > 0._wp) THEN
+          zcorr  = zssmax / MAX( zssmax, zsssum )
+        ENDIF
+        ssmelt = zcorr * ssmelt
+        sconsg = zcorr * sconsg
+      ENDIF
+
+
       zqvt =   sev    - sidep  - ssdep  - sgdep  - snuc   - sconr 
       zqct =   simelt - scau   - scfrz  - scac   - sshed  - srim   - srim2 
       zqit =   snuc   + scfrz  - simelt - sicri  + sidep  - sdau   - sagg   - sagg2  - siau
