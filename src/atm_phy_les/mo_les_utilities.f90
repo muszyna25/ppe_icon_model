@@ -54,7 +54,7 @@ MODULE mo_les_utilities
   !! Initial release by Slavko Brdar, DWD (2014-08-29)
   SUBROUTINE init_vertical_grid_for_les(jg, p_patch, p_int, p_metrics)
     INTEGER,                   INTENT(in)     :: jg
-    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(inout)  :: p_patch
     TYPE(t_int_state),         INTENT(in)     :: p_int
     TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
 

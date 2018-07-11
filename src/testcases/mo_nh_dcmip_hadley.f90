@@ -218,7 +218,7 @@ CONTAINS
   SUBROUTINE set_nh_velocity_hadley( p_patch, p_nh_prog, p_nh_diag, p_int,  &
     &                                p_metrics, time )
 
-    TYPE(t_patch),        INTENT(IN)    :: &  !< patch on which computation is performed
+    TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_nh_prog),      INTENT(INOUT) :: &  !< prognostic state vector

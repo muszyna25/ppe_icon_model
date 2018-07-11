@@ -29,6 +29,8 @@ MODULE mo_run_nml
                          & config_timers_level    => timers_level,    &
                          & config_activate_sync_timers => activate_sync_timers, &
                          & config_msg_level       => msg_level,       &
+                         & config_logmaxrss       => logmaxrss,       &
+                         & config_logmaxrss_all   => logmaxrss_all,   &
                          & config_output          => output,          &
                          & config_output_mode     => output_mode,     &
                          & config_test_mode       => test_mode,       &
@@ -89,6 +91,8 @@ MODULE mo_run_nml
   INTEGER :: timers_level  ! what level of timers to run
   LOGICAL :: activate_sync_timers
 
+  LOGICAL :: logmaxrss     ! log maxrss for three mpi ranks
+  LOGICAL :: logmaxrss_all ! log maxrss for all mpi ranks
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
   LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
@@ -122,6 +126,8 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
+                     logmaxrss,                     &
+                     logmaxrss_all,                 &
                      msg_level,                     &
                      test_mode,                     &
                      output,                        &
@@ -172,6 +178,8 @@ CONTAINS
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
+    logmaxrss            = .FALSE.
+    logmaxrss_all        = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
     test_mode            = 0
@@ -265,6 +273,8 @@ CONTAINS
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
 
+    config_logmaxrss       = logmaxrss
+    config_logmaxrss_all   = logmaxrss_all
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
     config_test_mode    = test_mode

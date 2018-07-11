@@ -381,7 +381,7 @@ CONTAINS
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_multivar'
-
+    TYPE(t_distrib_read_data) :: io_data(n_var)
     ! make variable name available on all processes
     CALL bcast_varname(variable_name, variable_name_)
 
@@ -427,9 +427,13 @@ CONTAINS
           return_pointer(i)%data => var_data_2d(i)%data
         END DO
       END IF
-      CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, &
-        &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/))
+      DO i = 1, n_var
+        io_data(i)%basic_data_index &
+             = stream_id%read_info(location, i)%dist_read_info%basic_data_index
+        io_data(i)%redistrib_pattern &
+             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+      END DO
+      CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -507,6 +511,7 @@ CONTAINS
     CHARACTER(LEN=NF_MAX_NAME)        :: variable_name_
     CHARACTER(LEN=*), PARAMETER       :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_multivar'
+    TYPE(t_distrib_read_data) :: io_data(n_var)
 
     ! make variable name available on all processes
     CALL bcast_varname(variable_name, variable_name_)
@@ -553,9 +558,13 @@ CONTAINS
           return_pointer(i)%data => var_data_2d(i)%data
         END DO
       END IF
-      CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, &
-        &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/))
+      DO i = 1, n_var
+        io_data(i)%basic_data_index &
+             = stream_id%read_info(location, i)%dist_read_info%basic_data_index
+        io_data(i)%redistrib_pattern &
+             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+      END DO
+      CALL distrib_read(stream_id%file_id, variable_name_, var_data_2d, io_data)
       DEALLOCATE(var_data_2d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -935,6 +944,7 @@ CONTAINS
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_extdim_multivar'
+    TYPE(t_distrib_read_data) :: io_data(n_var)
 
     ! make variable name available on all processes
     CALL bcast_varname(variable_name, variable_name_)
@@ -1014,11 +1024,16 @@ CONTAINS
           return_pointer(i)%data => var_data_3d(i)%data
         END DO
       END IF
+      DO i = 1, n_var
+        io_data(i)%basic_data_index &
+             = stream_id%read_info(location, i)%dist_read_info%basic_data_index
+        io_data(i)%redistrib_pattern &
+             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+      END DO
 
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/), start_extdim, end_extdim)
+        &               var_dimlen(2), idx_blk_time, io_data, &
+        &               start_extdim, end_extdim)
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")
@@ -1149,6 +1164,7 @@ CONTAINS
     CHARACTER(LEN=NF_MAX_NAME)             :: variable_name_
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_INT_2D_extdim_multivar'
+    TYPE(t_distrib_read_data) :: io_data(n_var)
 
     ! make variable name available on all processes
     CALL bcast_varname(variable_name, variable_name_)
@@ -1228,11 +1244,15 @@ CONTAINS
           return_pointer(i)%data => var_data_3d(i)%data
         END DO
       END IF
-
+      DO i = 1, n_var
+        io_data(i)%basic_data_index &
+             = stream_id%read_info(location, i)%dist_read_info%basic_data_index
+        io_data(i)%redistrib_pattern &
+             => stream_id%read_info(location, i)%dist_read_info%redistrib_pattern
+      END DO
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
-        &               var_dimlen(2), idx_blk_time, &
-        &               (/(stream_id%read_info(location, i)%dist_read_info, &
-        &                  i=1, n_var)/), start_extdim, end_extdim)
+        &               var_dimlen(2), idx_blk_time, io_data, &
+        &               start_extdim, end_extdim)
       DEALLOCATE(var_data_3d)
     CASE default
       CALL finish(method_name, "unknown input_method")

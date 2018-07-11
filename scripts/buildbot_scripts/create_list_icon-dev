@@ -15,6 +15,7 @@ listname=icon-dev
 # AES
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+$addexp "checksuite.icon-dev/check.atm_ape*" --list $listname
 $addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
 
 #-----------------------------------------------------------
@@ -26,12 +27,15 @@ $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocea
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
  --machines mistral --machines mistral --runflags "cpu_time=00:30:00" --list $listname
 
-# add ocean tests to the restricted builder MISTRAL_ocean
+# add ocean tests to the restricted builder MISTRAL_ocean incl. its intel17 version
 ./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
+./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname
 $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
 checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
---builders MISTRAL_ocean --runflags "cpu_time=00:30:00" --list $listname
+--builders MISTRAL_ocean MISTRAL_ocean_intel17 --runflags "cpu_time=00:30:00" --list $listname
 ./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
+./set_builder_flags Ocean             --builders MISTRAL_ocean_intel17  --list $listname
+
 
 #-----------------------------------------------------------
 # DWD
@@ -60,6 +64,10 @@ $addexp exp.nat_rce_cbl_120km_nwp  --machines mistral  --runflags "cpu_time=00:3
 #   very old test from Pilar
 $addexp exp.nat_jww_nwp_mpiomp --without-configureflags without-mpi  --machines mistral --runflags "cpu_time=00:30:00" --list $listname
 
+# test memory loggin in amip setup
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTRAL_intel_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
+$addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
 #-----------------------------------------------------------
 #lets see the list
 ./lslist $listname

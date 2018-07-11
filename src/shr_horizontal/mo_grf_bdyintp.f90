@@ -70,7 +70,7 @@ CONTAINS
 SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input normal components of vectors at edge midpoints
   REAL(wp), INTENT(IN) :: p_vn_in(:,:,:) ! dim: (nproma,nlev,nblks_e)
@@ -194,7 +194,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   ! Store results in p_vn_out
 
-  CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_grf(1:4),1,nlev_c, &
+  CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,1,nlev_c, &
     RECV1=p_vn_out,SEND1=vn_aux)
 
 END SUBROUTINE interpol_vec_grf
@@ -213,7 +213,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
                               
 
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input normal components of vectors at edge midpoints; dim: (nproma,nlev,nblks_e)
   REAL(wp), INTENT(IN), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3din1, f3din2, f3din3, f3din4
@@ -414,24 +414,24 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   IF (nfields == 1) THEN
     nlevtot = nlev_c
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1) )
     
   ELSE IF (nfields == 2) THEN
     nlevtot = 2*nlev_c
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1),RECV2=f3dout2,  &
       SEND2=vn_aux(:,:,:,2) )
     
   ELSE IF (nfields == 3) THEN
     nlevtot = 3*nlev_c
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1),RECV2=f3dout2,  &
       SEND2=vn_aux(:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,3) )
     
   ELSE IF (nfields == 4) THEN
     nlevtot = 4*nlev_c
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1),RECV2=f3dout2, &
       SEND2=vn_aux(:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,3),  &
       RECV4=f3dout4,SEND4=vn_aux(:,:,:,4) )
@@ -456,7 +456,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                               llimit_nneg, lnoshift )
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
 
   ! Indices of source points and interpolation coefficients
@@ -788,37 +788,37 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   IF (l4d .AND. .NOT. PRESENT(f4din2)) THEN
 
     nlevtot = SIZE(f4dout1,2)*nfields
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                            RECV4D1=f4dout1,SEND4D1=h_aux)
 
   ELSE IF (l4d) THEN
 
     nlevtot = SIZE(f4dout1,2)*n4d+SIZE(f4dout2,2)*n4d
-    CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+    CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                            RECV4D1=f4dout1,SEND4D1=h_aux(:,:,:,1:n4d),       &
                            RECV4D2=f4dout2,SEND4D2=h_aux(:,:,:,n4d+1:nfields)         )
 
   ELSE
     IF (nfields == 1) THEN
       nlevtot = SIZE(f3dout1,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1)               )
 
     ELSE IF (nfields == 2) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,2))
 
     ELSE IF (nfields == 3) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,3)   )
 
     ELSE IF (nfields == 4) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2)+SIZE(f3dout4,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1),RECV2=f3dout2,   &
                              SEND2=h_aux(:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,3),     &
                              RECV4=f3dout4,SEND4=h_aux(:,:,:,4)                           )
@@ -826,7 +826,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
     ELSE IF (nfields == 5) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2) + &
                 SIZE(f3dout4,2)+SIZE(f3dout5,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,3),  &
                              RECV4=f3dout4,SEND4=h_aux(:,:,:,4),RECV5=f3dout5,         &
@@ -835,7 +835,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
     ELSE IF (nfields == 6) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2) + &
                 SIZE(f3dout4,2)+SIZE(f3dout5,2)+SIZE(f3dout6,2)
-      CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_grf(1:4),nfields,nlevtot, &
+      CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_grf,nfields,nlevtot, &
                              RECV1=f3dout1,SEND1=h_aux(:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,3),  &
                              RECV4=f3dout4,SEND4=h_aux(:,:,:,4),RECV5=f3dout5,         &

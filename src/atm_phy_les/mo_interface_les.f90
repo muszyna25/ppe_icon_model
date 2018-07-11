@@ -105,7 +105,7 @@ CONTAINS
   !
   SUBROUTINE init_les_phy_interface(jg, p_patch, p_int_state, p_metrics)
     INTEGER,                   INTENT(in)     :: jg
-    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(inout)  :: p_patch
     TYPE(t_int_state),         INTENT(in)     :: p_int_state
     TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
 
@@ -143,7 +143,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     INTEGER, INTENT(in)          :: nstep           !time step counter
     TYPE(datetime), POINTER      :: mtime_current
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
+    TYPE(t_patch),     TARGET,INTENT(inout):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in)   :: pt_int_state  !< interpolation state
     TYPE(t_nh_metrics)   ,       INTENT(in)   :: p_metrics

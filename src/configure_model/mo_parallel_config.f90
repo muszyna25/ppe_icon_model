@@ -38,7 +38,9 @@ MODULE mo_parallel_config
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
        &  use_div_from_file, io_proc_chunk_size,                    &
-       &  num_dist_array_replicas, io_process_stride, io_process_rotate
+       &  num_dist_array_replicas, comm_pattern_type_orig,          &
+       &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
+       &  io_process_stride, io_process_rotate
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -152,6 +154,11 @@ MODULE mo_parallel_config
 
   ! shift ranks doing I/O by this number
   INTEGER :: io_process_rotate
+
+  ! switch between different implementations of mo_communication
+  INTEGER, PARAMETER :: comm_pattern_type_orig = 1
+  INTEGER, PARAMETER :: comm_pattern_type_yaxt = 2
+  INTEGER :: default_comm_pattern_type
 
 CONTAINS
 

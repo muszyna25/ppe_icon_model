@@ -287,7 +287,7 @@ CONTAINS
    REAL(wp),INTENT(IN) :: pdtime     !< time step in seconds
    LOGICAL, INTENT(IN) :: ltheta_dyn
 
-   TYPE(t_patch),     TARGET, INTENT(IN)  :: curr_patch
+   TYPE(t_patch), TARGET, INTENT(INOUT) :: curr_patch
    TYPE(t_int_state), TARGET, INTENT(IN)  :: p_int_state
 
    TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now

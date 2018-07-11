@@ -74,7 +74,7 @@ CONTAINS
 
   !! Arguments
 
-  TYPE(t_patch),TARGET,    INTENT(IN)    :: pt_patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch
   TYPE(t_int_state),TARGET,INTENT(IN)    :: pt_int_state
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_prog
   TYPE(t_external_data),   INTENT(INOUT)    :: pt_ext_data   !< external data
@@ -228,7 +228,7 @@ CONTAINS
 
   REAL(wp), INTENT(in)  :: p_vn    (:,:,:) !< normal velocity
   REAL(wp), INTENT(in)  :: p_delp_e(:,:,:) !< layer thickness at edges
-  TYPE(t_patch), TARGET, INTENT(in) :: pt_patch   !< grid information
+  TYPE(t_patch), TARGET, INTENT(inout) :: pt_patch   !< grid information
   TYPE(t_int_state),INTENT(in) :: pt_int_state    !< interpolation coefficients
 
   LOGICAL,INTENT(in) :: ldiag_weta              !< if .true., diagnoise weta

@@ -125,6 +125,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
+  USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
   USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
     &                                    getElapsedSimTimeInSeconds
@@ -706,6 +707,9 @@ MODULE mo_nh_stepping
 #endif
 
   TIME_LOOP: DO
+
+    ! optional memory loggin
+    CALL memory_log_add
 
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
@@ -2071,7 +2075,7 @@ MODULE mo_nh_stepping
   SUBROUTINE perform_dyn_substepping (p_patch, p_nh_state, p_int_state, prep_adv, &
     &                                 jstep, iau_iter, dt_phy, mtime_current)
 
-    TYPE(t_patch)       ,INTENT(IN)    :: p_patch
+    TYPE(t_patch)       ,INTENT(INOUT) :: p_patch
 
     TYPE(t_nh_state)    ,INTENT(INOUT) :: p_nh_state
 

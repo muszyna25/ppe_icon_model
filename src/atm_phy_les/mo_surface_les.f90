@@ -87,7 +87,7 @@ MODULE mo_surface_les
                                  prm_diag, theta, qv)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
+    TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 

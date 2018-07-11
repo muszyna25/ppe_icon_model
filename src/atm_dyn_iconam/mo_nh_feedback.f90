@@ -79,7 +79,7 @@ CONTAINS
   SUBROUTINE feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
     jg, jgp)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:feedback'
 
 
@@ -152,7 +152,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
 
@@ -952,10 +952,10 @@ CONTAINS
   !!
   SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, jg, jgp, dt_fbk)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
 
-    TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
+    TYPE(t_patch),       TARGET, INTENT(INOUT) ::  p_patch(n_dom_start:n_dom)
     TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
     TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
     TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
@@ -1045,7 +1045,7 @@ CONTAINS
     ! write(0,*) "n_dom_start,n_dom, jg, jgp=", n_dom_start, n_dom, jg, jgp
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
     p_parent_prog    => p_nh_state(jgp)%prog(nnew(jgp))

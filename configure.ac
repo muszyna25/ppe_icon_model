@@ -20,7 +20,7 @@ package="ICON"
 dnl ######################################################################
 dnl Checks for package options.
 
-AC_PREFIX_DEFAULT(.)
+AC_PREFIX_DEFAULT([$(pwd)])
 
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 AC_CONFIG_AUX_DIR([config])
@@ -39,7 +39,7 @@ AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [mlogin*|btlogin*],
+        [mlogin*|btlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [daint*|tave*|santis*|kesch*],
@@ -62,16 +62,16 @@ AS_CASE([$ac_hostname],
            [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
            [ac_sitename=])])
 
-AS_IF([ test -n "$fqdn" ],
-      [AS_IF([test -z "$ac_sitename"],
+AS_IF([test -n "$fqdn" ],
+      [AS_IF([test -z "$[ac_sitename]"],
              [ac_sitename=local.net],
              [])],
-      [AS_IF([ test -n "$PE_ENV" ],
+      [AS_IF([test -n "$PE_ENV" ],
              [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
               AC_MSG_CHECKING([for Cray environment])
               AC_MSG_RESULT([$[fqdn]])],
              [fqdn=${HOSTNAME}])
-       [ac_sitename=${fqdn}]])        
+       [ac_sitename=${fqdn}]])
 
 AC_MSG_CHECKING([for hostname])
 AC_MSG_RESULT([$[ac_hostname]])
@@ -165,6 +165,17 @@ dnl
 dnl AS_IF([test x$with_setup != x],
 dnl       [mh_setup=$with_setup],
 dnl       [mh_setup=""])
+
+AC_ARG_WITH([yaxt],
+  [AS_HELP_STRING([--with-yaxt],
+    [enable experimental use of yaxt])],
+    [AS_IF([test -d "$with_yaxt"],
+           [YAXTROOT=$with_yaxt])],
+    [with_yaxt=no])
+
+AS_IF([test "x$with_yaxt" = "xno"],
+      [use_yaxt="no"],
+      [use_yaxt="yes"])
 
 dnl YAC (coupler)
 
@@ -502,20 +513,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    *)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-      ;;
-    esac
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
 else
   echo "Warning: the variable SZIPROOT is not set in $host_frag"  
   echo "         set SZIPROOT to the szip root directory"
@@ -551,20 +555,13 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    *)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-     ;;
-    esac    
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
 else
   echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
   echo "         set HDF5ROOT to the hdf5 root directory"
@@ -609,20 +606,13 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case $FC in
-    nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    *)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-      ;;
-    esac
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
   if test -z "$NETCDFFROOT" ; then
      if test -r "$NETCDFROOT/include/netcdf.inc" ; then
          NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
@@ -636,22 +626,15 @@ if test -n "$NETCDFROOT" ; then
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         case $ac_hostname in
-         mlogin*|btlogin*)
-           case $FC in
-           nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-             ;;
-           *)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-             ;;
-           esac
-           ;;
-         *)
-           ;;
-         esac
+         AS_CASE([$ac_hostname],
+           [mlogin*|btlogin*|btc*],
+           [AS_CASE([x"$WLFLAG"],
+           [x-Wl,-Wl,],
+           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+           [x-Wl],
+           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
@@ -885,16 +868,21 @@ AS_CASE(["$GRIB_OPTION"],
                          AC_MSG_NOTICE([taking over environment variable $AEC_DIR])],
                         [])],
                  []) 
-         AS_CASE([$ac_hostname],
-               [mlogin*|btlogin*|daint*|kesch*],
+       AS_CASE([$ac_hostname],
+               [daint*|kesch*],
                [AS_CASE([$FC],
-                        [nagfor],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
 			[cray],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-               [])])
-
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+               [mlogin*|btlogin*|btc*],
+               [AS_CASE([x"$WLFLAG"],
+                        [x-Wl,-Wl,],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                        [x-Wl],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')]
+                )]
+       )]
+)
 
 dnl print-out of chosen GRIB support
 dnl
@@ -1025,8 +1013,10 @@ esac
 MPI_INCLUDE=""
 
 AC_ARG_WITH([mpi],
-            [AC_HELP_STRING([--with-mpi=DIR],
-                            [MPI library])],,)
+  [AC_HELP_STRING([--with-mpi=DIR],
+     [use MPI installed in DIR (default from machine file)])],
+  [],
+  [with_mpi=yes])
 
 
 AS_IF([test x"$with_mpi" = xno],
@@ -1042,13 +1032,13 @@ AS_IF([test x"$with_mpi" = xno],
     [AS_IF([test -f "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf "%s ", $i}}}') "$MPI_LIB
       ;;
     *)
-      MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
+      MPI_LIB="-L$MPIROOT/lib "$MPI_LIB
       ;;
     esac
-    MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
+    MPI_I_INCLUDE="-I$MPIROOT/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
       mod_file=$(find $MPIROOT -name mpi.mod -print 2>/dev/null | grep mpi.mod | grep ${MPI_INCLUDE_THREAD})
@@ -1085,7 +1075,7 @@ AS_IF([test x"$with_mpi" = xno],
     if test -r $mod_file ; then
        mod_file=${mod_file#$real_path}
        mod_file=${mod_file#$MPIROOT}
-       mod_file="\$(MPIROOT)"${mod_file}
+       mod_file="$MPIROOT"${mod_file}
        MPI_M_INCLUDE=${MODOPT}${mod_file%/*}
     else
        echo "cannot read $mod_file/mpi.mod"
@@ -1198,7 +1188,7 @@ if [[ "x$use_art" = xyes ]] ; then
     FFLAGS="${FFLAGS} $ART_FFLAGS"
     # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
     if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
-        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+        FFLAGS="`echo ${FFLAGS} | $SED -e s/-std=f2003/-std=gnu/`"
     fi
 fi
 
@@ -1468,6 +1458,72 @@ AC_SUBST(MODDIR,$MODDIR)
 
 AC_SUBST(LDFLAGS,$LDFLAGS)
 
+dnl ######################################################################
+dnl Checks/configure yaxt, if requested
+AC_ARG_VAR([YAXTROOT],[directory YAXT is installed in])
+AS_IF([test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"],
+  [AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x],
+     [PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH])
+   AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt],
+     [YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_MAJOR_VERSION=`expr "$YAXT_VERSION" : "@<:@0-9@:>@*"`
+      YAXT_MINOR_VERSION=`echo "$YAXT_VERSION" | sed -e 's/^@<:@0-9@:>@*\.\(@<:@0-9@:>@*\).*/\1/'`
+      YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
+      FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
+      YAXT_LIB=`pkg-config --libs yaxt`
+      AS_IF([test "$YAXT_MAJOR_VERSION" -gt 0 -o "$YAXT_MINOR_VERSION" -gt 4],
+        [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
+      AS_CASE([$host],[*-*-linux-*],
+        [YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/'`])],
+     [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
+       ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=[^'\'']*//
+s/ '\''FCFLAGS=[^'\'']*//
+s/ '\''CC=[^'\'']*//
+s/ '\''CXX=[^'\'']*//
+s/ '\''CFLAGS=[^'\'']*//
+s/ '\''LDFLAGS=[^'\'']*//
+s/ '\''LIBS=[^'\'']*//
+s/ '\''F77=[^'\'']*//
+s/ '\''FFLAGS=[^'\'']*//
+s/^ //
+s/ $//
+')
+if test x${MPI_LAUNCH+set} != xset ; then
+  if test "x$mpi_startrun" = "x" ; then
+    if  test "x$MPIROOT" = "x" ; then
+      MPI_LAUNCH=mpiexec
+    else
+      MPI_LAUNCH="$MPIROOT/bin/mpiexec"
+    fi
+  else
+    MPI_LAUNCH=$mpi_startrun
+  fi
+fi
+       FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
+       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
+       ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
+       ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
+       AC_CONFIG_SUBDIRS([externals/yaxt])
+       YAXTROOT=externals/yaxt
+       AS_IF([test -f $YAXTROOT/src/yaxt.f90],
+             [YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt"
+              AS_IF([grep MPI_FC_INCLUDE $YAXTROOT/src/Makefile.in],,
+                [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
+              YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"
+              YAXT_CFLAGS="-I${YAXTROOT}/inst_headers"
+              YAXT_VERSION="internal"
+              FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"],
+             [AC_MSG_ERROR([internal YAXT sources not found])])
+       ac_srcdirs="externals/yaxt ${ac_srcdirs}"
+       ac_objdirs="externals/yaxt ${ac_objdirs}"])],
+  [YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=])
+AC_SUBST([YAXT_LIB])
+AC_SUBST([YAXT_INCLUDE])
+AC_SUBST([YAXT_VERSION])
+
+
+dnl ######################################################################
+
 AC_SUBST(SRCDIRS,$ac_srcdirs)
 
 AC_SUBST(OBJDIRS,$ac_objdirs)
@@ -1488,7 +1544,7 @@ case $host in
     ;;
   sx*-*-*)
     f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 |  -e 's/.c.*$//' | $SED -e 's/C++\/SX Compiler //' | $SED -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
     ;;
   *-ibm-aix*)
     f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')

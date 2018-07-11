@@ -197,7 +197,7 @@ CONTAINS
 !!
 SUBROUTINE lsq_stencil_create( ptr_patch, ptr_int_lsq, lsq_dim_c)
 !
-TYPE(t_patch), INTENT(IN) :: ptr_patch
+TYPE(t_patch), INTENT(INOUT) :: ptr_patch
 
 TYPE(t_lsq), INTENT(INOUT) :: ptr_int_lsq
 
@@ -405,7 +405,7 @@ SUBROUTINE lsq_compute_coeff_cell( ptr_patch, ptr_int_lsq, llsq_rec_consv, &
 !
 
 !
-TYPE(t_patch), INTENT(IN) ::  ptr_patch
+TYPE(t_patch), INTENT(INOUT) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
@@ -474,7 +474,7 @@ SUBROUTINE lsq_compute_coeff_cell_sphere( ptr_patch, ptr_int_lsq, llsq_rec_consv
 !
 
 !
-TYPE(t_patch), INTENT(IN) ::  ptr_patch
+TYPE(t_patch), INTENT(INOUT) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
@@ -1236,7 +1236,7 @@ SUBROUTINE lsq_compute_coeff_cell_torus( ptr_patch, ptr_int_lsq, llsq_rec_consv,
 !
 
 !
-TYPE(t_patch), INTENT(IN) ::  ptr_patch
+TYPE(t_patch), INTENT(INOUT) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
@@ -2469,7 +2469,7 @@ SUBROUTINE spherical_scalar_coeffs ( ptr_patch, ptr_int_state )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation coefficients
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state
@@ -2610,7 +2610,7 @@ SUBROUTINE vector_coeffs ( ptr_patch, ptr_int_state )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation coefficients
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state
@@ -2762,7 +2762,7 @@ SUBROUTINE flat_scalar_coeffs ( ptr_patch, ptr_int_state )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation coefficients
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int_state

@@ -213,7 +213,7 @@ SUBROUTINE rbf_vec_index_cell( ptr_patch, ptr_int )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -315,7 +315,7 @@ SUBROUTINE rbf_c2grad_index( ptr_patch, ptr_int )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -447,7 +447,7 @@ END SUBROUTINE rbf_c2grad_index
 SUBROUTINE rbf_vec_index_vertex( ptr_patch, ptr_int )
 
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -608,7 +608,7 @@ END SUBROUTINE rbf_vec_index_vertex
 !!
 SUBROUTINE rbf_vec_index_edge(ptr_patch, ptr_int)
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -712,7 +712,7 @@ SUBROUTINE rbf_vec_compute_coeff_cell( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -1098,7 +1098,7 @@ SUBROUTINE rbf_compute_coeff_c2grad (ptr_patch, ptr_int)
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 ! interpolation state
 !
@@ -1226,7 +1226,7 @@ SUBROUTINE rbf_vec_compute_coeff_vertex( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
@@ -1649,7 +1649,7 @@ SUBROUTINE rbf_vec_compute_coeff_edge( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 

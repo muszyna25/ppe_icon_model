@@ -199,7 +199,7 @@ SUBROUTINE organize_lhn ( &
 !
 !-------------------------------------------------------------------------------
 
-  TYPE(t_patch),   TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
+  TYPE(t_patch),   TARGET, INTENT(inout) :: pt_patch     !<grid/patch info.
   TYPE(t_nh_metrics),      INTENT(in)    :: p_metrics
   TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
   TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with

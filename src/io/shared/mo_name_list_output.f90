@@ -166,6 +166,7 @@ MODULE mo_name_list_output
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_intp_lonlat_types,         ONLY: lonlat_grids
 #endif
+  USE mo_fortran_tools, ONLY: insert_dimension
 
   IMPLICIT NONE
 
@@ -184,6 +185,11 @@ MODULE mo_name_list_output
 
   !> Internal switch for debugging output
   LOGICAL, PARAMETER :: ldebug  = .FALSE.
+
+  INTEGER,          PARAMETER                 :: iUNKNOWN = 0
+  INTEGER,          PARAMETER                 :: iINTEGER = 1
+  INTEGER,          PARAMETER                 :: iREAL    = 2
+  INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
 
 CONTAINS
@@ -436,7 +442,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(datetime),           POINTER :: io_datetime => NULL()
+    TYPE(datetime),           POINTER :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, list_idx
@@ -685,36 +691,33 @@ CONTAINS
     LOGICAL,              INTENT(IN)            :: l_first_write
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
-    REAL(wp),         PARAMETER                 :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
-    INTEGER,          PARAMETER                 :: iUNKNOWN = 0
-    INTEGER,          PARAMETER                 :: iINTEGER = 1
-    INTEGER,          PARAMETER                 :: iREAL    = 2
-    INTEGER,          PARAMETER                 :: iREAL_sp = 3
-
-    INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
+    INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
       &                                            idata_type, lev_idx, lev
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
-    REAL(wp),          ALLOCATABLE              :: r_ptr(:,:,:)
-    REAL(sp),          ALLOCATABLE              :: s_ptr(:,:,:)
-    INTEGER,           ALLOCATABLE              :: i_ptr(:,:,:)
-    REAL(wp),          ALLOCATABLE              :: r_out_recv(:)
-    INTEGER,           ALLOCATABLE              :: r_out_int(:)
-    REAL(sp),          ALLOCATABLE, TARGET      :: r_out_sp(:)
-    REAL(dp),          ALLOCATABLE, TARGET      :: r_out_dp(:)
+    REAL(wp), POINTER :: r_ptr(:,:,:), r_ptr_t(:,:,:,:,:,:)
+    REAL(sp), POINTER :: s_ptr(:,:,:), s_ptr_t(:,:,:,:,:,:)
+#ifndef __NO_ICON_ATMO__
+    REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
+    REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
+    INTEGER, ALLOCATABLE, TARGET :: i_ptr_m(:,:,:)
+#endif
+    INTEGER, POINTER :: i_ptr(:,:,:), i_ptr_t(:,:,:,:,:,:)
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
-    LOGICAL                                     :: l_error
-    LOGICAL                                     :: have_GRIB, lwrite_single_precision
     LOGICAL                                     :: var_ignore_level_selection
-    INTEGER                                     :: nmiss    ! missing value indicator
     INTEGER                                     :: var_ref_pos, last_bdry_index
-    REAL(wp)                                    :: missval
-    INTEGER                                     :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
-      &                                            i_startidx, i_endidx, local_idx, glb_idx, jc, jb
     TYPE(t_patch), POINTER                      :: ptr_patch
-
+    REAL(wp)                                    :: missval
+    INTEGER                                     :: rl_start, rl_end, i_nchdom, &
+         i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp), TARGET :: r_dummy(1,1,1)
+    INTEGER, TARGET :: i_dummy(1,1,1)
+#ifndef __NO_ICON_ATMO__
+    INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
+    LOGICAL :: post_op_apply
+#endif
     ! Offset in memory window for async I/O
     ioff = 0_i8
 
@@ -777,26 +780,9 @@ CONTAINS
     ! Only for synchronous output mode: communicate the largest global
     ! index of the lateral boundary cells, if required:
 
-    last_bdry_index = 0
     IF ( (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .AND.   &
       &  config_lmask_boundary )  THEN
-
-      ptr_patch => p_patch(i_log_dom)
-      rl_start   = 1
-      rl_end     = grf_bdywidth_c
-      i_nchdom   = MAX(1,ptr_patch%n_childdom)
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-      glb_idx    = 0
-      DO jb=i_startblk,i_endblk
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
-        DO jc=i_startidx, i_endidx
-          local_idx = idx_1d(jc,jb)
-          glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
-        END DO
-      END DO
-      last_bdry_index = p_max(glb_idx, p_comm_work)
+      last_bdry_index = get_last_bdry_index(i_log_dom)
     END IF
 
     ! ----------------------------------------------------
@@ -856,96 +842,102 @@ CONTAINS
         idata_type = iINTEGER
       END IF
 
+      r_ptr => r_dummy
+      i_ptr => i_dummy
+
       SELECT CASE (info%ndims)
       CASE (1)
-        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
-        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,1))
-        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
-
         IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
           & CALL finish(routine, "internal error")
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
+          r_ptr => of%var_desc(iv)%r_ptr(:,1:1,1:1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
-          s_ptr(:,1,1) = of%var_desc(iv)%s_ptr(:,1,1,1,1)
+          s_ptr => of%var_desc(iv)%s_ptr(:,1:1,1:1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr(:,1,1) = of%var_desc(iv)%i_ptr(:,1,1,1,1)
+          i_ptr => of%var_desc(iv)%i_ptr(:,1:1,1:1,1,1)
         ELSE
           CALL finish(routine, "Internal error!")
         ENDIF
 
       CASE (2)
-        ! 2D fields: Make a 3D copy of the array
-        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
-        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
-        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
-
         var_ref_pos = 3
         IF (info%lcontained)  var_ref_pos = info%var_ref_pos
 
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN !double precision
           SELECT CASE(var_ref_pos)
           CASE (1)
-            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(nindex,:,:,1,1)
+            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%r_ptr, 3)
+            r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,nindex,:,1,1)
+            r_ptr => of%var_desc(iv)%r_ptr(:,nindex:nindex,:,1,1)
           CASE (3)
-            r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%r_ptr, 2)
+            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN ! single precision
           SELECT CASE(var_ref_pos)
           CASE (1)
-            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(nindex,:,:,1,1)
+            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%s_ptr, 3)
+            s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,nindex,:,1,1)
+            s_ptr => of%var_desc(iv)%s_ptr(:,nindex:nindex,:,1,1)
           CASE (3)
-            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,:,nindex,1,1)
+            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%s_ptr, 2)
+            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN ! integer output
           SELECT CASE(var_ref_pos)
           CASE (1)
-            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(nindex,:,:,1,1)
+            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%i_ptr, 3)
+            i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,nindex,:,1,1)
+            i_ptr => of%var_desc(iv)%i_ptr(:,nindex:nindex,:,1,1)
           CASE (3)
-            i_ptr(:,1,:) = of%var_desc(iv)%i_ptr(:,:,nindex,1,1)
+            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%i_ptr, 2)
+            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,1,1)
+            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%tlev_rptr(tl)%p, 3)
+            r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,1,1)
+            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex:nindex,:,1,1)
           CASE (3)
-            r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%tlev_rptr(tl)%p, 2)
+            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,1,1)
+            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%tlev_sptr(tl)%p, 3)
+            s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,1,1)
+            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex:nindex,:,1,1)
           CASE (3)
-            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,1,1)
+            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%tlev_sptr(tl)%p, 2)
+            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,1,1)
+            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%tlev_iptr(tl)%p, 3)
+            i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
           CASE (2)
-            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,1,1)
+            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex:nindex,:,1,1)
           CASE (3)
-            i_ptr(:,1,:) = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,1,1)
+            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%tlev_iptr(tl)%p, 2)
+            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -959,91 +951,81 @@ CONTAINS
 
         ! 3D fields: Here we could just set a pointer to the
         ! array... if there were no post-ops
-        IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
-          &                                        info%used_dimensions(2), &
-          &                                        info%used_dimensions(3)))
-        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1), &
-          &                                        info%used_dimensions(2), &
-          &                                        info%used_dimensions(3)))
-        IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1), &
-          &                                        info%used_dimensions(2), &
-          &                                        info%used_dimensions(3)))
-
         IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            r_ptr = of%var_desc(iv)%r_ptr(nindex,:,:,:,1)
+            r_ptr => of%var_desc(iv)%r_ptr(nindex,:,:,:,1)
           CASE (2)
-            r_ptr = of%var_desc(iv)%r_ptr(:,nindex,:,:,1)
+            r_ptr => of%var_desc(iv)%r_ptr(:,nindex,:,:,1)
           CASE (3)
-            r_ptr = of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
+            r_ptr => of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
           CASE (4)
-            r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+            r_ptr => of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            s_ptr = of%var_desc(iv)%s_ptr(nindex,:,:,:,1)
+            s_ptr => of%var_desc(iv)%s_ptr(nindex,:,:,:,1)
           CASE (2)
-            s_ptr = of%var_desc(iv)%s_ptr(:,nindex,:,:,1)
+            s_ptr => of%var_desc(iv)%s_ptr(:,nindex,:,:,1)
           CASE (3)
-            s_ptr = of%var_desc(iv)%s_ptr(:,:,nindex,:,1)
+            s_ptr => of%var_desc(iv)%s_ptr(:,:,nindex,:,1)
           CASE (4)
-            s_ptr = of%var_desc(iv)%s_ptr(:,:,:,nindex,1)
+            s_ptr => of%var_desc(iv)%s_ptr(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            i_ptr = of%var_desc(iv)%i_ptr(nindex,:,:,:,1)
+            i_ptr => of%var_desc(iv)%i_ptr(nindex,:,:,:,1)
           CASE (2)
-            i_ptr = of%var_desc(iv)%i_ptr(:,nindex,:,:,1)
+            i_ptr => of%var_desc(iv)%i_ptr(:,nindex,:,:,1)
           CASE (3)
-            i_ptr = of%var_desc(iv)%i_ptr(:,:,nindex,:,1)
+            i_ptr => of%var_desc(iv)%i_ptr(:,:,nindex,:,1)
           CASE (4)
-            i_ptr = of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
+            i_ptr => of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,:,1)
+            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,:,1)
           CASE (2)
-            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,:,1)
+            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,:,1)
           CASE (3)
-            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
+            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
           CASE (4)
-            r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,:,1)
+            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,:,1)
           CASE (2)
-            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,:,1)
+            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,:,1)
           CASE (3)
-            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,:,1)
+            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,:,1)
           CASE (4)
-            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,:,nindex,1)
+            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
         ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
           SELECT CASE(var_ref_pos)
           CASE (1)
-            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,:,1)
+            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,:,1)
           CASE (2)
-            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,:,1)
+            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,:,1)
           CASE (3)
-            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,:,1)
+            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,:,1)
           CASE (4)
-            i_ptr = of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
+            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -1066,12 +1048,51 @@ CONTAINS
       ! --------------------------------------------------------
 
 #ifndef __NO_ICON_ATMO__
-      IF ( ANY((/POST_OP_SCALE, POST_OP_LUC/) == of%var_desc(iv)%info%post_op%ipost_op_type) ) THEN
+      ipost_op_type = of%var_desc(iv)%info%post_op%ipost_op_type
+      post_op_apply &
+           = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
+      IF ( post_op_apply ) THEN
         IF (idata_type == iREAL) THEN
+          alloc_shape = SHAPE(r_ptr)
+          IF (ALLOCATED(r_ptr_m)) THEN
+            alloc_shape_op = SHAPE(r_ptr_m)
+            IF (ANY(alloc_shape_op /= alloc_shape)) THEN
+              DEALLOCATE(r_ptr_m)
+              ALLOCATE(r_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+            END IF
+          ELSE
+            ALLOCATE(r_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+          END IF
+          r_ptr_m = r_ptr
+          r_ptr => r_ptr_m
           CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
         ELSE IF (idata_type == iREAL_sp) THEN
+          alloc_shape = SHAPE(s_ptr)
+          IF (ALLOCATED(s_ptr_m)) THEN
+            alloc_shape_op = SHAPE(s_ptr_m)
+            IF (ANY(alloc_shape_op /= alloc_shape)) THEN
+              DEALLOCATE(s_ptr_m)
+              ALLOCATE(s_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+            END IF
+          ELSE
+            ALLOCATE(s_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+          END IF
+          s_ptr_m = s_ptr
+          s_ptr => s_ptr_m
           CALL perform_post_op(of%var_desc(iv)%info%post_op, s_ptr)
         ELSE IF (idata_type == iINTEGER) THEN
+          alloc_shape = SHAPE(i_ptr)
+          IF (ALLOCATED(i_ptr_m)) THEN
+            alloc_shape_op = SHAPE(i_ptr_m)
+            IF (ANY(alloc_shape_op /= alloc_shape)) THEN
+              DEALLOCATE(i_ptr_m)
+              ALLOCATE(i_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+            END IF
+          ELSE
+            ALLOCATE(i_ptr_m(alloc_shape(1), alloc_shape(2), alloc_shape(3)))
+          END IF
+          i_ptr_m = i_ptr
+          i_ptr => i_ptr_m
           CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
         ENDIF
       END IF
@@ -1118,6 +1139,7 @@ CONTAINS
       ENDIF
 
       ! Get pointer to appropriate reorder_info
+      nullify(p_ri, p_pat)
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         p_ri  => patch_info(i_dom)%cells
@@ -1141,242 +1163,9 @@ CONTAINS
       END SELECT
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
-
-        IF (info%hgrid == GRID_LONLAT) THEN
-          n_points = 1
-        ELSE IF (info%hgrid == GRID_ZONAL) THEN
-          n_points = 180
-        ELSE
-          n_points = p_ri%n_glb
-        END IF
-
-        have_GRIB = (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2)
-        lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
-
-        IF (idata_type == iREAL) THEN
-          ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-        END IF
-        IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
-          ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-        END IF
-        IF (idata_type == iINTEGER) THEN
-          IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-          IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-          ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-        END IF
-
-        IF(my_process_is_mpi_workroot()) THEN
-
-          IF (my_process_is_mpi_test()) THEN
-
-            IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
-
-          ELSE
-
-            ! Set some GRIB2 keys that may have changed during simulation.
-            ! Note that (for synchronous output mode) we provide the
-            ! pointer "info_ptr" to the variable's info data object and
-            ! not the modified copy "info".
-            IF  (of%output_type == FILETYPE_GRB2) THEN
-              CALL set_GRIB2_timedep_keys( &
-                & of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
-                & of%out_event%output_event%event_data%sim_start,        &
-                & get_current_date(of%out_event))
-              CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID, &
-                & gribout_config(of%phys_patch_id) )
-            END IF
-          END IF ! my_process_is_mpi_test()
-        END IF ! my_process_is_mpi_workroot()
-
-
-        ! set missval flag, if applicable
-        !
-        IF ( ( of%var_desc(iv)%info%lmiss .OR.                                            &
-          &    ( of%var_desc(iv)%info%lmask_boundary .AND. config_lmask_boundary) ) .AND. &
-          &  ( last_bdry_index >  0 ) ) THEN
-          nmiss = 1
-        ELSE
-          nmiss = 0
-        ENDIF
-
-        ! For all levels (this needs to be done level-wise in order to reduce
-        !                 memory consumption)
-        DO lev = 1, nlevs
-          ! -------------------
-          ! No asynchronous I/O
-          ! -------------------
-          !
-          ! gather the array on stdio PE and write it out there
-
-          IF ( n_points == 1 ) THEN ! single values
-            IF (my_process_is_mpi_workroot()) THEN
-              !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
-              IF      (idata_type == iREAL ) THEN
-                r_out_dp(:)  = r_ptr(:,1,1)
-              ELSE IF (idata_type == iREAL_sp ) THEN
-                r_out_sp(:)  = s_ptr(:,1,1)
-              ELSE IF (idata_type == iINTEGER) THEN
-                r_out_int(:) = i_ptr(:,1,1)
-              END IF
-            END IF
-          ELSE IF ( n_points == 180 ) THEN ! 1deg zonal grid
-            lev_idx = lev
-            IF (my_process_is_mpi_workroot()) THEN
-              IF      (idata_type == iREAL ) THEN
-                r_out_dp(:)  = r_ptr(lev_idx,1,:)
-              ELSE IF (idata_type == iREAL_sp ) THEN
-                r_out_sp(:)  = s_ptr(lev_idx,1,:)
-              ELSE IF (idata_type == iINTEGER) THEN
-                r_out_int(:) = i_ptr(lev_idx,1,:)
-              END IF
-            END IF
-          ELSE ! n_points
-            IF (idata_type == iREAL) THEN
-              r_out_dp(:)  = 0._wp
-
-              lev_idx = lev
-              ! handle the case that a few levels have been selected out of
-              ! the total number of levels:
-              IF (      ASSOCIATED(of%level_selection)   .AND. &
-                & (.NOT. var_ignore_level_selection)     .AND. &
-                & (info%ndims > 2)) THEN
-                lev_idx = of%level_selection%global_idx(lev_idx)
-              END IF
-              CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
-                &                out_array=r_out_dp(:), gather_pattern=p_pat, &
-                &                fill_value = BOUNDARY_MISSVAL)
-
-            ELSE IF (idata_type == iREAL_sp) THEN
-              r_out_sp(:)  = 0._wp
-
-              lev_idx = lev
-              ! handle the case that a few levels have been selected out of
-              ! the total number of levels:
-              IF (      ASSOCIATED(of%level_selection)   .AND. &
-                & (.NOT. var_ignore_level_selection)     .AND. &
-                & (info%ndims > 2)) THEN
-                lev_idx = of%level_selection%global_idx(lev_idx)
-              END IF
-              CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
-                &                out_array=r_out_sp(:), gather_pattern=p_pat)
-              ! FIXME: Implement and use fill_value!
-
-            ELSE IF (idata_type == iINTEGER) THEN
-              r_out_int(:) = 0
-
-              lev_idx = lev
-              ! handle the case that a few levels have been selected out of
-              ! the total number of levels:
-              IF (      ASSOCIATED(of%level_selection)   .AND. &
-                & (.NOT. var_ignore_level_selection)     .AND. &
-                & (info%ndims > 2)) THEN
-                lev_idx = of%level_selection%global_idx(lev_idx)
-              END IF
-              CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
-                &                out_array=r_out_int(:), gather_pattern=p_pat)
-              ! FIXME: Implement and use fill_value!
-
-            END IF
-          END IF ! n_points
-
-          IF(my_process_is_mpi_workroot()) THEN
-
-            SELECT CASE(idata_type)
-            CASE(iREAL)
-              !
-              ! If single precision output is desired, we need to
-              ! perform a type conversion:
-              IF ( lwrite_single_precision ) THEN
-                r_out_sp(:) = REAL(r_out_dp(:), sp)
-              ENDIF
-
-            CASE(iREAL_sp)
-              !
-              IF ( .NOT. lwrite_single_precision ) THEN
-                r_out_dp(:) = REAL(r_out_sp(:), dp)
-              ENDIF
-
-            CASE(iINTEGER)
-              !
-              IF ( lwrite_single_precision ) THEN
-                r_out_sp(:) = REAL(r_out_int(:), sp)
-              ELSE
-                r_out_dp(:) = REAL(r_out_int(:), dp)
-              ENDIF
-            END SELECT
-
-            ! If required, set lateral boundary points to missing
-            ! value. Note that this modifies only the output buffer!
-            IF ( info%lmask_boundary                   .AND. &
-              & (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-              & config_lmask_boundary ) THEN
-              missval = BOUNDARY_MISSVAL
-              IF (info%lmiss)  missval = info%missval%rval
-
-              IF ( lwrite_single_precision ) THEN
-                r_out_sp(1:last_bdry_index) = missval
-              ELSE
-                r_out_dp(1:last_bdry_index) = missval
-              END IF
-            END IF
-
-            ! ------------------
-            ! case of a test run
-            ! ------------------
-            !
-            ! compare results on worker PEs and test PE
-            IF (p_test_run  .AND.  use_dp_mpi2io) THEN
-              ! Currently we don't do the check for REAL*4, we would need
-              ! p_send/p_recv for this type
-              IF(.NOT. my_process_is_mpi_test()) THEN
-                ! Send to test PE
-                CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
-              ELSE
-                ! Receive result from parallel worker PEs
-                CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
-                ! check for correctness
-                l_error = .FALSE.
-                DO i = 1, n_points
-                  IF (r_out_recv(i) /= r_out_dp(i)) THEN
-                    ! do detailed print-out only for "large" errors:
-                    IF (ABS(r_out_recv(i) - r_out_dp(i)) > SYNC_ERROR_PRINT_TOL) THEN
-                      WRITE (0,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
-                      WRITE (0,*) "global pos (", idx_no(i), ",", blk_no(i),")"
-                      WRITE (0,*) "level", lev, "/", nlevs
-                      WRITE (0,*) "vals: ", r_out_recv(i), r_out_dp(i)
-                      l_error = .TRUE.
-                    END IF
-                  END IF
-                ENDDO
-                IF (l_error)   CALL finish(routine,"Sync error!")
-              ENDIF
-            ENDIF
-
-          ENDIF
-
-          ! ----------
-          ! write data
-          ! ----------
-
-          IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-            IF (.NOT. lwrite_single_precision) THEN
-              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-            ELSE
-              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
-            ENDIF
-          END IF
-
-        END DO ! lev = 1, nlevs
-
-        IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
-          & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
-
-        ! clean up
-        IF (ALLOCATED(r_out_int)) DEALLOCATE(r_out_int)
-        IF (ALLOCATED(r_out_sp))  DEALLOCATE(r_out_sp)
-        IF (ALLOCATED(r_out_dp))  DEALLOCATE(r_out_dp)
-        IF (ALLOCATED(r_out_recv)) DEALLOCATE(r_out_recv)
-
+        CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
+             i_ptr, p_ri, iv, last_bdry_index, &
+             nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
 
       ELSE
@@ -1505,11 +1294,6 @@ CONTAINS
 
       END IF
 
-      ! clean up
-      IF (ALLOCATED(r_ptr)) DEALLOCATE(r_ptr)
-      IF (ALLOCATED(s_ptr)) DEALLOCATE(s_ptr)
-      IF (ALLOCATED(i_ptr)) DEALLOCATE(i_ptr)
-
     ENDDO
 
 #ifndef NOMPI
@@ -1521,6 +1305,280 @@ CONTAINS
 
   END SUBROUTINE write_name_list
 
+  FUNCTION get_last_bdry_index(i_log_dom) RESULT(last_bdry_index)
+    INTEGER, INTENT(in) :: i_log_dom
+    INTEGER :: last_bdry_index
+
+    TYPE(t_patch), POINTER                      :: ptr_patch
+    INTEGER :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, glb_idx
+    INTEGER :: jb, jc, local_idx, i_startidx, i_endidx
+
+    ptr_patch => p_patch(i_log_dom)
+    rl_start   = 1
+    rl_end     = grf_bdywidth_c
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+    glb_idx    = 0
+    DO jb=i_startblk,i_endblk
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+           i_startidx, i_endidx, rl_start, rl_end)
+      DO jc=i_startidx, i_endidx
+        local_idx = idx_1d(jc,jb)
+        glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
+      END DO
+    END DO
+    last_bdry_index = p_max(glb_idx, p_comm_work)
+  END FUNCTION get_last_bdry_index
+
+  SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
+       i_ptr, p_ri, iv, last_bdry_index, &
+       nlevs, var_ignore_level_selection, p_pat, info)
+    TYPE (t_output_file), INTENT(IN) :: of
+    INTEGER, INTENT(in) :: idata_type, iv, nlevs, last_bdry_index
+    LOGICAL, INTENT(in) :: var_ignore_level_selection
+    REAL(dp), POINTER, INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), POINTER, INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, POINTER, INTENT(in) :: i_ptr(:,:,:)
+    TYPE(t_reorder_info), INTENT(in), POINTER :: p_ri
+
+    REAL(dp), ALLOCATABLE :: r_out_dp(:)
+    INTEGER, ALLOCATABLE :: r_out_int(:)
+    REAL(sp), ALLOCATABLE :: r_out_sp(:)
+    REAL(wp), ALLOCATABLE :: r_out_recv(:)
+    REAL(wp), PARAMETER :: SYNC_ERROR_PRINT_TOL = 1e-13_wp
+    REAL(wp) :: missval
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::gather_on_workroot_and_write"
+
+    TYPE(t_comm_gather_pattern), INTENT(in), POINTER :: p_pat
+    TYPE (t_var_metadata), INTENT(in) :: info
+
+
+    INTEGER :: lev, lev_idx, i, n_points, nmiss
+    LOGICAL :: l_error, have_grib, lwrite_single_precision
+
+    IF (info%hgrid == GRID_LONLAT) THEN
+      n_points = 1
+    ELSE IF (info%hgrid == GRID_ZONAL) THEN
+      n_points = 180
+    ELSE
+      n_points = p_ri%n_glb
+    END IF
+
+    have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+    lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
+
+    IF (idata_type == iREAL) THEN
+      ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+    END IF
+    IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
+      ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+    END IF
+    IF (idata_type == iINTEGER) THEN
+      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+      ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+    END IF
+
+    IF(my_process_is_mpi_workroot()) THEN
+
+      IF (my_process_is_mpi_test()) THEN
+
+        IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
+
+      ELSE
+
+        ! Set some GRIB2 keys that may have changed during simulation.
+        ! Note that (for synchronous output mode) we provide the
+        ! pointer "info_ptr" to the variable's info data object and
+        ! not the modified copy "info".
+        IF  (of%output_type == FILETYPE_GRB2) THEN
+          CALL set_GRIB2_timedep_keys( &
+               & of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
+               & of%out_event%output_event%event_data%sim_start,        &
+               & get_current_date(of%out_event))
+          CALL set_GRIB2_timedep_local_keys(of%cdiFileID, info%cdiVarID, &
+               & gribout_config(of%phys_patch_id) )
+        END IF
+      END IF ! my_process_is_mpi_test()
+    END IF ! my_process_is_mpi_workroot()
+
+
+    ! set missval flag, if applicable
+    !
+    nmiss = MERGE(1, 0, (of%var_desc(iv)%info%lmiss &
+      &                  .OR. ( of%var_desc(iv)%info%lmask_boundary &
+      &                        .AND. config_lmask_boundary) ) &
+      &                 .AND. last_bdry_index > 0)
+
+    ! For all levels (this needs to be done level-wise in order to reduce
+    !                 memory consumption)
+    DO lev = 1, nlevs
+      ! -------------------
+      ! No asynchronous I/O
+      ! -------------------
+      !
+      ! gather the array on stdio PE and write it out there
+      IF ( info%hgrid == GRID_LONLAT ) THEN
+        IF (my_process_is_mpi_workroot()) THEN
+          !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
+          IF      (idata_type == iREAL ) THEN
+            r_out_dp(:)  = r_ptr(:,1,1)
+          ELSE IF (idata_type == iREAL_sp ) THEN
+            r_out_sp(:)  = s_ptr(:,1,1)
+          ELSE IF (idata_type == iINTEGER) THEN
+            r_out_int(:) = i_ptr(:,1,1)
+          END IF
+        END IF
+      ELSE IF ( info%hgrid == GRID_ZONAL ) THEN ! 1deg zonal grid
+        lev_idx = lev
+        IF (my_process_is_mpi_workroot()) THEN
+          IF      (idata_type == iREAL ) THEN
+            r_out_dp(:)  = r_ptr(lev_idx,1,:)
+          ELSE IF (idata_type == iREAL_sp ) THEN
+            r_out_sp(:)  = s_ptr(lev_idx,1,:)
+          ELSE IF (idata_type == iINTEGER) THEN
+            r_out_int(:) = i_ptr(lev_idx,1,:)
+          END IF
+        END IF
+      ELSE ! n_points
+        IF (idata_type == iREAL) THEN
+          r_out_dp(:)  = 0._wp
+
+          lev_idx = lev
+          ! handle the case that a few levels have been selected out of
+          ! the total number of levels:
+          IF (      ASSOCIATED(of%level_selection)   .AND. &
+            & (.NOT. var_ignore_level_selection)     .AND. &
+            & (info%ndims > 2)) THEN
+            lev_idx = of%level_selection%global_idx(lev_idx)
+          END IF
+          CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
+            &                out_array=r_out_dp(:), gather_pattern=p_pat, &
+            &                fill_value = BOUNDARY_MISSVAL)
+        ELSE IF (idata_type == iREAL_sp) THEN
+          r_out_sp(:)  = 0._wp
+
+          lev_idx = lev
+          ! handle the case that a few levels have been selected out of
+          ! the total number of levels:
+          IF (      ASSOCIATED(of%level_selection)   .AND. &
+            & (.NOT. var_ignore_level_selection)     .AND. &
+            & (info%ndims > 2)) THEN
+            lev_idx = of%level_selection%global_idx(lev_idx)
+          END IF
+          CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
+            &                out_array=r_out_sp(:), gather_pattern=p_pat)
+          ! FIXME: Implement and use fill_value!
+        ELSE IF (idata_type == iINTEGER) THEN
+          r_out_int(:) = 0
+
+          lev_idx = lev
+          ! handle the case that a few levels have been selected out of
+          ! the total number of levels:
+          IF (      ASSOCIATED(of%level_selection)   .AND. &
+               & (.NOT. var_ignore_level_selection)     .AND. &
+               & (info%ndims > 2)) THEN
+            lev_idx = of%level_selection%global_idx(lev_idx)
+          END IF
+          CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
+            &                out_array=r_out_int(:), gather_pattern=p_pat)
+          ! FIXME: Implement and use fill_value!
+        END IF
+      END IF ! n_points
+
+      IF(my_process_is_mpi_workroot()) THEN
+
+        SELECT CASE(idata_type)
+        CASE(iREAL)
+          !
+          ! "r_out_dp" contains double precision data. If single precision
+          ! output is desired, we need to perform a type conversion:
+          IF ( lwrite_single_precision ) THEN
+            r_out_sp(:) = REAL(r_out_dp(:), sp)
+          ENDIF
+
+        CASE(iREAL_sp)
+          !
+          IF ( .NOT. lwrite_single_precision ) THEN
+            r_out_dp(:) = REAL(r_out_sp(:), dp)
+          ENDIF
+
+        CASE(iINTEGER)
+          !
+          IF ( lwrite_single_precision ) THEN
+            r_out_sp(:) = REAL(r_out_int(:), sp)
+          ELSE
+            r_out_dp(:) = REAL(r_out_int(:), dp)
+          ENDIF
+        END SELECT
+
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF ( info%lmask_boundary                   .AND. &
+             & (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+             & config_lmask_boundary ) THEN
+          missval = BOUNDARY_MISSVAL
+          IF (info%lmiss)  missval = info%missval%rval
+
+          IF ( lwrite_single_precision ) THEN
+            r_out_sp(1:last_bdry_index) = missval
+          ELSE
+            r_out_dp(1:last_bdry_index) = missval
+          END IF
+        END IF
+
+        ! ------------------
+        ! case of a test run
+        ! ------------------
+        !
+        ! compare results on worker PEs and test PE
+        IF (p_test_run  .AND.  use_dp_mpi2io) THEN
+          ! Currently we don't do the check for REAL*4, we would need
+          ! p_send/p_recv for this type
+          IF(.NOT. my_process_is_mpi_test()) THEN
+            ! Send to test PE
+            CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
+          ELSE
+            ! Receive result from parallel worker PEs
+            CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
+            ! check for correctness
+            l_error = .FALSE.
+            DO i = 1, n_points
+              IF (r_out_recv(i) /= r_out_dp(i)) THEN
+                ! do detailed print-out only for "large" errors:
+                IF (ABS(r_out_recv(i) - r_out_dp(i)) > SYNC_ERROR_PRINT_TOL) THEN
+                  WRITE (0,*) 'Sync error test PE/worker PEs for ', TRIM(info%name)
+                  WRITE (0,*) "global pos (", idx_no(i), ",", blk_no(i),")"
+                  WRITE (0,*) "level", lev, "/", nlevs
+                  WRITE (0,*) "vals: ", r_out_recv(i), r_out_dp(i)
+                  l_error = .TRUE.
+                END IF
+              END IF
+            ENDDO
+            IF (l_error)   CALL finish(routine,"Sync error!")
+          END IF
+        END IF
+
+      END IF
+
+      ! ----------
+      ! write data
+      ! ----------
+      IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
+        IF (.NOT. lwrite_single_precision) THEN
+          CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+        ELSE
+          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+        END IF
+      END IF
+
+    END DO ! lev = 1, nlevs
+
+    IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
+       & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
+
+  END SUBROUTINE gather_on_workroot_and_write
 
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step

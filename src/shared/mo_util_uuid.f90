@@ -22,6 +22,7 @@ MODULE mo_util_uuid
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR, &
     &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
   USE mo_util_uuid_types, ONLY: t_uuid
+  USE mo_util_sort, ONLY: quicksort
 
 #ifndef NOMPI
   USE MPI
@@ -184,95 +185,6 @@ CONTAINS
   END FUNCTION compare_uuid
 
 
-  SUBROUTINE swap_int(a, i,j, permutation)
-    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
-    INTEGER,  INTENT(IN)              :: i,j            !< indices to be exchanged
-    INTEGER,  INTENT(INOUT), OPTIONAL :: permutation(:) !< (optional) permutation of indices
-    ! local variables
-    INTEGER :: t, t_p
-
-    t    = a(i)
-    a(i) = a(j)
-    a(j) = t
-    IF (PRESENT(permutation)) THEN
-      t_p            = permutation(i)
-      permutation(i) = permutation(j)
-      permutation(j) = t_p
-    END IF
-  END SUBROUTINE swap_int
-
-
-  ! --------------------------------------------------------------------
-  !> Simple recursive implementation of Hoare's QuickSort algorithm
-  !  for a 1D array of INTEGER values.
-  ! 
-  !  Ordering after the sorting process: smallest...largest.
-  !
-  RECURSIVE SUBROUTINE quicksort_int(a, permutation, l_in, r_in)
-    INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
-    INTEGER,  INTENT(INOUT)           :: permutation(:) !< (optional) permutation of indices
-    INTEGER,  INTENT(IN),    OPTIONAL :: l_in,r_in      !< left, right partition indices
-    ! local variables
-    INTEGER :: i,j,l,r,t_p,t,v,m
-
-    IF (PRESENT(l_in)) THEN
-      l = l_in
-    ELSE
-      l = 1
-    END IF
-    IF (PRESENT(r_in)) THEN
-      r = r_in
-    ELSE
-      r = SIZE(a,1)
-    END IF
-    IF (r>l) THEN
-      i = l-1
-      j = r
-      
-      ! median-of-three selection of partitioning element
-      IF ((r-l) > 3) THEN 
-        m = (l+r)/2
-        IF (a(l)>a(m))  CALL swap_int(a, l,m, permutation)
-        IF (a(l)>a(r)) THEN
-          CALL swap_int(a, l,r, permutation)
-        ELSE IF (a(r)>a(m)) THEN
-          CALL swap_int(a, r,m, permutation)
-        END IF
-      END IF
-
-      v = a(r)
-      LOOP : DO
-        CNTLOOP1 : DO
-          i = i+1
-          IF (a(i) >= v) EXIT CNTLOOP1
-        END DO CNTLOOP1
-        CNTLOOP2 : DO
-          j = j-1
-          IF ((a(j) <= v) .OR. (j==1)) EXIT CNTLOOP2
-        END DO CNTLOOP2
-        t    = a(i)
-        a(i) = a(j)
-        a(j) = t
-
-        t_p            = permutation(i)
-        permutation(i) = permutation(j)
-        permutation(j) = t_p
-
-        IF (j <= i) EXIT LOOP
-      END DO LOOP
-      a(j) = a(i)
-      a(i) = a(r)
-      a(r) = t
-
-      permutation(j) = permutation(i)
-      permutation(i) = permutation(r)
-      permutation(r) = t_p
-      CALL quicksort_int(a,permutation,l,i-1)
-      CALL quicksort_int(a,permutation,i+1,r)
-    END IF
-  END SUBROUTINE quicksort_int
-
-
   ! Parallel computation of UUID.
   !
   ! In contrast to the sequential version "uuid_generate", here the
@@ -325,10 +237,11 @@ CONTAINS
     IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
       WRITE (0,*) 'build local copies of "val", "glbidx", sorted by "glbidx":'
     END IF
-    ALLOCATE(val_sorted(nrow,nval), permutation(nval), glbidx_sorted(nval))
+    ALLOCATE(val_sorted(nrow,nval), permutation(nval), glbidx_sorted(nval), &
+      &      glbidx(nval))
     glbidx        = in_glbidx
     permutation   = (/ ( i, i=1,nval ) /)
-    CALL quicksort_int(glbidx, permutation)
+    CALL quicksort(glbidx, permutation)
     val_sorted    = in_val(:,permutation(:))
     glbidx_sorted = glbidx
     DEALLOCATE(permutation)
@@ -415,7 +328,7 @@ CONTAINS
     END IF
     ALLOCATE(permutation(nval_local))
     permutation  = (/ ( i, i=1,nval_local ) /)
-    CALL quicksort_int(glbidx_local, permutation)
+    CALL quicksort(glbidx_local, permutation)
     val_local    = val_local(:,permutation(:))
     DEALLOCATE(permutation)
 

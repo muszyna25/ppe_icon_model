@@ -61,7 +61,7 @@ CONTAINS
 SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input: delta vn at interface level
   REAL(wp), INTENT(IN) :: p_vn_in(:,:) ! dim: (nproma,nblks_e)
@@ -174,7 +174,7 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   ! Store results in p_vn_out
 
-  CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_ubc(1:4),1,1, &
+  CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_ubc,1,1, &
     &                    RECV1=p_vn_out,SEND1=vn_aux)
 
 END SUBROUTINE interpol_vec_ubc
@@ -193,7 +193,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! Indices of source points and interpolation coefficients
   TYPE(t_gridref_single_state),   TARGET, INTENT(IN)    ::  p_grf
@@ -440,7 +440,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
   ! Store results in p_out
 
-  CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_ubc(1:4),1,nfields, &
+  CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_scal_ubc,1,nfields, &
     &                    RECV1=f3dout,SEND1=h_aux)
 
 END SUBROUTINE interpol_scal_ubc

@@ -24,7 +24,7 @@ MODULE mo_initicon_io
 
   USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
@@ -48,7 +48,7 @@ MODULE mo_initicon_io
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
-    &                               p_comm_work_test, my_process_is_mpi_workroot
+    &                               my_process_is_mpi_workroot
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
@@ -244,7 +244,7 @@ MODULE mo_initicon_io
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
     INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: psvar_ndims, geopvar_ndims
+    INTEGER :: psvar_ndims, geopvar_ndims, itemp(7)
 
     REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:), z_ifc_in(:,:,:), &
       &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -257,12 +257,13 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
-
     !-------------------------------------------------------------------------
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
     nlev_in = 0
+
+    mpi_comm = p_comm_work
 
     DO jg = 1, n_dom
 
@@ -404,21 +405,29 @@ MODULE mo_initicon_io
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
+      mpi_comm = p_comm_work
 
-      CALL p_bcast(nlev_in,       p_io, mpi_comm)
-      CALL p_bcast(lread_qs,      p_io, mpi_comm)
-      CALL p_bcast(lread_qr,      p_io, mpi_comm)
-      CALL p_bcast(lread_vn,      p_io, mpi_comm)
+      itemp(1) = nlev_in
+      itemp(2) = MERGE(1, 0, lread_qs)
+      itemp(3) = MERGE(1, 0, lread_qr)
+      itemp(4) = MERGE(1, 0, lread_vn)
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        CALL p_bcast( nhyi, p_io, mpi_comm)
-        CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
-        CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      ENDIF
+        itemp(5) = nhyi
+        itemp(6) = psvar_ndims
+        itemp(7) = geopvar_ndims
+      END IF
+
+      CALL p_bcast(itemp, p_io, mpi_comm)
+
+      nlev_in  = itemp(1)
+      lread_qs = itemp(2) /= 0
+      lread_qr = itemp(3) /= 0
+      lread_vn = itemp(4) /= 0
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+        nhyi = itemp(5)
+        psvar_ndims = itemp(6)
+        geopvar_ndims = itemp(7)
+      END IF
 
       IF (msg_level >= 10) THEN
         IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
@@ -517,13 +526,9 @@ MODULE mo_initicon_io
         ELSE
           CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
         END IF
-        
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test
-        ELSE
-          mpi_comm = p_comm_work
-        ENDIF
-        
+
+        mpi_comm = p_comm_work
+
         CALL initicon(jg)%const%vct%construct(ncid, p_io, mpi_comm)
 
       ELSE IF (init_mode == MODE_COSMO) THEN ! in case of COSMO-DE initial data
@@ -540,11 +545,8 @@ MODULE mo_initicon_io
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,p_patch(jg)%nblks_c
 
-          IF (jb /= p_patch(jg)%nblks_c) THEN
-            i_endidx = nproma
-          ELSE
-            i_endidx = p_patch(jg)%npromz_c
-          ENDIF
+          i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+               jb /= p_patch(jg)%nblks_c)
 
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
@@ -629,6 +631,7 @@ MODULE mo_initicon_io
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
+    mpi_comm = p_comm_work
 
     DO jg = 1, n_dom
 
@@ -736,12 +739,6 @@ MODULE mo_initicon_io
       !
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
-
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
 
       CALL p_bcast(l_sst_in, p_io, mpi_comm)
 

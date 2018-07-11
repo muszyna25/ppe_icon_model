@@ -24,6 +24,7 @@
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
 #include "iconfor_dsl_definitions.inc"
+#include "crayftn_ptr_fail.inc"
 !=============================================================================================
 !----------------------------
 MODULE mo_ocean_math_operators
@@ -1304,7 +1305,7 @@ CONTAINS
   SUBROUTINE smooth_onCells_3D( patch_3D, in_value, out_value, smooth_weights, &
     & has_missValue, missValue)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET, PTR_INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)          :: in_value(:,:,:)  ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)       :: out_value(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)          :: smooth_weights(1:2) ! 1st=weight for this cell, 2nd=weight for the some of the neigbors
@@ -1422,7 +1423,7 @@ CONTAINS
   SUBROUTINE smooth_onCells_2D( patch_3D, in_value, out_value, smooth_weights, &
     & has_missValue, missValue)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET, PTR_INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)          :: in_value(:,:)  ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)       :: out_value(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)          :: smooth_weights(1:2) ! 1st=weight for this cell, 2nd=weight for the some of the neigbors

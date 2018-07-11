@@ -489,13 +489,19 @@ CONTAINS
 
     ! Set communication patterns for boundary exchange
     CALL setup_comm_pattern(p%n_patch_cells, owner_c, p%cells%decomp_info%glb_index, &
-      & p%cells%decomp_info%glb2loc_index, p%comm_pat_c)
+      & p%cells%decomp_info%glb2loc_index, p%n_patch_cells, &
+      & p%cells%decomp_info%owner_local, p%cells%decomp_info%glb_index, &
+      & p%comm_pat_c, inplace=.TRUE.)
 
     CALL setup_comm_pattern(p%n_patch_edges, owner_e, p%edges%decomp_info%glb_index, &
-      & p%edges%decomp_info%glb2loc_index, p%comm_pat_e)
+      & p%edges%decomp_info%glb2loc_index, p%n_patch_edges, &
+      & p%edges%decomp_info%owner_local, p%edges%decomp_info%glb_index, &
+      p%comm_pat_e, inplace=.TRUE.)
 
     CALL setup_comm_pattern(p%n_patch_verts, owner_v, p%verts%decomp_info%glb_index, &
-      & p%verts%decomp_info%glb2loc_index, p%comm_pat_v)
+      & p%verts%decomp_info%glb2loc_index, p%n_patch_verts, &
+      & p%verts%decomp_info%owner_local, p%verts%decomp_info%glb_index, &
+      & p%comm_pat_v, inplace=.TRUE.)
 
     DEALLOCATE(owner_e, owner_v)
 
@@ -503,7 +509,9 @@ CONTAINS
     jc = idx_1d(p%cells%end_idx(min_rlcell_int-1,1), &
                 p%cells%end_blk(min_rlcell_int-1,1))
     CALL setup_comm_pattern(jc, owner_c(1:jc), p%cells%decomp_info%glb_index, &
-      & p%cells%decomp_info%glb2loc_index, p%comm_pat_c1)
+      & p%cells%decomp_info%glb2loc_index, p%n_patch_cells, &
+      & p%cells%decomp_info%owner_local, p%cells%decomp_info%glb_index, &
+      & p%comm_pat_c1, inplace=.TRUE.)
 
     DEALLOCATE(owner_c)
 
@@ -584,7 +592,11 @@ CONTAINS
 
     CALL setup_comm_pattern(p_ploc%n_patch_cells, owner(1:p_ploc%n_patch_cells), &
       p_ploc%cells%decomp_info%glb_index, &
-      p_pglb%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_c)
+      p_pglb%cells%decomp_info%glb2loc_index, &
+      p_pglb%n_patch_cells, &
+      p_pglb%cells%decomp_info%owner_local, &
+      p_pglb%cells%decomp_info%glb_index, &
+      p_ploc%comm_pat_glb_to_loc_c)
 
     ! ... edges
 
@@ -606,7 +618,11 @@ CONTAINS
 
     CALL setup_comm_pattern(p_ploc%n_patch_edges, owner(1:p_ploc%n_patch_edges), &
       p_ploc%edges%decomp_info%glb_index,  &
-      p_pglb%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_e)
+      p_pglb%edges%decomp_info%glb2loc_index, &
+      p_pglb%n_patch_edges, &
+      p_pglb%edges%decomp_info%owner_local, &
+      p_pglb%edges%decomp_info%glb_index, &
+      p_ploc%comm_pat_glb_to_loc_e)
 
     !-----------------------------------------------------------------------------------------------
 
@@ -641,7 +657,11 @@ CONTAINS
 
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner(1:p_pglb%n_patch_cells), &
       p_pglb%cells%decomp_info%glb_index, &
-      p_ploc%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
+      p_ploc%cells%decomp_info%glb2loc_index, &
+      p_ploc%n_patch_cells, &
+      p_ploc%cells%decomp_info%owner_local, &
+      p_ploc%cells%decomp_info%glb_index, &
+      p_ploc%comm_pat_loc_to_glb_c_fbk)
 
     ! ... edges
 
@@ -670,7 +690,11 @@ CONTAINS
     CALL setup_comm_pattern(p_pglb%n_patch_edges, &
       owner(1:p_pglb%n_patch_edges), &
       p_pglb%edges%decomp_info%glb_index, &
-      p_ploc%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
+      p_ploc%edges%decomp_info%glb2loc_index, &
+      p_ploc%n_patch_edges, &
+      p_ploc%edges%decomp_info%owner_local, &
+      p_ploc%edges%decomp_info%glb_index, &
+      p_ploc%comm_pat_loc_to_glb_e_fbk)
 
     DEALLOCATE(owner, mask)
   END SUBROUTINE set_glb_loc_comm
@@ -737,6 +761,9 @@ CONTAINS
 
     CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
       & p_parent_patch%cells%decomp_info%glb2loc_index, &
+      & p_parent_patch%n_patch_cells, &
+      & p_parent_patch%cells%decomp_info%owner_local, &
+      & p_parent_patch%cells%decomp_info%glb_index, &
       & p_patch%comm_pat_interpolation_c)
 
     DEALLOCATE(owner, glb_index)

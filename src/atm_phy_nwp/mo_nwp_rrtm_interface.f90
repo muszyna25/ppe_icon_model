@@ -523,7 +523,7 @@ CONTAINS
       IF (i_startidx > i_endidx) CYCLE
 
 
-      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       IF (tune_dust_abs > 0._wp) THEN
 !DIR$ NOINLINE
@@ -542,6 +542,7 @@ CONTAINS
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
         & irad       =irad                 ,&!< in option for radiation scheme (RRTM/PSRAD)
+        & jcs        =i_startidx           ,&!< in  start index for loop over block
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -1028,6 +1029,7 @@ CONTAINS
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
           & irad        =irad                ,&!< in option for radiation scheme (RRTM/PSRAD)
+          & jcs         =i_startidx          ,&!< in  start index for loop over block
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
@@ -1143,7 +1145,6 @@ CONTAINS
 
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
-
 
 END MODULE mo_nwp_rrtm_interface
 

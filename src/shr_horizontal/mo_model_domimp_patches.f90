@@ -133,9 +133,6 @@ MODULE mo_model_domimp_patches
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work,         &
     &                              my_process_is_stdio
-#ifdef HAVE_PARALLEL_NETCDF
-  USE mo_mpi,                ONLY: p_comm_input_bcast
-#endif
   USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
@@ -642,23 +639,15 @@ CONTAINS
       TYPE(t_patch), INTENT(INOUT):: p
       INTEGER, VALUE :: jg
 
-      INTEGER :: communicator
-
-      IF(p_test_run) THEN
-          communicator = p_comm_work_test
-      ELSE
-          communicator = p_comm_work
-      ENDIF
-
       p%comm_pat_scatter_c => &
         makeScatterPattern(jg, p%n_patch_cells, p%cells%decomp_info%glb_index, &
-        &                  communicator)
+        &                  p_comm_work)
       p%comm_pat_scatter_e => &
         makeScatterPattern(jg, p%n_patch_edges, p%edges%decomp_info%glb_index, &
-        &                  communicator)
+        &                  p_comm_work)
       p%comm_pat_scatter_v => &
         makeScatterPattern(jg, p%n_patch_verts, p%verts%decomp_info%glb_index, &
-        &                  communicator)
+        &                  p_comm_work)
 
     END SUBROUTINE set_comm_pat_scatter
 
@@ -1086,7 +1075,7 @@ CONTAINS
 #if HAVE_PARALLEL_NETCDF
     CALL nf(nf_open_par(TRIM(patch_pre%grid_filename), &
        &                IOR(nf_nowrite, nf_mpiio), &
-       &                p_comm_input_bcast, MPI_INFO_NULL, ncid))
+       &                p_comm_work, MPI_INFO_NULL, ncid))
 #else
     CALL nf(nf_open(TRIM(patch_pre%grid_filename), nf_nowrite, ncid))
 #endif
@@ -1099,7 +1088,7 @@ CONTAINS
       CALL message ('', TRIM(message_text))
 #if HAVE_PARALLEL_NETCDF
       CALL nf(nf_open_par(TRIM(patch_pre%grid_filename_grfinfo), &
-         &                IOR(nf_nowrite, nf_mpiio), p_comm_input_bcast, &
+         &                IOR(nf_nowrite, nf_mpiio), p_comm_work, &
          &                MPI_INFO_NULL, ncid_grf))
 #else
       CALL nf(nf_open(TRIM(patch_pre%grid_filename_grfinfo), nf_nowrite, ncid_grf))
@@ -1529,7 +1518,7 @@ CONTAINS
       &                     local_ptr))
 
     ! BEGIN NEW SUBDIV
-    
+
 !     write(0,*) max_verts_connectivity, "cells_of_vertex..."
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
 !     write(0,*) max_verts_connectivity, "  dist_mult_array_local_ptr..."

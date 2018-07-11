@@ -243,7 +243,7 @@
     !!
     SUBROUTINE compute_init_latbc_data(latbc, p_patch, p_int_state, p_nh_state, tlev)
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
-      TYPE(t_patch),          INTENT(IN)    :: p_patch
+      TYPE(t_patch),          INTENT(INOUT) :: p_patch
       TYPE(t_int_state),      INTENT(IN)    :: p_int_state
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       INTEGER,                INTENT(OUT)   :: tlev
@@ -718,7 +718,7 @@
       &                        latbc_read_datetime, lcheck_read, tlev, opt_lconst_data_only)
 
       TYPE(t_latbc_data),     INTENT(INOUT) :: latbc
-      TYPE(t_patch),          INTENT(IN)    :: p_patch
+      TYPE(t_patch),          INTENT(INOUT) :: p_patch
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state   !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)    :: p_int
       TYPE(datetime), POINTER, INTENT(IN)   :: cur_datetime !< current time
@@ -831,7 +831,7 @@
     !!
     SUBROUTINE compute_latbc_icon_data( latbc, p_patch, p_int, tlev )
       TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc
-      TYPE(t_patch),          INTENT(IN), TARGET    :: p_patch
+      TYPE(t_patch),          INTENT(INOUT), TARGET :: p_patch
       TYPE(t_int_state),      INTENT(IN)            :: p_int
       INTEGER,                INTENT(IN)            :: tlev
 
@@ -963,7 +963,7 @@
     !!
     SUBROUTINE compute_latbc_intp_data( latbc, p_patch, p_nh_state, p_int, tlev)
       TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc  !< variable buffer for latbc data
-      TYPE(t_patch),          INTENT(IN)            :: p_patch
+      TYPE(t_patch),          INTENT(INOUT)         :: p_patch
       TYPE(t_nh_state),       INTENT(IN)            :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)            :: p_int
       INTEGER,                INTENT(IN)            :: tlev
@@ -1258,7 +1258,7 @@
     !!
     SUBROUTINE recv_const_data( latbc, p_patch, tlev)
       TYPE(t_latbc_data),     INTENT(INOUT), TARGET :: latbc  !< variable buffer for latbc data
-      TYPE(t_patch),          INTENT(IN)            :: p_patch
+      TYPE(t_patch),          INTENT(INOUT)         :: p_patch
       INTEGER,                INTENT(IN)            :: tlev
 
 #ifndef NOMPI
@@ -1638,7 +1638,7 @@
       ! looping over variable list in internal name
       LOOP : DO varID=1, latbc%buffer%ngrp_vars
         IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-        IF (TRIM(tolower(name)) == TRIM(tolower(latbc%buffer%internal_name(varID)))) THEN
+        IF (tolower(name) == tolower(latbc%buffer%internal_name(varID))) THEN
           result_varID = varID
           EXIT LOOP
         END IF

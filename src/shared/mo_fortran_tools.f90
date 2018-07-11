@@ -27,6 +27,7 @@ MODULE mo_fortran_tools
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
 #endif
+  USE iso_c_binding, ONLY: c_ptr, c_f_pointer, c_loc
 
   IMPLICIT NONE
 
@@ -49,6 +50,7 @@ MODULE mo_fortran_tools
   PUBLIC :: resize_arr_c1d
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
+  PUBLIC :: insert_dimension
 
   PRIVATE
 
@@ -229,6 +231,11 @@ MODULE mo_fortran_tools
 #endif
 
 
+  INTERFACE insert_dimension
+    MODULE PROCEDURE insert_dimension_r_wp_6_5, insert_dimension_r_wp_6_5_s
+    MODULE PROCEDURE insert_dimension_r_sp_6_5, insert_dimension_r_sp_6_5_s
+    MODULE PROCEDURE insert_dimension_i4_6_5, insert_dimension_i4_6_5_s
+  END INTERFACE insert_dimension
 CONTAINS
 
   ! routines to assign values if actual parameters are present
@@ -1408,6 +1415,86 @@ CONTAINS
 #endif
   END SUBROUTINE init_zero_contiguous_sp
 
+  SUBROUTINE insert_dimension_r_wp_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_wp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_wp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_wp_6_5
+
+  SUBROUTINE insert_dimension_r_sp_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_sp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_sp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_sp_6_5
+
+  SUBROUTINE insert_dimension_i4_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_i4_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_i4_6_5(ptr_out, ptr_in, new_dim_rank)
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_i4_6_5
 
 
   ! AUXILIARY ROUTINES FOR DEALLOCATION

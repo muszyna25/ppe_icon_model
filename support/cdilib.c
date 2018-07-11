@@ -26565,9 +26565,8 @@ bool gridCompare(int gridID, const grid_t *grid)
 	    }
 	  else if ( grid->type == GRID_UNSTRUCTURED )
 	    {
-              /* FIXME: not octet 0 but octet 7 is guaranteed  non-zero
-               * for any non-NULL UUID */
-              differ = differ || ( gridRef->uuid[0] && grid->uuid[0] && memcmp(gridRef->uuid, grid->uuid, CDI_UUID_SIZE) != 0 );
+              /* FIXME: not octet 0 but octet 7 is guaranteed  non-zero for any non-NULL UUID */
+              differ |= ((gridRef->uuid[0] || grid->uuid[0]) && memcmp(gridRef->uuid, grid->uuid, CDI_UUID_SIZE));
 
               if ( !differ &&
                    ((grid->xvals == NULL) ^ (gridRef->xvals == NULL)) &&

@@ -431,6 +431,7 @@ CONTAINS
       &      reg_partition_count(ncollisions, nglb_indices))
     reg_partition_modified(:) = 0
     reg_partition_buf(:,:)    = 0
+    reg_partition_count = 0
     DO i=1,nsend
       local_idx = in_glb_idx(i)
       ! we try to avoid collisions, when one entry is repeatedly

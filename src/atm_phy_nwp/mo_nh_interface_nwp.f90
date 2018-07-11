@@ -150,7 +150,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     TYPE(datetime), POINTER                :: mtime_datetime !< date/time information (in)
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
+    TYPE(t_patch),     TARGET,INTENT(inout):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_int_state      !< interpolation state

@@ -186,7 +186,7 @@ END SUBROUTINE disable_sync_checks
 !
 SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
 
@@ -266,7 +266,7 @@ END SUBROUTINE sync_patch_array_s3
 !
 SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    INTEGER,       INTENT(INOUT) :: arr(:,:,:)
 
    ! Boundary exchange for work PEs
@@ -294,7 +294,7 @@ END SUBROUTINE sync_patch_array_i3
 !
 SUBROUTINE sync_patch_array_r2(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
    ! local variable
@@ -319,7 +319,7 @@ END SUBROUTINE sync_patch_array_r2
 !
 SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    INTEGER,       INTENT(INOUT) :: arr(:,:)
    ! local variable
    INTEGER, ALLOCATABLE :: arr3(:,:,:)
@@ -354,7 +354,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-   TYPE(t_comm_pattern), POINTER :: p_pat
+   CLASS(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i
    INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
 
@@ -446,7 +446,7 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
       &                                  f3din4_sp(:,:,:), f3din5_sp(:,:,:), f4din_sp(:,:,:,:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-   TYPE(t_comm_pattern), POINTER :: p_pat
+   CLASS(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i
    INTEGER :: ndim2tot, ndim2tot_sp ! Sum of second dimensions over all input fields
 
@@ -542,7 +542,7 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
    REAL(wp), INTENT(INOUT) :: f4din(:,:,:,:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
-   TYPE(t_comm_pattern), POINTER :: p_pat
+   CLASS(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i, ndim2tot
 
 !-----------------------------------------------------------------------
@@ -935,7 +935,7 @@ END SUBROUTINE check_patch_array_4
 SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
   LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
 

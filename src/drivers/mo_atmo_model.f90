@@ -27,6 +27,7 @@ MODULE mo_atmo_model
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
+  USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -72,7 +73,7 @@ MODULE mo_atmo_model
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
-  USE mo_alloc_patches,           ONLY: destruct_patches
+  USE mo_alloc_patches,           ONLY: destruct_patches, destruct_comm_patterns
 
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
@@ -100,7 +101,7 @@ MODULE mo_atmo_model
     &                                   destruct_2d_interpol_state, transfer_interpol_state
   USE mo_grf_intp_state,          ONLY: construct_2d_gridref_state,                           &
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
-    &                                   create_grf_index_lists
+    &                                   create_grf_index_lists, destruct_interpol_patterns
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
   USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
@@ -556,6 +557,11 @@ CONTAINS
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
 
+    ! destruct interpolation patterns generate in create_grf_index_lists
+    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+      CALL destruct_interpol_patterns(p_patch)
+    END IF
+
     ! Deconstruct grid refinement state
 
     IF (n_dom > 1) THEN
@@ -581,6 +587,9 @@ CONTAINS
     ! Deallocate global registry for lon-lat grids
     CALL lonlat_grids%finalize()
 
+    ! Destruct communication patterns
+    CALL destruct_comm_patterns( p_patch, p_patch_local_parent )
+
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
     CALL destruct_patches( p_patch_local_parent )
@@ -590,6 +599,9 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
+
+    ! close memory logging files
+    CALL memory_log_terminate
 
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()

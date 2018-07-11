@@ -3353,7 +3353,7 @@ CONTAINS
   !!
   SUBROUTINE calculate_tangent_plane_at_edge (ptr_patch, ptr_int)
 
-    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    TYPE(t_patch), INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
 
@@ -3568,7 +3568,7 @@ CONTAINS
   !
   SUBROUTINE calculate_dotproduct_at_edge (ptr_patch, ptr_int)
 
-    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    TYPE(t_patch), INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
 
@@ -3659,7 +3659,7 @@ CONTAINS
   !!
   SUBROUTINE calculate_planar_distance_at_edge (ptr_patch, ptr_int)
 
-    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    TYPE(t_patch), INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
 
@@ -3875,7 +3875,7 @@ CONTAINS
   !!
   SUBROUTINE init_tplane_c_sphere (ptr_patch, ptr_int)
 
-    TYPE(t_patch),     INTENT(   in) :: ptr_patch  !< patch
+    TYPE(t_patch),     INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int    !< interpolation state
 
@@ -4227,7 +4227,7 @@ CONTAINS
 
   SUBROUTINE init_tplane_c_torus (ptr_patch, ptr_int)
 
-    TYPE(t_patch),     INTENT(   in) :: ptr_patch  !< patch
+    TYPE(t_patch),     INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int    !< interpolation state
 
@@ -4551,7 +4551,7 @@ CONTAINS
   !! 233-247
   SUBROUTINE tri_quadrature_pts (ptr_patch, ptr_int)
 
-    TYPE(t_patch), INTENT(in) :: ptr_patch  !< patch
+    TYPE(t_patch), INTENT(inout) :: ptr_patch  !< patch
 
     TYPE(t_int_state), INTENT(inout) :: ptr_int  !< interpolation state
 

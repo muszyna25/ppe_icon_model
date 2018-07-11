@@ -336,7 +336,7 @@ CONTAINS
 
     ! create variable of registering output variables. should be used later for
     ! triggering computation only in case of output request
-    outputRegiser = vector(verbose=.FALSE.)
+    call outputRegiser%init(verbose=.FALSE.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -358,7 +358,7 @@ CONTAINS
 
         ! if no "output_nml" has been found at all, we disable this
         ! mode (i.e. the user's namelist settings were inconsistent).
-        IF (.NOT.ASSOCIATED(first_output_name_list))  output_mode%l_nml = .FALSE.
+        IF (.NOT.ASSOCIATED(first_output_name_list)) output_mode%l_nml = .FALSE.
 
         CALL close_nml
         RETURN
@@ -2282,7 +2282,7 @@ CONTAINS
     TYPE(t_patch_info_ll), INTENT(INOUT) :: patch_info_ll      ! Result: reorder info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
-    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, &
+    INTEGER :: ierrstat, i, this_pe, mpierr, &
     &          ioffset, gidx, n_own
 
     ! Just for safety
@@ -2298,15 +2298,9 @@ CONTAINS
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    jc = 0
-    jb = 1
     DO i=1,n_own
-      jc = jc+1
-      IF (jc>nproma) THEN
-        jb = jb+1;  jc = 1
-      END IF
-      patch_info_ll%ri%own_idx(i) = jc
-      patch_info_ll%ri%own_blk(i) = jb
+      patch_info_ll%ri%own_idx(i) = MOD(i - 1, nproma) + 1
+      patch_info_ll%ri%own_blk(i) =    (i - 1)/nproma  + 1
     END DO ! i
 
     ! set destination indices (for sequential/test PEs). This is

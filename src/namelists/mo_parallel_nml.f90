@@ -61,7 +61,8 @@ MODULE mo_parallel_nml
     & config_io_proc_chunk_size => io_proc_chunk_size,        &
     & config_num_dist_array_replicas => num_dist_array_replicas, &
     & config_io_process_stride => io_process_stride,          &
-    & config_io_process_rotate => io_process_rotate
+    & config_io_process_rotate => io_process_rotate,          &
+    & config_default_comm_pattern_type => default_comm_pattern_type
 
   IMPLICIT NONE
   PRIVATE
@@ -169,6 +170,11 @@ MODULE mo_parallel_nml
     ! t_patch_pre
     INTEGER :: num_dist_array_replicas
 
+    ! default implementation of mo_communication to be used
+    ! 1 = comm_pattern_type_orig
+    ! 2 = comm_pattern_type_yaxt
+    INTEGER :: default_comm_pattern_type
+
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -185,8 +191,8 @@ MODULE mo_parallel_nml
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
       & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
-      & num_dist_array_replicas, io_process_stride, io_process_rotate
-    !parallel_radiation_omp
+      & num_dist_array_replicas, io_process_stride, io_process_rotate, &
+      & default_comm_pattern_type !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -276,6 +282,11 @@ MODULE mo_parallel_nml
 
     io_process_stride = -1
     io_process_rotate = 0
+#ifdef HAVE_YAXT
+    default_comm_pattern_type = 2
+#else
+    default_comm_pattern_type = 1
+#endif
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -356,10 +367,11 @@ MODULE mo_parallel_nml
     config_num_dist_array_replicas   = num_dist_array_replicas
     config_io_process_stride    = io_process_stride
     config_io_process_rotate    = io_process_rotate
+    config_default_comm_pattern_type = default_comm_pattern_type
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 
   END SUBROUTINE read_parallel_namelist
   !-------------------------------------------------------------------------
 
-END MODULE mo_parallel_nml	
+END MODULE mo_parallel_nml      

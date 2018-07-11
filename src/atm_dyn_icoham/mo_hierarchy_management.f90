@@ -144,7 +144,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management:process_grid'
 
-    TYPE(t_patch),TARGET, INTENT(IN)           :: p_patch(n_dom)
+    TYPE(t_patch),TARGET, INTENT(INOUT)        :: p_patch(n_dom)
     TYPE(t_hydro_atm),  TARGET,INTENT(INOUT)   :: p_hydro_state(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN)        :: p_int_state(n_dom)
     TYPE(t_gridref_state),INTENT(INOUT)        :: p_grf_state(n_dom)
@@ -1288,7 +1288,7 @@ CONTAINS
     ! Arguments
 
     INTEGER, INTENT(IN) :: ileapfrog_startup
-    TYPE(t_patch),TARGET, INTENT(IN)    ::  p_patch(n_dom)
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  p_patch(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN) ::  p_int_state(n_dom)
     TYPE(t_external_data), INTENT(INOUT)::  ext_data(n_dom)
 

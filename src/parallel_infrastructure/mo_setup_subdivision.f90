@@ -954,6 +954,13 @@ CONTAINS
     !  &                     owned_edges, owned_verts, &
       &                     order_type_of_halos)
 
+    DO i = 1, 2*n_boundary_rows
+      CALL sort_flag_list_by_owner(flag2_c_list(i))
+    END DO
+    DO i = 1, 2*n_boundary_rows+1
+      CALL sort_flag_list_by_owner(flag2_e_list(i))
+    END DO
+
     !-----------------------------------------------------------------------------------------------
     ! Get the number of cells/edges/verts and other data for patch allocation
     !-----------------------------------------------------------------------------------------------
@@ -2644,6 +2651,27 @@ CONTAINS
 #endif
 
     END SUBROUTINE compute_edge_owner
+
+    SUBROUTINE sort_flag_list_by_owner(flag_list)
+      TYPE(nb_flag_list_elem), INTENT(INOUT) :: flag_list
+      INTEGER :: i, prev_owner, prev_pos
+
+      IF (SIZE(flag_list%owner) <= 1) RETURN
+
+      CALL quicksort(flag_list%owner, flag_list%idx)
+
+      prev_owner = flag_list%owner(1)
+      prev_pos = 1
+      DO i = 2, SIZE(flag_list%owner)
+        IF (flag_list%owner(i) /= prev_owner) THEN
+          CALL quicksort(flag_list%idx(prev_pos:i-1))
+          prev_pos = i
+          prev_owner = flag_list%owner(i)
+        END IF
+      END DO
+
+      CALL quicksort(flag_list%idx(prev_pos:))
+    END SUBROUTINE
 
   END SUBROUTINE divide_patch
 

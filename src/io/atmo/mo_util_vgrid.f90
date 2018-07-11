@@ -83,7 +83,7 @@ CONTAINS
   !
   SUBROUTINE construct_vertical_grid(p_patch, p_int_state, ext_data, &
     &                                vct_a, vct_b, vct, nflatlev)
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT) :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)          ! (1,..., n_dom)
     REAL(wp),               INTENT(INOUT) :: vct_a(:)             ! param. A of the vertical coordinate

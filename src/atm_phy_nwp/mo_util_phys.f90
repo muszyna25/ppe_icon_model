@@ -808,8 +808,8 @@ CONTAINS
   !! Implemented by Tobias Selz, LMU
   
   SUBROUTINE compute_field_pv(p_patch, p_int_state, p_metrics, p_prog, p_diag, out_var )
-    
-    TYPE(t_patch)        , INTENT(IN)    :: p_patch              !< patch on which computation is performed
+
+    TYPE(t_patch)        , INTENT(INOUT) :: p_patch              !< patch on which computation is performed
     TYPE(t_int_state)    , INTENT(IN)    :: p_int_state
     TYPE(t_nh_metrics)   , INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog)      , INTENT(IN)    :: p_prog                 !< nonhydrostatic state
