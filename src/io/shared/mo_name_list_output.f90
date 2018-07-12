@@ -1483,7 +1483,7 @@ CONTAINS
 
   SUBROUTINE data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
        nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
-    TYPE (t_output_file), INTENT(IN) :: of
+    TYPE (t_output_file), INTENT(INOUT) :: of
     INTEGER, INTENT(in) :: idata_type, nlevs
     LOGICAL, INTENT(in) :: var_ignore_level_selection
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
