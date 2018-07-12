@@ -1496,6 +1496,7 @@ CONTAINS
     INTEGER                                     :: rl_start, rl_end, i_nchdom, &
          i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i, jk, lev_idx
+#ifndef NOMPI
     ! ------------------------
     ! Asynchronous I/O is used
     ! ------------------------
@@ -1613,6 +1614,7 @@ CONTAINS
       END IF
       ioff = ioff + INT(p_ri%n_own,i8)
     END DO ! nlevs
+#endif !not NOMPI
   END SUBROUTINE data_write_to_memwin
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
