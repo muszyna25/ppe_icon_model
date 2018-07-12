@@ -595,11 +595,14 @@ CONTAINS
     ! complete_parallel_setup)
     CALL generate_comm_pat_cvec1(patch, is_ocean_decomposition)
 
+#ifndef NOMPI
+    DO jg = n_dom_start, n_dom
+      IF (p_test_run) CALL create_work2test_patterns(patch(jg))
+    END DO
+#endif
+
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom
-#ifndef NOMPI
-        IF (p_test_run) CALL create_work2test_patterns(patch(jg))
-#endif
         ! Initialize the data for the quadrilateral cells
         ! formed by the two adjacent cells of an edge.
         ! (later this should be provided by the grid generator)
