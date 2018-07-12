@@ -1,74 +1,191 @@
-  !>
-  !! This module contains the I/O routines for lateral boundary nudging 
-  !!
-  !! @author M. Pondkule (DWD)
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by M. Pondkule, DWD (2013-10-31)
-  !!
-  !!
-  !! @par Copyright and License
-  !!
-  !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-  !! its most recent form.
-  !! Please see the file LICENSE in the root of the source tree for this code.
-  !! Where software is supplied by third parties, it is indicated in the
-  !! headers of the routines.
-  !!
-  !!
-  !! ------------------------------------------------------------------------
-  !! Which fields are read from the lateral boundary conditions file?
-  !! ------------------------------------------------------------------------
-  !!
-  !! This question is answered independently from the "init_icon"
-  !! namelist parameter of the initial state setup!
-  !!
-  !! - If "VN" is available, then it is read from file, otherwise "U","V".
-  !! - "W" is optional and read if available in the input data (note that "W" may in fact contain OMEGA).
-  !! - "QV", "QC", "QI" are always read
-  !! - "QR", "QS" are read if available
-  !!
-  !! The other fields for the lateral boundary conditions are read
-  !! from file, based on the following decision tree.  Note that the
-  !! basic distinction between input from non-hydrostatic and
-  !! hydrostatic models is made on the availability of the HHL field.
-  !!
-  !!                            +------------------+
-  !!                            |  HHL available?  |
-  !!                            +------------------+
-  !!                                     |
-  !!                     ______yes_______|________no________
-  !!                     |                                  |
-  !!         +--------------------------+            +------------------------+
-  !!         | RHO & THETA_V available? |            | PS,GEOP & T available? |
-  !!         +--------------------------+            +------------------------+
-  !!                     |                                        |
-  !!           ____yes___|____no______                    ___yes__|________no___________
-  !!           |                      |                  |                              |
-  !!           |               +----------------+        |                          +--------+
-  !! * read HHL,RHO,THETA_V    | P,T available? |     * read in PS,GEOP,T           | ERROR! | 
-  !! * read W if available     |                |     * read OMEGA if available     |        |
-  !! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
-  !! * diagnose P,T                   |               * CALL OMEGA -> W
-  !!                          ___yes__|___no____
-  !!                         |                  |
-  !!                         |               +--------+
-  !!                    * read HHL,P,T       | ERROR! |
-  !!                    * ignore PS,GEOP     +--------+
-  !!                    * read W if available
-  !!
-  !!
-  !! Afterwards, we 
-  !! - re-compute the virtual temperature (inside the vertical
-  !!   interpolation subroutine)
-  !! - (re-)compute RHO (inside the vertical interpolation subroutine)
-  !! - perform vertical interpolation
+!>
+!! This module contains the I/O routines for lateral boundary nudging 
+!!
+!! @author M. Pondkule (DWD)
+!!
+!!
+!! @par Revision History
+!! Initial release by M. Pondkule, DWD (2013-10-31)
+!!
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!!
+!! ------------------------------------------------------------------------
+!! Which fields are read from the lateral boundary conditions file?
+!! ------------------------------------------------------------------------
+!!
+!! This question is answered independently from the "init_icon"
+!! namelist parameter of the initial state setup!
+!!
+!! - If "VN" is available, then it is read from file, otherwise "U","V".
+!! - "W" is optional and read if available in the input data (note that "W" may in fact contain OMEGA).
+!! - "QV", "QC", "QI" are always read
+!! - "QR", "QS" are read if available
+!!
+!! The other fields for the lateral boundary conditions are read
+!! from file, based on the following decision tree.  Note that the
+!! basic distinction between input from non-hydrostatic and
+!! hydrostatic models is made on the availability of the HHL field.
+!!
+!!                            +------------------+
+!!                            |  HHL available?  |
+!!                            +------------------+
+!!                                     |
+!!                     ______yes_______|________no________
+!!                     |                                  |
+!!         +--------------------------+            +------------------------+
+!!         | RHO & THETA_V available? |            | PS,GEOP & T available? |
+!!         +--------------------------+            +------------------------+
+!!                     |                                        |
+!!           ____yes___|____no______                    ___yes__|________no___________
+!!           |                      |                  |                              |
+!!           |               +----------------+        |                          +--------+
+!! * read HHL,RHO,THETA_V    | P,T available? |     * read in PS,GEOP,T           | ERROR! | 
+!! * read W if available     |                |     * read OMEGA if available     |        |
+!! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
+!! * diagnose P,T                   |               * CALL OMEGA -> W
+!!                          ___yes__|___no____
+!!                         |                  |
+!!                         |               +--------+
+!!                    * read HHL,P,T       | ERROR! |
+!!                    * ignore PS,GEOP     +--------+
+!!                    * read W if available
+!!
+!!
+!! Afterwards, we 
+!! - re-compute the virtual temperature (inside the vertical
+!!   interpolation subroutine)
+!! - (re-)compute RHO (inside the vertical interpolation subroutine)
+!! - perform vertical interpolation
+!!
+!!
+!!
+!! ------------------------------------------------------------------------
+!! Read-in of lateral boundary data: General Overview of the Implementation
+!! ------------------------------------------------------------------------
+!! 
+!! Note: This short documentation focuses on the "asynchronous
+!! prefetching" mode only, the old (possibly deprecated) synchronous
+!! read-in of the boundary data, "mo_sync_latbc.f90", is not covered.
+!! 
+!! Read-in of boundary data is invoked via
+!!   CALL recv_latbc_data
+!! in the time loop (module "mo_nh_stepping").
+!! 
+!! 
+!! Modules related to (asynchronous) boundary data read-in:
+!! --------------------------------------------------------
+!! 
+!! src/io/atmo/mo_async_latbc.f90              : Setup of the boundary data read-in functionality
+!! src/io/atmo/mo_async_utils.f90              : * Initialisation, allocation
+!!                                               * Top level routines: "read-in" (e.g. "recv_latbc_data")
+!!                                               * Top level routines: "fetch" (see explanation below)
+!! src/io/atmo/mo_async_latbc_types.f90        : Declaration of data types.
+!! src/io/atmo/mo_latbc_read_recv.f90          : Low level routines: 
+!!                                               read-in and sending of field data via MPI
+!! 
+!! src/atm_dyn_iconam/mo_initicon_types.f90    : Type declarations for the final destination buffers
+!! src/atm_dyn_iconam/mo_nh_nest_utilities.f90 : Actual usage of the boundary data: buffers -> tendencies
+!! 
+!! src/namelists/mo_limarea_nml.f90            : Namelist "limarea_nml"
+!! src/configure_model/mo_limarea_config.f90   : Configuration state (filled by namelist)
+!! 
+!! 
+!! 
+!! Important notes for understanding the read-in process:
+!! ------------------------------------------------------
+!! 
+!! * General switch: "latbc_config%itype_latbc" (INTEGER)
+!! 
+!!   This is set to the value LATBC_TYPE_EXT when the field data is
+!!   read from an external file (default situation).
+!! 
+!! * General switch: "latbc_config%lsparse_latbc" (LOGICAL)
+!! 
+!!   Lateral boundary data can be provided either as a boundary strip
+!!   or as the complete field, including the (unused) interior points.
+!! 
+!! * Variables which are considered for boundary data read-in are
+!!   contained in the variable group LATBC_PREFETCH_VARS.
+!!   Buffers are set up and allocated for group members.
+!! 
+!! * Most important data types: "t_latbc_data", and contained therein: "t_buffer"
+!! 
+!!   Defined in src/io/atmo/mo_async_latbc_types.f90 These derived
+!!   data types contain the raw data, that has been read from file,
+!!   together with a number of configurations settings
+!!   (LOGICAL-Flags), e.g. if specific optional fields are requested.
+!! 
+!! * "Decision tree": 
+!! 
+!!   During the setup phase, the boundary data module opens the first
+!!   boundary data file and analyzes its contents (subroutine
+!!   "check_variables" in "mo_async_latbc", contains numerous calls of
+!!   "test_cdi_varID").
+!! 
+!!   According to the available data, several LOGICAL flags
+!!   "lread_XXX" are set in the intermediate buffer "latbc%buffer".
+!!
+!! * Distinction between "read-in" and "fetch"
+!! 
+!!   (In the module "mo_async_latbc_utils":)
+!!   "read-in": A list of variables is read from file into a buffer.
+!!              * executed on the read-in process.
+!!              * reads all fields of the group LATBC_TYPE_EXT
+!!              * the intermediate buffer may have only the size of
+!!              * the boundary strip.
+!!              * most important subroutine in this context:
+!!                "read_latbc_data" and, therein, "CALL
+!!                prefetch_cdi_3d".
+!!
+!!   "Fetch": Copies the data from the intermediate buffer into
+!!            ICON-internal variables.
+!!              * executed on the compute processes.
+!!              * copy/processing of the fields depends on the
+!!                "lread_XXX" flags (see above), followed by vertical
+!!                interpolation.
+!!              * most important subroutine in this context:
+!!                compute_latbc_intp_data (mo_async_utils) and,
+!!                therein, "CALL fetch_from_buffer".
+!!              * Note that the "ICON-internal variables" are not the
+!!                prognostic fields, but again intermediate buffers of
+!!                the data type "t_init_state" (Modul
+!!                "mo_initicon_types").
+!!                Example: "latbc%latbc_data(tlev)%atm_in%u", which is
+!!                then later processed into tendencies (in
+!!                "mo_nh_nest_utilities").
+!! 
+!! * Recipe: How to implement additional boundary data
+!! 
+!!   1) Modify the "add_var" calls of the new fields in the ICON code,
+!!      such that these variables become members of the group
+!!      "LATBC_TYPE_EXT".
+!!   2) Extend the data type "t_buffer" by a LOGICAL flag for the new
+!!      field "lread_XXX".
+!!   3) Subroutine "check_variables" in "mo_async_latbc": Additional
+!!      test, if the new field is available in the boundary data file;
+!!      set the flag "lread_XXX" accordingly.
+!!   4) Extend the "t_latbc_data" data structure by a buffer for the
+!!      new field, similar to the contents of
+!!      "latbc%latbc_data(tlev)%atm_in".
+!!   5) Subroutine "compute_latbc_icon_data": Additional call to
+!!      "fetch_from_buffer", contained in an IF-condition "IF
+!!      (lread_XXX) ...".
+!!   6) Implement the vertical interpolation for the new field.
+!!   7) Use the new data in the application code.
+!! 
+!! 
 
-
-  !----------------------------
+!----------------------------
 #include "omp_definitions.inc"
-  !----------------------------
+!----------------------------
 
 MODULE mo_async_latbc
 
