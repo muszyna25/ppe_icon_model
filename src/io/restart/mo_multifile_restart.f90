@@ -539,7 +539,7 @@ CONTAINS
     CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
     CHARACTER(*), PARAMETER               :: routine = ":multifileRestartDescriptor_writeRestartInternal"
-    INTEGER                               :: jg, myFirstPatch, dummy, n_dom_active, jfile, iindex
+    INTEGER                               :: jg, myFirstPatch, dummy, n_dom_active
     INTEGER(i8)                           :: totalBytesWritten
     REAL(dp)                              :: gibibytesWritten, elapsedTime
     CHARACTER(:), ALLOCATABLE             :: filename
@@ -691,37 +691,21 @@ CONTAINS
 
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
     CALL multifileAttributesPath(filename, effectiveFilename)
-    !open the file as a CDI stream AND create a vlist to carry our attributes
     metaFile = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
     CALL checkCdiId(metaFile, "error opening file '"//effectiveFilename//"' for writing")
     vlist = vlistCreate()
     CALL checkCdiId(vlist, "error creating CDI vlist")
-    !XXX: Unfortunately, CDI does NOT WRITE attributes to the file
-    !     unless we at least define a record, for which we need at
-    !     least a variable, for which we need at least a grid AND
-    !     a zaxis. So we need to create some dummy objects here.
-    !     The alternative would have been to bypass the CDI layer
-    !     AND USE NetCDF directly, however that would have
-    !     resulted IN duplicating roughly 150 lines of code IN
-    !     mo_restart_attributes AND mo_restart_namelists because
-    !     we still need the CDI-based attribute writing for the
-    !     legacy restart modules.  So, WHILE it feels really wrong
-    !     to USE CDI AND THEN work around the problems that
-    !     creates, I guess it's still the sensible thing to DO.
+    ! to keep CDI happy ...
     grid = gridCreate(GRID_GENERIC, 1)
     CALL checkCdiId(grid, "error creating CDI grid")
     zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
     CALL checkCdiId(zaxis, "error creating CDI zaxis")
     variable = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
     CALL checkCdiId(variable, "error creating CDI variable")
-    !write the restart attributes AND the namelist archive to the vlist attributes
     CALL namelists%writeToCdiVlist(vlist)
     CALL restartAttributes%writeToCdiVlist(vlist)
     CALL streamDefVlist(metaFile, vlist)
-    !this IS the point where we actually convince CDI to output
-    !the attributes
     CALL streamDefRecord(metaFile, variable, 0)
-    !cleanup
     CALL streamClose(metaFile)
     CALL vlistDestroy(vlist)
     CALL gridDestroy(grid)

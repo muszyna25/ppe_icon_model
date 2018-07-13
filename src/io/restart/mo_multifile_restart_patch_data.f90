@@ -18,7 +18,8 @@ MODULE mo_multifile_restart_patch_data
   USE mtime,                          ONLY: datetime
   USE mo_decomposition_tools,         ONLY: t_grid_domain_decomp_info
   USE mo_exception,                   ONLY: finish
-  USE mo_fortran_tools,               ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, ensureSize, no_copy
+  USE mo_fortran_tools,               ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, ensureSize,                   &
+   &                                        no_copy, DO_PTR_DEALLOCATE
   USE mo_impl_constants,              ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_cdi_constants,               ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                    &
     &                                       GRID_UNSTRUCTURED_VERT
@@ -51,12 +52,10 @@ MODULE mo_multifile_restart_patch_data
   TYPE, EXTENDS(t_RestartPatchData) :: t_MultifilePatchData
     PRIVATE
     TYPE(commonBuf_t) :: RecvBuffer
-    REAL(dp), POINTER :: glb_indices_cell(:)
-    REAL(dp), POINTER :: glb_indices_edge(:)
-    REAL(dp), POINTER :: glb_indices_vert(:)
+    REAL(dp), POINTER :: glb_idx_cell(:), glb_idx_edge(:), glb_idx_vert(:)
     INTEGER,  POINTER :: varReordered(:)
     TYPE (t_CollectorSendBuffer) :: glb_sendbuf
-    TYPE(t_CollectorIndices) :: cellCollector, edgeCollector, vertCollector
+    TYPE(t_CollectorIndices) :: cellColl, edgeColl, vertColl
     TYPE(t_MultifileRestartCollector) :: collector
   CONTAINS
     PROCEDURE :: construct => multifilePatchData_construct
@@ -95,8 +94,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_construct"
 
     NULLIFY(me%RecvBuffer%d, me%RecvBuffer%s, me%RecvBuffer%i, &
-     &      me%glb_indices_cell, me%glb_indices_edge, me%glb_indices_vert)
-    
+     &      me%glb_idx_cell, me%glb_idx_edge, me%glb_idx_vert)
     CALL me%t_RestartPatchData%construct(modelType, domain)
     IF (isDedicatedProcMode()) CALL me%transferToRestart()
   END SUBROUTINE multifilePatchData_construct
@@ -108,17 +106,13 @@ CONTAINS
   ! need to use a different name for this
   SUBROUTINE multifilePatchData_createCollectors(me, writerRank, sourceRanks, lthis_pe_active)
     CLASS(t_MultifilePatchData), INTENT(INOUT), TARGET :: me
-    INTEGER,                     INTENT(IN) :: writerRank
-    INTEGER,                     INTENT(IN) :: sourceRanks(:)
-    ! Flag. .FALSE. if this PE does not send any points (since it will
-    ! write to another file).
+    INTEGER,                     INTENT(IN) :: writerRank, sourceRanks(:)
     LOGICAL,                     INTENT(IN) :: lthis_pe_active
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_createCollectors"
     INTEGER, PARAMETER :: TYPE_LEN = MAXVAL([REAL_T, SINGLE_T, INT_T])
-    INTEGER                         :: curVar, ierr, jg, nLevs, iType, nVar, i
+    INTEGER                         :: curVar, jg, nLevs, iType, nVar, i
     INTEGER(i8)                     :: iOffset(TYPE_LEN)
     TYPE(t_var_metadata), POINTER   :: curInfo
-    INTEGER, ALLOCATABLE            :: sourceOffset(:,:)
     TYPE(t_grid_domain_decomp_info) :: dummyInfo
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_setup)
@@ -127,37 +121,25 @@ CONTAINS
     ! only receive buffer which is actually allocated):
     ! dedicated restart PEs MUST NOT access p_patch! (this obviously was NEVER used!)
     IF (my_process_is_work()) THEN
-      me%glb_indices_cell => me%cellCollector%construct(p_patch(jg)%n_patch_cells, &
-        &                                     p_patch(jg)%cells%decomp_info, &
-        &                                     writerRank, sourceRanks, lthis_pe_active)
-      me%glb_indices_edge => me%edgeCollector%construct(p_patch(jg)%n_patch_edges, &
-        &                                     p_patch(jg)%edges%decomp_info, &
-        &                                     writerRank, sourceRanks, lthis_pe_active)
-      me%glb_indices_vert => me%vertCollector%construct(p_patch(jg)%n_patch_verts, &
-        &                                     p_patch(jg)%verts%decomp_info, &
-        &                                     writerRank, sourceRanks, lthis_pe_active)
+      me%glb_idx_cell => me%cellColl%construct(p_patch(jg)%n_patch_cells, &
+        &                                      p_patch(jg)%cells%decomp_info, &
+        &                                      writerRank, sourceRanks, lthis_pe_active)
+      me%glb_idx_edge => me%edgeColl%construct(p_patch(jg)%n_patch_edges, &
+        &                                      p_patch(jg)%edges%decomp_info, &
+        &                                      writerRank, sourceRanks, lthis_pe_active)
+      me%glb_idx_vert => me%vertColl%construct(p_patch(jg)%n_patch_verts, &
+        &                                      p_patch(jg)%verts%decomp_info, &
+        &                                      writerRank, sourceRanks, lthis_pe_active)
     ELSE
-      me%glb_indices_cell => me%cellCollector%construct(0, dummyInfo, writerRank, &
-        &                                     sourceRanks, lthis_pe_active)
-      me%glb_indices_edge => me%edgeCollector%construct(0, dummyInfo, writerRank, &
-        &                                     sourceRanks, lthis_pe_active)
-      me%glb_indices_vert => me%vertCollector%construct(0, dummyInfo, writerRank, &
-        &                                     sourceRanks, lthis_pe_active)
+      me%glb_idx_cell => me%cellColl%construct(0, dummyInfo, writerRank, &
+        &                                      sourceRanks, lthis_pe_active)
+      me%glb_idx_edge => me%edgeColl%construct(0, dummyInfo, writerRank, &
+        &                                      sourceRanks, lthis_pe_active)
+      me%glb_idx_vert => me%vertColl%construct(0, dummyInfo, writerRank, &
+        &                                      sourceRanks, lthis_pe_active)
     END IF
     nVar = SIZE(me%varData)
-    IF (my_process_is_restart_writer()) THEN
-      ALLOCATE(sourceOffset(TYPE_LEN, me%cellCollector%sourceProcCount), STAT=ierr)
-      IF ( &
-        & me%cellCollector%sourceProcCount .NE. me%edgeCollector%sourceProcCount .OR. &
-        & me%cellCollector%sourceProcCount .NE. me%vertCollector%sourceProcCount .OR. &
-        & me%edgeCollector%sourceProcCount .NE. me%vertCollector%sourceProcCount) &
-        & CALL finish(routine, "inconsistent!!!")
-    ELSE
-      ALLOCATE(sourceOffset(TYPE_LEN, 1), STAT=ierr)
-    END IF
-    IF (ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    sourceOffset(:,:) = 0
-    ioffset(:) = 0
+    ioffset(:) = 0_i8
     ALLOCATE(me%varReordered(nVar))
     i = 0
     DO iType = 1, TYPE_LEN   
@@ -170,8 +152,7 @@ CONTAINS
       END DO
     END DO
     IF (i .NE. nVar) CALL finish(routine, "inconsistentcy!!!")
-    CALL me%collector%construct(me%cellCollector, me%edgeCollector, me%vertCollector, &
-                                me%glb_sendbuf, nVar)
+    CALL me%collector%construct(me%cellColl, me%edgeColl, me%vertColl, me%glb_sendbuf, nVar)
     DO curVar = 1, nVar
       curInfo => me%varData(me%varReordered(curVar))%info
       iType = curInfo%data_type
@@ -180,13 +161,10 @@ CONTAINS
       IF (curInfo%ndims == 3) nLevs = curInfo%used_dimensions(2)
       IF (curInfo%ndims > 3) CALL finish(routine, "ndims > 3 is not supported")
       ! get the correct collector and buffer for the first level
-      CALL me%collector%defVar(curVar, nLevs, iType, curInfo%hgrid, iOffset, sourceOffset)
+      CALL me%collector%defVar(curVar, nLevs, iType, curInfo%hgrid, iOffset) !, sourceOffset)
     END DO
     ! finally, allocate the global send buffers:
-    CALL me%glb_sendbuf%construct(ioffset, me%cellCollector, me%edgeCollector, me%vertCollector)
-    ! clean up
-    DEALLOCATE(sourceOffset, STAT=ierr)
-    IF (ierr /= SUCCESS) CALL finish(routine, "memory deallocation failure")
+    CALL me%glb_sendbuf%construct(iOffset, me%cellColl, me%edgeColl, me%vertColl)
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
   END SUBROUTINE multifilePatchData_createCollectors
 
@@ -207,63 +185,55 @@ CONTAINS
     INTEGER(i8),                         INTENT(INOUT) :: bytesWritten
     CHARACTER(*), PARAMETER                            :: routine = modname//":multifilePatchData_openPayloadFile"
     CHARACTER(:), ALLOCATABLE                          :: effectiveFilename
-    CLASS(t_restart_patch_description), POINTER        :: description
+    CLASS(t_restart_patch_description), POINTER        :: desc
     INTEGER                                            :: cellIndexVarId, edgeIndexVarId, vertIndexVarId, curVar
     REAL(dp)                                           :: dummy_d(1)
 
     dummy_d(1) = 0._dp
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-    description => me%description
-    CALL multifilePayloadPath(filename, description%id, ifile, effectiveFilename)
+    desc => me%description
+    CALL multifilePayloadPath(filename, desc%id, ifile, effectiveFilename)
     CALL cdiIds%init()
-    IF (ALLOCATED(description%opt_pvct)) THEN
-      CALL cdiIds%openRestartAndCreateIds(effectiveFilename, FILETYPE_NC4,                     &
-        &                                 SIZE(me%glb_indices_cell),                           &
-        &                                 SIZE(me%glb_indices_vert),                           &
-        &                                 SIZE(me%glb_indices_edge),                           &
-        &                                 description%cell_type,                               &
-        &                                 description%v_grid_defs(1:description%v_grid_count), &
-        &                                 description%opt_pvct)
+    IF (ALLOCATED(desc%opt_pvct)) THEN
+      CALL cdiIds%openRestartAndCreateIds(effectiveFilename, FILETYPE_NC4,              &
+        &                                 SIZE(me%glb_idx_cell), SIZE(me%glb_idx_vert), &
+        &                                 SIZE(me%glb_idx_edge), desc%cell_type,        &
+        &                                 desc%v_grid_defs(1:desc%v_grid_count),        &
+        &                                 desc%opt_pvct)
     ELSE
-      CALL cdiIds%openRestartAndCreateIds(effectiveFilename, FILETYPE_NC4,                     &
-        &                                 SIZE(me%glb_indices_cell),                           &
-        &                                 SIZE(me%glb_indices_vert),                           &
-        &                                 SIZE(me%glb_indices_edge),                           &
-        &                                 description%cell_type,                               &
-        &                                 description%v_grid_defs(1:description%v_grid_count))
+      CALL cdiIds%openRestartAndCreateIds(effectiveFilename, FILETYPE_NC4,              &
+        &                                 SIZE(me%glb_idx_cell), SIZE(me%glb_idx_vert), &
+        &                                 SIZE(me%glb_idx_edge), desc%cell_type,        &
+        &                                 desc%v_grid_defs(1:desc%v_grid_count))
     END IF
     cellIndexVarId = defineIndexVar(cdiIds, GRID_UNSTRUCTURED_CELL, kVarName_globalCellIndex)
     edgeIndexVarId = defineIndexVar(cdiIds, GRID_UNSTRUCTURED_EDGE, kVarName_globalEdgeIndex)
     vertIndexVarId = defineIndexVar(cdiIds, GRID_UNSTRUCTURED_VERT, kVarName_globalVertIndex)
     ! define all restart variables with a valid time level
     DO curVar = 1, SIZE(me%varData)
-      IF (has_valid_time_level(me%varData(curVar)%info, me%description%id, description%nnew, &
-        &                     description%nnew_rcf)) THEN
+      IF (has_valid_time_level(me%varData(curVar)%info, desc%id, desc%nnew, &
+        &                     desc%nnew_rcf)) THEN
         CALL cdiIds%defineVariable(me%varData(curVar)%info)
       END IF
     END DO
     CALL cdiIds%finalizeVlist(this_datetime)
     ! write the arrays with the global indices of the points
-    IF (SIZE(me%glb_indices_cell) > 0) THEN
-      CALL streamWriteVar(cdiIds%file, cellIndexVarId, me%glb_indices_cell, 0)
-      bytesWritten = bytesWritten + INT(SIZE(me%glb_indices_cell), i8)*8_i8
+    IF (SIZE(me%glb_idx_cell) > 0) THEN
+      CALL streamWriteVar(cdiIds%file, cellIndexVarId, me%glb_idx_cell, 0)
+      bytesWritten = bytesWritten + INT(SIZE(me%glb_idx_cell), i8)*8_i8
     ELSE
-      ! Note that we may have a cell count of 0 for this payload file;
-      ! this may happen in the case of processor splitting. Still, we
-      ! have to write *something*, otherwise the CDI will not store
-      ! NetCDF attributes, which, in turn, is necessary to detect
-      ! size-0 payload files!
+      ! even zero-sized payload file must exist...
       CALL streamWriteVar(cdiIds%file, cellIndexVarId, dummy_d, 0)
     END IF
-    IF (SIZE(me%glb_indices_edge) > 0) THEN
-      CALL streamWriteVar(cdiIds%file, edgeIndexVarId, me%glb_indices_edge, 0)
-      bytesWritten = bytesWritten + INT(SIZE(me%glb_indices_edge), i8)*8_i8
+    IF (SIZE(me%glb_idx_edge) > 0) THEN
+      CALL streamWriteVar(cdiIds%file, edgeIndexVarId, me%glb_idx_edge, 0)
+      bytesWritten = bytesWritten + INT(SIZE(me%glb_idx_edge), i8)*8_i8
     ELSE
       CALL streamWriteVar(cdiIds%file, edgeIndexVarId, dummy_d, 0)
     END IF
-    IF (SIZE(me%glb_indices_vert) > 0) THEN
-      CALL streamWriteVar(cdiIds%file, vertIndexVarId, me%glb_indices_vert, 0)
-      bytesWritten = bytesWritten + INT(SIZE(me%glb_indices_vert), i8)*8_i8
+    IF (SIZE(me%glb_idx_vert) > 0) THEN
+      CALL streamWriteVar(cdiIds%file, vertIndexVarId, me%glb_idx_vert, 0)
+      bytesWritten = bytesWritten + INT(SIZE(me%glb_idx_vert), i8)*8_i8
     ELSE
       CALL streamWriteVar(cdiIds%file, vertIndexVarId, dummy_d, 0)
     END IF
@@ -273,9 +243,9 @@ CONTAINS
   SUBROUTINE multifilePatchData_start_local_access(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
 
-    IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL me%glb_sendbuf%start_local_access()
-    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+    IF (timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
   END SUBROUTINE multifilePatchData_start_local_access
 
   ! Start MPI epoch where windows may not be accessed locally and
@@ -296,19 +266,20 @@ CONTAINS
     TYPE(t_var_metadata), POINTER   :: curInfo
     TYPE(dataPtrs_t)                :: dataPointers
     INTEGER                         :: startLevel, nLevel, curVar, curVar_o
+    INTEGER(KIND=i8)                :: ioffset(3)
 
     IF (.NOT. my_process_is_work()) THEN
       CALL finish(routine, "assertion failed.")
     END IF
+    ioffset(:) = 0_i8
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-    LOOP_VAR1 : DO curVar_o = 1, SIZE(me%varData)
+    DO curVar_o = 1, SIZE(me%varData)
       curVar = me%varReordered(curVar_o)
       curInfo => me%varData(curVar)%info
-      ! no valid time level -> no output:
       IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
-        &                          me%description%nnew_rcf)) CYCLE LOOP_VAR1
+        &                          me%description%nnew_rcf)) CYCLE
       startLevel = 1
-      nLevel   = 1
+      nLevel = 1
       IF (curInfo%ndims == 3) nLevel = curInfo%used_dimensions(2)
       SELECT CASE(curInfo%data_type)
       CASE(REAL_T)
@@ -320,8 +291,8 @@ CONTAINS
       CASE DEFAULT
         CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
       END SELECT
-      CALL me%collector%sendField(startLevel, nLevel, curVar_o, dataPointers)
-    END DO LOOP_VAR1
+      CALL me%collector%sendField(startLevel, nLevel, curVar_o, dataPointers, ioffset)
+    END DO
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_io)
   END SUBROUTINE multifilePatchData_exposeData
 
@@ -332,68 +303,109 @@ CONTAINS
     INTEGER,                     INTENT(IN)    :: fileId
     INTEGER(i8),                 INTENT(INOUT) :: bytesWritten
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_collectData"
-    INTEGER                         :: curVar
     TYPE(t_var_metadata), POINTER   :: curInfo
-    INTEGER                         :: startLevel, endLevel, used_size, ilevel
-    INTEGER                         :: nchunks, ichunk, nlevels, ilevel_start, i
     REAL(KIND=dp), POINTER, DIMENSION(:) :: ptr2level_dp
     REAL(KIND=sp), POINTER, DIMENSION(:) :: ptr2level_sp
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: used_size, lCnt, lStart
+    LOGICAL, ALLOCATABLE, DIMENSION(:) :: vSkip
+    INTEGER :: lFree, vNext, lNext, vCnt, vFrst, lOff, vOff, lInc, &
+               lFrst, tFrst, i, iV, iL, lN
+    INTEGER(KIND=i8), ALLOCATABLE :: srcOff(:,:)
 
-    IF (.NOT.ASSOCIATED(me%glb_indices_cell)) THEN !checking one of cell/edge/vert should suffice
+    IF (.NOT.ASSOCIATED(me%glb_idx_cell)) THEN !checking one of cell/edge/vert should suffice
       RETURN
     ELSE
-      IF (SIZE(me%glb_indices_cell) .LE. 0) &
-        RETURN
+      IF (SIZE(me%glb_idx_cell) .LE. 0) RETURN
     END IF
     NULLIFY(ptr2level_dp, ptr2level_sp)
-    LOOP_VAR2 : DO curVar = 1, SIZE(me%varData)
-      curInfo => me%varData(me%varReordered(curVar))%info
-      startLevel = 1
-      endLevel   = 1
-      IF (curInfo%ndims == 3) endLevel = curInfo%used_dimensions(2)
-      nchunks = (endLevel - startLevel + 1 + restart_chunk_size -1) &
-        &       / restart_chunk_size
-      ! no valid time level -> no output:
-      IF (.NOT.has_valid_time_level(curInfo, me%description%id, me%description%nnew, &
-        &                          me%description%nnew_rcf)) CYCLE LOOP_VAR2
-      LOOP_IO: DO ichunk = 1, nchunks
-        ilevel_start = restart_chunk_size*(ichunk - 1) + 1
-        nlevels      = MIN(restart_chunk_size * ichunk, endLevel) - ilevel_start + 1
-        IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-        CALL me%collector%fetch(curVar, ilevel_start, used_size, nlevels, me%RecvBuffer)
-        IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-        IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
-        SELECT CASE(curInfo%data_type)
-        CASE(REAL_T)
-          DO ilevel = 1, nlevels
-            ptr2level_dp => me%recvBuffer%d(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId,  ilevel+ilevel_start-2, ptr2level_dp, 0)
-          END DO
-          bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
-        CASE(SINGLE_T)
-          DO ilevel = 1, nlevels
-            ptr2level_sp => me%RecvBuffer%s(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-            CALL streamWriteVarSliceF(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_sp, 0)
-          END DO
-          bytesWritten = bytesWritten + INT(used_size, i8) * 4_i8
-        CASE(INT_T)
-          ! integer data type: copy to double precision field
-          CALL ensureSize(me%RecvBuffer%d, used_size, no_copy)
-!$OMP PARALLEL DO SCHEDULE(STATIC)
-          DO i = 1, used_size
-            me%RecvBuffer%d(i) = REAL(me%RecvBuffer%i(i), dp)
-          END DO
-          DO ilevel = 1, nlevels
-            ptr2level_dp => me%RecvBuffer%d(1+(ilevel-1)*used_size/nlevels:ilevel*used_size/nlevels)
-            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, ilevel-2+ilevel_start, ptr2level_dp, 0)
-          END DO
-          bytesWritten = bytesWritten + INT(used_size, i8) * 8_i8
-        CASE DEFAULT
-          CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
-        END SELECT
-        IF (timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-      END DO LOOP_IO
-    END DO LOOP_VAR2
+    vNext = 1
+    lNext = 1
+    DO WHILE (vNext .LE. SIZE(me%varData))
+      lFree = restart_chunk_size
+      vCnt = 0
+      vFrst = vNext
+      lFrst = lNext
+      DO iV = vFrst, SIZE(me%varData)
+        IF (lFree .EQ. 0) CYCLE
+        curInfo => me%varData(me%varReordered(iV))%info
+        IF (.NOT.has_valid_time_level(curInfo, me%description%id, &
+          &        me%description%nnew, me%description%nnew_rcf)) THEN
+          IF (vFrst .EQ. iV) THEN
+            vFrst = iV + 1
+          ELSE
+            vCnt = vCnt + 1
+          END IF
+          vNext = iV + 1
+          CYCLE
+        END IF
+        IF (vFrst .EQ. iV) tFrst = curInfo%data_type
+        IF (tFrst .NE. curInfo%data_type) lFree = 0
+        vCnt = vCnt + 1
+        lN = 1
+        IF (curInfo%ndims == 3) lN = curInfo%used_dimensions(2)
+        IF (lFree .GE. lN - lNext + 1) THEN
+          lFree = lFree - (lN - lNext + 1)
+          lNext = 1
+          vNext = iV + 1
+        ELSE
+          lNext = lNext + lFree
+          lFree = 0
+        END IF
+      END DO
+      IF (vCnt .LE. 0) CYCLE
+      ALLOCATE(used_size(vCnt), lCnt(vCnt), lStart(vCnt), vSkip(vCnt))
+      used_size(:) = 0
+      lStart(1) = lFrst
+      lCnt(:) = 1
+      IF (vCnt .GT. 1) lStart(2:vCnt) = 1
+      DO iV = 1, vCnt
+        curInfo => me%varData(me%varReordered(iV + vFrst - 1))%info
+        vSkip(iV) = .NOT.has_valid_time_level(curInfo, me%description%id, &
+          &                me%description%nnew, me%description%nnew_rcf)
+        IF (curInfo%ndims == 3) lCnt(iV) = curInfo%used_dimensions(2)
+        IF (iV + vFrst - 1 .EQ. vNext) lCnt(iV) = lNext - 1
+        lCnt(iV) = lCnt(iV) - lStart(iV) + 1
+      END DO
+      IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+      CALL me%collector%fetch(vFrst, vCnt, vSkip, lCnt, used_size, me%RecvBuffer, srcOff)
+      IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
+      IF (timers_level >= 7) CALL timer_start(timer_write_restart_io)
+      vOff = 0
+      DO iV = 1, vCnt
+        IF (vSkip(iV)) CYCLE
+        curInfo => me%varData(me%varReordered(iV + vFrst - 1))%info
+        lOff = 0
+        lInc = used_size(iV)/MAX(lCnt(iV), 1)
+        DO iL = 1, lCnt(iV)
+          SELECT CASE(tFrst)
+          CASE(REAL_T)
+            ptr2level_dp => me%recvBuffer%d(1+vOff+lOff:vOff+lOff+lInc)
+            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, iL+lStart(iV)-2, ptr2level_dp, 0)
+            bytesWritten = bytesWritten + INT(lInc, i8) * 8_i8
+          CASE(SINGLE_T)
+            ptr2level_sp => me%recvBuffer%s(1+vOff+lOff:vOff+lOff+lInc)
+            CALL streamWriteVarSliceF(fileId, curInfo%cdiVarId, iL+lStart(iV)-2, ptr2level_sp, 0)
+            bytesWritten = bytesWritten + INT(lInc, i8) * 4_i8
+          CASE(INT_T)
+            CALL ensureSize(me%RecvBuffer%d, lInc, no_copy)
+            !$OMP PARALLEL DO SCHEDULE(STATIC)
+            DO i = 1, lInc
+              me%RecvBuffer%d(i) = REAL(me%RecvBuffer%i(vOff+lOff+i), dp)
+            END DO
+            ptr2level_dp => me%recvBuffer%d(1:lInc)
+            CALL streamWriteVarSlice(fileId, curInfo%cdiVarId, iL+lStart(iV)-2, ptr2level_dp, 0)
+            bytesWritten = bytesWritten + INT(lInc, i8) * 8_i8
+          CASE DEFAULT
+            CALL finish(routine, "Internal error! Variable "//TRIM(curInfo%name))
+          END SELECT
+          lOff = lOff + lInc
+        END DO
+        vOff = vOff + used_size(iV)
+      END DO
+      IF (timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+      DEALLOCATE(used_size, lCnt, lStart, vSkip)
+    END DO
+    IF(ALLOCATED(srcOff)) DEALLOCATE(srcOff)
   END SUBROUTINE multifilePatchData_collectData
 
   SUBROUTINE multifilePatchData_writeFile(me, restartAttributes, restartArgs, lIsWriteProcess)
@@ -409,51 +421,20 @@ CONTAINS
   SUBROUTINE multifilePatchData_destruct(me)
     CLASS(t_MultifilePatchData), INTENT(INOUT) :: me
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchData_destruct"
-    INTEGER :: i, ierr
 
-    CALL me%cellCollector%finalize()
-    CALL me%edgeCollector%finalize()
-    CALL me%vertCollector%finalize()
+    CALL me%cellColl%finalize()
+    CALL me%edgeColl%finalize()
+    CALL me%vertColl%finalize()
     CALL me%collector%finalize()
     CALL me%t_RestartPatchData%destruct()
     CALL me%glb_sendbuf%finalize()
-    CALL dealloc_pointerarr_dp(me%RecvBuffer%d)
-    IF (ASSOCIATED(me%RecvBuffer%s)) THEN
-      DEALLOCATE(me%RecvBuffer%s, STAT=ierr)
-      IF (ierr /= SUCCESS) &
-        CALL finish(routine, "memory deallocation failure")
-    END IF
-    NULLIFY(me%RecvBuffer%s)
-    CALL dealloc_pointerarr_int(me%RecvBuffer%i)
-    CALL dealloc_pointerarr_dp(me%glb_indices_cell)
-    CALL dealloc_pointerarr_dp(me%glb_indices_edge)
-    CALL dealloc_pointerarr_dp(me%glb_indices_vert)
-    CALL dealloc_pointerarr_int(me%varReordered)
-  CONTAINS
-
-    SUBROUTINE dealloc_pointerarr_dp(ptr)
-      REAL(KIND=dp), POINTER, INTENT(INOUT) :: ptr(:)
-      INTEGER :: ierr
-
-      IF (ASSOCIATED(ptr)) THEN
-        DEALLOCATE(ptr, STAT=ierr)
-        IF (ierr /= SUCCESS) &
-         CALL finish(routine, "memory deallocation failure")
-      END IF
-      NULLIFY(ptr)
-    END SUBROUTINE dealloc_pointerarr_dp
-
-    SUBROUTINE dealloc_pointerarr_int(ptr)
-      INTEGER, POINTER, INTENT(INOUT) :: ptr(:)
-      INTEGER :: ierr
-
-      IF (ASSOCIATED(ptr)) THEN
-        DEALLOCATE(ptr, STAT=ierr)
-        IF (ierr /= SUCCESS) &
-         CALL finish(routine, "memory deallocation failure")
-      END IF
-      NULLIFY(ptr)
-    END SUBROUTINE dealloc_pointerarr_int
+    CALL DO_PTR_DEALLOCATE(me%RecvBuffer%d)
+    CALL DO_PTR_DEALLOCATE(me%RecvBuffer%s)
+    CALL DO_PTR_DEALLOCATE(me%RecvBuffer%i)
+    CALL DO_PTR_DEALLOCATE(me%glb_idx_cell)
+    CALL DO_PTR_DEALLOCATE(me%glb_idx_edge)
+    CALL DO_PTR_DEALLOCATE(me%glb_idx_vert)
+    CALL DO_PTR_DEALLOCATE(me%varReordered)
   END SUBROUTINE multifilePatchData_destruct
 
 END MODULE mo_multifile_restart_patch_data
