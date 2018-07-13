@@ -17,15 +17,15 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size  
+    &                                   my_process_is_pref, process_mpi_pref_size
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_prefetch_proc
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,&
+    &                                   num_io_procs, num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
@@ -90,7 +90,7 @@ MODULE mo_atmo_model
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
-  USE mo_ext_data_init,           ONLY: init_ext_data 
+  USE mo_ext_data_init,           ONLY: init_ext_data
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -231,7 +231,6 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
@@ -266,8 +265,9 @@ CONTAINS
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
-               &                    num_prefetch_proc)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
+         &                          num_io_procs, dedicatedRestartProcs, &
+         &                          num_prefetch_proc, num_test_pe)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -305,11 +305,11 @@ CONTAINS
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
-      IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc()
+      IF (my_process_is_pref()) THEN
+        CALL prefetch_main_proc
       ENDIF
     ENDIF
- 
+
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
     IF (process_mpi_io_size > 0) THEN
@@ -324,7 +324,7 @@ CONTAINS
         use_async_name_list_io = .TRUE.
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
-        IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
           ! since xxx_io_main_proc never returns
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
@@ -345,7 +345,7 @@ CONTAINS
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF
-      ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      ELSE IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
         STOP
@@ -447,7 +447,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
-    
+
     CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
@@ -456,7 +456,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
-   ! Prepare dynamics and land 
+   ! Prepare dynamics and land
    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
@@ -530,7 +530,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! 11. Create ART data fields
     !------------------------------------------------------------------
-    
+
     CALL art_init_interface(n_dom,'construct')
 
     !------------------------------------------------------------------

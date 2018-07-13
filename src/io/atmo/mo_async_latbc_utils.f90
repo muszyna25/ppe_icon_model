@@ -25,9 +25,9 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: my_process_is_mpi_test, &
-         &                            my_process_is_pref, my_process_is_work,   &
-         &                            my_process_is_io, p_comm_work
+    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
+         &                            p_comm_work, my_process_is_io,            &
+         &                            my_process_is_mpi_test
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -258,8 +258,6 @@
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
-
-      IF (.NOT. my_process_is_work())  RETURN
 
       ! convert namelist parameter "limarea_nml/dtime_latbc" into
       ! mtime object:
@@ -767,10 +765,7 @@
       ! compute processors wait for msg from
       ! prefetch processor that they can start
       ! reading latbc data from memory window
-      IF (.NOT. my_process_is_io() .AND. &
-        & .NOT. my_process_is_mpi_test()) THEN
-        CALL compute_wait_for_async_pref()
-      END IF
+      IF(my_process_is_work()) CALL compute_wait_for_async_pref()
 
 
       ! receive validity dateTime of current boundary data timeslice 
@@ -857,13 +852,7 @@
       ENDDO
 
       ! Reading the next time step
-#ifndef NOMPI
-      IF((.NOT. my_process_is_io()       .AND. &
-           & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN
-         CALL compute_start_async_pref()
-      ENDIF
-#endif
+      IF (my_process_is_work()) CALL compute_start_async_pref()
 
       !
       ! get prognostic 3d fields
@@ -997,11 +986,7 @@
       ENDDO
 
       ! Reading the next time step
-      IF((.NOT. my_process_is_io()       .AND. &
-           & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN
-         CALL compute_start_async_pref()
-      END IF
+      IF (my_process_is_work()) CALL compute_start_async_pref()
 
       p_ri => latbc%patch_data%cells
 
@@ -1159,7 +1144,7 @@
       ENDIF
 
       ! boundary exchange for a 2-D and 3-D array, needed because the
-      ! vertical interpolation includes the halo region (otherwise, the 
+      ! vertical interpolation includes the halo region (otherwise, the
       ! syncs would have to be called after vert_interp)
       CALL sync_patch_array_mult(SYNC_C,p_patch,3,                                  &
         &                        latbc%latbc_data(tlev)%atm_in%w,                   &

@@ -26,26 +26,30 @@ MODULE mo_communication_yaxt
 
 USE mpi
 USE mo_kind,               ONLY: dp, sp
-USE mo_exception,          ONLY: finish
-USE mo_mpi,                ONLY: p_comm_work, p_pe_work, work_mpi_barrier, &
+USE mo_exception,          ONLY: finish, message
+USE mo_mpi,                ONLY: p_comm_work, p_barrier, &
   &                              p_real_dp, p_real_sp, p_int, p_address_kind, &
-  &                              p_n_work, p_alltoall, p_alltoallv, p_bcast
+  &                              p_alltoall, p_alltoallv, p_bcast, &
+  &                              p_comm_size, p_comm_rank
 USE mo_parallel_config, ONLY: nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   &                           timer_exch_data, timer_barrier
-USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
-USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, xt_idxvec_new, &
+USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
+  &             xt_int_kind, xt_idxvec_new, &
   &             xt_xmap, xt_xmap_delete, xt_xmap_intersection_new, &
   &             xt_idxlist_delete, xt_redist, xt_redist_p2p_off_new, &
   &             xt_redist_s_exchange1, xt_redist_delete, xt_redist_p2p_new, &
   &             xt_redist_collection_new, xt_redist_s_exchange, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new
+  &             xt_mpi_comm_mark_exclusive
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
-USE iso_c_binding, ONLY: c_loc, c_ptr
+USE iso_c_binding, ONLY: c_int, c_loc, c_ptr, c_null_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
-  & t_comm_pattern_collection
+  & t_comm_pattern_collection, xfer_list
+
 
 IMPLICIT NONE
 
@@ -105,7 +109,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
 
     ! if anything is changed here, please ensure that the deep copy in
     ! setup_comm_pattern_collection still works correctly
-    INTEGER :: src_n_points, dst_n_points
+    INTEGER :: src_n_points, dst_n_points, comm = mpi_comm_null
     LOGICAL, ALLOCATABLE :: dst_mask(:)
     TYPE(xt_xmap) :: xmap
     TYPE(t_comm_pattern_redists) :: redists
@@ -115,6 +119,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
   CONTAINS
 
     PROCEDURE :: setup => setup_comm_pattern
+    PROCEDURE :: setup2 => setup_comm_pattern2
     PROCEDURE :: delete => delete_comm_pattern
     PROCEDURE :: exchange_data_r3d => exchange_data_r3d
     PROCEDURE :: exchange_data_s3d => exchange_data_s3d
@@ -306,7 +311,7 @@ END FUNCTION MY_IS_CONTIGUOUS_SP_4D
 SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
                               dst_global_index, send_glb2loc_index, &
                               src_n_points, src_owner, src_global_index, &
-                              inplace)
+                              inplace, comm)
 
    CLASS(t_comm_pattern_yaxt), INTENT(OUT) :: p_pat
    INTEGER, INTENT(IN)           :: dst_n_points        ! Total number of points
@@ -321,21 +326,38 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    INTEGER, INTENT(IN)           :: src_global_index(:) ! Global index of every point
 
    LOGICAL, OPTIONAL, INTENT(IN) :: inplace
+   INTEGER, OPTIONAL, INTENT(IN) :: comm
 
    TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
    INTEGER :: src_com_size, dst_com_size
 
-   INTEGER :: dst_count_per_rank(0:p_n_work-1), dst_count
-   INTEGER :: src_count_per_rank(0:p_n_work-1), src_count
-   INTEGER, ALLOCATABLE :: receive_indices(:), send_indices(:)
-   INTEGER :: dst_indices_displ(0:p_n_work-1), src_indices_displ(0:p_n_work-1)
+   INTEGER :: dst_count, src_count, accum_dst
+   INTEGER(xt_int_kind), ALLOCATABLE :: receive_indices(:), send_indices(:)
+   INTEGER, ALLOCATABLE :: dst_indices_displ(:), src_indices_displ(:), &
+        src_count_per_rank(:), dst_count_per_rank(:)
 
-   INTEGER :: i
+   INTEGER :: i, ierror
+   CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
+   INTEGER :: pcomm, comm_size, comm_rank
 
 !-----------------------------------------------------------------------
 
-   IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work)
+   IF (PRESENT(comm)) THEN
+     pcomm = comm
+   ELSE
+     pcomm = p_comm_work
+   END IF
+   CALL mpi_comm_dup(pcomm, p_pat%comm, ierror)
+   comm_size = p_comm_size(p_pat%comm)
+   comm_rank = p_comm_rank(p_pat%comm)
+   ALLOCATE(src_indices_displ(0:comm_size-1), dst_indices_displ(0:comm_size-1), &
+        src_count_per_rank(0:comm_size-1), dst_count_per_rank(0:comm_size-1))
+   IF (.NOT. xt_initialized()) CALL xt_initialize(p_pat%comm)
+
+   IF (ierror /= mpi_success) &
+        CALL finish(routine, 'failed to duplicate communicator')
+   CALL xt_mpi_comm_mark_exclusive(p_pat%comm)
 
    dst_count_per_rank = 0
 
@@ -344,17 +366,15 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
          dst_count_per_rank(dst_owner(i)) = dst_count_per_rank(dst_owner(i)) + 1
    END DO
 
-   CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_comm_work)
+   CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_pat%comm)
 
-   dst_count = SUM(dst_count_per_rank)
-   src_count = SUM(src_count_per_rank)
-
-   dst_indices_displ(0) = 0
-   src_indices_displ(0) = 0
-
-   DO i = 1, p_n_work-1
-      dst_indices_displ(i) = dst_indices_displ(i-1) + dst_count_per_rank(i-1)
-      src_indices_displ(i) = src_indices_displ(i-1) + src_count_per_rank(i-1)
+   dst_count = 0
+   src_count = 0
+   DO i = 0, comm_size-1
+     dst_indices_displ(i) = dst_count
+     dst_count = dst_count + dst_count_per_rank(i)
+     src_indices_displ(i) = src_count
+     src_count = src_count + src_count_per_rank(i)
    END DO
 
    ALLOCATE(receive_indices(dst_count), send_indices(src_count))
@@ -362,19 +382,20 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    DO i = 1, dst_n_points
       IF (dst_owner(i) >= 0) THEN
          dst_indices_displ(dst_owner(i)) = dst_indices_displ(dst_owner(i)) + 1
-         receive_indices(dst_indices_displ(dst_owner(i))) = dst_global_index(i)
+         receive_indices(dst_indices_displ(dst_owner(i))) &
+            = INT(dst_global_index(i), xt_int_kind)
       END IF
    END DO
 
-   dst_indices_displ(0) = 0
-
-   DO i = 1, p_n_work-1
-      dst_indices_displ(i) = dst_indices_displ(i-1) + dst_count_per_rank(i-1)
+   accum_dst = 0
+   DO i = 0, comm_size-1
+     dst_indices_displ(i) = accum_dst
+     accum_dst = accum_dst + dst_count_per_rank(i)
    END DO
 
    CALL p_alltoallv(receive_indices, dst_count_per_rank, dst_indices_displ, &
       &             send_indices, src_count_per_rank, src_indices_displ, &
-      &             p_comm_work)
+      &             p_pat%comm)
 
    ALLOCATE(src_com(COUNT(src_count_per_rank > 0)), &
     &       dst_com(COUNT(dst_count_per_rank > 0)))
@@ -382,7 +403,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    src_com_size = 0
    dst_com_size = 0
 
-   DO i = 0, p_n_work-1
+   DO i = 0, comm_size-1
 
       IF (src_count_per_rank(i) > 0) THEN
 
@@ -413,7 +434,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    END IF
    src_idxlist = &
     xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
-    &                  src_owner(1:src_n_points) == p_pe_work))
+    &                  src_owner(1:src_n_points) == comm_rank))
    IF (ALLOCATED(p_pat%dst_mask)) THEN
      dst_idxlist = xt_idxvec_new(PACK(dst_global_index(1:dst_n_points), &
        &                              p_pat%dst_mask))
@@ -423,7 +444,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    p_pat%xmap = xt_xmap_intersection_new(src_com_size, src_com, dst_com_size, &
       &                                  dst_com, src_idxlist, dst_idxlist, &
-      &                                  p_comm_work)
+      &                                  p_pat%comm)
    CALL xt_idxlist_delete(dst_idxlist)
    CALL xt_idxlist_delete(src_idxlist)
    DO i = 1, src_com_size
@@ -439,6 +460,105 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    END IF
 
 END SUBROUTINE setup_comm_pattern
+
+
+  SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, inplace)
+    CLASS(t_comm_pattern_yaxt), INTENT(out) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+    LOGICAL, OPTIONAL, INTENT(in) :: inplace
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: recv_msg, send_msg
+#endif
+    INTEGER :: i, j, np_recv, np_send, nlocal
+    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
+    TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
+    CHARACTER(len=*), PARAMETER :: routine &
+         = 'mo_communication_yaxt::setup_comm_pattern2'
+
+    np_send = SIZE(send_msg)
+    np_recv = SIZE(recv_msg)
+    ALLOCATE(src_com(np_send), dst_com(np_recv))
+    nlocal = SIZE(glb2loc_index_send%outer_glb_index) &
+         + SIZE(glb2loc_index_send%inner_glb_index)
+    p_pat%src_n_points = nlocal
+    CALL compose_lists(src_com, src_idxlist, nlocal, glb2loc_index_send, &
+         send_msg)
+    nlocal = SIZE(glb2loc_index_recv%outer_glb_index) &
+         + SIZE(glb2loc_index_recv%inner_glb_index)
+    p_pat%dst_n_points = nlocal
+    CALL compose_lists(dst_com, dst_idxlist, nlocal, glb2loc_index_recv, &
+         recv_msg, p_pat%dst_mask)
+    p_pat%xmap = xt_xmap_intersection_new(src_com, dst_com, src_idxlist, &
+         dst_idxlist, comm)
+    CALL xt_idxlist_delete(dst_idxlist)
+    CALL xt_idxlist_delete(src_idxlist)
+    DO i = 1, np_send
+      CALL xt_idxlist_delete(src_com(i)%list)
+    END DO
+    DO i = 1, np_recv
+      CALL xt_idxlist_delete(dst_com(i)%list)
+    END DO
+    IF (PRESENT(inplace)) THEN
+      p_pat%inplace = inplace
+    ELSE
+      p_pat%inplace = .FALSE.
+    END IF
+  CONTAINS
+    SUBROUTINE compose_lists(com, list, nlocal, glb2loc_index, msg, mask)
+      TYPE(xt_com_list), INTENT(out) :: com(:)
+      TYPE(xt_idxlist), INTENT(out) :: list
+      INTEGER, INTENT(in) :: nlocal
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      type(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
+      LOGICAL, OPTIONAL, ALLOCATABLE, INTENT(out) :: mask(:)
+      INTEGER(xt_int_kind) :: indices(nlocal)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: com, msg
+#endif
+      INTEGER :: np, nidx, i, j, jl, glbidx, start_local, end_local
+      indices = -1_xt_int_kind
+      np = SIZE(msg)
+      DO i = 1, np
+        com(i)%rank = INT(msg(i)%rank, c_int)
+        com(i)%list = xt_idxvec_new(msg(i)%glob_idx)
+        nidx = SIZE(msg(i)%glob_idx)
+        DO j = 1, nidx
+          glbidx = msg(i)%glob_idx(j)
+          jl = get_local_index(glb2loc_index, glbidx)
+          indices(jl) = INT(glbidx, xt_int_kind)
+        END DO
+      END DO
+      IF (PRESENT(mask)) THEN
+        ALLOCATE(mask(nlocal))
+        mask = indices >= 0
+        j = 1
+        i = 1
+        DO WHILE (i < nlocal .AND. .NOT. mask(i))
+          i = i + 1
+        END DO
+        IF (.NOT. mask(i)) THEN
+          nidx = 0
+        ELSE
+          DO i = i, nlocal
+            IF (mask(i)) THEN
+              indices(j) = indices(i)
+              j = j + 1
+            END IF
+          END DO
+          nidx = j - 1
+        END IF
+      ELSE
+        nidx = nlocal
+      END IF
+      list = xt_idxvec_new(indices(1:nidx))
+    END SUBROUTINE compose_lists
+
+  END SUBROUTINE setup_comm_pattern2
+
 
 FUNCTION generate_single_field_redist(p_pat, dst_nlev, src_nlev, nshift, &
   &                                   mpi_type, src_is_blocked, dst_is_blocked)
@@ -622,7 +742,7 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
     END DO
 
     p_pat%redists%p(n)%redist = &
-      xt_redist_collection_new(redists, nfields, -1, p_comm_work)
+      xt_redist_collection_new(redists, nfields, -1, p_pat%comm)
 
     DO i = 1, nfields
       CALL xt_redist_delete(redists(i))
@@ -737,8 +857,7 @@ FUNCTION comm_pattern_collection_get_redist(p_pat_coll, nfields, dst_nlev, &
   END DO
 
   p_pat_coll%redists%p(n)%redist = &
-    xt_redist_collection_new(redists, nfields * SIZE(p_pat_coll%patterns), &
-      &                      -1, p_comm_work)
+    xt_redist_collection_new(redists, -1, p_pat_coll%patterns(1)%p%comm)
 
   DO i = 1, nfields * SIZE(p_pat_coll%patterns)
     CALL xt_redist_delete(redists(i))
@@ -753,13 +872,15 @@ SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
   CLASS(t_comm_pattern_collection_yaxt), INTENT(OUT) :: pattern_collection
   TYPE(t_p_comm_pattern), INTENT(IN) :: patterns(:)
 
+  CHARACTER(len=*), PARAMETER :: &
+       routine = modname//'::setup_comm_pattern_collection'
   INTEGER :: i
 
   ALLOCATE(pattern_collection%patterns(SIZE(patterns)))
 
   DO i = 1, SIZE(patterns)
     SELECT TYPE (pattern_yaxt => patterns(i)%p)
-      TYPE is (t_comm_pattern_yaxt)
+      TYPE IS (t_comm_pattern_yaxt)
         pattern_collection%patterns(i)%p => pattern_yaxt
       CLASS DEFAULT
         CALL finish("setup_comm_pattern_collection", &
@@ -783,6 +904,7 @@ SUBROUTINE delete_comm_pattern(p_pat)
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
+   CHARACTER(len=*), PARAMETER :: routine = modname//'::delete_comm_pattern'
    INTEGER :: i, n, ierror
 
    ! deallocate arrays
@@ -805,7 +927,11 @@ SUBROUTINE delete_comm_pattern(p_pat)
      DEALLOCATE(p_pat%redists%p)
    END IF
    CALL xt_xmap_delete(p_pat%xmap)
-
+   IF (p_pat%comm /= mpi_comm_null) THEN
+     CALL mpi_comm_free(p_pat%comm, ierror)
+     IF (ierror /= mpi_success) &
+       CALL finish(routine, 'failed to duplicate communicator')
+   END IF
 END SUBROUTINE delete_comm_pattern
 
 !-------------------------------------------------------------------------
@@ -816,12 +942,6 @@ SUBROUTINE delete_comm_pattern_collection(pattern_collection)
 
    INTEGER :: i, n
 
-   DO i = 1, SIZE(pattern_collection%patterns)
-     CALL pattern_collection%patterns(i)%p%delete()
-     DEALLOCATE(pattern_collection%patterns(i)%p)
-   END DO
-   DEALLOCATE(pattern_collection%patterns)
-
    IF (ALLOCATED(pattern_collection%redists%p)) THEN
      n = SIZE(pattern_collection%redists%p)
      DO i = 1, n
@@ -831,6 +951,12 @@ SUBROUTINE delete_comm_pattern_collection(pattern_collection)
      END DO
      DEALLOCATE(pattern_collection%redists%p)
    END IF
+
+   DO i = 1, SIZE(pattern_collection%patterns)
+     CALL pattern_collection%patterns(i)%p%delete()
+     DEALLOCATE(pattern_collection%patterns(i)%p)
+   END DO
+   DEALLOCATE(pattern_collection%patterns)
 
 END SUBROUTINE delete_comm_pattern_collection
 
@@ -859,21 +985,25 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    REAL(dp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_r3d','Illegal first dimension of data array')
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
@@ -888,7 +1018,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
+       ALLOCATE(send_(m, n, o))
        send_ = recv
        CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
        DEALLOCATE(send_)
@@ -896,23 +1026,31 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-            IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-              recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-            END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
@@ -953,25 +1091,29 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    REAL(sp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_s3d','Illegal first dimension of data array')
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_sp)
 
@@ -990,23 +1132,31 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-            IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-              recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-            END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
@@ -1050,25 +1200,29 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    INTEGER, ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, nlev(1, 2)
+   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
 
-   nlev(1, 1) = SIZE(recv,2)
+   m = SIZE(recv, 1)
+   n = SIZE(recv, 2)
+   o = SIZE(recv, 3)
+
+   dst_nlev(1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
 
@@ -1087,23 +1241,31 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
-     DO j = 1, SIZE(recv,3)
-       DO i = 1, SIZE(recv,1)
-         IF (ALLOCATED(p_pat%dst_mask)) THEN
-           IF (p_pat%dst_mask(idx_1d(i,j))) THEN
-             recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-           END IF
-         ELSE
-            recv(i,:,j) = recv(i,:,j) + add(i,:,j)
-         END IF
+     IF (ALLOCATED(p_pat%dst_mask)) THEN
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+               recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+             END IF
+           END DO
+         END DO
        END DO
-     END DO
+     ELSE
+       DO k = 1, o
+         DO j = 1, n
+           DO i = 1, m
+             recv(i,j,k) = recv(i,j,k) + add(i,j,k)
+           END DO
+         END DO
+       END DO
+     END IF
    END IF
 
    stop_sync_timer(timer_exch_data)
@@ -1167,9 +1329,9 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1352,9 +1514,9 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1560,22 +1722,24 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
    INTEGER :: data_type
    TYPE(xt_redist) :: redist
 
-   INTEGER :: nlev(1, 2), i
+   INTEGER :: nlev(1, 2), i, comm_size
    LOGICAL, SAVE :: first_call = .TRUE., mpi_is_buggy
 
    CHARACTER(len=*), PARAMETER :: &
-     routine = "mo_communication::exchange_data_4de1"
+     routine = modname//"::exchange_data_4de1"
 
 !-----------------------------------------------------------------------
 
-   IF (first_call) THEN
+   comm_size = p_comm_size(p_pat%comm)
+   IF (comm_size > 1 .AND. first_call) THEN
 
      first_call = .FALSE.
-     mpi_is_buggy = test_mpich_bug()
-     IF (mpi_is_buggy .AND. (p_pe_work == 0)) THEN
-       print *, "WARNING: your MPI contains a serious bug, in order to " // &
-                "avoid problems a workaround has been activated in " // &
-                "exchange_data_4de1 that significatly decreases its performance"
+     mpi_is_buggy = test_mpich_bug(p_pat%comm)
+     IF (mpi_is_buggy) THEN
+       CALL message(routine, &
+            "WARNING: your MPI contains a serious bug, in order to &
+            &avoid problems a workaround has been activated in &
+            &exchange_data_4de1 that significatly decreases its performance")
      END IF
    END IF
 
@@ -1597,9 +1761,9 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
    END IF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1695,9 +1859,9 @@ SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat_coll%patterns(1)%p%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -2260,7 +2424,8 @@ END SUBROUTINE get_pelist_recv
 ! Each point consists of VECTOR_SIZE elements. The data sent by rank 1 is
 ! level-wise; data from different levels does not overlap in the send buffer.
 !
-FUNCTION test_mpich_bug()
+FUNCTION test_mpich_bug(comm)
+  INTEGER, INTENT(in) :: comm
   LOGICAL :: test_mpich_bug
 
   INTEGER, PARAMETER :: VECTOR_SIZE = 2, &
@@ -2271,16 +2436,12 @@ FUNCTION test_mpich_bug()
   INTEGER :: displs(9)
   INTEGER :: lenghts(9)
 
+  INTEGER :: comm_rank
   INTEGER :: num_exchange_indices, ierror, i, j, lev, vector
   INTEGER :: datatype_vector, datatype_1lev, datatype_with_extent, datatype_nlev
   INTEGER(KIND=MPI_ADDRESS_KIND) :: lb, extent, dummy
   REAL(dp) :: v
   REAL(dp), ALLOCATABLE :: ref_data(:), recv_data(:), send_data(:)
-
-  IF (p_n_work == 1) THEN
-    test_mpich_bug = .FALSE.
-    RETURN
-  END IF
 
   displs = (/   1, & ! idx 1 blk 0
               720, & ! idx 0 blk 1
@@ -2297,7 +2458,8 @@ FUNCTION test_mpich_bug()
   ! (not including VECTOR_SIZE and NLEV)
   num_exchange_indices = SUM(lenghts)
 
-  IF (p_pe_work == 0) THEN
+  comm_rank = p_comm_rank(comm)
+  IF (comm_rank == 0) THEN
 
     ! create contiguous datatype for the vector
     CALL MPI_Type_contiguous(VECTOR_SIZE, MPI_DOUBLE_PRECISION, &
@@ -2337,7 +2499,7 @@ FUNCTION test_mpich_bug()
     recv_data = -1.0_dp
 
     ! receive data from rank 1
-    CALL MPI_Recv(recv_data, 1, datatype_nlev, 1, TAG, p_comm_work, &
+    CALL MPI_Recv(recv_data, 1, datatype_nlev, 1, TAG, comm, &
                   MPI_STATUS_IGNORE, ierror);
 
     ! check data
@@ -2354,7 +2516,7 @@ FUNCTION test_mpich_bug()
     CALL MPI_Type_free(datatype_1lev, ierror)
     CALL MPI_Type_free(datatype_vector, ierror)
 
-  ELSE IF (p_pe_work == 1) THEN
+  ELSE IF (comm_rank == 1) THEN
 
     ! send requested data
     ALLOCATE(send_data(VECTOR_SIZE * NLEV * num_exchange_indices))
@@ -2362,11 +2524,11 @@ FUNCTION test_mpich_bug()
       send_data(i) = REAL(i, dp)
     END DO
     CALL MPI_Send(send_data, VECTOR_SIZE * NLEV * num_exchange_indices, &
-                  p_real_dp, 0, TAG, p_comm_work, ierror)
+                  p_real_dp, 0, TAG, comm, ierror)
     DEALLOCATE(send_data)
   END IF
 
-  CALL p_bcast(test_mpich_bug, 0, p_comm_work)
+  CALL p_bcast(test_mpich_bug, 0, comm)
 
 END FUNCTION test_mpich_bug
 

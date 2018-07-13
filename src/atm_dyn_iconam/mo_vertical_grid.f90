@@ -2061,8 +2061,6 @@ MODULE mo_vertical_grid
    CALL cells2edges_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%c_lin_e, &
                            p_nh%metrics%inv_ddqz_z_half_e, opt_rlend=min_rledge_int)
 
-   CALL sync_patch_array(SYNC_E, p_patch, p_nh%metrics%inv_ddqz_z_half_e)
-
 
   END SUBROUTINE prepare_les_model
   !----------------------------------------------------------------------------

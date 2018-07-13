@@ -26,6 +26,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "consistent_fma.inc"
 !----------------------------
 
 MODULE mo_nwp_diagnosis
@@ -770,6 +771,7 @@ CONTAINS
           ENDDO
 
           ! total cloud cover
+!PREVENT_INCONSISTENT_IFORT_FMA
           DO jk = kstart_moist+1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx

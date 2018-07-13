@@ -360,8 +360,8 @@ CONTAINS
     
     INTEGER :: jmm,mmm,mnc,mns,jnn,jc
 
-    TYPE(datetime), POINTER :: current => NULL()
-    TYPE(timedelta), POINTER :: td => NULL()
+    TYPE(datetime), POINTER :: current
+    TYPE(timedelta), POINTER :: td
     CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
     
     i_nchdom  = MAX(1,pt_patch%n_childdom)

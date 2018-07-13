@@ -682,8 +682,11 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   ! Auxiliary fields on full grid for back-interpolated values
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp
 
+  !> pressure scale for longwave downscaling correction
+  REAL(wp), PARAMETER :: pscal = 1._wp/4000._wp
+
   ! More local variables
-  REAL(wp) :: pscal, dpresg, pfaclw, intqctot
+  REAL(wp) :: dpresg, pfaclw, intqctot
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2, logtqv, &
                                  dtrans_o_dalb_clrsfc
@@ -754,7 +757,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   itrclrsfc = nshift+10
   itrparsfc = nshift+11
 
-  pscal = 1._wp/4000._wp ! pressure scale for longwave downscaling correction
 
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
@@ -1659,8 +1661,11 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   ! Auxiliary fields on full grid for back-interpolated values
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp, albfac_backintp
 
+  !> pressure scale for longwave downscaling correction
+  REAL(wp), PARAMETER :: pscal = 1._wp/4000._wp
+
   ! More local variables
-  REAL(wp) :: pscal, dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
+  REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac2, lwfac1, lwfac2
 
@@ -1833,8 +1838,6 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   ! Start/End block in the parent domain
   i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
-
-  pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
 
 !$OMP PARALLEL

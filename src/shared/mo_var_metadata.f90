@@ -96,17 +96,21 @@ CONTAINS
   FUNCTION vintp_type_id(in_str)
     INTEGER                      :: vintp_type_id, ivintp_type
     CHARACTER(LEN=*), INTENT(IN) :: in_str
-    CHARACTER(*), PARAMETER :: routine = modname//"::vintp_type_id"
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::vintp_type_id"
+    CHARACTER(len=len_trim(in_str)) :: in_str_upper
+    INTEGER :: n
 
     vintp_type_id = 0
-    LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))) THEN
+    in_str_upper = toupper(in_str)
+    n = SIZE(VINTP_TYPE_LIST)
+    LOOP_VINTP_TYPES : DO ivintp_type=1,n
+      IF (in_str_upper == toupper(VINTP_TYPE_LIST(ivintp_type))) THEN
         vintp_type_id = ivintp_type
         EXIT LOOP_VINTP_TYPES
       END IF
     END DO LOOP_VINTP_TYPES
     ! paranoia:
-    IF ((vintp_type_id < 1) .OR. (vintp_type_id > SIZE(VINTP_TYPE_LIST))) &
+    IF ((vintp_type_id < 1) .OR. (vintp_type_id > n)) &
       &  CALL finish(routine, "Invalid vertical interpolation type!")
   END FUNCTION vintp_type_id
 

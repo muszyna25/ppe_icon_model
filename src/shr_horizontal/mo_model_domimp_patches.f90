@@ -134,6 +134,9 @@ MODULE mo_model_domimp_patches
     &                              p_comm_work_test, p_comm_work,         &
     &                              my_process_is_stdio
   USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
+#ifndef NOMPI
+  USE mo_complete_subdivision, ONLY: create_work2test_patterns
+#endif
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
     &                          closeFile, on_cells, on_edges, on_vertices, &
@@ -537,25 +540,23 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       
       IF(jg == n_dom_start) THEN
-        
-        ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
-        patch(jg)%cells%parent_glb_idx = 0
-        patch(jg)%cells%parent_glb_blk = 0
-        patch(jg)%edges%parent_glb_idx = 0
-        patch(jg)%edges%parent_glb_blk = 0
-        patch(jg)%cells%parent_loc_idx = 0
-        patch(jg)%cells%parent_loc_blk = 0
-        patch(jg)%edges%parent_loc_idx = 0
-        patch(jg)%edges%parent_loc_blk = 0
 
-        ! For parallel runs, child_idx/blk is set to 0 since it makes
+        ! deallocate parent_loc/glb_idx/blk since it just doesn't exist,
+        DEALLOCATE(patch(jg)%cells%parent_glb_idx, &
+             patch(jg)%cells%parent_glb_blk, &
+             patch(jg)%edges%parent_glb_idx, &
+             patch(jg)%edges%parent_glb_blk, &
+             patch(jg)%cells%parent_loc_idx, &
+             patch(jg)%cells%parent_loc_blk, &
+             patch(jg)%edges%parent_loc_idx, &
+             patch(jg)%edges%parent_loc_blk)
+
+        ! For parallel runs, child_idx/blk is invalid since it makes
         ! sense only on the local parent
         IF (.NOT. my_process_is_mpi_parallel() .OR. &
             is_ocean_decomposition) THEN
-          patch(jg)%cells%child_idx  = 0
-          patch(jg)%cells%child_blk  = 0
-          patch(jg)%edges%child_idx  = 0
-          patch(jg)%edges%child_blk  = 0
+          DEALLOCATE(patch(jg)%cells%child_idx, patch(jg)%cells%child_blk, &
+               patch(jg)%edges%child_idx, patch(jg)%edges%child_blk)
         END IF
         
       ELSE
@@ -593,6 +594,12 @@ CONTAINS
     ! routines (these patterns will be rebuild after the reordering by routine
     ! complete_parallel_setup)
     CALL generate_comm_pat_cvec1(patch, is_ocean_decomposition)
+
+#ifndef NOMPI
+    DO jg = n_dom_start, n_dom
+      IF (p_test_run) CALL create_work2test_patterns(patch(jg))
+    END DO
+#endif
 
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom
@@ -814,16 +821,13 @@ CONTAINS
 
     ENDDO
 
-    ! Although this is not really necessary, we set the child index in child
-    ! and the parent index in parent to 0 since these have no significance
+    ! Although this is not really necessary, we deallocate
+    ! the parent index in parent since these have no significance
     ! in the parallel code (and must not be used as they are).
 
     IF (my_process_is_mpi_parallel()) THEN
-      p_pp%cells%parent_loc_idx = 0
-      p_pp%cells%parent_loc_blk = 0
-
-      p_pp%edges%parent_loc_idx = 0
-      p_pp%edges%parent_loc_blk = 0
+      DEALLOCATE(p_pp%cells%parent_loc_idx, p_pp%cells%parent_loc_blk, &
+           p_pp%edges%parent_loc_idx, p_pp%edges%parent_loc_blk)
     END IF
 
   END SUBROUTINE set_parent_loc_idx

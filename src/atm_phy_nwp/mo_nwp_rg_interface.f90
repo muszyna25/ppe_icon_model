@@ -81,16 +81,16 @@ MODULE mo_nwp_rg_interface
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zqco2
-    REAL(wp):: zsqv (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
-    REAL(wp):: zfls (nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+    REAL(wp):: zsqv (nproma,pt_patch%nlev) !< saturation water vapor mixing ratio
+    REAL(wp):: zfls (nproma,pt_patch%nlevp1)
     REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp):: zduco2(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
+    REAL(wp):: zduco2(nproma,pt_patch%nlev)
+    REAL(wp):: alb_ther(nproma)
     LOGICAL :: lo_sol (nproma)
     LOGICAL :: losol
 
@@ -136,12 +136,12 @@ MODULE mo_nwp_rg_interface
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-#ifdef __xlC__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol)
-#else
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol),SCHEDULE(guided)
+!$OMP DO &
+#ifndef __xlC__
+!$OMP& SCHEDULE(guided), &
 #endif
-    
+!$OMP& PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol,&
+!$OMP& alb_ther,zfls,zduco2,zsqv)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -149,19 +149,19 @@ MODULE mo_nwp_rg_interface
 
       DO jk = 1,nlev
         DO jc = i_startidx,i_endidx
-          zsqv (jc,jk,jb) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
+          zsqv (jc,jk) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
         ENDDO
       ENDDO
 
       ! geographical dependent thermal albedo
-      alb_ther(i_startidx:i_endidx,jb) = 1._wp-ext_data%atm%emis_rad(i_startidx:i_endidx,jb)
+      alb_ther(i_startidx:i_endidx) = 1._wp-ext_data%atm%emis_rad(i_startidx:i_endidx,jb)
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
       DO jk = 1,nlev
         DO jc = i_startidx,i_endidx
-          zduco2(jc,jk,jb) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
+          zduco2(jc,jk) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
         ENDDO
       ENDDO
 
@@ -175,10 +175,10 @@ MODULE mo_nwp_rg_interface
         & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
         & pclc_in= prm_diag%clc  (:,:,jb)   , &
         & pqv = prm_diag%tot_cld(:,:,jb,iqv), &
-        & pqvs = zsqv(:,:,jb), &!saturation water vapor
+        & pqvs = zsqv, &!saturation water vapor
         & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
         & pqiwc = prm_diag%tot_cld    (:,:,jb,iqi) ,&
-        & pduco2 = zduco2 (:,:,jb), &! layer CO2 content
+        & pduco2 = zduco2, &! layer CO2 content
         & pduo3  = zduo3(:,:,jb),&! layer O3 content
         & paeq1 = zaeq1(:,:,jb), &
         & paeq2 = zaeq2(:,:,jb),&
@@ -188,7 +188,7 @@ MODULE mo_nwp_rg_interface
         & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
         & palso = prm_diag%albdif(:,jb), & ! solar surface albedo
-        & palth = alb_ther(:,jb), & ! thermal surface albedo
+        & palth = alb_ther, & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
         & kig1e = nproma , &
@@ -202,7 +202,7 @@ MODULE mo_nwp_rg_interface
         & lcrf = .FALSE., &! control switch for cloud-free calcul.
                                 ! Output:
         & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
-        & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
+        & pfls  = zfls &! solar radiative fluxes at each layer boundary
         & )
 
       zi0 (i_startidx:i_endidx) = 1._wp / (prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct)
@@ -210,12 +210,12 @@ MODULE mo_nwp_rg_interface
       DO jk = 1,nlevp1
         DO jc = i_startidx,i_endidx
           prm_diag%trsolall(jc,jk,jb) &
-            = MERGE(0.0_wp, zfls(jc,jk,jb) * zi0(jc), prm_diag%cosmu0(jc,jb) < 1.e-8_wp)
+            = MERGE(0.0_wp, zfls(jc,jk) * zi0(jc), prm_diag%cosmu0(jc,jb) < 1.e-8_wp)
         ENDDO
       ENDDO
 
     ENDDO !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

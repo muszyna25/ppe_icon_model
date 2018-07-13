@@ -168,9 +168,8 @@ MODULE mo_async_latbc
     !
     SUBROUTINE close_prefetch()
 #ifndef NOMPI
-      IF((.not. my_process_is_io() .AND.&
-           & .not. my_process_is_pref()) .AND.&
-           & .not. my_process_is_mpi_test()) THEN
+
+      IF (my_process_is_work()) THEN
 
          CALL compute_wait_for_async_pref()
          CALL compute_shutdown_async_pref()
@@ -273,7 +272,7 @@ MODULE mo_async_latbc
       ! allocate patch data structure
       ! set number of global cells/edges/verts and patch ID
 
-      IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
+      IF (my_process_is_work()) THEN
          latbc%patch_data%nlev          = p_patch(1)%nlev
          latbc%patch_data%nlevp1        = p_patch(1)%nlevp1
          latbc%patch_data%level         = p_patch(1)%level
@@ -299,7 +298,7 @@ MODULE mo_async_latbc
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
-      CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
+      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
@@ -435,24 +434,22 @@ MODULE mo_async_latbc
       TYPE (t_dictionary)           :: latbc_varnames_dict
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
       INTEGER                       :: ierrstat, ic, idx_c, blk_c
-      
+      LOGICAL                       :: is_pref
+
       ! bcast_root is not used in this case
       bcast_root = 0
 
 #ifndef NOMPI
 
+      is_pref = my_process_is_pref()
       ! Set broadcast root for intercommunicator broadcasts
-      IF(my_process_is_pref()) THEN
+      IF (is_pref) THEN
          ! Root is proc 0 on the prefetch PE
          bcast_root = 0
       ELSE
-         ! Special root setting for inter-communicators:
-         ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
-         IF(p_pe_work == 0) THEN
-            bcast_root = MPI_ROOT
-         ELSE
-            bcast_root = MPI_PROC_NULL
-         ENDIF
+        ! Special root setting for inter-communicators:
+        ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
+        bcast_root = MERGE(MPI_ROOT, MPI_PROC_NULL, p_pe_work == 0)
       ENDIF
 
       ! read the map file into dictionary data structure
@@ -477,7 +474,8 @@ MODULE mo_async_latbc
       CALL dict_finalize(latbc_varnames_dict)
 
       ! initialize the memory window for communication
-      CALL init_remote_memory_window(latbc, StrLowCasegrp)
+      IF (.NOT. my_process_is_mpi_test()) &
+           CALL init_remote_memory_window(latbc, StrLowCasegrp)
 
       DEALLOCATE(StrLowCasegrp)
 
@@ -495,7 +493,7 @@ MODULE mo_async_latbc
 
         CALL message(routine, "sparse LATBC read-in mode.")
 
-        IF (my_process_is_pref()) THEN
+        IF (is_pref) THEN
        
           opt_att(1)%var_name = "global_cell_index"
           opt_att(1)%att_name = "nglobal"
@@ -559,7 +557,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work()) THEN
         CALL compute_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
           &                          latbc%new_latbc_tlev)
-      ELSE IF( my_process_is_pref()) THEN
+      ELSE IF (is_pref) THEN
         CALL async_init_latbc_data(latbc)
       ENDIF
 
@@ -699,7 +697,7 @@ MODULE mo_async_latbc
                   latbc%buffer%internal_name(counter) = &
                     TRIM(dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name)))
                   ! getting the variable name in lower case letter
-                  StrLowCasegrp(counter) = TRIM(grp_vars(jp))
+                  StrLowCasegrp(counter) = grp_vars(jp)
 
                   IF (ldebug) THEN
                     WRITE(0,*) '=> internal_name ',  (latbc%buffer%internal_name(counter))
@@ -1028,6 +1026,7 @@ MODULE mo_async_latbc
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
            &                           all_nvars, nvars, i2, ierrstat
+      LOGICAL                       :: is_pref
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
       TYPE(t_list_element), POINTER :: element
       TYPE(t_var_metadata)          :: info
@@ -1035,18 +1034,16 @@ MODULE mo_async_latbc
       ! var_list_name should have at least the length of var_list names
       CHARACTER(LEN=256)            :: var_list_name
 
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
-
       ! get the size - in default INTEGER words - which is needed to
       ! hold the contents of TYPE(t_var_metadata)
       info_size = SIZE(TRANSFER(info, (/ 0 /)))
 
+      is_pref = my_process_is_pref()
       ! get the number of var lists
-      IF(.NOT. my_process_is_pref()) nv = nvar_lists
+      IF (.NOT. is_pref) nv = nvar_lists
       CALL p_bcast(nv, bcast_root, p_comm_work_2_pref)
 
-      IF(.NOT.my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
          all_nvars = 0
          DO i = 1, nvar_lists
 
@@ -1065,7 +1062,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! get the number of var lists
-      IF(.NOT. my_process_is_pref()) all_var = all_nvars
+      IF (.NOT. is_pref) all_var = all_nvars
       CALL p_bcast(all_var, bcast_root, p_comm_work_2_pref)
 
       IF (all_var <= 0) RETURN
@@ -1078,10 +1075,10 @@ MODULE mo_async_latbc
       DO iv = 1, nv
 
          ! Send name
-         IF(.NOT.my_process_is_pref()) var_list_name = var_lists(iv)%p%name
+         IF (.NOT. is_pref) var_list_name = var_lists(iv)%p%name
          CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_pref)
 
-         IF(.NOT.my_process_is_pref()) THEN
+         IF (.NOT. is_pref) THEN
             ! Count the number of variable entries
             element => var_lists(iv)%p%first_list_element
             nelems = 0
@@ -1096,7 +1093,7 @@ MODULE mo_async_latbc
          ! Send basic info:
          CALL p_bcast(list_info, bcast_root, p_comm_work_2_pref)
 
-         IF(my_process_is_pref()) THEN
+         IF (is_pref) THEN
             nelems = list_info
             ! Create var list
             CALL new_var_list( p_var_list, var_list_name)
@@ -1115,7 +1112,7 @@ MODULE mo_async_latbc
          ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         IF(.NOT.my_process_is_pref()) THEN
+         IF (.NOT. is_pref) THEN
             element => var_lists(iv)%p%first_list_element
             nelems = 0
             DO
@@ -1132,7 +1129,7 @@ MODULE mo_async_latbc
 
          CALL p_bcast(info_storage, bcast_root, p_comm_work_2_pref)
 
-         IF(my_process_is_pref()) THEN
+         IF (is_pref) THEN
 
             ! Insert elements into var list
             p_var_list%p%first_list_element => NULL()
@@ -1309,9 +1306,6 @@ MODULE mo_async_latbc
       INTEGER                             :: ierrstat
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
-
       !transfer the global number of points, this is not known on prefetching PE
       CALL p_bcast(p_reo%n_glb, bcast_root, p_comm_work_2_pref)
 
@@ -1350,9 +1344,6 @@ MODULE mo_async_latbc
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
-
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
 
       latbc%patch_data%mem_win%mpi_win = MPI_WIN_NULL
 

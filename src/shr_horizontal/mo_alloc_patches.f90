@@ -859,13 +859,19 @@ CONTAINS
     ! !grid cells
     !
     DEALLOCATE( p_patch%cells%num_edges )
-    DEALLOCATE( p_patch%cells%parent_loc_idx )
-    DEALLOCATE( p_patch%cells%parent_loc_blk )
-    DEALLOCATE( p_patch%cells%parent_glb_idx )
-    DEALLOCATE( p_patch%cells%parent_glb_blk )
+    IF (ALLOCATED(p_patch%cells%parent_loc_idx)) &
+      DEALLOCATE( p_patch%cells%parent_loc_idx )
+    IF (ALLOCATED(p_patch%cells%parent_loc_blk)) &
+      DEALLOCATE( p_patch%cells%parent_loc_blk )
+    IF (ALLOCATED(p_patch%cells%parent_glb_idx)) &
+      DEALLOCATE( p_patch%cells%parent_glb_idx )
+    IF (ALLOCATED(p_patch%cells%parent_glb_blk)) &
+      DEALLOCATE( p_patch%cells%parent_glb_blk )
     DEALLOCATE( p_patch%cells%pc_idx )
-    DEALLOCATE( p_patch%cells%child_idx )
-    DEALLOCATE( p_patch%cells%child_blk )
+    IF (ALLOCATED(p_patch%cells%child_idx)) &
+      DEALLOCATE( p_patch%cells%child_idx )
+    IF (ALLOCATED(p_patch%cells%child_blk)) &
+      DEALLOCATE( p_patch%cells%child_blk )
     DEALLOCATE( p_patch%cells%child_id )
     DEALLOCATE( p_patch%cells%neighbor_idx )
     DEALLOCATE( p_patch%cells%neighbor_blk )
@@ -886,13 +892,19 @@ CONTAINS
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch%edges%parent_loc_idx )
-    DEALLOCATE( p_patch%edges%parent_loc_blk )
-    DEALLOCATE( p_patch%edges%parent_glb_idx )
-    DEALLOCATE( p_patch%edges%parent_glb_blk )
+    IF (ALLOCATED(p_patch%edges%parent_loc_idx)) &
+      DEALLOCATE( p_patch%edges%parent_loc_idx )
+    IF (ALLOCATED(p_patch%edges%parent_loc_blk)) &
+      DEALLOCATE( p_patch%edges%parent_loc_blk )
+    IF (ALLOCATED(p_patch%edges%parent_glb_idx)) &
+      DEALLOCATE( p_patch%edges%parent_glb_idx )
+    IF (ALLOCATED(p_patch%edges%parent_glb_blk)) &
+      DEALLOCATE( p_patch%edges%parent_glb_blk )
     DEALLOCATE( p_patch%edges%pc_idx )
-    DEALLOCATE( p_patch%edges%child_idx )
-    DEALLOCATE( p_patch%edges%child_blk )
+    IF (ALLOCATED(p_patch%edges%child_idx)) &
+      DEALLOCATE( p_patch%edges%child_idx )
+    IF (ALLOCATED(p_patch%edges%child_blk)) &
+      DEALLOCATE( p_patch%edges%child_blk )
     DEALLOCATE( p_patch%edges%child_id )
     DEALLOCATE( p_patch%edges%refin_ctrl )
     DEALLOCATE( p_patch%edges%start_idx )

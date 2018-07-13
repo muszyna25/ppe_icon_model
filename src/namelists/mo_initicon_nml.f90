@@ -65,11 +65,32 @@ MODULE mo_initicon_nml
 
   PUBLIC :: read_initicon_namelist
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
+CONTAINS
 
+!-------------------------------------------------------------------------
+!
+!
+ !>
+ !!  Initialization of the initicon coordinate namelist
+ !!
+ !!
+ !! @par Revision History
+ !!  Initial version by Guenther Zaengl (2011-07-11)
 
-  ! Variables of that type contain a list of all mandatory input fields
+ SUBROUTINE read_initicon_namelist( filename )
+    
+  CHARACTER(LEN=*), INTENT(IN) :: filename
+
+  !local variable
+  INTEGER :: i_status
+  INTEGER :: z_go_init(7)   ! for consistency check
+  INTEGER :: iunit
+  INTEGER :: jg
+
+  CHARACTER(len=*), PARAMETER ::  &
+    &  routine = 'mo_initicon_nml: read_initicon_namelist'
+
+    ! Variables of that type contain a list of all mandatory input fields
   ! This list can include a subset or the entire set of mandatory fields.
   TYPE t_check_input
     CHARACTER(LEN=vname_len) :: list(max_var_ml)
@@ -175,30 +196,6 @@ MODULE mo_initicon_nml
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
                           niter_diffu
                           
-CONTAINS
-
-!-------------------------------------------------------------------------
-!
-!
- !>
- !!  Initialization of the initicon coordinate namelist
- !!
- !!
- !! @par Revision History
- !!  Initial version by Guenther Zaengl (2011-07-11)
-
- SUBROUTINE read_initicon_namelist( filename )
-    
-  CHARACTER(LEN=*), INTENT(IN) :: filename
-
-  !local variable
-  INTEGER :: i_status
-  INTEGER :: z_go_init(7)   ! for consistency check
-  INTEGER :: iunit
-  INTEGER :: jg
-
-  CHARACTER(len=*), PARAMETER ::  &
-    &  routine = 'mo_initicon_nml: read_initicon_namelist'
 
   !------------------------------------------------------------
   ! 2.0 set up the default values for initicon

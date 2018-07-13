@@ -39,9 +39,12 @@ MODULE mo_communication_orig
 USE mo_kind,                 ONLY: dp, sp
 USE mo_exception,            ONLY: finish, message, message_text
 USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend,                &
-     &                             p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
+     &                             p_comm_work, my_process_is_mpi_seq,                      &
      &                             get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
-     &                             get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier
+     &                             get_my_mpi_work_id, p_gather, p_gatherv,                 &
+     &                             p_alltoall, p_comm_rank, p_comm_size,                    &
+     &                             p_barrier,                                               &
+     &                             p_comm_is_intercomm, p_comm_remote_size
 USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
@@ -51,7 +54,7 @@ USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
 USE mo_communication_types,  ONLY: t_comm_pattern, t_p_comm_pattern, &
-  &                                t_comm_pattern_collection
+  &                                t_comm_pattern_collection, xfer_list
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
@@ -84,6 +87,9 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
 
    INTEGER :: np_recv ! Number of PEs from which data have to be received
    INTEGER :: np_send ! Number of PEs to which data have to be sent
+
+   !> which communicator to apply this pattern to
+   INTEGER :: comm
 
    ! "recv_limits":
    !
@@ -132,7 +138,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
 
    ! "recv_startidx", "recv_count":
    !
-   ! The local PE recvs recv_count(i) data items to PE pelist_recv(i),
+   ! The local PE recvs recv_count(i) data items from PE pelist_recv(i),
    ! starting at recv_startidx(i) in the receiver buffer.
    INTEGER, ALLOCATABLE :: recv_startidx(:)
    INTEGER, ALLOCATABLE :: recv_count(:)
@@ -140,6 +146,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
   CONTAINS
 
     PROCEDURE :: setup => setup_comm_pattern
+    PROCEDURE :: setup2 => setup_comm_pattern2
     PROCEDURE :: delete => delete_comm_pattern
     PROCEDURE :: exchange_data_r3d => exchange_data_r3d
     PROCEDURE :: exchange_data_s3d => exchange_data_s3d
@@ -245,7 +252,7 @@ CONTAINS
   SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
                                 dst_global_index, send_glb2loc_index, &
                                 src_n_points, src_owner, src_global_index, &
-                                inplace)
+                                inplace, comm)
 
     CLASS(t_comm_pattern_orig), INTENT(OUT) :: p_pat
 
@@ -261,14 +268,24 @@ CONTAINS
     INTEGER, INTENT(IN) :: src_global_index(:) ! Global index of every point
 
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
+    INTEGER, OPTIONAL, INTENT(in) :: comm
 
-
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::setup_comm_pattern"
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
-    INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb
+    INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb, &
+      comm_size, comm_rank, recv_idx, abs_dst_idx, n_pnts
+    LOGICAL :: any_np_le_0
 
     !-----------------------------------------------------------------------
+    IF (PRESENT(comm)) THEN
+      p_pat%comm = comm
+    ELSE
+      p_pat%comm = p_comm_work
+    END IF
 
-    ALLOCATE(icnt(0:p_n_work-1), num_rcv(0:p_n_work-1))
+    comm_size = p_comm_size(p_pat%comm)
+    comm_rank = p_comm_rank(p_pat%comm)
+    ALLOCATE(icnt(0:comm_size-1), num_rcv(0:comm_size-1))
     max_glb = MAX(MAXVAL(ABS(dst_global_index(1:dst_n_points)), &
       &                  mask=(dst_owner(1:dst_n_points)>=0)),1)
     ALLOCATE(flag(max_glb))
@@ -279,39 +296,42 @@ CONTAINS
     icnt(:) = 0
     flag(:) = 0
 
-    p_pat%n_pnts = 0
+    n_pnts = 0
 
     DO i = 1, dst_n_points
-      IF(dst_owner(i)>=0) THEN
-        p_pat%n_pnts = p_pat%n_pnts + 1 ! Count total number of points we output
-        IF(flag(ABS(dst_global_index(i)))==0) THEN
+      IF (dst_owner(i) >= 0) THEN
+        n_pnts = n_pnts + 1 ! Count total number of points we output
+        abs_dst_idx = ABS(dst_global_index(i))
+        IF (flag(abs_dst_idx)==0) THEN
           icnt(dst_owner(i)) = icnt(dst_owner(i))+1 ! Number to get from dst_owner(i)
-          flag(ABS(dst_global_index(i))) = 1 ! Flag that this global point is already on the list
+          flag(abs_dst_idx) = 1 ! Flag that this global point is already on the list
         ENDIF
       ENDIF
     ENDDO
+    p_pat%n_pnts = n_pnts
 
     ! Allocate and set up the recv_limits array
 
-    ALLOCATE(p_pat%recv_limits(0:p_n_work))
+    ALLOCATE(p_pat%recv_limits(0:comm_size))
 
-    p_pat%recv_limits(0) = 0
-    DO np = 0, p_n_work-1
-      p_pat%recv_limits(np+1) = p_pat%recv_limits(np) + icnt(np)
+    i = 0
+    DO np = 0, comm_size - 1
+      p_pat%recv_limits(np) = i
+      i = i + icnt(np)
     ENDDO
+    p_pat%recv_limits(comm_size) = i
 
     ! The last entry in recv_limits is the total number of points we receive
-
-    p_pat%n_recv = p_pat%recv_limits(p_n_work)
+    p_pat%n_recv = i
 
     ! Allocate and set up the recv_src array
 
-    ALLOCATE(p_pat%recv_src(p_pat%n_pnts))
-    ALLOCATE(p_pat%recv_dst_blk(p_pat%n_pnts))
-    ALLOCATE(p_pat%recv_dst_idx(p_pat%n_pnts))
+    ALLOCATE(p_pat%recv_src(n_pnts))
+    ALLOCATE(p_pat%recv_dst_blk(n_pnts))
+    ALLOCATE(p_pat%recv_dst_idx(n_pnts))
     ALLOCATE(global_recv_index(p_pat%n_recv))
 
-    DO np = 0, p_n_work-1
+    DO np = 0, comm_size-1
       icnt(np) = p_pat%recv_limits(np)
     ENDDO
 
@@ -321,87 +341,76 @@ CONTAINS
     DO i = 1, dst_n_points
       IF(dst_owner(i)>=0) THEN
         n = n+1
-        IF(flag(ABS(dst_global_index(i)))==0) THEN
-          icnt(dst_owner(i)) = icnt(dst_owner(i)) + 1 ! Current index in recv array
-          global_recv_index(icnt(dst_owner(i))) = &
-            ABS(dst_global_index(i))                  ! Global index of points in receive array
-          p_pat%recv_src(n) = icnt(dst_owner(i))      ! From where in the receive array we get
-                                                      ! the local point
-          p_pat%recv_dst_blk(n) = blk_no(i)           ! Where to put the local point
-          p_pat%recv_dst_idx(n) = idx_no(i)           ! Where to put the local point
-          flag(ABS(dst_global_index(i))) = &
-            icnt(dst_owner(i))                        ! Store from where to get duplicates
-        ELSE
-          p_pat%recv_src(n) = flag(ABS(dst_global_index(i)))
-          p_pat%recv_dst_blk(n) = blk_no(i)
-          p_pat%recv_dst_idx(n) = idx_no(i)
+        abs_dst_idx = ABS(dst_global_index(i))
+        recv_idx = flag(abs_dst_idx)
+        IF (recv_idx == 0) THEN
+          recv_idx = icnt(dst_owner(i)) + 1
+          icnt(dst_owner(i)) = recv_idx   ! Current index in recv array
+          ! Global index of points in receive array
+          global_recv_index(recv_idx) = abs_dst_idx
+          flag(abs_dst_idx) = recv_idx    ! Store from where to get duplicates
         ENDIF
+        p_pat%recv_src(n) = recv_idx      ! From where in the receive array
+                                          ! this process receives the local
+                                          ! point
+        p_pat%recv_dst_blk(n) = blk_no(i) ! Where to put the local point
+        p_pat%recv_dst_idx(n) = idx_no(i) ! Where to put the local point
       ENDIF
     ENDDO
 
 
     ! Exchange the number of points we want to receive with the respective senders
-    DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+    DO np = 0, comm_size-1 ! loop over PEs where to send the data
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
-      ! First send the number of points to be received
-      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_comm_work)
     ENDDO
 
-    ! Now, we receive the number of points are needed from us
-    DO nr = 0, p_n_work-1
-
-      IF(nr /= p_pe_work) THEN
-        CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
-      ELSE
-        icnt(nr) = num_rcv(nr)
-      ENDIF
-
-    ENDDO
-    CALL p_wait
-
+    CALL p_alltoall(num_rcv, icnt, p_pat%comm)
     ! Now send the global index of the points we need from PE np
-    DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+    DO np = 0, comm_size-1 ! loop over PEs where to send the data
 
-      IF (np == p_pe_work) CYCLE
 
       irs = p_pat%recv_limits(np)+1 ! Start index in global_recv_index
       ire = p_pat%recv_limits(np+1) ! End   index in global_recv_index
 
-      IF(num_rcv(np)>0) CALL p_isend(global_recv_index(irs), np, 1, &
-        p_count=ire-irs+1, comm=p_comm_work)
+      IF (np /= comm_rank .AND. num_rcv(np) > 0) &
+        CALL p_isend(global_recv_index(irs), np, 1, &
+        &            p_count=ire-irs+1, comm=p_pat%comm)
 
     ENDDO
 
-    irs = p_pat%recv_limits(p_pe_work)+1   ! Start index in global_recv_index
-    ire = p_pat%recv_limits(p_pe_work+1)   ! End   index in global_recv_index
+    irs = p_pat%recv_limits(comm_rank)+1   ! Start index in global_recv_index
+    ire = p_pat%recv_limits(comm_rank+1)   ! End   index in global_recv_index
 
     DEALLOCATE(num_rcv)
     ! Allocate and set up the send_limits array
-    ALLOCATE(p_pat%send_limits(0:p_n_work))
+    ALLOCATE(p_pat%send_limits(0:comm_size))
 
     p_pat%send_limits(0) = 0
-    DO nr = 0, p_n_work-1
-      p_pat%send_limits(nr+1) = p_pat%send_limits(nr) + icnt(nr)
+    i = 0
+    DO nr = 0, comm_size-1
+      p_pat%send_limits(nr) = i
+      i = i + icnt(nr)
     ENDDO
+    p_pat%send_limits(comm_size) = i
 
     ! The last entry in send_limits is the total number of points we receive
-
-    p_pat%n_send = p_pat%send_limits(p_n_work)
+    p_pat%n_send = i
 
     ! Allocate and set up the send_src array
 
     ALLOCATE(send_src(p_pat%n_send))
-
-    DO nr = 0, p_n_work-1
-      num_send = p_pat%send_limits(nr+1) - p_pat%send_limits(nr)
-      iss = p_pat%send_limits(nr)+1 ! Start index in send_src
+    DO nr = 0, comm_size-1
+      iss = p_pat%send_limits(nr)   ! Start index in send_src
       ise = p_pat%send_limits(nr+1) ! End   index in send_src
-      IF(nr /= p_pe_work) THEN
-        IF(num_send>0) CALL p_recv(send_src(iss), nr, 1, &
-          p_count=ise-iss+1, comm=p_comm_work)
-      ELSE
-        IF(num_send>0) send_src(iss:ise) = global_recv_index(irs:ire)
-      ENDIF
+      num_send = ise - iss
+      iss = iss + 1
+      IF (num_send > 0) THEN
+        IF (nr /= comm_rank) THEN
+          CALL p_recv(send_src(iss), nr, 1, p_count=ise-iss+1, comm=p_pat%comm)
+        ELSE
+          send_src(iss:ise) = global_recv_index(irs:ire)
+        ENDIF
+      END IF
     ENDDO
 
     CALL p_wait
@@ -411,20 +420,21 @@ CONTAINS
 
     ! The indices in p_pat%send_src are global, convert to local
 
+    any_np_le_0 = .FALSE.
     DO i = 1, p_pat%n_send
 
       np = get_local_index(send_glb2loc_index, send_src(i))
-      IF(np <= 0) CALL finish('setup_comm_pattern','Got illegal index')
+      any_np_le_0 = any_np_le_0 .OR. np <= 0
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
     ENDDO
-
+    IF (any_np_le_0) CALL finish(routine, 'Got illegal index')
     ! Finally, compute lists of processors for send and receive operations
 
     num_send = 0
     num_recv = 0
 
-    DO np = 0, p_n_work-1 ! loop over PEs
+    DO np = 0, comm_size-1 ! loop over PEs
 
       iss = p_pat%send_limits(np)+1
       ise = p_pat%send_limits(np+1)
@@ -446,7 +456,7 @@ CONTAINS
     num_send = 0
     num_recv = 0
 
-    DO np = 0, p_n_work-1 ! loop over PEs
+    DO np = 0, comm_size-1 ! loop over PEs
 
       iss = p_pat%send_limits(np)+1
       ise = p_pat%send_limits(np+1)
@@ -481,7 +491,166 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-  
+
+  SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, inplace)
+    CLASS(t_comm_pattern_orig), INTENT(out) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+    LOGICAL, OPTIONAL, INTENT(in) :: inplace
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: recv_msg, send_msg
+#endif
+    INTEGER :: np_recv, np_send, n_send, n_recv, i, comm_rank, &
+         n_pnts_recv, n_pnts_send, comm_size
+    LOGICAL :: is_inter
+    CHARACTER(len=*), PARAMETER :: routine &
+         = 'mo_communication::setup_comm_pattern2'
+
+    p_pat%comm = comm
+    comm_rank = p_comm_rank(comm)
+    is_inter = p_comm_is_intercomm(comm)
+    IF (is_inter) THEN
+      comm_size = p_comm_remote_size(comm)
+    ELSE
+      comm_size = p_comm_size(comm)
+    END IF
+    np_send = SIZE(send_msg)
+    p_pat%np_send = np_send
+    np_recv = SIZE(recv_msg)
+    p_pat%np_recv = np_recv
+    ALLOCATE(p_pat%recv_limits(0:comm_size), p_pat%send_limits(0:comm_size), &
+         p_pat%pelist_send(np_send), p_pat%pelist_recv(np_recv), &
+         p_pat%send_startidx(np_send), p_pat%send_count(np_send), &
+         p_pat%recv_startidx(np_recv), p_pat%recv_count(np_recv))
+    CALL count_msg_size(np_recv, recv_msg, n_pnts_recv, n_recv, &
+         is_inter, comm_rank, p_pat%pelist_recv, p_pat%recv_count, &
+         p_pat%recv_startidx)
+    CALL count_msg_size(np_send, send_msg, n_pnts_send, n_send, &
+         is_inter, comm_rank, p_pat%pelist_send, p_pat%send_count, &
+         p_pat%send_startidx)
+    p_pat%n_send = n_send
+    IF (n_pnts_recv /= n_pnts_send) &
+      CALL finish(routine, "inconsistent lists")
+    n_pnts_recv = n_pnts_recv + n_recv
+    p_pat%n_pnts = n_pnts_recv
+    p_pat%n_recv = n_recv
+    ALLOCATE(p_pat%recv_src(n_pnts_recv), &
+      &      p_pat%recv_dst_blk(n_pnts_recv), p_pat%recv_dst_idx(n_pnts_recv), &
+      &      p_pat%send_src_blk(n_send), p_pat%send_src_idx(n_send))
+    CALL list2limits(comm_size, p_pat%recv_limits, recv_msg, is_inter)
+    CALL list2limits(comm_size, p_pat%send_limits, send_msg, is_inter)
+    CALL expand1d2blkidx(recv_msg, p_pat%recv_limits, p_pat%recv_src)
+    CALL expandglb2blkidx(recv_msg, glb2loc_index_recv, p_pat%recv_limits, &
+         p_pat%recv_dst_blk, p_pat%recv_dst_idx)
+    CALL expandglb2blkidx(send_msg, glb2loc_index_send, p_pat%send_limits, &
+         p_pat%send_src_blk, p_pat%send_src_idx)
+  CONTAINS
+    SUBROUTINE count_msg_size(nmsg, msg, nself, nremote, is_inter, comm_rank, &
+         ranks, counts, starts)
+      INTEGER, INTENT(in) :: nmsg, comm_rank
+      TYPE(xfer_list), INTENT(in) :: msg(nmsg)
+      INTEGER, INTENT(out) :: nself, nremote, ranks(nmsg), counts(nmsg), &
+           starts(nmsg)
+      LOGICAL, INTENT(in) :: is_inter
+      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum
+      nidx_remote = 0
+      nidx_local = 0
+      sz_accum = 1
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        starts(i) = sz_accum
+        sz = SIZE(msg(i)%glob_idx)
+        sz_accum = sz_accum + sz
+        ranks(i) = msg_rank
+        counts(i) = sz
+        IF (is_inter .OR. msg_rank /= comm_rank) THEN
+          nidx_remote = nidx_remote + sz
+        ELSE
+          nidx_local = nidx_local + sz
+        END IF
+      END DO
+      nremote = nidx_remote
+      nself = nidx_local
+    END SUBROUTINE count_msg_size
+
+    SUBROUTINE list2limits(comm_size, limits, msg, is_inter)
+      INTEGER, INTENT(in) :: comm_size
+      INTEGER, INTENT(out) :: limits(0:comm_size)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      LOGICAL, INTENT(in) :: is_inter
+      INTEGER :: i, msg_rank, nmsg, limits_psum
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: msg
+#endif
+      nmsg = SIZE(msg)
+      limits(0:comm_size) = 0
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        limits(msg_rank+1) = limits(msg_rank+1) + SIZE(msg(i)%glob_idx)
+      END DO
+      limits_psum = 0
+      DO i = 1, comm_size
+        limits_psum = limits_psum + limits(i)
+        limits(i) = limits_psum
+      END DO
+    END SUBROUTINE list2limits
+
+    SUBROUTINE expand1d2blkidx(msg, limits, recv_src)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      INTEGER, INTENT(in) :: limits(0:)
+      INTEGER, INTENT(out) :: recv_src(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: msg, limits, recv_src
+#endif
+      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      nmsg = SIZE(msg)
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        jle = limits(msg_rank+1)
+        jls = limits(msg_rank)
+        sz = jle - jls
+        DO jl = 1, sz
+          recv_src(jls+jl) = jls + jl
+        END DO
+      END DO
+    END SUBROUTINE expand1d2blkidx
+
+    SUBROUTINE  expandglb2blkidx(msg, glb2loc_index, limits, &
+         a_blk, a_idx)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
+      INTEGER, INTENT(in) :: limits(0:)
+      INTEGER, INTENT(out) :: a_blk(:), a_idx(:)
+      INTEGER :: i, jl, msg_rank, sz, jls, jle, np, nmsg
+      LOGICAL :: any_np_le_0
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: limits, msg, a_blk, a_idx
+#endif
+      nmsg = SIZE(msg)
+      any_np_le_0 = .FALSE.
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        jle = limits(msg_rank+1)
+        jls = limits(msg_rank)
+        sz = jle - jls
+        DO jl = 1, sz
+          np = get_local_index(glb2loc_index, msg(i)%glob_idx(jl))
+          any_np_le_0 = any_np_le_0 .OR. np <= 0
+          a_blk(jls+jl) = blk_no(np)
+          a_idx(jls+jl) = idx_no(np)
+        END DO
+      END DO
+      IF (any_np_le_0) CALL finish('setup_comm_pattern2','Got illegal index')
+    END SUBROUTINE expandglb2blkidx
+  END SUBROUTINE setup_comm_pattern2
+
+
+  !-------------------------------------------------------------------------
+
+
   SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
 
     CLASS(t_comm_pattern_collection_orig), INTENT(OUT) :: pattern_collection
@@ -764,9 +933,9 @@ CONTAINS
     END IF
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-      start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
-      stop_sync_timer(timer_barrier)
+      CALL timer_start(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      CALL timer_stop(timer_barrier)
     ENDIF
 
     start_sync_timer(timer_exch_data)
@@ -786,7 +955,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -843,7 +1012,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -852,7 +1021,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -861,7 +1030,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -870,7 +1039,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -903,7 +1072,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -1032,7 +1201,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -1053,7 +1222,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1110,7 +1279,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1119,7 +1288,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -1128,7 +1297,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -1137,7 +1306,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1170,7 +1339,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -1457,7 +1626,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1508,7 +1677,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1517,7 +1686,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -1526,7 +1695,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv >= 3) THEN ! use irecv/isend
@@ -1535,7 +1704,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1654,7 +1823,7 @@ CONTAINS
     nfields = SIZE(recv)
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -1678,7 +1847,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1778,7 +1947,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1787,7 +1956,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
 
@@ -1796,7 +1965,7 @@ CONTAINS
           pid    = p_pat%pelist_recv(np) ! ID of receiver PE
           irs    = p_pat%recv_startidx(np)
           icount = p_pat%recv_count(np)*ndim2tot
-          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -1805,7 +1974,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ENDIF
@@ -1838,7 +2007,7 @@ CONTAINS
 
       IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
         start_sync_timer(timer_barrier)
-        CALL work_mpi_barrier()
+        CALL p_barrier(p_pat%comm)
         stop_sync_timer(timer_barrier)
       ENDIF
 
@@ -1927,7 +2096,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -1953,10 +2122,10 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot_dp
-        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         icount = p_pat%recv_count(np)*ndim2tot_sp
-        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2112,9 +2281,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -2123,9 +2292,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
 
@@ -2134,9 +2303,9 @@ CONTAINS
           pid    = p_pat%pelist_recv(np) ! ID of receiver PE
           irs    = p_pat%recv_startidx(np)
           icount = p_pat%recv_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%recv_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2145,9 +2314,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ENDIF
@@ -2186,7 +2355,7 @@ CONTAINS
 
       IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
         start_sync_timer(timer_barrier)
-        CALL work_mpi_barrier()
+        CALL p_barrier(p_pat%comm)
         stop_sync_timer(timer_barrier)
       ENDIF
 
@@ -2290,7 +2459,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -2313,7 +2482,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2362,7 +2531,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -2371,7 +2540,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -2380,7 +2549,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2389,7 +2558,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2423,7 +2592,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -2511,8 +2680,9 @@ CONTAINS
     REAL(dp), ALLOCATABLE :: send_buf(:,:),recv_buf(:,:), &
       auxs_buf(:,:),auxr_buf(:,:)
 
-    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
-      npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, j
+    INTEGER :: i, j, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
+      npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
+      comm_size
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
@@ -2529,6 +2699,7 @@ CONTAINS
       nsendtot = nsendtot + p_pat(i)%p%n_send
       nrecvtot = nrecvtot + p_pat(i)%p%n_recv
     END DO
+    comm_size = p_comm_size(p_pat_coll%patterns(1)%p%comm)
 
     ALLOCATE(send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
       auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot))
@@ -2537,7 +2708,7 @@ CONTAINS
 
     IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
       start_sync_timer(timer_barrier)
-      CALL work_mpi_barrier()
+      CALL p_barrier(p_pat_coll%patterns(1)%p%comm)
       stop_sync_timer(timer_barrier)
     ENDIF
 
@@ -2553,7 +2724,7 @@ CONTAINS
     num_send = 0
     num_recv = 0
 
-    DO np = 0, p_n_work-1 ! loop over PEs
+    DO np = 0, comm_size-1 ! loop over PEs
 
       DO n = 1, npats  ! loop over communication patterns
         iss = p_pat(n)%p%send_limits(np)+1
@@ -2581,7 +2752,7 @@ CONTAINS
     num_recv = 0
 
     ! Now compute "envelope PE lists" for all communication patterns
-    DO np = 0, p_n_work-1 ! loop over PEs
+    DO np = 0, comm_size-1 ! loop over PEs
 
       DO n = 1, npats  ! loop over communication patterns
         iss = p_pat(n)%p%send_limits(np)+1
@@ -2632,8 +2803,9 @@ CONTAINS
         ENDDO
 
         IF(isum > ioffset) &
-          CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, p_count=(isum-ioffset)*ndim2tot, &
-          comm=p_comm_work)
+          CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, &
+          &            p_count=(isum-ioffset)*ndim2tot, &
+          &            comm=p_pat_coll%patterns(1)%p%comm)
         ioffset = isum
 
       ENDDO
@@ -2823,7 +2995,7 @@ CONTAINS
 #endif
 
           IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 
           ioffset = isum
 
@@ -2853,7 +3025,7 @@ CONTAINS
 !$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
 #endif
           IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 
           ioffset = isum
 
@@ -2872,7 +3044,7 @@ CONTAINS
           ENDDO
 
           IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 #ifndef __USE_G2G
 !$ACC UPDATE DEVICE( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
 #endif
@@ -2915,7 +3087,7 @@ CONTAINS
 #endif
 !$OMP MASTER
           IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 !$OMP END MASTER
 
           ioffset = isum
@@ -2934,7 +3106,7 @@ CONTAINS
 
       IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
         start_sync_timer(timer_barrier)
-        CALL work_mpi_barrier()
+        CALL p_barrier(p_pat_coll%patterns(1)%p%comm)
         stop_sync_timer(timer_barrier)
       ENDIF
 
@@ -3624,3 +3796,8 @@ CONTAINS
   END SUBROUTINE exchange_data_i1d_2d
 
 END MODULE mo_communication_orig
+!
+! Local Variables:
+! f90-continuation-indent: 2
+! End:
+!

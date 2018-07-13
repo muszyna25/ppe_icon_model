@@ -98,11 +98,12 @@ MODULE mo_name_list_output_init
     &                                             p_int, p_real_dp, p_real_sp,                    &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
-    &                                             my_process_is_mpi_seq, my_process_is_io,        &
+    &                                             my_process_is_io,        &
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_pe, my_process_is_work
+    &                                             p_pe_work, p_io_pe0, p_pe, &
+    &                                             my_process_is_work, num_test_procs
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -278,7 +279,7 @@ CONTAINS
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
-    TYPE (t_keyword_list), POINTER        :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER        :: keywords
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit, lonlat_id, jg
     TYPE (t_lon_lat_grid)                 :: new_grid
@@ -470,14 +471,15 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
+      NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, output_nml_dict))
+        cfilename = with_keywords(keywords, output_nml_dict)
         CALL message(routine, "load dictionary file.")
         CALL dict_loadfile(varnames_dict, cfilename, linverse=linvert_dict)
       END IF
       IF(netcdf_dict /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, netcdf_dict))
+        cfilename = with_keywords(keywords, netcdf_dict)
         CALL message(routine, "load dictionary file (output names).")
         CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
       END IF
@@ -1033,12 +1035,14 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_interval(MAX_TIME_INTERVALS) !< time stamps + modifier
     INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
-    LOGICAL                              :: include_last
+    LOGICAL                              :: include_last, is_mpi_test
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
     l_print_list = .FALSE.
+    is_mpi_test = my_process_is_mpi_test()
+
     CALL assign_if_present(l_print_list, opt_lprintlist)
 
     ! -- preliminary checks:
@@ -1111,8 +1115,7 @@ CONTAINS
 
     ! Replicate physical domain setup, only the number of domains and
     ! the logical ID is needed
-    IF (use_async_name_list_io .AND.  &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       CALL p_bcast(n_phys_dom, bcast_root, p_comm_work_2_io)
       DO jg = 1, n_phys_dom
         CALL p_bcast(p_phys_patch(jg)%logical_id, bcast_root, p_comm_work_2_io)
@@ -1198,8 +1201,7 @@ CONTAINS
     ENDDO
 
     ! replicate grid_info_mode on I/O PEs:
-    IF (use_async_name_list_io .AND.  &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         CALL p_bcast(patch_info(idom)%grid_info_mode, bcast_root, p_comm_work_2_io)
@@ -1217,7 +1219,7 @@ CONTAINS
     ! locations of cells, edges, and vertices
 
     ! Only needed if no async name list io is used
-    IF (.NOT. use_async_name_list_io) THEN
+    IF (.NOT. use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
@@ -1358,7 +1360,8 @@ CONTAINS
     ! If async IO is used, replicate data (mainly the variable lists) on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io) CALL replicate_data_on_io_procs
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) &
+         CALL replicate_data_on_io_procs
 #endif
 ! NOMPI
 
@@ -1511,11 +1514,8 @@ CONTAINS
           & (output_file(i)%pe_placement /=  0)) &
           &  CALL finish(routine, "Invalid explicit placement of IO rank!")
 
-        IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
-          output_file(i)%io_proc_id = process_mpi_stdio_id + 1
-        ELSE
-          output_file(i)%io_proc_id = process_mpi_stdio_id
-        END IF
+        output_file(i)%io_proc_id = process_mpi_stdio_id &
+             + MERGE(num_test_procs, 0, p_test_run .AND. .NOT. is_mpi_test)
       ENDIF
     ENDDO
 
@@ -1577,13 +1577,12 @@ CONTAINS
     ! If async IO is used, replicate coordinate data on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       CALL replicate_coordinate_data_on_io_procs
 
       ! Clear patch_info fields clon, clat, etc. (especially on work
       ! PE 0) since they aren't needed there any longer.
-      IF ( (.NOT. my_process_is_io()) .AND. &
-        &  (.NOT. my_process_is_mpi_test())) THEN
+      IF ((.NOT. my_process_is_io())) THEN
         ! Go over all output domains (deallocation is skipped if data
         ! structures were not allocated)
         DO idom = 1, n_dom_out
@@ -1750,7 +1749,7 @@ CONTAINS
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
-    IF (.NOT. my_process_is_mpi_test()) THEN
+    IF (.NOT. is_mpi_test) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           CALL print_output_event(all_events)                                       ! screen output
@@ -1789,23 +1788,22 @@ CONTAINS
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
-    IF(use_async_name_list_io) CALL init_memory_window
-! NOMPI
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) &
+         CALL init_memory_window
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    IF (.NOT. my_process_is_mpi_test()) THEN
+    IF (.NOT. is_mpi_test) THEN
       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
         & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
         ev => all_events
-        HANDLE_COMPLETE_STEPS : DO
-          IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+        DO WHILE (ASSOCIATED(ev))
           CALL trigger_output_step_irecv(ev)
           ev => ev%next
-        END DO HANDLE_COMPLETE_STEPS
+        END DO
       END IF
     END IF
-#endif
+#endif ! NOMPI
 
     CALL message(routine,'Done')
 
@@ -2053,6 +2051,9 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
     INTEGER :: jp, jl, jg
+    LOGICAL :: is_mpi_test
+
+    is_mpi_test = my_process_is_mpi_test()
 
     DO jp = 1, n_dom_out
 
@@ -2083,7 +2084,7 @@ CONTAINS
 
       ENDIF
 #ifndef NOMPI
-      IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
+      IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
         ! Transfer reorder_info to IO PEs
         CALL transfer_reorder_info(patch_info(jp)%cells, patch_info(jp)%grid_info_mode)
         CALL transfer_reorder_info(patch_info(jp)%edges, patch_info(jp)%grid_info_mode)
@@ -2110,7 +2111,7 @@ CONTAINS
             &                          lonlat_info(jl,jg))
         ENDIF
 #ifndef NOMPI
-        IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
+        IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
@@ -2254,16 +2255,6 @@ CONTAINS
     ! Safety check
     IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
 
-    ! set trivial destination indices:
-    IF(my_process_is_mpi_seq()) THEN
-      ALLOCATE(p_ri%own_dst_idx(p_ri%n_own), &
-        &      p_ri%own_dst_blk(p_ri%n_own))
-      DO i=1,p_ri%n_own
-        p_ri%own_dst_idx(i) = idx_no(i)
-        p_ri%own_dst_blk(i) = blk_no(i)
-      END DO ! i
-    END IF
-
     DEALLOCATE(phys_owner_mask)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
@@ -2302,19 +2293,6 @@ CONTAINS
       patch_info_ll%ri%own_idx(i) = MOD(i - 1, nproma) + 1
       patch_info_ll%ri%own_blk(i) =    (i - 1)/nproma  + 1
     END DO ! i
-
-    ! set destination indices (for sequential/test PEs). This is
-    ! important for the case that the local patch is smaller than the
-    ! lon-lat grid:
-    IF(my_process_is_mpi_seq()) THEN
-      ALLOCATE(patch_info_ll%ri%own_dst_idx(n_own), &
-        &      patch_info_ll%ri%own_dst_blk(n_own))
-      DO i=1,n_own
-        gidx = intp%global_idx(i)
-        patch_info_ll%ri%own_dst_idx(i) = idx_no(gidx)
-        patch_info_ll%ri%own_dst_blk(i) = blk_no(gidx)
-      END DO ! i
-    END IF
 
     ! Gather the number of own points for every PE into p_ri%pe_own
     ALLOCATE(patch_info_ll%ri%pe_own(0:p_n_work-1), &
@@ -2674,6 +2652,9 @@ CONTAINS
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
     TYPE(t_verticalAxis), POINTER  :: zaxis
+    LOGICAL                        :: is_mpi_test
+
+    is_mpi_test = my_process_is_mpi_test()
 
     vlistID = of%cdiVlistID
 
@@ -2737,7 +2718,7 @@ CONTAINS
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) THEN
         ! set the missing value
-        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+        IF ((.NOT.use_async_name_list_io .OR. is_mpi_test) .OR. use_dp_mpi2io) THEN
           CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
         ELSE
           ! In cases, where we use asynchronous output and the data is
@@ -2828,9 +2809,6 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
     INTEGER,              INTENT(IN)    :: grid_info_mode
 
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
-
     ! Transfer the global number of points, this is not yet known on IO PEs
     CALL p_bcast(p_ri%n_glb,  bcast_root, p_comm_work_2_io)
     CALL p_bcast(p_ri%n_log,  bcast_root, p_comm_work_2_io)
@@ -2886,9 +2864,6 @@ CONTAINS
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
-
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
 
     !-----------------------------------------------------------------------------------------------
 
@@ -3097,9 +3072,6 @@ CONTAINS
     INTEGER :: idom_log
     LOGICAL :: keep_grid_info
 
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
-
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
 
@@ -3163,9 +3135,6 @@ CONTAINS
       &                                n_own, lonlat_id
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
 
-
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
 
     ! Go over all output files
     OUT_FILE_LOOP : DO i = 1, SIZE(output_file)

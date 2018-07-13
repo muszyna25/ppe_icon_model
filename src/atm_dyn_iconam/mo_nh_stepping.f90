@@ -597,16 +597,10 @@ MODULE mo_nh_stepping
   END IF
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
-  IF  (.NOT. ltestcase) THEN
-    IF (msg_level >= 13) THEN
-      DO i = 1, nvar_lists
-        IF (msg_level >= 20) THEN
-          CALL print_var_list(var_lists(i), lshort=.FALSE.)
-        ELSE
-          CALL print_var_list(var_lists(i), lshort=.TRUE.)
-        ENDIF
-      ENDDO
-    ENDIF
+  IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
+    DO i = 1, nvar_lists
+      CALL print_var_list(var_lists(i), lshort=(msg_level < 20))
+    ENDDO
   ENDIF
 
   ! Check if current number of dynamics substeps is larger than the default value

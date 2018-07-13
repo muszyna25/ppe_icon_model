@@ -45,7 +45,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_les_nml,            ONLY: turb_profile_list, turb_tseries_list
   USE mo_les_config,         ONLY: les_config
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_write_netcdf      
+  USE mo_write_netcdf,       ONLY: open_nc, addvar_nc, writevar_nc, close_nc
   USE mo_impl_constants,     ONLY: min_rlcell_int
   USE mo_physical_constants, ONLY: cpd, grav, alv, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
@@ -69,8 +69,8 @@ MODULE mo_turbulent_diagnostic
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
   INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
   
-  CHARACTER(20) :: tname     = 'time'
-  CHARACTER(20) :: tlongname = 'Time'
+  CHARACTER(len=*), PARAMETER :: tname = 'time'
+  CHARACTER(len=*), PARAMETER :: tlongname = 'Time'
 
   PRIVATE
 
@@ -135,7 +135,7 @@ CONTAINS
     INTEGER :: i_nchdom, jg            !< domain index
     INTEGER :: jc,jk,jb                !block index
     INTEGER :: mtop_min
-    INTEGER :: mlab(nproma)
+    LOGICAL :: mlab(nproma)
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
@@ -235,14 +235,14 @@ CONTAINS
        !
        DO jc = i_startidx, i_endidx 
          prm_diag%htop_dc(jc,jb) = zundef
-         mlab(jc) = 1
+         mlab(jc) = .TRUE.
          ztp (jc) = p_diag%temp(jc,nlev,jb) + 0.25_wp
          zqp (jc) = p_prog_rcf%tracer(jc,nlev,jb,iqv)
        ENDDO
 
        DO jk = nlev-1, mtop_min, -1
          DO jc = i_startidx, i_endidx 
-           IF ( mlab(jc) == 1) THEN
+           IF ( mlab(jc) ) THEN
              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - p_diag%tempv(jc,jk,jb)
@@ -252,7 +252,7 @@ CONTAINS
              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
              ELSE
-               mlab(jc) = 0
+               mlab(jc) = .FALSE.
              END IF
            END IF
          ENDDO
@@ -979,13 +979,10 @@ CONTAINS
     REAL(wp)                 :: inv_ncount
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
 
-    
     ! calculate elapsed simulation time in seconds
     sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
 
-
     !Write profiles
-      
     inv_ncount = 1._wp / REAL(ncount,wp)
 
     nvar = SIZE(turb_profile_list,1)
@@ -1022,13 +1019,11 @@ CONTAINS
 
     INTEGER                  :: nvar, n
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
-
     
     ! calculate elapsed simulation time in seconds
     sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
 
-
-    !Write time series 
+    !Write time series
     nvar = SIZE(turb_tseries_list,1)
 
     !Loop over all variables
@@ -1074,7 +1069,6 @@ CONTAINS
  
    ! calculate elapsed simulation time in seconds
    p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
-
 
    jg = p_patch%id
 

@@ -46,7 +46,7 @@ IMPLICIT NONE
 PRIVATE
 
 PUBLIC :: interpol_vec_grf, interpol2_vec_grf, interpol_scal_grf
-          
+
 
 CONTAINS
 
@@ -110,8 +110,8 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   ! number of vertical full levels (child domain)
   nlev_c = p_pc%nlev
-  ! difference between upper boundary of parent domain and 
-  ! upper boundary of child domain (in terms of vertical levels) 
+  ! difference between upper boundary of parent domain and
+  ! upper boundary of child domain (in terms of vertical levels)
   js = p_pc%nshift
 
 !$OMP PARALLEL
@@ -145,7 +145,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
           p_grf%coeff_bdyintp_e12(5,je) *                 &
           p_vn_in(iidx(11,je),jk+js,iblk(11,je)) +        &
           p_grf%coeff_bdyintp_e12(6,je)*                  &
-          p_vn_in(iidx(12,je),jk+js,iblk(12,je)) 
+          p_vn_in(iidx(12,je),jk+js,iblk(12,je))
 
         ! child edge 2
         vn_aux(jk,je,2) = p_grf%coeff_bdyintp_e12(7,je) * &
@@ -159,7 +159,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
           p_grf%coeff_bdyintp_e12(11,je) *                &
           p_vn_in(iidx(14,je),jk+js,iblk(14,je)) +        &
           p_grf%coeff_bdyintp_e12(12,je)*                 &
-          p_vn_in(iidx(15,je),jk+js,iblk(15,je)) 
+          p_vn_in(iidx(15,je),jk+js,iblk(15,je))
 
         ! child edge 3
         vn_aux(jk,je,3) = p_grf%coeff_bdyintp_e34(1,je) * &
@@ -171,7 +171,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
           p_grf%coeff_bdyintp_e34(4,je)*                  &
           p_vn_in(iidx(4,je),jk+js,iblk(4,je)) +          &
           p_grf%coeff_bdyintp_e34(5,je) *                 &
-          p_vn_in(iidx(5,je),jk+js,iblk(5,je)) 
+          p_vn_in(iidx(5,je),jk+js,iblk(5,je))
 
         ! child edge 4
         IF (p_pp%edges%refin_ctrl(iidx(1,je),iblk(1,je)) == -1) CYCLE
@@ -184,7 +184,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
           p_grf%coeff_bdyintp_e34(9,je)*                  &
           p_vn_in(iidx(8,je),jk+js,iblk(8,je)) +          &
           p_grf%coeff_bdyintp_e34(10,je) *                &
-          p_vn_in(iidx(9,je),jk+js,iblk(9,je)) 
+          p_vn_in(iidx(9,je),jk+js,iblk(9,je))
 
       ENDDO
     ENDDO
@@ -210,7 +210,7 @@ END SUBROUTINE interpol_vec_grf
 !!
 SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
                               f3din2, f3dout2, f3din3, f3dout3, f3din4, f3dout4)
-                              
+
 
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
   TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
@@ -225,7 +225,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   INTEGER, INTENT(IN) :: nfields
 
   ! reconstructed edge-normal vector component; dim: (nproma,nlev_c,nblks_e)
-  REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3dout1, f3dout2, f3dout3, f3dout4
+  REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL :: f3dout1, f3dout2, f3dout3, f3dout4
 
 
   INTEGER :: jb, jk, je, jv, jn        ! loop indices
@@ -249,7 +249,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   TYPE t_fieldptr
     REAL(wp), POINTER :: fld(:,:,:)
   END TYPE t_fieldptr
-  TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
+  TYPE(t_fieldptr) :: p_in(nfields)
 
   INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 !-----------------------------------------------------------------------
@@ -257,19 +257,15 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   IF (PRESENT(f3din1)) THEN
     p_in(1)%fld  => f3din1
-    p_out(1)%fld => f3dout1
   ENDIF
   IF (PRESENT(f3din2)) THEN
     p_in(2)%fld  => f3din2
-    p_out(2)%fld => f3dout2
   ENDIF
   IF (PRESENT(f3din3)) THEN
     p_in(3)%fld  => f3din3
-    p_out(3)%fld => f3dout3
   ENDIF
   IF (PRESENT(f3din4)) THEN
     p_in(4)%fld  => f3din4
-    p_out(4)%fld => f3dout4
   ENDIF
 
   ! Set pointers to index lists
@@ -298,7 +294,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   ! number of vertical full levels (child domain)
   nlev_c = p_pc%nlev
-  ! difference between upper boundary of parent domain and 
+  ! difference between upper boundary of parent domain and
   ! upper boundary of child domain (in terms of vertical levels
   js = p_pc%nshift
 
@@ -388,7 +384,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
             p_grf%coeff_bdyintp_e34(4,je)*                     &
             p_in(jn)%fld(iidx(4,je),jk+js,iblk(4,je)) +        &
             p_grf%coeff_bdyintp_e34(5,je) *                    &
-            p_in(jn)%fld(iidx(5,je),jk+js,iblk(5,je)) 
+            p_in(jn)%fld(iidx(5,je),jk+js,iblk(5,je))
 
           ! child edge 4
           IF (p_pp%edges%refin_ctrl(iidx(1,je),iblk(1,je)) /= -1) THEN
@@ -401,7 +397,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
               p_grf%coeff_bdyintp_e34(9,je)*                     &
               p_in(jn)%fld(iidx(8,je),jk+js,iblk(8,je)) +        &
               p_grf%coeff_bdyintp_e34(10,je) *                   &
-              p_in(jn)%fld(iidx(9,je),jk+js,iblk(9,je)) 
+              p_in(jn)%fld(iidx(9,je),jk+js,iblk(9,je))
           ENDIF
 
         ENDDO
@@ -416,19 +412,19 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
     nlevtot = nlev_c
     CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1) )
-    
+
   ELSE IF (nfields == 2) THEN
     nlevtot = 2*nlev_c
     CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1),RECV2=f3dout2,  &
       SEND2=vn_aux(:,:,:,2) )
-    
+
   ELSE IF (nfields == 3) THEN
     nlevtot = 3*nlev_c
     CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
       RECV1=f3dout1,SEND1=vn_aux(:,:,:,1),RECV2=f3dout2,  &
       SEND2=vn_aux(:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,3) )
-    
+
   ELSE IF (nfields == 4) THEN
     nlevtot = 4*nlev_c
     CALL exchange_data_grf(p_pc%comm_pat_coll_interpol_vec_grf,nfields,nlevtot, &
@@ -436,7 +432,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
       SEND2=vn_aux(:,:,:,2),RECV3=f3dout3,SEND3=vn_aux(:,:,:,3),  &
       RECV4=f3dout4,SEND4=vn_aux(:,:,:,4) )
   ENDIF
-  
+
 END SUBROUTINE interpol2_vec_grf
 
 
@@ -503,14 +499,13 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
   ! Pointers to index fields
   INTEGER, DIMENSION(:,:),   POINTER :: iidx, iblk
-  INTEGER, DIMENSION(:,:,:), POINTER :: ichcidx, ichcblk
 
   ! Allocatable pointer to input and output fields
   TYPE t_fieldptr
     REAL(wp), POINTER :: fld(:,:,:)
   END TYPE t_fieldptr
   TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
- 
+
 
 !-----------------------------------------------------------------------
 
@@ -587,14 +582,11 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
   ovsht_fac = 1.05_wp ! factor of allowed overshooting
   r_ovsht_fac = 1._wp/ovsht_fac
- 
+
   ! Pointers to index lists for gradient computation
   iidx => p_grf%idxlist_bdyintp_c
   iblk => p_grf%blklist_bdyintp_c
 
-  ! child cell indices and blocks for non-MPI parent-to-child communication
-  ichcidx => p_pp%cells%child_idx
-  ichcblk => p_pp%cells%child_blk
 
   IF (l_noshift) THEN
     js = 0
@@ -610,11 +602,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$OMP   val_ctr, maxval_neighb, minval_neighb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_bdyintp
 
-      IF (jb == nblks_bdyintp) THEN
-        nlen = npromz_bdyintp
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
+      nlen = MERGE(nproma_bdyintp, npromz_bdyintp, jb /= nblks_bdyintp)
       nshift = (jb-1)*nproma_bdyintp
 
       DO jn = 1, nfields

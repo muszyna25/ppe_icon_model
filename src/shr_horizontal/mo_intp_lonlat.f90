@@ -62,7 +62,7 @@
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,          &
       &                               INVALID_NODE, gnat_recursive_proximity_query
     USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                     &
-      &                               p_min, p_comm_work,                                     &
+      &                               p_min, p_bcast, p_comm_work, p_io, p_pe_work,              &
       &                               my_process_is_mpi_test, p_max, p_send,                  &
       &                               p_recv, process_mpi_all_test_id,                        &
       &                               process_mpi_all_workroot_id, my_process_is_stdio
@@ -1125,7 +1125,8 @@
       REAL(wp)                         :: point(2),                               &
         &                                 max_dist, start_radius
 !$    REAL                             :: time1
-      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
+      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles, &
+           l_my_process_is_mpi_test
 
 
       !-----------------------------------------------------------------------
@@ -1164,13 +1165,19 @@
         & REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/grid_sphere_radius, gk)
       ! for MPI-independent behaviour: determine global max.
       max_dist = p_max(max_dist, comm=p_comm_work)
-      IF(p_test_run) THEN
-        IF(.NOT. my_process_is_mpi_test()) THEN
-          ! Send to test PE
-          CALL p_send(max_dist, process_mpi_all_test_id, 1)
-        ELSE
-          ! Receive result from parallel worker PEs
-          CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+      IF (p_test_run) THEN
+        l_my_process_is_mpi_test = my_process_is_mpi_test()
+        IF (p_pe_work == p_io) THEN
+          IF(.NOT. l_my_process_is_mpi_test) THEN
+            ! Send to test PE
+            CALL p_send(max_dist, process_mpi_all_test_id, 1)
+          ELSE
+            ! Receive result from parallel worker PEs
+            CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+          END IF
+        END IF
+        IF(l_my_process_is_mpi_test) THEN
+          CALL p_bcast(max_dist, p_io, comm=p_comm_work)
         END IF
       END IF
 

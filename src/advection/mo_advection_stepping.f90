@@ -250,7 +250,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
-      & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
+      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
@@ -358,7 +358,7 @@ CONTAINS
         ptr_delp_mc_new  => z_delp_mc1
 
         ! integration of tracer continuity equation in vertical
-        ! direction. Must be computed prior to the vertical tracer flux, 
+        ! direction. Must be computed prior to the vertical tracer flux,
         ! since it is required for FCT (to be implemented).
         ! This is independent of the tracer and thus must be
         ! computed only once.

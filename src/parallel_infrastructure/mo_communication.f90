@@ -63,6 +63,8 @@ USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
+USE mo_communication_types, ONLY: t_comm_pattern, t_comm_pattern_collection, &
+  & t_p_comm_pattern, xfer_list
 
 
 IMPLICIT NONE
@@ -93,6 +95,8 @@ PUBLIC :: t_comm_pattern_collection, setup_comm_pattern_collection, &
   &       delete_comm_pattern_collection
 
 PUBLIC :: ASSIGNMENT(=)
+
+PUBLIC :: xfer_list, setup_comm_pattern2
 
 !
 !------------------------------------------------------------------------------------------------
@@ -136,6 +140,7 @@ TYPE t_comm_allgather_pattern
   TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
   INTEGER :: intercomm
 END TYPE t_comm_allgather_pattern
+
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -216,8 +221,8 @@ CONTAINS
   !!
   SUBROUTINE setup_comm_pattern(dst_n_points, dst_owner, dst_global_index, &
                                 send_glb2loc_index, src_n_points, src_owner, &
-                                src_global_index, p_pat, inplace, opt_comm_type)
-
+                                src_global_index, p_pat, inplace, comm, &
+                                opt_comm_type)
     INTEGER, INTENT(IN) :: dst_n_points        ! Total number of points
     INTEGER, INTENT(IN) :: dst_owner(:)        ! Owner of every point
     INTEGER, INTENT(IN) :: dst_global_index(:) ! Global index of every point
@@ -234,7 +239,7 @@ CONTAINS
 
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
 
-    INTEGER, OPTIONAL, INTENT(IN) :: opt_comm_type
+    INTEGER, OPTIONAL, INTENT(IN) :: comm, opt_comm_type
 
     INTEGER :: comm_type
 
@@ -263,7 +268,7 @@ CONTAINS
 
     CALL p_pat%setup(dst_n_points, dst_owner, dst_global_index, &
                      send_glb2loc_index, src_n_points, src_owner, &
-                     src_global_index, inplace)
+                     src_global_index, inplace, comm)
 
   END SUBROUTINE setup_comm_pattern
 
@@ -271,7 +276,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
+  SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
 
     TYPE(t_p_comm_pattern), INTENT(IN) :: patterns(:)
     CLASS(t_comm_pattern_collection), POINTER :: pattern_collection
@@ -482,6 +487,53 @@ SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
     DEALLOCATE(send_buffer, recv_buffer)
 
   END SUBROUTINE setup_comm_gather_pattern
+
+
+  !-------------------------------------------------------------------------
+
+
+  SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, opt_comm_type)
+    CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: recv_msg, send_msg
+#endif
+
+   INTEGER, OPTIONAL, INTENT(IN) :: opt_comm_type
+
+   CHARACTER(len=*), PARAMETER :: routine = modname//"::setup_comm_pattern"
+   INTEGER :: comm_type
+
+!-----------------------------------------------------------------------
+
+   IF (PRESENT(opt_comm_type)) THEN
+      comm_type = opt_comm_type
+   ELSE
+      comm_type = default_comm_pattern_type
+   END IF
+
+   SELECT CASE (comm_type)
+     CASE (comm_pattern_type_orig)
+      ALLOCATE(t_comm_pattern_orig::p_pat)
+     CASE (comm_pattern_type_yaxt)
+#ifdef HAVE_YAXT
+       ALLOCATE(t_comm_pattern_yaxt::p_pat)
+#else
+       CALL finish(routine, &
+         "comm_pattern_type_yaxt has been selected, but ICON was built without YAXT")
+#endif
+     CASE DEFAULT
+       CALL finish(routine, "Invalid comm_type!")
+   END SELECT
+
+   CALL p_pat%setup2(comm, recv_msg, send_msg, &
+     &               glb2loc_index_recv, glb2loc_index_send)
+
+  END SUBROUTINE setup_comm_pattern2
 
 
   !-------------------------------------------------------------------------
@@ -1397,7 +1449,7 @@ SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
       comm)
 
-    DEALLOCATE(collector_buffer_sizes)
+    DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_r_1d_deblock
 
 
@@ -1453,7 +1505,7 @@ SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
       comm)
 
-    DEALLOCATE(collector_buffer_sizes)
+    DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_i_1d_deblock
 
 

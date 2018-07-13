@@ -42,7 +42,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             min_rlvert, vname_len
   USE mo_cdi_constants,                     ONLY: GRID_CELL
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
-    &                                             my_process_is_mpi_test, my_process_is_io, &
+    &                                             my_process_is_io, &
     &                                             my_process_is_mpi_workroot
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
@@ -206,9 +206,6 @@ CONTAINS
     INTEGER               :: ierrstat, jb, jc, idim
     REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
 
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
-
     ! allocate destination (on work root)
     IF ( my_process_is_mpi_workroot() ) THEN
       ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      &
@@ -233,34 +230,28 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     !-- part 1: exchange lon/lat coordinates:
-    IF (.NOT. my_process_is_mpi_test()) THEN
-
-      ! copy coordinates into sender array:
-      DO jb=1,nblks_loc
-        DO jc=1,nproma
-          r_tmp_lon(jc,jb) = in_lonlat(jc,jb)%lon
-          r_tmp_lat(jc,jb) = in_lonlat(jc,jb)%lat
-        END DO
+    ! copy coordinates into sender array:
+    DO jb=1,nblks_loc
+      DO jc=1,nproma
+        r_tmp_lon(jc,jb) = in_lonlat(jc,jb)%lon
+        r_tmp_lat(jc,jb) = in_lonlat(jc,jb)%lat
       END DO
+    END DO
 
-      CALL exchange_data(in_array=r_tmp_lon(:,:), out_array=out_lonlat%lon(:), &
+    CALL exchange_data(in_array=r_tmp_lon(:,:), out_array=out_lonlat%lon(:), &
+      &                gather_pattern=p_pat)
+    CALL exchange_data(in_array=r_tmp_lat(:,:), out_array=out_lonlat%lat(:), &
+      &                gather_pattern=p_pat)
+
+    !-- part 2: exchange vertex lon/lat coordinates:
+    DO idim=1,dim3
+      CALL exchange_data(in_array=lonv(1:nproma,1:nblks_loc,idim), &
+        &                out_array=out_lonlat%lonv(idim,:), &
         &                gather_pattern=p_pat)
-      CALL exchange_data(in_array=r_tmp_lat(:,:), out_array=out_lonlat%lat(:), &
+      CALL exchange_data(in_array=latv(1:nproma,1:nblks_loc,idim), &
+        &                out_array=out_lonlat%latv(idim,:), &
         &                gather_pattern=p_pat)
-
-      !-- part 2: exchange vertex lon/lat coordinates:
-      DO idim=1,dim3
-
-        CALL exchange_data(in_array=lonv(1:nproma,1:nblks_loc,idim), &
-          &                out_array=out_lonlat%lonv(idim,:), &
-          &                gather_pattern=p_pat)
-        CALL exchange_data(in_array=latv(1:nproma,1:nblks_loc,idim), &
-          &                out_array=out_lonlat%latv(idim,:), &
-          &                gather_pattern=p_pat)
-
-      END DO ! idim
-
-    ENDIF !  (.NOT. my_process_is_mpi_test())
+    END DO ! idim
 
     ! clean up
     DEALLOCATE(r_tmp_lon, r_tmp_lat, STAT=ierrstat)
@@ -1029,9 +1020,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
     TYPE(t_grid_info_ptr)          :: gptr(3)
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
-
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
 
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)

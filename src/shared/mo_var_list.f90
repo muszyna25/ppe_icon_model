@@ -54,7 +54,9 @@ MODULE mo_var_list
     &                            TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
-  USE mo_fortran_tools,    ONLY: assign_if_present
+  USE mo_fortran_tools,    ONLY: assign_if_present, &
+    &                            init_contiguous_dp, init_contiguous_sp, &
+    &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -637,12 +639,14 @@ CONTAINS
     !
   END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
-  FUNCTION default_var_list_metadata(this_list) RESULT(this_info)
+  SUBROUTINE default_var_list_metadata(this_info, this_list)
+    !> memory info structure
+    TYPE(t_var_metadata), INTENT(out) :: this_info
     !
-    TYPE(t_var_metadata)         :: this_info        ! memory info structure
+    !> output var_list
+    TYPE(t_var_list), INTENT(in)      :: this_list
     !
-    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list
-    !
+
     this_info%key                 = 0
     this_info%name                = ''
     this_info%var_class           = CLASS_DEFAULT
@@ -693,7 +697,7 @@ CONTAINS
     !
     this_info%l_pp_scheduler_task = 0
 
-  END FUNCTION default_var_list_metadata
+  END SUBROUTINE default_var_list_metadata
 
 
 
@@ -832,21 +836,23 @@ CONTAINS
     REAL(wp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    REAL(wp) :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%rval
+    IF (linit) THEN
+      init_val = initval%rval
+    ELSE IF (lmiss) THEN
+      init_val = missval%rval
     ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      ptr = ieee_value(ptr, ieee_signaling_nan)
+#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
+    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
+      init_val = ieee_value(ptr, ieee_signaling_nan)
 #else
-      ptr = 0.0_wp
-#endif
-#else
-      ptr = 0.0_wp
+      init_val = 0.0_wp
 #endif
     END IF
-    IF (linit)  ptr = initval%rval
+!$omp parallel
+    CALL init_contiguous_dp(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_r5d
 
   ! Auxiliary routine: initialize array, REAL(sp) variant
@@ -854,21 +860,23 @@ CONTAINS
     REAL(sp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    REAL(sp) :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%sval
+    IF (linit) THEN
+      init_val = initval%sval
+    ELSE IF (lmiss) THEN
+      init_val = missval%sval
     ELSE
-#if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
-#ifdef VARLIST_INITIZIALIZE_WITH_NAN
-      ptr = ieee_value(ptr, ieee_signaling_nan)
+#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
+    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
+      init_val = ieee_value(ptr, ieee_signaling_nan)
 #else
-      ptr = 0.0_sp
-#endif
-#else
-      ptr = 0.0_sp
+      init_val = 0.0_sp
 #endif
     END IF
-    IF (linit)  ptr = initval%sval
+!$omp parallel
+    CALL init_contiguous_sp(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_s5d
 
 
@@ -877,13 +885,18 @@ CONTAINS
     INTEGER, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    INTEGER :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%ival
+    IF (linit) THEN
+      init_val = initval%ival
+    ELSE IF (lmiss) THEN
+      init_val = missval%ival
     ELSE
-      ptr = 0
+      init_val = 0
     END IF
-    IF (linit)  ptr = initval%ival
+!$omp parallel
+    CALL init_contiguous_i4(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_i5d
 
 
@@ -892,13 +905,18 @@ CONTAINS
     LOGICAL, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
     TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
+    LOGICAL :: init_val
 
-    IF (lmiss) THEN
-      ptr = missval%lval
+    IF (linit) THEN
+      init_val = initval%lval
+    ELSE IF (lmiss) THEN
+      init_val = missval%lval
     ELSE
-      ptr = .FALSE.
+      init_val = .FALSE.
     END IF
-    IF (linit)  ptr = initval%lval
+!$omp parallel
+    CALL init_contiguous_l(ptr, SIZE(ptr), init_val)
+!$omp end parallel
   END SUBROUTINE init_array_l5d
 
 
@@ -1003,7 +1021,7 @@ CONTAINS
     ! add list entry
 
     CALL append_list_element (this_list, new_list_element)
-    new_list_element%field%info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(new_list_element%field%info, this_list)
 
     ! init local fields
 
@@ -1063,19 +1081,15 @@ CONTAINS
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (SINGLE_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%s_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%s_ptr(:,:,:,:,:) = 0._sp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
-        new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
 
       IF (istat /= 0) THEN
@@ -2634,7 +2648,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info =  default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -2839,7 +2853,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -3036,7 +3050,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info =  default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -3241,7 +3255,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -3444,7 +3458,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    ref_info = default_var_list_metadata(this_list)
+    CALL default_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -4041,22 +4055,19 @@ CONTAINS
   SUBROUTINE assign_if_present_cf (y,x)
     TYPE(t_cf_var), INTENT(inout)        :: y
     TYPE(t_cf_var), INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_cf
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_grib2 (y,x)
     TYPE(t_grib2_var), INTENT(inout)        :: y
     TYPE(t_grib2_var) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_grib2
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_union (y,x)
     TYPE(t_union_vals), INTENT(inout)        :: y
     TYPE(t_union_vals) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_union
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_tracer_meta (y,x)
@@ -4076,29 +4087,25 @@ CONTAINS
   SUBROUTINE assign_if_present_vert_interp (y,x)
     TYPE(t_vert_interp_meta), INTENT(inout)        :: y
     TYPE(t_vert_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_vert_interp
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_hor_interp (y,x)
     TYPE(t_hor_interp_meta), INTENT(inout)        :: y
     TYPE(t_hor_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_hor_interp
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_post_op (y,x)
     TYPE(t_post_op_meta), INTENT(inout)        :: y
     TYPE(t_post_op_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_post_op
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_action_list (y,x)
     TYPE(t_var_action), INTENT(inout)        :: y
     TYPE(t_var_action) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
   LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
