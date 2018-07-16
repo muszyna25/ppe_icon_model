@@ -959,7 +959,7 @@ CONTAINS
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
                 o3_macc1,o3_macc2,o3_gems1,o3_gems2
     REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),&
-                wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),trfac
+                wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),trfac,wfac2
     LOGICAL  :: lfound_all
 
 
@@ -1174,7 +1174,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
-!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,k375,k100,o3_clim) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,wfac2,k375,k100,o3_clim) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1309,16 +1309,20 @@ CONTAINS
             k375 = prm_diag%k850(jc,jb)  ! to be safe over very high mountains
             DO jk = prm_diag%k850(jc,jb), 3, -1
               IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) k375 = jk
-              IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) k100 = jk
+              IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) THEN
+                k100 = jk
+                wfac2 = (p_diag%pres(jc,jk,jb)-10000._wp)/(p_diag%pres(jc,jk,jb)-p_diag%pres(jc,jk-1,jb))
+              ENDIF
               IF (p_diag%pres(jc,jk,jb) < 10000._wp) EXIT
             ENDDO
-            o3_clim(k100:k375) = ext_data%atm%o3(jc,k100:k375,jb)
-            jkk = k100+1
+            o3_clim(k100-1:k375) = ext_data%atm%o3(jc,k100-1:k375,jb)
+            jkk = k100
             DO jk = k100, k375
               ! Modify ozone profiles; the climatological profile is shifted down by at most 125 hPa
               IF (jk < ktp) THEN ! levels above the tropopause
-                IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,k100,jb) < 12500._wp) THEN
-                  ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(k100)
+                IF (p_diag%pres(jc,jk,jb) < 22500._wp) THEN
+                  ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + &
+                    wfac*((1._wp-wfac2)*o3_clim(k100)+wfac2*o3_clim(k100-1))
                 ELSE
                   DO jk1 = jkk, k375
                     IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1-1,jb) >= 12500._wp .AND. &
