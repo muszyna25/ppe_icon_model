@@ -22,9 +22,7 @@ MODULE mo_multifile_restart_util
 
   IMPLICIT NONE
 
-  PUBLIC :: kVarName_globalCellIndex
-  PUBLIC :: kVarName_globalEdgeIndex
-  PUBLIC :: kVarName_globalVertIndex
+  PUBLIC :: kVarName_globalCellIndex, kVarName_globalEdgeIndex, kVarName_globalVertIndex
 
   PUBLIC :: multifileRestartLinkName
   PUBLIC :: createMultifileRestartLink

@@ -69,19 +69,19 @@ MODULE mo_multifile_restart_collector
     LOGICAL,          PRIVATE :: allocd, handshakd, &
       &                          wPosted, wStarted
   CONTAINS
-    PROCEDURE :: construct           => t_CollectorSendBuffer_construct
-    PROCEDURE, PRIVATE :: handshake  => t_CollectorSendBuffer_handshake
-    PROCEDURE :: finalize            => t_CollectorSendBuffer_finalize
-    PROCEDURE :: start_local_access  => t_CollectorSendBuffer_start_local_access
-    PROCEDURE :: start_remote_access => t_CollectorSendBuffer_start_remote_access
+    PROCEDURE :: construct           => CollectorSendBuffer_construct
+    PROCEDURE, PRIVATE :: handshake  => CollectorSendBuffer_handshake
+    PROCEDURE :: finalize            => CollectorSendBuffer_finalize
+    PROCEDURE :: start_local_access  => CollectorSendBuffer_start_local_access
+    PROCEDURE :: start_remote_access => CollectorSendBuffer_start_remote_access
   END TYPE t_CollectorSendBuffer
 
   TYPE :: t_CollectorIndices
     INTEGER :: recvPntCnt, srcProcCnt, sendPntCnt, destProc
     INTEGER, ALLOCATABLE :: srcProc(:), srcPntCnts(:), sendIdx(:), sendBlk(:)
   CONTAINS
-    PROCEDURE :: construct => t_CollectorIndices_construct
-    PROCEDURE :: finalize  => t_CollectorIndices_finalize
+    PROCEDURE :: construct => CollectorIndices_construct
+    PROCEDURE :: finalize  => CollectorIndices_finalize
   END TYPE t_CollectorIndices
 
   TYPE :: t_CollectorIndices_ptr
@@ -94,8 +94,8 @@ MODULE mo_multifile_restart_collector
     TYPE(t_CollectorSendBuffer), POINTER :: glb_sendbuf
     INTEGER, ALLOCATABLE :: vGrid(:), vType(:)
   CONTAINS
-    PROCEDURE :: construct => t_multifileRestartCollector_construct
-    PROCEDURE :: defVar    => t_multifileRestartCollector_defVar
+    PROCEDURE :: construct => multifileRestartCollector_construct
+    PROCEDURE :: defVar    => multifileRestartCollector_defVar
     PROCEDURE :: finalize  => multifileRestartCollector_finalize
     PROCEDURE :: sendField => multifileRestartCollector_sendField
     PROCEDURE :: fetch     => multifileRestartCollector_fetch
@@ -108,7 +108,7 @@ CONTAINS
   ! On the restart writers, this returns an array with the global
   ! indices of the points collected by this PE. The return value is
   ! not allocated on pure worker procs.
-  FUNCTION t_CollectorIndices_construct(me, localPointCount, decompInfo,        &
+  FUNCTION CollectorIndices_construct(me, localPointCount, decompInfo,        &
     &                                   destProc, sourceProcs, lthis_pe_active) &
     &   RESULT(globalIndices)
     REAL(dp), POINTER :: globalIndices(:)
@@ -118,7 +118,7 @@ CONTAINS
     INTEGER,                         INTENT(IN) :: destProc
     INTEGER,                         INTENT(IN) :: sourceProcs(:)
     LOGICAL,                         INTENT(IN) :: lthis_pe_active
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorIndices_construct"    
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorIndices_construct"    
     INTEGER :: myRank, error, i, j
     REAL(dp), ALLOCATABLE :: sendBuffer_d(:)
     IF (timers_level >= 10)  CALL timer_start(timer_restart_indices_setup)
@@ -165,33 +165,35 @@ CONTAINS
         END IF
       END DO
     END IF
-    IF (me%destProc /= myRank) THEN
+    IF (me%destProc /= myRank .AND. lthis_pe_active) THEN
       CALL p_send(me%sendPntCnt, me%destProc, 0, comm = p_comm_work_restart)
     END IF
     !Compute the receivePointCount and allocate the globalIndices array.
     me%recvPntCnt = SUM(me%srcPntCnts(1:me%srcProcCnt))
     ALLOCATE(globalIndices(me%recvPntCnt), STAT=error)
     !Collect the global indices of the points written by this PE.
-    CALL collectBuffer_blocking(me, sendBuffer_d, globalIndices)
+    IF (lthis_pe_active) THEN
+      CALL collectBuffer_blocking(me, sendBuffer_d, globalIndices)
+    END IF
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_indices_setup)
-  END FUNCTION t_CollectorIndices_construct
+  END FUNCTION CollectorIndices_construct
 
-  SUBROUTINE t_CollectorIndices_finalize(me)
+  SUBROUTINE CollectorIndices_finalize(me)
     CLASS(t_CollectorIndices), INTENT(INOUT) :: me
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorIndices_finalize"
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorIndices_finalize"
     INTEGER :: ierror
 
     DEALLOCATE(me%srcProc, me%srcPntCnts, me%sendIdx, me%sendBlk,  STAT=ierror)
     IF (ierror /= SUCCESS) CALL finish(routine, "memory deallocation failure")
-  END SUBROUTINE t_CollectorIndices_finalize
+  END SUBROUTINE CollectorIndices_finalize
 
-  SUBROUTINE t_MultifileRestartCollector_construct(this, idx_cell, idx_edge, &
+  SUBROUTINE MultifileRestartCollector_construct(this, idx_cell, idx_edge, &
       &                                            idx_vert, glb_sendbuf, nVar)
     CLASS(t_MultifileRestartCollector),  INTENT(INOUT) :: this
     TYPE(t_CollectorIndices), TARGET,    INTENT(INOUT) :: idx_cell, idx_edge, idx_vert
     TYPE(t_CollectorSendBuffer), TARGET, INTENT(IN)    :: glb_sendbuf
     INTEGER,                             INTENT(IN)    :: nVar
-    CHARACTER(*), PARAMETER :: routine = modname//":t_multifileRestartCollector_construct"
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_construct"
     INTEGER     :: ierr
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
@@ -201,16 +203,16 @@ CONTAINS
     this%glb_sendbuf => glb_sendbuf
     ALLOCATE(this%vGrid(nVar), this%vType(nVar), STAT=ierr)
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
-  END SUBROUTINE t_multifileRestartCollector_construct
+  END SUBROUTINE multifileRestartCollector_construct
 
-  SUBROUTINE t_multifileRestartCollector_defVar(this, iVar, nLevs, iType, iGrid, iOffset)
+  SUBROUTINE multifileRestartCollector_defVar(this, iVar, nLevs, iType, iGrid, iOffset)
   USE mo_cdi_constants,               ONLY: GRID_UNSTRUCTURED_CELL, &
     &                                       GRID_UNSTRUCTURED_EDGE, &
     &                                       GRID_UNSTRUCTURED_VERT
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: this
     INTEGER,                            INTENT(IN   ) :: iVar, nLevs, iType, iGrid
     INTEGER(KIND=i8),                   INTENT(INOUT) :: iOffset(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":t_multifileRestartCollector_defVar"
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_defVar"
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
     SELECT CASE(iGrid)
@@ -231,7 +233,7 @@ CONTAINS
     END SELECT
     ioffset(itype) = ioffset(itype) + this%idx(this%vGrid(iVar))%p%sendPntCnt * nLevs
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
-  END SUBROUTINE t_multifileRestartCollector_defVar
+  END SUBROUTINE multifileRestartCollector_defVar
 
   SUBROUTINE multifileRestartCollector_finalize(this)
     CLASS(t_MultifileRestartCollector), INTENT(INOUT) :: this
@@ -452,11 +454,11 @@ CONTAINS
 #endif
   END SUBROUTINE multifileRestartCollector_sendField
 
-  SUBROUTINE t_CollectorSendBuffer_construct(this, isize, idx_c, idx_e, idx_v)
+  SUBROUTINE collectorSendBuffer_construct(this, isize, idx_c, idx_e, idx_v)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
     INTEGER(i8),                  INTENT(IN)    :: isize(:)
     TYPE(t_CollectorIndices),     INTENT(INOUT) :: idx_c, idx_e, idx_v
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_add_domain"
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorSendBuffer_add_domain"
 #ifdef NOMPI
     CALL finish(routine, "Not implemented!")
 #else
@@ -497,10 +499,6 @@ CONTAINS
     splitKey = MERGE(1, myRank + 2, my_process_is_restart_writer())
     CALL MPI_Comm_split(p_comm_work_restart, idx_c%destProc, splitKey, this%wComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    IF (idx_c%destProc .NE. idx_e%destProc .OR. idx_c%destProc .NE. idx_v%destProc &
-      & .OR. idx_c%srcProcCnt .ne. idx_e%srcProcCnt .OR. &
-      & idx_c%srcProcCnt .NE. idx_v%srcProcCnt) &
-      CALL finish(routine, "should not be!!!")
     idx_c%destProc = 0
     idx_e%destProc = 0
     idx_v%destProc = 0
@@ -544,17 +542,17 @@ CONTAINS
     DEALLOCATE(rank_list, rank_map, tmpOffSv)
     CALL this%handshake()
 #endif
-  END SUBROUTINE t_CollectorSendBuffer_construct
+  END SUBROUTINE collectorSendBuffer_construct
 
-  SUBROUTINE t_CollectorSendBuffer_handshake(this)
+  SUBROUTINE collectorSendBuffer_handshake(this)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_construct"
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorSendBuffer_construct"
 #ifdef NOMPI
     CALL finish(routine, "Not implemented!")
 #else
     INTEGER, PARAMETER :: idummy(1) = (/ 1 /), addr = MPI_ADDRESS_KIND
     INTEGER(KIND=addr) :: memSize(1), memBytes, typeLB, spBytes
-    INTEGER(KIND=addr), PARAMETER :: one = 1_MPI_ADDRESS_KIND
+    INTEGER(KIND=addr), PARAMETER :: one = 1_addr
     TYPE(c_ptr) :: cMemPtr
     INTEGER :: ierr
     REAL(KIND=sp), POINTER :: tmp_sp(:)
@@ -589,11 +587,11 @@ CONTAINS
     this%handshakd = .true.
     this%allocd     = .true.
 #endif
-  END SUBROUTINE t_CollectorSendBuffer_handshake
+  END SUBROUTINE collectorSendBuffer_handshake
 
-  SUBROUTINE t_CollectorSendBuffer_finalize(this)
+  SUBROUTINE CollectorSendBuffer_finalize(this)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
-    CHARACTER(*), PARAMETER :: routine = modname//":t_CollectorSendBuffer_finalize"
+    CHARACTER(*), PARAMETER :: routine = modname//":CollectorSendBuffer_finalize"
 #ifndef NOMPI
     INTEGER :: ierr
 
@@ -625,16 +623,15 @@ CONTAINS
     this%wPosted  = .false.
     this%wStarted = .false.
 #endif
-  END SUBROUTINE t_CollectorSendBuffer_finalize
+  END SUBROUTINE collectorSendBuffer_finalize
 
-  SUBROUTINE t_CollectorSendBuffer_start_local_access(this)
+  SUBROUTINE collectorSendBuffer_start_local_access(this)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_start_local_access"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::CollectorSendBuffer_start_local_access"
 #ifndef NOMPI
     INTEGER :: ierr
 
-    IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer to get!")
-    IF (.NOT.this%wStarted .OR. .NOT.this%wPosted) RETURN
+    IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer allocd to fill!")
     IF (this%wStarted) THEN
       CALL MPI_Win_complete(this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
@@ -648,23 +645,22 @@ CONTAINS
 #else
     CALL finish(routine, "Not implemented!")
 #endif
-  END SUBROUTINE t_CollectorSendBuffer_start_local_access
+  END SUBROUTINE collectorSendBuffer_start_local_access
 
-  SUBROUTINE t_CollectorSendBuffer_start_remote_access(this)
+  SUBROUTINE collectorSendBuffer_start_remote_access(this)
     CLASS(t_CollectorSendBuffer), INTENT(INOUT) :: this
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_CollectorSendBuffer_start_remote_access"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::CollectorSendBuffer_start_remote_access"
 #ifndef NOMPI
     INTEGER :: iassert, ierr
 
-    IF (.NOT.this%handshakd) CALL finish(routine, "there is no buffer to get!")
-    IF (this%wStarted .OR. this%wPosted) RETURN ! nothing to do
-    IF (my_process_is_work()) THEN
+    IF (.NOT.this%handshakd) CALL finish(routine, "there is no window to expose!")
+    IF (my_process_is_work() .AND. .NOT.this%wPosted) THEN
       iassert = MPI_MODE_NOPUT
       CALL MPI_Win_post(this%wSvGrp, iassert, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%wPosted  = .true.
     END IF
-    IF (my_process_is_restart_writer()) THEN
+    IF (my_process_is_restart_writer() .AND. .NOT.this%wStarted) THEN
       iassert = 0
       CALL MPI_Win_start(this%wClGrp, iassert, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
@@ -673,6 +669,6 @@ CONTAINS
 #else
     CALL finish(routine, "Not implemented!")
 #endif
-  END SUBROUTINE t_CollectorSendBuffer_start_remote_access
+  END SUBROUTINE collectorSendBuffer_start_remote_access
 
 END MODULE mo_multifile_restart_collector
