@@ -96,6 +96,8 @@ MODULE mo_turbdiff_config
       &  alpha0_max !
     REAL(wp):: &   ! additive ensemble perturbation of Charnock-parameter
       &  alpha0_pert !
+    REAL(wp):: &   ! scaling factor for molecular roughness length of ocean waves
+      &  alpha1    !
     REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum

@@ -38,7 +38,7 @@ MODULE mo_initicon
     &                               lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
-    &                               fgFilename, fgFiletype, anaFilename, anaFiletype
+    &                               fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
@@ -255,17 +255,17 @@ MODULE mo_initicon
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
-        IF(p_patch(jg)%ldom_active) THEN
-            IF(my_process_is_stdio()) THEN
-                CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
-            ENDIF  ! p_io
-            SELECT CASE(fgFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
-                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., opt_dict = ana_varnames_dict)
-                CASE DEFAULT
-                    CALL finish(routine, "Unknown file TYPE")
-            END SELECT
+      IF(p_patch(jg)%ldom_active) THEN
+        IF(my_process_is_stdio()) THEN
+          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+        ENDIF  ! p_io
+        IF (ana_varnames_map_file /= ' ') THEN
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., &
+            &                       opt_dict = ana_varnames_dict)
+        ELSE
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
         END IF
+      END IF
     END DO
     IF(my_process_is_stdio()) THEN
         CALL requestList%printInventory()
@@ -385,12 +385,12 @@ MODULE mo_initicon
             IF(my_process_is_stdio()) THEN
                 CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
             ENDIF  ! p_io
-            SELECT CASE(anaFiletype())
-                CASE(FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2)
-                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., opt_dict = ana_varnames_dict)
-                CASE DEFAULT
-                    CALL finish(routine, "Unknown file TYPE")
-            END SELECT
+            IF (ana_varnames_map_file /= ' ') THEN
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., &
+                &                       opt_dict = ana_varnames_dict)
+            ELSE
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+            END IF
         END IF
     END DO
     IF(my_process_is_stdio()) THEN

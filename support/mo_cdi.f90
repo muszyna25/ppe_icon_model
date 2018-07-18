@@ -279,6 +279,7 @@ module mo_cdi
   public :: cdiIterator_inqTileCount
   public :: cdiIterator_inqParam
   public :: cdiIterator_inqParamParts
+  public :: cdiIterator_inqFiletype
   public :: cdiIterator_inqDatatype
   public :: cdiIterator_inqTsteptype
   public :: cdiIterator_inqVariableName
@@ -3587,6 +3588,20 @@ contains
     call lib_cdiIterator_inqParamParts(me_dummy%ptr, outDiscipline_dummy,&
     & outCategory_dummy, outNumber_dummy)
   end subroutine cdiIterator_inqParamParts
+
+  FUNCTION cdiIterator_inqFiletype(me_dummy) RESULT(f_result)
+    integer(c_int) :: f_result
+    type(t_CdiIterator), intent(in) :: me_dummy
+    interface
+      FUNCTION lib_cdiIterator_inqFiletype(me_dummy) bind(c, name =&
+      & 'cdiIterator_inqFiletype') result(c_result)
+        import c_int, c_ptr
+        integer(c_int) :: c_result
+        type(c_ptr), value :: me_dummy
+      END FUNCTION lib_cdiIterator_inqFiletype
+    end interface
+    f_result = lib_cdiIterator_inqFiletype(me_dummy%ptr)
+  END FUNCTION cdiIterator_inqFiletype
 
   function cdiIterator_inqDatatype(me_dummy) result(f_result)
     integer(c_int) :: f_result

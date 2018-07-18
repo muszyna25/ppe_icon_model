@@ -26,7 +26,8 @@ MODULE mo_input_request_list
                     & ZAXIS_SEDIMENT_BOTTOM, ZAXIS_SEDIMENT_BOTTOM_TA, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_MIX_LAYER, &
                     & ZAXIS_REFERENCE, cdiIterator_inqTile, CDI_NOERR, CDI_EINVAL, GRID_UNSTRUCTURED, t_CdiParam, &
                     & cdiIterator_inqParamParts, gridInqNumber, gridInqPosition, cdiGribIterator_inqLongValue, t_CdiGribIterator, &
-                    & cdiGribIterator_clone, cdiGribIterator_delete, cdiIterator_inqRTime, CDI_UUID_SIZE
+                    & cdiGribIterator_clone, cdiGribIterator_delete, cdiIterator_inqRTime, CDI_UUID_SIZE, cdiIterator_inqFiletype, &
+                    & FILETYPE_GRB, FILETYPE_GRB2
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_dictionary, ONLY: t_dictionary, dict_copy, dict_init, dict_get, dict_finalize
     USE mo_exception, ONLY: message, finish
@@ -665,7 +666,17 @@ CONTAINS
         iterator%ptr = C_NULL_PTR
         IF(my_process_is_mpi_workroot()) THEN
             iterator = cdiIterator_new(path)
-            IF(.NOT. C_ASSOCIATED(iterator%ptr)) CALL finish(routine, "can't open file "//'"'//path//'" for reading')
+            IF(.NOT. C_ASSOCIATED(iterator%ptr)) THEN
+              CALL finish(routine, "can't open file "//'"'//path//'" for reading')
+            END IF
+            ! Check whether a Map file for translating fileInputName<=>internalName is required
+            ! - a Map File is mandatory, if input is read in GRIB2-Format
+            IF (((cdiIterator_inqFiletype(iterator) == FILETYPE_GRB)  .OR.   &
+              &  (cdiIterator_inqFiletype(iterator) == FILETYPE_GRB2)) .AND. &
+              &  .NOT. PRESENT(opt_dict)) THEN
+              CALL finish( routine,                         &
+                &  'dictionary missing. It is required when trying to read data in GRIB format.')
+            END IF
         END IF
         DO 
             savetime = p_mpi_wtime()
