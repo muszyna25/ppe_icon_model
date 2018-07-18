@@ -2301,9 +2301,6 @@ CONTAINS
 
     ! Get the global index numbers of the data when it is gathered on PE 0
     ! exactly in the same order as it is retrieved later during I/O
-    ALLOCATE(patch_info_ll%ri%reorder_index_own(n_own), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
     DO i=1,n_own
       patch_info_ll%ri%reorder_index_own(i) = intp%global_idx(i)
     END DO
