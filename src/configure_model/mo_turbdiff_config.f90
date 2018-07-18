@@ -127,6 +127,9 @@ MODULE mo_turbdiff_config
     LOGICAL :: &   ! turbulent diffusion of cloud ice QI
       &  ldiff_qi  ! .TRUE.: ON
 
+    LOGICAL :: &   ! turbulent diffusion of snow QS
+      &  ldiff_qs  ! .FALSE.: OFF
+
     !
     ! Switches controlling other physical parameterizations:
     !

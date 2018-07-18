@@ -57,6 +57,9 @@ MODULE mo_turbdiff_nml
   LOGICAL :: ldiff_qi    ! turbulent diffusion of cloud ice QI
                          ! .TRUE.: ON
 
+  LOGICAL :: ldiff_qs    ! turbulent diffusion of snow QS
+                         ! .FALSE.: OFF
+
   NAMELIST/turbdiff_nml/ &
     & itype_sher, imode_shshear, itype_wcld, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
@@ -65,7 +68,7 @@ MODULE mo_turbdiff_nml
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
     & a_hshr, imode_frcsmot, alpha0, alpha0_max, tkhmin_strat, tkmmin_strat, &
 !   additional namelist parameters:
-    & lconst_z0, const_z0, lfreeslip, ldiff_qi
+    & lconst_z0, const_z0, lfreeslip, ldiff_qi, ldiff_qs
 
 CONTAINS
 
@@ -110,7 +113,9 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
-    ldiff_qi     = .FALSE.  ! no turbulent diffusion of QI  
+    ldiff_qi     = .TRUE.   ! turbulent diffusion of QI  
+
+    ldiff_qs     = .FALSE.  ! no turbulent diffusion of QS  
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -196,6 +201,7 @@ CONTAINS
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0
       turbdiff_config(jg)%ldiff_qi     = ldiff_qi
+      turbdiff_config(jg)%ldiff_qs     = ldiff_qs
     ENDDO
 
     !-----------------------------------------------------

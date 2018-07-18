@@ -41,7 +41,8 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_phy_state,          ONLY: phy_params 
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
-  USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqtke
+  USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqnc, iqni, iqtke, &
+    &                                  iqs, iqns
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist
   USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
@@ -125,6 +126,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   INTEGER :: ncloud_offset                          !< offset for ptr-indexing in ART 
                                                     !< interface due to additionally 
                                                     !< diffused cloud fields
+  LOGICAL  :: ltwomoment                            !< using 2mom microphysics?
+  REAL(wp), TARGET      :: & 
+    &  ddt_turb_qnc(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qnc
+    &  ddt_turb_qni(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendendy field for qni
+    &  ddt_turb_qs (nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qs 
+    &  ddt_turb_qns(nproma,p_patch%nlev,p_patch%nblks_c)    !< tendendy field for qns
 
 !--------------------------------------------------------------
 
@@ -154,7 +161,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
-
+  ! logical for SB two-moment scheme
+  ltwomoment = (ANY(atm_phy_nwp_config(jg)%inwp_gscp == (/4,5,6/)))
+  ddt_turb_qnc(:,:,:) = 0.0_wp
+  ddt_turb_qni(:,:,:) = 0.0_wp
+  ddt_turb_qs (:,:,:) = 0.0_wp
+  ddt_turb_qns(:,:,:) = 0.0_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs, &
@@ -233,23 +245,51 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
 
+      ! offset for ptr-indexing in ART-Interface
+      ncloud_offset = 0
+
+      IF (ltwomoment) THEN
+        ! register cloud droplet number for turbulent diffusion
+        ncloud_offset = ncloud_offset+1
+        ddt_turb_qnc(:,:,jb) = 0.0_wp
+        ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqnc)
+        ptr(ncloud_offset)%at => ddt_turb_qnc(:,:,jb)
+        ptr(ncloud_offset)%sv => NULL()
+      ENDIF ! ltwomoment
 
       IF (turbdiff_config(jg)%ldiff_qi) THEN
-        ! offset for ptr-indexing in ART-Interface
-        ncloud_offset = 1
-
-        ! reinit
-        prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0._wp
-
         ! register cloud ice for turbulent diffusion
-        ptr(1)%av => p_prog_rcf%tracer(:,:,jb,iqi)
-        ptr(1)%at => prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)
-        ptr(1)%sv => NULL()
-!!$        ptr(1)%fc =  .TRUE.
-      ELSE
-        ! offset for ptr-indexing in ART-Interface
-        ncloud_offset = 0
-      ENDIF
+        ncloud_offset = ncloud_offset + 1
+        prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi) = 0.0_wp
+        ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqi)
+        ptr(ncloud_offset)%at => prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)
+        ptr(ncloud_offset)%sv => NULL()
+        IF (ltwomoment) THEN
+          ! register cloud ice number for turbulent diffusion
+          ncloud_offset = ncloud_offset + 1
+          ddt_turb_qni(:,:,jb) = 0.0_wp
+          ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqni)
+          ptr(ncloud_offset)%at => ddt_turb_qni(:,:,jb)
+          ptr(ncloud_offset)%sv => NULL()
+        ENDIF ! ltwomoment
+      ENDIF ! turbdiff_config(jg)%ldiff_qi
+
+      IF (turbdiff_config(jg)%ldiff_qs) THEN
+        ! register snow mass for turbulent diffusion
+        ncloud_offset = ncloud_offset + 1
+        ddt_turb_qs (:,:,jb) = 0.0_wp
+        ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqs )
+        ptr(ncloud_offset)%at => ddt_turb_qs (:,:,jb)
+        ptr(ncloud_offset)%sv => NULL()
+        IF (ltwomoment) THEN
+          ! register snow number for turbulent diffusion
+          ncloud_offset = ncloud_offset + 1
+          ddt_turb_qns(:,:,jb) = 0.0_wp
+          ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqns)
+          ptr(ncloud_offset)%at => ddt_turb_qns(:,:,jb)
+          ptr(ncloud_offset)%sv => NULL()
+        ENDIF ! ltwomoment
+      ENDIF ! turbdiff_config(jg)%ldiff_qs
 
       CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
         &                          ncloud_offset=ncloud_offset,                     &
@@ -423,16 +463,63 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ENDDO
     ENDDO
 
+    IF (ltwomoment) THEN
+      ! QNC update
+      DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqnc) &
+            &                              + tcall_turb_jg                                & 
+            &                              * ddt_turb_qnc(jc,jk,jb))
+        ENDDO
+      ENDDO
+    ENDIF ! ltwomoment
+
     IF (turbdiff_config(jg)%ldiff_qi) THEN
       ! QI is updated only in that part of the model domain where moisture physics is active
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,jk,jb,iqi) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
-               &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
+          p_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqi) &
+            &                             + tcall_turb_jg                               &
+            &                             * prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqi))
         ENDDO
       ENDDO
-    ENDIF  ! ldiff_qi
+      IF (ltwomoment) THEN
+        ! QNI update
+        DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            p_prog_rcf%tracer(jc,jk,jb,iqni) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqni) &
+              &                              + tcall_turb_jg                                & 
+              &                              * ddt_turb_qni(jc,jk,jb))
+          ENDDO
+        ENDDO
+      ENDIF ! ltwomoment
+    ENDIF ! ldiff_qi
+
+    IF (turbdiff_config(jg)%ldiff_qs) THEN
+      ! QS update
+      DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqs) &
+            &                             + tcall_turb_jg                               & 
+            &                             * ddt_turb_qs(jc,jk,jb))
+        ENDDO
+      ENDDO
+      IF (ltwomoment) THEN
+        ! QNS update
+        DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            p_prog_rcf%tracer(jc,jk,jb,iqns) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqns) &
+              &                              + tcall_turb_jg                                &
+              &                              * ddt_turb_qns(jc,jk,jb))
+          ENDDO
+        ENDDO
+      ENDIF ! ltwomoment
+    ENDIF ! ldiff_qs
 
     ! VN is updated in nwp_nh_interface (for efficiency reasons)
 
