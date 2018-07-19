@@ -450,10 +450,12 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKE", "m^2/s^2", "turbulent kinetic energy", &
       & jg, prog%tke(:,:,:) )
 
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_hsh", "m^2/s^3", &
-     &     "TKE tendency horizonzal shear production", jg, prm_nwp_tend%ddt_tke_hsh )
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_pconv", "m^2/s^3",&
-     &     "TKE tendency due to subgrid-scale convection", jg, prm_nwp_tend%ddt_tke_pconv )
+    IF ( .NOT. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_hsh", "m^2/s^3", &
+        &     "TKE tendency horizonzal shear production", jg, prm_nwp_tend%ddt_tke_hsh )
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_pconv", "m^2/s^3",&
+        &     "TKE tendency due to subgrid-scale convection", jg, prm_nwp_tend%ddt_tke_pconv )
+    END IF
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
@@ -1445,7 +1447,8 @@ CONTAINS
                 &       iidx, meteogram_data%var_info(ivar)%levels(ilev), iblk )
             END DO
           ELSE
-            CALL finish (routine, 'Source array not associated!')
+            CALL finish (routine, "Source array not associated: "//&
+              &TRIM(meteogram_data%var_info(ivar)%cf%standard_name)//"!")
           END IF
         END DO VAR_LOOP
         ! sample surface variables:
