@@ -811,7 +811,7 @@ CONTAINS
             &                               mtime_date_uniq, remaining_event_steps)
 
           IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
-            ALLOCATE(tmp(remaining_event_steps)), stat=ierrstat)
+            ALLOCATE(tmp(remaining_event_steps), stat=ierrstat)
             IF (ierrstat /= 0) STOP 'allocate failed'
             tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
             ! FIXME: this is probably a bug and the deallocation of

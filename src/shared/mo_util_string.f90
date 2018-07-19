@@ -281,7 +281,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)           :: in_str    ! input string
     CHARACTER(len=*), INTENT(IN)           :: arg(:)
     ! local variables:
-    INTEGER :: i, in_str_tlen, arg_tlen
+    INTEGER :: i, n, in_str_tlen, arg_tlen
     CHARACTER(len=len_trim(in_str)) :: in_str_upper
 
     one_of = -1
