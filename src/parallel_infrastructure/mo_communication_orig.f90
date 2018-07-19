@@ -2911,8 +2911,6 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
 
-      stop_sync_timer(timer_exch_data)
-
     ELSE    ! WS: removed RETURN statement to allow for OpenACC DATA region
 
 
