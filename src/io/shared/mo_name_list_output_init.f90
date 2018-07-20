@@ -1855,7 +1855,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
     INTEGER                       :: ivar, nvars, i, iv, tl, grid_of, grid_var
-    LOGICAL                       :: found
+    LOGICAL                       :: found, inspect
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc)              :: var_desc   !< variable descriptor
     TYPE(t_cf_var),       POINTER :: this_cf
@@ -1902,15 +1902,16 @@ CONTAINS
           IF(.NOT.ASSOCIATED(element)) EXIT
 
           ! Do not inspect element if output is disabled
-          IF(.NOT.element%field%info%loutput) CYCLE
+          inspect = element%field%info%loutput
+          IF(.NOT. inspect) CYCLE
 
           IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
-            IF (element%field%info%hgrid /= GRID_REGULAR_LONLAT) CYCLE
-            grid_of  = p_of%name_list%lonlat_id
-            grid_var = element%field%info%hor_interp%lonlat_id
-            IF (grid_of /= grid_var) CYCLE
+            inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
+            IF (inspect) CYCLE
+            inspect = p_of%name_list%lonlat_id /= element%field%info%hor_interp%lonlat_id
+            IF (inspect) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
