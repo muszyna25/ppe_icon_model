@@ -15,19 +15,18 @@ MODULE mo_restart_util
   USE mo_exception,          ONLY: get_filename_noext, finish
   USE mo_fortran_tools,      ONLY: assign_if_present, assign_if_present_allocatable
   USE mo_impl_constants,     ONLY: SUCCESS
-  USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule, ALL_WORKERS_INVOLVED
+  USE mo_io_config,          ONLY: restartWritingParameters, kMultifileRestartModule
   USE mo_kind,               ONLY: wp, i8
-  USE mo_mpi,                ONLY: num_work_procs, stop_mpi, p_comm_work_restart
+  USE mo_mpi,                ONLY: stop_mpi
   USE mo_packed_message,     ONLY: t_PackedMessage, kPackOp
   USE mo_restart_attributes, ONLY: t_RestartAttributeList
   USE mo_run_config,         ONLY: restart_filename
   USE mo_std_c_lib,          ONLY: strerror
-  USE mo_timer,              ONLY: ltimer,timer_stop, timer_model_init, print_timer
+  USE mo_timer,              ONLY: ltimer, print_timer, timer_stop, timer_model_init
   USE mo_util_file,          ONLY: createSymlink
   USE mo_util_string,        ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
     &                              MAX_DATETIME_STR_LEN
-  USE mpi,                   ONLY: MPI_Comm_rank
   
   IMPLICIT NONE
 
@@ -36,20 +35,12 @@ MODULE mo_restart_util
   PUBLIC :: t_restart_args
   PUBLIC :: alloc_string
 
-  PUBLIC :: dedicatedRestartProcCount
-  PUBLIC :: restartProcCount
-  PUBLIC :: isDedicatedProcMode
-  PUBLIC :: restart_buddy, restart_group
-  PUBLIC :: my_process_is_restart_master
-  PUBLIC :: my_process_is_restart_writer
-  PUBLIC :: becomeDedicatedRestartProc
-  PUBLIC :: shutdownRestartProc
   PUBLIC :: getRestartFilename
   PUBLIC :: setGeneralRestartAttributes
   PUBLIC :: setDynamicPatchRestartAttributes
   PUBLIC :: setPhysicsRestartAttributes
-  PUBLIC :: restartSymlinkName
-  PUBLIC :: create_restart_file_link
+  PUBLIC :: restartSymlinkName, create_restart_file_link
+  PUBLIC :: becomeDedicatedRestartProc, shutdownRestartProc
 
   ! patch independent restart arguments
   TYPE t_restart_args
@@ -81,86 +72,11 @@ CONTAINS
     ENDIF
   END SUBROUTINE alloc_string
 
-  INTEGER FUNCTION dedicatedRestartProcCount() RESULT(resultVar)
-    CALL restartWritingParameters(opt_dedicatedProcCount = resultVar)
-  END FUNCTION dedicatedRestartProcCount
-
-  INTEGER FUNCTION restartProcCount() RESULT(resultVar)
-    CALL restartWritingParameters(opt_restartProcCount = resultVar)
-    IF (resultVar == ALL_WORKERS_INVOLVED)  resultVar = num_work_procs
-  END FUNCTION restartProcCount
-
-  LOGICAL FUNCTION isDedicatedProcMode() RESULT(resultVar)
-    CALL restartWritingParameters(opt_lDedicatedProcMode = resultVar)
-  END FUNCTION isDedicatedProcMode
-
-  INTEGER FUNCTION restart_buddy(pe_in) RESULT(resultVar)
-    INTEGER, OPTIONAL,INTENT(IN) :: pe_in
-    INTEGER :: restartProcCount, ierr, the_pe
-    LOGICAL :: lDedicatedProcMode
-    CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode, &
-      &                           opt_restartProcCount = restartProcCount)
-    IF (restartProcCount == ALL_WORKERS_INVOLVED)  restartProcCount = num_work_procs
-    IF (PRESENT(pe_in)) THEN
-      the_pe = pe_in
-    ELSE
-      CALL MPI_Comm_rank(p_comm_work_restart, the_pe, ierr)
-    END IF
-    resultVar = restart_group(the_pe)
-    IF(lDedicatedProcMode) THEN
-      resultVar = num_work_procs + resultVar
-    ELSE
-      resultVar = CEILING(REAL(resultVar &
-                  * REAL(num_work_procs)/REAL(restartProcCount)))
-    END IF
-  END FUNCTION restart_buddy
-
-  INTEGER FUNCTION restart_group(pe_in) RESULT(resultVar)
-    INTEGER, OPTIONAL,INTENT(IN) :: pe_in
-    INTEGER :: restartProcCount, ierr, the_pe
-    LOGICAL :: lDedicatedProcMode
-
-    CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode, &
-      &                           opt_restartProcCount = restartProcCount)
-    IF (restartProcCount == ALL_WORKERS_INVOLVED)  restartProcCount = num_work_procs
-    IF (PRESENT(pe_in)) THEN
-      the_pe = pe_in
-    ELSE
-      CALL MPI_Comm_rank(p_comm_work_restart, the_pe, ierr)
-    END IF
-    IF (lDedicatedProcMode .AND. the_pe .GE. num_work_procs) THEN
-      resultVar = the_pe - num_work_procs
-    ELSE
-      resultVar = FLOOR(REAL(restartProcCount)*REAL(the_pe)/REAL(num_work_procs))
-    END IF
-  END FUNCTION restart_group
-
-  LOGICAL FUNCTION my_process_is_restart_master() RESULT(resultVar)
-    INTEGER :: ierr, the_pe
-
-    CALL MPI_Comm_rank(p_comm_work_restart, the_pe, ierr)
-    resultVar = restart_group() == restart_group(0) .AND. &
-      &         restart_buddy() == the_pe
-  END FUNCTION my_process_is_restart_master
-
-  LOGICAL FUNCTION my_process_is_restart_writer() RESULT(resultVar)
-    INTEGER :: ierr, the_pe
-
-    CALL MPI_Comm_rank(p_comm_work_restart, the_pe, ierr)
-    resultVar = restart_buddy() == the_pe
-  END FUNCTION my_process_is_restart_writer
-
-  ! Performs all actions needed to decouple the calling process from the rest of the program.
   SUBROUTINE becomeDedicatedRestartProc()
-    ! Dedicated restart processes are detached during the
-    ! model_init phase, so the corresponding timer IS still
-    ! running.  It must be stopped before the timer table IS
-    ! printed, preferably before we start the restart timers, so
-    ! better DO it right away.
+
     IF(ltimer) CALL timer_stop(timer_model_init)
   END SUBROUTINE becomeDedicatedRestartProc
 
-  ! Does all the tidying up that's necessary before executing a STOP.
   ! Does NOT RETURN.
   SUBROUTINE shutdownRestartProc()
 

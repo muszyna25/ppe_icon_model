@@ -20,39 +20,25 @@ MODULE mo_multifile_restart_collector
 #else
 #define MPI_ADDRESS_KIND i8
 #endif
-  USE mo_communication,       ONLY: idx_no, blk_no
-  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
-  USE mo_exception,           ONLY: finish, message_text
-  USE mo_fortran_tools,       ONLY: alloc, ensureSize, no_copy, &
-    &                               t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
-  USE mo_impl_constants,      ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
-  USE mo_kind,                ONLY: dp, sp, i8
-  USE mo_mpi,                 ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
-    &                               my_process_is_work, p_int, p_real_dp, p_real_sp
-  USE mo_restart_util,        ONLY: my_process_is_restart_writer
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
-    &                               timer_restart_indices_setup, timers_level
+  USE mo_communication,          ONLY: idx_no, blk_no
+  USE mo_decomposition_tools,    ONLY: t_grid_domain_decomp_info
+  USE mo_exception,              ONLY: finish, message_text
+  USE mo_fortran_tools,          ONLY: alloc, ensureSize, no_copy, &
+    &                                  t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
+  USE mo_impl_constants,         ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_kind,                   ONLY: dp, sp, i8
+  USE mo_mpi,                    ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
+    &                                  my_process_is_work, p_int, p_real_dp, p_real_sp
+  USE mo_multifile_restart_util, ONLY: iAmRestartWriter, commonBuf_t, dataPtrs_t
+  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
+    &                                  timer_restart_indices_setup, timers_level
   
   IMPLICIT NONE
   
-  PUBLIC :: t_MultifileRestartCollector,     &
-    &       t_CollectorIndices,              &
-    &       t_CollectorSendBuffer, commonBuf_t, dataPtrs_t
-  
+  PUBLIC :: t_MultifileRestartCollector, t_CollectorIndices, t_CollectorSendBuffer
+
   PRIVATE
   
-  TYPE :: commonBuf_t
-    REAL(dp), POINTER :: d(:)
-    REAL(sp), POINTER :: s(:)
-    INTEGER,  POINTER :: i(:)
-  END TYPE commonBuf_t
-
-  TYPE :: dataPtrs_t
-    TYPE(t_ptr_2d),     ALLOCATABLE :: d(:)
-    TYPE(t_ptr_2d_sp),  ALLOCATABLE :: s(:)
-    TYPE(t_ptr_2d_int), ALLOCATABLE :: i(:)
-  END TYPE dataPtrs_t
-
   TYPE :: ptr_arr_t
     REAL(KIND=dp), POINTER :: p(:)
   END TYPE ptr_arr_t
@@ -156,7 +142,7 @@ CONTAINS
       END DO
     END IF
     !Collect the source point counts.
-    IF (my_process_is_restart_writer()) THEN
+    IF (iAmRestartWriter()) THEN
       DO i = 1, me%srcProcCnt
         IF(me%srcProc(i) == myRank) THEN
           me%srcPntCnts(i) = me%sendPntCnt
@@ -439,14 +425,6 @@ CONTAINS
         END SELECT
         offset = offset + INT(idx%sendPntCnt, i8)
       END DO
-      SELECT CASE(inType)
-      CASE(1)
-        DEALLOCATE(input%d)
-      CASE(2)
-        DEALLOCATE(input%s)
-      CASE(3)
-        DEALLOCATE(input%i)
-      END SELECT
       ioffset(inType) = offset
     END IF
 #else
@@ -496,7 +474,7 @@ CONTAINS
       this%tOffCl(4) = this%tOffCl(3) + INT(this%wSizes(3), addr) * this%facIntSp - one
     END IF
     myRank = p_comm_rank(p_comm_work_restart)
-    splitKey = MERGE(1, myRank + 2, my_process_is_restart_writer())
+    splitKey = MERGE(1, myRank + 2, iAmRestartWriter())
     CALL MPI_Comm_split(p_comm_work_restart, idx_c%destProc, splitKey, this%wComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     idx_c%destProc = 0
@@ -507,7 +485,7 @@ CONTAINS
     ALLOCATE(rank_list(wcGrp_size))
     rank_list(1:wcGrp_size) = (/ (i, i = 0, wcGrp_size-1) /)
     CALL MPI_Group_incl(wcGrp, 1, rank_list(1:1), this%wSvGrp, ierr)
-    IF (my_process_is_restart_writer()) THEN
+    IF (iAmRestartWriter()) THEN
       ALLOCATE(tmpOffSv(4*wcGrp_size), rank_map(wcGrp_size))
     ELSE
        ALLOCATE(tmpOffSv(1), rank_map(1))
@@ -518,7 +496,7 @@ CONTAINS
     CALL MPI_Type_match_size(MPI_TYPECLASS_INTEGER, addrBytes, p_addr, ierr)
     CALL MPI_Gather(this%tOffCl, 4, p_addr, tmpOffSv, 4, p_addr, 0, this%wComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    IF (my_process_is_restart_writer()) THEN
+    IF (iAmRestartWriter()) THEN
       iStart = MERGE(1, 2, my_process_is_work())
       CALL MPI_Group_incl(wcGrp, wcGrp_size-iStart+1, rank_list(iStart:wcGrp_size), &
         &                 this%wClGrp, ierr)
@@ -660,7 +638,7 @@ CONTAINS
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       this%wPosted  = .true.
     END IF
-    IF (my_process_is_restart_writer() .AND. .NOT.this%wStarted) THEN
+    IF (iAmRestartWriter() .AND. .NOT.this%wStarted) THEN
       iassert = 0
       CALL MPI_Win_start(this%wClGrp, iassert, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
