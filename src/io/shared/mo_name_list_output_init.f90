@@ -1908,24 +1908,21 @@ CONTAINS
           IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
-            inspect = element%field%info%hgrid == GRID_REGULAR_LONLAT
-            IF (.NOT. inspect) CYCLE
-            inspect = p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id
-            IF (.NOT. inspect) CYCLE
+            inspect =       (element%field%info%hgrid == GRID_REGULAR_LONLAT) &
+              &       .AND. (p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
           ELSE
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
             ! this kind:
             inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
-            IF (.NOT. inspect) CYCLE
           END IF ! (remap/=REMAP_REGULAR_LATLON)
 
-          ! Do not inspect element if it is a container
-          inspect = .NOT. element%field%info%lcontainer
-          IF(.NOT. inspect) CYCLE
+          IF (.NOT. inspect) CYCLE
 
-          ! Check for matching name
-          inspect = tolower(varlist(ivar)) == tolower(get_var_name(element%field))
+          ! Do not inspect element if it is a container
+          inspect =         .NOT. element%field%info%lcontainer &
+               &    .AND.   (tolower(varlist(ivar)) &
+               &          == tolower(get_var_name(element%field)))
           IF(.NOT. inspect) CYCLE
 
           ! register variable 
