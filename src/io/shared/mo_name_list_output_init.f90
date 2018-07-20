@@ -1922,58 +1922,57 @@ CONTAINS
                    &          == tolower(get_var_name(element%field)))
             ENDIF
           ENDIF
-          IF(.NOT. inspect) CYCLE
+          IF(inspect) THEN
+            ! register variable
+            CALL registerOutputVariable(varlist(ivar))
+            ! register shortnames, which are used by mvstream and possibly by the users
+            IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
 
-          ! register variable 
-          CALL registerOutputVariable(varlist(ivar))
-          ! register shortnames, which are used by mvstream and possibly by the users
-          IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
+            ! get time level
+            tl = get_var_timelevel(element%field%info)
 
-          ! get time level
-          tl = get_var_timelevel(element%field%info)
-
-          ! Found it, add it to the variable list of output file
-          IF(tl == -1) THEN
-            ! Not time level dependent
-            IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
-            var_desc%r_ptr    => element%field%r_ptr
-            var_desc%s_ptr    => element%field%s_ptr
-            var_desc%i_ptr    => element%field%i_ptr
-            var_desc%info     =  element%field%info
-            var_desc%info_ptr => element%field%info
-          ELSE
-            IF(found) THEN
-              ! We have already the info field, make some plausibility checks:
-              IF(ANY(var_desc%info%used_dimensions(:) /=  &
-                  &     element%field%info%used_dimensions(:))) THEN
-                CALL message(routine, "Var "//TRIM(element%field%info%name))
-                CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
-              END IF
-              ! There must not be a TL independent variable with the same name
-              IF (     ASSOCIATED(var_desc%r_ptr) &
-                & .OR. ASSOCIATED(var_desc%s_ptr) &
-                & .OR. ASSOCIATED(var_desc%i_ptr)) &
-                   CALL finish(routine,'Duplicate var name: '&
-                   &                    //TRIM(varlist(ivar)))
-              ! Maybe some more members of info should be tested ...
+            ! Found it, add it to the variable list of output file
+            IF(tl == -1) THEN
+              ! Not time level dependent
+              IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
+              var_desc%r_ptr    => element%field%r_ptr
+              var_desc%s_ptr    => element%field%s_ptr
+              var_desc%i_ptr    => element%field%i_ptr
+              var_desc%info     =  element%field%info
+              var_desc%info_ptr => element%field%info
             ELSE
-              ! Variable encountered the first time, set info field ...
-              var_desc%info = element%field%info
-              ! ... and set name without .TL# suffix
-              var_desc%info%name = TRIM(get_var_name(element%field))
+              IF(found) THEN
+                ! We have already the info field, make some plausibility checks:
+                IF(ANY(var_desc%info%used_dimensions(:) /=  &
+                    &     element%field%info%used_dimensions(:))) THEN
+                  CALL message(routine, "Var "//TRIM(element%field%info%name))
+                  CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
+                END IF
+                ! There must not be a TL independent variable with the same name
+                IF (     ASSOCIATED(var_desc%r_ptr) &
+                  & .OR. ASSOCIATED(var_desc%s_ptr) &
+                  & .OR. ASSOCIATED(var_desc%i_ptr)) &
+                     CALL finish(routine,'Duplicate var name: '&
+                     &                    //TRIM(varlist(ivar)))
+                ! Maybe some more members of info should be tested ...
+              ELSE
+                ! Variable encountered the first time, set info field ...
+                var_desc%info = element%field%info
+                ! ... and set name without .TL# suffix
+                var_desc%info%name = TRIM(get_var_name(element%field))
+              ENDIF
+
+              IF (     ASSOCIATED(var_desc%tlev_rptr(tl)%p) &
+                & .OR. ASSOCIATED(var_desc%tlev_sptr(tl)%p) &
+                & .OR. ASSOCIATED(var_desc%tlev_iptr(tl)%p)) &
+                CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
+              var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+              var_desc%tlev_sptr(tl)%p => element%field%s_ptr
+              var_desc%tlev_iptr(tl)%p => element%field%i_ptr
+              var_desc%info_ptr        => element%field%info
             ENDIF
-
-            IF (     ASSOCIATED(var_desc%tlev_rptr(tl)%p) &
-              & .OR. ASSOCIATED(var_desc%tlev_sptr(tl)%p) &
-              & .OR. ASSOCIATED(var_desc%tlev_iptr(tl)%p)) &
-              CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
-            var_desc%tlev_rptr(tl)%p => element%field%r_ptr
-            var_desc%tlev_sptr(tl)%p => element%field%s_ptr
-            var_desc%tlev_iptr(tl)%p => element%field%i_ptr
-            var_desc%info_ptr        => element%field%info
-          ENDIF
-
-          found = .TRUE.
+            found = .TRUE.
+          END IF
         ENDDO
 
       ENDDO ! i = 1, SIZE(vl_list)
