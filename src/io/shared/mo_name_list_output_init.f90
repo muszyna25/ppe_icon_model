@@ -1892,15 +1892,8 @@ CONTAINS
 
         iv = vl_list(i)
 
-        element => NULL()
-        DO
-          IF(.NOT.ASSOCIATED(element)) THEN
-            element => var_lists(iv)%p%first_list_element
-          ELSE
-            element => element%next_list_element
-          ENDIF
-          IF(.NOT.ASSOCIATED(element)) EXIT
-
+        element => var_lists(iv)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
           ! Do not inspect element if output is disabled
           inspect = element%field%info%loutput
           IF (inspect) THEN
@@ -1973,6 +1966,7 @@ CONTAINS
             ENDIF
             found = .TRUE.
           END IF
+          element => element%next_list_element
         ENDDO
 
       ENDDO ! i = 1, SIZE(vl_list)
