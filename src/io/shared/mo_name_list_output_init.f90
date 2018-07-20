@@ -1908,33 +1908,33 @@ CONTAINS
           IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
-            inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
-            IF (inspect) CYCLE
-            inspect = p_of%name_list%lonlat_id /= element%field%info%hor_interp%lonlat_id
-            IF (inspect) CYCLE
+            inspect = element%field%info%hgrid == GRID_REGULAR_LONLAT
+            IF (.NOT. inspect) CYCLE
+            inspect = p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id
+            IF (.NOT. inspect) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
             ! this kind:
-            inspect = element%field%info%hgrid == GRID_REGULAR_LONLAT
-            IF (inspect) CYCLE
+            inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
+            IF (.NOT. inspect) CYCLE
           END IF ! (remap/=REMAP_REGULAR_LATLON)
 
           ! Do not inspect element if it is a container
-          inspect = element%field%info%lcontainer
-          IF(inspect) CYCLE
-
-          ! get time level
-          tl = get_var_timelevel(element%field%info)
+          inspect = .NOT. element%field%info%lcontainer
+          IF(.NOT. inspect) CYCLE
 
           ! Check for matching name
-          inspect = tolower(varlist(ivar)) /= tolower(get_var_name(element%field))
-          IF(inspect) CYCLE
+          inspect = tolower(varlist(ivar)) == tolower(get_var_name(element%field))
+          IF(.NOT. inspect) CYCLE
 
           ! register variable 
           CALL registerOutputVariable(varlist(ivar))
           ! register shortnames, which are used by mvstream and possibly by the users
           IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
+
+          ! get time level
+          tl = get_var_timelevel(element%field%info)
 
           ! Found it, add it to the variable list of output file
           IF(tl == -1) THEN
