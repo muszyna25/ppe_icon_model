@@ -1903,26 +1903,25 @@ CONTAINS
 
           ! Do not inspect element if output is disabled
           inspect = element%field%info%loutput
-          IF(.NOT. inspect) CYCLE
-
-          IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
-            ! If lon-lat variable is requested, skip variable if it
-            ! does not correspond to the same lon-lat grid:
-            inspect =       (element%field%info%hgrid == GRID_REGULAR_LONLAT) &
-              &       .AND. (p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
-          ELSE
-            ! On the other hand: If no lon-lat interpolation is
-            ! requested for this output file, skip all variables of
-            ! this kind:
-            inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
-          END IF ! (remap/=REMAP_REGULAR_LATLON)
-
-          IF (.NOT. inspect) CYCLE
-
-          ! Do not inspect element if it is a container
-          inspect =         .NOT. element%field%info%lcontainer &
-               &    .AND.   (tolower(varlist(ivar)) &
-               &          == tolower(get_var_name(element%field)))
+          IF (inspect) THEN
+            IF (p_of%name_list%remap==REMAP_REGULAR_LATLON) THEN
+              ! If lon-lat variable is requested, skip variable if it
+              ! does not correspond to the same lon-lat grid:
+              inspect =       (element%field%info%hgrid == GRID_REGULAR_LONLAT) &
+                &       .AND. (p_of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
+            ELSE
+              ! On the other hand: If no lon-lat interpolation is
+              ! requested for this output file, skip all variables of
+              ! this kind:
+              inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
+            END IF ! (remap/=REMAP_REGULAR_LATLON)
+            IF (inspect) THEN
+              ! Do not inspect element if it is a container
+              inspect =         .NOT. element%field%info%lcontainer &
+                   &    .AND.   (tolower(varlist(ivar)) &
+                   &          == tolower(get_var_name(element%field)))
+            ENDIF
+          ENDIF
           IF(.NOT. inspect) CYCLE
 
           ! register variable 
