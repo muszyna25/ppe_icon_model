@@ -1854,7 +1854,7 @@ CONTAINS
     CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER                       :: ivar, nvars, i, iv, tl, grid_of, grid_var
+    INTEGER                       :: ivar, nvars, i, iv, tl
     LOGICAL                       :: found, inspect
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc)              :: var_desc   !< variable descriptor
@@ -1927,7 +1927,7 @@ CONTAINS
             ! Found it, add it to the variable list of output file
             IF(tl == -1) THEN
               ! Not time level dependent
-              IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
+              IF (found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               var_desc%r_ptr    => element%field%r_ptr
               var_desc%s_ptr    => element%field%s_ptr
               var_desc%i_ptr    => element%field%i_ptr
@@ -1936,8 +1936,8 @@ CONTAINS
             ELSE
               IF(found) THEN
                 ! We have already the info field, make some plausibility checks:
-                IF(ANY(var_desc%info%used_dimensions(:) /=  &
-                    &     element%field%info%used_dimensions(:))) THEN
+                IF (ANY(var_desc%info%used_dimensions(:) /=  &
+                     &     element%field%info%used_dimensions(:))) THEN
                   CALL message(routine, "Var "//TRIM(element%field%info%name))
                   CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
                 END IF
@@ -1945,7 +1945,7 @@ CONTAINS
                 IF (     ASSOCIATED(var_desc%r_ptr) &
                   & .OR. ASSOCIATED(var_desc%s_ptr) &
                   & .OR. ASSOCIATED(var_desc%i_ptr)) &
-                     CALL finish(routine,'Duplicate var name: '&
+                     CALL finish(routine, 'Duplicate var name: '&
                      &                    //TRIM(varlist(ivar)))
                 ! Maybe some more members of info should be tested ...
               ELSE
@@ -1964,6 +1964,7 @@ CONTAINS
               var_desc%tlev_iptr(tl)%p => element%field%i_ptr
               var_desc%info_ptr        => element%field%info
             ENDIF
+
             found = .TRUE.
           END IF
           element => element%next_list_element
@@ -1982,9 +1983,7 @@ CONTAINS
                  ' Patch: ',var_lists(i)%p%patch_id
             CALL message('',message_text)
             element => var_lists(i)%p%first_list_element
-            DO
-              IF(.NOT. ASSOCIATED(element)) EXIT
-
+            DO WHILE (ASSOCIATED(element))
               IF (element%field%info%post_op%lnew_cf) THEN
                 this_cf => element%field%info%post_op%new_cf
               ELSE
