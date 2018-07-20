@@ -1916,17 +1916,20 @@ CONTAINS
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
             ! this kind:
-            IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
+            inspect = element%field%info%hgrid == GRID_REGULAR_LONLAT
+            IF (inspect) CYCLE
           END IF ! (remap/=REMAP_REGULAR_LATLON)
 
           ! Do not inspect element if it is a container
-          IF(element%field%info%lcontainer) CYCLE
+          inspect = element%field%info%lcontainer
+          IF(inspect) CYCLE
 
           ! get time level
           tl = get_var_timelevel(element%field%info)
 
           ! Check for matching name
-          IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
+          inspect = tolower(varlist(ivar)) /= tolower(get_var_name(element%field))
+          IF(inspect) CYCLE
 
           ! register variable 
           CALL registerOutputVariable(varlist(ivar))
