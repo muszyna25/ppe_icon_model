@@ -819,6 +819,16 @@ AS_CASE(["$GRIB_OPTION"],
                                  [GRIB_OPTION=eccodes])],
                         [AC_MSG_RESULT([undefined])])
 
+                  AC_MSG_CHECKING([environment variable \$ECCODES_DIR])
+                  AS_IF([test -n "$ECCODES_DIR"],
+                        [AC_MSG_RESULT([$ECCODES_DIR])
+                         GRIBAPIROOT=$ECCODES_DIR
+                         env_setting_found=yes
+                         AS_CASE(["$GRIB_OPTION"],
+                                 [gribapi],[AC_MSG_ERROR([GRIBAPI explicitly chosen by config option.])],
+                                 [GRIB_OPTION=eccodes])],
+                        [AC_MSG_RESULT([undefined])])
+
                   AS_CASE([$env_setting_found],
                           [no],
                           [AC_MSG_NOTICE([no environment setting found.])

@@ -4694,6 +4694,26 @@ $as_echo "undefined" >&6; }
 fi
 
 
+                  { $as_echo "$as_me:$LINENO: checking environment variable \$ECCODES_DIR" >&5
+$as_echo_n "checking environment variable \$ECCODES_DIR... " >&6; }
+                  if test -n "$ECCODES_DIR"; then
+  { $as_echo "$as_me:$LINENO: result: $ECCODES_DIR" >&5
+$as_echo "$ECCODES_DIR" >&6; }
+                         GRIBAPIROOT=$ECCODES_DIR
+                         env_setting_found=yes
+                         case "$GRIB_OPTION" in
+  gribapi) { { $as_echo "$as_me:$LINENO: error: GRIBAPI explicitly chosen by config option." >&5
+$as_echo "$as_me: error: GRIBAPI explicitly chosen by config option." >&2;}
+   { (exit 1); exit 1; }; } ;;
+  *) GRIB_OPTION=eccodes ;;
+esac
+
+else
+  { $as_echo "$as_me:$LINENO: result: undefined" >&5
+$as_echo "undefined" >&6; }
+fi
+
+
                   case $env_setting_found in
   no) { $as_echo "$as_me:$LINENO: no environment setting found." >&5
 $as_echo "$as_me: no environment setting found." >&6;}
