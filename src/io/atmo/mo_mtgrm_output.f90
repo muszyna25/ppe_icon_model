@@ -144,7 +144,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
-  USE mo_lnd_nwp_config,        ONLY: tiles
+  USE mo_lnd_nwp_config,        ONLY: tile_list, ntiles_total, ntiles_water
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs,               &
     &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
@@ -196,7 +196,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
 
-  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water)
+  INTEGER :: ntiles_mtgrm          ! total number of tiles (ntiles_total + ntiles_water) 
                                    ! if NWP tiles are set up
                                    ! 1 otherwise
 
@@ -911,11 +911,13 @@ CONTAINS
       CALL finish (routine, 'I/O PE Missing argument(s)!')
     ENDIF
 
-    IF (ALLOCATED(tiles)) THEN
-      ntiles_mtgrm = SIZE(tiles)
+
+    IF (ALLOCATED(tile_list%tile)) THEN
+      ntiles_mtgrm = ntiles_total + ntiles_water
     ELSE
       ntiles_mtgrm = 1
     ENDIF
+
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
 

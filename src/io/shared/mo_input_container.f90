@@ -20,7 +20,7 @@ MODULE mo_input_container
     USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
-    USE mo_util_cdi, ONLY: trivial_tileId
+    USE mo_nwp_sfc_tiles, ONLY: trivial_tile_att, t_tileinfo_icon
     USE mo_util_string, ONLY: int2string, real2string
 
     IMPLICIT NONE
@@ -179,10 +179,12 @@ CONTAINS
         LOGICAL, INTENT(OUT) :: lHaveUntiledData
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_getCounts"
+        TYPE(t_tileinfo_icon) :: trivial_tileinfo_icon
 
         levelCount = me%levels%valueCount
         tileCount = me%tiles%valueCount
-        lHaveUntiledData = me%tiles%haveValue(REAL(trivial_tileId, dp))
+        trivial_tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+        lHaveUntiledData = me%tiles%haveValue(REAL(trivial_tileinfo_icon%idx, dp))
         IF(lHaveUntiledData) tileCount = tileCount - 1
     END SUBROUTINE InputContainer_getCounts
 
@@ -322,8 +324,9 @@ CONTAINS
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_fetchTiled2D"
-        INTEGER :: tileId, expectedTileCount
+        INTEGER :: tileId
         LOGICAL :: debugInfo, useUntiledData
+        TYPE(t_tileinfo_icon) :: trivial_tileinfo_icon
 
         useUntiledData = .FALSE.
         debugInfo = .FALSE.
@@ -331,8 +334,10 @@ CONTAINS
         resultVar = me%dataAvailable(opt_level = level)
         IF(.NOT.resultVar) RETURN
 
+        trivial_tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+
         !check whether we have the right count of tiles, ignoring untiled fields of the same variable that may be PRESENT as well
-        IF(me%tiles%haveValue(REAL(trivial_tileId, dp))) THEN
+        IF(me%tiles%haveValue(REAL(trivial_tileinfo_icon%idx, dp))) THEN
             resultVar = SIZE(outData, 3) == me%tiles%valueCount - 1
             IF(.NOT.resultVar.AND.SIZE(outData, 3) == 1) THEN
                 CALL message(routine, "Warning: No tiled input data is present. Reading single tile from untiled data instead.")
@@ -357,9 +362,10 @@ CONTAINS
 
         DO tileId = 1, SIZE(outData, 3)
             IF(useUntiledData) THEN
-                resultVar = me%fetch2D(level, trivial_tileId, outData(:, :, tileId))
+              trivial_tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+              resultVar = me%fetch2D(level, trivial_tileinfo_icon%idx, outData(:, :, tileId))
             ELSE
-                resultVar = me%fetch2D(level, tileId, outData(:, :, tileId))
+              resultVar = me%fetch2D(level, tileId, outData(:, :, tileId))
             END IF
             IF(.NOT. resultVar) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but a fetch2D() CALL failed")
         END DO
@@ -374,6 +380,7 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_fetchTiled3D"
         INTEGER :: tileId
         LOGICAL :: debugInfo, useUntiledData
+        TYPE(t_tileinfo_icon) :: trivial_tileinfo_icon
 
         useUntiledData = .FALSE.
         debugInfo = .FALSE.
@@ -385,8 +392,12 @@ CONTAINS
         resultVar = me%dataAvailable()
         IF(.NOT.resultVar) RETURN
 
-        !check whether we have the right count of tiles, ignoring untiled fields of the same variable that may be PRESENT as well
-        IF(me%tiles%haveValue(REAL(trivial_tileId, dp))) THEN
+        !check whether we have the right count of tiles, ignoring
+        !untiled fields of the same variable that may be PRESENT as
+        !well
+        trivial_tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+
+        IF(me%tiles%haveValue(REAL(trivial_tileinfo_icon%idx, dp))) THEN
             resultVar = SIZE(outData, 4) == me%tiles%valueCount - 1
             IF(.NOT.resultVar.AND.SIZE(outData, 4) == 1) THEN
                 CALL message(routine, "Warning: No tiled input data is present. Reading single tile from untiled data instead.")
@@ -411,7 +422,7 @@ CONTAINS
 
         DO tileId = 1, SIZE(outData, 4)
             IF(useUntiledData) THEN
-                resultVar = me%fetch3D(trivial_tileId, outData(:, :, :, tileId), optLevelDimension)
+                resultVar = me%fetch3D(trivial_tileinfo_icon%idx, outData(:, :, :, tileId), optLevelDimension)
             ELSE
                 resultVar = me%fetch3D(tileId, outData(:, :, :, tileId), optLevelDimension)
             END IF

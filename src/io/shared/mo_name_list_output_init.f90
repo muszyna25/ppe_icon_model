@@ -44,7 +44,8 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
-    &                                             dtime_cly360              => cly360
+    &                                             dtime_cly360              => cly360,              &
+    &                                             INWP
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
     &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
     &                                             GRID_EDGE, GRID_CELL
@@ -73,7 +74,7 @@ MODULE mo_name_list_output_init
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
 
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
-    &                                             number_of_grid_used
+    &                                             number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, linvert_dict,     &
@@ -88,7 +89,9 @@ MODULE mo_name_list_output_init
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_lnd, ntiles_water, ntiles_total, tile_list, &
+    &                                             isub_water, isub_lake, isub_seaice, lsnowtile
+  USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
@@ -1008,7 +1011,7 @@ CONTAINS
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
       &                                     jp, idom, jg, local_i, idom_log,                  &
-      &                                     grid_info_mode, ierrstat, jl, idummy, ifile,      &
+      &                                     grid_info_mode, ierrstat, jl, ifile,              &
       &                                     npartitions, ifile_partition, errno
     INTEGER                              :: pe_placement(MAX_NUM_IO_PROCS)
     TYPE (t_output_name_list), POINTER   :: p_onl
@@ -2860,9 +2863,7 @@ CONTAINS
     CHARACTER(LEN=256)            :: var_list_name
     INTEGER                       :: idom
 
-!DR Test
     INTEGER :: nvgrid, ivgrid
-    INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
 
     !-----------------------------------------------------------------------------------------------
@@ -3016,22 +3017,19 @@ CONTAINS
       ! from extpar config state
       CALL p_bcast(i_lctype(idom)                          , bcast_root, p_comm_work_2_io)
     ENDDO
-    ! from nwp land config state
-    CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
-    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
-    size_tiles = 0
-    if (allocated(tiles)) then
-       size_tiles = SIZE(tiles)
-    end if
-    CALL p_bcast(size_tiles                                , bcast_root, p_comm_work_2_io)
-    if (size_tiles > 0) then
-       IF (.NOT. ALLOCATED(tiles)) THEN
-          ALLOCATE(tiles(size_tiles))
-       ENDIF
-       CALL p_bcast(tiles(:)%GRIB2_tile%tileIndex              , bcast_root, p_comm_work_2_io)
-       CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
-       CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
-    end if
+
+    IF (iforcing == INWP) THEN
+      ! from nwp land config state
+      !
+      CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+      CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
+      CALL p_bcast(isub_water                                , bcast_root, p_comm_work_2_io)
+      CALL p_bcast(isub_lake                                 , bcast_root, p_comm_work_2_io)
+      CALL p_bcast(isub_seaice                               , bcast_root, p_comm_work_2_io)
+      IF (.NOT.ALLOCATED(tile_list%tile)) THEN
+        CALL setup_tile_list (tile_list, ntiles_lnd, lsnowtile, isub_water, isub_lake, isub_seaice)
+      ENDIF
+    ENDIF
 #endif
     ! allocate vgrid_buffer on asynchronous output PEs, for storing
     ! the vertical grid UUID

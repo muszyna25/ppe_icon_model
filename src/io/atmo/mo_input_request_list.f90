@@ -14,11 +14,11 @@
 !  3. User code inspects AND retrieves the fetched DATA.
 
 MODULE mo_input_request_list
-    USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_INT, C_LONG, C_DOUBLE, C_NULL_PTR, C_NULL_CHAR, C_ASSOCIATED
+    USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_INT, C_DOUBLE, C_NULL_PTR, C_NULL_CHAR, C_ASSOCIATED
 
     USE mo_cdi, ONLY: t_CdiIterator, cdiIterator_new, cdiIterator_nextField, cdiIterator_delete, cdiIterator_inqVTime, &
                     & cdiIterator_inqLevelType, cdiIterator_inqLevel, cdiIterator_inqGridId, cdiIterator_inqVariableName, &
-                    & gridInqType, gridInqSize, gridInqUuid, CDI_UNDEFID, ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_HYBRID, &
+                    & gridInqType, gridInqUuid, CDI_UNDEFID, ZAXIS_SURFACE, ZAXIS_GENERIC, ZAXIS_HYBRID, &
                     & ZAXIS_HYBRID_HALF, &
                     & ZAXIS_PRESSURE, ZAXIS_HEIGHT, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_ISENTROPIC, &
                     & ZAXIS_TRAJECTORY, ZAXIS_ALTITUDE, ZAXIS_SIGMA, ZAXIS_MEANSEA, ZAXIS_TOA, ZAXIS_SEA_BOTTOM, &
@@ -28,8 +28,7 @@ MODULE mo_input_request_list
                     & cdiIterator_inqParamParts, gridInqNumber, gridInqPosition, cdiGribIterator_inqLongValue, t_CdiGribIterator, &
                     & cdiGribIterator_clone, cdiGribIterator_delete, cdiIterator_inqRTime, CDI_UUID_SIZE, &
                     & cdiIterator_inqFiletype, FILETYPE_GRB, FILETYPE_GRB2
-    USE mo_communication, ONLY: t_ScatterPattern
-    USE mo_dictionary, ONLY: t_dictionary, dict_copy, dict_init, dict_get, dict_finalize
+    USE mo_dictionary, ONLY: t_dictionary, dict_get
     USE mo_exception, ONLY: message, finish
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_grid_config, ONLY: n_dom
@@ -38,14 +37,14 @@ MODULE mo_input_request_list
     USE mo_initicon_utils, ONLY: initicon_inverse_post_op
     USE mo_input_container, ONLY: t_InputContainer, inputContainer_make
     USE mo_kind, ONLY: wp, dp
-    USE mo_lnd_nwp_config, ONLY: t_tile, select_tile, get_tile_suffix, find_tile_id
+    USE mo_lnd_nwp_config, ONLY: tile_list
+    USE mo_nwp_sfc_tiles, ONLY: t_tile_att, t_tileinfo_icon, t_tileinfo_grb2, trivial_tile_att
     USE mo_math_types, ONLY: t_Statistics
     USE mo_model_domain, ONLY: t_patch
-    USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
-                    & my_process_is_stdio, p_pe, p_isEqual, p_mpi_wtime
+    USE mo_mpi, ONLY: my_process_is_mpi_workroot, p_bcast, process_mpi_root_id, p_comm_work, &
+                    & p_pe, p_isEqual, p_mpi_wtime
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: time_config
-    USE mo_util_cdi, ONLY: trivial_tileId
     USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, &
                             & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
@@ -359,6 +358,9 @@ CONTAINS
         CHARACTER(:), POINTER :: vtimeString
         CHARACTER(max_datetime_str_len) :: debugDatetimeString
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_isRecordValid"
+        TYPE(t_tile_att), POINTER  :: this_att  ! pointer to attribute
+        TYPE(t_tileinfo_grb2) :: tileinfo_grb2
+        TYPE(t_tileinfo_icon) :: tileinfo_icon
 
         resultVar = .TRUE.
         variableName => cdiIterator_inqVariableName(iterator)
@@ -463,11 +465,16 @@ CONTAINS
         error = cdiIterator_inqTile(iterator, tileIndex, tileAttribute);
         SELECT CASE(error)
             CASE(CDI_NOERR)
-                tileId = find_tile_id(tileIndex, tileAttribute)
+              tileinfo_grb2%idx = tileIndex
+              tileinfo_grb2%att = tileAttribute
+              this_att => tile_list%getTileAtt(tileinfo_grb2)
+              tileinfo_icon = this_att%getTileinfo_icon()
+              tileId = tileinfo_icon%idx
 
             CASE(CDI_EINVAL)
-                !There IS no tile information connected to this field, so we USE the trivial tileId.
-                tileId = trivial_tileId
+              !There IS no tile information connected to this field, so we USE the trivial tileId.
+              tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+              tileId = tileinfo_icon%idx
 
             CASE DEFAULT
                 CALL finish(routine, "unexpected error while reading tile information")
@@ -737,8 +744,8 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetch2d"
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
-        TYPE(t_tile) :: tileinfo
         LOGICAL :: debugInfo
+        TYPE(t_tile_att), POINTER   :: this_att  ! pointer to attribute
 
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
@@ -751,9 +758,9 @@ CONTAINS
         resultVar = ASSOCIATED(domainData)
         IF(resultVar) resultVar = domainData%container%fetch2d(level, tile, outData, opt_lDebug)
         IF(resultVar) THEN
-            tileinfo = select_tile(tile)
-            CALL initicon_inverse_post_op( &
-            &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
+          this_att => tile_list%getTileAtt(t_tileinfo_icon(tile))
+          CALL initicon_inverse_post_op( &
+            &   TRIM(varName//TRIM(this_att%getTileSuffix())), &
             &   optvar_out2D=outData)
         ELSE IF(debugInfo) THEN
             CALL message(routine, "InputContainer_fetch2d() returned an error")
@@ -771,7 +778,7 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetch3d"
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
-        TYPE(t_tile) :: tileinfo
+        TYPE(t_tile_att), POINTER   :: this_att  ! pointer to attribute
         LOGICAL :: debugInfo
 
         debugInfo = .FALSE.
@@ -785,9 +792,9 @@ CONTAINS
         resultVar = ASSOCIATED(domainData)
         IF(resultVar) resultVar = domainData%container%fetch3d(tile, outData, optLevelDimension, opt_lDebug)
         IF(resultVar .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
-            tileinfo = select_tile(tile)
-            CALL initicon_inverse_post_op( &
-            &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
+          this_att => tile_list%getTileAtt(t_tileinfo_icon(tile))
+          CALL initicon_inverse_post_op( &
+            &   TRIM(varName//TRIM(this_att%getTileSuffix())), &
             &   optvar_out3D=outData)
         ELSE IF(debugInfo) THEN
             CALL message(routine, "InputContainer_fetch3d() returned an error")
@@ -805,8 +812,8 @@ CONTAINS
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         REAL(dp), POINTER :: levels(:)
-        TYPE(t_tile) :: tileinfo
         LOGICAL :: debugInfo
+        TYPE(t_tile_att), POINTER  :: this_att  ! pointer to attribute
 
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
@@ -832,9 +839,9 @@ CONTAINS
             END SELECT
         END IF
         IF(resultVar) THEN
-            tileinfo = select_tile(tile)
+            this_att => tile_list%getTileAtt(t_tileinfo_icon(tile))
             CALL initicon_inverse_post_op( &
-            &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
+            &   TRIM(varName//TRIM(this_att%getTileSuffix())), &
             &   optvar_out2D=outData)
         END IF
     END FUNCTION InputRequestList_fetchSurface
@@ -851,8 +858,8 @@ CONTAINS
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         INTEGER :: i
-        TYPE(t_tile) :: tileinfo
         LOGICAL :: debugInfo
+        TYPE(t_tile_att), POINTER  :: this_att  ! pointer to attribute
 
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
@@ -866,9 +873,9 @@ CONTAINS
         IF(resultVar) resultVar = domainData%container%fetchTiled2d(level, outData, opt_lDebug)
         IF(resultVar) THEN
             DO i = 1, SIZE(outData, 3)
-                tileinfo = select_tile(i)
-                CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
-                &   tileinfo%GRIB2_att%tileAttribute))), optvar_out2D=outData(:,:,i))
+                this_att => tile_list%getTileAtt(t_tileinfo_icon(i))
+                CALL initicon_inverse_post_op(TRIM(varName//TRIM(this_att%getTileSuffix())), &
+                  &                           optvar_out2D=outData(:,:,i))
             END DO
         ELSE IF(debugInfo) THEN
             CALL message(routine, "InputContainer_fetchTiled2d() returned an error")
@@ -887,8 +894,8 @@ CONTAINS
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         INTEGER :: i
-        TYPE(t_tile) :: tileinfo
         LOGICAL :: debugInfo
+        TYPE(t_tile_att), POINTER  :: this_att  ! pointer to attribute
 
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
@@ -902,9 +909,9 @@ CONTAINS
         IF(resultVar) resultVar = domainData%container%fetchTiled3d(outData, optLevelDimension, opt_lDebug)
         IF(resultVar .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
             DO i = 1, SIZE(outData, 4)
-                tileinfo = select_tile(i)
-                CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
-                &   tileinfo%GRIB2_att%tileAttribute))), optvar_out3D=outData(:,:,:,i))
+                this_att => tile_list%getTileAtt(t_tileinfo_icon(i))
+                CALL initicon_inverse_post_op(TRIM(varName//TRIM(this_att%getTileSuffix())), &
+                  &                           optvar_out3D=outData(:,:,:,i))
             END DO
         ELSE IF(debugInfo) THEN
             CALL message(routine, "InputContainer_fetchTiled3d() returned an error")
@@ -923,8 +930,8 @@ CONTAINS
         TYPE(t_DomainData), POINTER :: domainData
         REAL(dp), POINTER :: levels(:)
         INTEGER :: i
-        TYPE(t_tile) :: tileinfo
         LOGICAL :: debugInfo
+        TYPE(t_tile_att), POINTER  :: this_att  ! pointer to attribute
 
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
@@ -951,9 +958,9 @@ CONTAINS
         END IF
         IF(resultVar) THEN
             DO i = 1, SIZE(outData, 3)
-                tileinfo = select_tile(i)
-                CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
-                &   tileinfo%GRIB2_att%tileAttribute))), optvar_out2D=outData(:,:,i))
+                this_att => tile_list%getTileAtt(t_tileinfo_icon(i))
+                CALL initicon_inverse_post_op(TRIM(varName//TRIM(this_att%getTileSuffix())), &
+                  &                           optvar_out2D=outData(:,:,i))
             END DO
         END IF
     END FUNCTION InputRequestList_fetchTiledSurface

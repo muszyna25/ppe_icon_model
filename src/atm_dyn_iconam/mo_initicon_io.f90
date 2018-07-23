@@ -53,7 +53,7 @@ MODULE mo_initicon_io
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
-  USE mo_util_cdi,            ONLY: trivial_tileId
+  USE mo_nwp_sfc_tiles,       ONLY: t_tileinfo_icon, trivial_tile_att
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
     &                               isub_lake, llake, lprog_albsi, itype_trvg, &
@@ -828,12 +828,13 @@ MODULE mo_initicon_io
     REAL(dp), VALUE :: level
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
-
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetch2d(varName, level, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+      tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+      fetchResult = params%requestList%fetch2d(varName, level, tileinfo_icon%idx, jg, field)
+      CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
     END IF
   END SUBROUTINE fetch2d
 
@@ -845,9 +846,11 @@ MODULE mo_initicon_io
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+        fetchResult = params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field)
         IF (PRESENT(found)) THEN
           found = fetchResult
         ELSE
@@ -864,9 +867,11 @@ MODULE mo_initicon_io
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+        fetchResult = params%requestList%fetchSurface(varName, tileinfo_icon%idx, jg, field)
         IF (PRESENT(found)) THEN
           found = fetchResult
         ELSE
@@ -884,13 +889,15 @@ MODULE mo_initicon_io
 
     INTEGER :: jt
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
-                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, trivial_tileId, jg, field(:,:,jt))
+                tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, tileinfo_icon%idx, jg, field(:,:,jt))
             END DO
         ELSE
             !True tiled input.
@@ -909,13 +916,15 @@ MODULE mo_initicon_io
 
     INTEGER :: jt
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
-                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+                tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field(:,:,:,jt))
             END DO
         ELSE
             !True tiled input.
@@ -940,6 +949,7 @@ MODULE mo_initicon_io
     INTEGER :: jt
     LOGICAL :: fetchResult
     REAL(wp), POINTER :: ptr_field_fb(:,:,:,:)
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     ! set pointer to fallback target field
     IF (PRESENT(opt_field_fallback)) THEN
@@ -948,13 +958,14 @@ MODULE mo_initicon_io
       ptr_field_fb => field
     ENDIF
 
+    tileinfo_icon = trivial_tile_att%getTileinfo_icon()
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
                 fetchResult = fetchResult.AND.  &
-                  &           params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+                  &           params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field(:,:,:,jt))
             END DO
             IF (.NOT.fetchResult) THEN
                 CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
@@ -962,7 +973,7 @@ MODULE mo_initicon_io
                 fetchResult = .TRUE.
                 DO jt = 1, tileCount
                    fetchResult = fetchResult.AND. &
-                     &           params%requestList%fetch3d(varNameFallback, trivial_tileId, jg, ptr_field_fb(:,:,:,jt))
+                     &           params%requestList%fetch3d(varNameFallback, tileinfo_icon%idx, jg, ptr_field_fb(:,:,:,jt))
                 END DO
                 CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
             ELSE
@@ -989,8 +1000,10 @@ MODULE mo_initicon_io
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
-    CALL params%requestList%fetchRequired3d(varName, trivial_tileId, jg, field)
+    tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+    CALL params%requestList%fetchRequired3d(varName, tileinfo_icon%idx, jg, field)
     CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
   END SUBROUTINE fetchRequired3d
 
@@ -1002,11 +1015,13 @@ MODULE mo_initicon_io
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
     INTEGER :: jt
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(ltile_coldstart) THEN
         !Fake tiled input by copying the input field to all tiles.
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
         DO jt = 1, tileCount
-            CALL params%requestList%fetchRequiredSurface(varName, trivial_tileId, jg, field(:,:,jt))
+            CALL params%requestList%fetchRequiredSurface(varName, tileinfo_icon%idx, jg, field(:,:,jt))
         END DO
     ELSE
         !True tiled input.

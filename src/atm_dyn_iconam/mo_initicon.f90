@@ -67,7 +67,7 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
-  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles, copy_initicon2prog_atm, copy_initicon2prog_sfc, &
                                   & construct_initicon, deallocate_initicon, copy_fg2initicon, &

@@ -47,7 +47,7 @@ MODULE mo_atmo_model
   USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_io_config,               ONLY: restartWritingParameters
-  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
+  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp, tile_list
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
@@ -555,6 +555,11 @@ CONTAINS
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
+    ENDIF
+
+    ! destruct surface tile list
+    IF (iforcing == inwp) THEN
+      CALL tile_list%destruct()
     ENDIF
 
     ! destruct interpolation patterns generate in create_grf_index_lists

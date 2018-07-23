@@ -27,13 +27,14 @@ MODULE mo_grib2_util
                                  & vlistDefVarIntKey
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
-    &                              CLASS_CHEM, CLASS_TILE_LAND, VARNAME_LEN, &
+    &                              CLASS_CHEM, CLASS_TILE_LAND,              &
     &                              CLASS_CHEM_STAT, CLASS_CHEM_OPTP,         &
     &                              CLASS_DISTR, CLASS_DISTR_STAT
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
-  USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, select_tile, t_tile
+  USE mo_lnd_nwp_config,     ONLY: tile_list
+  USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2
 #endif
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
@@ -293,7 +294,7 @@ CONTAINS
 
     ! Local
     INTEGER :: typeOfGeneratingProcess
-    INTEGER :: productDefinitionTemplate, pdt_offset   ! template number, offset for EPS
+    INTEGER :: productDefinitionTemplate     ! template number
 
     ! ----------------------------------------------------------------
     
@@ -343,10 +344,10 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     ! local
-    INTEGER      :: typeOfGeneratingProcess
-    INTEGER      :: productDefinitionTemplate        ! Tile template number 
-    TYPE(t_tile) :: tile
-
+    INTEGER                   :: typeOfGeneratingProcess
+    INTEGER                   :: productDefinitionTemplate        ! Tile template number 
+    INTEGER                   :: natt
+    TYPE(t_tileinfo_grb2)     :: tileinfo_grb2
   !----------------------------------------------------------------
 
     ! Skip inapplicable fields
@@ -373,23 +374,26 @@ CONTAINS
 
     ! Set number of used tiles
     CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , &
-      &                    getNumberOfTiles(class=info%var_class))
+      &                    tile_list%getNumberOfTiles(varClass=info%var_class))
 
     ! get the following attributes:
     ! - tileIndex
     ! - numberOfTileAttributes
+    ! - tileAttribute
     !
-    ! Select tile info orresponding to index info%ncontained
-    tile = select_tile(info%ncontained)
+    ! Select GRIB2 tileinfo object corresponding to internal tile index info%ncontained
+    tileinfo_grb2 = tile_list%getTileInfo_grb2( t_tileinfo_icon(info%ncontained) )
+    ! get number of GRIB2 tile attributes corresponding to internal tile index info%ncontained
+    natt          = tile_list%getNumberOfTileAttributes( t_tileinfo_icon(info%ncontained) )
 
     ! Set tile index
-    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tile%GRIB2_tile%tileIndex)
+    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tileinfo_grb2%idx)
 
     ! Set total number of tile attributes for given tile
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , tile%GRIB2_tile%numberOfTileAttributes)
+    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , natt)
 
     ! Set tile attribute
-    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tile%GRIB2_att%tileAttribute)
+    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tileinfo_grb2%att)
 #endif
 
   END SUBROUTINE set_GRIB2_tile_keys
