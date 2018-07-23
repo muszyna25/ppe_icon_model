@@ -60,6 +60,7 @@ CONTAINS
   !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
   SUBROUTINE atm_exchange_coeff( jg,                                      &! in
+                               & jb,                                      &! in, for debugging only
                                & kproma, kbdim, klev, klevm1, klevp1,     &! in
                                & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
@@ -77,6 +78,7 @@ CONTAINS
     ! Arguments
 
     INTEGER, INTENT(IN) :: jg
+    INTEGER, INTENT(IN) :: jb
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
     REAL(wp),INTENT(IN) :: pdtime
@@ -181,7 +183,8 @@ CONTAINS
     !-------------------------------------
 
     DO 212 jk=1,klev
-      CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1))
+      CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1)  &
+      &                                       ,klev=jk,kblock=jb,kblock_size=kbdim)
       CALL lookup_ua_spline(kproma,idx(1),za(1),zua(1))
 
       zpapm1i(1:kproma) = 1._wp/papm1(1:kproma,jk)

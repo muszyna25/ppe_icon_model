@@ -64,12 +64,13 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, YAC_LOCATION_CELL
+    &                               yac_ffinalize, YAC_LOCATION_CELL,            &
+    &                               COUPLING, OUT_OF_BOUND
 
   USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
-  
+#ifdef DEBUG_YAC_coupling
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
-
+#endif
   USE mo_physical_constants  ,ONLY: amd, amco2
 
   IMPLICIT NONE
@@ -86,6 +87,7 @@ MODULE mo_interface_echam_ocean
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+  LOGICAL, SAVE         :: lyac_very_1st_get
 
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
 
@@ -145,6 +147,14 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
+
+    ! Skip time measurement of the very first yac_fget
+    ! as this will measure mainly the wait time caused
+    ! by the initialisation of the model components
+    ! and does not tell us much about the load balancing
+    ! in subsequent calls.
+
+    lyac_very_1st_get = .TRUE.
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -567,8 +577,9 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -598,8 +609,9 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=2, v-stress')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -689,8 +701,10 @@ CONTAINS
 
     no_arr = 3
     CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=3, fresh water flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -721,8 +735,9 @@ CONTAINS
 
     no_arr = 4
     CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=4, heat flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -751,13 +766,15 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=5, atmos sea ice')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=5, atmos sea ice bundle')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 1 to 5, atmosphere fields')
     ENDIF
 
     !
@@ -785,13 +802,20 @@ CONTAINS
 
     no_arr = 1
     CALL yac_fput ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=10, wind speed')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+      write_coupler_restart = .TRUE.
+    ELSE
+      write_coupler_restart = .FALSE.
+    ENDIF
+
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=10, wind speed')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=10, wind speed')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 10, wind speed')
     ENDIF
 
 #ifndef __NO_ICON_OCEAN__
@@ -820,13 +844,21 @@ CONTAINS
 
     no_arr = 1
     CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=11, co2mmr')
+
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+      write_coupler_restart = .TRUE.
+    ELSE
+      write_coupler_restart = .FALSE.
+    ENDIF
+
+    IF ( info == OUT_OF_BOUND )                 &
+        & CALL warning('interface_echam_ocean', &
+        &              'YAC says fput called after end of run - id=11, co2 mr')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2mmr')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
     ENDIF
     ENDIF
 #endif
@@ -849,17 +881,26 @@ CONTAINS
     !  Receive SST
     !   field_id(6) represents "sea_surface_temperature" - SST
     !
-    IF (ltimer) CALL timer_start(timer_coupling_1stget)
+    IF ( .NOT. lyac_very_1st_get ) THEN
+      IF (ltimer) CALL timer_start(timer_coupling_1stget)
+    ENDIF
 
     !buffer(:,:) = 0.0_wp
     ! buffer for tsfc in Kelvin
     buffer(:,:) = 199.99_wp
 
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=6, SST')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=6, SST')
 
-    IF (ltimer) CALL timer_stop(timer_coupling_1stget)
+    IF ( .NOT. lyac_very_1st_get ) THEN
+       IF (ltimer) CALL timer_stop(timer_coupling_1stget)
+    ENDIF
+
+    lyac_very_1st_get = .FALSE.
+
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
@@ -892,8 +933,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=7, u velocity')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=7, u velocity')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -929,8 +972,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=8, v velocity')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=8, v velocity')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -966,8 +1011,10 @@ CONTAINS
     buffer(:,:) = 0.0_wp
     no_arr = 3
     CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=9, sea ice')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=9, sea ice')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -1026,8 +1073,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
+    IF ( info == OUT_OF_BOUND )                      &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=12, CO2 flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -1054,7 +1103,11 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2_flux_tile(:,:,iwtr))
     ENDIF ! lcpl_co2_atmoce
 
-    END IF    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    END IF
+
+#ifdef DEBUG_YAC_coupling
+
+!---------DEBUG DIAGNOSTICS-------------------------------------------
 
     ! u/v-stress on ice and water sent
     scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
@@ -1109,8 +1162,9 @@ CONTAINS
       CALL dbg_print('EchOce: frac_tile.lnd',scr,str_module,4,in_subset=p_patch%cells%owned)
     ENDIF
 
-    !---------------------------------------------------------------------
+#endif
 
+    !---------------------------------------------------------------------
 
   END SUBROUTINE interface_echam_ocean
 

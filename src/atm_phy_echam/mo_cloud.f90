@@ -71,6 +71,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE cloud (         jg                                                      &
+                           , jb                                                      &
                            , kproma,       kbdim,        klev                        &
                            , pdtime                                                  &
     ! - INPUT  1D .
@@ -100,6 +101,7 @@ CONTAINS
     !
     !
     INTEGER,  INTENT(IN)    :: jg
+    INTEGER,  INTENT(IN)    :: jb
     INTEGER,  INTENT(IN)    :: kproma, kbdim, klev
     INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
@@ -279,7 +281,8 @@ CONTAINS
       zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
       zpapm1_inv(1:kproma) = 1._wp/papm1(1:kproma,jk)
 
-      CALL prepare_ua_index_spline(jg,'cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
+      CALL prepare_ua_index_spline(jg,'cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1), &
+                                      klev=jk,kblock=jb,kblock_size=kbdim)
       CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
       CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
       !
@@ -635,7 +638,8 @@ CONTAINS
 
       CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
       CALL prepare_ua_index_spline(jg,'cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
-                                               ,ztmp1(1),nphase,zlo2(1),cond1(1))
+                                                 ,ztmp1(1),nphase,zlo2(1),cond1(1)      &
+                                                 ,klev=jk,kblock=jb,kblock_size=kbdim)
       CALL lookup_ua_eor_uaw_spline(kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
       zpapp1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
 

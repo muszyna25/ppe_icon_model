@@ -2,7 +2,7 @@
 #
 # AMIP experiment
 #
-author_list="Marco Giorgetta, MPIM"
+author_list="Thorsten Mauritsen, Rene Redler, Monika Esch, Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
@@ -18,19 +18,34 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) unset some setting of create_target_header for mistral
+#--------------------------------------------------------------------------------------------------
+
+# (0) Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
+# nproma                        = blocking length for array dimensioning and inner loop lengths
+
+#--------------------------------------------------------------------------------------------------
+
+# (1) Basic model configuration
+
+atmos_gridID="0015"
+atmos_refinement="R02B09"
+ifs2icon_refinement="R2B09"
+
+# set nproma default for production
+nproma_atm=96
+
+# (2) unset some setting of create_target_header for mistral
 
 unset OMPI_MCA_coll_fca_enable
 unset OMPI_MCA_coll_fca_priority
 
 #--------------------------------------------------------------------------------------------------
 
-# (1) Variables provided by the scripting mechanism
-
-# EXPNAME                       = name of exp. in 'exp.<name>'
-# basedir                       = base directory, where src/, run/ etc exist
-# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
-# nproma                        = blocking length for array dimensioning and inner loop lengths
+# (3) icon_data_poolFolder
 
 # overwrite the default setting with the new path and handle daint (CSCS)
 
@@ -41,31 +56,32 @@ else
     poolFolder_prefix=
 fi
 
-icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
+#icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="$poolFolder_prefix/mnt/lustre01/work/mh0287/users/rene/public/mpim"
 
+#
 #--------------------------------------------------------------------------------------------------
 
-# (2) Set variables needed by the scripting mechanism
+# (4) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=icon_grid_0010_R02B09_G
-grids_folder=${icon_data_poolFolder}/grids
-atmo_dyn_grids=${grid_name}.nc
+atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
-resolution_a=$(awk -F'_' '{print $4}' <<< $grid_name)
-resolution_b=${resolution_a/0/}
-resolution_c=${resolution_a//0/}
+atmo_grid_folder=${icon_data_poolFolder}/${atmos_gridID}
+grids_folder=${atmo_grid_folder}
+atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_dyn_grids=${atm_grid_name}.nc
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="1979-01-04T00:00:00Z"}
+    end_date=${end_date:="2015-01-01T00:00:00Z"}
 
 # restart intervals
-checkpoint_interval="P3D"
-restart_interval="P3D"
+checkpoint_interval="P6D"
+restart_interval="P6D"
 
 # output intervals
-output_interval="PT1H"
+output_interval="PT6H"
 file_interval="P1D"
 
 # namelist files
@@ -83,8 +99,6 @@ output_lnd=no                 # amount of output: min/full/no
 
 #--------------------------------------------------------------------------------------------------
 
-# (3) Define the model configuration
-
 # Some further processing for land configuration
 # --------------------------------
 ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
@@ -93,7 +107,6 @@ lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE.
 
 if [[ $jsbach_usecase == *pfts* ]]
 then
-#  nproma=48
   pft_file_tag="11pfts_"
 else
   pft_file_tag=""
@@ -104,8 +117,8 @@ fi
 cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
- nproma           = ${nproma}
- num_io_procs     = 2
+ nproma           = ${nproma_atm}
+ num_io_procs     = 3
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -167,7 +180,7 @@ cat > ${atmo_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT15M"
+ echam_phy_config(1)%dt_rad = "PT20M"
  echam_phy_config(1)%dt_vdf = "PT40S"
  echam_phy_config(1)%dt_cnv = ""
  echam_phy_config(1)%dt_cld = "PT40S"
@@ -307,7 +320,8 @@ fi
 
 #--------------------------------------------------------------------------------------------------
 
-# (4) Define the input
+# (5) Define the atmosphere and land input
+# ----------------------------------------
 
 # model files
 #
@@ -316,7 +330,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${atmo_namelist}                        ./
 add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
@@ -328,11 +342,11 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${resolution_b}_DOM01.nc
+datadir=${atmo_data_InputFolder}
+add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon_${ifs2icon_refinement}_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
+datadir=${atmo_data_InputFolder}/land
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
@@ -345,83 +359,105 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
-datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
+datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+add_link_file ${datadir}/greenhouse_historical.nc                       ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
-datadir=${icon_data_poolFolder}/ozone/cmip6/${resolution_a}
+#
+datadir=${atmo_data_InputFolder}/ozone
+#
+add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
+#
+# The following is required for AMIP
+#
 year=$start_year
 while [[ $year -le $end_year ]]
 do
   if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
   else
-    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
   fi
   (( year = year+1 ))
 done
+#
 # -- for irad_o3=1 with Cariolle ozone chemistry
-datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
+datadir=${icon_data_poolFolder}/independent/greenhouse_gases
+add_link_file ${datadir}/bc_ozone_cariolle.nc                           ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
+add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 #   accessing all the same data of 1865:
-datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
+datadir=${atmo_data_InputFolder}/aerosol_kinne
 year=1849
 while [[ $year -le 1851 ]]
 do
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                     ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                     ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc                ./bc_aeropt_kinne_sw_b14_fin.nc
+#
 # - stratospheric aerosol
-datadir=${icon_data_poolFolder}/aerosol/stenchikov
+datadir=${icon_data_poolFolder}/independent/aerosol_stenchikov
 year=$start_year
 while [[ $year -le $end_year ]]
 do
   if [[ $year -le 1999 ]]
   then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done
 #
+add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc        ./bc_aeropt_stenchikov_lw_b16_sw_b14.nc
+#
 # - sst and sic
-datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
-add_link_file $datadir/sic_${resolution_a}.nc                           ./bc_sic.nc
-add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst.nc
+datadir=${atmo_data_InputFolder}
+add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
+add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
 #
 # - ssi and tsi
-datadir=${icon_data_poolFolder}/solar_radiation/3.2
+datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
 add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+datadir=${atmo_data_InputFolder}/land
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1976.nc               ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1976.nc                              ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1976.nc                              ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1976.nc                               ./bc_land_sso.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
-#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
+#
+#add_link_file ${datadir}/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
+#
 # The following bc_land_hd-file is not yet available...
+#
 if [[ ${jsbach_with_hd} = yes ]]; then
-  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
+  add_link_file ${datadir}/bc_land_hd.nc                                   ./bc_land_hd.nc
 fi
 #
 # - lctlib file for JSBACH
 add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+#
+# - the atmosphere grid itself (the gid copy section below from $HGRIDDIR is ignored)
+#
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./
+#
 #--------------------------------------------------------------------------------------------------
 
-# (5) Define the output
+# (6) Define the atmosphere and land output
+#  ----------------------------------------
 
 # Parameters for all output files
 # -------------------------------
@@ -429,9 +465,11 @@ cat >> ${atmo_namelist} << EOF
 &io_nml
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
+ write_last_restart = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
  restart_write_mode = "joint procs multifile"
+!lkeep_in_sync      = .TRUE.
 /
 EOF
 
@@ -464,7 +502,7 @@ EOF
 fi
 
 
-output_atm_3d=no
+output_atm_3d=yes
 #
 if [[ "$output_atm_3d" == "yes" ]]; then
   #
@@ -481,12 +519,13 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'zg'      ,
-                    'ps'      , 'pfull'   ,
-                    'rho'     , 'ta'      ,
-                    'ua'      , 'va'      , 'wap'     ,
-                    'hus'     , 'clw'     , 'cli'     ,
-                    'hur'     , 'cl'      ,
+ ml_varlist       = 'ta'      , 'hus'     , 'clw'     , 'cli'     , 'cl' ,
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+!                    'zg'      , 'ps'      , 'pfull'   ,
+!                    'ua'      , 'va'      , 'wap'     ,
+!                    'hus'     , 'clw'     , 'cli'     ,
+!                    'hur'     , 'cl'      ,
+!                    'rho'     , 'ta'      ,
 !                    'qo3_phy' ,
 /
 EOF
@@ -726,11 +765,14 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'hydro_water_flux_box', 'hydro_water_content_box', 'hydro_water_budget_box',
 EOF
+
   if [[ "$jsbach_with_hd" == "yes" ]]; then
     cat >> ${atmo_namelist} << EOF
                     'hydro_runoff_box'   , 'hydro_drainage_box',
-                    'hd_water_budget_box', 'hd_water_budget_old_box', 'hd_water_flux_box', 'hd_water_error_box'
+                    'hd_water_budget_box', 'hd_water_budget_old_box', 
+                    'hd_water_flux_box', 'hd_water_error_box'
 EOF
+
   fi
   cat >> ${atmo_namelist} << EOF
 /

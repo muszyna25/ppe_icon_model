@@ -35,6 +35,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE vdiff_down( jg,                                            &! in
+                       & jb,                                            &! in, used for debugging only 
                        & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pdtime,  pcoriol,                              &! in
@@ -66,6 +67,7 @@ CONTAINS
 
 
     INTEGER, INTENT(IN) :: jg
+    INTEGER, INTENT(IN) :: jb
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime
@@ -207,6 +209,7 @@ CONTAINS
     !----------------------------------------------------------------------
 
     CALL atm_exchange_coeff( jg,                                      &! in
+                           & jb,                                      &! in, for debugging only
                            & kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pdtime, pcoriol,                         &! in
                            & zghf, zghh,                              &! in

@@ -109,7 +109,7 @@ CONTAINS
           ! land sea mask for using dlev_land or dlev_ocean
           ldland(jcs:jce)    = field% sftlf(jcs:jce,jb) > 0._wp
           !
-          CALL cumastr(jg,                           &! in
+          CALL cumastr(jb, jg,                       &! in
                &       jce, nproma,                  &! in
                &       nlev, nlevp1, nlevm1,         &! in
                &       pdtime,                       &! in

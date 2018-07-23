@@ -28,6 +28,9 @@ MODULE mo_echam_convect_tables
   USE mo_physical_constants, ONLY: alv, als, rd, rv, tmelt, cpd
   USE mo_echam_cld_config,   ONLY: echam_cld_config
 
+  USE mo_model_domain,       ONLY: p_patch  ! for debugging only
+  USE mo_math_constants,     ONLY: rad2deg  ! for debugging only
+
   IMPLICIT NONE
 
   SAVE
@@ -653,13 +656,20 @@ CONTAINS
 
   END SUBROUTINE lookup_uaw
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index_spline(jg, name, size, temp, idx, zalpha, xi, nphase, zphase, iphase)
+  SUBROUTINE prepare_ua_index_spline(jg, name, size, temp, idx, zalpha, &
+    &                                xi, nphase, zphase, iphase,        &
+    &                                klev, kblock, kblock_size)
     INTEGER,            INTENT(in)  :: jg
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
     INTEGER,            INTENT(out) :: idx(size)
     REAL(wp),           INTENT(out) :: zalpha(size)
+
+    INTEGER,  OPTIONAL, INTENT(in)  :: klev
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
+
     REAL(wp), OPTIONAL, INTENT(in)  :: xi(size)
     INTEGER,  OPTIONAL, INTENT(out) :: nphase
     REAL(wp), OPTIONAL, INTENT(out) :: zphase(size)
@@ -709,7 +719,24 @@ CONTAINS
       END DO
     END IF
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+    IF (zinbounds == 0.0_wp) THEN
+      IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
+        ! tied to patch(1), does not yet work for nested grids
+        DO jl = 1, size
+          ztt = rsdeltat*temp(jl)
+          IF ( ztt <= ztmin .OR. ztt >= ztmax ) THEN
+            WRITE ( 0 , '(a,a,a,a,i5,a,i8,a,f8.2,a,f8.2,a,f8.2)' )                                 &
+                 & ' Lookup table problem in ', TRIM(name), ' at ',                                &
+                 & ' level   =',klev,                                                              &
+                 & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
+                 & ' lon(deg)=',p_patch(1)%edges%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%edges%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' value   =',temp(jl)
+          ENDIF
+        ENDDO
+      ENDIF
+      CALL lookuperror(name)
+    ENDIf
 
   END SUBROUTINE prepare_ua_index_spline
   !----------------------------------------------------------------------------
@@ -770,12 +797,16 @@ CONTAINS
 
   END SUBROUTINE prepare_ua_index
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ua_list_spline(name, size, kidx, list, temp, ua, dua)
+  SUBROUTINE lookup_ua_list_spline(name, size, kidx, list, temp, ua, dua, &
+    &                              klev, kblock, kblock_size)
     CHARACTER(len=*),   INTENT(in)  :: name
     INTEGER,            INTENT(in)  :: size, kidx
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp), OPTIONAL, INTENT(out) :: ua(size), dua(size)
+    INTEGER,  OPTIONAL, INTENT(in)  :: klev
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
 
     INTEGER :: idx(size)
     REAL(wp) :: zalpha(size)
@@ -800,7 +831,24 @@ CONTAINS
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
     ! if one index was out of bounds -> print error and exit
-    IF (zinbounds == 0.0_wp) CALL lookuperror(name)
+    IF (zinbounds == 0.0_wp) THEN
+      IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
+        ! tied to patch(1), does not yet work for nested grids
+        DO jl = 1, size
+          ztt = rsdeltat*temp(jl)
+          IF ( ztt <= ztmin .OR. ztt >= ztmax ) THEN
+            WRITE ( 0 , '(a,a,a,a,i5,a,i8,a,f8.2,a,f8.2,a,f8.2)' )                                 &
+                 & ' Lookup table problem in ', TRIM(name), ' at ',                                &
+                 & ' level   =',klev,                                                              &
+                 & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
+                 & ' lon(deg)=',p_patch(1)%edges%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%edges%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' value   =',temp(jl)
+          ENDIF
+        ENDDO
+      ENDIF
+      CALL lookuperror(name)
+    ENDIF
     CALL fetch_ua_spline(kidx, idx, zalpha, tlucu, ua, dua)
 
   END SUBROUTINE lookup_ua_list_spline

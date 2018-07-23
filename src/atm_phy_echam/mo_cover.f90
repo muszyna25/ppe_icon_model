@@ -68,6 +68,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cover (         jg                                                    & !in
+    &                      , jb                                                    & !in
     &                      , kproma,   kbdim, klev, klevp1                         & !in
     &                      , ktype,    pfrw,     pfri                              & !in
     &                      , zf                                                    & !in
@@ -79,6 +80,7 @@ CONTAINS
     !---------------------------------------------------------------------------------
     !
     INTEGER, INTENT(in)    :: jg
+    INTEGER, INTENT(in)    :: jb                    !< number of block
     INTEGER, INTENT(in)    :: kbdim, klevp1, klev, kproma
     INTEGER, INTENT(in)    :: ktype(kbdim)          !< type of convection
     REAL(wp),INTENT(in)    :: pfrw(kbdim)         ,&!< water mask
@@ -92,7 +94,7 @@ CONTAINS
     REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
     REAL(wp),INTENT(out)   :: printop(kbdim)
 
-    INTEGER :: jl, jk, jb
+    INTEGER :: jl, jk, jbm
     INTEGER :: locnt, nl, ilev
     REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
     INTEGER :: itv1(kproma*klev), itv2(kproma*klev)
@@ -195,7 +197,8 @@ CONTAINS
       DO jk = jks,klev
 
         CALL prepare_ua_index_spline(jg,'cover (2)',kproma,ptm1(1,jk),itv1(1),       &
-                                         za(1),pxim1(1,jk),nphase,zphase,itv2)
+                                         za(1),pxim1(1,jk),nphase,zphase,itv2,       &
+                                         klev=jk,kblock=jb,kblock_size=kbdim)
         CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
 
 !IBM* novector
@@ -214,15 +217,15 @@ CONTAINS
         !
           zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
           zsat=1._wp
-          jb=knvb(jl)
-          lao=(jb.GE.jbmin .AND. jb.LE.jbmax)
-          lao1=(jk.EQ.jb)
+          jbm=knvb(jl)
+          lao=(jbm.GE.jbmin .AND. jbm.LE.jbmax)
+          lao1=(jk.EQ.jbm)
           ilev=klev
           IF (lao .AND. lao1) THEN
-          !  ilev=klevp1-jb
+          !  ilev=klevp1-jbm
             ilev=100
             printop(jl)=REAL(ilev,wp)
-            zdtdz = (ptm1(jl,jb-1)-ptm1(jl,jb))/(zf(jl,jk-1)-zf(jl,jk))
+            zdtdz = (ptm1(jl,jbm-1)-ptm1(jl,jbm))/(zf(jl,jk-1)-zf(jl,jk))
             zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
             zsat  = MIN(1.0_wp,csatsc+zgam)
           END IF

@@ -67,7 +67,7 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  jg,                                                &
+  SUBROUTINE cumastr(  jb, jg,                                            &
     &                  kproma,   kbdim,                                   &
     &                  klev,     klevp1,   klevm1,                        &
     &                  pdtime,                                            &
@@ -88,7 +88,7 @@ CONTAINS
     &                  pxtecl,   pxteci,                                  &
     &                  ptop                                               )
     !
-    INTEGER, INTENT(IN)   :: jg
+    INTEGER, INTENT(IN)   :: jb, jg
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
@@ -194,7 +194,7 @@ CONTAINS
     !*    2.           Initialize values at vertical grid points in 'cuini'
     !                  ---------------------------------------------------
     !
-    CALL cuini(jg,                                                       &
+    CALL cuini(jb, jg,                                                   &
       &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
       &        ktrac,                                                    &
@@ -216,7 +216,7 @@ CONTAINS
     !*             (A) Determine cloud base values in 'cubase'
     !                  ---------------------------------------
     !
-    CALL cubase(jg,                                                      &
+    CALL cubase(jb, jg,                                                  &
       &         kproma,   kbdim,    klev,     klevp1,    klevm1,         &
       &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
@@ -420,7 +420,7 @@ CONTAINS
     !*         (B) Do ascent in 'cuasc' in absence of downdrafts
     !              ---------------------------------------------
     !
-    CALL cuasc(jg,                                                       &
+    CALL cuasc(jb, jg,                                                   &
       &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pzf,      pzh,      pmref,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
@@ -475,7 +475,7 @@ CONTAINS
       !
       !*             (A) Determine lfs in 'cudlfs'
       !                  -------------------------
-      CALL cudlfs(jg,                                                   &
+      CALL cudlfs(jb,       jg,                                         &
         &         kproma,   kbdim,    klev,     klevp1,                 &
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
@@ -490,7 +490,7 @@ CONTAINS
       !
       !*            (B)  Determine downdraft t,q and fluxes in 'cuddraf'
       !                  -----------------------------------------------
-      CALL cuddraf(jg,                                                  &
+      CALL cuddraf(jb,       jg,                                        &
         &          kproma,   kbdim,    klev,     klevp1,                &
         &          pmref,                                               &
         &          ztenh,    zqenh,    puen,     pven,                  &
@@ -660,7 +660,7 @@ CONTAINS
     !*          and for mid-level convection (type=3).
     !           --------------------------------------------------
     !
-    CALL cuasc(jg,                                                       &
+    CALL cuasc(jb,     jg,                                               &
       &        kproma, kbdim, klev, klevp1, klevm1,                      &
       &        pzf,      pzh,      pmref,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &

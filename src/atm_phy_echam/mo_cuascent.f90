@@ -61,7 +61,7 @@ MODULE mo_cuascent
 CONTAINS
   !>
   !!
-  SUBROUTINE cuasc(    jg,                                                           &
+  SUBROUTINE cuasc(    jb,       jg,                                                 &
     &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
     &        pzf,      pzh,      pmref,                                              &
     &        ptenh,    pqenh,    puen,     pven,                                     &
@@ -81,7 +81,7 @@ CONTAINS
     &        kcbot,    kctop,    kctop0                                              &
     &        )
 
-    INTEGER, INTENT (IN) :: jg
+    INTEGER, INTENT (IN) :: jb, jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
     REAL(wp),INTENT (IN) :: pdtime
@@ -426,7 +426,7 @@ CONTAINS
       !
       ik=jk
       icall=1
-      CALL cuadjtq(kproma, kbdim, klev, ik,                                          &
+      CALL cuadjtq(jb, kproma, kbdim, klev, ik,                                      &
         &          zph,      ptu,      pqu,      loidx, locnt,  icall)
 
       !

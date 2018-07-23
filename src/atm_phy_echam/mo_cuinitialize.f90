@@ -47,7 +47,7 @@ MODULE mo_cuinitialize
 CONTAINS 
   !>
   !!
-  SUBROUTINE cuini(    jg,                                                           &
+  SUBROUTINE cuini(    jb,       jg,                                                 &
     &        kproma,   kbdim,    klev,     klevp1,   klevm1,                         &
     &        pten,     pqen,     pqsen,    pxen,     puen,     pven,                 &
     &        ktrac,                                                                  &
@@ -60,7 +60,7 @@ CONTAINS
     &        pmfuq,    pmfdq,    pdmfup,   pdmfdp,                                   &
     &        pcpen,    pcpcu,    palvsh,                                             &
     &        pdpmel,   plu,      plude,    pqude,    klab                            )
-    INTEGER, INTENT (IN) :: jg
+    INTEGER, INTENT (IN) :: jb, jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     REAL(wp):: pten(kbdim,klev),          pqen(kbdim,klev),                          &
       &        puen(kbdim,klev),          pven(kbdim,klev),                          &
@@ -143,7 +143,7 @@ CONTAINS
       !
       ik=jk
       icall=0
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptenh, pqsenh, loidx, kproma, icall)
+      CALL cuadjtq(jb, kproma, kbdim, klev, ik, zph, ptenh, pqsenh, loidx, kproma, icall)
       !
       DO jl=1,kproma
         pxenh(jl,jk)=(pxen(jl,jk)+pxen(jl,jk-1))*0.5_wp
@@ -246,7 +246,7 @@ CONTAINS
   END SUBROUTINE cuini
   !>
   !!
-  SUBROUTINE cubase(   jg,                                                           &
+  SUBROUTINE cubase(   jb,       jg,                                                 &
     &        kproma,   kbdim,    klev,     klevp1, klevm1,                           &
     &        ptenh,    pqenh,    pgeoh,    paph,   pthvsig,                          &
     &        ptu,      pqu,      plu,                                                &
@@ -254,7 +254,7 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        ldcum,    kcbot,    klab)
 
-    INTEGER, INTENT (IN) :: jg
+    INTEGER, INTENT (IN) :: jb, jg
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1
     REAL(wp):: ptenh(kbdim,klev),       pqenh(kbdim,klev),                           &
       &        pgeoh(kbdim,klev),       paph(kbdim,klevp1),                          &
@@ -328,7 +328,7 @@ CONTAINS
       !
       ik=jk
       icall=1
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptu, pqu, loidx, is, icall)
+      CALL cuadjtq(jb,kproma, kbdim, klev, ik, zph, ptu, pqu, loidx, is, icall)
       !
 !DIR$ IVDEP
 !OCL NOVREC

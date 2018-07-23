@@ -38,11 +38,11 @@ MODULE mo_cuadjust
 CONTAINS
   !>
   !!
-  SUBROUTINE cuadjtq(  kproma, kbdim, klev, kk,                                      &
+  SUBROUTINE cuadjtq(  jb, kproma, kbdim, klev, kk,                            &
     &                   pp,       pt,       pq,       ldidx, ldcnt,  kcall)
 
     !  Scalar arguments with intent(In):
-    INTEGER,  INTENT (IN) :: kcall, kk, klev, kproma, kbdim
+    INTEGER,  INTENT (IN) :: kcall, kk, klev, kproma, kbdim, jb
 
     !  Array arguments with intent(In):
     REAL(wp), INTENT (IN) :: pp(kbdim)
@@ -74,7 +74,7 @@ CONTAINS
 
       CALL lookup_ubc_list(kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
       CALL lookup_ua_list_spline('cuadjtq (1)',kproma,ldcnt,ldidx(1),pt(1,kk),ua(1), &
-        &                                                                     dua(1))
+        &                                      dua(1),klev=klev,kblock=jb,kblock_size=kbdim)
 
 !DIR$ IVDEP
 !OCL NOVREC
@@ -178,7 +178,7 @@ CONTAINS
 
         CALL lookup_ubc_list(kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
         CALL lookup_ua_list_spline('cuadjtq (2)',kproma,nsum,idx(1),pt(1,kk),ua(1),  &
-          &                                                                   dua(1))
+          &                                      dua(1),klev=klev,kblock=jb,kblock_size=kbdim)
 
 !PREVENT_INCONSISTENT_IFORT_FMA
 !DIR$ IVDEP

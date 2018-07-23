@@ -47,7 +47,7 @@ MODULE mo_cudescent
 CONTAINS
   !>
   !!
-  SUBROUTINE cudlfs(   jg,                                                           &
+  SUBROUTINE cudlfs(   jb,       jg,                                                 &
     &        kproma,   kbdim,    klev,     klevp1,                                   &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
@@ -60,7 +60,7 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        kdtop,    lddraf                                                       )
     !
-    INTEGER, INTENT (IN) :: jg
+    INTEGER, INTENT (IN) :: jb, jg
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
@@ -147,7 +147,7 @@ CONTAINS
       !
       ik=jk
       icall=2
-      CALL cuadjtq( kproma, kbdim, klev, ik, zph, ztenwb, zqenwb, loidx, is, icall)
+      CALL cuadjtq( jb, kproma, kbdim, klev, ik, zph, ztenwb, zqenwb, loidx, is, icall)
       !
       !     2.2 Do mixing of cumulus and environmental air and check for negative
       !         buoyancy. Then set values for downdraft at lfs.
@@ -202,7 +202,7 @@ CONTAINS
   END SUBROUTINE cudlfs
   !>
   !!
-  SUBROUTINE cuddraf(  jg,                                                           &
+  SUBROUTINE cuddraf(  jb,       jg,                                                 &
     &        kproma,   kbdim,    klev,     klevp1,                                   &
     &        pmref,                                                                  &
     &        ptenh,    pqenh,    puen,     pven,                                     &
@@ -214,7 +214,7 @@ CONTAINS
     &        pcpcu,                                                                  &
     &        lddraf                                                                 )
     !
-    INTEGER, INTENT (IN) :: jg
+    INTEGER, INTENT (IN) :: jb, jg
     INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
     !
     REAL(wp),INTENT (IN) :: pmref(kbdim,klev)
@@ -323,7 +323,7 @@ CONTAINS
       !
       ik=jk
       icall=2
-      CALL cuadjtq(kproma, kbdim, klev, ik, zph, ptd, pqd, loidx, is, icall) 
+      CALL cuadjtq(jb, kproma, kbdim, klev, ik, zph, ptd, pqd, loidx, is, icall) 
       !
       DO jl=1,kproma
         IF(llo2(jl)) THEN

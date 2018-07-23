@@ -198,6 +198,7 @@ CONTAINS
           !$ser verbatim   zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
           !
           CALL vdiff_down(jg,                              &! in
+               &          jb,                              &! in  used for debugging only
                &          jce, nproma, nlev, nlevm1,nlevp1,&! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
