@@ -1841,7 +1841,9 @@ CONTAINS
         ikm1 = jk -1
 
 #ifdef __INTEL_COMPILER
-!DIR$ IVDEP
+! HB: for some strange reason this loop introduces a decomposition dependency if
+! vectorized... threfore inhibit vectorization here
+!DIR$ NOVECTOR
 #endif
         DO jc = i_startidx, i_endidx
 
