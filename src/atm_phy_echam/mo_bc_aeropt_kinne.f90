@@ -286,7 +286,7 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
                               ssa_c_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2
      zs_f(1:kproma,1:nb_sw) = ssa_f_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
                               ssa_f_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2
-! time interpolated asymmetry factor x ssa (omega_c*g_c, omega_{n,a}*g_{n,a})
+! time interpolated asymmetry factor (g_c, g_{n,a})
      zg_c(1:kproma,1:nb_sw) = asy_c_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
                               asy_c_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2
      zg_f(1:kproma,1:nb_sw) = asy_f_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
