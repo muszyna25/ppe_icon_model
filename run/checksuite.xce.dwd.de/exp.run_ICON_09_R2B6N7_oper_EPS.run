@@ -828,7 +828,8 @@ echo " "
 # note: 
 # - by filtering out "localCreationDate" we omit differences due to the current date
 # - we restrict ourselves to "key=value" lines (doing so we also skip the "values" part)
+# - we also filter differences which originate from constant field data: message length, bitsPerValue
 this_file=igfff00000000MLv01
 grib_dump -OtaH  $this_file.grb | grep  "=" | \
-grep -v -E "localCreationDate|ieeefloat referenceValue|signed binaryScaleFactor" > $this_file.grib_dump
+grep -v -E "localCreationDate|ieeefloat referenceValue|signed binaryScaleFactor|length=|totalLength|bitsPerValue|section7Length|data.packedValues" > $this_file.grib_dump
 diff $this_file.grib_dump $DATAROOT/$this_file.grib_dump.reference
