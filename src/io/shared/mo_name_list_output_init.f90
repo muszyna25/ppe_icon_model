@@ -3055,7 +3055,8 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
-  
+#endif !.NOT. NOMPI
+
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
 
@@ -3071,6 +3072,8 @@ CONTAINS
     isRegistered = outputRegiser%includes(util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0))
   END FUNCTION
 
+
+#ifndef NOMPI
   !------------------------------------------------------------------------------------------------
   !> Initializes the memory window for asynchronous IO
   !
