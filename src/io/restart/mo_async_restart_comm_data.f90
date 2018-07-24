@@ -159,15 +159,9 @@ CONTAINS
     IF (PRESENT(hard)) THEN
       IF (hard .EQ. reset_hard) THEN
         IF (ASSOCIATED(this%inbuffer)) THEN
-          IF (ALLOCATED(this%inbuffer)) THEN
-            DEALLOCATE(this%inbuffer)
-            NULLIFY(this%inbuffer)
-          ELSE
-            NULLIFY(this%inbuffer)
-          ENDIF
-        ELSE
-          NULLIFY(this%inbuffer)
+          DEALLOCATE(this%inbuffer)
         ENDIF
+        NULLIFY(this%inbuffer)
       ENDIF
     ENDIF
   END SUBROUTINE asyncRestartCommData_inbuffer_reset
