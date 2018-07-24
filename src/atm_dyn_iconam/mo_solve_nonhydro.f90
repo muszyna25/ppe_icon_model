@@ -157,6 +157,17 @@ MODULE mo_solve_nonhydro
 
     ! The data type vp (variable precision) is by default the same as wp but reduces
     ! to single precision when the __MIXED_PRECISION cpp flag is set at compile time
+#ifdef __SWAPDIM
+    REAL(vp) :: z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
+                z_dexner_dz_c   (nproma,p_patch%nlev  ,p_patch%nblks_c,2), &
+                z_vt_ie         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_kin_hor_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & 
+                z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_rth_pr        (nproma,p_patch%nlev  ,p_patch%nblks_c,2), &
+                z_grad_rth      (nproma,p_patch%nlev  ,p_patch%nblks_c,4), &
+                z_w_concorr_me  (nproma,p_patch%nlev  ,p_patch%nblks_e)
+#else
     REAL(vp) :: z_th_ddz_exner_c(nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_dexner_dz_c (2,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_vt_ie         (nproma,p_patch%nlev,p_patch%nblks_e), &
@@ -166,7 +177,7 @@ MODULE mo_solve_nonhydro
                 z_rth_pr      (2,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_grad_rth    (4,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_w_concorr_me  (nproma,p_patch%nlev,p_patch%nblks_e)
-
+#endif
     ! This field in addition has reversed index order (vertical first) for optimization
 #ifdef __LOOP_EXCHANGE
     REAL(vp) :: z_graddiv_vn    (p_patch%nlev,nproma,p_patch%nblks_e)
@@ -535,7 +546,11 @@ MODULE mo_solve_nonhydro
                   (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_exner_ex_pr(jc,jk-1,jb)
 
                 ! First vertical derivative of perturbation Exner pressure
+#ifdef __SWAPDIM
+                z_dexner_dz_c(jc,jk,jb,1) =                     &
+#else
                 z_dexner_dz_c(1,jc,jk,jb) =                     &
+#endif
                   (z_exner_ic(jc,jk) - z_exner_ic(jc,jk+1)) *   &
                   p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
               ENDDO
@@ -554,7 +569,11 @@ MODULE mo_solve_nonhydro
                   p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_exner_ex_pr(jc,3,jb)
 
                 ! First vertical derivative of perturbation Exner pressure
+#ifdef __SWAPDIM
+                z_dexner_dz_c(jc,1,jb,1) =                    &
+#else
                 z_dexner_dz_c(1,jc,1,jb) =                    &
+#endif
                   (z_exner_ic(jc,1) - z_exner_ic(jc,2)) *   &
                   p_nh%metrics%inv_ddqz_z_full(jc,1,jb)
               ENDDO
@@ -564,15 +583,22 @@ MODULE mo_solve_nonhydro
           ENDIF
 
 !$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+#ifdef __SWAPDIM
+          z_rth_pr(i_startidx:i_endidx,1,jb,1) = p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
+            p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
+          z_rth_pr(i_startidx:i_endidx,1,jb,2) = p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
+            p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
+#else
           z_rth_pr(1,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
             p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
-
           z_rth_pr(2,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
             p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
 !$ACC END KERNELS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG
+#endif
+__COLLAPSE_2_LOOPS
           DO jk = 2, nlev
 !DIR$ IVDEP
             !$ACC LOOP VECTOR
@@ -583,9 +609,13 @@ MODULE mo_solve_nonhydro
 
               ! perturbation density and virtual potential temperature at main levels for horizontal flux divergence term
               ! (needed in the predictor step only)
+#ifdef __SWAPDIM
+              z_rth_pr(jc,jk,jb,1) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+              z_rth_pr(jc,jk,jb,2) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+#else
               z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
               z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
-
+#endif
 #ifdef _OPENACC
             ENDDO
           ENDDO
@@ -600,10 +630,15 @@ MODULE mo_solve_nonhydro
 #endif
 
               ! perturbation virtual potential temperature at interface levels
+#ifdef __SWAPDIM
+              z_theta_v_pr_ic(jc,jk) =                                           &
+                       p_nh%metrics%wgtfac_c(jc,jk,jb) *z_rth_pr(jc,jk  ,jb,2) + &
+                (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_rth_pr(jc,jk-1,jb,2)
+#else
               z_theta_v_pr_ic(jc,jk) =                                           &
                        p_nh%metrics%wgtfac_c(jc,jk,jb) *z_rth_pr(2,jc,jk  ,jb) + &
                 (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_rth_pr(2,jc,jk-1,jb)
-
+#endif
               ! virtual potential temperature at interface levels
               p_nh%diag%theta_v_ic(jc,jk,jb) =                                                &
                        p_nh%metrics%wgtfac_c(jc,jk,jb) *p_nh%prog(nnow)%theta_v(jc,jk  ,jb) + &
@@ -681,10 +716,17 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
-              p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
-                p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_rth_pr(2,jc,1,jb) +           &
-                p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_rth_pr(2,jc,2,jb) +           &
+              p_nh%diag%theta_v_ic(jc,1,jb) = &
+                p_nh%metrics%theta_ref_ic(jc,1,jb)                   + &
+#ifdef __SWAPDIM
+                p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_rth_pr(jc,1,jb,2) + &
+                p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_rth_pr(jc,2,jb,2) + &
+                p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_rth_pr(jc,3,jb,2)
+#else
+                p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_rth_pr(2,jc,1,jb) + &
+                p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_rth_pr(2,jc,2,jb) + &
                 p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_rth_pr(2,jc,3,jb)
+#endif
             ENDDO
 !$ACC END PARALLEL
           ELSE ! ISTEP == 2
@@ -727,9 +769,15 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
             z_theta_v_pr_ic(jc,1)      = 0._wp
             z_theta_v_pr_ic(jc,nlevp1) =                                   &
-              p_nh%metrics%wgtfacq_c(jc,1,jb)*z_rth_pr(2,jc,nlev,jb) +     &
+#ifdef __SWAPDIM
+              p_nh%metrics%wgtfacq_c(jc,1,jb)*z_rth_pr(jc,nlev  ,jb,2) +     &
+              p_nh%metrics%wgtfacq_c(jc,2,jb)*z_rth_pr(jc,nlev-1,jb,2) +   &
+              p_nh%metrics%wgtfacq_c(jc,3,jb)*z_rth_pr(jc,nlev-2,jb,2)
+#else
+              p_nh%metrics%wgtfacq_c(jc,1,jb)*z_rth_pr(2,jc,nlev  ,jb) +     &
               p_nh%metrics%wgtfacq_c(jc,2,jb)*z_rth_pr(2,jc,nlev-1,jb) +   &
               p_nh%metrics%wgtfacq_c(jc,3,jb)*z_rth_pr(2,jc,nlev-2,jb)
+#endif
             p_nh%diag%theta_v_ic(jc,nlevp1,jb) =                                  &
               p_nh%metrics%theta_ref_ic(jc,nlevp1,jb) + z_theta_v_pr_ic(jc,nlevp1)
           ENDDO
@@ -744,9 +792,15 @@ MODULE mo_solve_nonhydro
               !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
                 ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
-                z_dexner_dz_c(2,jc,jk,jb) = -0.5_vp *                                &
-                  ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *              &
-                  p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_rth_pr(2,jc,jk,jb)*  &
+#ifdef __SWAPDIM
+                z_dexner_dz_c(jc,jk,jb,2) = -0.5_vp *                              &
+                  ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *           &
+                  p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_rth_pr(jc,jk,jb,2) * &
+#else
+                z_dexner_dz_c(2,jc,jk,jb) = -0.5_vp *                              &
+                  ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *           &
+                  p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_rth_pr(2,jc,jk,jb) * &
+#endif
                   p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
               ENDDO
             ENDDO
@@ -778,10 +832,13 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
-
-              z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
-              z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
-
+#ifdef __SWAPDIM
+              z_rth_pr(jc,jk,jb,1) = p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+              z_rth_pr(jc,jk,jb,2) = p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+#else
+              z_rth_pr(1,jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+              z_rth_pr(2,jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+#endif
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -821,6 +878,7 @@ MODULE mo_solve_nonhydro
 #endif
 
           ! Compute Green-Gauss gradients for rho and theta
+!TODO: grad_green_gauss_cell adjust...
           CALL grad_green_gauss_cell(z_rth_pr, p_patch, p_int, z_grad_rth,    &
             opt_rlstart=3, opt_rlend=min_rlcell_int-1)
 
@@ -938,6 +996,16 @@ MODULE mo_solve_nonhydro
                   ! Calculate "edge values" of rho and theta_v
                   ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                   ! and the corresponding gradients are stored in z_grad_rth.
+#ifdef __SWAPDIM
+                  z_rho_e(je,jk,jb) =                                                     &
+                    REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp) + z_rth_pr(ilc0,jk,ibc0,1) &
+                    + distv_bary_1 * z_grad_rth(ilc0,jk,ibc0,1) &
+                    + distv_bary_2 * z_grad_rth(ilc0,jk,ibc0,2)
+                  z_theta_v_e(je,jk,jb) =                                                   &
+                    REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) + z_rth_pr(ilc0,jk,ibc0,2) &
+                    + distv_bary_1 * z_grad_rth(ilc0,jk,ibc0,3)                             &
+                    + distv_bary_2 * z_grad_rth(ilc0,jk,ibc0,4)
+#else
                   z_rho_e(je,jk,jb) = REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp) &
                     +                      z_rth_pr(1,ilc0,jk,ibc0)              &
                     + distv_bary_1 * z_grad_rth(1,ilc0,jk,ibc0)                  &
@@ -947,7 +1015,7 @@ MODULE mo_solve_nonhydro
                     +                          z_rth_pr(2,ilc0,jk,ibc0)                &
                     + distv_bary_1 * z_grad_rth(3,ilc0,jk,ibc0)                        &
                     + distv_bary_2 * z_grad_rth(4,ilc0,jk,ibc0)
-
+#endif
 #else
               !$ACC LOOP GANG
               DO jk = 1, nlev
@@ -960,15 +1028,25 @@ MODULE mo_solve_nonhydro
                   ! Calculate "edge values" of rho and theta_v
                   ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                   ! and the corresponding gradients are stored in z_grad_rth.
+#ifdef __SWAPDIM
+                  z_rho_e(je,jk,jb) =                                                       &
+                    REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp) + z_rth_pr(ilc0,jk,ibc0,1)   &
+                    + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,jk,ibc0,1)             &
+                    + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,jk,ibc0,2)
+                  z_theta_v_e(je,jk,jb) =                                                   &
+                    REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) + z_rth_pr(ilc0,jk,ibc0,2) &
+                    + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,jk,ibc0,3)             &
+                    + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,jk,ibc0,4)
+#else
                   z_rho_e(je,jk,jb) = REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp)     &
                     +                            z_rth_pr(1,ilc0,jk,ibc0)            &
                     + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0)      &
                     + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(2,ilc0,jk,ibc0)
-
                   z_theta_v_e(je,jk,jb) = REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) &
                     +                            z_rth_pr(2,ilc0,jk,ibc0)              &
                     + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)        &
                     + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(4,ilc0,jk,ibc0)
+#endif
 #endif
 
                 ENDDO ! loop over edges
@@ -1130,9 +1208,13 @@ MODULE mo_solve_nonhydro
                  (z_exner_ex_pr(icidx(je,jb,2),jk,icblk(je,jb,2)) -                          &
                   z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) ) -                        &
                   p_nh%metrics%ddxn_z_full(je,jk,jb) *                                       &
+#ifdef __SWAPDIM
+                 (p_int%c_lin_e(je,1,jb)*z_dexner_dz_c(icidx(je,jb,1),jk,icblk(je,jb,1),1) + &
+                  p_int%c_lin_e(je,2,jb)*z_dexner_dz_c(icidx(je,jb,2),jk,icblk(je,jb,2),1))
+#else
                  (p_int%c_lin_e(je,1,jb)*z_dexner_dz_c(1,icidx(je,jb,1),jk,icblk(je,jb,1)) + &
                   p_int%c_lin_e(je,2,jb)*z_dexner_dz_c(1,icidx(je,jb,2),jk,icblk(je,jb,2)))
-
+#endif
               ENDDO
             ENDDO
 !$ACC END PARALLEL
@@ -1153,6 +1235,16 @@ MODULE mo_solve_nonhydro
                 z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*          &
                   (z_exner_ex_pr(icidx(je,jb,2),ikidx(2,je,jk,jb),icblk(je,jb,2)) +           &
                    p_nh%metrics%zdiff_gradp(2,je,jk,jb)*                                      &
+#ifdef __SWAPDIM
+                  (z_dexner_dz_c(icidx(je,jb,2),ikidx(2,je,jk,jb),icblk(je,jb,2),1) +         &
+                   p_nh%metrics%zdiff_gradp(2,je,jk,jb)*                                      &
+                   z_dexner_dz_c(icidx(je,jb,2),ikidx(2,je,jk,jb),icblk(je,jb,2),2)) -        &
+                  (z_exner_ex_pr(icidx(je,jb,1),ikidx(1,je,jk,jb),icblk(je,jb,1)) +           &
+                   p_nh%metrics%zdiff_gradp(1,je,jk,jb)*                                      &
+                  (z_dexner_dz_c(icidx(je,jb,1),ikidx(1,je,jk,jb),icblk(je,jb,1),1) +         &
+                   p_nh%metrics%zdiff_gradp(1,je,jk,jb)* &
+                   z_dexner_dz_c(icidx(je,jb,1),ikidx(1,je,jk,jb),icblk(je,jb,1),2))))
+#else
                   (z_dexner_dz_c(1,icidx(je,jb,2),ikidx(2,je,jk,jb),icblk(je,jb,2)) +         &
                    p_nh%metrics%zdiff_gradp(2,je,jk,jb)*                                      &
                    z_dexner_dz_c(2,icidx(je,jb,2),ikidx(2,je,jk,jb),icblk(je,jb,2))) -        &
@@ -1161,7 +1253,7 @@ MODULE mo_solve_nonhydro
                   (z_dexner_dz_c(1,icidx(je,jb,1),ikidx(1,je,jk,jb),icblk(je,jb,1)) +         &
                    p_nh%metrics%zdiff_gradp(1,je,jk,jb)*                                      &
                    z_dexner_dz_c(2,icidx(je,jb,1),ikidx(1,je,jk,jb),icblk(je,jb,1)))))
-
+#endif
               ENDDO
             ENDDO
 !$ACC END PARALLEL
