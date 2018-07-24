@@ -29,13 +29,23 @@ MODULE mo_util_cdi
   USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
+  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars,        &
+    &                              vlistInqVarDatatype, vlistInqVarIntKey, vlistInqVarZaxis,                   &
+    &                              vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64,                 &
+    &                              DATATYPE_INT32, streamInqTimestep, streamReadVarSliceF, streamReadVarSlice, &
+    &                              vlistInqVarName, vlistInqVarSubtype, subtypeInqSize, subtypeDefActiveIndex, &
+    &                              DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError, vlistDefVar,              &
+    &                              cdiEncodeParam, FILETYPE_GRB2, vlistDefVarName, vlistDefVarLongname,        &
+    &                              vlistDefVarStdname, vlistDefVarUnits, vlistDefVarParam, vlistDefVarMissval, &
+    &                              vlistDefVarDatatype, vlistDefVarIntKey, vlistDefVarDblKey
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_gribout_config,     ONLY: t_gribout_config
+  USE mo_cf_convention,      ONLY: t_cf_var
+  USE mo_grib2_util,         ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
+    &                              set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
+    &                              set_GRIB2_synsat_keys, set_GRIB2_chem_keys
   USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2, trivial_tile_att
-  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
-                                 & vlistInqVarIntKey, vlistInqVarZaxis,  &
-                                 & vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32, streamInqTimestep, &
-                                 & streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
-                                 & vlistInqVarSubtype, subtypeInqSize, &
-                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError
+
 
   IMPLICIT NONE
   PRIVATE
@@ -47,6 +57,7 @@ MODULE mo_util_cdi
   PUBLIC :: get_cdi_NlevRef
   PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
   PUBLIC :: cdiGetStringError
+  PUBLIC :: create_cdi_variable
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
@@ -997,5 +1008,121 @@ CONTAINS
         END DO
     END IF
   END SUBROUTINE cdiGetStringError
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Define new CDI variable based on given meta-data.
+  !
+  FUNCTION create_cdi_variable(vlistID, gridID, zaxisID,    &
+    &                          info, missval, output_type,  &
+    &                          gribout_config, i_lctype,    &
+    &                          out_varnames_dict) RESULT(varID)
+    INTEGER :: varID
+    INTEGER,                INTENT(IN)         :: vlistID, gridID, zaxisID
+    TYPE(t_var_metadata),   INTENT(IN), TARGET :: info
+    REAL(dp),               INTENT(IN)         :: missval
+    INTEGER,                INTENT(IN)         :: output_type
+    TYPE(t_gribout_config), INTENT(IN)         :: gribout_config
+    INTEGER,                INTENT(IN)         :: i_lctype
+    TYPE(t_dictionary),     INTENT(IN)         :: out_varnames_dict
+    ! local variables
+    CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
+    TYPE(t_cf_var), POINTER        :: this_cf
+    INTEGER                        :: i
+
+    ! Search name mapping for name in NetCDF file
+    IF (info%cf%short_name /= '') THEN
+      mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+    ELSE
+      mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+    END IF
+
+    ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
+    ! isteptype is already defined via vlistDefVar
+    varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
+
+    CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+    IF (info%post_op%lnew_cf) THEN
+      this_cf => info%post_op%new_cf
+    ELSE
+      this_cf => info%cf
+    END IF
+
+    IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+    IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+    IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
+
+    ! Currently only real valued variables are allowed, so we can always use info%missval%rval
+    IF (info%lmiss) THEN
+      CALL vlistDefVarMissval(vlistID, varID, missval)
+    END IF
+
+    ! Set GRIB2 Triplet
+    IF (info%post_op%lnew_grib2) THEN
+      CALL vlistDefVarParam(vlistID, varID,                   &
+        &  cdiEncodeParam(info%post_op%new_grib2%number,      &
+        &                 info%post_op%new_grib2%category,    &
+        &                 info%post_op%new_grib2%discipline) )
+      IF ( output_type == FILETYPE_GRB2 ) THEN
+        CALL vlistDefVarDatatype(vlistID, varID, info%post_op%new_grib2%bits)
+      END IF
+    ELSE
+      CALL vlistDefVarParam(vlistID, varID,                   &
+        &  cdiEncodeParam(info%grib2%number,                  &
+        &                 info%grib2%category,                &
+        &                 info%grib2%discipline) )
+      IF ( output_type == FILETYPE_GRB2 ) THEN
+        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
+      END IF
+    END IF
+
+    IF (output_type == FILETYPE_GRB2) THEN
+      
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!          ATTENTION                    !!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Note that re-setting of the surface types must come AFTER (re)setting
+      ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed
+      ! (i.e. for Ensemble output), that the surface-type information is lost again, if
+      ! these settings are performed prior to "productDefinitionTemplateNumber"
+
+      ! GRIB2 Quick hack: Set additional GRIB2 keys
+      CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config)
+
+      ! Set ensemble keys in SECTION 4 (if applicable)
+      CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config)
+
+      ! Set synsat keys (if applicable)
+      CALL set_GRIB2_synsat_keys(vlistID, varID, info)
+
+      ! Set keys for atmospheric chemical constituents, if applicable
+      CALL set_GRIB2_chem_keys(vlistID, varID, info)
+
+      ! Set local use SECTION 2
+      CALL set_GRIB2_local_keys(vlistID, varID, gribout_config)
+
+#ifndef __NO_ICON_ATMO__
+      ! Set tile-specific GRIB2 keys (if applicable)
+      CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype)
+#endif
+
+      ! Set further additional integer keys
+      DO i=1,info%grib2%additional_keys%nint_keys
+        CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+          &                    info%grib2%additional_keys%int_key(i)%val)
+      END DO
+
+      ! Set further additional double keys
+      DO i=1,info%grib2%additional_keys%ndbl_keys
+        CALL vlistDefVarDblKey(vlistID, varID, TRIM(info%grib2%additional_keys%dbl_key(i)%key), &
+          &                    info%grib2%additional_keys%dbl_key(i)%val)
+      END DO
+
+    ELSE ! NetCDF
+      CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
+    ENDIF
+   
+  END FUNCTION create_cdi_variable
+
 
 END MODULE mo_util_cdi

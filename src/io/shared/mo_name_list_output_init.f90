@@ -18,24 +18,22 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t, c_char
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate,     &
     &                                             cdiEncodeDate, cdiEncodeTime, institutInq, vlistCreate,    &
-    &                                             cdiEncodeParam, vlistDefVar, TUNIT_MINUTE, CDI_UNDEFID,    &
+    &                                             cdiEncodeParam, TUNIT_MINUTE, CDI_UNDEFID,                 &
     &                                             TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,               &
-    &                                             GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype,       &
-    &                                             vlistDefVarName, gridDefPosition, vlistDefVarIntKey,       &
+    &                                             GRID_UNSTRUCTURED, GRID_LONLAT, gridDefPosition,           &
     &                                             gridDefXsize, gridDefXname, gridDefXunits, gridDefYsize,   &
     &                                             gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,   &
-    &                                             gridDefNvertex, vlistDefInstitut, vlistDefVarParam,        &
-    &                                             vlistDefVarLongname, vlistDefVarStdname, vlistDefVarUnits, &
-    &                                             vlistDefVarMissval, gridDefXvals, gridDefYvals,            &
+    &                                             gridDefNvertex, vlistDefInstitut, gridDefXvals,            &
+    &                                             gridDefYvals,                                              &
     &                                             gridDefXlongname, gridDefYlongname, taxisDefTunit,         &
     &                                             taxisDefCalendar, taxisDefRdate, taxisDefRtime,            &
     &                                             vlistDefTaxis, vlistDefAttTxt, CDI_GLOBAL, gridDefXpole,   &
-    &                                             gridDefYpole, vlistDefVarDblKey, GRID_ZONAL
+    &                                             gridDefYpole, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
@@ -57,10 +55,8 @@ MODULE mo_name_list_output_init
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
-  USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
-    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys
   USE mo_io_util,                           ONLY: get_file_extension
+  USE mo_util_cdi,                          ONLY: create_cdi_variable
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
@@ -167,6 +163,7 @@ MODULE mo_name_list_output_init
   USE mo_jsb_vertical_axes,                 ONLY: setup_zaxes_jsbach
 #endif
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
+  USE mo_name_list_output_printvars,        ONLY: print_var_list
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_derived_variable_handling,         ONLY: process_mean_stream
   USE self_vector
@@ -200,6 +197,7 @@ MODULE mo_name_list_output_init
   PUBLIC :: collect_requested_ipz_levels
   PUBLIC :: create_vertical_axes
   PUBLIC :: isRegistered
+
 
   !------------------------------------------------------------------------------------------------
 
@@ -1007,6 +1005,7 @@ CONTAINS
 
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
+    INTEGER,          PARAMETER :: print_patch_id = 1
 
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
@@ -1020,7 +1019,6 @@ CONTAINS
     TYPE(t_fname_metadata)               :: fname_metadata
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
-    TYPE(t_cf_var),            POINTER   :: this_cf
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_interval, mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
@@ -1043,47 +1041,32 @@ CONTAINS
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
+    INTEGER                              :: this_i_lctype
+
     l_print_list = .FALSE.
     is_mpi_test = my_process_is_mpi_test()
 
     CALL assign_if_present(l_print_list, opt_lprintlist)
+
+    IF (my_process_is_stdio() .AND. &
+      & (l_print_list .OR. (msg_level >= 15))) THEN
+
+      this_i_lctype = 0
+#ifndef __NO_ICON_ATMO__
+      this_i_lctype = i_lctype(print_patch_id)
+#endif
+
+      CALL print_var_list(var_lists, nvar_lists, out_varnames_dict,   &
+        &                 print_patch_id, iequations,                 &
+        &                 gribout_config(print_patch_id),             &
+        &                 this_i_lctype)
+    END IF
 
     ! -- preliminary checks:
     !
     ! We need dtime
     IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
-    ! ---------------------------------------------------------------------------
-
-    ! Optional: print list of all variables
-    IF (l_print_list) THEN
-      DO i = 1, nvar_lists
-
-        IF (my_process_is_stdio()) THEN
-          WRITE(message_text,'(3a, i2)') &
-            'Var_list name: ',TRIM(var_lists(i)%p%name), &
-            ' Patch: ',var_lists(i)%p%patch_id
-          CALL message('',message_text)
-          element => var_lists(i)%p%first_list_element
-          DO
-            IF(.NOT. ASSOCIATED(element)) EXIT
-
-            IF (element%field%info%post_op%lnew_cf) THEN
-              this_cf => element%field%info%post_op%new_cf
-            ELSE
-              this_cf => element%field%info%cf
-            END IF
-
-            WRITE (message_text,'(a,a,l1,a,a)') &
-                 &     '    ',element%field%info%name,              &
-                 &            element%field%info%loutput, '  ',     &
-                 &            TRIM(this_cf%long_name)
-            CALL message('',message_text)
-            element => element%next_list_element
-          ENDDO
-        ENDIF
-      ENDDO
-    ENDIF ! IF (l_print_list)
 
 #ifndef NOMPI
     ! Set broadcast root for intercommunicator broadcasts
@@ -2642,6 +2625,8 @@ CONTAINS
   END SUBROUTINE setup_output_vlist
 
 
+
+
   !------------------------------------------------------------------------------------------------
   !> define variables and attributes
   !
@@ -2650,15 +2635,12 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
-    INTEGER                        :: iv, vlistID, varID, gridID, &
-      &                               zaxisID, i
-    CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
-    TYPE(t_cf_var), POINTER        :: this_cf
+    INTEGER                        :: iv, vlistID, gridID, zaxisID, this_i_lctype
     TYPE(t_verticalAxis), POINTER  :: zaxis
+    REAL(wp)                       :: missval
     LOGICAL                        :: is_mpi_test
 
     is_mpi_test = my_process_is_mpi_test()
-
     vlistID = of%cdiVlistID
 
     DO iv = 1, of%num_vars
@@ -2695,110 +2677,33 @@ CONTAINS
       END IF
       zaxisID = zaxis%cdi_id
 
-      ! Search name mapping for name in NetCDF file
-      IF (info%cf%short_name /= '') THEN
-        mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
-      ELSE
-        mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
-      END IF
-
-      ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
-      ! isteptype is already defined via vlistDefVar
-      varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
-      info%cdiVarID   = varID
-
-      CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
-      IF (info%post_op%lnew_cf) THEN
-        this_cf => info%post_op%new_cf
-      ELSE
-        this_cf => info%cf
-      END IF
-
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
-
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) THEN
         ! set the missing value
         IF ((.NOT.use_async_name_list_io .OR. is_mpi_test) .OR. use_dp_mpi2io) THEN
-          CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+          missval = info%missval%rval
         ELSE
           ! In cases, where we use asynchronous output and the data is
           ! transferred using a single-precision buffer, we need to
           ! transfer the missing value to single-precision as well.
           ! Otherwise, in pathological cases, the missing value and
           ! the masked data in the buffer might be different values.
-          CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
+          missval = REAL(REAL(info%missval%rval,sp),dp)
         END IF
       ELSE IF (info%lmask_boundary .AND. config_lmask_boundary) THEN
-        CALL vlistDefVarMissval(vlistID, varID, BOUNDARY_MISSVAL)
+        missval = BOUNDARY_MISSVAL
       END IF
 
-      ! Set GRIB2 Triplet
-      IF (info%post_op%lnew_grib2) THEN
-        CALL vlistDefVarParam(vlistID, varID,                   &
-          &  cdiEncodeParam(info%post_op%new_grib2%number,      &
-          &                 info%post_op%new_grib2%category,    &
-          &                 info%post_op%new_grib2%discipline) )
-        IF ( of%output_type == FILETYPE_GRB2 ) THEN
-          CALL vlistDefVarDatatype(vlistID, varID, info%post_op%new_grib2%bits)
-        END IF
-      ELSE
-        CALL vlistDefVarParam(vlistID, varID,                   &
-          &  cdiEncodeParam(info%grib2%number,                  &
-          &                 info%grib2%category,                &
-          &                 info%grib2%discipline) )
-        IF ( of%output_type == FILETYPE_GRB2 ) THEN
-          CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
-        END IF
-      END IF
-
-      IF ( of%output_type == FILETYPE_GRB2 ) THEN
-
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        !!!          ATTENTION                    !!!
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        ! Note that re-setting of the surface types must come AFTER (re)setting
-        ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed
-        ! (i.e. for Ensemble output), that the surface-type information is lost again, if
-        ! these settings are performed prior to "productDefinitionTemplateNumber"
-
-        ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config(of%phys_patch_id))
-
-        ! Set ensemble keys in SECTION 4 (if applicable)
-        CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config(of%phys_patch_id))
-
-        ! Set synsat keys (if applicable)
-        CALL set_GRIB2_synsat_keys(vlistID, varID, info)
-
-        ! Set keys for atmospheric chemical constituents, if applicable
-        CALL set_GRIB2_chem_keys(vlistID, varID, info)
-
-        ! Set local use SECTION 2
-        CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
-
+      this_i_lctype = 0
 #ifndef __NO_ICON_ATMO__
-        ! Set tile-specific GRIB2 keys (if applicable)
-        CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
+      this_i_lctype = i_lctype(of%phys_patch_id)
 #endif
 
-        ! Set further additional integer keys
-        DO i=1,info%grib2%additional_keys%nint_keys
-          CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
-            &                    info%grib2%additional_keys%int_key(i)%val)
-        END DO
-
-        ! Set further additional double keys
-        DO i=1,info%grib2%additional_keys%ndbl_keys
-          CALL vlistDefVarDblKey(vlistID, varID, TRIM(info%grib2%additional_keys%dbl_key(i)%key), &
-            &                    info%grib2%additional_keys%dbl_key(i)%val)
-        END DO
-
-      ELSE ! NetCDF
-        CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
-      ENDIF
+      info%cdiVarID = create_cdi_variable(vlistID, gridID, zaxisID,         &
+        &                                 info, missval, of%output_type,    &
+        &                                 gribout_config(of%phys_patch_id), &
+        &                                 this_i_lctype,                    &
+        &                                 out_varnames_dict)
 
     ENDDO
     !
