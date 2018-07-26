@@ -1863,7 +1863,7 @@ CONTAINS
       p_of  => output_file(i)
       ! Since commit "Use intercomm for namelist output client-/server-communication."
       ! io_proc_id is -2 for all output in the synchronous case
-      IF ((p_of%io_proc_id > -1) .and. (p_of%io_proc_id /= p_pe)) CYCLE
+      IF ((p_of%io_proc_id > -1) .and. (p_of%io_proc_id /= p_pe_work)) CYCLE
 
       p_of%verticalAxisList = t_verticalAxisList()
 
