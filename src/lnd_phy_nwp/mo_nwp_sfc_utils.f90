@@ -592,11 +592,12 @@ CONTAINS
 
         ENDIF
 
-        IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers
-          DO ic = 1, i_count
+        IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers,
+          DO ic = 1, i_count          ! and reset hsnow_max to 40 m in agreement with what is done in initicon
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) &
-              p_lnd_diag%snow_age(jc,jb) = 365._wp
+              p_lnd_diag%snow_age(jc,jb)  = 365._wp
+              p_lnd_diag%hsnow_max(jc,jb) = MIN(40._wp,p_lnd_diag%hsnow_max(jc,jb))
           ENDDO
         ENDIF
 
