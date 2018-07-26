@@ -686,7 +686,8 @@ CONTAINS
     INTEGER                                     :: mpierr
 #endif
     TYPE (t_var_metadata), POINTER              :: info
-    TYPE(t_reorder_info),  POINTER              :: p_ri
+    TYPE (t_reorder_info), POINTER              :: p_ri
+    INTEGER                                     :: ri_n_glb
 #ifndef __NO_ICON_ATMO__
     REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
     REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
@@ -934,21 +935,27 @@ CONTAINS
       nullify(p_ri, p_pat)
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
-        p_ri  => patch_info(i_dom)%ri(icell)
-        p_pat => patch_info(i_dom)%p_pat_c
+        p_ri     => patch_info(i_dom)%ri(icell)
+        ri_n_glb =  p_ri%n_glb
+        p_pat    => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
+        ri_n_glb =  -1
       CASE (GRID_ZONAL)
+        ri_n_glb =  -1
       CASE (GRID_UNSTRUCTURED_EDGE)
-        p_ri  => patch_info(i_dom)%ri(iedge)
-        p_pat => patch_info(i_dom)%p_pat_e
+        p_ri     => patch_info(i_dom)%ri(iedge)
+        ri_n_glb =  p_ri%n_glb
+        p_pat    => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
-        p_ri  => patch_info(i_dom)%ri(ivert)
-        p_pat => patch_info(i_dom)%p_pat_v
+        p_ri     => patch_info(i_dom)%ri(ivert)
+        ri_n_glb =  p_ri%n_glb
+        p_pat    => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
         lonlat_id = info%hor_interp%lonlat_id
-        p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
-        p_pat => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
+        p_ri     => lonlat_info(lonlat_id, i_log_dom)%ri
+        ri_n_glb =  lonlat_info(lonlat_id, i_log_dom)%ri%n_glb
+        p_pat    => lonlat_grids%list(lonlat_id)%p_pat(i_log_dom)
 #endif
       CASE default
         CALL finish(routine,'unknown grid type')
@@ -956,7 +963,7 @@ CONTAINS
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
         CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-             i_ptr, p_ri%n_glb, iv, last_bdry_index, &
+             i_ptr, ri_n_glb, iv, last_bdry_index, &
              nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
 
