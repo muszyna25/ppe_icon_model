@@ -66,8 +66,8 @@ MODULE mo_nwp_sfc_tiles
                                        !< corresponding tile
 
   CONTAINS
-    PROCEDURE  :: getTileInfo_icon => tile_att_getTileinfo_icon
-    PROCEDURE  :: getTileInfo_grb2 => tile_att_getTileinfo_grb2
+    PROCEDURE  :: getTileinfo_icon => tile_att_getTileinfo_icon
+    PROCEDURE  :: getTileinfo_grb2 => tile_att_getTileinfo_grb2
 
     ! convert tile/attribute pair into ICON-internal varname suffix
     PROCEDURE  :: getTileSuffix => tile_att_getTileSuffix
@@ -117,8 +117,8 @@ MODULE mo_nwp_sfc_tiles
     PROCEDURE  :: printSetup       => tile_list_printSetup
 
     ! wrapper routines for tile-specific requests
-    PROCEDURE  :: getTileInfo_icon          => tile_list_getTileinfo_icon
-    PROCEDURE  :: getTileInfo_grb2          => tile_list_getTileinfo_grb2
+    PROCEDURE  :: getTileinfo_icon          => tile_list_getTileinfo_icon
+    PROCEDURE  :: getTileinfo_grb2          => tile_list_getTileinfo_grb2
     PROCEDURE  :: getNumberOfTileAttributes => tile_list_getNumberOfTileAttributes
 
     ! finalization
@@ -194,6 +194,14 @@ CONTAINS
     ! first, initialize "trivial" tile:
     CALL trivial_tile%init(tile_id=trivial_tileinfo_grb2%idx)
     CALL trivial_tile%append_att(tile_id_icon=trivial_tileId, tile_att=trivial_tileinfo_grb2%att)
+    !
+    ! initialize trivial_tile_att
+    trivial_tile_att = trivial_tile%atts(1)
+    !
+    ! Paranoia
+    IF (.NOT.ASSOCIATED(trivial_tile_att%tile_ptr)) THEN
+      CALL finish(routine, 'Initialization of trivial_tile_att failed. trivial_tile_att%tile_ptr not associated')
+    ENDIF
 
     !
     ! ASCII art for ICON-internal tile structure, depicting the configuration for:

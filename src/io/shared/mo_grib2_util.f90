@@ -382,7 +382,7 @@ CONTAINS
     ! - tileAttribute
     !
     ! Select GRIB2 tileinfo object corresponding to internal tile index info%ncontained
-    tileinfo_grb2 = tile_list%getTileInfo_grb2( t_tileinfo_icon(info%ncontained) )
+    tileinfo_grb2 = tile_list%getTileinfo_grb2( t_tileinfo_icon(info%ncontained) )
     ! get number of GRIB2 tile attributes corresponding to internal tile index info%ncontained
     natt          = tile_list%getNumberOfTileAttributes( t_tileinfo_icon(info%ncontained) )
 
