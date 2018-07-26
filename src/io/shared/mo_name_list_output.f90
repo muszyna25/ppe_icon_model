@@ -1197,7 +1197,7 @@ CONTAINS
     REAL(wp) :: missval
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::gather_on_workroot_and_write"
 
-    TYPE(t_comm_gather_pattern), INTENT(in) :: pat
+    TYPE(t_comm_gather_pattern), INTENT(in), POINTER :: pat
     TYPE (t_var_metadata), INTENT(in) :: info
 
 
