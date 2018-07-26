@@ -18,7 +18,8 @@
 !! headers of the routines.
 !!
 MODULE mo_art_nml
-
+ 
+  USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_run_config,          ONLY: lart
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -66,7 +67,7 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_cheminit_file            !< Path to chemical initialization file
+    &  cart_cheminit_file(max_dom)   !< Path to chemical initialization file
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_cheminit_coord           !< Path to chemical initialization coordinate file
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -126,7 +127,7 @@ MODULE mo_art_nml
    &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                cart_io_suffix, iart_init_passive, iart_psc
+   &                iart_init_passive, iart_psc
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -181,7 +182,7 @@ CONTAINS
     iart_chem_mechanism   = 0
     iart_psc              = 0
     cart_vortex_init_date = ''
-    cart_cheminit_file    = ''
+    cart_cheminit_file(:) = ''
     cart_cheminit_coord   = ''
     cart_cheminit_type    = ''
 
@@ -350,7 +351,8 @@ CONTAINS
               &   //'the automatically computed one. This namelist parameter '   &
               &   //'is obsolete so just remove it from your art_nml.')
       END IF
-          
+
+            
 
     END IF  ! lart
 
@@ -387,7 +389,7 @@ CONTAINS
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
       art_config(jg)%iart_psc              = iart_psc
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
-      art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file)
+      art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file(jg))
       art_config(jg)%cart_cheminit_coord   = TRIM(cart_cheminit_coord)
       art_config(jg)%cart_cheminit_type    = TRIM(cart_cheminit_type)
 
