@@ -92,7 +92,7 @@ CONTAINS
     &                        p_w_traj, p_mass_flx_ic,                         &!inout
     &                        p_topflx_tra                                     )!out
 
-    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
 
     TYPE(t_nh_prog),INTENT(IN)    :: p_now, p_new
     TYPE(t_nh_metrics),INTENT(IN) :: p_metrics

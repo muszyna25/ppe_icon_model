@@ -159,18 +159,12 @@ CONTAINS
 
 #ifdef __INTEL_COMPILER
     CALL tracebackqq
-#else
-#ifdef __xlC__
+#elif defined __xlC__
     CALL xl__trbk
-#else
-#ifdef __SX__
+#elif defined __SX__
     CALL mesput('Traceback: ', 11, 1)
-#else
-#ifndef __STANDALONE
+#elif !defined __STANDALONE
     CALL util_backtrace
-#endif
-#endif
-#endif
 #endif
 
     WRITE (nerr,'(/,80("="),/)')

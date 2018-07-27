@@ -197,7 +197,9 @@ INTERFACE xfer_idx
   MODULE PROCEDURE xfer_idx_3
 END INTERFACE
 
-TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c, comm_pat_glb_to_loc_e, comm_pat_glb_to_loc_v
+CLASS(t_comm_pattern), POINTER :: comm_pat_glb_to_loc_c, &
+  &                               comm_pat_glb_to_loc_e, &
+  &                               comm_pat_glb_to_loc_v
 
 
 CONTAINS
@@ -1826,6 +1828,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_cells, owner(1:p_lp%n_patch_cells), &
     &                     p_lp%cells%decomp_info%glb_index,  &
     &                     p_p%cells%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_cells, &
+    &                     p_p%cells%decomp_info%owner_local, &
+    &                     p_p%cells%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_c)
 
   owner(1:p_lp%n_patch_edges) = &
@@ -1834,6 +1839,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_edges, owner(1:p_lp%n_patch_edges), &
     &                     p_lp%edges%decomp_info%glb_index,  &
     &                     p_p%edges%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_edges, &
+    &                     p_p%edges%decomp_info%owner_local, &
+    &                     p_p%edges%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_e)
 
   owner(1:p_lp%n_patch_verts) = &
@@ -1842,6 +1850,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_verts, owner(1:p_lp%n_patch_verts), &
     &                     p_lp%verts%decomp_info%glb_index,  &
     &                     p_p%verts%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_verts, &
+    &                     p_p%verts%decomp_info%owner_local, &
+    &                     p_p%verts%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_v)
 
   DEALLOCATE(owner)

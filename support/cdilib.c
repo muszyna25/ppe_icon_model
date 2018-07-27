@@ -559,6 +559,7 @@ int cdiIterator_inqTile(CdiIterator *me, int *outTileIndex, int *outTileAttribut
 int cdiIterator_inqTileCount(CdiIterator *me, int *outTileCount, int *outTileAttributeCount); //outTileAttributeCount is the count for the tile associated with the current field, a total attribute count cannot be inquired. Returns CDI_EINVAL if there is no tile information connected to the current field, *outTileCount and *outTileAttributeCount will be set to 0 in this case.
 CdiParam cdiIterator_inqParam(CdiIterator *me);
 void cdiIterator_inqParamParts(CdiIterator *me, int *outDiscipline, int *outCategory, int *outNumber);	//Some FORTRAN compilers produce wrong code for the cdiIterator_inqParam()-wrapper, rendering it unusable from FORTRAN. This function is the workaround.
+int cdiIterator_inqFiletype(CdiIterator *me);
 int cdiIterator_inqDatatype(CdiIterator *me);
 int cdiIterator_inqTsteptype(CdiIterator *me);
 char *cdiIterator_inqVariableName(CdiIterator *me);        //The caller is responsible to Free() the returned buffer.
@@ -26565,9 +26566,8 @@ bool gridCompare(int gridID, const grid_t *grid)
 	    }
 	  else if ( grid->type == GRID_UNSTRUCTURED )
 	    {
-              /* FIXME: not octet 0 but octet 7 is guaranteed  non-zero
-               * for any non-NULL UUID */
-              differ = differ || ( gridRef->uuid[0] && grid->uuid[0] && memcmp(gridRef->uuid, grid->uuid, CDI_UUID_SIZE) != 0 );
+              /* FIXME: not octet 0 but octet 7 is guaranteed  non-zero for any non-NULL UUID */
+              differ |= ((gridRef->uuid[0] || grid->uuid[0]) && memcmp(gridRef->uuid, grid->uuid, CDI_UUID_SIZE));
 
               if ( !differ &&
                    ((grid->xvals == NULL) ^ (gridRef->xvals == NULL)) &&
@@ -31274,6 +31274,24 @@ int cdiIterator_inqDatatype(CdiIterator* me)
 {
   sanityCheck(me);
   return me->datatype;
+}
+
+/*
+@Function cdiIterator_inqFiletype
+@Title Get the filetype of the current field
+
+@Prototype int cdiIterator_inqFiletype(CdiIterator* iterator)
+@Parameter
+    @item iterator The iterator to operate on.
+
+@Result The filetype that is used to store this field on disk.
+
+@Description
+    Simple metadata inspection function.
+*/
+int cdiIterator_inqFiletype(CdiIterator* me)
+{
+  return me->filetype;
 }
 
 /*

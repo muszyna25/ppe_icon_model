@@ -29,12 +29,23 @@ MODULE mo_util_cdi
   USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
-  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
-                                 & vlistInqVarIntKey, vlistInqVarZaxis,  &
-                                 & vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32, streamInqTimestep, &
-                                 & streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
-                                 & vlistInqVarSubtype, subtypeInqSize, &
-                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError
+  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars,        &
+    &                              vlistInqVarDatatype, vlistInqVarIntKey, vlistInqVarZaxis,                   &
+    &                              vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64,                 &
+    &                              DATATYPE_INT32, streamInqTimestep, streamReadVarSliceF, streamReadVarSlice, &
+    &                              vlistInqVarName, vlistInqVarSubtype, subtypeInqSize, subtypeDefActiveIndex, &
+    &                              DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError, vlistDefVar,              &
+    &                              cdiEncodeParam, FILETYPE_GRB2, vlistDefVarName, vlistDefVarLongname,        &
+    &                              vlistDefVarStdname, vlistDefVarUnits, vlistDefVarParam, vlistDefVarMissval, &
+    &                              vlistDefVarDatatype, vlistDefVarIntKey, vlistDefVarDblKey
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_gribout_config,     ONLY: t_gribout_config
+  USE mo_cf_convention,      ONLY: t_cf_var
+  USE mo_grib2_util,         ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
+    &                              set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
+    &                              set_GRIB2_synsat_keys, set_GRIB2_chem_keys
+  USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2, trivial_tile_att
+
 
   IMPLICIT NONE
   PRIVATE
@@ -45,8 +56,8 @@ MODULE mo_util_cdi
   PUBLIC :: get_cdi_varID
   PUBLIC :: get_cdi_NlevRef
   PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
-  PUBLIC :: t_tileinfo_elt, trivial_tileinfo, trivial_tileId
   PUBLIC :: cdiGetStringError
+  PUBLIC :: create_cdi_variable
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
@@ -64,21 +75,15 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_3d_real_tiles
   END INTERFACE
 
-  TYPE t_tileinfo_elt
-    INTEGER :: idx  !< variable specific tile index
-    INTEGER :: att  !< variable specific tile attribute
-  END TYPE t_tileinfo_elt
 
   TYPE t_tileinfo
-    TYPE(t_tileinfo_elt), ALLOCATABLE :: tile(:)  !< variable specific
+    TYPE(t_tileinfo_grb2), ALLOCATABLE :: tile(:)  !< variable specific
     !tile indices > CDI internal, one-dimensional index for the list
     !of (idx/att) > pairs:
     INTEGER,              ALLOCATABLE :: tile_index(:)
   END TYPE t_tileinfo
 
-  ! trivial tile information, denoting a "no-tile" field:
-  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx = 0, att = 0)
-  INTEGER, PARAMETER :: trivial_tileId = 0
+
 
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
@@ -145,6 +150,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: subtypeSize(:)
 
     INTEGER :: idx, att, tile_index
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
 
     !first forward the arguments to the object we are building
@@ -194,8 +200,9 @@ CONTAINS
 
             IF (vlistInqVarIntKey(vlistId, i-1, "totalNumberOfTileAttributePairs") <= 0) THEN
               ! not a tile variable
-              me%variableTileinfo(i)%tile(:)       = trivial_tileinfo
-              me%variableTileinfo(i)%tile_index(:) = trivial_tileId
+              me%variableTileinfo(i)%tile(:)       = trivial_tile_att%getTileinfo_grb2()
+              tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+              me%variableTileinfo(i)%tile_index(:) = tileinfo_icon%idx
             ELSE
               ! tile
               DO ientry=1, subtypeSize(i)
@@ -205,7 +212,7 @@ CONTAINS
                 att        = vlistInqVarIntKey(vlistId, i-1, "tileAttribute")
                 tile_index = ientry-1
 
-                me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_elt( idx, att )
+                me%variableTileinfo(i)%tile(ientry)       = t_tileinfo_grb2( idx, att )
                 me%variableTileinfo(i)%tile_index(ientry) = tile_index
                 ! reset active index
                 CALL subtypeDefActiveIndex(subtypeID,0)
@@ -287,7 +294,7 @@ CONTAINS
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN)  :: me
     CHARACTER(len=*),         INTENT(IN)  :: name
-    TYPE(t_tileinfo_elt),     INTENT(IN)  :: tileinfo
+    TYPE(t_tileinfo_grb2),    INTENT(IN)  :: tileinfo
     INTEGER,                  INTENT(OUT) :: varID, tile_index
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
@@ -319,17 +326,18 @@ CONTAINS
     ! insanity check
     IF(varID < 0) THEN
       IF(my_process_is_stdio()) THEN
-        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"'"
-        print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
-        print*, routine//": list of variables:"
+        PRINT '(5a)', routine, ": mapped_name = '", TRIM(mapped_name), "'", "", &
+             routine, ": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att, &
+             routine, ": list of variables:"
         DO i = 1, SIZE(me%variableNames)
           ! the following "tolower" function call should be enclosed
           ! in a TRIM() intrinsic; however, this throws an (erroneous)
           ! compiler error on some Cray compiler versions.
-          print*, routine//":     '"//tolower(me%variableNames(i))//"'"
+          PRINT '(4a)', routine, ":     '", tolower(me%variableNames(i)), "'"
           DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-            print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
-            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
+            PRINT '(5a)', routine, ":         tile idx = ", &
+                 me%variableTileinfo(i)%tile(j)%idx, &
+                 ", att = ", me%variableTileinfo(i)%tile(j)%att
           END DO
         END DO
       END IF
@@ -355,7 +363,7 @@ CONTAINS
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
     CHARACTER(len=*),         INTENT(IN) :: name
-    TYPE(t_tileinfo_elt),     INTENT(IN)    :: tileinfo
+    TYPE(t_tileinfo_grb2),    INTENT(IN) :: tileinfo
     ! local variables
     INTEGER :: varID, tile_index
     CALL me%findVarId(name, tileinfo, varID, tile_index)
@@ -667,7 +675,7 @@ CONTAINS
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     INTEGER,                 INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(wp),                INTENT(INOUT) :: var_out(:,:,:) !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
+    TYPE(t_tileinfo_grb2),   INTENT(IN)    :: tileinfo
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
 
@@ -739,7 +747,7 @@ CONTAINS
     INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
 
     CALL read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, &
-      &                         trivial_tileinfo, opt_lvalue_add, opt_lev_dim)
+      &                         trivial_tile_att%getTileinfo_grb2(), opt_lvalue_add, opt_lev_dim)
   END SUBROUTINE read_cdi_3d_real
 
 
@@ -812,7 +820,7 @@ CONTAINS
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     REAL(wp),                INTENT(INOUT) :: var_out(:,:)   !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
+    TYPE(t_tileinfo_grb2),   INTENT(IN)    :: tileinfo
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_real_tiles'
@@ -864,7 +872,7 @@ CONTAINS
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     REAL(wp),                INTENT(INOUT) :: var_out(:,:)   !< output field
 
-    CALL read_cdi_2d_real_tiles (parameters, varname, var_out, trivial_tileinfo)
+    CALL read_cdi_2d_real_tiles (parameters, varname, var_out, trivial_tile_att%getTileinfo_grb2())
   END SUBROUTINE read_cdi_2d_real
 
 
@@ -880,7 +888,7 @@ CONTAINS
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     INTEGER,                 INTENT(INOUT) :: var_out(:,:)   !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
+    TYPE(t_tileinfo_grb2),   INTENT(IN)    :: tileinfo
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_int'
@@ -915,7 +923,7 @@ CONTAINS
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     INTEGER,                 INTENT(INOUT) :: var_out(:,:)   !< output field
 
-    CALL read_cdi_2d_int_tiles(parameters, varname, var_out, trivial_tileinfo)
+    CALL read_cdi_2d_int_tiles(parameters, varname, var_out, trivial_tile_att%getTileinfo_grb2())
   END SUBROUTINE read_cdi_2d_int
 
 
@@ -931,7 +939,7 @@ CONTAINS
     INTEGER,                 INTENT(IN)     :: ntime          !< time levels of file
     CHARACTER(len=*),        INTENT(IN)     :: varname        !< Var name of field to be read
     REAL(wp),                INTENT(INOUT)  :: var_out(:,:,:) !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)     :: tileinfo
+    TYPE(t_tileinfo_grb2),   INTENT(IN)     :: tileinfo
 
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_time_tiles'
@@ -983,7 +991,7 @@ CONTAINS
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
     REAL(wp),                INTENT(INOUT) :: var_out(:,:,:) !< output field
 
-    CALL read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, trivial_tileinfo)
+    CALL read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, trivial_tile_att%getTileinfo_grb2())
   END SUBROUTINE read_cdi_2d_time
 
   SUBROUTINE cdiGetStringError(errorId, outErrorString)
@@ -1000,5 +1008,121 @@ CONTAINS
         END DO
     END IF
   END SUBROUTINE cdiGetStringError
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Define new CDI variable based on given meta-data.
+  !
+  FUNCTION create_cdi_variable(vlistID, gridID, zaxisID,    &
+    &                          info, missval, output_type,  &
+    &                          gribout_config, i_lctype,    &
+    &                          out_varnames_dict) RESULT(varID)
+    INTEGER :: varID
+    INTEGER,                INTENT(IN)         :: vlistID, gridID, zaxisID
+    TYPE(t_var_metadata),   INTENT(IN), TARGET :: info
+    REAL(dp),               INTENT(IN)         :: missval
+    INTEGER,                INTENT(IN)         :: output_type
+    TYPE(t_gribout_config), INTENT(IN)         :: gribout_config
+    INTEGER,                INTENT(IN)         :: i_lctype
+    TYPE(t_dictionary),     INTENT(IN)         :: out_varnames_dict
+    ! local variables
+    CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
+    TYPE(t_cf_var), POINTER        :: this_cf
+    INTEGER                        :: i
+
+    ! Search name mapping for name in NetCDF file
+    IF (info%cf%short_name /= '') THEN
+      mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+    ELSE
+      mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+    END IF
+
+    ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
+    ! isteptype is already defined via vlistDefVar
+    varID = vlistDefVar(vlistID, gridID, zaxisID, info%isteptype)
+
+    CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+    IF (info%post_op%lnew_cf) THEN
+      this_cf => info%post_op%new_cf
+    ELSE
+      this_cf => info%cf
+    END IF
+
+    IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+    IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+    IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
+
+    ! Currently only real valued variables are allowed, so we can always use info%missval%rval
+    IF (info%lmiss) THEN
+      CALL vlistDefVarMissval(vlistID, varID, missval)
+    END IF
+
+    ! Set GRIB2 Triplet
+    IF (info%post_op%lnew_grib2) THEN
+      CALL vlistDefVarParam(vlistID, varID,                   &
+        &  cdiEncodeParam(info%post_op%new_grib2%number,      &
+        &                 info%post_op%new_grib2%category,    &
+        &                 info%post_op%new_grib2%discipline) )
+      IF ( output_type == FILETYPE_GRB2 ) THEN
+        CALL vlistDefVarDatatype(vlistID, varID, info%post_op%new_grib2%bits)
+      END IF
+    ELSE
+      CALL vlistDefVarParam(vlistID, varID,                   &
+        &  cdiEncodeParam(info%grib2%number,                  &
+        &                 info%grib2%category,                &
+        &                 info%grib2%discipline) )
+      IF ( output_type == FILETYPE_GRB2 ) THEN
+        CALL vlistDefVarDatatype(vlistID, varID, info%grib2%bits)
+      END IF
+    END IF
+
+    IF (output_type == FILETYPE_GRB2) THEN
+      
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      !!!          ATTENTION                    !!!
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! Note that re-setting of the surface types must come AFTER (re)setting
+      ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed
+      ! (i.e. for Ensemble output), that the surface-type information is lost again, if
+      ! these settings are performed prior to "productDefinitionTemplateNumber"
+
+      ! GRIB2 Quick hack: Set additional GRIB2 keys
+      CALL set_GRIB2_additional_keys(vlistID, varID, gribout_config)
+
+      ! Set ensemble keys in SECTION 4 (if applicable)
+      CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config)
+
+      ! Set synsat keys (if applicable)
+      CALL set_GRIB2_synsat_keys(vlistID, varID, info)
+
+      ! Set keys for atmospheric chemical constituents, if applicable
+      CALL set_GRIB2_chem_keys(vlistID, varID, info)
+
+      ! Set local use SECTION 2
+      CALL set_GRIB2_local_keys(vlistID, varID, gribout_config)
+
+#ifndef __NO_ICON_ATMO__
+      ! Set tile-specific GRIB2 keys (if applicable)
+      CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype)
+#endif
+
+      ! Set further additional integer keys
+      DO i=1,info%grib2%additional_keys%nint_keys
+        CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
+          &                    info%grib2%additional_keys%int_key(i)%val)
+      END DO
+
+      ! Set further additional double keys
+      DO i=1,info%grib2%additional_keys%ndbl_keys
+        CALL vlistDefVarDblKey(vlistID, varID, TRIM(info%grib2%additional_keys%dbl_key(i)%key), &
+          &                    info%grib2%additional_keys%dbl_key(i)%val)
+      END DO
+
+    ELSE ! NetCDF
+      CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
+    ENDIF
+   
+  END FUNCTION create_cdi_variable
+
 
 END MODULE mo_util_cdi

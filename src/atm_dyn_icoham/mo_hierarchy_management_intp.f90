@@ -385,7 +385,7 @@ CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 
 LOGICAL, INTENT(IN) :: ltheta_dyn
 
-TYPE(t_patch),        TARGET, INTENT(IN)    ::  p_patch(n_dom)
+TYPE(t_patch),        TARGET, INTENT(INOUT) ::  p_patch(n_dom)
 TYPE(t_hydro_atm),    TARGET, INTENT(INOUT) ::  p_hydro_state(n_dom)
 TYPE(t_int_state),    TARGET, INTENT(IN)    ::  p_int_state(n_dom)
 TYPE(t_gridref_state),TARGET, INTENT(IN)    ::  p_grf_state(n_dom)

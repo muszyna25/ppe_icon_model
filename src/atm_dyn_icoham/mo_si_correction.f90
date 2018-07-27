@@ -486,7 +486,7 @@ ENDIF
     REAL(wp),INTENT(IN) :: si_coeff, si_rtol
     LOGICAL, INTENT(IN) :: lshallow_water
     REAL(wp),INTENT(IN) :: p_dtime      !< time step in seconds
-    TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch
     TYPE(t_int_state),INTENT(IN) :: pt_int_state !< horizontal interpolation coeff.
 
     TYPE(t_hydro_atm_prog) :: pt_prog_old
@@ -532,7 +532,7 @@ ENDIF
   REAL(wp),INTENT(IN) :: si_coeff, si_rtol
   LOGICAL, INTENT(IN) :: lshallow_water
   REAL(wp),INTENT(IN) :: p_dtime      ! time step in seconds
-  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch   ! single patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch   ! single patch
   TYPE(t_int_state),INTENT(IN) :: pt_int_state ! single interpolation state
 
   TYPE(t_hydro_atm_prog),INTENT(IN) :: pt_old  ! prognostic variables at step n-1
@@ -1033,7 +1033,7 @@ ENDIF
 !
 
   REAL(wp),INTENT(IN)         :: p_div(:,:,:)
-  TYPE(t_patch),TARGET,INTENT(IN):: pt_patch
+  TYPE(t_patch),TARGET,INTENT(INOUT):: pt_patch
   TYPE(t_int_state), INTENT(IN) :: pt_int_state
   REAL(wp),INTENT(IN)         :: p_coeff
 
@@ -1156,7 +1156,7 @@ ENDIF
   CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_3d'
 
   REAL(wp),INTENT(IN) :: si_coeff, si_rtol, p_dtime
-  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch     ! patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch     ! patch
   TYPE(t_int_state),   INTENT(IN) :: pt_int_state ! interpolation state
 
   TYPE(t_hydro_atm_prog), INTENT(IN)   :: pt_old  ! prognostic variables at step n-1
@@ -1500,7 +1500,7 @@ ENDIF
 
 !arguments
 
-  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
+  TYPE(t_patch),TARGET,INTENT(INOUT) :: pt_patch
   TYPE(t_int_state), INTENT(IN) :: pt_int_state
 
   REAL(wp),INTENT(IN) :: p_x3d(:,:,:)

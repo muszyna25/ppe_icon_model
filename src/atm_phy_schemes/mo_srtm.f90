@@ -1247,14 +1247,14 @@ CONTAINS
               !-- Delta scaling for clear-sky / aerosol optical quantities
               zf=zgcc(ic,jk)*zgcc(ic,jk)
               zwf=zomcc(ic,jk)*zf
-              ztauc(ic,jk)=(1._wp-zwf)*ztauc(ic,jk)
+              ztauc(ic,jk)=MAX(0._wp,(1._wp-zwf)*ztauc(ic,jk))
               zomcc(ic,jk)=(zomcc(ic,jk)-zwf)/(1.0_wp-zwf)
               zgcc(ic,jk)=(zgcc(ic,jk)-zf)/(1.0_wp-zf)
 
               !-- Delta scaling for cloudy quantities
               zf=zgco(ic,jk)*zgco(ic,jk)
               zwf=zomco(ic,jk)*zf
-              ztauo(ic,jk)=(1._wp-zwf)*ztauo(ic,jk)
+              ztauo(ic,jk)=MAX(0._wp,(1._wp-zwf)*ztauo(ic,jk))
               zomco(ic,jk)=(zomco(ic,jk)-zwf)/(1._wp-zwf)
               zgco(ic,jk)=(zgco(ic,jk)-zf)/(1._wp-zf)
             ENDDO

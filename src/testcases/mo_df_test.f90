@@ -30,8 +30,8 @@ MODULE mo_df_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
-  USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
-    &                              t_cartesian_coordinates, gc2cc
+  USE mo_math_types,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_math_utilities,      ONLY: gnomonic_proj, gc2cc
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,      ONLY: t_int_state

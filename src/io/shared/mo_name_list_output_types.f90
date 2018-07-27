@@ -145,8 +145,6 @@ MODULE mo_name_list_output_types
     INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
     ! Only set on compute PEs, set to 0 on IO PEs
     INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
-    ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE       :: own_dst_idx(:), own_dst_blk(:)
     ! dest idx and blk for own points, only set on sequential/test PEs
     INTEGER, ALLOCATABLE       :: pe_own(:)
     ! n_own, gathered for all compute PEs (set on all PEs)
@@ -222,7 +220,7 @@ MODULE mo_name_list_output_types
     ! --------------------
 
     INTEGER                               :: mode              ! 1 = forecast mode, 2 = climate mode
-    INTEGER                               :: dom(max_phys_dom) ! domains for which this namelist is used, ending with -1
+    INTEGER                               :: dom               ! domain for which this namelist is used
     INTEGER                               :: steps_per_file    ! Max number of output steps in one output file
     LOGICAL                               :: steps_per_file_inclfirst !< Flag. Do not count first step in files count
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: file_interval     ! length of a file (ISO8601 duration)
@@ -333,7 +331,7 @@ MODULE mo_name_list_output_types
     TYPE(t_var_metadata), POINTER         :: info_ptr
 
     !> Info structure for variable: this is a modified copy of the
-    !! variable's "info" data object!
+    !> variable's "info" data object!
     TYPE(t_var_metadata)                  :: info
   END TYPE t_var_desc
 
@@ -426,7 +424,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
-    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
+    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false.
 
   END TYPE t_output_file
 

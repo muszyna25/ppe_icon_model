@@ -40,6 +40,7 @@ MODULE mo_output_event_control
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDHHMMSS, FMT_DDDHHMMSS
   USE mo_name_list_output_types, ONLY: t_fname_metadata
 
 
@@ -325,10 +326,14 @@ CONTAINS
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
       ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
-      forecast_delta = mtime_date - sim_start
-      WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
-        &                                    forecast_delta%minute, forecast_delta%second 
-      CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      CALL associate_keyword("<ddhhmmss>",                                                     &
+        &                    TRIM(mtime_utils%ddhhmmss(sim_start, mtime_date, FMT_DDHHMMSS)),  &
+        &                    keywords)
+      CALL associate_keyword("<dddhhmmss>",                                                    &
+        &                    TRIM(mtime_utils%ddhhmmss(sim_start, mtime_date, FMT_DDDHHMMSS)), &
+        &                    keywords)
+
+      forecast_delta     = mtime_date - sim_start
       forecast_delta_str = ""
       WRITE (forecast_delta_str,'(i3.3,2(i2.2))') forecast_delta%day*24 + forecast_delta%hour, &
         &                                         forecast_delta%minute, forecast_delta%second 

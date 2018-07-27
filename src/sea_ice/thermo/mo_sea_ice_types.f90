@@ -20,7 +20,7 @@
 !!
 MODULE mo_sea_ice_types
   USE mo_kind,                ONLY: wp
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
 
   IMPLICIT NONE
   PRIVATE

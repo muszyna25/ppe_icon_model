@@ -138,7 +138,7 @@ CONTAINS
     &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
     &                        opt_q_int, opt_ddt_tracer_adv )
   !
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
                                              
 
@@ -250,7 +250,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
-      & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
+      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
@@ -358,7 +358,7 @@ CONTAINS
         ptr_delp_mc_new  => z_delp_mc1
 
         ! integration of tracer continuity equation in vertical
-        ! direction. Must be computed prior to the vertical tracer flux, 
+        ! direction. Must be computed prior to the vertical tracer flux,
         ! since it is required for FCT (to be implemented).
         ! This is independent of the tracer and thus must be
         ! computed only once.

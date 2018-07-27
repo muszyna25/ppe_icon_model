@@ -509,6 +509,9 @@ USE mo_data_turbdiff, ONLY : &
     imode_shshear,& ! mode of calculat. the separated horizontal shear mode related to 'ltkeshs', 'a_hshr')
                     ! 1: with a constant lenght scale
                     ! 2: with a Ri-dependent length sclale correction
+    imode_tkesso,&  ! mode of calculat. the SSO source term for TKE production
+                    ! 1: original implementation
+                    ! 2: with a Ri-dependent reduction factor for Ri>1
     imode_tkvmini,& ! mode of calculating the minimal turbulent diff. coeffecients
                     ! 1: with a constant value
                     ! 2: with a stability dependent correction
@@ -2198,6 +2201,9 @@ SUBROUTINE turbtran
 !                 Schubspannung abhaengiger Wellenhoehe:
                   IF (imode_charpar.EQ.1) THEN !constant Charnock-Parameter
                      fakt=alpha0
+                  ELSE IF (depth_lk(i) > z0) THEN
+                     ! enhanced Charnock parameter over lakes, parameterizing a non-equlibrium wave spectrum
+                     fakt = 0.1_ireals
                   ELSE
                      fakt=alpha0_char(vel_2d(i))
                      !Note: The argument of alpha0_char should be 'vel_10m', which might not yet be
@@ -3201,7 +3207,12 @@ SUBROUTINE turbtran
                   ELSE
                      velo=SQRT(u_10m(i)**2+v_10m(i)**2)
                   END IF
-                  fakt=alpha0_char(velo)
+                  IF (depth_lk(i) > z0) THEN
+                    ! enhanced Charnock parameter over lakes, parameterizing a non-equlibrium wave spectrum
+                    fakt = 0.1_ireals
+                  ELSE
+                    fakt=alpha0_char(velo)
+                  ENDIF
                END IF
                wert=MAX( grav*len_min, fakt*wert+grav*alpha1*con_m/SQRT(wert) )
                IF (ditsmot.GT.z0) THEN
@@ -4467,9 +4478,10 @@ SUBROUTINE turbdiff
 !DIR$ IVDEP
                 DO i=istartpar,iendpar
                   ! Factor for variable 3D horizontal-vertical length scale proportional to 1/SQRT(Ri),
-                  ! decreasing to zero in the lowest kilometer above ground
+                  ! decreasing to zero in the lowest two kilometers above ground
 
-                  x4 = MIN( 1._ireals, 1.0e-3_ireals*(hhl(i,k)-hhl(i,ke1)) ) ! low-level reduction factor
+                  x4i = MIN( 1._ireals, 0.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )
+                  x4 = 3._ireals*x4i**2 - 2._ireals*x4i**3                   ! low-level reduction factor
                   hor_scale(i,k) = lay(i)*MIN( 5.0_ireals, MAX( 0.01_ireals, x4*xri(i,k) ) )
                 END DO
               END DO
@@ -4559,10 +4571,15 @@ SUBROUTINE turbdiff
 
 !              Addition des Scherterms durch Nachlaufwirbel:
 
-               IF (ltkesso) THEN !Nachlaufwirbeltendenzen sollen beruecksichtigt werden
+               IF (imode_tkesso == 1) THEN !Nachlaufwirbeltendenzen sollen beruecksichtigt werden
 !DIR$ IVDEP
                   DO i=istartpar,iendpar
                      frm(i,k)=frm(i,k) + src(i)/tkvm(i,k)
+                  END DO
+               ELSE IF (imode_tkesso == 2) THEN ! Reduce TKE production in the presence of large Richardson numbers
+!DIR$ IVDEP
+                  DO i=istartpar,iendpar
+                     frm(i,k)=frm(i,k) + src(i)/tkvm(i,k)*MIN(1.0_ireals,MAX(0.01_ireals,xri(i,k)))
                   END DO
                END IF
 
@@ -4842,7 +4859,7 @@ SUBROUTINE turbdiff
                   fakt = MIN( z1, 2.e-4_ireals*MAX( z0, hhl(i,k) - 12500._ireals ) ) ! transition zone between 12.5 and 17.5 km
                   ! Wider transition zone in the tropics in order to avoid too strong diffusion in the tropopause region
                   x4  = z1-z1d3*trop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 22500._ireals-hhl(i,k)) )
-                  x4i = z1-z1d2*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
+                  x4i = z1-z2d3*innertrop_mask(i)*MIN(z1, 2.e-4_ireals*MAX(z0, 27500._ireals-hhl(i,k)) )
                   fakt = fakt*MIN( x4*1.5_ireals, MAX( 0.25_ireals, SQRT(xri(i,k)) ) )
                   val1=MAX( val1, tkmmin_strat*MIN(x4,x4i)*fakt ) ; val2=MAX( val2, tkhmin_strat*x4*fakt )
                END IF
@@ -5487,7 +5504,7 @@ SUBROUTINE turbdiff
 !itndcon=0
 !test
 
-            IF (lsfli(n) .AND. (.NOT.lturatm .OR. (n.NE.tem .AND. n.NE.vap))) THEN
+            IF (lsfli(n)) THEN
                !Load effective surface layer gradients due to given flux values:
 
 !DIR$ IVDEP

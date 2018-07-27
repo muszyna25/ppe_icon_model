@@ -179,7 +179,7 @@ CONTAINS
     &                     opt_rlend )
 
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &     !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &     !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  & !< pointer to data structure for interpolation
@@ -862,7 +862,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_miura'
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
@@ -1237,7 +1237,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_miura_cycl'
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
@@ -1720,7 +1720,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_miura3'
 
-    TYPE(t_patch), INTENT(IN)     ::  &  !< patch on which computation is performed
+    TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
@@ -2230,7 +2230,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
 
-    TYPE(t_patch), INTENT(IN)     ::  &  !< patch on which computation is performed
+    TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
@@ -2796,9 +2796,9 @@ CONTAINS
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
+      &  routine = 'mo_advection_hflux: upwind_hflux_hybrid'
 
-    TYPE(t_patch), INTENT(IN)     ::  &  !< patch on which computation is performed
+    TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation

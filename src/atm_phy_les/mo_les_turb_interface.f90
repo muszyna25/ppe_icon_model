@@ -65,7 +65,7 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
                           & lnd_diag                          ) !>in
 
 
-  TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
+  TYPE(t_patch),        TARGET,INTENT(inout):: p_patch        !!<grid/patch info.
   TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars

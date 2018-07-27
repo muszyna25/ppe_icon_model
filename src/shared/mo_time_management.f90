@@ -73,8 +73,8 @@ MODULE mo_time_management
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nonhydrostatic_config,    ONLY: divdamp_order
-!!$  USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
+  USE mo_initicon_config,          ONLY: timeshift 
 #endif
 
 
@@ -449,6 +449,10 @@ CONTAINS
       &                                       errno
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
     TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
+#ifndef __NO_ICON_ATMO__
+    REAL(wp)                              :: zdt_shift            ! rounded dt_shift
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: dt_shift_string
+#endif
 
     ! --------------------------------------------------------------
     ! PART I: Collect all the dates as ISO8601 strings
@@ -656,6 +660,47 @@ CONTAINS
     !
     cur_datetime_string = start_datetime_string
 
+
+    IF (TRIM(model_string) == 'atm') THEN
+#ifndef __NO_ICON_ATMO__
+      !
+      ! timeshift-operations for CURRENT DATE
+      !
+      ! A timeshift will be used to shift the current model date, and thus 
+      ! the actual start date by timeshift%dt_shift backwards in time. 
+      ! This is required for the Incremental Analysis Update (IAU) procedure 
+      ! which is used during the initialization phase of the atmospheric 
+      ! model component, in order to filter spurious noise.
+      !
+      !
+      ! Round dt_shift to the nearest integer multiple of the advection time step
+      !
+      IF (timeshift%dt_shift < 0._wp) THEN
+        zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
+        IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
+          WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
+            &                               ' s in order to be an integer multiple of dtime ***'
+          CALL message('',message_text)
+        ENDIF
+        timeshift%dt_shift = zdt_shift
+      END IF
+      !
+      ! transform timeshift to mtime-format
+      !
+      CALL getPTStringFromSeconds(timeshift%dt_shift, dt_shift_string)
+      timeshift%mtime_shift => newTimedelta(TRIM(dt_shift_string))
+      WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(dt_shift_string)
+      !
+      CALL getPTStringFromSeconds(ABS(timeshift%dt_shift), dt_shift_string)
+      timeshift%mtime_absshift => newTimedelta(TRIM(dt_shift_string))
+      CALL message('',message_text)
+#endif
+    ENDIF
+
+
+
+
+
     ! --- --- STOP DATE:
     !
     !         This is the date when the current run stops time stepping.
@@ -853,6 +898,18 @@ CONTAINS
     CALL set_tc_exp_stopdate ( exp_stop_datetime_string  )
     CALL set_tc_exp_refdate  ( exp_ref_datetime_string   )
     CALL set_tc_current_date ( cur_datetime_string       )
+
+    IF (TRIM(model_string) == 'atm') THEN
+#ifndef __NO_ICON_ATMO__
+      ! add IAU time shift to current date
+      IF (.NOT. isRestart()) THEN
+        IF (timeshift%dt_shift < 0._wp) THEN
+          time_config%tc_current_date = time_config%tc_current_date + timeshift%mtime_shift
+        ENDIF
+      ENDIF
+#endif
+    ENDIF
+
 
     ! --- Finally, store the same information in a "t_datetime" data
     !     structure

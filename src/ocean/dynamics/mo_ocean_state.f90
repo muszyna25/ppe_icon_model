@@ -57,8 +57,7 @@ MODULE mo_ocean_state
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -66,7 +65,7 @@ MODULE mo_ocean_state
     &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var

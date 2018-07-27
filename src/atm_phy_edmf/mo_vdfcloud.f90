@@ -180,7 +180,7 @@ REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX
 INTEGER(KIND=JPIM), PARAMETER ::  IPDF = 2
       
 REAL(KIND=JPRB) ::    ZQBAR        , ZQMIN       , ZIQBAR(KLON)   
-REAL(KIND=JPRB) ::    ZDUMMY, RCPDTMP, ZRG
+REAL(KIND=JPRB) ::    ZDUMMY, ZRG
 REAL(KIND=JPRB) ::    ZDZ, ZSGSEFOLD
      
 REAL(KIND=JPRB) ::    ZATEST(KLON) , ZAK(KLON)   , ZAUP(KLON)    , &
@@ -191,7 +191,6 @@ REAL(KIND=JPRB) ::    ZATEST(KLON) , ZAK(KLON)   , ZAUP(KLON)    , &
 REAL(KIND=JPRB) ::    ZX1(IPDF,3)      , ZX0(IPDF,3)    , ZS1(3)           , ZS0(3) , &
                  &    ZNX(IPDF,3)      , ZSMIN(IPDF,3)  , ZXMEAN(IPDF,3)   , &
                  &    ZAPDF(IPDF)      , ZCCPDF(IPDF)   , ZSIGQT2PDF(IPDF) , &
-                 &    ZCCTOT           , ZQLAVTOT       , &
                  &    ZDQTDX(IPDF)     , ZDQSDX(IPDF)   , &
                  &    ZQLCCPDF(IPDF)   , ZQLAVPDF(IPDF) , &
                  &    ZXBAR(IPDF)      , ZXMIN(IPDF)    , ZXDIST(IPDF)     , &
@@ -348,9 +347,7 @@ DO JK=1,KLEV
   !       PDF index: 1=updraft, 2=diffusive
   !
   !-----------------------------------------------------------------
-  
-  !RCPDTMP = RCPD*(1._JPRB+RVTMP2*PQTM(JL,JK))
-   
+     
   ZAPDF      = (/ ZAUP(JL) , ZAK(JL) /)
   ZSIGQT2PDF = (/ MAX( 1000000._JPRB*ZSIGQT2UP(JL,JK),0._JPRB ), &
                 & MAX( 1000000._JPRB*ZSIGQT2K(JL,JK) ,0._JPRB )  /)

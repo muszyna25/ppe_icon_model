@@ -1399,8 +1399,7 @@ CONTAINS
         ! matches the event name
         NULLIFY(last_node)
         par_event => union_of_all_events
-        DO
-          IF (.NOT. ASSOCIATED(par_event)) EXIT
+        DO WHILE (ASSOCIATED(par_event))
           IF (TRIM(par_event%output_event%event_data%name) == TRIM(ev2%event_data%name)) EXIT
           last_node => par_event
           par_event => par_event%next
@@ -2508,10 +2507,9 @@ CONTAINS
     ireq = 1
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      IF (ALLOCATED(ev%irecv_req)) THEN
+      IF (ALLOCATED(ev%irecv_req)) &
         irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
-        ireq = ireq + ev%irecv_nreq
-      ENDIF
+      ireq = ireq + ev%irecv_nreq
       ev => ev%next
     END DO
 
@@ -2525,9 +2523,8 @@ CONTAINS
     ev => event
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      IF (ALLOCATED(ev%irecv_req)) THEN
+      IF (ALLOCATED(ev%irecv_req)) &
         ev%irecv_req(:) = MPI_REQUEST_NULL
-      END IF
       ev => ev%next
     END DO
 #endif

@@ -165,13 +165,13 @@ SUBROUTINE VDFDIFH(&
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
-                & RCPD     ,RG       ,RLSTT    ,RLVTT  ,&             !yomcst
+                & RCPD     ,RG       ,RLVTT  ,&                       !yomcst
                 & RVTMP2   ,&                                         !yoethf
                 & RVDIFTS                                             !yoevdf
 USE mo_edmf_param   ,ONLY : &
                 & LEOCWA   ,LEOCCO   ,LEFLAKE  ,&                     !yoephy 
-                & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM   !yomsekf
-
+                & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM, &!yomsekf
+                & EDMF_CONF
 USE mo_surfseb      ,ONLY : surfseb
 
 IMPLICIT NONE
@@ -253,7 +253,7 @@ REAL(KIND=JPRB) ::    ZTSRF(KLON,KTILES)  ,ZRHOCHU(KLON,KTILES)  ,&
 
 INTEGER(KIND=JPIM) :: JK, JL, JT, JD
 
-REAL(KIND=JPRB) ::    ZQDP, ZQSP1, ZTPFAC2, ZTPFAC3,&
+REAL(KIND=JPRB) ::    ZQDP, ZTPFAC2, ZTPFAC3,&
                     & ZCSNQ, ZCSNS, ZCOEF1,ZCOEF2
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
@@ -373,15 +373,17 @@ ENDDO
 
 !*         1.3    ADD MOISTURE FLUX FROM SNOW FROM TILE 7 AS EXPLICIT TERM
 
-!dmk
-JK=KLEV
-DO JL=KIDIA,KFDIA
-  ZCSNQ=RG*PTMST*PFRTI(JL,7)*PEVAPSNW(JL)*Z1DP(JL,JK)
-  ZCSNS=RCPD*RVTMP2*PTSKTI(JL,7)*ZCSNQ
-  ZTYY(JL,JK)=ZTYY(JL,JK)-ZCSNS
-  ZQYY(JL,JK)=ZQYY(JL,JK)-ZCSNQ
-ENDDO
-!xxx
+IF ( EDMF_CONF == 1 ) THEN  ! This cannot be done if ntiles taken from ICON)
+
+  JK=KLEV
+  DO JL=KIDIA,KFDIA
+    ZCSNQ=RG*PTMST*PFRTI(JL,7)*PEVAPSNW(JL)*Z1DP(JL,JK)
+    ZCSNS=RCPD*RVTMP2*PTSKTI(JL,7)*ZCSNQ
+    ZTYY(JL,JK)=ZTYY(JL,JK)-ZCSNS
+    ZQYY(JL,JK)=ZQYY(JL,JK)-ZCSNQ
+  ENDDO
+
+ENDIF
 
 !*         1.4    TOP LAYER ELIMINATION.
 
@@ -429,26 +431,30 @@ ENDIF
 !*         1.7    PREPARE ARRAY'S FOR CALL TO SURFACE ENERGY
 !                 BALANCE ROUTINE
 
-IF (LEOCWA .OR. LEOCCO) THEN
-  ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
-ELSE
-ZTSRF(KIDIA:KFDIA,1)=PSST(KIDIA:KFDIA)
-ENDIF
-ZTSRF(KIDIA:KFDIA,2)=PTICE(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,3)=PTSM1M(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,4)=PTSM1M(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,5)=PTSNOW(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,6)=PTSM1M(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,7)=PTSNOW(KIDIA:KFDIA)
-ZTSRF(KIDIA:KFDIA,8)=PTSM1M(KIDIA:KFDIA)
-IF (LEFLAKE) THEN
-  DO JL=KIDIA,KFDIA
-    IF(PHLICE(JL) > 1.E-9_JPRB) THEN ! 1.E-9 or H_ICE_MIN_FLK present
-      ZTSRF(JL,9)=PTLICE(JL)
-    ELSE
-      ZTSRF(JL,9)=PTLWML(JL)
-    ENDIF
-  ENDDO
+IF (edmf_conf == 1) THEN
+
+  IF (LEOCWA .OR. LEOCCO) THEN
+    ZTSRF(KIDIA:KFDIA,1)=PTSKTI(KIDIA:KFDIA,1)
+  ELSE
+  ZTSRF(KIDIA:KFDIA,1)=PSST(KIDIA:KFDIA)
+  ENDIF
+  ZTSRF(KIDIA:KFDIA,2)=PTICE(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,3)=PTSM1M(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,4)=PTSM1M(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,5)=PTSNOW(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,6)=PTSM1M(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,7)=PTSNOW(KIDIA:KFDIA)
+  ZTSRF(KIDIA:KFDIA,8)=PTSM1M(KIDIA:KFDIA)
+  IF (LEFLAKE) THEN
+    DO JL=KIDIA,KFDIA
+      IF(PHLICE(JL) > 1.E-9_JPRB) THEN ! 1.E-9 or H_ICE_MIN_FLK present
+        ZTSRF(JL,9)=PTLICE(JL)
+      ELSE
+        ZTSRF(JL,9)=PTLWML(JL)
+      ENDIF
+    ENDDO
+  ENDIF
+
 ENDIF
 
 ZCOEF1=1.0_JPRB/(RG*RVDIFTS*PTMST)
@@ -462,7 +468,9 @@ ENDDO
 !*         1.8    CALL TO SURFACE ENERGY BALANCE ROUTINE
 !                 REMEMBER: OUTPUT IS EXTRAPOLATED IN TIME
 
-CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
+IF (edmf_conf == 1) THEN
+
+  CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
   & PSSKM1M=PCPTSTI,PTSKM1M=PTSKTI,PQSKM1M=PQSTI,&
   & PDQSDT=PDQSTI,PRHOCHU=ZRHOCHU,PRHOCQU=ZRHOCQU,&
   & PALPHAL=PCAIRTI,PALPHAS=PCSATTI,&
@@ -475,6 +483,7 @@ CALL SURFSEB   (KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES,&
   & PSSH=PSSH,PSLH=PSLH,PSTR=PSTR,PG0=PG0,&
   & PSL=ZSL,PQL=ZQL)
 
+ENDIF
 
 !*         1.9    ADD SNOW EVAPORATION TO FLUXES
 
@@ -512,55 +521,83 @@ ENDIF
 !*         1.10b   Flux boundary condition from TERRA land only (fluxes in W/m2)
 !                 (Over-write output of SURFSEB)
 
-IF (LDTERRA) THEN
-  DO JT=3,KTILES     ! TERRA goes in tiles 3-8
+IF (edmf_conf == 1) THEN
+
+  IF (LDTERRA) THEN
+    DO JT=3,KTILES     ! TERRA goes in tiles 3-8
+      DO JL=KIDIA,KFDIA
+        IF ( LDLAND(JL) ) THEN
+  !xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
+          ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
+          PJQ(JL,JT)=PEXTLHF(JL)/RLVTT                !RLVTT or RLSTT ???
+          
+  !       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+  !       ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+  
+  !----here should be the mean TERRA TSK - maybe separate for snow and soil----
+  !----same for fluxes - separate for snow and soil (from vdfmain) ---
+  
+          PSSH(JL,JT)=PEXTSHF(JL)
+          PSLH(JL,JT)=PEXTLHF(JL)
+          PSTR(JL,JT)=PSLRFL(JL)
+          PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)
+        ENDIF
+      ENDDO
+    ENDDO
     DO JL=KIDIA,KFDIA
       IF ( LDLAND(JL) ) THEN
-!xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
-        ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
-        PJQ(JL,JT)=PEXTLHF(JL)/RLVTT                !RLVTT or RLSTT ???
-        
-!       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
-!       ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
-
-!----here should be the mean TERRA TSK - maybe separate for snow and soil----
-!----same for fluxes - separate for snow and soil (from vdfmain) ---
-
-if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 100.0  ) ) then
-  write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT), &
-    ZASL(JL), ZBSL(JL), PTSKTI(JL,JT), PQSTI(JL,JT)
-  write(*,*) 'vdfdifh8 ', JT, PFRTI(JL,1:KTILES) 
-endif
-        PSSH(JL,JT)=PEXTSHF(JL)
-        PSLH(JL,JT)=PEXTLHF(JL)
-        PSTR(JL,JT)=PSLRFL(JL)
-        PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)
+        ZSL(JL)=PEXTSHF(JL)      *ZASL(JL)+ZBSL(JL)   ! s,l from land flux - tile average
+        ZQL(JL)=PEXTLHF(JL)/RLVTT*ZAQL(JL)+ZBQL(JL)   ! q,l  -"-
       ENDIF
+    ENDDO
+  ENDIF
+  
+  !*         1.11   COMPUTE PARAMETERS AT NEW TIME LEVEL 
+  
+  !dmk  No skin on ICON
+  DO JT=1,KTILES
+    DO JL=KIDIA,KFDIA
+      PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)     !?????
+    ENDDO
+  ENDDO
+  !xxx
+
+
+ELSE   ! edmf_conf == 2
+
+
+  DO JT=1,KTILES     ! all tiles
+    DO JL=KIDIA,KFDIA
+!     ZJS(JL,JT)=PEXTSHF(JL) 
+      PJQ(JL,JT)=PEXTLHF(JL)/RLVTT                !RLVTT or RLSTT ???
+        
+!     ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
+!     ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
+!     ZTSK(JL,JT)=PTSKTI(JL,JT)
+
+      PSSH(JL,JT)=PEXTSHF(JL)
+      PSLH(JL,JT)=PEXTLHF(JL)
+!     PSTR(JL,JT)=PSLRFL(JL)                                           ! not needed
+!     PG0 (JL,JT)=PEXTSHF(JL)+PEXTLHF(JL)+PSLRFL(JL)+PSSRFLTI(JL,JT)   ! not needed
     ENDDO
   ENDDO
   DO JL=KIDIA,KFDIA
-    IF ( LDLAND(JL) ) THEN
-      ZSL(JL)=PEXTSHF(JL)      *ZASL(JL)+ZBSL(JL)   ! s,l from land flux - tile average
-      ZQL(JL)=PEXTLHF(JL)/RLVTT*ZAQL(JL)+ZBQL(JL)   ! q,l  -"-
-    ENDIF
+    ZSL(JL)=PEXTSHF(JL)      *ZASL(JL)+ZBSL(JL)   ! s,l from land flux - tile average
+    ZQL(JL)=PEXTLHF(JL)/RLVTT*ZAQL(JL)+ZBQL(JL)   ! q,l  -"-
   ENDDO
+
+  !*         1.11   COMPUTE PARAMETERS AT NEW TIME LEVEL 
+  
+  DO JT=1,KTILES
+    DO JL=KIDIA,KFDIA
+!     PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)
+      PTSKTIP1(JL,JT)=PTSKTI(JL,JT)        ! take last time step skin - no skin in ICON
+    ENDDO
+  ENDDO
+
+
 ENDIF
 
-!*         1.11   COMPUTE PARAMETERS AT NEW TIME LEVEL 
-
-!dmk  No skin on ICON
-DO JT=1,KTILES
-  DO JL=KIDIA,KFDIA
-if ( (ZTSK(JL,JT) > 400.0) .or. (PTSKTI(JL,JT) > 400.0) .or. &
-     (ZTSK(JL,JT) < 0.0  ) .or. (PTSKTI(JL,JT) < 100.0  ) ) then
-  write(*,*) 'vdfdifh1: ', JT, ZTSK(JL,JT), PTSKTI(JL,JT), ZTPFAC2, ZTPFAC3, &
-    ZBSL(JL), ZJS(JL,JT), ZASL(JL), ZRHOCHU(JL,JT), PEXTSHF(JL), PEXTLHF(JL)
-endif
-    PTSKTIP1(JL,JT)=ZTPFAC2*ZTSK(JL,JT)+ZTPFAC3*PTSKTI(JL,JT)     !?????
-    ZQSP1=PQSTI(JL,JT)+PDQSTI(JL,JT)*(ZTSK(JL,JT)-PTSKTI(JL,JT))
-  ENDDO
-ENDDO
-!xxx
 
 !*         1.12   COPY LOWEST MODEL SOLUTION FROM SURFSEB
 

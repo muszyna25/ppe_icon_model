@@ -30,7 +30,8 @@ MODULE mo_ice_fem_interpolation
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm, gvec2cvec, cvec2gvec
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,      ONLY: cc_norm, gvec2cvec, cvec2gvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, boundary
 

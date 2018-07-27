@@ -49,6 +49,7 @@ MODULE mo_nh_feedback
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_radar_data_types,    ONLY: t_lhn_diag
   USE mo_fortran_tools,       ONLY: t_ptr_3d
 
   IMPLICIT NONE
@@ -56,7 +57,7 @@ MODULE mo_nh_feedback
   PRIVATE
 
 
-  PUBLIC :: feedback, relax_feedback
+  PUBLIC :: feedback, relax_feedback, lhn_feedback
 
 CONTAINS
   
@@ -78,7 +79,7 @@ CONTAINS
   SUBROUTINE feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
     jg, jgp)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:feedback'
 
 
@@ -151,7 +152,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
 
@@ -951,10 +952,10 @@ CONTAINS
   !!
   SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, jg, jgp, dt_fbk)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
 
-    TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
+    TYPE(t_patch),       TARGET, INTENT(INOUT) ::  p_patch(n_dom_start:n_dom)
     TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
     TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
     TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
@@ -1044,7 +1045,7 @@ CONTAINS
     ! write(0,*) "n_dom_start,n_dom, jg, jgp=", n_dom_start, n_dom, jg, jgp
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
     p_parent_prog    => p_nh_state(jgp)%prog(nnew(jgp))
@@ -1746,5 +1747,181 @@ CONTAINS
     IF (ltransport .AND. iprog_aero == 1) DEALLOCATE(feedback_aero)
 
   END SUBROUTINE relax_feedback
+
+
+  !>
+  !! This routine computes the feedback of latent heat nudging tendencies
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther Zaengl, DWD, 2016-05-11
+  !!
+  SUBROUTINE lhn_feedback(p_patch, lhn_fields, p_grf_state, jg, jgp)
+
+
+    TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
+    TYPE(t_lhn_diag), TARGET, INTENT(INOUT)    ::  lhn_fields(n_dom)
+    TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
+
+    INTEGER, INTENT(IN) :: jg   ! child grid level
+    INTEGER, INTENT(IN) :: jgp  ! parent grid level
+
+    ! local variables
+
+    TYPE(t_lhn_diag),   POINTER     :: lh_parent => NULL()
+    TYPE(t_lhn_diag),   POINTER     :: lh_child => NULL()
+    TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
+    TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
+    TYPE(t_gridref_state), POINTER  :: p_grfp => NULL()
+    TYPE(t_patch),      POINTER     :: p_pp => NULL()
+    TYPE(t_patch),      POINTER     :: p_pc => NULL()
+
+    ! Indices
+    INTEGER :: jb, jc, jk, js, i_nchdom, i_chidx, i_rlend_c, &
+      i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom_p
+
+    INTEGER :: nlev_c            ! number of full levels (child dom)
+    INTEGER :: nlev_p            ! number of full levels (parent dom)
+    INTEGER :: nshift
+
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_temp, feedback_qv
+
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: parent_temp, parent_qv
+
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iccidx, iccblk
+
+    !-----------------------------------------------------------------------
+
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a,i2,a,i2)') '========= LHN Feedback:',jg,' =>',jgp
+      CALL message('lhn_feedback',message_text)
+    ENDIF
+
+    p_pc             => p_patch(jg)
+    lh_parent        => lhn_fields(jgp)
+    lh_child         => lhn_fields(jg)
+
+    p_grf  => p_grf_state_local_parent(jg)
+    p_grfp => p_grf_state(jgp)
+    p_gcp  => p_patch_local_parent(jg)%cells
+    p_pp   => p_patch_local_parent(jg)
+
+    nlev_c   = p_pc%nlev
+    nlev_p   = p_pp%nlev
+    nshift = p_pc%nshift
+    js     = nshift
+
+    i_nchdom = MAX(1,p_pc%n_childdom)
+    i_chidx  = p_pc%parent_child_index
+    i_nchdom_p = MAX(1,p_patch(jgp)%n_childdom)
+
+    ! end index levels for application of feedback relaxation
+    i_rlend_c   = min_rlcell_int
+
+    ! Allocation of storage fields
+    ! In parallel runs the lower bound of the feedback_* arrays must be 1 for use in exchange data,
+    ! the lower bound of the fbk_* arrays must be i_startblk for the use in global sum.
+
+    i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+    i_startblk = 1
+
+    ALLOCATE(feedback_temp(nproma, nlev_c, i_startblk:i_endblk), &
+             feedback_qv  (nproma, nlev_c, i_startblk:i_endblk)  )
+ 
+
+    ! Set pointers to index and coefficient fields for cell-based variables
+    iccidx => p_gcp%child_idx
+    iccblk => p_gcp%child_blk
+
+
+    ! 1. Feedback of child-domain variables to the parent grid
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
+
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+        DO jk = 1, nlev_c
+#else
+      DO jk = 1, nlev_c
+        DO jc = i_startidx, i_endidx
+#endif
+
+          feedback_temp(jc,jk,jb) =                                                            &
+            lh_child%ttend_lhn(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            lh_child%ttend_lhn(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            lh_child%ttend_lhn(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            lh_child%ttend_lhn(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
+
+          feedback_qv(jc,jk,jb) =                                                               &
+            lh_child%qvtend_lhn(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            lh_child%qvtend_lhn(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            lh_child%qvtend_lhn(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            lh_child%qvtend_lhn(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
+
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 2, 2*nlev_c, &
+                            RECV1=parent_temp,   SEND1=feedback_temp,    &
+                            RECV2=parent_qv,     SEND2=feedback_qv       )
+
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
+    i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
+
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = nshift+1,nlev_p
+#else
+      DO jk = nshift+1,nlev_p
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+
+            lh_parent%ttend_lhn (jc,jk,jb) = parent_temp(jc,jk-js,jb)
+            lh_parent%qvtend_lhn(jc,jk,jb) = parent_qv  (jc,jk-js,jb)
+
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
+        ENDDO
+#endif
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),2,lh_parent%ttend_lhn,lh_parent%qvtend_lhn)
+
+    DEALLOCATE(feedback_temp,feedback_qv)
+
+  END SUBROUTINE lhn_feedback
 
 END MODULE mo_nh_feedback

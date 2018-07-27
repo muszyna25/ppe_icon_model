@@ -91,7 +91,7 @@ SUBROUTINE VDFSAT (s1,s0,x1,x0,smin,xdir)
 ! USE YOMHOOK   ,ONLY : LHOOK,   DR_HOOK
 
 !ICON definitions:
-USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
+USE mo_kind         ,ONLY : JPRB=>wp
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook
 
 
@@ -106,7 +106,7 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: SMIN(3),XDIR
 
 !*         0.2    LOCAL VARIABLES
       
-REAL(KIND=JPRB) ::  n1(3),n2(3),n3(3),nsat(3),nsatperp(3),nmeantosat(3),nmix(3)
+REAL(KIND=JPRB) ::  n3(3),nsat(3),nsatperp(3),nmeantosat(3),nmix(3)
 
 REAL(KIND=JPRB) ::  norm,pA,pB,pC,pD,dist
 

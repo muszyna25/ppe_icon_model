@@ -20,7 +20,7 @@ MODULE mo_reorder_patches
   USE mo_parallel_config, ONLY: nproma
   USE mo_communication,   ONLY: idx_no, blk_no, idx_1d
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
-  USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_math_types,      ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     &                               t_glb2loc_index_lookup
   USE mo_util_sort,       ONLY: quicksort
@@ -79,9 +79,13 @@ CONTAINS
     ! ----------------------------------------
 
     CALL reorder_array_pos(pp%cells%num_edges,       idx_old2new,      pp%nblks_c, pp%npromz_c)
+    IF (ALLOCATED(pp%cells%parent_glb_idx)) &
     CALL reorder_array_pos(pp%cells%parent_glb_idx,  idx_old2new,      pp%nblks_c, pp%npromz_c)
+    IF (ALLOCATED(pp%cells%parent_glb_blk)) &
     CALL reorder_array_pos(pp%cells%parent_glb_blk,  idx_old2new,      pp%nblks_c, pp%npromz_c)
+    IF (ALLOCATED(pp%cells%child_idx)) &
     CALL reorder_array_pos(pp%cells%child_idx,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
+    IF (ALLOCATED(pp%cells%child_blk)) &
     CALL reorder_array_pos(pp%cells%child_blk,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%child_id,        idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%phys_id,         idx_old2new,      pp%nblks_c, pp%npromz_c)
@@ -157,10 +161,13 @@ CONTAINS
     ! ----------------------------------------
     ! in this patch: translate array positions
     ! ----------------------------------------
-
+    IF (ALLOCATED(pp%edges%parent_glb_idx)) &
     CALL reorder_array_pos(pp%edges%parent_glb_idx,         idx_old2new,      pp%nblks_e, pp%npromz_e)
+    IF (ALLOCATED(pp%edges%parent_glb_blk)) &
     CALL reorder_array_pos(pp%edges%parent_glb_blk,         idx_old2new,      pp%nblks_e, pp%npromz_e)
+    IF (ALLOCATED(pp%edges%child_idx)) &
     CALL reorder_array_pos(pp%edges%child_idx,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
+    IF (ALLOCATED(pp%edges%child_blk)) &
     CALL reorder_array_pos(pp%edges%child_blk,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%child_id,               idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%phys_id,                idx_old2new,      pp%nblks_e, pp%npromz_e)

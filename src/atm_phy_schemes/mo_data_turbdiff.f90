@@ -196,7 +196,7 @@ REAL (KIND=ireals)     ::      &
   alpha0_max =  0.0335_ireals, & ! upper limit of velocity-dependent Charnock-parameter
   alpha0_pert=  0.0_ireals,    & ! additive ensemble perturbation of Charnock-parameter
 !<Achtung:
-  alpha1     =  1.0000_ireals    ! parameter scaling the molek. roughness of water waves
+  alpha1     =  0.7500_ireals    ! parameter scaling the molek. roughness of water waves
 !>
 
 REAL (KIND=ireals)     ::      &
@@ -349,6 +349,9 @@ INTEGER :: &
   imode_shshear =2, & ! mode of calculat. the separated horizontal shear mode (related to 'ltkeshs', 'a_hshr')
                       ! 1: with a constant lenght scale 
                       ! 2: with a Ri-dependent length sclale correction
+  imode_tkesso =1, &  ! mode of calculat. the SSO source term for TKE production
+                      ! 1: original implementation
+                      ! 2: with a Ri-dependent reduction factor for Ri>1
   imode_tkvmini =2, & ! mode of calculating the minimal turbulent diff. coeffecients
                       ! 1: with a constant value
                       ! 2: with a stability dependent correction
@@ -421,6 +424,7 @@ INTEGER :: &
      icldm_turb   = turbdiff_config(jg)%icldm_turb
      itype_sher   = turbdiff_config(jg)%itype_sher
      imode_frcsmot= turbdiff_config(jg)%imode_frcsmot
+     imode_tkesso = turbdiff_config(jg)%imode_tkesso
 
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon
@@ -446,6 +450,7 @@ INTEGER :: &
      alpha0       = turbdiff_config(jg)%alpha0
      alpha0_max   = turbdiff_config(jg)%alpha0_max
      alpha0_pert  = turbdiff_config(jg)%alpha0_pert
+     alpha1       = turbdiff_config(jg)%alpha1
 
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
@@ -455,6 +460,7 @@ INTEGER :: &
      frcsmot      = turbdiff_config(jg)%frcsmot
      impl_s       = turbdiff_config(jg)%impl_s
      impl_t       = turbdiff_config(jg)%impl_t
+     q_crit       = turbdiff_config(jg)%q_crit
 
      loutshs      = ltkeshs .OR. itype_sher > 0
 

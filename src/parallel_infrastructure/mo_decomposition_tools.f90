@@ -75,8 +75,9 @@ MODULE mo_decomposition_tools
     ! For cells this is the same as decomp_domain(:,:)==0
     ! index1=nproma, index2=1,nblks_c
     ! For edges, this can not be derived from decomp_domain:
-    ! edges at the border are assigned the PE with the bigger number
-    ! index1=nproma, index2=1,nblks_e    ! For verts, this can not be derived from decomp_domain:
+    ! edges at the border are assigned to the PE with the bigger number
+    ! index1=nproma, index2=1,nblks_e
+    ! For verts, this can not be derived from decomp_domain:
     ! verts at the border are assigned the PE with the bigger number
     ! index1=nproma, index2=1,nblks_v
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
@@ -98,7 +99,7 @@ MODULE mo_decomposition_tools
     ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
     ! index1=nproma, index2=1,nblks_c
     ! For edges:
-    ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
+    ! 0=owned, 1=on owned cell=in domain, 2=exactly one shared vertex with owned cells
     ! index1=nproma, index2=1,nblks_e
     ! For verts:
     ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
@@ -344,8 +345,8 @@ CONTAINS
   ! according to the lat, lon and cell_number fields
 
   ! returns the local index for a given global index
-  ! in case the global index is not available locally -1 is returned
-  ! in case the global index is no valid 0 is returned
+  ! in case the global index is not available locally, -1 is returned
+  ! in case the global index is invalid, 0 is returned
   ELEMENTAL FUNCTION get_local_index(glb2loc_index, glb_index)
 
     TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index

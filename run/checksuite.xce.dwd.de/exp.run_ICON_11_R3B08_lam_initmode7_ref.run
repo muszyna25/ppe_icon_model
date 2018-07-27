@@ -5,7 +5,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
-#PBS -o LOG.exp.run_ICON_11_R3B08_lam_initmode7.run.run.o
+#PBS -o LOG.exp.run_ICON_11_R3B08_lam_initmode7_ref.run.run.o
 # ----------------------------------------------------------------------
 # ============================================================================
 # Basic CRAY batch script for the ICON model

@@ -39,6 +39,8 @@
 #   Helmut Frank    20150505  Introduce MARS_EXPVER to be able to set expver!=1.
 #   Helmut Frank    20160517  Automatically set n_st=1 for old operational data
 #   Helmut Frank    20170711  Add information and settings for ERA5
+#   Helmut Frank    20171129  New option -g for cubic grids. See
+#                             https://software.ecmwf.int/wiki/display/FCST/Relationship+between+spectral+truncation+and+grid+point+resolution
 # ------------------------------------------------------------------------------
 
 # --- argument list ---
@@ -46,6 +48,7 @@
 typeset    pdatin=g12       # initial time
 typeset -i step=0           # forecast step [hours]
 typeset -i res=255          # resolution
+typeset    grd
 typeset    levs             # levels
 typeset -i lv_split=91      # fetch the atmospheric levels in portions of lv_split levels
 typeset -i parallel=0
@@ -60,7 +63,7 @@ typeset    Dflag
 
 typeset name=${0##*/}
 
-while getopts +C:Dd:E:hl:L:o:Op:r:s:S: option
+while getopts +C:Dd:E:g:hl:L:o:Op:r:s:S: option
 do
     case ${option} in
         C) class_mars=${OPTARG}
@@ -71,6 +74,8 @@ do
            set -x
            ;;
         E) expv_soil=${OPTARG}
+           ;;
+        g) grd=${OPTARG}
            ;;
         h) cat <<-HELP_EOF
 
@@ -92,6 +97,9 @@ do
 		  -d pdatin      Initial time. Format YYYYMMDDHH or something like g12, h00,
 		                 or the ICON time format. Default: ${pdatin}
 		                 (You need datconv for formats like g12, h00.)
+		  -g grd         MARS parameter grid. The default depends on resolution. It is (resolution+1)/2.
+		                 With the introduction of a cubic grid on 20160310 values F(resolution+1)/2
+		                 are reasonable. E.g. F1280 for resolution=1279.
 		  -h             This help
 		  -l levelist    Number of levels. A single number N will be used as levelist='1/to/N'.
 		                    Default: 1/to/137 since 2013062512,
@@ -264,24 +272,29 @@ case ${class_mars} in
 esac
 #
 # The following list is copied from
-# http://www.ecmwf.int/products/data/technical/gaussian/spatial_representations.html
+# http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
 #
-typeset -i grd
-case ${res} in
-     95) grd=48  ;;
-    159) grd=80  ;;
-    255) grd=128 ;;
-    319) grd=160 ;;
-    399) grd=200 ;;
-    511) grd=256 ;;
-    639) grd=320 ;;
-    799) grd=400 ;;
-   1023) grd=512 ;;
-   1279) grd=640 ;;
-   2047) grd=1024;;
-      *) print -- "${name} error! No parameter grid known for resolution=${res}!" >&2
-         exit 5
-esac
+# With the introduction of a cubic grid on 20160310 values F($res+1)/2 are reasonable.
+# E.g. grd=F1280 for res=1279. See
+# https://software.ecmwf.int/wiki/display/FCST/Relationship+between+spectral+truncation+and+grid+point+resolution 
+#
+if [[ -z "${grd}" ]]; then
+    case ${res} in
+         95) grd=48  ;;
+        159) grd=80  ;;
+        255) grd=128 ;;
+        319) grd=160 ;;
+        399) grd=200 ;;
+        511) grd=256 ;;
+        639) grd=320 ;;
+        799) grd=400 ;;
+       1023) grd=512 ;;
+       1279) grd=640 ;;
+       2047) grd=1024;;
+          *) print -- "${name} error! No parameter grid known for resolution=${res}!" >&2
+             exit 5
+    esac
+fi
 #
 # define data directory (if not set otherwise)
 #
