@@ -149,7 +149,7 @@ MODULE mo_nwp_sfc_tiles
   TYPE(t_tile_att),      TARGET    :: trivial_tile_att
 
   TYPE(t_tileinfo_grb2), PARAMETER :: trivial_tileinfo_grb2  = t_tileinfo_grb2(idx = 0, att = 0)
-  INTEGER,               PARAMETER :: trivial_tileId         = 1
+  INTEGER,               PARAMETER :: trivial_tileId         = 0
 
   !
   ! maximum number of tile attributes
@@ -291,7 +291,7 @@ CONTAINS
 
       ! initialize 'trivial' tile
       CALL tile_list%tile(1)%init(tile_id=trivial_tileinfo_grb2%idx)
-      CALL tile_list%tile(1)%append_att(tile_id_icon=trivial_tileId, tile_att=trivial_tileinfo_grb2%att)
+      CALL tile_list%tile(1)%append_att(tile_id_icon=1, tile_att=trivial_tileinfo_grb2%att)
     ENDIF
 
     ! debug printput
