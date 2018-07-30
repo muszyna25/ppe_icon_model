@@ -149,7 +149,7 @@ MODULE mo_nwp_sfc_tiles
   TYPE(t_tile_att),      TARGET    :: trivial_tile_att
 
   TYPE(t_tileinfo_grb2), PARAMETER :: trivial_tileinfo_grb2  = t_tileinfo_grb2(idx = 0, att = 0)
-  INTEGER,               PARAMETER :: trivial_tileId         = 0
+  INTEGER,               PARAMETER :: trivial_tileId         = 1
 
   !
   ! maximum number of tile attributes
