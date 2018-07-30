@@ -1387,12 +1387,12 @@ CONTAINS
     ifile = 0
     LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
       idom = p_onl%dom ! domain for which this name list should be used
-      log_patch_id = patch_info(idom)%log_patch_id
       ! non-existent domains are simply ignored:
       IF(idom > n_dom_out) THEN
         p_onl => p_onl%next
         CYCLE
       END IF
+      log_patch_id = patch_info(idom)%log_patch_id
 
       ! Loop over model/pressure/height levels
       DO i_typ = 1, 4
