@@ -1758,6 +1758,8 @@ CONTAINS
       !               (if there is such an attribute available).
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i
       fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
+    ELSE
+      fname_metadata%jfile_offset = 0
     END IF
 
     ! set model domain start/end time
