@@ -41348,7 +41348,7 @@ void cdf_define_all_grids(ncgrid_t *ncgrid, int vlistID, ncdim_t *ncdims, int nv
 
 	  if ( number_of_grid_used != CDI_UNDEFID &&
                (grid->type == CDI_UNDEFID || grid->type == GRID_GENERIC) &&
-               xdimid != CDI_UNDEFID && xsize > 9999 )
+               xdimid != CDI_UNDEFID && xsize > 999 )
             grid->type = GRID_UNSTRUCTURED;
 
           if ( grid->type == GRID_UNSTRUCTURED )
