@@ -104,7 +104,7 @@ MODULE mo_name_list_output_init
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, p_allgatherv
+    &                                             p_allgather, p_allgatherv, MPI_COMM_NULL
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -1645,7 +1645,7 @@ CONTAINS
       &                               generate_output_filenames, p_comm_io, &
       &                               event_list_local, ievent_list_local)
 
-    IF (dom_sim_step_info_jstep0 > 0) &
+    IF (dom_sim_step_info_jstep0 > 0 .AND. p_comm_io /= MPI_COMM_NULL) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
