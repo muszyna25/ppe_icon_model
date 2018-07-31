@@ -69,8 +69,14 @@ MODULE mo_ocean_state
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, GRID_ZONAL
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+    &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+    &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
+    &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
+    &                               GRID_ZONAL
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
+      &                             grid_unstructured_vert, grid_vertex 
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output

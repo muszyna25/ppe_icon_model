@@ -291,7 +291,7 @@ CONTAINS
 
       ! initialize 'trivial' tile
       CALL tile_list%tile(1)%init(tile_id=trivial_tileinfo_grb2%idx)
-      CALL tile_list%tile(1)%append_att(tile_id_icon=trivial_tileId, tile_att=trivial_tileinfo_grb2%att)
+      CALL tile_list%tile(1)%append_att(tile_id_icon=1, tile_att=trivial_tileinfo_grb2%att)
     ENDIF
 
     ! debug printput

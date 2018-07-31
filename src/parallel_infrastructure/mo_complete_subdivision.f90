@@ -44,11 +44,13 @@ MODULE mo_complete_subdivision
     & p_comm_work_2_test, num_test_procs, p_comm_remote_size, &
     & p_isend, p_irecv, p_wait
 
-  USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
+  USE mo_communication,      ONLY: blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
     &                              ASSIGNMENT(=), delete_comm_gather_pattern, &
-    &                              delete_comm_pattern, t_comm_pattern, &
-    &                              setup_comm_pattern2, xfer_list
+    &                              delete_comm_pattern, t_comm_pattern
+  USE mo_communication_types, ONLY: xfer_list
+  USE mo_communication_factory, ONLY: setup_comm_pattern, setup_comm_pattern2
+
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e

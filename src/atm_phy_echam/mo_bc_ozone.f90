@@ -54,7 +54,9 @@ CONTAINS
     CHARACTER(len=16)                 :: fname
     TYPE(t_stream_id)                 :: stream_id
     CHARACTER(len=4)                  :: cyear
-    CHARACTER(len=25)                 :: subprog_name
+    CHARACTER(len=*), PARAMETER       :: subprog_name &
+         = 'mo_bc_ozone:read_bc_ozone'
+
     INTEGER                           :: ncid, varid, mpi_comm
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
 
@@ -62,9 +64,9 @@ CONTAINS
 
       IF (ALLOCATED(o3_plev)) THEN
         o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
-        write(cyear,'(i4)') year
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -92,9 +94,9 @@ CONTAINS
         CALL closeFile(stream_id)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
-        write(cyear,'(i4)') year
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -107,9 +109,9 @@ CONTAINS
         CALL closeFile(stream_id)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
-        write(cyear,'(i4)') year-1
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year-1
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -121,9 +123,9 @@ CONTAINS
           &               start_timestep=12,end_timestep=12)
         CALL closeFile(stream_id)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
-        write(cyear,'(i4)') year+1
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year+1
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -137,7 +139,6 @@ CONTAINS
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
       END IF
 
-      subprog_name='mo_bc_ozone:read_bc_ozone'
       nplev_o3=SIZE(o3_plev,2)
 
       IF(ALLOCATED(plev_full_o3)) DEALLOCATE(plev_full_o3)
@@ -145,11 +146,7 @@ CONTAINS
       ALLOCATE(plev_full_o3(nplev_o3))
       ALLOCATE(plev_half_o3(nplev_o3+1))
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
+      mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
       IF(my_process_is_stdio()) THEN
         CALL nf(nf_open(TRIM(fname), NF_NOWRITE, ncid), subprog_name)

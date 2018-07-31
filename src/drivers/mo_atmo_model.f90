@@ -305,9 +305,7 @@ CONTAINS
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
-      IF (my_process_is_pref()) THEN
-        CALL prefetch_main_proc
-      ENDIF
+      IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before

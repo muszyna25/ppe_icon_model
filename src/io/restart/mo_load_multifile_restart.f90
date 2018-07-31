@@ -37,7 +37,7 @@ MODULE mo_load_multifile_restart
     USE mo_cdi,                    ONLY: streamOpenRead, streamInqVlist, vlistNvars, vlistCopyVarName, &
       &                                  streamClose, streamReadVar,                                   &
       &                                  streamReadVarSlice, streamReadVarSliceF, CDI_GLOBAL,          &
-      &                                  vlistInqAttInt
+      &                                  cdiInqAttInt
     USE mo_communication_orig,     ONLY: t_comm_pattern_orig, exchange_data_noblk
     USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
       &                                  deallocate_glb2loc_index_lookup
@@ -195,10 +195,10 @@ CONTAINS
                 ! hassle, we define size-0 cell counts as size-1 grids
                 ! with an additional integer attribute "cellCount" ...
 
-                ! gridId = vlistInqVarGrid(me%vlistId, varId)
+                ! gridId = cdiInqVarGrid(me%vlistId, varId)
                 ! me%cellCount = gridInqSize(gridId)
                 
-                dummy =  vlistInqAttInt(me%vlistId, CDI_GLOBAL, "cellCount", 1, icount);
+                dummy =  cdiInqAttInt(me%vlistId, CDI_GLOBAL, "cellCount", 1, icount);
                 me%cellCount = icount(1)
                 me%cellIndexVar = varId
                 haveCellCount = .TRUE.
@@ -207,9 +207,9 @@ CONTAINS
                     CALL finish(routine, "corrupted restart file detected: double definition of "//kVarName_globalEdgeIndex)
                 END IF
 
-                ! gridId = vlistInqVarGrid(me%vlistId, varId) 
+                ! gridId = cdiInqVarGrid(me%vlistId, varId) 
                 ! me%edgeCount = gridInqSize(gridId)
-                dummy =  vlistInqAttInt(me%vlistId, CDI_GLOBAL, "edgeCount", 1, icount);
+                dummy =  cdiInqAttInt(me%vlistId, CDI_GLOBAL, "edgeCount", 1, icount);
                 me%edgeCount = icount(1)
 
                 me%edgeIndexVar = varId
@@ -219,9 +219,9 @@ CONTAINS
                     CALL finish(routine, "corrupted restart file detected: double definition of "//kVarName_globalVertIndex)
                 END IF
 
-                ! gridId = vlistInqVarGrid(me%vlistId, varId)
+                ! gridId = cdiInqVarGrid(me%vlistId, varId)
                 ! me%vertCount = gridInqSize(gridId)
-                dummy =  vlistInqAttInt(me%vlistId, CDI_GLOBAL, "vertCount", 1, icount);
+                dummy =  cdiInqAttInt(me%vlistId, CDI_GLOBAL, "vertCount", 1, icount);
                 me%vertCount = icount(1)
 
                 me%vertIndexVar = varId

@@ -446,7 +446,7 @@ CONTAINS
       &                                       mtime_td
     TYPE(divisionquotienttimespan)        ::  mtime_quotient
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
-      &                                       errno
+      &                                       errno, tlen1, tlen2
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
     TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
 #ifndef __NO_ICON_ATMO__
@@ -469,12 +469,17 @@ CONTAINS
     ! with concurrent namelist settings of the calendar (mtime):
     calendar1 = calendar_index2string(time_nml_icalendar)
     calendar2 = TRIM(master_nml_calendar)
-    IF (TRIM(calendar1) /= "")  calendar = calendar1
-    IF (TRIM(calendar2) /= "")  calendar = calendar2
-    IF ((TRIM(calendar1) /= "") .AND. (TRIM(calendar2) /= "")) THEN
-      ! both settings were used; we need to test for equality
-      IF (TRIM(tolower(calendar1)) /= TRIM(tolower(calendar2)))  &
-        &  CALL finish(routine, "Inconsistent setting of calendar")
+    tlen1 = LEN_TRIM(calendar1)
+    tlen2 = LEN_TRIM(calendar2)
+    IF (tlen2 /= 0) THEN
+      calendar = calendar2
+      IF (tlen1 /= 0) THEN
+        ! both settings were used; we need to test for equality
+        IF (tolower(calendar1) /= tolower(calendar2))  &
+             &  CALL finish(routine, "Inconsistent setting of calendar")
+      END IF
+    ELSE IF (tlen1 /= 0) THEN
+      calendar = calendar1
     END IF
     SELECT CASE (toLower(calendar))
     CASE ('julian gregorian')

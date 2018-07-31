@@ -28,11 +28,11 @@ MODULE mo_read_netcdf_distributed
     & deallocate_glb2loc_index_lookup, &
     & uniform_partition, partidx_of_elem_uniform_deco
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
-    & setup_comm_pattern, delete_comm_pattern, &
-    & exchange_data
+    & delete_comm_pattern, exchange_data
   USE mo_parallel_config, ONLY: nproma, &
        config_io_process_stride => io_process_stride, &
        config_io_process_rotate => io_process_rotate
+  USE mo_communication_factory, ONLY: setup_comm_pattern
 
   IMPLICIT NONE
 

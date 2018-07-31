@@ -24,7 +24,7 @@ MODULE mo_test_communication
     & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
   USE mo_communication,       ONLY: t_comm_gather_pattern, t_comm_pattern, &
-    &                               setup_comm_pattern, delete_comm_pattern, &
+    &                               delete_comm_pattern, &
     &                               setup_comm_gather_pattern, &
     &                               delete_comm_gather_pattern, exchange_data, &
     &                               exchange_data_4de1, &
@@ -35,8 +35,9 @@ MODULE mo_test_communication
     &                               delete_comm_allgather_pattern, &
     &                               exchange_data_grf, t_p_comm_pattern, &
     &                               t_comm_pattern_collection, &
-    &                               setup_comm_pattern_collection, &
     &                               delete_comm_pattern_collection
+  USE mo_communication_factory, ONLY: setup_comm_pattern, &
+    &                               setup_comm_pattern_collection
   USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, &
     &                               init_glb2loc_index_lookup, &
     &                               set_inner_glb_index, &

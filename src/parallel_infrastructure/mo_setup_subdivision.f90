@@ -772,6 +772,7 @@ CONTAINS
 
     INTEGER :: child_chunk_first, child_chunk_last, child_chunk_size, i
     INTEGER :: n_cells_parent_g, parent_part_rank, dist_array_pes_size
+    INTEGER :: accum_recv, accum_send
     TYPE(global_array_desc) :: dist_cell_owner_p_desc(1)
     TYPE(extent) :: parent_chunk(1,1)
     INTEGER, POINTER :: parent_chunk_ptr(:), child_chunk_ptr(:), &
@@ -828,13 +829,13 @@ CONTAINS
       &             p_parent_patch_pre%dist_array_comm)
 
     ! alltoallv parent cell global index and owners
-    parent_owner_send_displ(0) = 0
-    parent_owner_recv_displ(0) = 0
-    DO i = 1, dist_array_pes_size-1
-      parent_owner_send_displ(i) = parent_owner_send_displ(i-1) + &
-        &                          num_parent_owner_send(i-1)
-      parent_owner_recv_displ(i) = parent_owner_recv_displ(i-1) + &
-        &                          num_parent_owner_recv(i-1)
+    accum_recv = 0
+    accum_send = 0
+    DO i = 0, dist_array_pes_size-1
+      parent_owner_recv_displ(i) = accum_recv
+      parent_owner_send_displ(i) = accum_send
+      accum_recv = accum_recv + num_parent_owner_recv(i)
+      accum_send = accum_send + num_parent_owner_send(i)
     END DO
     ALLOCATE( &
       parent_chunk_prep( &
@@ -2739,7 +2740,7 @@ CONTAINS
     INTEGER :: irl0
 #endif
     INTEGER, ALLOCATABLE :: temp_glb_index(:), permutation(:), temp_ilev(:), &
-      &                     temp_owner(:)
+      &                     temp_owner(:), temp_copy(:)
 
     ! if all cells/vertices/edges have flag == 0
     IF ((n2_ilev(0) == n_patch_cve) .AND. (n2_ilev(0) == n_patch_cve_g)) THEN
@@ -2762,19 +2763,27 @@ CONTAINS
       n_inner = n2_ilev(0)
 
     CASE (1)
-      ALLOCATE(temp_ilev(n_patch_cve), permutation(n_patch_cve))
+      ALLOCATE(temp_ilev(n_patch_cve), permutation(n_patch_cve), &
+           temp_copy(n_patch_cve))
       k = 1
       DO ilev = 0, max_ilev
         temp_glb_index(k:k+n2_ilev(ilev)-1) = flag2_list(ilev)%idx(1:n2_ilev(ilev))
-        temp_owner(k:k+n2_ilev(ilev)-1) = flag2_list(ilev)%owner(1:n2_ilev(ilev))
+        temp_copy(k:k+n2_ilev(ilev)-1) = flag2_list(ilev)%owner(1:n2_ilev(ilev))
         temp_ilev(k:k+n2_ilev(ilev)-1) = ilev
         k = k + n2_ilev(ilev)
       END DO
-      permutation(:) = (/(k, k = 1, n_patch_cve)/)
-      CALL quicksort(temp_glb_index(:), permutation(:))
-      temp_owner(:) = temp_owner(permutation(:))
-      temp_ilev(:) = temp_ilev(permutation(:))
-      DEALLOCATE(permutation)
+      DO k = 1, n_patch_cve
+        permutation(k) = k
+      END DO
+      CALL quicksort(temp_glb_index, permutation)
+      DO k = 1, n_patch_cve
+        temp_owner(k) = temp_copy(permutation(k))
+      END DO
+      temp_copy = temp_ilev
+      DO k = 1, n_patch_cve
+        temp_ilev(k) = temp_copy(permutation(k))
+      END DO
+      DEALLOCATE(permutation, temp_copy)
       k = 1
       jf = 1
       j = 0
@@ -2813,10 +2822,14 @@ CONTAINS
       CALL finish("", "Uknown order_type_of_halos")
     END SELECT
 
+    ALLOCATE(permutation(n_inner))
+    DO k = 1, n_inner
+      permutation(k) = k
+    END DO
     CALL set_inner_glb_index(decomp_info%glb2loc_index, &
       &                      decomp_info%glb_index(1:n_inner), &
-      &                      (/(i, i = 1, n_inner)/))
-
+      &                      permutation)
+    DEALLOCATE(permutation)
     ! Set start_index/block ... end_index/block for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
     ! setting of the inner global indices.
@@ -3024,11 +3037,13 @@ CONTAINS
       END IF
 
     END DO
-
+    ALLOCATE(permutation(n_inner+1:n_patch_cve))
+    DO k = n_inner+1, n_patch_cve
+      permutation(k) = k
+    END DO
     CALL set_outer_glb_index(decomp_info%glb2loc_index, &
       &                      decomp_info%glb_index(n_inner+1:), &
-      &                      (/(i, i = n_inner+1, n_patch_cve)/))
-
+      &                      permutation)
   END SUBROUTINE build_patch_start_end
 
   SUBROUTINE build_patch_start_end_short(n_patch_cve, n_patch_cve_g, &

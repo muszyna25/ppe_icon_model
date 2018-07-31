@@ -77,14 +77,6 @@ TYPE t_comm_pattern_redist
 
 END TYPE t_comm_pattern_redist
 
-TYPE t_comm_pattern_redists
-
-  PRIVATE
-
-  TYPE(t_comm_pattern_redist), ALLOCATABLE :: p(:)
-
-END TYPE t_comm_pattern_redists
-
 TYPE t_comm_pattern_contiguous_data_type
 
   PRIVATE
@@ -95,14 +87,6 @@ TYPE t_comm_pattern_contiguous_data_type
 
 END TYPE t_comm_pattern_contiguous_data_type
 
-TYPE t_comm_pattern_contiguous_data_types
-
-  PRIVATE
-
-  TYPE(t_comm_pattern_contiguous_data_type), ALLOCATABLE :: p(:)
-
-END TYPE t_comm_pattern_contiguous_data_types
-
 TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
 
   PRIVATE
@@ -112,8 +96,9 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
     INTEGER :: src_n_points, dst_n_points, comm = mpi_comm_null
     LOGICAL, ALLOCATABLE :: dst_mask(:)
     TYPE(xt_xmap) :: xmap
-    TYPE(t_comm_pattern_redists) :: redists
-    TYPE(t_comm_pattern_contiguous_data_types) :: contiguous_data_types
+    TYPE(t_comm_pattern_redist), ALLOCATABLE :: redists(:)
+    TYPE(t_comm_pattern_contiguous_data_type), &
+         ALLOCATABLE :: contiguous_data_types(:)
     LOGICAL :: inplace
 
   CONTAINS
@@ -147,23 +132,14 @@ TYPE t_comm_pattern_coll_redist
 
 END TYPE t_comm_pattern_coll_redist
 
-TYPE t_comm_pattern_coll_redists
-
-  PRIVATE
-
-  TYPE(t_comm_pattern_coll_redist), ALLOCATABLE :: p(:)
-
-END TYPE t_comm_pattern_coll_redists
-
 TYPE t_p_comm_pattern_yaxt
   TYPE(t_comm_pattern_yaxt), POINTER :: p
 END TYPE t_p_comm_pattern_yaxt
 
-TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_yaxt
+  TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_yaxt
+    PRIVATE
 
-  PRIVATE
-
-    TYPE(t_comm_pattern_coll_redists) :: redists
+    TYPE(t_comm_pattern_coll_redist), ALLOCATABLE :: redists(:)
     TYPE(t_p_comm_pattern_yaxt), ALLOCATABLE :: patterns(:)
 
   CONTAINS
@@ -332,14 +308,15 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
    INTEGER :: src_com_size, dst_com_size
 
-   INTEGER :: dst_count, src_count, accum_dst
+   INTEGER :: dst_count, src_count, accum_dst, n_dst_com, n_src_com
    INTEGER(xt_int_kind), ALLOCATABLE :: receive_indices(:), send_indices(:)
    INTEGER, ALLOCATABLE :: dst_indices_displ(:), src_indices_displ(:), &
         src_count_per_rank(:), dst_count_per_rank(:)
 
-   INTEGER :: i, ierror
+   INTEGER :: i, ierror, dst_owner_i
    CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
    INTEGER :: pcomm, comm_size, comm_rank
+   LOGICAL :: any_dst_owner_lt_0
 
 !-----------------------------------------------------------------------
 
@@ -351,7 +328,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    CALL mpi_comm_dup(pcomm, p_pat%comm, ierror)
    comm_size = p_comm_size(p_pat%comm)
    comm_rank = p_comm_rank(p_pat%comm)
-   ALLOCATE(src_indices_displ(0:comm_size-1), dst_indices_displ(0:comm_size-1), &
+   ALLOCATE(src_indices_displ(0:comm_size), dst_indices_displ(0:comm_size), &
         src_count_per_rank(0:comm_size-1), dst_count_per_rank(0:comm_size-1))
    IF (.NOT. xt_initialized()) CALL xt_initialize(p_pat%comm)
 
@@ -362,76 +339,87 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    dst_count_per_rank = 0
 
    DO i = 1, dst_n_points
-      IF (dst_owner(i) >= 0) &
-         dst_count_per_rank(dst_owner(i)) = dst_count_per_rank(dst_owner(i)) + 1
+     dst_owner_i = dst_owner(i)
+     IF (dst_owner_i >= 0) &
+       dst_count_per_rank(dst_owner_i) = dst_count_per_rank(dst_owner_i) + 1
    END DO
 
    CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_pat%comm)
 
    dst_count = 0
+   n_dst_com = 0
    src_count = 0
+   n_src_com = 0
    DO i = 0, comm_size-1
      dst_indices_displ(i) = dst_count
      dst_count = dst_count + dst_count_per_rank(i)
+     n_dst_com = n_dst_com + MERGE(1, 0, dst_count_per_rank(i) > 0)
      src_indices_displ(i) = src_count
      src_count = src_count + src_count_per_rank(i)
+     n_src_com = n_src_com + MERGE(1, 0, src_count_per_rank(i) > 0)
    END DO
+   src_indices_displ(comm_size) = src_count
 
    ALLOCATE(receive_indices(dst_count), send_indices(src_count))
 
+   any_dst_owner_lt_0 = .FALSE.
    DO i = 1, dst_n_points
-      IF (dst_owner(i) >= 0) THEN
-         dst_indices_displ(dst_owner(i)) = dst_indices_displ(dst_owner(i)) + 1
-         receive_indices(dst_indices_displ(dst_owner(i))) &
-            = INT(dst_global_index(i), xt_int_kind)
-      END IF
+     dst_owner_i = dst_owner(i)
+     any_dst_owner_lt_0 = any_dst_owner_lt_0 .OR. dst_owner_i < 0
+     IF (dst_owner_i >= 0) THEN
+       dst_indices_displ(dst_owner_i) = dst_indices_displ(dst_owner_i) + 1
+       receive_indices(dst_indices_displ(dst_owner_i)) &
+         = INT(dst_global_index(i), xt_int_kind)
+     END IF
    END DO
+
+   IF (any_dst_owner_lt_0) THEN
+     ALLOCATE(p_pat%dst_mask(dst_n_points))
+     p_pat%dst_mask = dst_owner >= 0
+   END IF
 
    accum_dst = 0
    DO i = 0, comm_size-1
      dst_indices_displ(i) = accum_dst
      accum_dst = accum_dst + dst_count_per_rank(i)
    END DO
+   dst_indices_displ(comm_size) = accum_dst
 
    CALL p_alltoallv(receive_indices, dst_count_per_rank, dst_indices_displ, &
       &             send_indices, src_count_per_rank, src_indices_displ, &
       &             p_pat%comm)
 
-   ALLOCATE(src_com(COUNT(src_count_per_rank > 0)), &
-    &       dst_com(COUNT(dst_count_per_rank > 0)))
+   DEALLOCATE(src_count_per_rank, dst_count_per_rank)
+   ALLOCATE(src_com(n_src_com), dst_com(n_dst_com))
 
    src_com_size = 0
    dst_com_size = 0
 
    DO i = 0, comm_size-1
 
-      IF (src_count_per_rank(i) > 0) THEN
+     src_count = src_indices_displ(i+1) - src_indices_displ(i)
+     IF (src_count > 0) THEN
 
-         src_com_size = src_com_size + 1
-         src_com(src_com_size)%rank = i
-         src_com(src_com_size)%list = &
-            xt_idxvec_new( &
-               send_indices(src_indices_displ(i)+1: &
-                            src_indices_displ(i)+src_count_per_rank(i)))
+       src_com_size = src_com_size + 1
+       src_com(src_com_size)%rank = i
+       src_com(src_com_size)%list = &
+            xt_idxvec_new(send_indices(src_indices_displ(i)+1: &
+            &                          src_indices_displ(i+1)))
       END IF
 
-      IF (dst_count_per_rank(i) > 0) THEN
+      dst_count = dst_indices_displ(i+1) - dst_indices_displ(i)
+      IF (dst_count > 0) THEN
 
          dst_com_size = dst_com_size + 1
          dst_com(dst_com_size)%rank = i
          dst_com(dst_com_size)%list = &
-            xt_idxvec_new( &
-               receive_indices(dst_indices_displ(i)+1: &
-                               dst_indices_displ(i)+dst_count_per_rank(i)))
+              xt_idxvec_new(receive_indices(dst_indices_displ(i)+1: &
+              &                             dst_indices_displ(i+1)))
       END IF
    END DO
 
    p_pat%src_n_points = src_n_points
    p_pat%dst_n_points = dst_n_points
-   IF (ANY(dst_owner < 0)) THEN
-     ALLOCATE(p_pat%dst_mask(dst_n_points))
-     p_pat%dst_mask = dst_owner >= 0
-   END IF
    src_idxlist = &
     xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
     &                  src_owner(1:src_n_points) == comm_rank))
@@ -689,19 +677,19 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
     kshift = 0
   END IF
 
-  IF (ALLOCATED(p_pat%redists%p)) THEN
+  IF (ALLOCATED(p_pat%redists)) THEN
 
-    n = SIZE(p_pat%redists%p)
+    n = SIZE(p_pat%redists)
     DO i = 1, n
 
-      IF ((p_pat%redists%p(i)%nfields == nfields) .AND. &
-        & (p_pat%redists%p(i)%mpi_type == mpi_type)) THEN
+      IF ((p_pat%redists(i)%nfields == nfields) .AND. &
+        & (p_pat%redists(i)%mpi_type == mpi_type)) THEN
 
-        IF (ALL(p_pat%redists%p(i)%dst_nlev(:) == nlev(:, 1)) .AND. &
-            ALL(p_pat%redists%p(i)%src_nlev(:) == nlev(:, 2)) .AND. &
-            ALL(p_pat%redists%p(i)%nshift(:) == kshift(:))) THEN
+        IF (ALL(p_pat%redists(i)%dst_nlev(:) == dst_nlev(:)) .AND. &
+            ALL(p_pat%redists(i)%src_nlev(:) == src_nlev(:)) .AND. &
+            ALL(p_pat%redists(i)%nshift(:) == kshift(:))) THEN
 
-          comm_pattern_get_redist = p_pat%redists%p(i)%redist
+          comm_pattern_get_redist = p_pat%redists(i)%redist
           RETURN
         END IF
       END IF
@@ -709,28 +697,28 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
     END DO
 
     ALLOCATE(tmp_redists(n + 1))
-    tmp_redists(1:n) = p_pat%redists%p
-    CALL MOVE_ALLOC(tmp_redists, p_pat%redists%p)
+    tmp_redists(1:n) = p_pat%redists
+    CALL MOVE_ALLOC(tmp_redists, p_pat%redists)
     n = n + 1
 
   ELSE
     n = 1
-    ALLOCATE(p_pat%redists%p(n))
+    ALLOCATE(p_pat%redists(n))
   END IF
 
-  p_pat%redists%p(n)%nfields = nfields
-  ALLOCATE(p_pat%redists%p(n)%dst_nlev(nfields), &
-    &      p_pat%redists%p(n)%src_nlev(nfields))
-  p_pat%redists%p(n)%dst_nlev = nlev(:, 1)
-  p_pat%redists%p(n)%src_nlev = nlev(:, 2)
-  ALLOCATE(p_pat%redists%p(n)%nshift(nfields))
-  p_pat%redists%p(n)%nshift = kshift
-  p_pat%redists%p(n)%mpi_type = mpi_type
+  p_pat%redists(n)%nfields = nfields
+  ALLOCATE(p_pat%redists(n)%dst_nlev(nfields), &
+    &      p_pat%redists(n)%src_nlev(nfields))
+  p_pat%redists(n)%dst_nlev = dst_nlev
+  p_pat%redists(n)%src_nlev = src_nlev
+  ALLOCATE(p_pat%redists(n)%nshift(nfields))
+  p_pat%redists(n)%nshift = kshift
+  p_pat%redists(n)%mpi_type = mpi_type
 
   IF (nfields == 1) THEN
 
-    p_pat%redists%p(n)%redist = &
-      generate_single_field_redist(p_pat, nlev(1, 1), nlev(1, 2), kshift(1), &
+    p_pat%redists(n)%redist = &
+      generate_single_field_redist(p_pat, dst_nlev(1), src_nlev(1), kshift(1), &
         &                          mpi_type)
 
   ELSE
@@ -741,15 +729,13 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
         &                                       mpi_type)
     END DO
 
-    p_pat%redists%p(n)%redist = &
+    p_pat%redists(n)%redist = &
       xt_redist_collection_new(redists, nfields, -1, p_pat%comm)
 
-    DO i = 1, nfields
-      CALL xt_redist_delete(redists(i))
-    END DO
+    CALL xt_redist_delete(redists)
   END IF
 
-  comm_pattern_get_redist = p_pat%redists%p(n)%redist
+  comm_pattern_get_redist = p_pat%redists(n)%redist
 
 END FUNCTION comm_pattern_get_redist
 
@@ -765,39 +751,39 @@ FUNCTION comm_pattern_get_contiguous_data_type(p_pat, base_type, count)
 
   INTEGER :: i, n, ierror
 
-  IF (ALLOCATED(p_pat%contiguous_data_types%p)) THEN
+  IF (ALLOCATED(p_pat%contiguous_data_types)) THEN
 
-    n = SIZE(p_pat%contiguous_data_types%p)
+    n = SIZE(p_pat%contiguous_data_types)
     DO i = 1, n
 
-      IF ((p_pat%contiguous_data_types%p(i)%base_type == base_type) .AND. &
-        & (p_pat%contiguous_data_types%p(i)%count == count)) THEN
+      IF ((p_pat%contiguous_data_types(i)%base_type == base_type) .AND. &
+        & (p_pat%contiguous_data_types(i)%count == count)) THEN
 
         comm_pattern_get_contiguous_data_type = &
-          p_pat%contiguous_data_types%p(i)%type
+          p_pat%contiguous_data_types(i)%type
         RETURN
       END IF
 
     END DO
 
     ALLOCATE(tmp_contiguous_data_types(n + 1))
-    tmp_contiguous_data_types(1:n) = p_pat%contiguous_data_types%p
-    CALL MOVE_ALLOC(tmp_contiguous_data_types, p_pat%contiguous_data_types%p)
+    tmp_contiguous_data_types(1:n) = p_pat%contiguous_data_types
+    CALL MOVE_ALLOC(tmp_contiguous_data_types, p_pat%contiguous_data_types)
     n = n + 1
 
   ELSE
     n = 1
-    ALLOCATE(p_pat%contiguous_data_types%p(n))
+    ALLOCATE(p_pat%contiguous_data_types(n))
   END IF
 
-  p_pat%contiguous_data_types%p(n)%base_type = base_type
-  p_pat%contiguous_data_types%p(n)%count = count
+  p_pat%contiguous_data_types(n)%base_type = base_type
+  p_pat%contiguous_data_types(n)%count = count
 
-  CALL MPI_Type_contiguous(count, base_type, p_pat%contiguous_data_types%p(n)%type, &
+  CALL MPI_Type_contiguous(count, base_type, p_pat%contiguous_data_types(n)%type, &
     &                      ierror)
-  CALL MPI_Type_commit(p_pat%contiguous_data_types%p(n)%type, ierror)
+  CALL MPI_Type_commit(p_pat%contiguous_data_types(n)%type, ierror)
 
-  comm_pattern_get_contiguous_data_type = p_pat%contiguous_data_types%p(n)%type
+  comm_pattern_get_contiguous_data_type = p_pat%contiguous_data_types(n)%type
 
 END FUNCTION comm_pattern_get_contiguous_data_type
 
@@ -818,34 +804,34 @@ FUNCTION comm_pattern_collection_get_redist(p_pat_coll, nfields, dst_nlev, &
 
   TYPE(xt_redist) :: redists(nfields * SIZE(p_pat_coll%patterns))
 
-  IF (ALLOCATED(p_pat_coll%redists%p)) THEN
+  IF (ALLOCATED(p_pat_coll%redists)) THEN
 
-    n = SIZE(p_pat_coll%redists%p)
+    n = SIZE(p_pat_coll%redists)
     DO i = 1, n
-      IF ((p_pat_coll%redists%p(i)%nfields == nfields)) THEN
+      IF ((p_pat_coll%redists(i)%nfields == nfields)) THEN
 
-        IF (ALL(p_pat_coll%redists%p(i)%dst_nlev(:) == dst_nlev(:)) .AND. &
-            ALL(p_pat_coll%redists%p(i)%src_nlev(:) == src_nlev(:))) THEN
-          comm_pattern_collection_get_redist = p_pat_coll%redists%p(i)%redist
+        IF (ALL(p_pat_coll%redists(i)%dst_nlev(:) == dst_nlev(:)) .AND. &
+            ALL(p_pat_coll%redists(i)%src_nlev(:) == src_nlev(:))) THEN
+          comm_pattern_collection_get_redist = p_pat_coll%redists(i)%redist
           RETURN
         END IF
       END IF
     END DO
 
     ALLOCATE(tmp_redists(n + 1))
-    tmp_redists(1:n) = p_pat_coll%redists%p
-    CALL MOVE_ALLOC(tmp_redists, p_pat_coll%redists%p)
+    tmp_redists(1:n) = p_pat_coll%redists
+    CALL MOVE_ALLOC(tmp_redists, p_pat_coll%redists)
     n = n + 1
   ELSE
     n = 1
-    ALLOCATE(p_pat_coll%redists%p(n))
+    ALLOCATE(p_pat_coll%redists(n))
   END IF
 
-  p_pat_coll%redists%p(n)%nfields = nfields
-  ALLOCATE(p_pat_coll%redists%p(n)%dst_nlev(nfields), &
-    &      p_pat_coll%redists%p(n)%src_nlev(nfields))
-  p_pat_coll%redists%p(n)%dst_nlev = dst_nlev
-  p_pat_coll%redists%p(n)%src_nlev = src_nlev
+  p_pat_coll%redists(n)%nfields = nfields
+  ALLOCATE(p_pat_coll%redists(n)%dst_nlev(nfields), &
+    &      p_pat_coll%redists(n)%src_nlev(nfields))
+  p_pat_coll%redists(n)%dst_nlev = dst_nlev
+  p_pat_coll%redists(n)%src_nlev = src_nlev
 
   DO i = 1, nfields
     DO j = 1, SIZE(p_pat_coll%patterns)
@@ -856,14 +842,12 @@ FUNCTION comm_pattern_collection_get_redist(p_pat_coll, nfields, dst_nlev, &
     END DO
   END DO
 
-  p_pat_coll%redists%p(n)%redist = &
+  p_pat_coll%redists(n)%redist = &
     xt_redist_collection_new(redists, -1, p_pat_coll%patterns(1)%p%comm)
 
-  DO i = 1, nfields * SIZE(p_pat_coll%patterns)
-    CALL xt_redist_delete(redists(i))
-  END DO
+  CALL xt_redist_delete(redists)
 
-  comm_pattern_collection_get_redist = p_pat_coll%redists%p(n)%redist
+  comm_pattern_collection_get_redist = p_pat_coll%redists(n)%redist
 
 END FUNCTION comm_pattern_collection_get_redist
 
@@ -874,7 +858,7 @@ SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
 
   CHARACTER(len=*), PARAMETER :: &
        routine = modname//'::setup_comm_pattern_collection'
-  INTEGER :: i
+  INTEGER :: i, n
 
   ALLOCATE(pattern_collection%patterns(SIZE(patterns)))
 
@@ -883,8 +867,7 @@ SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
       TYPE IS (t_comm_pattern_yaxt)
         pattern_collection%patterns(i)%p => pattern_yaxt
       CLASS DEFAULT
-        CALL finish("setup_comm_pattern_collection", &
-                    "wrong t_comm_pattern type")
+        CALL finish(routine, "wrong t_comm_pattern type")
     END SELECT
   END DO
 
@@ -909,22 +892,22 @@ SUBROUTINE delete_comm_pattern(p_pat)
 
    ! deallocate arrays
    IF (ALLOCATED(p_pat%dst_mask)) DEALLOCATE(p_pat%dst_mask)
-   IF (ALLOCATED(p_pat%contiguous_data_types%p)) THEN
-     n = SIZE(p_pat%contiguous_data_types%p)
+   IF (ALLOCATED(p_pat%contiguous_data_types)) THEN
+     n = SIZE(p_pat%contiguous_data_types)
      DO i = 1, n
-      CALL MPI_Type_free(p_pat%contiguous_data_types%p(i)%type, ierror)
+      CALL MPI_Type_free(p_pat%contiguous_data_types(i)%type, ierror)
      END DO
-     DEALLOCATE(p_pat%contiguous_data_types%p)
+     DEALLOCATE(p_pat%contiguous_data_types)
    END IF
-   IF (ALLOCATED(p_pat%redists%p)) THEN
-     n = SIZE(p_pat%redists%p)
+   IF (ALLOCATED(p_pat%redists)) THEN
+     n = SIZE(p_pat%redists)
      DO i = 1, n
-       DEALLOCATE(p_pat%redists%p(i)%dst_nlev)
-       DEALLOCATE(p_pat%redists%p(i)%src_nlev)
-       DEALLOCATE(p_pat%redists%p(i)%nshift)
-       CALL xt_redist_delete(p_pat%redists%p(i)%redist)
+       DEALLOCATE(p_pat%redists(i)%dst_nlev)
+       DEALLOCATE(p_pat%redists(i)%src_nlev)
+       DEALLOCATE(p_pat%redists(i)%nshift)
+       CALL xt_redist_delete(p_pat%redists(i)%redist)
      END DO
-     DEALLOCATE(p_pat%redists%p)
+     DEALLOCATE(p_pat%redists)
    END IF
    CALL xt_xmap_delete(p_pat%xmap)
    IF (p_pat%comm /= mpi_comm_null) THEN
@@ -942,14 +925,14 @@ SUBROUTINE delete_comm_pattern_collection(pattern_collection)
 
    INTEGER :: i, n
 
-   IF (ALLOCATED(pattern_collection%redists%p)) THEN
-     n = SIZE(pattern_collection%redists%p)
+   IF (ALLOCATED(pattern_collection%redists)) THEN
+     n = SIZE(pattern_collection%redists)
      DO i = 1, n
-       DEALLOCATE(pattern_collection%redists%p(i)%dst_nlev)
-       DEALLOCATE(pattern_collection%redists%p(i)%src_nlev)
-       CALL xt_redist_delete(pattern_collection%redists%p(i)%redist)
+       DEALLOCATE(pattern_collection%redists(i)%dst_nlev)
+       DEALLOCATE(pattern_collection%redists(i)%src_nlev)
+       CALL xt_redist_delete(pattern_collection%redists(i)%redist)
      END DO
-     DEALLOCATE(pattern_collection%redists%p)
+     DEALLOCATE(pattern_collection%redists)
    END IF
 
    DO i = 1, SIZE(pattern_collection%patterns)
@@ -1005,11 +988,11 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
    dst_nlev(1) = n
    IF (PRESENT(send)) THEN
-     nlev(1, 2) = SIZE(send,2)
+     src_nlev(1) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
-   redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_dp)
+   redist = comm_pattern_get_redist(p_pat, 1, dst_nlev, src_nlev, p_real_dp)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)

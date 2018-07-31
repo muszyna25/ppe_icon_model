@@ -9,7 +9,7 @@
 MODULE mo_input_container
     USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED
     USE mo_cdi, ONLY: t_CdiIterator, gridInqSize, cdiIterator_inqGridId, cdiIterator_readField, cdiIterator_readFieldF, &
-                    & cdiIterator_inqDatatype, DATATYPE_PACK23, DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32
+                    & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish
     USE mo_fortran_tools, ONLY: assign_if_present, t_Destructible
@@ -496,7 +496,7 @@ CONTAINS
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
                 val%ptr(:,:) = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
                 SELECT CASE(datatype)
-                    CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+                    CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
                         !ALLOCATE the global buffer
                         IF(C_ASSOCIATED(iterator%ptr)) THEN
                             ALLOCATE(bufferD(gridSize), STAT = error)

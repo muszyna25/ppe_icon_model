@@ -301,7 +301,7 @@ MODULE mo_mpi
   PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL
 
   ! real data type matching real type of MPI implementation
-  PUBLIC :: p_real_dp, p_real_sp
+  PUBLIC :: p_real_dp, p_real_sp, p_real
   PUBLIC :: p_int
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
@@ -335,6 +335,7 @@ MODULE mo_mpi
 #else
   INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
   INTEGER, PARAMETER :: MPI_COMM_NULL  = 0
+  INTEGER, PARAMETER :: MPI_COMM_SELF  = 1
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
   ! this is the global communicator
@@ -657,6 +658,7 @@ MODULE mo_mpi
   INTERFACE p_allgatherv
      MODULE PROCEDURE p_allgatherv_real_1d
      MODULE PROCEDURE p_allgatherv_int_1d
+     MODULE PROCEDURE p_allgatherv_int_1d_contiguous
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -783,7 +785,7 @@ CONTAINS
   SUBROUTINE set_process_mpi_name(name)
     CHARACTER(len=*), INTENT(in) ::name
 
-    process_mpi_name = TRIM(name)
+    process_mpi_name = name
 
   END SUBROUTINE set_process_mpi_name
   !------------------------------------------------------------------------------
@@ -1134,6 +1136,7 @@ CONTAINS
     num_io_procs = 0
     sizeof_prefetch_processes = 0
     num_work_procs = 1
+    p_comm_io = mpi_comm_self
 
 #else
 
@@ -1272,13 +1275,13 @@ CONTAINS
     ! * io ranks
     ! * restart ranks and
     ! * prefetch ranks
-    my_color = MERGE(1, my_mpi_function, &
+    my_color = MERGE(work_mpi_process, my_mpi_function, &
       &                   my_mpi_function == test_mpi_process &
       &              .OR. my_mpi_function == work_mpi_process)
     CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
          my_function_comm, p_error)
 
-    IF(p_test_run .AND. my_color == 1) THEN
+    IF (p_test_run .AND. my_color == work_mpi_process) THEN
       p_comm_work_test = my_function_comm
       my_color = MERGE(1, 2, my_mpi_function == test_mpi_process)
       CALL mpi_comm_split(p_comm_work_test, my_color, p_pe, &
@@ -1309,7 +1312,7 @@ CONTAINS
     ELSE IF (     my_mpi_function == work_mpi_process &
       &      .OR. my_mpi_function == test_mpi_process) THEN
       p_comm_work_io = my_function_comm
-      p_comm_io = MERGE(mpi_comm_self, mpi_comm_null, p_pe <= p_work_pe0)
+      p_comm_io = MERGE(mpi_comm_self, mpi_comm_null, p_pe_work == 0)
     ELSE
       p_comm_io = mpi_comm_null
       p_comm_work_io = mpi_comm_null
@@ -1321,7 +1324,7 @@ CONTAINS
       CALL MPI_Comm_group(p_comm_work_io,       grp_comm_work_io,         p_error)
       IF (num_io_procs > 0) THEN
         input_ranks(1) = p_io_pe0
-      ELSE IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+      ELSE IF (p_test_run .AND. my_mpi_function == test_mpi_process) THEN
         input_ranks(1) = 0
       ELSE
         input_ranks(1) = p_work_pe0
@@ -1431,6 +1434,7 @@ CONTAINS
       p_comm_work_2_pref = MPI_COMM_NULL
     ENDIF
 
+    CALL mpi_comm_free(peer_comm, p_error)
     ! if OpenMP is used, the test PE uses only 1 thread in order to check
     ! the correctness of the OpenMP implementation
     ! Currently the I/O PEs are also single threaded!
@@ -1545,7 +1549,8 @@ CONTAINS
 
     INTEGER :: new_communicator
     LOGICAL             :: l_mpi_is_initialised
-    CHARACTER(len=*), PARAMETER :: method_name = 'split_process_mpi_communicator'
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'::split_process_mpi_communicator'
 #ifdef NOMPI
     RETURN
 #else
@@ -1553,7 +1558,7 @@ CONTAINS
     ! check if mpi is initialized
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') method_name, ' MPI_INITITIALIZED failed.'
+      WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
       STOP
     END IF
@@ -1562,7 +1567,7 @@ CONTAINS
     CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
       & new_communicator, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') method_name, ' MPI_Comm_split failed.'
+      WRITE (nerr,'(a,a)') routine, ' MPI_Comm_split failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
       STOP
     END IF
@@ -1581,7 +1586,8 @@ CONTAINS
     INTEGER, INTENT(in) :: new_communicator
 
     LOGICAL             :: l_mpi_is_initialised
-    CHARACTER(len=*), PARAMETER :: method_name = 'set_process_mpi_communicator'
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'::set_process_mpi_communicator'
 
 #ifdef NOMPI
     process_mpi_all_comm    = new_communicator
@@ -1595,13 +1601,13 @@ CONTAINS
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') method_name, ' MPI_INITITIALIZED failed.'
+      WRITE (nerr,'(a,a)') routine, ' MPI_INITITIALIZED failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
       STOP
     END IF
 
     IF ( .NOT. l_mpi_is_initialised ) THEN
-       WRITE (nerr,'(a,a)') method_name, &
+       WRITE (nerr,'(a,a)') routine, &
          & ' MPI_Init or start_mpi needs to be called first.'
        STOP
     ENDIF
@@ -1610,7 +1616,7 @@ CONTAINS
       ! free original communicator
       CALL MPI_COMM_FREE(process_mpi_all_comm, p_error)
       IF (p_error /= MPI_SUCCESS) THEN
-        WRITE (nerr,'(a,a)') method_name, &
+        WRITE (nerr,'(a,a)') routine, &
           & ' MPI_COMM_FREE failed. start_mpi needs to be called before.'
         WRITE (nerr,'(a,i4)') ' Error =  ', p_error
         CALL abort_mpi
@@ -1620,7 +1626,7 @@ CONTAINS
 
     CALL MPI_COMM_DUP(new_communicator, process_mpi_all_comm, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name,&
+       WRITE (nerr,'(a,a)') routine,&
          & ' MPI_COMM_DUP failed for process_mpi_all_comm.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL abort_mpi
@@ -1630,12 +1636,12 @@ CONTAINS
     CALL MPI_COMM_RANK (process_mpi_all_comm, my_process_mpi_all_id, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_RANK failed.'
+       WRITE (nerr,'(a,a)') routine, ' MPI_COMM_RANK failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL abort_mpi
     ELSE
 #ifdef DEBUG
-       WRITE (nerr,'(a,a,i4,a)') method_name, ' my_process_mpi_all_id ', &
+       WRITE (nerr,'(a,a,i4,a)') routine, ' my_process_mpi_all_id ', &
          & my_process_mpi_all_id, ' started.'
 #endif
     END IF
@@ -1644,7 +1650,7 @@ CONTAINS
     CALL MPI_COMM_SIZE (process_mpi_all_comm, process_mpi_all_size, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a,i4,a)') method_name, ' PE: ',&
+       WRITE (nerr,'(a,a,i4,a)') routine, ' PE: ',&
          & my_process_mpi_all_id, ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL abort_mpi
@@ -1653,14 +1659,14 @@ CONTAINS
 
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
-!        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work.'
+!        WRITE (nerr,'(a,a)') routine, ' MPI_COMM_DUP failed for p_comm_work.'
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 !        CALL abort_mpi
 !     END IF
 !
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work_test,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
-!        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work_test.'
+!        WRITE (nerr,'(a,a)') routine, ' MPI_COMM_DUP failed for p_comm_work_test.'
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
 !        CALL abort_mpi
 !     END IF
@@ -1710,7 +1716,7 @@ CONTAINS
 #endif
 #endif
 
-    CHARACTER(len=*), PARAMETER :: method_name = 'start_mpi'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::start_mpi'
 
 
 ! #ifdef _OPENMP
@@ -1730,7 +1736,7 @@ CONTAINS
     CALL MPI_INIT (p_error)
 #endif
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_INIT failed.'
+       WRITE (nerr,'(a,a)') routine, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        STOP
     END IF
@@ -1739,7 +1745,7 @@ CONTAINS
     ! Check if MPI_INIT_THREAD returned at least MPI_THREAD_FUNNELED in "provided"
 #ifdef __MULTIPLE_MPI_THREADS
     IF (provided < MPI_THREAD_MULTIPLE) THEN
-       WRITE (nerr,'(a,a)') method_name, &
+       WRITE (nerr,'(a,a)') routine, &
          & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_MULTIPLE
@@ -1748,7 +1754,7 @@ CONTAINS
     END IF
 #else
     IF (provided < MPI_THREAD_FUNNELED) THEN
-       WRITE (nerr,'(a,a)') method_name, &
+       WRITE (nerr,'(a,a)') routine, &
          & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
@@ -1766,18 +1772,18 @@ CONTAINS
 
     process_mpi_all_comm = MPI_COMM_NULL
     IF (PRESENT(global_name)) THEN
-      yname = TRIM(global_name)
+      yname = global_name
     ELSE
       yname = '(unnamed)'
     END IF
-    global_mpi_name = TRIM(yname)
+    global_mpi_name = yname
 
 
     ! get local PE identification
     CALL MPI_COMM_RANK (global_mpi_communicator, my_global_mpi_id, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_RANK failed.'
+       WRITE (nerr,'(a,a)') routine, ' MPI_COMM_RANK failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL abort_mpi
     END IF
@@ -1789,14 +1795,14 @@ CONTAINS
     END IF
 
 #ifdef DEBUG
-    WRITE (nerr,'(a,a,i4,a)') method_name, ' PE ', my_global_mpi_id, ' started.'
+    WRITE (nerr,'(a,a,i4,a)') routine, ' PE ', my_global_mpi_id, ' started.'
 #endif
 
     ! get number of available PEs
     CALL MPI_COMM_SIZE (global_mpi_communicator, global_mpi_size, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a,i4,a)') method_name ,' PE: ', my_global_mpi_id, &
+       WRITE (nerr,'(a,a,i4,a)') routine ,' PE: ', my_global_mpi_id, &
        &  ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL abort_mpi
@@ -1811,18 +1817,18 @@ CONTAINS
     CALL MPI_GET_VERSION (version, subversion, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a,a)') method_name , ' MPI_GET_VERSION failed.'
+      WRITE (nerr,'(a,a)') routine , ' MPI_GET_VERSION failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
       CALL abort_mpi
     END IF
 
     IF (my_global_mpi_id == 0) THEN
-      WRITE (nerr,'(a,a,a,i0,a1,i0)') " ", method_name, &
+      WRITE (nerr,'(a,a,a,i0,a1,i0)') " ", routine, &
            ' Used MPI version: ', version, '.', subversion
     END IF
 
     IF (my_global_mpi_id == 0) THEN
-      WRITE (nerr,'(a,a,a,a,a,i0,a)') " ", method_name, " ", &
+      WRITE (nerr,'(a,a,a,a,a,i0,a)') " ", routine, " ", &
         & TRIM(yname), ': Globally run on ',&
         & global_mpi_size, ' mpi processes.'
     END IF
@@ -1839,7 +1845,6 @@ CONTAINS
     CALL MPI_SIZEOF(rdp, p_real_dp_byte, p_error)
 
     p_int     = MPI_INTEGER
-    p_real    = MPI_REAL
     p_bool    = MPI_LOGICAL
     p_char    = MPI_CHARACTER
 
@@ -1847,7 +1852,13 @@ CONTAINS
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_real_dp_byte, p_real_dp, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i4_byte, p_int_i4, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i8_byte, p_int_i8, p_error)
-
+    IF (wp == dp) THEN
+      p_real = p_real_dp
+    ELSE IF (wp == sp) THEN
+      p_real = p_real_sp
+    ELSE
+      p_real = mpi_datatype_null
+    END IF
 
 #ifdef DEBUG
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
@@ -1862,7 +1873,7 @@ CONTAINS
 ! MPI ends here
 #else
 
-    WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
+    WRITE (nerr,'(a,a)')  routine, ' No MPI: Single processor run.'
     ! set defaults for sequential run
     global_mpi_size  = 1        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
@@ -1891,12 +1902,12 @@ CONTAINS
     IF (my_global_mpi_id == 0) THEN
 
       IF (is_global_mpi_parallel) THEN
-        WRITE (nerr,'(a,a,a)') " ", method_name, &
+        WRITE (nerr,'(a,a,a)') " ", routine, &
           & ': Running globally hybrid OpenMP-MPI mode.'
       ELSE
-        WRITE (nerr,'(a,a,a)') " ", method_name,': Running globally OpenMP mode.'
+        WRITE (nerr,'(a,a,a)') " ", routine,': Running globally OpenMP mode.'
       ENDIF
-      WRITE (nerr,'(a,a, a, i0)') " ", method_name, &
+      WRITE (nerr,'(a,a, a, i0)') " ", routine, &
         & ' global_no_of_threads is ', global_no_of_threads
     ENDIF
 
@@ -2182,7 +2193,7 @@ CONTAINS
     INTEGER :: p_comm_size
     INTEGER, INTENT(IN) :: communicator
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'p_comm_size'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::p_comm_size'
     INTEGER :: ierr
 
 #ifndef NOMPI
@@ -2200,7 +2211,7 @@ CONTAINS
     INTEGER :: p_comm_rank
     INTEGER, INTENT(IN) :: communicator
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'p_comm_rank'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::p_comm_rank'
     INTEGER :: ierr
 
 #ifndef NOMPI
@@ -4960,7 +4971,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 #ifndef NOMPI
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER :: routine = 'p_recv_char'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::p_recv_char'
 #endif
     INTEGER :: p_comm, icount
 
@@ -6002,8 +6013,7 @@ CONTAINS
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, ilength
-    CHARACTER(LEN=128) :: tmp_var
+    INTEGER :: p_comm, outsize, ilength
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6011,14 +6021,13 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    tmp_var =     TRIM(t_var)
     ilength = LEN_TRIM(t_var)
     ! first pack string length, then the character sequence
     CALL MPI_PACK(ilength,       1,  p_int, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
-    CALL MPI_PACK(tmp_var, ilength, p_char, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var(1:ilength), ilength, p_char, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
@@ -8055,7 +8064,7 @@ CONTAINS
 #ifndef NOMPI
     INTEGER :: error
     LOGICAL :: lIsInterCommunicator
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_get_bcast_role"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//"::p_get_bcast_role"
 
     ! IS this an inter-communicator?
     CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
@@ -8178,8 +8187,7 @@ CONTAINS
   FUNCTION p_test() RESULT(ret)
     LOGICAL :: ret
 #ifndef NOMPI
-    INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
-    CALL MPI_TESTALL(p_irequest, p_request, ret, p_status_wait, p_error)
+    CALL MPI_TESTALL(p_irequest, p_request, ret, mpi_statuses_ignore, p_error)
 #else
     ret = .TRUE.
 #endif
@@ -9165,7 +9173,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_real_1d1d"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_real_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9190,7 +9198,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_real_1d1d"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_real_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9214,7 +9222,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_single_1d1d"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_single_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9238,7 +9246,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_real_1d1d"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_real_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9265,7 +9273,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatter_int_1d1d"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_int_1d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9289,7 +9297,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatter_int_1d1d")
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_scatter_int_2d1d"
     INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
@@ -9308,7 +9316,8 @@ CONTAINS
   END SUBROUTINE p_scatter_int_2d1d
 
   SUBROUTINE p_gather_real_0d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf, recvbuf(:)
+    REAL(dp),          INTENT(in) :: sendbuf
+    REAL(dp),          INTENT(out) :: recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9330,7 +9339,8 @@ CONTAINS
    END SUBROUTINE p_gather_real_0d1d
 
   SUBROUTINE p_gather_real_1d2d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:,:)
+    REAL(dp),          INTENT(in) :: sendbuf(:)
+    REAL(dp),          INTENT(out) :: recvbuf(:,:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9352,8 +9362,8 @@ CONTAINS
    END SUBROUTINE p_gather_real_1d2d
 
    SUBROUTINE p_gather_real_5d6d (sendbuf, recvbuf, p_dest, comm)
-
-     REAL(dp)                      :: sendbuf(:,:,:,:,:), recvbuf(:,:,:,:,:,:)
+     REAL(dp),          INTENT(in) :: sendbuf(:,:,:,:,:)
+     REAL(dp),          INTENT(out):: recvbuf(:,:,:,:,:,:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9383,7 +9393,8 @@ CONTAINS
 
 
   SUBROUTINE p_gather_real_1d1d (sendbuf, recvbuf, p_dest, comm)
-    REAL(dp),          INTENT(inout) :: sendbuf(:), recvbuf(:)
+    REAL(dp),          INTENT(in) :: sendbuf(:)
+    REAL(dp),          INTENT(inout) :: recvbuf(:)
     INTEGER,           INTENT(in) :: p_dest
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -9409,12 +9420,13 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_0d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(inout) :: sendbuf, recvbuf(:)
+     INTEGER,           INTENT(in) :: sendbuf
+     INTEGER,           INTENT(inout) :: recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_int_0d1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gather_int_0d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9437,12 +9449,13 @@ CONTAINS
   !> wrapper for MPI_Gather()
   !---------------------------------------------------------------------------------------------------------------------------------
    SUBROUTINE p_gather_int_1d1d (sendbuf, recvbuf, p_dest, comm)
-     INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
+     INTEGER,           INTENT(in) :: sendbuf(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_int_1d1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gather_int_1d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9490,7 +9503,7 @@ CONTAINS
      CHARACTER(len=*),  INTENT(inout) ::  recvbuf(:)
      INTEGER,           INTENT(in) :: p_dest
      INTEGER, OPTIONAL, INTENT(in) :: comm
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gather_char_0d1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gather_char_0d1d"
 
 #ifndef NOMPI
      INTEGER :: p_comm
@@ -9568,7 +9581,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_int"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9598,7 +9611,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D2D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D2D"
 
      INTEGER :: dim1_size
 
@@ -9626,7 +9639,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_sreal2D2D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_sreal2D2D"
 
      INTEGER :: dim1_size
 
@@ -9654,7 +9667,7 @@ CONTAINS
      INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int2D2D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_int2D2D"
 
      INTEGER :: dim1_size
 
@@ -9680,7 +9693,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D1D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
      ! FIXME: this should probably use comm instead of p_comm_work
@@ -9704,7 +9717,7 @@ CONTAINS
 
      ! FIXME: this should probably use comm instead of p_comm_work
 #if !defined(NOMPI)
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_int2D1D"
+    CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_int2D1D"
     INTEGER :: p_error
 
     CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
@@ -9726,7 +9739,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_gatherv_real2D1D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
      ! FIXME: this should probably use comm instead of p_comm_work
@@ -9749,7 +9762,7 @@ CONTAINS
      INTEGER,           INTENT(in)    :: comm
 
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_real1D2D"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D2D"
      INTEGER :: p_error
 
      ! FIXME: I may be wrong, but this looks like a bug to me:
@@ -9778,7 +9791,7 @@ CONTAINS
         INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-        CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_real1D1D"
+        CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D1D"
         INTEGER :: ierr
 
         CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_dp, &
@@ -9805,7 +9818,7 @@ CONTAINS
         INTEGER, INTENT(IN)  :: comm
 
 #ifndef NOMPI
-        CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_scatterv_single1D1D"
+        CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_single1D1D"
         INTEGER :: ierr
 
         CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_real_sp, &
@@ -9823,7 +9836,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgather_int_0d1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_allgather_int_0d1d"
      INTEGER :: p_comm
 
      IF (PRESENT(comm)) THEN
@@ -9847,7 +9860,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in) :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgather_int_0d1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_allgather_int_1d2d"
      INTEGER :: p_comm, n
 
      IF (PRESENT(comm)) THEN
@@ -9872,7 +9885,7 @@ CONTAINS
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgatherv_real_1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_allgatherv_real_1d"
      INTEGER :: p_comm, sendcount, comm_size, i
      INTEGER, ALLOCATABLE :: displs(:)
 
@@ -9911,38 +9924,29 @@ CONTAINS
 #endif
    END SUBROUTINE p_allgatherv_real_1d
 
-   SUBROUTINE p_allgatherv_int_1d(sendbuf, recvbuf, recvcounts, comm)
+   SUBROUTINE p_allgatherv_int_1d(sendbuf, recvbuf, recvcounts, displs, &
+     &                            comm)
      INTEGER,           INTENT(in)    :: sendbuf(:)
      INTEGER,           INTENT(inout) :: recvbuf(:)
-     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:), displs(:)
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgatherv_int_1d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_allgatherv_int_1d"
      INTEGER :: p_comm, sendcount, comm_size, i
-     INTEGER, ALLOCATABLE :: displs(:)
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
-
      IF (p_comm_is_intercomm(p_comm)) THEN
       comm_size = p_comm_remote_size(p_comm)
      ELSE
       comm_size = p_comm_size(p_comm)
      END IF
 
-     IF ((comm_size > SIZE(recvcounts, 1)) .OR. &
-      &  (SUM(recvcounts) > SIZE(recvbuf, 1))) &
-       CALL finish(routine, "invalid recvcounts")
-
-     ALLOCATE(displs(comm_size))
-     displs(1) = 0
-     DO i = 2, comm_size
-       displs(i) = displs(i-1) + recvcounts(i-1)
-     END DO
+     IF (comm_size > SIZE(displs)) CALL finish(routine, "invalid recvdispls")
 
      sendcount = SIZE(sendbuf)
      CALL mpi_allgatherv(sendbuf, sendcount, mpi_integer, &
@@ -9951,11 +9955,51 @@ CONTAINS
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in mpi_allgatherv operation!')
 
-     DEALLOCATE(displs)
 #else
      recvbuf = sendbuf
 #endif
    END SUBROUTINE p_allgatherv_int_1d
+
+   SUBROUTINE p_allgatherv_int_1d_contiguous(sendbuf, recvbuf, recvcounts, &
+     &                                       comm)
+     INTEGER,           INTENT(in)    :: sendbuf(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: &
+          routine = modname//"::p_allgatherv_int_1d_contiguous"
+     INTEGER :: p_comm, sendcount, comm_size, i, n
+     INTEGER, ALLOCATABLE :: displs(:)
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+     IF (p_comm_is_intercomm(p_comm)) THEN
+      comm_size = p_comm_remote_size(p_comm)
+     ELSE
+      comm_size = p_comm_size(p_comm)
+     END IF
+
+     ALLOCATE(displs(comm_size))
+     n = 0
+     DO i = 1, comm_size
+       displs(i) = n
+       n = n + recvcounts(i)
+     END DO
+
+     sendcount = SIZE(sendbuf)
+     CALL p_allgatherv(sendbuf, recvbuf, recvcounts, displs, p_comm)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in mpi_allgatherv operation!')
+
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_allgatherv_int_1d_contiguous
 
 
    ! Commits a user-defined MPI type
@@ -9980,7 +10024,7 @@ CONTAINS
      INTEGER,           INTENT(inout) :: sendbuf(:), recvbuf(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoall_int"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoall_int"
      INTEGER :: p_comm, p_error
 
      p_comm = comm
@@ -10000,7 +10044,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_real_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_real_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -10027,7 +10071,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_real_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_sreal_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -10054,7 +10098,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_int_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_int_2d"
      INTEGER :: p_comm, p_error, dim1_size
 
      p_comm = comm
@@ -10080,7 +10124,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_int"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_int"
      INTEGER :: p_comm, p_error
 
      p_comm = comm
@@ -10103,7 +10147,7 @@ CONTAINS
        &                              recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int")
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_int_i8_1d"
      INTEGER :: p_comm, p_error
 
      p_comm = comm
@@ -10127,7 +10171,7 @@ CONTAINS
      REAL(wp),          INTENT(inout) :: recvbuf(dim1_size,*)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_real_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_p2p_real_2d"
      INTEGER :: i, comm_size, tag, ofs, datatype
 
      CALL p_wait
@@ -10189,7 +10233,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_real_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_p2p_real_2d"
      INTEGER :: dim1_size
 
      dim1_size = SIZE(sendbuf, 1)
@@ -10212,7 +10256,7 @@ CONTAINS
      INTEGER,           INTENT(inout) :: recvbuf(dim1_size,*)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_int_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_p2p_int_2d"
      INTEGER :: i, comm_size, tag, ofs
 
      CALL p_wait
@@ -10265,7 +10309,7 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_int_2d"
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_alltoallv_p2p_int_2d"
      INTEGER :: dim1_size
 
      dim1_size = SIZE(sendbuf, 1)
@@ -10301,7 +10345,7 @@ CONTAINS
     INTEGER, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
     INTEGER, INTENT(OUT) :: nranks             !< Output: number of entries in rank list
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = "mo_mpi:get_mpi_comm_world_ranks"
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_mpi_comm_world_ranks"
     INTEGER              :: p_error, grp_comm, grp_comm_world, i
     INTEGER, ALLOCATABLE :: comm_ranks(:)
 

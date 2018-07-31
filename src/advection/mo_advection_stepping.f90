@@ -142,8 +142,8 @@ CONTAINS
       &  p_patch                             !< is performed
                                              
 
-    TYPE(t_int_state), TARGET, INTENT(IN) :: & !< interpolation state
-      &  p_int_state                         
+    !> interpolation state
+    TYPE(t_int_state), INTENT(IN) :: p_int_state
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)

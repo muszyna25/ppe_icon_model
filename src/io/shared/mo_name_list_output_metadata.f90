@@ -16,7 +16,6 @@ MODULE mo_name_list_output_metadata
   USE mo_mpi,                               ONLY: p_int, p_comm_work_io,      &
     &                                             my_process_is_mpi_workroot, &
     &                                             my_process_is_io
-  USE mo_name_list_output_config,           ONLY: use_async_name_list_io
   USE mo_dynamics_config,                   ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_impl_constants,                    ONLY: TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
 
