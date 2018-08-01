@@ -162,7 +162,14 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ENDIF
 
   ! logical for SB two-moment scheme
-  ltwomoment = (ANY(atm_phy_nwp_config(jg)%inwp_gscp == (/4,5,6/)))
+  ltwomoment = .FALSE.
+  SELECT CASE(atm_phy_nwp_config(jg)%inwp_gscp)
+    CASE(4,5,6)
+      ltwomoment = .TRUE.
+    CASE DEFAULT
+      ltwomoment = .FALSE.
+  END SELECT
+
   ddt_turb_qnc(:,:,:) = 0.0_wp
   ddt_turb_qni(:,:,:) = 0.0_wp
   ddt_turb_qs (:,:,:) = 0.0_wp

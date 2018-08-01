@@ -113,7 +113,7 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
-    ldiff_qi     = .TRUE.   ! turbulent diffusion of QI  
+    ldiff_qi     = .FALSE.   ! turbulent diffusion of QI  
 
     ldiff_qs     = .FALSE.  ! no turbulent diffusion of QS  
 
