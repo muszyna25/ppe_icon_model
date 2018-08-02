@@ -194,7 +194,6 @@
 !!
 
 MODULE mo_multifile_restart
-  USE ISO_C_BINDING,                   ONLY: C_INT
   USE mo_async_restart_packer,         ONLY: restartBcastRoot
   USE mo_c_restart_util,               ONLY: createEmptyMultifileDir
   USE mo_cdi,                          ONLY: streamOpenWrite, vlistCreate, streamDefVlist, streamClose, &
@@ -209,12 +208,12 @@ MODULE mo_multifile_restart
   USE mo_kind,                         ONLY: dp, i8
   USE mtime,                           ONLY: datetime
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
-    &                                        p_comm_work_2_restart, p_comm_work, p_barrier,  &
+    &                                        p_comm_work_2_restart, p_comm_work,                        &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
     &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
-    &                                        multifileMetadataPath, isAsync, rBuddy, rGroup,            &
+    &                                        isAsync, rBuddy, rGroup,            &
     &                                        iAmRestartMaster, iAmRestartWriter, restartProcCount
   USE mo_packed_message,               ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_attributes,           ONLY: t_RestartAttributeList, RestartAttributeList_make
@@ -226,9 +225,7 @@ MODULE mo_multifile_restart
     &                                        timers_level, timer_write_restart_setup,                    &
     &                                        timer_write_restart_wait
   USE mo_util_cdi,                     ONLY: cdiGetStringError
-  USE mo_util_file,                    ONLY: putFile
   USE mo_util_string,                  ONLY: int2string, real2string
-  USE mo_run_config,                   ONLY: msg_level
 
   IMPLICIT NONE
 
@@ -268,8 +265,8 @@ CONTAINS
     LOGICAL                             :: lthis_pe_active
     INTEGER, ALLOCATABLE                :: srcRanks(:)
     TYPE(t_MultifilePatchData), POINTER :: patchData
-    INTEGER                             :: error, jg, myProcId, wrtCnt, myWrt, i, sRStrt, sREnd, jg0, &
-      &                                    jfile, nStreams, nSrcRanks, ierr, cSize, ckSize
+    INTEGER                             :: error, jg, myProcId, myWrt, i, sRStrt, sREnd, jg0, &
+      &                                    jfile, nStreams, nSrcRanks, ierr, ckSize
 
     IF(.NOT.my_process_is_work() .AND. .NOT.my_process_is_restart()) RETURN
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
@@ -278,7 +275,6 @@ CONTAINS
     IF(isAsync()) CALL me%transferGlobalParameters()
     !set some local variables describing the communication that needs to be done
     CALL MPI_Comm_rank(p_comm_work_restart, myProcId, ierr)!restartWorkProcId()
-    wrtCnt = restartProcCount()
     myWrt  = rBuddy() 
     nSrcRanks = COUNT((/(rBuddy(pe_in=i) == myWrt, i = 0, num_work_procs -1)/))
     ALLOCATE(srcRanks(nSrcRanks))
@@ -471,7 +467,7 @@ CONTAINS
     CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
     CHARACTER(*), PARAMETER               :: routine = ":multifileRestartDescriptor_writeRestartInternal"
-    INTEGER                               :: jg, dStart, dummy, n_dom_active, nrestart_streams, findex
+    INTEGER                               :: jg, dummy, n_dom_active, nrestart_streams, findex
     INTEGER(i8)                           :: totBWritten, bWritten
     REAL(dp)                              :: gbWritten, dpTime
     CHARACTER(:), ALLOCATABLE             :: filename

@@ -21,16 +21,13 @@ MODULE mo_async_restart_comm_data
   USE mo_fortran_tools,        ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, ensureSize, no_copy
   USE mo_kind,                 ONLY: dp, i8, sp
   USE mo_model_domain,         ONLY: p_patch
-  USE mo_mpi,                  ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, &
+  USE mo_mpi,                  ONLY: p_real_dp, p_comm_work_restart, num_work_procs, &
     &                                p_mpi_wtime, my_process_is_work
   USE mo_restart_var_data,     ONLY: t_RestartVarData
   USE mo_timer,                ONLY: timer_start, timer_stop, timer_write_restart_communication, timers_level
   USE mo_util_string,          ONLY: int2string
-  USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED,       &
-    &                                MPI_MODE_NOCHECK, MPI_MODE_NOSTORE, MPI_MODE_NOPRECEDE, &
-    &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS,          &
-    &                                MPI_REQUEST_NULL, MPI_MODE_NOSUCCEED, MPI_MODE_NOPUT,   &
-    &                                MPI_STATUS_IGNORE, MPI_UNDEFINED, MPI_INTEGER, MPI_ERRORS_RETURN
+  USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_WIN_NULL, MPI_SUCCESS, MPI_INTEGER, &
+    &                                MPI_REQUEST_NULL, MPI_MODE_NOPUT, MPI_STATUS_IGNORE, MPI_UNDEFINED
 #ifdef DEBUG
   USE mo_mpi,                  ONLY: p_pe
 #endif

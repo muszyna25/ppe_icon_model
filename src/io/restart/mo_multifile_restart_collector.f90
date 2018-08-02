@@ -13,18 +13,20 @@
 
 MODULE mo_multifile_restart_collector
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_NULL_PTR, C_LOC
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC
 
 #ifndef NOMPI
-  USE mpi
+  USE mpi, ONLY : MPI_ADDRESS_KIND, MPI_SUCCESS, MPI_REQUEST_NULL, &
+    &             MPI_DATATYPE_NULL, MPI_STATUS_IGNORE, MPI_MODE_NOPUT, &
+    &             MPI_STATUSES_IGNORE, MPI_TYPECLASS_INTEGER, &
+    &             MPI_GROUP_NULL, MPI_COMM_NULL, MPI_INFO_NULL, MPI_SIZEOF
 #else
 #define MPI_ADDRESS_KIND i8
 #endif
   USE mo_communication,          ONLY: idx_no, blk_no
   USE mo_decomposition_tools,    ONLY: t_grid_domain_decomp_info
   USE mo_exception,              ONLY: finish, message_text
-  USE mo_fortran_tools,          ONLY: alloc, ensureSize, no_copy, &
-    &                                  t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
+  USE mo_fortran_tools,          ONLY: alloc, ensureSize, no_copy
   USE mo_impl_constants,         ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind,                   ONLY: dp, sp, i8
   USE mo_mpi,                    ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
@@ -180,14 +182,13 @@ CONTAINS
     TYPE(t_CollectorSendBuffer), TARGET, INTENT(IN)    :: glb_sendbuf
     INTEGER,                             INTENT(IN)    :: nVar
     CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartCollector_construct"
-    INTEGER     :: ierr
 
     IF (timers_level >= 10)  CALL timer_start(timer_restart_collector_setup)
     this%idx(1)%p => idx_cell
     this%idx(2)%p => idx_edge
     this%idx(3)%p => idx_vert
     this%glb_sendbuf => glb_sendbuf
-    ALLOCATE(this%vGrid(nVar), this%vType(nVar), STAT=ierr)
+    ALLOCATE(this%vGrid(nVar), this%vType(nVar))
     IF (timers_level >= 10)  CALL timer_stop(timer_restart_collector_setup)
   END SUBROUTINE multifileRestartCollector_construct
 
@@ -360,13 +361,13 @@ CONTAINS
         END IF
         SELECT CASE(iType)
         CASE(1)
-          CALL MPI_RGET(output%d(1), 1, o_dType, idx%srcProc(i), t_dsp, &
+          CALL MPI_Rget(output%d(1:bSize), 1, o_dType, idx%srcProc(i), t_dsp, &
             &           t_cnt(i), dType, me%glb_sendbuf%win, getReq(iReq), ierr)
         CASE(2)
-          CALL MPI_RGET(output%s(1), 1, o_dType, idx%srcProc(i), t_dsp, &
+          CALL MPI_Rget(output%s(1:bSize), 1, o_dType, idx%srcProc(i), t_dsp, &
             &           t_cnt(i), dType, me%glb_sendbuf%win, getReq(iReq), ierr)
         CASE(3)
-          CALL MPI_RGET(output%i(1), 1, o_dType, idx%srcProc(i), t_dsp, &
+          CALL MPI_Rget(output%i(1:bSize), 1, o_dType, idx%srcProc(i), t_dsp, &
             &           t_cnt(i), dType, me%glb_sendbuf%win, getReq(iReq), ierr)
         END SELECT
         IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")

@@ -29,7 +29,6 @@ MODULE mo_multifile_restart_util
   PUBLIC :: multifileRestartLinkName
   PUBLIC :: createMultifileRestartLink
   PUBLIC :: multifileAttributesPath
-  PUBLIC :: multifileMetadataPath
   PUBLIC :: multifilePayloadPath
   PUBLIC :: isAsync, restartProcCount
   PUBLIC :: rBuddy, rGroup, commonBuf_t, dataPtrs_t
@@ -100,18 +99,6 @@ CONTAINS
   END SUBROUTINE multifileAttributesPath
 
   !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
-  SUBROUTINE multifileMetadataPath(multifilePath, domain, resultVar)
-    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
-    CHARACTER(*), INTENT(IN) :: multifilePath
-    INTEGER, VALUE :: domain
-    INTEGER :: fn_len
-
-    fn_len=LEN_TRIM(multifilePath//"/patch"//TRIM(int2string(domain))//"_metadata")
-    CALL alloc_string(fn_len, resultVar)
-    resultVar = multifilePath//"/patch"//TRIM(int2string(domain))//"_metadata"
-  END SUBROUTINE multifileMetadataPath
-
-  !XXX: this IS NOT the ONLY place where this path IS defined, it IS also generated/recognized IN c_restart_util.c
   SUBROUTINE multifilePayloadPath(multifilePath, domain, procId, resultVar)
     CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: resultVar
     CHARACTER(*), INTENT(IN) :: multifilePath
@@ -166,9 +153,7 @@ CONTAINS
   END FUNCTION rGroup
 
   LOGICAL FUNCTION iAmRestartMaster() RESULT(resultVar)
-    INTEGER :: the_pe
 
-    the_pe = p_comm_rank(p_comm_work_restart)
     resultVar = rGroup() == rGroup(pe_in=0) .AND. &
       &         iAmRestartWriter()
   END FUNCTION iAmRestartMaster

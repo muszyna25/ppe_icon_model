@@ -167,7 +167,8 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_getNamelist"
 
         list_entry => me%find(namelistName)
-        IF(.NOT.ALLOCATED(list_entry%att_text)) CALL finish(routine, 'namelist '//TRIM(namelistName)//' not available in restart file.')
+        IF(.NOT.ALLOCATED(list_entry%att_text)) CALL finish(routine, 'namelist '//TRIM(namelistName)&
+          &//' not available in restart file.')
         ALLOCATE(CHARACTER(LEN=LEN(list_entry%att_text)) :: namelistText)
         namelistText = list_entry%att_text
     END SUBROUTINE namelistArchive_getNamelist

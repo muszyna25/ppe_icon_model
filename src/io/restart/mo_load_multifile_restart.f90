@@ -473,21 +473,23 @@ CONTAINS
     CLASS(t_MultifilePatchReader), TARGET, INTENT(INOUT) :: me
     TYPE(t_restartVarData), INTENT(INOUT) :: vDat(:)
     INTEGER, INTENT(IN) :: dom
-    INTEGER :: vId, lId, lCt, fId, varID, varID0, pCt(SIZE(me%files))
+    INTEGER :: vId, lId, lCt, fId, varID, pCt(SIZE(me%files))
     TYPE(t_ReadBuffer), POINTER :: rBuf
     TYPE(dataPtrs_t) :: lPtrs
+#ifdef DEBUG
     CHARACTER(LEN=VARNAME_LEN) :: cVname
+#endif
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchReader_readData"
 
     DO vId = 1, SIZE(vDat)
       IF(.NOT.has_valid_time_level(vDat(vId)%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
       ! Check that all processes have a consistent order of variables IN varData(:).
-      cVname = vDat(vId)%info%NAME
       IF(timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
       IF(SIZE(me%files) .GT. 0) &
         & varId = get_cdi_varID(me%files(1)%streamId, TRIM(vDat(vId)%info%NAME))
       IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
 #ifdef DEBUG
+      cVname = vDat(vId)%info%NAME
       CALL p_bcast(cVname, 0, p_comm_work)
       IF(cVname /= vDat(vId)%info%NAME) &
         & CALL finish(routine, "inconsistent order of varData(:) array")

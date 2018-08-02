@@ -18,17 +18,15 @@ MODULE mo_multifile_restart_patch_data
   USE mtime,                          ONLY: datetime
   USE mo_decomposition_tools,         ONLY: t_grid_domain_decomp_info
   USE mo_exception,                   ONLY: finish
-  USE mo_fortran_tools,               ONLY: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int, ensureSize,                   &
-   &                                        no_copy, DO_PTR_DEALLOCATE
-  USE mo_impl_constants,              ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
+  USE mo_fortran_tools,               ONLY: ensureSize, no_copy, DO_PTR_DEALLOCATE
+  USE mo_impl_constants,              ONLY: SINGLE_T, REAL_T, INT_T
   USE mo_cdi_constants,               ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,                    &
     &                                       GRID_UNSTRUCTURED_VERT
   USE mo_kind,                        ONLY: dp, sp, i8
   USE mo_model_domain,                ONLY: p_patch
   USE mo_mpi,                         ONLY: my_process_is_work
   USE mo_multifile_restart_collector, ONLY: t_MultifileRestartCollector, t_CollectorIndices, t_CollectorSendBuffer
-  USE mo_multifile_restart_util,      ONLY: multifilePayloadPath, isAsync, iAmRestartWriter, commonBuf_t,      &
-                                            dataPtrs_t, vNames_glbIdx
+  USE mo_multifile_restart_util,      ONLY: multifilePayloadPath, isAsync, commonBuf_t, dataPtrs_t, vNames_glbIdx
   USE mo_restart_attributes,          ONLY: t_RestartAttributeList
   USE mo_restart_descriptor,          ONLY: t_RestartPatchData
   USE mo_restart_patch_description,   ONLY: t_restart_patch_description
