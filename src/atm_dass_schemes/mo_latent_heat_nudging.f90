@@ -62,16 +62,15 @@ USE mtime,                      ONLY: datetime, newDatetime, MAX_DATETIME_STR_LE
 USE mtime,                       ONLY: timedeltaToString, MAX_TIMEDELTA_STR_LEN, &
   &                                    getPTStringFromSeconds, deallocateTimedelta, deallocateDatetime
 !USE mo_mtime_extensions,        ONLY: get_datetime_string
-USE mo_timer
 
 USE mo_kind,               ONLY: wp, vp2, i4, i8
 
-USE mo_parallel_config,    ONLY: nvec=>nproma
+USE mo_parallel_config,    ONLY: nproma
 
 USE mo_exception,          ONLY: message, message_text, finish, print_value, open_log, close_log
 
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                               rvd_m_o => vtmpc1 , & !! rv/rd-1._wp
+                               rvd_m_o => vtmpc1, & !! rv/rd-1._wp
                                  o_m_rdv        , & !! 1 - r_d/r_v
                                  rdv            , & !! r_d / r_v
                                  cvd            , & !!
@@ -228,12 +227,12 @@ SUBROUTINE organize_lhn ( &
     lopen_log  
  
   INTEGER (KIND=i4)         ::           &
-    iv,k,              & ! loop indices
+    iv,                & ! loop indices
     kqrs,              & ! upper layer with qrs_flux > 0.0
     k_dx
 
   INTEGER :: jg          ! domain ID
-  INTEGER :: jb,jc,i_rlstart, i_rlend, ndiag, iter
+  INTEGER :: jb,jc,jk,i_rlstart, i_rlend, ndiag, iter, nlev
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
 
@@ -242,9 +241,6 @@ SUBROUTINE organize_lhn ( &
   REAL (KIND=wp)               ::           &
     zdt_1                ! inverse of the timestep for physics ( = 1/dt )
 
-  REAL  (KIND=wp)       :: &
-    prtot_gsp,   & ! local array to compute a mask used in WHERE function
-    prtot_con      ! local array to compute a mask used in WHERE function
 
   REAL (KIND=wp)         ::       &
     vcoordsum,qrsgmax,qrsgthres, qrsflux_int
@@ -252,42 +248,41 @@ SUBROUTINE organize_lhn ( &
 ! Local arrays:
 
   REAL (KIND=wp) ::       &
-    zprmod       (nvec,pt_patch%nblks_c)  ,&
-    zprmod_ref   (nvec,pt_patch%nblks_c)  ,&
-    zprrad       (nvec,pt_patch%nblks_c)  ,&
-    zprmod_ref_f (nvec,pt_patch%nblks_c)  ,&
-    zprrad_f     (nvec,pt_patch%nblks_c)
+    zprmod       (nproma,pt_patch%nblks_c)  ,&
+    zprmod_ref   (nproma,pt_patch%nblks_c)  ,&
+    zprrad       (nproma,pt_patch%nblks_c)  ,&
+    zprmod_ref_f (nproma,pt_patch%nblks_c)  ,&
+    zprrad_f     (nproma,pt_patch%nblks_c)
 
   REAL  (KIND=wp) ::           &
-    pr_obs(nvec,pt_patch%nblks_c)     ,& ! observed (radar) precipitation rate         (kg/m2*s)
-    pr_mod(nvec,pt_patch%nblks_c)     ,& ! total model precipitation rate              (kg/m2*s)
-    pr_ref(nvec,pt_patch%nblks_c)     ,& ! total reference precipitation rate              (kg/m2*s)
-    pr_ana(nvec,pt_patch%nblks_c)     ,& ! analyzed precipitation rate                 (kg/m2*s)
-    pr_mod_nofilt(nvec,pt_patch%nblks_c),& !
-    pr_obs_nofilt(nvec,pt_patch%nblks_c),& !
-    z_pr_mod(nvec,1,pt_patch%nblks_c),& !
-    z_pr_obs(nvec,1,pt_patch%nblks_c),& !
-    z_nabla2_prmod(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    z_nabla2_probs(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    tt_lheat_nofilt(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    z_nabla2_ttlh(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    wobs_space(nvec,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
-    wobs_time(nvec,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
-    lhn_diag(nvec,pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
-    tt_lheat(nvec,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
-    qrsflux(nvec,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
-    scale_diag(nvec,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
-    treat_diag(nvec,pt_patch%nblks_c)  ! ,& ! diagnose of treatment
-!    windcor_diag(nvec,pt_patch%nblks_c) ,& ! weight with respect to the mean wind
+    pr_obs(nproma,pt_patch%nblks_c)     ,& ! observed (radar) precipitation rate         (kg/m2*s)
+    pr_mod(nproma,pt_patch%nblks_c)     ,& ! total model precipitation rate              (kg/m2*s)
+    pr_ref(nproma,pt_patch%nblks_c)     ,& ! total reference precipitation rate              (kg/m2*s)
+    pr_ana(nproma,pt_patch%nblks_c)     ,& ! analyzed precipitation rate                 (kg/m2*s)
+    pr_mod_nofilt(nproma,pt_patch%nblks_c),& !
+    pr_obs_nofilt(nproma,pt_patch%nblks_c),& !
+    z_pr_mod(nproma,1,pt_patch%nblks_c),& !
+    z_pr_obs(nproma,1,pt_patch%nblks_c),& !
+    z_nabla2_prmod(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    z_nabla2_probs(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    z_nabla2_ttlh(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    wobs_space(nproma,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
+    wobs_time(nproma,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
+    lhn_diag(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
+    tt_lheat(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
+    qrsflux(nproma,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
+    scale_diag(nproma,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
+    treat_diag(nproma,pt_patch%nblks_c)  ! ,& ! diagnose of treatment
+!    windcor_diag(nproma,pt_patch%nblks_c) ,& ! weight with respect to the mean wind
 
   INTEGER (KIND=i4)  ::        &
     ntreat(pt_patch%nblks_c)         ,&! number of grid points to be treated by lhn
-    i_treat(nvec,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
-    j_treat(nvec,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
+    i_treat(nproma,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
+    j_treat(nproma,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
     diag_out(pt_patch%nblks_c,ndiag_max) ! array for exchange between PE's (used by global_values)
 
   LOGICAL  :: &
-    scale_fac_index(nvec,pt_patch%nblks_c)
+    scale_fac_index(nproma,pt_patch%nblks_c)
 !#endif
 
 
@@ -308,51 +303,55 @@ SUBROUTINE organize_lhn ( &
 
   izlocstat  = 0   ! initialization
   jg         = pt_patch%id
+  nlev       = pt_patch%nlev
   zdt        = dt_loc
 
   zdt_1 = 1.0_wp/zdt
   sec_per_hr_inv = 1.0_wp/sec_per_hr
 
-  IF (msg_level > 10) THEN
-     WRITE(message_text,'(a,f10.2,3i10)' ) 'intent(in) parameter: ', p_sim_time, nvec, pt_patch%nlev,jg
+  IF (msg_level > 12) THEN
+     WRITE(message_text,'(a,f10.2,3i10)' ) 'intent(in) parameter: ', p_sim_time, nproma, pt_patch%nlev,jg
      CALL message(yroutine,message_text)
   ENDIF
 
   rnlhn      = (p_sim_time)/REAL(assimilation_config(jg)%nlhn_end)
 
-!$OMP WORKSHARE
-    pr_obs(:,:) = 0.0_wp
-    pr_mod(:,:) = 0.0_wp
-    pr_ref(:,:) = 0.0_wp
-    pr_ana(:,:) = 0.0_wp
-    z_nabla2_prmod(:,:,:) = 0.0_wp
-    z_nabla2_probs(:,:,:) = 0.0_wp
-    tt_lheat_nofilt(:,:,:) = 0.0_wp
-    z_nabla2_ttlh(:,:,:) = 0.0_wp
-    wobs_space(:,:) = -1.0_wp
-    wobs_time(:,:) = -1.0_wp
-    lhn_diag(:,:,:) = -99.0_wp
-    tt_lheat(:,:,:) = 0.0_wp
-    qrsflux(:,:,:) = 0.0_wp
-    scale_diag(:,:) = 0.0_wp
-    treat_diag(:,:) = 0.0_wp
-!    windcor_diag(:,:) = 0.0_wp
-    ntreat(:) = 0
-    i_treat(:,:) = 0
-    j_treat(:,:) = 0
-    diag_out(:,:) = 0
-    scale_fac_index(:,:) =.FALSE.
-!$OMP END WORKSHARE
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+  DO jb = 1, pt_patch%nblks_c
 
-!   WRITE(message_text,'(a,2f10.2,2i10)' ) 'LHN : relevant time step/time now : ',zdt,p_sim_time*sec_per_hr_inv
-!   CALL message(yroutine,message_text)
+    pr_obs(:,jb) = 0.0_wp
+    pr_mod(:,jb) = 0.0_wp
+    wobs_space(:,jb) = -1.0_wp
+    wobs_time(:,jb) = -1.0_wp
+    lhn_diag(:,:,jb) = -99.0_wp
+    scale_diag(:,jb) = 0.0_wp
+    treat_diag(:,jb) = 0.0_wp
+    ntreat(jb) = 0
+    i_treat(:,jb) = 0
+    j_treat(:,jb) = 0
+    diag_out(jb,:) = 0
+    scale_fac_index(:,jb) =.FALSE.
+
+END DO
+
+!$OMP END DO
+!$OMP END PARALLEL
+
+  ! exclude boundary interpolation zone of nested domains
+  i_rlstart = grf_bdywidth_c+1
+  i_rlend   = min_rlcell_int
+
+  i_startblk = pt_patch%cells%start_block(i_rlstart)
+  i_endblk   = pt_patch%cells%end_block(i_rlend)
+
 
   IF (my_process_is_stdio() .AND. (assimilation_config(jg)%lhn_diag) ) THEN
      INQUIRE (file=yulhn,OPENED=lopen_log)
      IF (.NOT. lopen_log ) THEN
        CALL open_lhn_log()
-       WRITE (nulhn,'(a,f10.2,3i10)' ) 'LHN : intent(in) parameter: ', p_sim_time, nvec, pt_patch%nlev,jg
+       WRITE (nulhn,'(a,f10.2,3i10)' ) 'LHN : intent(in) parameter: ', p_sim_time, nproma, pt_patch%nlev,jg
        WRITE (nulhn,'(a,2f10.2)' ) 'LHN : relevant time step/time now : ',zdt,p_sim_time*sec_per_hr_inv
        WRITE(nulhn, *)' parameters set for LHN :'
        WRITE(nulhn, *)' Climatological Profile enable : assimilation_config(jg)%lhn_artif = ',assimilation_config(jg)%lhn_artif
@@ -363,13 +362,9 @@ SUBROUTINE organize_lhn ( &
                         assimilation_config(jg)%abs_lhn_lim,' (K/second)'
        WRITE(nulhn, *)' Humidity enhancement :     assimilation_config(jg)%lhn_hum_adj = ',assimilation_config(jg)%lhn_hum_adj
        WRITE(nulhn, *)' Diagnostic output :        assimilation_config(jg)%lhn_diag    = ',assimilation_config(jg)%lhn_diag
-!       WRITE(nulhn, *)' Number of points treated (domain minus 2*nboundlines): ', &
-!        (nvec_tot-2*nboundlines)
      ENDIF  
   ENDIF  
 
-
-!print *,MAXVAL(radar_data%radar_td%obs),MINVAL(radar_data%radar_td%obs)
 
 
 !-------------------------------------------------------------------------------
@@ -390,204 +385,125 @@ SUBROUTINE organize_lhn ( &
 ! Section 2 : Determine total model precipitation rate
 !             Analyze precipitation, i.e. combine model and observation values
 !-------------------------------------------------------------------------------
-      ! exclude boundary interpolation zone of nested domains
-      i_rlstart = grf_bdywidth_c+1
-      i_rlend   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_block(i_rlstart)
-      i_endblk   = pt_patch%cells%end_block(i_rlend)
-
-
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-        CASE(1,3)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,prtot_gsp,prtot_con) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
 
-            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, i_rlstart, i_rlend)
+            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, i_rlstart, i_rlend)
 
-            DO jc = i_startidx, i_endidx
-     
-              prtot_gsp = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb)
+            SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+            CASE(1,3)
 
-              IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
-                 prtot_con = prm_diag%rain_con_rate_3d (jc,pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,pt_patch%nlev,jb)
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) &
-                       + prm_diag%rain_con_rate_3d (jc,1:pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,1:pt_patch%nlev,jb)
-              ELSE
-                 prtot_con = 0.0_wp
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb)
-              ENDIF
+              DO jc = i_startidx, i_endidx
+                pr_mod(jc,jb) = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb)
+              ENDDO
 
-              prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) = qrsflux(jc,1:pt_patch%nlev,jb)
+            CASE(2)
 
-              pr_mod(jc,jb) = prtot_gsp + prtot_con
+              DO jc = i_startidx, i_endidx
+                pr_mod(jc,jb) = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb) + prm_diag%graupel_gsp_rate(jc,jb)
+              ENDDO
 
+            CASE(9)
+
+              DO jc = i_startidx, i_endidx
+                pr_mod(jc,jb) = prm_diag%rain_gsp_rate(jc,jb)
+              ENDDO
+
+            END SELECT
+
+            DO jk = kstart_moist(jg), nlev
+              DO jc = i_startidx, i_endidx
+                qrsflux(jc,jk,jb) = prm_diag%qrs_flux(jc,jk,jb)
+              ENDDO
             ENDDO
-          ENDDO
-!$OMP END DO 
-!$OMP END PARALLEL
 
-        CASE(2)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,prtot_gsp,prtot_con) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = i_startblk, i_endblk
+            IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
 
-            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, i_rlstart, i_rlend)
+              DO jc = i_startidx, i_endidx
+                pr_mod(jc,jb) = pr_mod(jc,jb) + prm_diag%rain_con_rate_3d (jc,nlev,jb) + prm_diag%snow_con_rate_3d (jc,nlev,jb)
+              ENDDO
 
-            DO jc = i_startidx, i_endidx
-     
-              prtot_gsp = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb) + prm_diag%graupel_gsp_rate(jc,jb)
+              DO jk = kstart_moist(jg), nlev
+                DO jc = i_startidx, i_endidx
+                  qrsflux(jc,jk,jb) = qrsflux(jc,jk,jb) &
+                       + prm_diag%rain_con_rate_3d(jc,jk,jb) + prm_diag%snow_con_rate_3d(jc,jk,jb)
+                ENDDO
+              ENDDO
+            ENDIF
 
-              IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
-                 prtot_con = prm_diag%rain_con_rate_3d (jc,pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,pt_patch%nlev,jb)
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) &
-                       + prm_diag%rain_con_rate_3d (jc,1:pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,1:pt_patch%nlev,jb)
-              ELSE
-                 prtot_con = 0.0_wp
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb)
-              ENDIF
-
-              prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) = qrsflux(jc,1:pt_patch%nlev,jb)
-
-              pr_mod(jc,jb) = prtot_gsp + prtot_con
-
-            ENDDO
-          ENDDO
-!$OMP END DO 
-!$OMP END PARALLEL
-
-!        CASE (4,5,6)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,prtot_gsp,prtot_con) ICON_OMP_DEFAULT_SCHEDULE
-!          DO jb = i_startblk, i_endblk
-!
-!            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-!              & i_startidx, i_endidx, i_rlstart, i_rlend)
-!
-!            DO jc = i_startidx, i_endidx
-!     
-!              prtot_gsp = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb) + prm_diag%graupel_gsp_rate(jc,jb) &
-!                        + prm_diag%hail_gsp_rate(jc,jb)
-!
-!              IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
-!                 prtot_con = prm_diag%rain_con_rate_3d (jc,pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,pt_patch%nlev,jb)
-!                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) &
-!                       + prm_diag%rain_con_rate_3d (jc,1:pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,1:pt_patch%nlev,jb)
-!              ELSE
-!                 prtot_con = 0.0_wp
-!                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb)
-!              ENDIF
-!
-!              pr_mod(jc,jb) = prtot_gsp + prtot_con
-!
-!            ENDDO
-!          ENDDO
-!!$OMP END DO 
-!!$OMP END PARALLEL
-
-        CASE(9)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,prtot_gsp,prtot_con) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = i_startblk, i_endblk
-
-            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, i_rlstart, i_rlend)
-
-            DO jc = i_startidx, i_endidx
-     
-              prtot_gsp = prm_diag%rain_gsp_rate(jc,jb)
-
-              IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
-                 prtot_con = prm_diag%rain_con_rate_3d (jc,pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,pt_patch%nlev,jb)
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) &
-                       + prm_diag%rain_con_rate_3d (jc,1:pt_patch%nlev,jb) + prm_diag%snow_con_rate_3d (jc,1:pt_patch%nlev,jb)
-              ELSE
-                 prtot_con = 0.0_wp
-                 qrsflux(jc,1:pt_patch%nlev,jb) = prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb)
-              ENDIF
-
-              prm_diag%qrs_flux(jc,1:pt_patch%nlev,jb) = qrsflux(jc,1:pt_patch%nlev,jb)
-
-              pr_mod(jc,jb) = prtot_gsp + prtot_con
-
-            ENDDO
-          ENDDO
-!$OMP END DO 
-!$OMP END PARALLEL
-
-        CASE DEFAULT
-          CALL finish('latent heat nudging', 'Unknown cloud physics scheme [1-5].')
-  
-      END SELECT
-
-      pr_ref = pr_mod
-      zprmod = pr_mod
-
-!      CALL print_value ('MAX pr_mod',MAXVAL(pr_mod))
-!      CALL print_value ('MAX pr_obs',MAXVAL(pr_obs))
-!      CALL print_value ('MIN pr_obs',MINVAL(pr_obs))
+            pr_ref(:,jb) = pr_mod(:,jb)
+            zprmod(:,jb) = pr_mod(:,jb)
 
 !-------------------------------------------------------------------------------
 ! Section 3: Get total model latent heating profiles
 !            (in terms of temperature tendency as K/s)
 !-------------------------------------------------------------------------------
 
-    tt_lheat(:,:,:) = prm_diag%tt_lheat(:,:,:) * zdt_1 + prm_nwp_tend%ddt_temp_pconv(:,:,:)
+            IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
+              tt_lheat(:,:,jb) = prm_diag%tt_lheat(:,:,jb)*zdt_1 + prm_nwp_tend%ddt_temp_pconv(:,:,jb)
+            ELSE
+              tt_lheat(:,:,jb) = prm_diag%tt_lheat(:,:,jb)*zdt_1
+            ENDIF
+
+          ENDDO
+!$OMP END DO 
+!$OMP END PARALLEL
+
 
 ! ------------------------------------------------------------------------------
 ! Section 4: get reference precipition for comparison of radar and model
 ! ------------------------------------------------------------------------------
 
-!   take the vertikal integral of the precipitation flux as reference.
+!   take the vertical integral of the precipitation flux as reference.
 !   It is computed in src_gscp.hydci_pp or src_gscp.hydci_pp_gr
 
-   IF (assimilation_config(jg)%lhn_qrs) THEN
-      ! exclude boundary interpolation zone of nested domains
-      i_rlstart = grf_bdywidth_c+1
-      i_rlend   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_block(i_rlstart)
-      i_endblk   = pt_patch%cells%end_block(i_rlend)
-
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,k,i_startidx,i_endidx,qrsflux_int,qrsgmax,qrsgthres,vcoordsum, &
-!$OMP            kqrs) ICON_OMP_GUIDED_SCHEDULE
+
+   IF (assimilation_config(jg)%lhn_qrs) THEN
+
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,qrsflux_int,qrsgmax,qrsgthres,vcoordsum,kqrs) ICON_OMP_GUIDED_SCHEDULE
      DO jb=i_startblk,i_endblk
-       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-         &                i_startidx, i_endidx, i_rlstart, i_rlend)
+
+       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, i_rlstart, i_rlend)
+
        DO jc=i_startidx,i_endidx
          qrsflux_int = 0.0_wp
          qrsgmax=MAXVAL(qrsflux(jc,kstart_moist(jg):pt_patch%nlev,jb))
-         qrsgthres=max(assimilation_config(jg)%thres_lhn,assimilation_config(jg)%rqrsgmax*qrsgmax)
+         qrsgthres=MAX(assimilation_config(jg)%thres_lhn,assimilation_config(jg)%rqrsgmax*qrsgmax)
          vcoordsum=0.0_wp
-         kqrs=pt_patch%nlev+1_i4
-         DO k=kstart_moist(jg),pt_patch%nlev
-            IF ( qrsflux(jc,k,jb) >= qrsgthres ) then
-               kqrs=k
-               EXIT
+         kqrs=nlev+1
+         IF (qrsgmax >= qrsgthres) THEN
+           DO jk=kstart_moist(jg),nlev
+            IF (qrsflux(jc,jk,jb) >= qrsgthres) then
+              kqrs=jk
+              EXIT
             ENDIF
-         ENDDO
-         DO k=kqrs,pt_patch%nlev
-             qrsflux_int = qrsflux_int + qrsflux(jc,k,jb)  &
-                              * (p_metrics%z_ifc(jc,k,jb)-p_metrics%z_ifc(jc,k+1,jb))
-             vcoordsum=vcoordsum+(p_metrics%z_ifc(jc,k,jb)-p_metrics%z_ifc(jc,k+1,jb))
-         ENDDO
-         IF (vcoordsum /= 0.0_wp) qrsflux_int = qrsflux_int / vcoordsum
+           ENDDO
+           DO jk=kqrs,nlev
+             qrsflux_int = qrsflux_int + qrsflux(jc,jk,jb)  &
+                              * (p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb))
+             vcoordsum=vcoordsum+(p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb))
+           ENDDO
+           IF (vcoordsum /= 0.0_wp) qrsflux_int = qrsflux_int / vcoordsum
+         ENDIF
          pr_ref(jc,jb) = qrsflux_int
        ENDDO
+
      ENDDO
 !$OMP END DO 
-!$OMP END PARALLEL
-!     CALL print_value ('MAX pr_mod QRS',MAXVAL(pr_ref))
-!     CALL print_value ('MAX pr_obs',MAXVAL(pr_obs))
    ENDIF
 
-   pr_obs_nofilt(:,:)   = pr_obs(:,:)
-   pr_mod_nofilt(:,:)   = pr_ref(:,:)
+!$OMP DO PRIVATE(jb)
+   DO jb=i_startblk,i_endblk
+     pr_obs_nofilt(:,jb) = pr_obs(:,jb)
+     pr_mod_nofilt(:,jb) = pr_ref(:,jb)
+   ENDDO
+!$OMP END DO
+
+!$OMP END PARALLEL
+
 
    IF (assimilation_config(jg)%lhn_relax) THEN
       CALL sync_patch_array(SYNC_C, pt_patch, pr_ref)
@@ -596,7 +512,6 @@ SUBROUTINE organize_lhn ( &
 
       z_pr_obs(:,1,:)      = pr_obs(:,:)
       z_pr_mod(:,1,:)      = pr_ref(:,:)
-      tt_lheat_nofilt(:,:,:) = tt_lheat (:,:,:)
 
       zdcoeff = 0.05_wp ! diffusion coefficient for nabla2 diffusion
   
@@ -606,38 +521,31 @@ SUBROUTINE organize_lhn ( &
   
          CALL nabla2_scalar( z_pr_mod, pt_patch, pt_int_state, z_nabla2_prmod )
          CALL nabla2_scalar( z_pr_obs, pt_patch, pt_int_state, z_nabla2_probs )
-         CALL nabla2_scalar( tt_lheat_nofilt, pt_patch, pt_int_state, z_nabla2_ttlh )
+         CALL nabla2_scalar( tt_lheat, pt_patch, pt_int_state, z_nabla2_ttlh )
 
-         i_rlstart = grf_bdywidth_c+1
-         i_rlend   = min_rlcell_int
-
-         i_startblk = pt_patch%cells%start_block(i_rlstart)
-         i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk,i_endblk
 
            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                               i_startidx, i_endidx, i_rlstart, i_rlend)
 
            DO jc = i_startidx, i_endidx
-               pr_ref(jc,jb) = z_pr_mod(jc,1,jb) + zdcoeff *                      &
-                                     pt_patch%cells%area(jc,jb) * z_nabla2_prmod(jc,1,jb)
-               IF ((pr_ref(jc,jb)) < 0.0_wp ) &
-                     pr_ref(jc,jb) = 0.0_wp !pr_mod_nofilt(jc,1,jb)
+             pr_ref(jc,jb) = MAX(0.0_wp, z_pr_mod(jc,1,jb) + zdcoeff *           &
+                             pt_patch%cells%area(jc,jb) * z_nabla2_prmod(jc,1,jb))
    
-               pr_obs(jc,jb) = z_pr_obs(jc,1,jb) + zdcoeff *                      &
-                                     pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb)
-               IF ((pr_obs(jc,jb)) < 0.0_wp ) &
-                  pr_obs(jc,jb) = z_pr_obs(jc,1,jb)
-   
-               DO k = 1,pt_patch%nlev
-                  tt_lheat(jc,k,jb) = tt_lheat_nofilt(jc,k,jb) + zdcoeff *                      &
-                                         pt_patch%cells%area(jc,jb) * z_nabla2_ttlh(jc,k,jb)
-               ENDDO
-
+             pr_obs(jc,jb) = MAX(0.0_wp, z_pr_obs(jc,1,jb) + zdcoeff *           &
+                             pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb))
            ENDDO
+
+           DO jk = kstart_moist(jg),pt_patch%nlev
+             DO jc = i_startidx, i_endidx
+               tt_lheat(jc,jk,jb) = tt_lheat(jc,jk,jb) + zdcoeff *                    &
+                                   pt_patch%cells%area(jc,jb) * z_nabla2_ttlh(jc,jk,jb)
+             ENDDO
+           ENDDO
+
          ENDDO
 !$OMP END DO 
 !$OMP END PARALLEL
@@ -650,26 +558,25 @@ SUBROUTINE organize_lhn ( &
          CALL sync_patch_array(SYNC_C, pt_patch, z_pr_obs)
          pr_obs(:,:) = z_pr_obs(:,1,:)
 
-         tt_lheat_nofilt(:,:,:) = tt_lheat(:,:,:)
-         CALL sync_patch_array(SYNC_C, pt_patch, tt_lheat_nofilt)
-         tt_lheat(:,:,:) = tt_lheat_nofilt(:,:,:)
+         CALL sync_patch_array(SYNC_C, pt_patch, tt_lheat)
       ENDDO
 
    ENDIF
   
  IF (ltlhnverif) THEN
-   zprmod_ref  (:,:) = pr_mod_nofilt(:,:)
-   zprrad      (:,:) = pr_obs_nofilt(:,:)
-   zprmod_ref_f(:,:) = pr_ref       (:,:)
-   zprrad_f    (:,:) = pr_obs       (:,:)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+  DO jb = i_startblk, i_endblk
+    zprmod_ref  (:,jb) = pr_mod_nofilt(:,jb)
+    zprrad      (:,jb) = pr_obs_nofilt(:,jb)
+    zprmod_ref_f(:,jb) = pr_ref       (:,jb)
+    zprrad_f    (:,jb) = pr_obs       (:,jb)
+  END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
    CALL lhn_verification ('SW',pt_patch,p_sim_time,wobs_space,&
                           zprmod,zprmod_ref,zprrad,zprmod_ref_f,zprrad_f)
- ELSE
-   zprmod_ref  (:,:) = 0.0_wp
-   zprrad      (:,:) = 0.0_wp
-   zprmod_ref_f(:,:) = 0.0_wp
-   zprrad_f    (:,:) = 0.0_wp
  ENDIF
 
 
@@ -686,11 +593,6 @@ SUBROUTINE organize_lhn ( &
    ENDIF
    scale_fac_index = .FALSE.
 
-   i_rlstart = grf_bdywidth_c+1
-   i_rlend   = min_rlcell_int
-
-   i_startblk = pt_patch%cells%start_block(i_rlstart)
-   i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 
    IF (assimilation_config(jg)%lhn_diag) THEN
@@ -752,23 +654,6 @@ SUBROUTINE organize_lhn ( &
       IF (my_process_is_stdio()) THEN
         WRITE(nulhn, *)
         WRITE(nulhn, *)' Diagnostics of LHN - nudging scheme, subroutine lhn_t_inc'
-  
-!        diag_out( 1) = ntreat
-!        diag_out( 2) = n_local
-!        diag_out( 3) = n_up
-!        diag_out( 4) = n_up_lim
-!        diag_out( 5) = n_down
-!        diag_out( 6) = n_down_lim
-!        diag_out( 7) = n_artif
-!        diag_out( 8) = n_ex_lim_p
-!        diag_out( 9) = n_ex_lim_n
-!        diag_out(10) = n_windcor
-!        diag_out(11) = n_windcor0
-!        diag_out(12)= nelimosc_proc
-!        diag_out(13)= nelimiso_proc
-!        diag_out(14)= nsmooth_proc
-!        diag_out(15)= n_incloud
-!        diag_out(16)= lhn_coef
 
         WRITE(nulhn, *)'Diagnostics of LHN, lhn_t_inc, timestep : ',p_sim_time*zdt_1
         WRITE(nulhn, '(A,L3,f6.2)' )' Latent Heat Nudging active          : ',ltlhn, REAL(diag_out(i_endblk,16))/100.
@@ -800,20 +685,18 @@ SUBROUTINE organize_lhn ( &
 !             after the LHN
 !-------------------------------------------------------------------------------
 
-!IF (itype_gscp < 100 .OR. l2mom_satads) THEN
-  IF (assimilation_config(jg)%lhn_hum_adj) THEN
-      i_startblk = pt_patch%cells%start_block(i_rlstart)
-      i_endblk   = pt_patch%cells%end_block(i_rlend)
-
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,k,i_startidx, i_endidx) ICON_OMP_GUIDED_SCHEDULE
+
+  IF (assimilation_config(jg)%lhn_hum_adj) THEN
+
+!$OMP DO PRIVATE(jb,jc,i_startidx, i_endidx) ICON_OMP_GUIDED_SCHEDULE
      DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
          &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
         CALL lhn_q_inc( &
-             i_startidx,i_endidx,jg,zdt,pt_patch%nlev, &
+             i_startidx,i_endidx,jg,zdt,nlev, &
              pt_diag%temp(:,:,jb),lhn_fields%ttend_lhn(:,:,jb), &
              pt_diag%pres(:,:,jb), &
              pt_prog_rcf%tracer (:,:,jb,iqv), &
@@ -823,15 +706,19 @@ SUBROUTINE organize_lhn ( &
              scale_fac_index(:,jb))
      ENDDO
 !$OMP END DO 
-!$OMP END PARALLEL
-  ENDIF
 
+  ENDIF
 
 ! rescale of tt_lheat to unit of K, this should be done, because tt_lheat has a time dimension
 ! and could be used one time step later in the same way as now
 
-  prm_diag%tt_lheat(:,:,:) = tt_lheat(:,:,:) ! * zdt
+!$OMP DO PRIVATE(jb)
+  DO jb=i_startblk,i_endblk
+    prm_diag%tt_lheat(:,:,jb) = tt_lheat(:,:,jb) ! * zdt
+  ENDDO
+!$OMP END DO 
 
+!$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
 ! Section 10 : Diagnostic procedure...
@@ -844,13 +731,16 @@ SUBROUTINE organize_lhn ( &
 !-------------------------------------------------------------------------------
 ! for verification integrate observed precipitation rates over one hour:
 
-!$OMP WORKSHARE
-   WHERE (pr_obs > 0.0_wp)     lhn_fields%pr_obs_sum(:,:) = lhn_fields%pr_obs_sum(:,:)       &
-                                                   + pr_obs(:,:) * zdt
-   WHERE (pr_mod > 0.0_wp)     lhn_fields%pr_mod_sum(:,:) = lhn_fields%pr_mod_sum(:,:)       &
-                                                   + pr_mod(:,:) * zdt
-   WHERE (pr_ref > 0.0_wp)     lhn_fields%pr_ref_sum(:,:) = lhn_fields%pr_ref_sum(:,:)       &
-                                                   + pr_ref(:,:) * zdt
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+  DO jb=i_startblk,i_endblk
+
+   WHERE (pr_obs(:,jb) > 0.0_wp)     lhn_fields%pr_obs_sum(:,jb) = lhn_fields%pr_obs_sum(:,jb)       &
+                                                   + pr_obs(:,jb) * zdt
+   WHERE (pr_mod(:,jb) > 0.0_wp)     lhn_fields%pr_mod_sum(:,jb) = lhn_fields%pr_mod_sum(:,jb)       &
+                                                   + pr_mod(:,jb) * zdt
+   WHERE (pr_ref(:,jb) > 0.0_wp)     lhn_fields%pr_ref_sum(:,jb) = lhn_fields%pr_ref_sum(:,jb)       &
+                                                   + pr_ref(:,jb) * zdt
 
 !-------------------------------------------------------------------------------
 ! Section 10b : control output for some variables via lhn_diag
@@ -858,47 +748,54 @@ SUBROUTINE organize_lhn ( &
 ! control output of pr_mod, pr_obs, pr_ana in lhn_diag (upper 3 levels)
 ! ouput as mm/h , since pr_mod is in kg/(s*m**2) and scaling is *3600.
 
-   WHERE (pr_obs >= 0.0_wp)
-      lhn_diag(:,pt_patch%nlev,:) = pr_obs
+   WHERE (pr_obs(:,jb) >= 0.0_wp)
+      lhn_diag(:,pt_patch%nlev,jb) = pr_obs(:,jb)
    ELSEWHERE                                 ! ive: 1
-      lhn_diag(:,pt_patch%nlev,:) = -1.0_wp
+      lhn_diag(:,pt_patch%nlev,jb) = -1.0_wp
    ENDWHERE
-   lhn_diag(:,pt_patch%nlev-1,:) = pr_mod(:,:)                 ! ive: 2
-   lhn_diag(:,pt_patch%nlev-2,:) = pr_ref(:,:)                 ! ive: 3
-   lhn_diag(:,pt_patch%nlev-3,:) = pr_ana(:,:)                 ! ive: 4
-   lhn_diag(:,pt_patch%nlev-4,:) = wobs_space(:,:)             ! ive: 5
-   lhn_diag(:,pt_patch%nlev-5,:) = wobs_time(:,:)              ! ive: 6
-   WHERE (pr_obs > assimilation_config(jg)%thres_lhn .AND. pr_mod > assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,:) = 1.0_wp          ! ive: 7
+   lhn_diag(:,pt_patch%nlev-1,jb) = pr_mod(:,jb)                 ! ive: 2
+   lhn_diag(:,pt_patch%nlev-2,jb) = pr_ref(:,jb)                 ! ive: 3
+   lhn_diag(:,pt_patch%nlev-3,jb) = pr_ana(:,jb)                 ! ive: 4
+   lhn_diag(:,pt_patch%nlev-4,jb) = wobs_space(:,jb)             ! ive: 5
+   lhn_diag(:,pt_patch%nlev-5,jb) = wobs_time(:,jb)              ! ive: 6
+   WHERE (pr_obs(:,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) > assimilation_config(jg)%thres_lhn)
+      lhn_diag(:,pt_patch%nlev-6,jb) = 1.0_wp          ! ive: 7
    ENDWHERE
-   WHERE (pr_obs > assimilation_config(jg)%thres_lhn .AND. pr_mod <= assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,:) = 2.0_wp          ! ive: 7
+   WHERE (pr_obs(:,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) <= assimilation_config(jg)%thres_lhn)
+      lhn_diag(:,pt_patch%nlev-6,jb) = 2.0_wp          ! ive: 7
    ENDWHERE
-   WHERE (pr_obs <= assimilation_config(jg)%thres_lhn .AND. pr_mod > assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,:) = 3.0_wp          ! ive: 7
+   WHERE (pr_obs(:,jb) <= assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) > assimilation_config(jg)%thres_lhn)
+      lhn_diag(:,pt_patch%nlev-6,jb) = 3.0_wp          ! ive: 7
    ENDWHERE
-   WHERE (pr_obs > pr_mod)
-      lhn_diag(:,pt_patch%nlev-7,:) = 1.0_wp          ! ive: 8
+   WHERE (pr_obs(:,jb) > pr_mod(:,jb))
+      lhn_diag(:,pt_patch%nlev-7,jb) = 1.0_wp          ! ive: 8
    ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-7,:) = 0.0_wp          ! ive: 8
+      lhn_diag(:,pt_patch%nlev-7,jb) = 0.0_wp          ! ive: 8
    ENDWHERE
-   WHERE (pr_obs < pr_mod)
-      lhn_diag(:,pt_patch%nlev-8,:) = -1.0_wp         ! ive: 9
+   WHERE (pr_obs(:,jb) < pr_mod(:,jb))
+      lhn_diag(:,pt_patch%nlev-8,jb) = -1.0_wp         ! ive: 9
    ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-8,:) = 0.0_wp          ! ive: 9
+      lhn_diag(:,pt_patch%nlev-8,jb) = 0.0_wp          ! ive: 9
    ENDWHERE
-   WHERE (MINVAL(lhn_fields%ttend_lhn,2) == 0._wp .AND. MAXVAL(lhn_fields%ttend_lhn,2) == 0._wp )
-      lhn_diag(:,pt_patch%nlev-9,:) = 0.0_wp          ! ive: 10
+   WHERE (MINVAL(lhn_fields%ttend_lhn(:,:,jb),2) == 0._wp .AND. MAXVAL(lhn_fields%ttend_lhn(:,:,jb),2) == 0._wp )
+      lhn_diag(:,pt_patch%nlev-9,jb) = 0.0_wp          ! ive: 10
    ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-9,:) = 1.0_wp          ! ive: 10
+      lhn_diag(:,pt_patch%nlev-9,jb) = 1.0_wp          ! ive: 10
    ENDWHERE
-   lhn_diag(:,pt_patch%nlev-10,:) = lhn_fields%pr_obs_sum(:,:)            ! ive: 11
-   lhn_diag(:,pt_patch%nlev-11,:) = lhn_fields%pr_mod_sum(:,:)            ! ive: 12
-   lhn_diag(:,pt_patch%nlev-12,:) = lhn_fields%pr_ref_sum(:,:)            ! ive: 13
-   lhn_diag(:,pt_patch%nlev-13,:) = scale_diag(:,:)       ! ive: 14
-   lhn_diag(:,pt_patch%nlev-14,:) = treat_diag(:,:)            ! ive: 15
+   lhn_diag(:,pt_patch%nlev-10,jb) = lhn_fields%pr_obs_sum(:,jb)            ! ive: 11
+   lhn_diag(:,pt_patch%nlev-11,jb) = lhn_fields%pr_mod_sum(:,jb)            ! ive: 12
+   lhn_diag(:,pt_patch%nlev-12,jb) = lhn_fields%pr_ref_sum(:,jb)            ! ive: 13
+   lhn_diag(:,pt_patch%nlev-13,jb) = scale_diag(:,jb)       ! ive: 14
+   lhn_diag(:,pt_patch%nlev-14,jb) = treat_diag(:,jb)            ! ive: 15
 
-!$OMP END WORKSHARE
+   prm_diag%lhn_diag(:,:,jb)  = lhn_diag(:,:,jb)
+   prm_diag%ttend_lhn(:,:,jb) = lhn_fields%ttend_lhn(:,:,jb)
+
+  ENDDO
+
+!$OMP END DO 
+
+!$OMP END PARALLEL
 
    IF (datetime_current%time%minute  == 0) THEN
       IF (ltlhnverif) THEN
@@ -910,8 +807,7 @@ SUBROUTINE organize_lhn ( &
       lhn_fields%pr_ref_sum(:,:)  = 0.0_wp
    ENDIF
 
-   prm_diag%lhn_diag=lhn_diag
-   prm_diag%ttend_lhn=lhn_fields%ttend_lhn
+
  
 !-------------------------------------------------------------------------------
 ! Section 11 : Deallocate fields needed only during the lhn - step
@@ -961,7 +857,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
   TYPE(t_patch),   TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
   TYPE(t_radar_fields),    INTENT(in)    :: radar_data
 
-  REAL (KIND=wp), DIMENSION(nvec,pt_patch%nblks_c),INTENT(OUT)    :: &
+  REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(OUT)    :: &
     wobs_time, wobs_space, pr_obs
 
   LOGICAL, INTENT(OUT) :: ltoold
@@ -999,7 +895,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
   INTEGER (KIND=i4)             ::       &
     icenter         ,&
 ! concerning the time interpolation of DX data
-    num_t_obs (nvec,pt_patch%nblks_c,0:4), &
+    num_t_obs (nproma,pt_patch%nblks_c,0:4), &
     num1delta_t_obs ,& ! number of points with obs-dist 1 delta_t
     num2delta_t_obs ,& ! number of points with obs-dist 2 delta_t
     num3delta_t_obs ,& ! number of points with obs-dist 3 delta_t
@@ -1205,7 +1101,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
      DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
          &                i_startidx, i_endidx, i_rlstart, i_rlend)
@@ -1489,10 +1385,10 @@ SUBROUTINE lhn_sumrad (nrec,datafield_all,datafield,blacklist,ierr)
 !---------------------------------
 
   REAL (KIND=wp), INTENT(IN)                   ::       &
-    datafield_all(nvec_tot,nrec),blacklist(nvec_tot)        ! field for decoded data
+    datafield_all(nproma_tot,nrec),blacklist(nproma_tot)        ! field for decoded data
 
   REAL (KIND=wp), INTENT(OUT)                   ::       &
-    datafield(nvec_tot)        ! field for decoded data
+    datafield(nproma_tot)        ! field for decoded data
 
 ! Local parameters, scalars, arrays :
 !-------------------------------------------------------------------------------
@@ -1501,7 +1397,7 @@ SUBROUTINE lhn_sumrad (nrec,datafield_all,datafield,blacklist,ierr)
   INTEGER (KIND=i4)             ::       &
     iv,n,                & ! loop counter
     nsum,                 & ! counters
-    ndata(nvec_tot)
+    ndata(nproma_tot)
 
   REAL (KIND=wp)                   ::       &
     datasum
@@ -1525,7 +1421,7 @@ SUBROUTINE lhn_sumrad (nrec,datafield_all,datafield,blacklist,ierr)
 
 !!!$OMP PARALLEL
 !!!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jc=1,nvec_tot
+    DO jc=1,nproma_tot
       IF (NINT(blacklist(jc), i4) /= 1_i4 ) THEN
         DO n=1,nrec
             IF (datafield_all(iv,n) >= 0.0_wp) THEN
@@ -1568,17 +1464,17 @@ SUBROUTINE detect_bright_band(sumrad)
 !-------------------------------------------------------------------------------
 
   REAL (KIND=wp), INTENT(IN)                   ::       &
-   sumrad(nvec,ib_end-ib_start)
+   sumrad(nproma,ib_end-ib_start)
 
   INTEGER (KIND=i4) :: &
     nbright
 
   INTEGER (KIND=i4) :: &
-    iv,nh,anzheight(nvec,ib_end-ib_start)
+    iv,nh,anzheight(nproma,ib_end-ib_start)
 
   REAL  (KIND=wp)                ::       &
-    hzero_mod(nvec,ib_end-ib_start),height_interval(nvec,ib_end-ib_start),minheight(nvec,ib_end-ib_start),&
-    maxheight(nvec,ib_end-ib_start)
+    hzero_mod(nproma,ib_end-ib_start),height_interval(nproma,ib_end-ib_start),minheight(nproma,ib_end-ib_start),&
+    maxheight(nproma,ib_end-ib_start)
 
 !- End of header
 !===============================================================================
@@ -1595,7 +1491,7 @@ SUBROUTINE detect_bright_band(sumrad)
      nbright           = 0_i4
 
      CALL calhzero( hzero_mod(:,:), t(:,:,:), p_metrics%z_ifc, hhl_prof, &
-                    nvec, ke, t0_melt)
+                    nproma, ke, t0_melt)
      minheight(:,:) = 9999.9_wp
      maxheight(:,:) = -9999.9_wp
      height_interval(:,:) = 0.0_wp
@@ -1645,7 +1541,7 @@ END SUBROUTINE detect_bright_band
 !+ Module procedure in "lheat_nudge" determining T - increments due to LHN
 !-------------------------------------------------------------------------------
  
-SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat_in,wobs_time, wobs_space, &
+SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_space, &
                       pr_obs, pr_mod,pr_ana,ttend_lhn,treat_diag,scale_diag, &
                       scale_fac_index,ddt_temp_pconv,diag_out)
 
@@ -1684,7 +1580,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat_in,wobs_time, wob
   REAL (KIND=wp), DIMENSION(:),INTENT(IN)    :: &
     wobs_time, wobs_space, pr_obs, pr_mod
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::   &   ! dim (ie,ke)
-    tt_lheat_in,zlev
+    tt_lheat,zlev
   REAL(KIND=vp2), DIMENSION(:,:), INTENT(IN) ::  ddt_temp_pconv
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
     ttend_lhn
@@ -1742,7 +1638,6 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat_in,wobs_time, wob
     n_windcor, n_windcor0, n_incloud, ntreat
 
   REAL (KIND=wp)                         ::       &
-    tt_lheat(nvec,ke)         ,& ! latent heating profile
     prof_filt(ke)               ,& ! array for filtered vertical heating profile
     scale_fac           ,& ! scaling factor determined for each profile
     tt_artif(ke)                 ,& ! artificial heating profile
@@ -1806,10 +1701,8 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat_in,wobs_time, wob
   n_incloud  = 0_i4
 
 
-! other initializations (assume that profiles are at local nvec,node first)
+! other initializations (assume that profiles are at local nproma,node first)
   scale_fac = 1._wp
-
-  tt_lheat(:,:) = tt_lheat_in(:,:)
 
   abs_lim_pos = assimilation_config(jg)%abs_lhn_lim*assimilation_config(jg)%lhn_coef
   abs_lim_neg = -1. * abs_lim_pos
@@ -2433,16 +2326,16 @@ SUBROUTINE lhn_verification (ytime,pt_patch,nsteps,wobs_space,zprmod,zprmod_ref,
  REAL (KIND=wp), INTENT (IN) :: nsteps
 
  REAL (KIND=wp), INTENT(IN)  ::       &
-   zprmod(nvec,pt_patch%nblks_c),                    &
-   zprmod_ref(nvec,pt_patch%nblks_c),                &
-   zprrad(nvec,pt_patch%nblks_c)
+   zprmod(nproma,pt_patch%nblks_c),                    &
+   zprmod_ref(nproma,pt_patch%nblks_c),                &
+   zprrad(nproma,pt_patch%nblks_c)
 
- REAL (KIND=wp), DIMENSION(nvec,pt_patch%nblks_c),INTENT(IN)    :: &
+ REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(IN)    :: &
    wobs_space
 
  REAL (KIND=wp), INTENT(IN), OPTIONAL  ::       &
-   zprmod_ref_f(nvec,pt_patch%nblks_c),              &
-   zprrad_f(nvec,pt_patch%nblks_c)
+   zprmod_ref_f(nproma,pt_patch%nblks_c),              &
+   zprrad_f(nproma,pt_patch%nblks_c)
 
 ! Local scalars:
 ! -------------
@@ -2476,7 +2369,7 @@ SUBROUTINE lhn_verification (ytime,pt_patch,nsteps,wobs_space,zprmod,zprmod_ref,
 
 
  INTEGER (KIND=i4) :: &
-   jb,jc,n !,i_ver(nvec,pt_patch%nblks_c)
+   jb,jc,n !,i_ver(nproma,pt_patch%nblks_c)
 
  INTEGER :: i_rlstart, i_rlend
  INTEGER :: i_startblk, i_endblk    !> blocks
