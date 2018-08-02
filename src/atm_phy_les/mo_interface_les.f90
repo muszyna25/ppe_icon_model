@@ -26,9 +26,8 @@
 
 MODULE mo_interface_les
 
-  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,     &
-    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
-    &                              getTotalMillisecondsTimedelta
+  USE mtime,                 ONLY: datetime
+  USE mo_util_mtime,         ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,        ONLY: time_config
   USE mo_kind,               ONLY: wp
   USE mo_timer
@@ -68,7 +67,7 @@ MODULE mo_interface_les
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   SYNC_C, SYNC_C1, global_sum_array
+                                   SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, &
@@ -98,7 +97,7 @@ MODULE mo_interface_les
 
   PUBLIC :: les_phy_interface, init_les_phy_interface
 
-  CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
+  CHARACTER(len=*), PARAMETER  :: modname = 'mo_interface_les'  ! Output of module for 1 line debug
 
 CONTAINS
   !
@@ -106,7 +105,7 @@ CONTAINS
   !
   SUBROUTINE init_les_phy_interface(jg, p_patch, p_int_state, p_metrics)
     INTEGER,                   INTENT(in)     :: jg
-    TYPE(t_patch),     TARGET, INTENT(in)     :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(inout)  :: p_patch
     TYPE(t_int_state),         INTENT(in)     :: p_int_state
     TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
 
@@ -144,7 +143,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     INTEGER, INTENT(in)          :: nstep           !time step counter
     TYPE(datetime), POINTER      :: mtime_current
-    TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
+    TYPE(t_patch),     TARGET,INTENT(inout):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in)   :: pt_int_state  !< interpolation state
     TYPE(t_nh_metrics)   ,       INTENT(in)   :: p_metrics
@@ -204,21 +203,18 @@ CONTAINS
     ! since they are not treated individually
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
-    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::les_phy_interface:'
 
     ! Pointer to IDs of tracers which contain prognostic condensate.
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
-    TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    p_sim_time = getElapsedSimTimeInSeconds(mtime_current) 
+
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -525,40 +521,19 @@ CONTAINS
       !> temperature and tracers have been updated by turbulence;
       !! an update of the pressure field is not needed because pressure
       !! is not needed at high accuracy in the microphysics scheme
+      !! note: after the microphysics the second call to SATAD is within 
+      !!       the nwp_microphysics routine (first one is above)
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
-      !Copy temp to calculate its tendency next
-      CALL copy(pt_diag%temp(:,:,:), z_temp_old(:,:,:)) 
-
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
+                            & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag                          ) !>inout
-
-      !Calculate temp tendency due to microphysics in interior points
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx ) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end )
-         DO jk = kstart_moist(jg), nlev
-          DO jc =  i_startidx, i_endidx
-            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
-                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) * inv_dt_fastphy
-          END DO
-         END DO
-      END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+                            & prm_diag, prm_nwp_tend,           & !>inout
+                            & lcompute_tt_lheat=.FALSE.         ) !>in
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
@@ -1409,8 +1384,8 @@ CONTAINS
     IF (timers_level > 2) CALL timer_stop(timer_phys_acc)
 
 
-    IF (msg_level >= 20) THEN ! extended diagnostic
-      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
+    IF (lcall_phy_jg(itturb) .AND. msg_level >= 20) THEN ! extended diagnostic
+      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend)
     ENDIF
 
 

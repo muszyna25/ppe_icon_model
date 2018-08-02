@@ -73,11 +73,11 @@ MODULE mo_nonhydro_state
     &                                add_var_list_reference, get_timelevel_string, &
     &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
-    &                                MAX_GROUPS
+  USE mo_var_groups,           ONLY: MAX_GROUPS, groups
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                groups, vintp_types, new_action, actions
+    &                                vintp_types, new_action, actions
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
   USE mo_add_tracer_ref,       ONLY: add_tracer_ref
@@ -634,7 +634,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_QV,                  &
             &                       l_satlimit=.FALSE.,                                &
-            &                       lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
+            &                       lower_limit=2.5e-7_wp, l_restore_pbldev=.FALSE. ), &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
             &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
@@ -1151,8 +1151,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(                            &
-            &                       name = TRIM(vname_prefix)//'qtvar'//suffix)       ,&
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name = TRIM(vname_prefix)//'qtvar'//suffix),       &
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1526,7 +1526,7 @@ MODULE mo_nonhydro_state
     &       p_diag%vn_incr, &
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
-    &       p_diag%qv_incr, &
+    &       p_diag%rhov_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -2375,10 +2375,10 @@ MODULE mo_nonhydro_state
 
     ENDIF  !  ntracer >0
 
-    p_diag%vn_incr    => NULL()
-    p_diag%exner_incr => NULL()
-    p_diag%rho_incr   => NULL()
-    p_diag%qv_incr    => NULL()
+
+    !
+    ! (Transformed) Analysis increments
+    !
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
@@ -2413,12 +2413,12 @@ MODULE mo_nonhydro_state
                   & lrestart=.FALSE., loutput=.TRUE.)
 
 
-      ! qv_incr   p_diag%qv_incr(nproma,nlev,nblks_c)
+      ! rhov_incr  p_diag%rhov_incr(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('qv_incr', ' ',                   &
-        &                   'specific humidity increment from DA', datatype_flt)
-      grib2_desc = grib2_var(  0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'qv_incr', p_diag%qv_incr,                     &
+      cf_desc    = t_cf_var('rhov_incr', ' ',                   &
+        &                   'partial density of water vapour increment from DA', datatype_flt)
+      grib2_desc = grib2_var(  0, 1, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rhov_incr', p_diag%rhov_incr,                    &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
@@ -2546,6 +2546,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & initval=0._wp,                                              &
                   & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
 
       ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
@@ -2569,7 +2570,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_extra,                                        &
+                  & initval=0._wp, ldims=shape3d_extra,                            &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
       ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))

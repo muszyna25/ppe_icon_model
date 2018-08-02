@@ -20,11 +20,11 @@ MODULE mo_icon_testbed
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
     & test_jitter_model, test_halo_communication,test_radiation_communication,     &
-    & test_netcdf_read_model, test_gather_communication
+    & test_netcdf_read_model, test_gather_communication,                           &
+    & test_exchange_communication
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
 #ifndef __NO_ICON_ATMO__
-  USE mo_test_coupler,        ONLY: test_coupler
   USE mo_test_communication,  ONLY: test_communication
   USE mo_test_jitter,         ONLY: test_jitter
   USE mo_test_netcdf_read,    ONLY: test_netcdf_read
@@ -58,11 +58,9 @@ CONTAINS
 
 
 #ifndef __NO_ICON_ATMO__
-    CASE(test_coupler_model)
-      CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
 
     CASE(test_halo_communication,test_radiation_communication,&
-      &  test_gather_communication)
+      &  test_gather_communication, test_exchange_communication)
       CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
 
     CASE(test_jitter_model)

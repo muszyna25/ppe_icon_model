@@ -481,7 +481,7 @@ contains
 
     integer :: iret,varid
     integer :: dimids(2), dimsize(2)
-    integer, dimension(:), allocatable :: loc
+    INTEGER :: loc(2), nd
 
     dimsize(2) = 1 !The time dimension has size 1
 
@@ -494,15 +494,15 @@ contains
     iret = nf_inq_dimlen(ncid,dimids(1),dimsize(1))
     if (iret /= nf_noerr) call nchandle_error(ncid, iret)
 
-    if (present(nrec)) then
-      allocate(loc(2))
-      loc = (/1, nrec/)
-    else
-      allocate(loc(1))
-      loc = (/1/)
-    end if
+    loc(1) = 1
+    IF (PRESENT(nrec)) THEN
+      loc(2) = nrec
+      nd = 2
+    ELSE
+      nd = 1
+    END IF
 
-    iret = nf_put_vara_double(ncid, VarID, loc, dimsize, var(1:dimsize(1)))
+    iret = nf_put_vara_double(ncid, VarID, loc(1:nd), dimsize, var(1:dimsize(1)))
 
     if (iret /= nf_noerr .and. iret /= nf_erange) call nchandle_error(ncid, iret)
     iret = sync_nc(ncid)

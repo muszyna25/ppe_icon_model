@@ -197,7 +197,7 @@ CONTAINS
 
         CHARACTER(LEN=32) :: datetimeString
         INTEGER :: restartModule
-        TYPE(t_keyword_list), POINTER :: keywords => NULL()
+        TYPE(t_keyword_list), POINTER :: keywords
         TYPE(datetime), POINTER :: dt
 
         dt => restartArgs%restart_datetime
@@ -205,6 +205,7 @@ CONTAINS
              & dt%date%year, dt%date%month, dt%date%day , 'T', &
              & dt%time%hour, dt%time%minute, dt%time%second, 'Z'
         
+        NULLIFY(keywords)
         ! build the keyword list
         CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
         CALL associate_keyword("<idom>", TRIM(int2string(domain, "(i2.2)")), keywords)
@@ -257,7 +258,7 @@ CONTAINS
 
         CHARACTER(LEN = 2) :: jgString
 
-        jgString = TRIM(int2string(jg, "(i2.2)"))
+        jgString = int2string(jg, "(i2.2)")
 
         CALL restartAttributes%setInteger('nold_DOM'//jgString, nold)
         CALL restartAttributes%setInteger('nnow_DOM'//jgString, nnow)

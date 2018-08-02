@@ -60,7 +60,7 @@ MODULE mo_nml_crosscheck
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
-    &                              ana_varnames_map_file, lread_ana, fgFiletype, anaFiletype
+    &                              ana_varnames_map_file, lread_ana
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -268,11 +268,12 @@ CONTAINS
 
       DO jg =1,n_dom
 
-        IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
+        IF (atm_phy_nwp_config(1)%inwp_turb /= iedmf) THEN
+          IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
           & ((atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
           &  (atm_phy_nwp_config(jg)%inwp_gscp > 0      )    ) ) &
-        &  CALL finish( TRIM(method_name),'satad has to be switched on')
-
+          &  CALL finish( TRIM(method_name),'satad has to be switched on')
+        ENDIF
 
         IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
           & (atm_phy_nwp_config(jg)%inwp_convection==0) .AND.&
@@ -531,7 +532,11 @@ CONTAINS
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
 
-        ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
+        DO jg =1,n_dom
+          turbdiff_config(jg)%ldiff_qi = .TRUE.  !! turbulent diffusion of QI on (by EDMF)
+        ENDDO
+
+!dmk    ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
                            !! even if the land model is inactive ntiles_lnd should be 5
 
       ENDIF
@@ -777,29 +782,6 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
-
-    ! mixed file formats are currently not foreseen.
-    ! check whether the analysis and first guess file have the same file format.
-    IF (lread_ana) THEN
-      IF (fgFiletype() /= anaFiletype()) THEN
-        CALL finish( TRIM(method_name),                         &
-          &  'first-guess and analysis file must be of the same filetype.')
-      ENDIF
-    ENDIF
-
-    ! Check whether a Map file for translating fileInputName<=>internalName is required
-    ! - a Map File is mandatory, if input is read in GRIB2-Format
-    ! - a Map File is optional, if input is read in NetCDF-Format
-    ! checking for fgFiletype is sufficient here, since we already ensured that the 
-    ! first-guess and analysis file have the same file format.
-    IF (.NOT. init_mode == MODE_IFSANA) THEN
-      IF (fgFiletype() == FILETYPE_GRB2) THEN
-        IF(TRIM(ana_varnames_map_file) == "") &
-        CALL finish( TRIM(method_name),                         &
-          &  'ana_varnames_map_file missing. It is required when trying to read data in GRIB format.')
-      END IF
-    ENDIF
-
 
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 

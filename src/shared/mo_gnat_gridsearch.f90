@@ -72,14 +72,16 @@ MODULE mo_gnat_gridsearch
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_math_constants,      ONLY: pi_180
-  USE mo_math_utilities,      ONLY: t_geographical_coordinates
+  USE mo_math_types,          ONLY: t_geographical_coordinates
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
-    &                               p_comm_work, my_process_is_mpi_test, p_max,           &
-    &                               p_send, p_recv,                                       &
-    &                               process_mpi_all_test_id, process_mpi_all_workroot_id
+  USE mo_mpi,                 ONLY: get_my_mpi_work_id, p_io, p_pe_work, &
+    &                               p_comm_work, my_process_is_mpi_test, &
+    &                               p_bcast, p_max, p_send, p_recv, &
+    &                               process_mpi_all_test_id, &
+    &                               process_mpi_all_workroot_id, &
+    &                               p_comm_work_2_test
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
 #else
@@ -88,6 +90,9 @@ MODULE mo_gnat_gridsearch
     &                               idx_1d, finish, message, get_indices_c,               &
     &                               t_grid_cells, t_grid_vertices
   USE mo_remap_config,        ONLY: dbg_level
+#endif
+#ifndef NOMPI
+  USE mpi
 #endif
 
   IMPLICIT NONE
@@ -526,13 +531,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_nnb"
 
     INTEGER                 :: min_node_idx(3,iv_nproma, iv_nblks)  ! corresponding GNAT nodes
-    INTEGER                 :: jb, jc, j, k, i_nb, &
-      &                        end_idx, i_end,     &
-      &                        tmp_idx(2),         &   ! (idx,blk)
-      &                        nb_idx(0:(5*3),2)       ! (idx,blk)
-    INTEGER                 :: tri_vertex_idx(3,2)   ! (idx,blk)
-    REAL(gk)                :: tri_v(2,3), p(2)
-    LOGICAL                 :: l_inside
+    INTEGER                 :: jb, jc, end_idx
 
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
@@ -549,13 +548,11 @@ CONTAINS
     END WHERE
 
     ! loop over blocks
-!$OMP PARALLEL DO private(jb, end_idx, jc, nb_idx, tri_vertex_idx, &
-!$OMP                     i_nb, tmp_idx, i_end, tri_v, k, j, p, l_inside)
+!$OMP PARALLEL DO private(jb, end_idx, jc)
     DO jb=1,iv_nblks
 
       ! set end index in current block:
-      end_idx = iv_nproma
-      if (jb == iv_nblks) end_idx = iv_npromz
+      end_idx = MERGE(iv_nproma, iv_npromz, jb /= iv_nblks)
 
       ! loop over indices
       DO jc=1,end_idx
@@ -1438,11 +1435,8 @@ CONTAINS
 
       !-- assign new work to one of the PEs
       ! find first non-associated PE in node_proc
-      j = 1
-      FINDFIRST : DO
-        IF (j > nproc)      EXIT FINDFIRST
+      FINDFIRST : DO j = 1, nproc
         IF (idx(1,j) == -1) EXIT FINDFIRST
-        j = j + 1
       END DO FINDFIRST
 
       IF (j<=nproc) THEN
@@ -1523,9 +1517,10 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_containing_triangles"
 
     REAL(gk)                :: radius
-    INTEGER                 :: i_startblk, &
+    INTEGER                 :: bcast_source, i_startblk, &
       &                        i_startidx, i_endidx, &
       &                        rl_start, rl_end, i_nchdom
+    LOGICAL :: l_my_process_is_mpi_test
 
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
@@ -1550,15 +1545,20 @@ CONTAINS
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
     radius = p_max(radius, comm=p_comm_work)
-    IF(l_p_test_run) THEN
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        ! Send to test PE
-        CALL p_send(radius, process_mpi_all_test_id, 1)
+#ifndef NOMPI
+    IF (l_p_test_run) THEN
+      IF (my_process_is_mpi_test()) THEN
+        bcast_source=0
       ELSE
-        ! Receive result from parallel worker PEs
-        CALL p_recv(radius, process_mpi_all_workroot_id, 1)
+        IF (p_pe_work == 0) THEN
+          bcast_source=mpi_root
+        ELSE
+          bcast_source=mpi_proc_null
+        END IF
       END IF
+      CALL p_bcast(radius, bcast_source, comm=p_comm_work_2_test)
     END IF
+#endif
 
     ! query list of nearest neighbors
     CALL gnat_query_nnb(gnat, v, iv_nproma, iv_nblks,   &

@@ -21,7 +21,7 @@
 MODULE mo_ocean_limiter
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_math_constants,            ONLY: dbl_eps
   USE mo_impl_constants,            ONLY: sea_boundary, SEA
   USE mo_ocean_nml,                 ONLY: n_zlev

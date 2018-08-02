@@ -90,27 +90,27 @@ MODULE mo_les_config
 
        WRITE(message_text,'(a,e14.6)')'LES with surface scheme TERRA'
 
-       CALL message(TRIM(routine),message_text)
+       CALL message(routine,message_text)
 
     ELSEIF(les_config(jg)%isrfc_type==2)THEN
 
        WRITE(message_text,'(a,e14.6,e14.6)')'LES with fixed fluxes=', &
            les_config(jg)%shflx,les_config(jg)%lhflx
 
-       CALL message(TRIM(routine),message_text)
+       CALL message(routine, message_text)
 
        IF(les_config(jg)%shflx==-999._wp .OR. les_config(jg)%lhflx==-999._wp) &
-          CALL finish(TRIM(routine),'Wrong input for irsfc_type=2')
+          CALL finish(routine, 'Wrong input for irsfc_type=2')
 
     ELSEIF(les_config(jg)%isrfc_type==3)THEN
 
        WRITE(message_text,'(a,e14.6,e14.6)') 'LES with fixed Buoyancy flux and tran coeff=', &
                les_config(jg)%bflux,les_config(jg)%tran_coeff
 
-       CALL message(TRIM(routine),message_text)
+       CALL message(routine, message_text)
 
        IF(les_config(jg)%bflux==-999._wp .OR. les_config(jg)%tran_coeff==-999._wp) &
-          CALL finish(TRIM(routine),'Wrong input for irsfc_type=3')
+          CALL finish(routine, 'Wrong input for irsfc_type=3')
 
     END IF
   
@@ -125,7 +125,7 @@ MODULE mo_les_config
       WRITE(message_text,'(a,2F13.4)') &
         &'WARNING: averaging interval and advective timesteps not synchronized: ', &
         & les_config(jg)%avg_interval_sec, dtime
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, TRIM(message_text))
 
       les_config(jg)%avg_interval_sec =   &
            REAL((FLOOR(les_config(jg)%avg_interval_sec/dtime) + 1),wp) * dtime
@@ -133,14 +133,14 @@ MODULE mo_les_config
       WRITE(message_text,'(a,2F13.4)') &
           'implicit synchronization in configure_les: avg_interval_sec =', &
           les_config(jg)%avg_interval_sec
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, TRIM(message_text))
      END IF
 
      IF( MOD(les_config(jg)%sampl_freq_sec, dtime) > 10._wp*dbl_eps )  THEN
       WRITE(message_text,'(a,2F13.4)') &
         &'WARNING: sampling frequency and advective timesteps not synchronized: ', &
         & les_config(jg)%sampl_freq_sec, dtime
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, TRIM(message_text))
 
       les_config(jg)%sampl_freq_sec =   &
            REAL((FLOOR(les_config(jg)%sampl_freq_sec/dtime) + 1),wp) * dtime
@@ -148,7 +148,7 @@ MODULE mo_les_config
       WRITE(message_text,'(a,2F13.4)') &
          'implicit synchronization in configure_les: sampl_freq_sec =', &
          les_config(jg)%sampl_freq_sec
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, TRIM(message_text))
      END IF
 
     ENDIF

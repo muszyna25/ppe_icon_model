@@ -85,7 +85,6 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & RG                              !yomcst
 USE mo_edmf_param   ,ONLY : &
-                & N_VMASS  ,&                     !yomjfh
                 & NULERR                          !yomlun
 USE mo_mpi          ,ONLY : abort_mpi
 

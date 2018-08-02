@@ -32,7 +32,8 @@ MODULE mo_extpar_nml
                                   & config_heightdiff_threshold     => heightdiff_threshold,         &
                                   & config_extpar_filename          => extpar_filename,              &
                                   & config_extpar_varnames_map_file => extpar_varnames_map_file,     &
-                                  & config_lrevert_sea_height       => lrevert_sea_height
+                                  & config_lrevert_sea_height       => lrevert_sea_height,           &
+                                  & config_itype_vegetation_cycle   => itype_vegetation_cycle
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -51,6 +52,7 @@ MODULE mo_extpar_nml
   LOGICAL  :: l_emiss ! if true: read external emissivity map
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
+  INTEGER  :: itype_vegetation_cycle
   CHARACTER(LEN=filename_max) :: extpar_filename
 
   ! external parameter: dictionary which maps internal variable names
@@ -60,7 +62,7 @@ MODULE mo_extpar_nml
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
                         heightdiff_threshold, extpar_filename,             &
                         extpar_varnames_map_file, hgtdiff_max_smooth_topo, &
-                        lrevert_sea_height
+                        lrevert_sea_height, itype_vegetation_cycle
 
 CONTAINS
   !>
@@ -82,6 +84,7 @@ CONTAINS
     l_emiss                 = .TRUE.
     heightdiff_threshold(:) = 3000._wp
     lrevert_sea_height      = .FALSE.
+    itype_vegetation_cycle  = 1
     extpar_filename         = "<path>extpar_<gridfile>"
     extpar_varnames_map_file = " "
 
@@ -133,6 +136,7 @@ CONTAINS
     config_l_emiss            = l_emiss
     config_heightdiff_threshold = heightdiff_threshold
     config_lrevert_sea_height = lrevert_sea_height
+    config_itype_vegetation_cycle = itype_vegetation_cycle
     config_extpar_filename    = extpar_filename
     config_extpar_varnames_map_file = extpar_varnames_map_file
 

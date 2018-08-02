@@ -26,10 +26,26 @@ MODULE mo_var_list_element
   CHARACTER(LEN=2), PARAMETER    :: lev_type_str(4) = (/ 'ML', 'PL', 'HL', 'IL' /)
 
   TYPE t_var_list_element
-    REAL(dp), POINTER            :: r_ptr(:,:,:,:,:)   ! pointer to 4D-field
-    REAL(sp), POINTER            :: s_ptr(:,:,:,:,:)   ! pointer to 4D-field
-    INTEGER,  POINTER            :: i_ptr(:,:,:,:,:)   ! pointer to 4D-field
-    LOGICAL,  POINTER            :: l_ptr(:,:,:,:,:)   ! pointer to 4D-field
+    REAL(dp), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      :: r_ptr(:,:,:,:,:)
+    REAL(sp), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      :: s_ptr(:,:,:,:,:)
+    INTEGER,  POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      :: i_ptr(:,:,:,:,:)   ! pointer to 4D-field
+    LOGICAL,  POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      :: l_ptr(:,:,:,:,:)   ! pointer to 4D-field
     INTEGER                      :: var_base_size      ! generic size in bytes of variable used
     TYPE(t_var_metadata)         :: info               ! meta data for this entry
     TYPE(t_var_metadata_dynamic) :: info_dyn           ! dynamic meta data for this entry (see type description)

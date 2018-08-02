@@ -42,7 +42,7 @@ MODULE mo_alloc_patches
     &                                   uniform_partition,                           &
     &                                   partidx_of_elem_uniform_deco
   USE mo_parallel_config,         ONLY: nproma, num_dist_array_replicas
-  USE mo_grid_config,             ONLY: n_dom_start
+  USE mo_grid_config,             ONLY: n_dom_start, n_dom
   USE mo_mpi,                     ONLY: p_pe_work, p_comm_work, p_n_work
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
   USE ppm_distributed_array,      ONLY: global_array_desc,                           &
@@ -53,6 +53,8 @@ MODULE mo_alloc_patches
   USE ppm_distributed_array,      ONLY: sync_mode_active_target
 #endif
   USE ppm_extents,                ONLY: extent, extent_start, extent_size
+  USE mo_communication,           ONLY: delete_comm_pattern,                         &
+    &                                   delete_comm_gather_pattern
 
   IMPLICIT NONE
 
@@ -61,6 +63,7 @@ MODULE mo_alloc_patches
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: destruct_patches
+  PUBLIC :: destruct_comm_patterns
   PUBLIC :: allocate_basic_patch
   PUBLIC :: allocate_pre_patch
   PUBLIC :: deallocate_pre_patch
@@ -407,6 +410,53 @@ CONTAINS
     CALL message (routine, 'destruct_patches finished')
 
   END SUBROUTINE destruct_patches
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !> destruct_comm_patterns
+  SUBROUTINE destruct_comm_patterns( p_patch, p_patch_local_parent )
+
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch_local_parent(n_dom_start+1:)
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_alloc_patches:destruct_comm_patterns'
+
+    !local variables
+    INTEGER :: jg
+    !-----------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
+
+    DO jg = n_dom_start, n_dom
+
+      CALL delete_comm_pattern(p_patch(jg)%comm_pat_c)
+      CALL delete_comm_pattern(p_patch(jg)%comm_pat_c1)
+      CALL delete_comm_pattern(p_patch(jg)%comm_pat_v)
+      CALL delete_comm_pattern(p_patch(jg)%comm_pat_e)
+
+      CALL delete_comm_gather_pattern(p_patch(jg)%comm_pat_gather_c)
+      CALL delete_comm_gather_pattern(p_patch(jg)%comm_pat_gather_v)
+      CALL delete_comm_gather_pattern(p_patch(jg)%comm_pat_gather_e)
+
+      IF (jg > n_dom_start) THEN
+
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_v)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_e)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c1)
+
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_glb_to_loc_c)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_glb_to_loc_e)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_loc_to_glb_c_fbk)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_loc_to_glb_e_fbk)
+      ENDIF
+
+    ENDDO
+
+    CALL message (routine, 'destruct_comm_patterns finished')
+
+  END SUBROUTINE destruct_comm_patterns
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !> Allocates all arrays in a basic patch
@@ -809,13 +859,19 @@ CONTAINS
     ! !grid cells
     !
     DEALLOCATE( p_patch%cells%num_edges )
-    DEALLOCATE( p_patch%cells%parent_loc_idx )
-    DEALLOCATE( p_patch%cells%parent_loc_blk )
-    DEALLOCATE( p_patch%cells%parent_glb_idx )
-    DEALLOCATE( p_patch%cells%parent_glb_blk )
+    IF (ALLOCATED(p_patch%cells%parent_loc_idx)) &
+      DEALLOCATE( p_patch%cells%parent_loc_idx )
+    IF (ALLOCATED(p_patch%cells%parent_loc_blk)) &
+      DEALLOCATE( p_patch%cells%parent_loc_blk )
+    IF (ALLOCATED(p_patch%cells%parent_glb_idx)) &
+      DEALLOCATE( p_patch%cells%parent_glb_idx )
+    IF (ALLOCATED(p_patch%cells%parent_glb_blk)) &
+      DEALLOCATE( p_patch%cells%parent_glb_blk )
     DEALLOCATE( p_patch%cells%pc_idx )
-    DEALLOCATE( p_patch%cells%child_idx )
-    DEALLOCATE( p_patch%cells%child_blk )
+    IF (ALLOCATED(p_patch%cells%child_idx)) &
+      DEALLOCATE( p_patch%cells%child_idx )
+    IF (ALLOCATED(p_patch%cells%child_blk)) &
+      DEALLOCATE( p_patch%cells%child_blk )
     DEALLOCATE( p_patch%cells%child_id )
     DEALLOCATE( p_patch%cells%neighbor_idx )
     DEALLOCATE( p_patch%cells%neighbor_blk )
@@ -836,13 +892,19 @@ CONTAINS
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch%edges%parent_loc_idx )
-    DEALLOCATE( p_patch%edges%parent_loc_blk )
-    DEALLOCATE( p_patch%edges%parent_glb_idx )
-    DEALLOCATE( p_patch%edges%parent_glb_blk )
+    IF (ALLOCATED(p_patch%edges%parent_loc_idx)) &
+      DEALLOCATE( p_patch%edges%parent_loc_idx )
+    IF (ALLOCATED(p_patch%edges%parent_loc_blk)) &
+      DEALLOCATE( p_patch%edges%parent_loc_blk )
+    IF (ALLOCATED(p_patch%edges%parent_glb_idx)) &
+      DEALLOCATE( p_patch%edges%parent_glb_idx )
+    IF (ALLOCATED(p_patch%edges%parent_glb_blk)) &
+      DEALLOCATE( p_patch%edges%parent_glb_blk )
     DEALLOCATE( p_patch%edges%pc_idx )
-    DEALLOCATE( p_patch%edges%child_idx )
-    DEALLOCATE( p_patch%edges%child_blk )
+    IF (ALLOCATED(p_patch%edges%child_idx)) &
+      DEALLOCATE( p_patch%edges%child_idx )
+    IF (ALLOCATED(p_patch%edges%child_blk)) &
+      DEALLOCATE( p_patch%edges%child_blk )
     DEALLOCATE( p_patch%edges%child_id )
     DEALLOCATE( p_patch%edges%refin_ctrl )
     DEALLOCATE( p_patch%edges%start_idx )

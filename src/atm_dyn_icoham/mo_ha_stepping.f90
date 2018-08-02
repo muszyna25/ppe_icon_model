@@ -206,7 +206,7 @@ CONTAINS
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
 
-  TYPE(t_patch),         TARGET, INTENT(IN)    :: p_patch(n_dom)
+  TYPE(t_patch),         TARGET, INTENT(INOUT) :: p_patch(n_dom)
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
 

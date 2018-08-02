@@ -42,11 +42,7 @@ SUBROUTINE SPPGUST(KIDIA, KFDIA, KLON &
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
-      & RG       ,RLVTT    ,RLSTT    ,RTT      ,&           !yomcst  (& yos_cst)
-      & RCHBA    ,RCHBB    ,RCHBD    ,RCHB23A  ,&           !yoevdfs (& yos_excs)
-      & RCHBBCD  ,RCHBCD   ,RCHETA   ,RCHETB   ,RCHBHDL ,&  ! -
-      & RCDHALF  ,RCDHPI2  ,&                               ! -
-      & RKAP     ,REPDU2                                    !yoevdf  (& yos_exc)
+      & RKAP                                                !yoevdf  (& yos_exc)
 
 !     ------------------------------------------------------------------
 
@@ -113,15 +109,11 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PGUST(:)
 !*    LOCAL STORAGE
 !     ----- -------
 
-REAL(KIND=JPRB) ::    ZFKLEV(KLON)
-
 INTEGER(KIND=JPIM) :: JL
 
-REAL(KIND=JPRB) ::  Z10M, Z10MP, &
- & ZDL, &
- & ZL, ZNLEV, &
+REAL(KIND=JPRB) ::  &
  & ZUGN, ZCZI, ZUSTAR,&
- & Z1D3, ZIPBL, ZIDL, ZFF10, ZOROC  
+ & Z1D3, ZIPBL, ZIDL, ZFF10
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 ! #include "fcsvdfs.h" !  ... not needed???
@@ -134,8 +126,6 @@ REAL(KIND=JPRB) :: ZHOOK_HANDLE
 !     THIS SPECIFIES THE HEIGHT FOR U,V (10 M) 
 
 IF (LHOOK) CALL DR_HOOK('SPPGUST_MOD:SPP_GUST',0,ZHOOK_HANDLE)
-Z10M=10._JPRB
-ZOROC=5._JPRB
 
 !     For the gust model, a dimensionless number is 
 !     used ZUG=(UMAX-U)/u*. It is computed from the gust model 

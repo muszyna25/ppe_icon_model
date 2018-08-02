@@ -49,6 +49,8 @@ MODULE mo_util_string
   PUBLIC :: sort_and_compress_list
   PUBLIC :: tohex                ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
   PUBLIC :: remove_whitespace
+  PUBLIC :: pretty_print_string_list
+  PUBLIC :: find_trailing_number
 
   !functions to handle character arrays as strings
   PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
@@ -279,15 +281,18 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)           :: in_str    ! input string
     CHARACTER(len=*), INTENT(IN)           :: arg(:)
     ! local variables:
-    INTEGER :: i, in_str_tlen, arg_tlen
+    INTEGER :: i, n, in_str_tlen, arg_tlen
+    CHARACTER(len=len_trim(in_str)) :: in_str_upper
 
     one_of = -1
-    IF (SIZE(arg) > 0) THEN
+    n = SIZE(arg)
+    IF (n > 0) THEN
+      in_str_upper = toupper(in_str)
       in_str_tlen = LEN_TRIM(in_str)
-      DO i=1,SIZE(arg)
+      DO i=1,n
         arg_tlen = LEN_TRIM(arg(i))
         IF (arg_tlen == in_str_tlen) THEN
-          IF (toupper(in_str(1:in_str_tlen)) == toupper(arg(i)(1:arg_tlen))) THEN
+          IF (in_str_upper == toupper(arg(i))) THEN
             one_of=i
             EXIT
           ENDIF
@@ -477,29 +482,22 @@ CONTAINS
     INTEGER,                   INTENT(INOUT) :: nitems
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems
 
-    iwrite = 1
-    DO iread=1,nitems
+    iwrite = 0
+    ITEM_LOOP: DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,(iwrite-1)
-        IF (TRIM(str_list(i)) == TRIM(str_list(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list(iwrite) = str_list(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
-    nitems = iwrite-1
+      DO i=1,iwrite
+        IF (str_list(i) == str_list(iread)) CYCLE item_loop
+      END DO
+      iwrite = iwrite + 1
+      IF (iwrite /= iread) str_list(iwrite) = str_list(iread)
+    END DO ITEM_LOOP
+    nitems = iwrite
 
     ! clear the rest of the list
-    DO iwrite=(nitems+1),nitems_old
+    DO iwrite = iwrite+1, nitems_old
       str_list(iwrite) = ' '
     END DO
   END SUBROUTINE remove_duplicates
@@ -517,29 +515,23 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nitems2
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems1
 
     iwrite = 1
-    DO iread=1,nitems1
+    ITEM1_LOOP: DO iread=1,nitems_old
       ! check if item is in string list 2:
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,nitems2
-        IF (TRIM(str_list2(i)) == TRIM(str_list1(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list1(iwrite) = str_list1(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
+      DO i=1,nitems2
+        IF (str_list2(i) == str_list1(iread)) CYCLE ITEM1_LOOP
+      END DO
+      ! can only be reached for non-duplicate entries
+      IF (iwrite /= iread) str_list1(iwrite) = str_list1(iread)
+      iwrite = iwrite + 1
+    END DO ITEM1_LOOP
     nitems1 = iwrite-1
 
     ! clear the rest of the list
-    DO iwrite=(nitems1+1),nitems_old
+    DO iwrite=iwrite,nitems_old
       str_list1(iwrite) = ' '
     END DO
   END SUBROUTINE difference
@@ -648,22 +640,28 @@ CONTAINS
     CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
     CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
-    INTEGER :: i,j,k
+    INTEGER :: i,j,k,m,ngroups
+    CHARACTER(len=LEN_TRIM(group_name)) :: group_name_uc
 
     k=0
-    DO i=1,SIZE(varlist)
-      IF (varlist(i) == ' ') EXIT
-      IF (TRIM(toupper(varlist(i))) == TRIM(toupper(group_name))) THEN
-        DO j=1,SIZE(group_list)
+    ngroups = SIZE(group_list)
+    m = SIZE(varlist)
+    IF (m > 0) THEN
+      group_name_uc = toupper(group_name)
+      DO i=1,m
+        IF (varlist(i) == ' ') EXIT
+        IF (toupper(varlist(i)) == group_name_uc) THEN
+          DO j=1,ngroups
+            k = k+1
+            result_list(k) = group_list(j)
+          END DO
+        ELSE
           k = k+1
-          result_list(k) = TRIM(group_list(j))
-        END DO
-      ELSE
-        k = k+1
-        result_list(k) = TRIM(varlist(i))
-      END IF
-    END DO
-    CALL remove_duplicates(result_list, k )
+          result_list(k) = varlist(i)
+        END IF
+      END DO
+      CALL remove_duplicates(result_list, k )
+    END IF
     DO i=k+1,n
       result_list(i) = " "
     END DO
@@ -671,14 +669,15 @@ CONTAINS
   END SUBROUTINE insert_group
 
   !==============================================================================
-  RECURSIVE SUBROUTINE delete_keyword_list(list_head)
+  SUBROUTINE delete_keyword_list(list_head)
     ! Parameters
-    TYPE(t_keyword_list),    POINTER    :: list_head
+    TYPE(t_keyword_list),    POINTER    :: list_head, next
 
-    IF (ASSOCIATED(list_head)) THEN
-      CALL delete_keyword_list(list_head%next)
+    DO WHILE (ASSOCIATED(list_head))
+      next => list_head%next
       DEALLOCATE(list_head)
-    ENDIF
+      list_head => next
+    END DO
 
   END SUBROUTINE delete_keyword_list
   !==============================================================================
@@ -725,8 +724,7 @@ CONTAINS
     END DO
     ! build the result string:
     i = 1
-    DO
-      IF (i>N) EXIT
+    DO WHILE (i <= n)
       IF (nnext(i) > 1) THEN
         IF (nnext(i) == 2) THEN
           dst = TRIM(dst)//TRIM(int2string(list(i)))//","//TRIM(int2string(list(i+1)))
@@ -883,5 +881,74 @@ CONTAINS
         END IF
     END DO
   END SUBROUTINE charArray_toLower
+
+  !> "pretty-print" a list of strings (comma-separated).
+  !
+  !  After at most "max_ll" characters-per-line a new line is inserted.
+  !  Each line is indented by an (optional) prefix string.
+  !
+  SUBROUTINE pretty_print_string_list(list, opt_max_ll, opt_dst, opt_prefix)
+    CHARACTER(LEN=*),           INTENT(IN) :: list(:)     ! string list for print-out
+    INTEGER, OPTIONAL,          INTENT(IN) :: opt_max_ll  ! max. line length
+    INTEGER, OPTIONAL,          INTENT(IN) :: opt_dst     ! (optional:) WRITE destination
+    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_prefix  ! (optional:) line prefix
+
+    INTEGER :: dst, max_ll, ccnt, i, len_i
+    CHARACTER(len=:), ALLOCATABLE :: prefix
+
+    dst = 0
+    IF (PRESENT(opt_dst))     dst = opt_dst
+    max_ll = 80
+    IF (PRESENT(opt_max_ll))  max_ll = opt_max_ll
+
+    IF (PRESENT(opt_prefix)) THEN
+      prefix = opt_prefix
+    ELSE
+      ALLOCATE(CHARACTER(1) :: prefix)
+      prefix = " "
+    END IF
+
+    ccnt = max_ll
+    DO i=1,SIZE(list)
+      len_i = LEN_TRIM(list(i))
+      ! start new line (if necessary)
+      IF (ccnt + len_i + 2 > max_ll) THEN
+        IF (i>1)  WRITE (dst,"(a)") " "
+        WRITE (dst,"(a)", advance='no') prefix
+        ccnt = LEN(prefix)
+      END IF
+      WRITE (dst,"(a)", advance='no') TRIM(list(i))
+      IF (i < SIZE(list))  WRITE (dst,"(a)", advance='no') ", "
+      ccnt = ccnt + len_i + 2
+    END DO
+    WRITE (dst,"(a)") " "
+
+    DEALLOCATE(prefix)
+  END SUBROUTINE pretty_print_string_list
+
+
+  !> find position of numeric suffix in the character string "str",
+  !  return "-1" if no such suffix is found.
+  !
+  RECURSIVE FUNCTION find_trailing_number(str) RESULT(pos)
+    INTEGER                      :: pos
+    CHARACTER(LEN=*), INTENT(IN) :: str  !< input string
+    INTEGER :: len
+
+    pos   = -1
+    len   = LEN_TRIM(str)
+    IF (len == 0) RETURN
+
+    IF (is_number(str(len:len))) THEN
+      IF (len > 1)   pos = find_trailing_number(str(1:(len-1)))
+      IF (pos == -1) pos = len
+    END IF
+
+  CONTAINS
+    LOGICAL FUNCTION is_number(char)
+      CHARACTER, INTENT(IN) :: char
+      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+    END FUNCTION is_number
+  END FUNCTION find_trailing_number
 
 END MODULE mo_util_string

@@ -37,7 +37,7 @@ SUBROUTINE VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV   , KDRAFT , PTMST  , PZ0MM  
                   &PKMFL  , PKHFL  , PKQFL  , &
                   &PCFM   , PCFH   , PTAUXCG, PTAUYCG, &
                   &PRICUI , PMCU   , PDTHV  , PMFLX  , KVARTOP, &
-                  &PZINV  , KHPBL  , PKH    , PZCLDBASE , PZCLDTOP     , KPBLTYPE)
+                  &PZINV  , KHPBL  , PKH    , PKM    , PZCLDBASE , PZCLDTOP     , KPBLTYPE)
 !     ------------------------------------------------------------------
 
 !**   *VDFEXCU* - DETERMINES THE EXCHANGE COEFFICIENTS BETWEEN THE
@@ -90,6 +90,7 @@ SUBROUTINE VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV   , KDRAFT , PTMST  , PZ0MM  
 !     *PKQFL*        KINEMATIC MOISTURE FLUX
 !     *PZINV*        INVERSION HEIGHT                  [M]
 !     *PKH*          TURB. DIFF. COEFF. FOR HEAT ABOVE SURF. LAY.  (M2/S)
+!     *PKM*          TURB. DIFF. COEFF. FOR MOM. ABOVE SURF. LAY.  (M2/S)
 
 !     OUTPUT PARAMETERS (REAL):
 
@@ -122,9 +123,7 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & RG       ,RD       ,RCPD     ,RETV     ,RATM   ,&   !yomcst
                 & RKAP     ,RVDIFTS  ,REPDU2   ,&                     !yoevdf
-                & JPRITBL  ,RITBL    ,ARITBL   ,RCHBA    ,&           !yoevdfs
-                & RCHBB    ,RCHBD    ,RCHB23A  ,RCHBBCD  ,RCHBCD   ,& ! -
-                & RCHETA   ,RCHETB   ,RCDHALF  ,RCDHPI2  ,RIMAX    ,& ! -
+                & JPRITBL  ,RITBL    ,ARITBL   ,RIMAX    ,&           !yoevdfs
                 & DRITBL   ,DRI26    ,&                               ! -
                 & phihu    ,phimu    ,phims    ,phihs                 !fcvdfs.h
 USE mo_edmf_param   ,ONLY : &
@@ -166,7 +165,8 @@ REAL(KIND=JPRB)   ,INTENT(INOUT) :: PTAUYCG(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PZINV(KLON) 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KHPBL(KLON)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKH(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PZCLDBASE(KLON)
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKM(KLON,KLEV) 
+REAL(KIND=JPRB)   ,INTENT(IN)    :: PZCLDBASE(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PZCLDTOP(KLON)
 INTEGER(KIND=JPIM),INTENT(IN)    :: KPBLTYPE(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PRICUI(KLON) 
@@ -175,8 +175,8 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PMCU(KLON)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PMFLX(KLON,0:KLEV,KDRAFT) 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KVARTOP(KLON)
 !          DIAGNOSTIC OUTPUT
-INTEGER(KIND=JPIM),INTENT(IN)     :: KFLDX2, KLEVX, KFLDX
-REAL(KIND=JPRB)   ,INTENT(INOUT)  :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX)
+INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX)
 
 !*         0.2    LOCAL VARIABLES
 
@@ -186,14 +186,14 @@ REAL(KIND=JPRB) ::    ZRI(KLON),ZMGEOM(KLON),ZUST(KLON),&
 REAL(KIND=JPRB) ::    ZDU2(KLON+N_VMASS)
 
 INTEGER(KIND=JPIM) :: IRIB, JK, JL, JLEN
-INTEGER(KIND=JPIM) :: ITEMP(KFDIA-KIDIA+1), INDX(KFDIA-KIDIA+1), JJ, JJJ
+INTEGER(KIND=JPIM) :: ITEMP(KFDIA-KIDIA+1)
 REAL(KIND=JPRB) ::    ZENTRSFC, ZENTRRAD, ZENTRTOP, ZKLEN, ZKLEN2, &
                     & ZA, ZB, ZCB, ZCD, ZCFNC1, ZCONS13, ZRG, &
                     & ZRHO,  ZUABS, ZHU1, ZHU2, ZWST3, &
                     & ZDH, ZDL, ZDRORO, ZEPS, ZETA, &
                     & ZPHIKH, ZPHIKM, ZSCF, &
                     & ZX2, ZZ, ZWTVENTR, ZKH, ZCFHNEW, &
-                    & ZML, ZBASE, ZVSC, ZKCLD, &
+                    & ZVSC, ZKCLD, &
                     & ZREPUST,ZKFACEDMF, ZTAUX, ZTAUY
 REAL(KIND=JPRB) ::    ZZH, ZIFLTGM, ZIFLTGH, ZIFMOM, ZIFMOH, ZBM, ZBH, ZCM, ZCH, ZDUDZ(KLON)
    
@@ -202,8 +202,7 @@ LOGICAL ::         LLRICU
 REAL(KIND=JPRB) :: ZDRADFLX(KLON), ZRADKBASE(KLON), ZRADKDEPTH(KLON), &
                  & ZRADKFAC(KLON)
 
-REAL(KIND=JPRB) :: ZWECUTOP(KLON)  , ZDTHVCUTOP, &
-                 & ZTHVEN(KLON,KLEV), ZTHEN(KLON,KLEV), ZFAC
+REAL(KIND=JPRB) :: ZWECUTOP(KLON), ZTHEN(KLON,KLEV)
 
 REAL(KIND=JPRB) ::    ZTMP2(KFDIA-KIDIA+1)
 REAL(KIND=JPRB) ::    ZTMP4(KFDIA-KIDIA+1)
@@ -288,8 +287,6 @@ ENDDO
 DO JK=KLEV,1,-1
   DO JL=KIDIA,KFDIA
     ZTHEN(JL,JK)   = ( PAPM1(JL,JK)/RATM )**(-RD/RCPD) * PTM1(JL,JK)
-    ZTHVEN(JL,JK)  = ZTHEN(JL,JK) * &
-                   & ( 1.0_JPRB + RETV * PQM1(JL,JK)   - PLM1(JL,JK)   - PIM1(JL,JK)   )
   ENDDO
 ENDDO
 
@@ -351,6 +348,7 @@ DO JK = KLEV-1, 1, -1
     PCFM(JL,JK)=0.0_JPRB
     PCFH(JL,JK)=0.0_JPRB
     PKH(JL,JK) =0.0_JPRB
+    PKM(JL,JK) =0.0_JPRB
     PTAUXCG(JL,JK)=0.0_JPRB
     PTAUYCG(JL,JK)=0.0_JPRB
   ENDDO
@@ -453,7 +451,7 @@ DO JK = KLEV-1, 1, -1
 
 !          UNSTABLE SITUATIONS
 
-      ZETA  = ZRI(JL)
+      ZETA      = ZRI(JL)
       ZPHIM(JL) = PHIMU(ZETA)
       ZPHIH(JL) = PHIHU(ZETA)
     ENDIF
@@ -665,6 +663,7 @@ DO JK = KLEV-1, 1, -1
 !          DIFFUSION COEFFICIENT FOR HEAT FOR POSTPROCESSING ONLY IN (M2/S)
 
     PKH(JL,JK) = PCFH(JL,JK)
+    PKM(JL,JK) = PCFM(JL,JK)
 
 !          SCALE DIFFUSION COEFFICIENTS FOR USE IN VDFDIFH/M
 
