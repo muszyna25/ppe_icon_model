@@ -121,9 +121,9 @@ CONTAINS
   ! TODO: parallelize
   !
   SUBROUTINE init_dbg_index (ppatch)
-    
-    TYPE(t_patch),             TARGET, INTENT(in)     :: ppatch
-    
+
+    TYPE(t_patch),             TARGET, INTENT(inout) :: ppatch
+
     INTEGER :: i
     REAL(wp) :: zlon, zlat, zarea, zlength
     
@@ -240,8 +240,8 @@ CONTAINS
   !! TODO: parallelize
   !
   SUBROUTINE find_latlonindex (ppatch, plat_in, plon_in, iidx, iblk, proc_id)
-    
-    TYPE(t_patch), TARGET, INTENT(in)     :: ppatch
+
+    TYPE(t_patch), TARGET, INTENT(inout)     :: ppatch
     REAL(wp),              INTENT(in)     :: plat_in       ! cell latitude to search for
     REAL(wp),              INTENT(in)     :: plon_in       ! cell longitude to search for
     INTEGER,               INTENT(out)    :: iidx          ! index of nearest cell

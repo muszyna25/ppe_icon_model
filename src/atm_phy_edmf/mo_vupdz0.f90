@@ -51,9 +51,6 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RKAP     ,RZ0ICE   ,REPDU2   ,&                     !yoevdf  (& yos_exc)
       & REPUST   ,RNUM     ,RNUH     ,RNUQ     ,RPARZI   ,& ! -
-      & JPRITBL  ,RITBL    ,RCHBA    ,RCHBB    ,&           !yoevdfs (& yos_excs)
-      & RCHBD    ,RCHB23A  ,RCHBBCD  ,RCHBCD   ,RCHETA   ,& ! -
-      & RCHETB   ,RCHBHDL  ,RCDHALF  ,RCDHPI2  ,DRITBL   ,& ! -
       & RG       ,RD       ,RCPD     ,RETV                  !yomcst  (& yos_cst)   
 USE mo_edmf_param   ,ONLY : &
       & RVZ0M    ,RVZ0H    ,&                               !yos_veg
@@ -188,7 +185,7 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PRAQTI(:,:)
 INTEGER(KIND=JPIM) :: JL,JTILE
 
 REAL(KIND=JPRB) :: Z1DZ0Q, ZCON2, ZIPBL, ZNLEV, ZPRH1,&
- & ZPRQ, ZPRQ0, ZROWQ, ZROWT, ZTPFAC2, &
+ & ZPRQ0, ZROWQ, ZROWT, ZTPFAC2, &
  & ZTPFAC3, ZTPFAC4, ZWST2, &
  & ZXLNQ,ZDUA,ZZCDN,ZCDFC  
 REAL(KIND=JPRB) :: ZUST(KLON,KTILES),ZUST2(KLON,KTILES)
@@ -432,7 +429,6 @@ DO JTILE=1,KTILES
       ZPRH1=PSIHU(PZDLTI(JL,JTILE))
       ZPRQ0=PSIHU(PZDLTI(JL,JTILE)/Z1DZ0Q)
     ENDIF
-    ZPRQ   =ZXLNQ-ZPRH1+ZPRQ0
     PRAQTI(JL,JTILE)=(ZXLNQ-ZPRH1+ZPRQ0)/(ZUST(JL,JTILE)*RKAP)
   ENDDO
 ENDDO

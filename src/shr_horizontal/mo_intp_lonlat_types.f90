@@ -23,8 +23,8 @@ MODULE mo_intp_lonlat_types
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom, SUCCESS,     &
     &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,                   &
     &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates,      &
-    &                               gc2cc
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,      ONLY: gc2cc
   USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, OPERATOR(==)
   USE mo_communication,       ONLY: t_comm_gather_pattern
   USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_dim_c2l, l_mono_c2l

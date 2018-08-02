@@ -573,11 +573,7 @@ CONTAINS
     IF (lcorio .AND. .NOT. is_plane) THEN
 
       DO jb = 1, nblks_c
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
+        nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
         DO jc = 1, nlen
           zlat = patch%cells%center(jc,jb)%lat
           patch%cells%f_c(jc,jb) = 2._wp * grid_angular_velocity * SIN(zlat)
@@ -585,11 +581,7 @@ CONTAINS
       END DO
 
       DO jb = 1, nblks_e
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
+        nlen = MERGE(nproma, npromz_e, jb /= nblks_e)
         DO je = 1, nlen
           zlat = patch%edges%center(je,jb)%lat
           patch%edges%f_e(je,jb) = 2._wp * grid_angular_velocity * SIN(zlat)
@@ -597,11 +589,7 @@ CONTAINS
       END DO
 
       DO jb = 1, nblks_v
-        IF (jb /= nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_v
-        ENDIF
+        nlen = MERGE(nproma, npromz_v, jb /= nblks_v)
         DO jv = 1, nlen
           zlat = patch%verts%vertex(jv,jb)%lat
           patch%verts%f_v(jv,jb) = 2._wp * grid_angular_velocity * SIN(zlat)

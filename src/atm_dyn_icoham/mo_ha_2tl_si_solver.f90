@@ -81,7 +81,7 @@ CONTAINS
   REAL(wp), INTENT(IN) :: temp(:,:,:), rdelp_c(:,:,:), delp_e(:,:,:), &
                           rdlnpr(:,:,:), rdalpha(:,:,:), cgradps(:,:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), INTENT(IN) :: curr_patch
+  TYPE(t_patch), INTENT(INOUT) :: curr_patch
   ! interpolation state (needed for divergence averaging)
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! index defining the "active" region of the arrays
@@ -114,7 +114,7 @@ CONTAINS
       REAL(wp),    INTENT(in) :: x(:,:,:)
       REAL(wp),    INTENT(in) :: temp(:,:,:), rdelp_c(:,:,:), delp_e(:,:,:)
       REAL(wp),    INTENT(in) :: rdlnpr(:,:,:), rdalpha(:,:,:), cgradps(:,:,:)
-      TYPE(t_patch), INTENT(in) :: curr_patch
+      TYPE(t_patch), INTENT(inout) :: curr_patch
       TYPE(t_int_state), INTENT(in) :: p_int
       REAL(wp),    INTENT(in) :: coeff
       REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) , SIZE(x,3) ) ! same as x

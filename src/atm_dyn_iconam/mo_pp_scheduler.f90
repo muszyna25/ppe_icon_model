@@ -167,7 +167,8 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
-    &                                   get_var_timelevel, find_list_element
+    &                                   get_var_timelevel, find_list_element,               &
+    &                                   get_timelevel_string
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
@@ -406,8 +407,8 @@ CONTAINS
 
         ! get time level
         tl = get_var_timelevel(element%field%info)
-        suffix = ""
-        IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
+        suffix = ''
+        IF (tl /= -1)  suffix = get_timelevel_string(tl)
 
         !- find existing variables "u", "v" (for copying the meta-data):
         element_u => find_list_element (p_nh_state_lists(jg)%diag_list, "u")
@@ -848,7 +849,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::collect_output_variables"
     TYPE (t_output_name_list), POINTER :: p_onl
     LOGICAL :: l_jg_active
-    INTEGER :: ivar, iphys_dom
+    INTEGER :: ivar
     CHARACTER(LEN=vname_len), POINTER :: nml_varlist(:)         !< varlist (hl/ml/pl/il) in output_nml namelist
 
     l_uv_vertical_intp = .FALSE.
@@ -871,15 +872,8 @@ CONTAINS
 
       IF (dbg_level >= 21)  WRITE (0,*) nml_varlist 
 
-      ! If dom(:) was not specified in namelist input, it is set
-      ! completely to -1.  In this case all domains are searched:
-      l_jg_active = (p_onl%dom(1) <= 0)
-      DO iphys_dom=1,max_phys_dom
-        IF (p_onl%dom(iphys_dom) > 0) THEN
-          l_jg_active = l_jg_active .OR. (jg == p_phys_patch(p_onl%dom(iphys_dom))%logical_id)
-        END IF
-      END DO
-
+      l_jg_active = (jg == p_phys_patch(p_onl%dom)%logical_id)
+      
       ! Selection criteria: 
       ! - domain is requested
       ! - "Z"/"P"/"I"-level interpolation is requested
@@ -1007,8 +1001,9 @@ CONTAINS
 
         ! get time level
         tl = get_var_timelevel(element%field%info)
-        suffix = ""
-        IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
+        suffix = ''
+
+        IF (tl /= -1) suffix = get_timelevel_string(tl)
 
         !-- create a new z/p/i-variable "vn":
         CALL add_var( dst_varlist, TRIM(info%name), p_opt_field_r3d, element%field%info%hgrid,    &

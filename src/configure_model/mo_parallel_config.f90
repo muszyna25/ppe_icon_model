@@ -28,7 +28,7 @@ MODULE mo_parallel_config
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
        &  l_log_checks, l_fast_sum,   &
-       &  ldiv_phys_dom, p_test_run, l_test_openmp,                 &
+       &  ldiv_phys_dom, p_test_run, num_test_pe, l_test_openmp,    &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  num_restart_procs, num_prefetch_proc,                     &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
@@ -38,7 +38,9 @@ MODULE mo_parallel_config
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
        &  use_div_from_file, io_proc_chunk_size,                    &
-       &  num_dist_array_replicas, io_process_stride, io_process_rotate
+       &  num_dist_array_replicas, comm_pattern_type_orig,          &
+       &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
+       &  io_process_stride, io_process_rotate
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -76,6 +78,10 @@ MODULE mo_parallel_config
   ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
   ! model whereas the other PEs do a real parallelized run
   LOGICAL :: p_test_run = .false.
+
+  ! use more than 1 PE for verification if p_test_run and num_test_pe is set
+  ! to a value > 1
+  INTEGER :: num_test_pe
 
   LOGICAL :: use_dycore_barrier = .false. ! acivate an mpi barrier before the dycore
                                           ! to synchronize MPI tasks
@@ -152,6 +158,11 @@ MODULE mo_parallel_config
 
   ! shift ranks doing I/O by this number
   INTEGER :: io_process_rotate
+
+  ! switch between different implementations of mo_communication
+  INTEGER, PARAMETER :: comm_pattern_type_orig = 1
+  INTEGER, PARAMETER :: comm_pattern_type_yaxt = 2
+  INTEGER :: default_comm_pattern_type
 
 CONTAINS
 

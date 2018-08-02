@@ -56,6 +56,8 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< gradient of topographic height at cell centers [ ]
       &  grad_topo(:,:,:)      ! index1=1,2, index2=1,nproma, index3=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< interpolated topographic height at cell centers for T2M climatology data     [m]
+      &  topo_t2mclim(:,:)     ! index1=1,nproma, index2=1,nblks_c
 
     !
     ! *** Land-Sea-Mask ***
@@ -166,6 +168,8 @@ MODULE mo_ext_data_types
       &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< transpiration area index (vegetation period)   [ ]
       &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, ntiles_total
+    REAL(wp), POINTER ::   &   !< ratio between current LAI and laimax
+      &  laifac_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, ntiles_total
     REAL(wp), POINTER ::   &   !< earth area (evaporative surface area)          [ ]
       &  eai_t(:,:,:)          !< index (vegetation period)
                                ! index1=1,nproma, index2=1,nblks_c, ntiles_total
@@ -211,6 +215,14 @@ MODULE mo_ext_data_types
       &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
                                ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< Climatological 2m-temperature [K] interpolated from monthly means
+      &  t2m_clim(:,:)         ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< Height-corrected climatological 2m-temperature [K] interpolated from monthly means
+      &  t2m_clim_hc(:,:)      ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::   &   !< Climatological 2m-temperature gradient [K/month]
+      &  t2m_climgrad(:,:)     ! index1=1,nproma, index2=1,nblks_c
 
     ! *** radiation parameters ***
     REAL(wp), POINTER ::   &   !< ozone mixing ratio                        [ kg kg^-1 ]
@@ -388,11 +400,13 @@ MODULE mo_ext_data_types
       &  ndvi_mrat(:,:,:)      !< normalized differential vegetation index   [ ]
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
     !
-    ! ***SST and sea ice fraction
+    ! ***SST, sea ice fraction and T2M climatology
     REAL(wp), POINTER ::   &   !< (monthly) SST
       &  sst_m(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
     REAL(wp), POINTER ::   &   !< (monthly) sea ice fraction
       &  fr_ice_m(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< (monthly) T2M
+      &  t2m_m(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
   END TYPE t_external_atmos_td
 

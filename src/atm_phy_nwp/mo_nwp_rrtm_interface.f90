@@ -33,7 +33,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
                                      iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
+  USE mo_physical_constants,   ONLY: rd, grav, cpd
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
@@ -42,7 +43,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
-  USE mo_radiation,            ONLY: radiation, radiation_nwp
+  USE mo_radiation,            ONLY: radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_aerosol_util,         ONLY: tune_dust
@@ -75,8 +76,7 @@ MODULE mo_nwp_rrtm_interface
     & ztrpt  = 30.0_wp,   &
     & ztrbga = 0.03_wp  / (101325.0_wp - 19330.0_wp), &
     & zvobga = 0.007_wp /  19330.0_wp , &
-    & zstbga = 0.045_wp /  19330.0_wp!, &
-!      & zaeadk(1:3) = (/0.3876E-03_wp,0.6693E-02_wp,0.8563E-03_wp/)
+    & zstbga = 0.015_wp  / 19330.0_wp  ! original value of 0.045 is much higher than recently published climatologies
 
 CONTAINS
 
@@ -128,7 +128,8 @@ CONTAINS
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,                 &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,                 &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,                 &
-      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn, zw
+      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn, zw, &
+      & zptrop(nproma), zdtdz(nproma), zlatfac(nproma), zstrfac, zpblfac, zslatq
 
 
     ! Local scalars:
@@ -201,9 +202,8 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_endidx, &
-!$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
-!$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg )  ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_endidx,zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
+!$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg,zptrop,zdtdz,zlatfac,zstrfac,zpblfac,zslatq)  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -317,34 +317,44 @@ CONTAINS
           & pvdaeu = zvdaeu(1,1), & !out
           & pvdaed = zvdaed(1,1) )  !out
 
-        ! top level
         DO jc = 1,i_endidx
-          zaeqso   (jc,jb) = prm_diag%aerosol(jc,iss,jb)                                  *zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) =  prm_diag%aerosol(jc,ibc,jb)                                 *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  prm_diag%aerosol(jc,idu,jb)                                 *zvdaed(jc,1)
-          zaetr_top(jc,jb) = 1.0_wp
+          ! top level
+          zaeqso(jc,jb) = zvdaes(jc,1) * prm_diag%aerosol(jc,iss,jb)
+          zaeqlo(jc,jb) = zvdael(jc,1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+          zaequo(jc,jb) = zvdaeu(jc,1) * prm_diag%aerosol(jc,ibc,jb) 
+          zaeqdo(jc,jb) = zvdaed(jc,1) * prm_diag%aerosol(jc,idu,jb)
+
+          ! tropopause pressure and PBL stability
+          jk          = prm_diag%k850(jc,jb)
+          zslatq      = SIN(pt_patch%cells%center(jc,jb)%lat)**2
+          zptrop(jc)  = 1.e4_wp + 2.e4_wp*zslatq ! 100 hPa at the equator, 300 hPa at the poles
+          zdtdz(jc)   = (pt_diag%temp(jc,jk,jb)-pt_diag%temp(jc,nlev-1,jb))/(-rd/grav*                              &
+           (pt_diag%temp(jc,jk,jb)+pt_diag%temp(jc,nlev-1,jb))*(pt_diag%pres(jc,jk,jb)-pt_diag%pres(jc,nlev-1,jb))/ &
+           (pt_diag%pres(jc,jk,jb)+pt_diag%pres(jc,nlev-1,jb)))
+          ! latitude-dependence of tropospheric background
+          zlatfac(jc) = MAX(0.1_wp, 1._wp-MERGE(zslatq**3, zslatq, pt_patch%cells%center(jc,jb)%lat > 0._wp))
         ENDDO
 
         ! loop over layers
         DO jk = 1,nlev
           DO jc = 1,i_endidx
-            zaeqsn         =  prm_diag%aerosol(jc,iss,jb)                                 * zvdaes(jc,jk+1)
-            zaeqln         =  (prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb)) * zvdael(jc,jk+1)
-            zaequn         =  prm_diag%aerosol(jc,ibc,jb)                                 * zvdaeu(jc,jk+1)
-            zaeqdn         =  prm_diag%aerosol(jc,idu,jb)                                 * zvdaed(jc,jk+1)
-            zaetr_bot      = zaetr_top(jc,jb) &
-              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
+            zaeqsn  = zvdaes(jc,jk+1) * prm_diag%aerosol(jc,iss,jb)
+            zaeqln  = zvdael(jc,jk+1) *(prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb))
+            zaequn  = zvdaeu(jc,jk+1) * prm_diag%aerosol(jc,ibc,jb)
+            zaeqdn  = zvdaed(jc,jk+1) * prm_diag%aerosol(jc,idu,jb)
 
-            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
-            zaeq1(jc,jk,jb)= (1.0_wp-zaetr)*( ztrbga*pt_diag%dpres_mc(jc,jk,jb) &
-              &            + zaeqln - zaeqlo(jc,jb) )
-            zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
-            zaeq3(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqdn-zaeqdo(jc,jb))
-            zaeq4(jc,jk,jb)   = (1.0_wp-zaetr)*(zaequn-zaequo(jc,jb))
-            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
+            ! stratosphere factor: 1 in stratosphere, 0 in troposphere, width of transition zone 0.1*p_TP
+            zstrfac = MIN(1._wp,MAX(0._wp,10._wp*(zptrop(jc)-pt_diag%pres(jc,jk,jb))/zptrop(jc)))
+            ! PBL stability factor; enhance organic, sulfate and black carbon aerosol for stable stratification
+            zpblfac = 1._wp + MIN(1.5_wp,1.e2_wp*MAX(0._wp, zdtdz(jc) + grav/cpd))
 
-            zaetr_top(jc,jb) = zaetr_bot
+            zaeq1(jc,jk,jb) = (1._wp-zstrfac)*MAX(zpblfac*(zaeqln-zaeqlo(jc,jb)), &
+                              ztrbga*zlatfac(jc)*pt_diag%dpres_mc(jc,jk,jb))
+            zaeq2(jc,jk,jb) = (1._wp-zstrfac)*(zaeqsn-zaeqso(jc,jb))
+            zaeq3(jc,jk,jb) = (1._wp-zstrfac)*(zaeqdn-zaeqdo(jc,jb))
+            zaeq4(jc,jk,jb) = (1._wp-zstrfac)*zpblfac*(zaequn-zaequo(jc,jb))
+            zaeq5(jc,jk,jb) = zstrfac*zstbga*pt_diag%dpres_mc(jc,jk,jb)
+
             zaeqso(jc,jb)    = zaeqsn
             zaeqlo(jc,jb)    = zaeqln
             zaequo(jc,jb)    = zaequn
@@ -513,7 +523,7 @@ CONTAINS
       IF (i_startidx > i_endidx) CYCLE
 
 
-      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       IF (tune_dust_abs > 0._wp) THEN
 !DIR$ NOINLINE
@@ -532,6 +542,7 @@ CONTAINS
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
         & irad       =irad                 ,&!< in option for radiation scheme (RRTM/PSRAD)
+        & jcs        =i_startidx           ,&!< in  start index for loop over block
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -567,7 +578,6 @@ CONTAINS
         & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
         & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
         & dust_tunefac = dust_tunefac (:,:)          ,&!< in LW tuning factor for dust aerosol
-        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
                               !
@@ -801,24 +811,6 @@ CONTAINS
 
       ENDDO ! blocks
 
-      ! For limited-area radiation grids, tsfc needs to be filled with air temp along the nest boundary
-      ! because the surface scheme is not active on the boundary points
-      IF (jg == 1 .AND. l_limited_area) THEN
-        rl_start = 1
-        rl_end   = grf_bdywidth_c
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-            &                       i_startidx, i_endidx, rl_start, rl_end)
-
-          prm_diag%tsfctrad(i_startidx:i_endidx,jb) = pt_diag%temp(i_startidx:i_endidx,nlev,jb)
-
-        ENDDO ! blocks
-      ENDIF
-
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
@@ -834,7 +826,11 @@ CONTAINS
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
         & zlp_pres_ifc, zlp_tot_cld, prm_diag%buffer_rrg)
 
-      rl_start = grf_ovlparea_start_c
+      IF (jg == 1 .AND. l_limited_area) THEN
+        rl_start = grf_fbk_start_c
+      ELSE
+        rl_start = grf_ovlparea_start_c
+      ENDIF
       rl_end   = min_rlcell_int
 
       i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)
@@ -1033,6 +1029,7 @@ CONTAINS
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
           & irad        =irad                ,&!< in option for radiation scheme (RRTM/PSRAD)
+          & jcs         =i_startidx          ,&!< in  start index for loop over block
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
@@ -1067,7 +1064,6 @@ CONTAINS
           & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
           & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
           & dust_tunefac = dust_tunefac (:,:)   ,&!< in LW tuning factor for dust aerosol
-          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 !
                                 ! output
                                 ! ------
@@ -1149,7 +1145,6 @@ CONTAINS
 
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
-
 
 END MODULE mo_nwp_rrtm_interface
 

@@ -25,10 +25,11 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message, finish, warning
   USE mo_grid_config,       ONLY: init_grid_configuration
-  USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum
+  USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum, &
+      &                           use_dp_mpi2io
   USE mo_run_config,        ONLY: nsteps, dtime, nlev
   USE mo_time_config,       ONLY: time_config, dt_restart
-  USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state
+  USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state, lnetcdf_flt64_output
   USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
   USE mo_master_config,     ONLY: isRestart
@@ -76,6 +77,19 @@ CONTAINS
     CALL compute_date_settings("oce", dt_restart, nsteps)
 
     CALL init_grid_configuration
+
+    !--------------------------------------------------------------------
+    ! checking the meanings of the io settings
+    !--------------------------------------------------------------------
+    IF (lnetcdf_flt64_output) THEN
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 64-bit accuracy')
+       IF (.NOT. use_dp_mpi2io) THEN
+          use_dp_mpi2io = .TRUE.
+          CALL message(TRIM(method_name),'--> use_dp_mpi2io is changed to .TRUE. to allow 64-bit accuracy in the NetCDF output.')
+       END IF
+    ELSE
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 32-bit accuracy')
+    END IF
 
     ! set the patch-related nlev variable to the ocean setup n_ zlev
     nlev = n_zlev

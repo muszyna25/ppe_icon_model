@@ -25,10 +25,10 @@ MODULE mo_cdi_ids
     &                              CDI_UNDEFID, gridCreate, gridDefNvertex, gridDefXname,       &
     &                              gridDefXlongname, gridDefXunits, gridDefYname,               &
     &                              gridDefYlongname, gridDefYunits, GRID_UNSTRUCTURED,          &
-    &                              streamDefVlist, DATATYPE_FLT32, vlistDefAttInt, CDI_GLOBAL,  &
+    &                              streamDefVlist, DATATYPE_FLT32, cdiDefAttInt, CDI_GLOBAL,  &
     &                              DATATYPE_INT32, zaxisDefVct, zaxisDefLbounds,                &
     &                              zaxisDefUbounds, zaxisDefUnits, streamClose, vlistDestroy,   &
-    &                              taxisDestroy, gridDestroy, zaxisDestroy
+    &                              taxisDestroy, gridDestroy, zaxisDestroy,  vlistdeftaxis
   USE mo_zaxis_type,         ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_LAKE_BOTTOM,                     &
     &                              ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
     &                              zaxisTypeList
@@ -225,11 +225,11 @@ CONTAINS
         ! 3. horizontal grids
         me%hgrids = createHgrids(cellCount, vertCount, edgeCount, cellType)
         iCount(1) = cellCount
-        dummy = vlistDefAttInt(me%vlist, CDI_GLOBAL, "cellCount", DATATYPE_INT32, 1, iCount)
+        dummy = cdiDefAttInt(me%vlist, CDI_GLOBAL, "cellCount", DATATYPE_INT32, 1, iCount)
         iCount(1) = edgeCount
-        dummy = vlistDefAttInt(me%vlist, CDI_GLOBAL, "edgeCount", DATATYPE_INT32, 1, iCount)
+        dummy = cdiDefAttInt(me%vlist, CDI_GLOBAL, "edgeCount", DATATYPE_INT32, 1, iCount)
         iCount(1) = vertCount
-        dummy = vlistDefAttInt(me%vlist, CDI_GLOBAL, "vertCount", DATATYPE_INT32, 1, iCount)
+        dummy = cdiDefAttInt(me%vlist, CDI_GLOBAL, "vertCount", DATATYPE_INT32, 1, iCount)
 
         ! 4. vertical grids
         CALL createVgrids(me%vgrids, vgridDefs, opt_vct)

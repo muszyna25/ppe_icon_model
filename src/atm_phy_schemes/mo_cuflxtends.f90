@@ -53,7 +53,7 @@ MODULE mo_cuflxtends
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
-    &                        lhook, dr_hook, rcvd, lmfglac, lmfwetb
+    &                        lhook, dr_hook, lmfglac, lmfwetb
 
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
@@ -702,7 +702,6 @@ CONTAINS
     zimp=1.0_JPRB-rmfsoltq
     ztsphy=1.0_JPRB/ptsphy
     zorcpd=1.0_JPRB/rcpd
-    zcp_o_cv = rcpd/rcvd
 
     DO jk=ktdia,klev
       DO jl=kidia,kfdia
@@ -799,8 +798,7 @@ CONTAINS
             !zdtdt(jl,jk)=rg/zdph(jl,jk)*zorcpd*&
               & (zmfus(jl,jk+1)-zmfus(jl,jk)+&
               & zmfds(jl,jk+1)-zmfds(jl,jk)&
-            ! GZ: rescale heating rates related to latent heat release from cp to cv
-              & +zcp_o_cv*(rlmlt*plglac(jl,jk)&
+              & +(rlmlt*plglac(jl,jk)&
               & -rlmlt*pdpmel(jl,jk)&
               & -zalv*(pmful(jl,jk+1)-pmful(jl,jk)-&
               & plude(jl,jk)-pdmfup(jl,jk)-psnde(jl,jk,1)-psnde(jl,jk,2))))
@@ -827,8 +825,7 @@ CONTAINS
             !>KF
             ZDTDT(JL,JK)=-ZDP(JL,JK)*ZORCPD*&
             !zdtdt(jl,jk)=-rg/zdph(jl,jk)*zorcpd*&
-            ! GZ: rescale heating rates related to latent heat release from cp to cv
-              & (zmfus(jl,jk)+zmfds(jl,jk)+zcp_o_cv*(rlmlt*pdpmel(jl,jk)-zalv*&
+              & (zmfus(jl,jk)+zmfds(jl,jk)+(rlmlt*pdpmel(jl,jk)-zalv*&
               & (pmful(jl,jk)+pdmfup(jl,jk))))
 
             !>KF
@@ -916,7 +913,7 @@ CONTAINS
             ptenq(jl,jk)=ptenq(jl,jk)+(zr2(jl,jk)-pqen(jl,jk))*ztsphy
             ! PTENT(JL,JK)=(ZR1(JL,JK)-PTEN(JL,JK))*ZTSPHY
             ! PTENQ(JL,JK)=(ZR2(JL,JK)-PQEN(JL,JK))*ZTSPHY
-            penth(jl,jk)=(zr1(jl,jk)-pten(jl,jk))*ztsphy
+            penth(jl,jk)=(zr1(jl,jk)-pten(jl,jk))*ztsphy*rcpd
           ENDIF
         ENDDO
       ENDDO

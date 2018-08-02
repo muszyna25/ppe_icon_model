@@ -83,16 +83,13 @@ MODULE mo_math_utilities
   USE mo_impl_constants,      ONLY: SUCCESS, TORUS_MAX_LAT
   USE mo_exception,           ONLY: finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
-  USE mo_math_types
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
+    &                               t_line, t_tangent_vectors
   USE mo_util_sort,           ONLY: quicksort
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: t_cartesian_coordinates
-  PUBLIC :: t_geographical_coordinates
-  PUBLIC :: t_line
-  PUBLIC :: t_tangent_vectors
 
   PUBLIC :: cc2gc
   PUBLIC :: gc2cc
@@ -2415,11 +2412,12 @@ CONTAINS
   SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
     INTEGER , INTENT(IN)    :: n_zlev
     REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
-    REAL(wp)                :: dzlev_m(100)  ! namelist input of layer thickness
+    REAL(wp), INTENT(IN)    :: dzlev_m(100)  ! namelist input of layer thickness
 
     INTEGER :: jk
 
     zlev_m(1) = 0.5_wp * dzlev_m(1)
+
     zlev_i(1) = 0.0_wp
     ! zlev_i    : upper border surface of vertical cells
     DO jk = 2, n_zlev+1

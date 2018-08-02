@@ -36,7 +36,7 @@ MODULE mo_async_restart
 #ifdef DEBUG
   USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive
 #endif
-  USE mo_parallel_config,           ONLY: restart_chunk_size
+  USE mo_parallel_config,           ONLY: config_restart_chunk_size => restart_chunk_size
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -671,6 +671,7 @@ CONTAINS
     REAL(dp), ALLOCATABLE           :: buffer_dp(:,:)
     REAL(sp), ALLOCATABLE           :: buffer_sp(:,:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end
+    INTEGER                         :: restart_chunk_size, max_nlevs
 
     ! For timing
     REAL(dp) :: t_get, t_write
@@ -702,7 +703,23 @@ CONTAINS
     ! TODO[FP] avoid allocating two of these buffers , e.g. by looping
     ! twice over the variables, first over double precision, then over
     ! single precision.
-    ! 
+    !
+    max_nlevs = 0
+    VAR_NLEV_LOOP : DO iv = 1, SIZE(me%varData)
+      IF(me%varData(iv)%info%ndims == 2) THEN
+        nlevs = 1
+      ELSE
+        nlevs = me%varData(iv)%info%used_dimensions(2)
+      ENDIF
+      max_nlevs = MAX(max_nlevs, nlevs)
+    END DO VAR_NLEV_LOOP
+
+    IF (config_restart_chunk_size > 0) THEN
+      restart_chunk_size = MIN(config_restart_chunk_size, max_nlevs)
+    ELSE
+      restart_chunk_size = max_nlevs
+    END IF
+
     ALLOCATE(buffer_dp(nval,restart_chunk_size), &
       &      buffer_sp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, "memory allocation failure")
@@ -818,9 +835,6 @@ CONTAINS
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
-
-    ! check process
-    IF (.NOT. my_process_is_work()) CALL finish(routine, 'Must be called on a compute PE!')
 
     ! dynamic downcast of patchData argument
     asyncPatchData => toAsyncPatchData(patchData)

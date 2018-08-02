@@ -138,10 +138,13 @@ CONTAINS
     INTEGER, INTENT(IN)    :: communicator     !< MPI comm.
     INTEGER, INTENT(INOUT) :: out_values(:,:)  !< resulting local part of distributed array
     INTEGER, INTENT(INOUT) :: out_count(:,:)   !< counts, how often an entry was received
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: out_count, out_values, in_glb_idx, in_values, owner_idx
+#endif
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
     INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals, dst_idx
-    LOGICAL                   :: lfound
+    LOGICAL                   :: lfound, lcollision
     INTEGER, ALLOCATABLE      :: reg_partition_buf(:,:), reg_partition_modified(:),        &
       &                          reg_partition_count(:,:)
 #ifndef NOMPI
@@ -425,36 +428,39 @@ CONTAINS
 #else
 
     ! non-MPI mode: local copy
-    out_count(:,:) = 0
     ALLOCATE(reg_partition_buf(ncollisions, nglb_indices),    &
       &      reg_partition_modified(nglb_indices),            &
       &      reg_partition_count(ncollisions, nglb_indices))
     reg_partition_modified(:) = 0
     reg_partition_buf(:,:)    = 0
-    DO i=1,nsend
+    reg_partition_count = 0
+    lcollision = .FALSE.
+    SEND_LOOP: DO i=1,nsend
       local_idx = in_glb_idx(i)
       ! we try to avoid collisions, when one entry is repeatedly
       ! modified:
       nvals  = reg_partition_modified(local_idx)
-      lfound = .FALSE.
+      dst_idx = in_values(i)
       LOOP_FOUND : DO j=1,nvals
-        IF (reg_partition_buf(j, local_idx) == in_values(i)) THEN
+        IF (reg_partition_buf(j, local_idx) == dst_idx) THEN
           reg_partition_count(j, local_idx) = reg_partition_count(j, local_idx) + 1
-          lfound = .TRUE. ; EXIT LOOP_FOUND
+          CYCLE SEND_LOOP
         END IF
       END DO LOOP_FOUND
-      IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
-        nvals = nvals + 1
-        IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
-        reg_partition_buf(nvals, local_idx)   = in_values(i)
-        reg_partition_count(nvals, local_idx) = 1 
-        reg_partition_modified(local_idx)     = nvals
-      END IF
-    END DO
+      lcollision = lcollision .OR. nvals >= ncollisions
+      nvals = nvals + MERGE(0, 1, lcollision)
+      reg_partition_buf(nvals, local_idx)   = dst_idx
+      reg_partition_count(nvals, local_idx) = 1
+      reg_partition_modified(local_idx)     = nvals
+    END DO SEND_LOOP
+    IF (lcollision)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
     DO i=1,nlocal
-      IF (reg_partition_modified(owner_idx(i)) > 0) THEN
-        out_values(:,i) = reg_partition_buf(:,owner_idx(i))
-        out_count(:,i) = reg_partition_count(:,owner_idx(i))
+      dst_idx = owner_idx(i)
+      IF (reg_partition_modified(dst_idx) > 0) THEN
+        out_values(:,i) = reg_partition_buf(:,dst_idx)
+        out_count(:,i) = reg_partition_count(:,dst_idx)
+      ELSE
+        out_count(:,i) = 0
       END IF
     END DO
 

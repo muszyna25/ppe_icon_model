@@ -85,7 +85,7 @@ MODULE mo_nh_diffusion
   !!
   SUBROUTINE  diffusion(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,dtime,linit)
 
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch    !< single patch
     TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog), INTENT(inout)    :: p_nh_prog  !< single nh prognostic state
     TYPE(t_nh_diag), INTENT(inout)    :: p_nh_diag  !< single nh diagnostic state
@@ -1074,7 +1074,11 @@ MODULE mo_nh_diffusion
     IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
                      ! remark: the surface level (nlevp1) is excluded because w is diagnostic there
 
-      rl_start = grf_bdywidth_c
+      IF (l_limited_area .AND. jg == 1) THEN
+        rl_start = grf_bdywidth_c+1
+      ELSE
+        rl_start = grf_bdywidth_c
+      ENDIF
       rl_end   = min_rlcell_int-1
 
       i_startblk = p_patch%cells%start_block(rl_start)
@@ -1138,7 +1142,11 @@ MODULE mo_nh_diffusion
       ENDDO
 !$OMP END DO
 
-      rl_start = grf_bdywidth_c+1
+      IF (l_limited_area .AND. jg == 1) THEN
+        rl_start = 0
+      ELSE
+        rl_start = grf_bdywidth_c+1
+      ENDIF
       rl_end   = min_rlcell_int
 
       i_startblk = p_patch%cells%start_block(rl_start)

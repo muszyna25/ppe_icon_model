@@ -109,7 +109,7 @@ CONTAINS
     &                         p_mflx_tracer_h, slev, elev, opt_beta_fct,        &
     &                         opt_rlstart, opt_rlend )
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(inout) ::  &   !< patch on which computation is performed
       &  ptr_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: & !< pointer to data structure for
@@ -602,7 +602,7 @@ CONTAINS
     &                         p_mflx_tracer_h, slev, elev, opt_rho,     &
     &                         opt_rlstart, opt_rlend )
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
       &  ptr_patch
 
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for

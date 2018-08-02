@@ -54,7 +54,6 @@ MODULE mo_initicon_nml
     & config_iterate_iau         => iterate_iau,         &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
-    & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
     & config_ana_varnames_map_file => ana_varnames_map_file
@@ -66,11 +65,32 @@ MODULE mo_initicon_nml
 
   PUBLIC :: read_initicon_namelist
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
+CONTAINS
 
+!-------------------------------------------------------------------------
+!
+!
+ !>
+ !!  Initialization of the initicon coordinate namelist
+ !!
+ !!
+ !! @par Revision History
+ !!  Initial version by Guenther Zaengl (2011-07-11)
 
-  ! Variables of that type contain a list of all mandatory input fields
+ SUBROUTINE read_initicon_namelist( filename )
+    
+  CHARACTER(LEN=*), INTENT(IN) :: filename
+
+  !local variable
+  INTEGER :: i_status
+  INTEGER :: z_go_init(7)   ! for consistency check
+  INTEGER :: iunit
+  INTEGER :: jg
+
+  CHARACTER(len=*), PARAMETER ::  &
+    &  routine = 'mo_initicon_nml: read_initicon_namelist'
+
+    ! Variables of that type contain a list of all mandatory input fields
   ! This list can include a subset or the entire set of mandatory fields.
   TYPE t_check_input
     CHARACTER(LEN=vname_len) :: list(max_var_ml)
@@ -123,8 +143,6 @@ MODULE mo_initicon_nml
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
-  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
@@ -167,7 +185,7 @@ MODULE mo_initicon_nml
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
-                          lconsistency_checks, rho_incr_filter_wgt,         &
+                          lconsistency_checks,                              &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, check_ana, check_fg,                &
@@ -178,30 +196,6 @@ MODULE mo_initicon_nml
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
                           niter_diffu
                           
-CONTAINS
-
-!-------------------------------------------------------------------------
-!
-!
- !>
- !!  Initialization of the initicon coordinate namelist
- !!
- !!
- !! @par Revision History
- !!  Initial version by Guenther Zaengl (2011-07-11)
-
- SUBROUTINE read_initicon_namelist( filename )
-    
-  CHARACTER(LEN=*), INTENT(IN) :: filename
-
-  !local variable
-  INTEGER :: i_status
-  INTEGER :: z_go_init(7)   ! for consistency check
-  INTEGER :: iunit
-  INTEGER :: jg
-
-  CHARACTER(len=*), PARAMETER ::  &
-    &  routine = 'mo_initicon_nml: read_initicon_namelist'
 
   !------------------------------------------------------------
   ! 2.0 set up the default values for initicon
@@ -220,7 +214,6 @@ CONTAINS
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
   iterate_iau = .FALSE.        ! no iteration of IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
-  rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
@@ -340,6 +333,11 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! IAU iteration is meaningless if the model starts without backward time shift
+  IF (dt_shift == 0._wp) THEN
+    iterate_iau = .FALSE.
+  END IF
+
   ! 
   WRITE(message_text,'(a)') &
     &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
@@ -374,7 +372,6 @@ CONTAINS
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
-  config_rho_incr_filter_wgt   = rho_incr_filter_wgt
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
 

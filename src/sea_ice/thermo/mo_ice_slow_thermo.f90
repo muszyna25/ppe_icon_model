@@ -226,9 +226,9 @@ CONTAINS
           &                   + dtime*sum(ice%heatOceI(jc,:,jb))
 
         ! Calculate possible super-cooling of the surface layer by ice%heatOceW
-        ice%newice(jc,jb) = ( -(sst(jc,jb)-ice%Tfw(jc,jb)) * ice%zUnderIce(jc,jb)*clw*rho_ref &
-             &                     - dtime*ice%heatOceW(jc,jb) )/( alf*rhoi )
-!        ice%newice(jc,jb) = ( -AvailMLHeat(jc,jb) - dtime*ice%heatOceW(jc,jb)  )/( alf*rhoi )
+!dn        ice%newice(jc,jb) = ( -(sst(jc,jb)-ice%Tfw(jc,jb)) * ice%zUnderIce(jc,jb)*clw*rho_ref &
+!dn             &                     - dtime*ice%heatOceW(jc,jb) )/( alf*rhoi )
+        ice%newice(jc,jb) = ( -AvailMLHeat(jc,jb) - dtime*ice%heatOceW(jc,jb)  )/( alf*rhoi )
 
         ! New ice forms only if the ML heat content is depleeted, newice > 0
         ! ice%heatOceW is reduced by *(1-conc), therefore newice is value averages over whole grid area
@@ -237,11 +237,11 @@ CONTAINS
         ! If no new ice was formed, then ice%heatOceW(jc,jb) will be passed to the ocean as is
         ! Otherwise, AvailMLHeat was FULLY depleted and heatOceW = flux required to cool the ocean to the freezing point
         IF ( ice%newice(jc,jb) > 0.0_wp ) THEN
-!            ice%heatOceW(jc,jb) = - AvailMLHeat(jc,jb) / dtime
+            ice%heatOceW(jc,jb) = - AvailMLHeat(jc,jb) / dtime
           ! #slo# 2015-01: bugfix for supercooled ocean: whole grid area is cooled below freezing point,
           !                no multiplication by 1-conc is required to calculate the part of ice%heatOceW due to supercooling
           !                but check: doubled supercooling, since it is already taken into account in oce_ice_heatflx?
-            ice%heatOceW(jc,jb) = (ice%Tfw(jc,jb)-sst(jc,jb)) * ice%zUnderIce(jc,jb)*clw*rho_ref / dtime
+!dn            ice%heatOceW(jc,jb) = (ice%Tfw(jc,jb)-sst(jc,jb)) * ice%zUnderIce(jc,jb)*clw*rho_ref / dtime
         ENDIF
 
       END DO

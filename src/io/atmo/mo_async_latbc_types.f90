@@ -124,6 +124,9 @@ MODULE mo_async_latbc_types
      ! the input file
      LOGICAL                                     :: lread_ps_geop
 
+     ! .TRUE., if vertical wind or omega is available in input data
+     LOGICAL                                     :: lread_w
+
      ! .FALSE., if vertical component of velocity (W) is provided as input
      LOGICAL                                     :: lconvert_omega2w
 
@@ -133,6 +136,9 @@ MODULE mo_async_latbc_types
      CHARACTER(LEN=10)                           :: psvar
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
      CHARACTER(LEN=10)                           :: hhl_var
+
+     ! input data validity DateTime
+     TYPE(datetime)                              :: vDateTime          
 
    CONTAINS
      PROCEDURE :: finalize => t_buffer_finalize   !< destructor
@@ -196,9 +202,9 @@ MODULE mo_async_latbc_types
   !
   TYPE t_latbc_data
 
-    TYPE(datetime),  POINTER :: mtime_read    => NULL()
-    TYPE(event),     POINTER :: prefetchEvent => NULL()
-    TYPE(timedelta), POINTER :: delta_dtime   => NULL()
+    TYPE(datetime),  POINTER :: mtime_last_read => NULL()
+    TYPE(event),     POINTER :: prefetchEvent   => NULL()
+    TYPE(timedelta), POINTER :: delta_dtime     => NULL()
 
     ! time level indices for  latbc_data. can be 1 or 2.
     INTEGER :: new_latbc_tlev
@@ -322,8 +328,8 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
-    IF (ASSOCIATED(latbc%mtime_read)) THEN
-      CALL deallocateDatetime(latbc%mtime_read)
+    IF (ASSOCIATED(latbc%mtime_last_read)) THEN
+      CALL deallocateDatetime(latbc%mtime_last_read)
     END IF
     IF (ASSOCIATED(latbc%delta_dtime)) THEN
       CALL deallocateTimedelta(latbc%delta_dtime)

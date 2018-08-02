@@ -160,8 +160,7 @@ CONTAINS
     next => this_list_element
     this_list_element => NULL()
     !
-    DO
-      IF (.NOT. ASSOCIATED(next)) EXIT
+    DO WHILE (ASSOCIATED(next))
       this => next
       next => this%next_list_element
       !

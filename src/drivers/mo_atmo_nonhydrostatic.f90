@@ -19,7 +19,7 @@ USE mtime,                   ONLY: datetimeToString, timeDelta, newTimeDelta,   
   &                                getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
   &                                deallocateTimedelta, OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, VARNAME_LEN
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
@@ -31,6 +31,7 @@ USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
+USE mo_assimilation_config,  ONLY: configure_lhn
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -38,6 +39,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
+  &                                ldass_lhn, msg_level, &
   &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
@@ -67,8 +69,8 @@ USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
   &                                construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
-USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
-  &                                destruct_nwp_phy_state
+USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
+  &                                construct_nwp_phy_state, destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_interface_les,        ONLY: init_les_phy_interface
@@ -76,7 +78,6 @@ USE mo_interface_les,        ONLY: init_les_phy_interface
 USE mo_nh_stepping,          ONLY: perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
-USE mo_initicon_config,     ONLY: timeshift
 USE mo_ext_data_state,      ONLY: ext_data
 USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
@@ -96,22 +97,29 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
 USE mo_psrad_memory,        ONLY: construct_psrad_forcing_list
 USE mo_physical_constants,  ONLY: amd, amco2
-USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
+USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+#ifndef __NO_JSBACH__
+  USE mo_jsb_model_init,    ONLY: jsbach_init_after_restart
+#endif
 
+USE mtime,                  ONLY: datetimeToString
+USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
-
+USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_mpi,                 ONLY: my_process_is_stdio
+USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 
 !-------------------------------------------------------------------------
@@ -165,7 +173,6 @@ CONTAINS
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
-    TYPE(timeDelta), POINTER             :: time_diff
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
@@ -193,13 +200,8 @@ CONTAINS
     ! initialize ldom_active flag if this is not a restart run
 
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_exp_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
-    ! Account for IAU time shift if we are not in restart mode
-    IF (.NOT. isRestart()) sim_time = sim_time + timeshift%dt_shift
-    CALL deallocateTimedelta(time_diff)
-    
+    sim_time = getElapsedSimTimeInSeconds(time_config%tc_current_date) 
+
     DO jg=1, n_dom
       IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
         p_patch(jg)%ldom_active = .FALSE. ! domain not active
@@ -269,7 +271,7 @@ CONTAINS
     ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called
     ! AFTER the nh_state is created. Otherwise, potential modifications of the
     ! advection-Namelist can not be taken into account properly.
-    ! Unfortunatley this conflicts with our trying to call the config-routines
+    ! Unfortunately this conflicts with our trying to call the config-routines
     ! as early as possible.
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
@@ -279,6 +281,24 @@ CONTAINS
        &                      idiv_method, itime_scheme,               &
        &                      p_nh_state_lists(jg)%tracer_list(:)  )
     ENDDO
+
+   IF (ldass_lhn) THEN 
+     ALLOCATE (radar_data(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) THEN
+          CALL finish(TRIM(routine),'allocation for radar_data failed')
+     ENDIF
+     ALLOCATE (lhn_fields(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) THEN
+          CALL finish(TRIM(routine),'allocation for lhn_fields failed')
+     ENDIF
+     CALL message(TRIM(routine),'configure_lhn')
+     DO jg =1,n_dom
+       CALL configure_lhn(jg)
+     ENDDO 
+
+     CALL init_radar_data(p_patch(1:), radar_data)
+     CALL construct_lhn(lhn_fields,p_patch(1:))
+   ENDIF
 
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params       ( p_patch(1:) )
@@ -327,6 +347,15 @@ CONTAINS
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       !
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      !
+#ifndef __NO_JSBACH__
+      DO jg = 1,n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        IF (echam_phy_config(jg)%ljsb) THEN
+          CALL jsbach_init_after_restart(jg)
+        END IF
+      END DO
+#endif
       !
     ELSE
       !
@@ -565,7 +594,7 @@ CONTAINS
           ELSE
             CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
               &                ext_data(jg), p_nh_state(jg), prm_diag(jg),    &
-              &                p_lnd_state(jg), iforcing,                     &
+              &                p_lnd_state(jg), prm_nwp_tend(jg), iforcing,                     &
               &                grid_uuid=p_patch(jg)%grid_uuid,               &
               &                number_of_grid_used=number_of_grid_used(jg) )
           END IF
@@ -629,6 +658,19 @@ CONTAINS
            &                              time_config%tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
 
     END DO
+
+
+    !-------------------------------------------------------!
+    !  (Optional) detailed print-out of some variable info  !
+    !-------------------------------------------------------!
+
+    ! variable group information
+    IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
+      CALL print_group_details(idom=1,                            &
+        &                      opt_latex_fmt           = .FALSE., &
+        &                      opt_reduce_trailing_num = .TRUE.,  &
+        &                      opt_skip_trivial        = .TRUE.)
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
@@ -716,6 +758,15 @@ CONTAINS
        CALL close_les_turbulent_output(jg)
     END DO
 
+    IF (ldass_lhn) THEN 
+      ! deallocate ext_data array
+      DEALLOCATE(radar_data, STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish(TRIM(routine), 'deallocation of radar_data')
+      ENDIF
+      CALL destruct_lhn (lhn_fields)
+    ENDIF
+ 
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE destruct_atmo_nonhydrostatic

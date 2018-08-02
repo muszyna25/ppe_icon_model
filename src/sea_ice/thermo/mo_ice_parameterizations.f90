@@ -34,9 +34,8 @@ MODULE mo_ice_parameterizations
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, clw, Cd_io, Ch_io,             &
-    &                               albi, albim, albsm, albs,                           &
     &                               alb_sno_vis, alb_sno_nir, alb_ice_vis, alb_ice_nir
-  USE mo_sea_ice_nml,         ONLY: i_ice_albedo, i_Qio_type, i_ice_therm
+  USE mo_sea_ice_nml,         ONLY: i_ice_albedo, i_Qio_type, i_ice_therm, albi, albim, albsm, albs
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice
 
