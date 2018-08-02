@@ -66,7 +66,7 @@ USE mo_timer
 
 USE mo_kind,               ONLY: wp, vp2, i4, i8
 
-USE mo_parallel_config,    ONLY: nvec=>nproma
+USE mo_parallel_config,    ONLY: nproma
 
 USE mo_exception,          ONLY: message, message_text, finish, print_value, open_log, close_log
 
@@ -252,42 +252,42 @@ SUBROUTINE organize_lhn ( &
 ! Local arrays:
 
   REAL (KIND=wp) ::       &
-    zprmod       (nvec,pt_patch%nblks_c)  ,&
-    zprmod_ref   (nvec,pt_patch%nblks_c)  ,&
-    zprrad       (nvec,pt_patch%nblks_c)  ,&
-    zprmod_ref_f (nvec,pt_patch%nblks_c)  ,&
-    zprrad_f     (nvec,pt_patch%nblks_c)
+    zprmod       (nproma,pt_patch%nblks_c)  ,&
+    zprmod_ref   (nproma,pt_patch%nblks_c)  ,&
+    zprrad       (nproma,pt_patch%nblks_c)  ,&
+    zprmod_ref_f (nproma,pt_patch%nblks_c)  ,&
+    zprrad_f     (nproma,pt_patch%nblks_c)
 
   REAL  (KIND=wp) ::           &
-    pr_obs(nvec,pt_patch%nblks_c)     ,& ! observed (radar) precipitation rate         (kg/m2*s)
-    pr_mod(nvec,pt_patch%nblks_c)     ,& ! total model precipitation rate              (kg/m2*s)
-    pr_ref(nvec,pt_patch%nblks_c)     ,& ! total reference precipitation rate              (kg/m2*s)
-    pr_ana(nvec,pt_patch%nblks_c)     ,& ! analyzed precipitation rate                 (kg/m2*s)
-    pr_mod_nofilt(nvec,pt_patch%nblks_c),& !
-    pr_obs_nofilt(nvec,pt_patch%nblks_c),& !
-    z_pr_mod(nvec,1,pt_patch%nblks_c),& !
-    z_pr_obs(nvec,1,pt_patch%nblks_c),& !
-    z_nabla2_prmod(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    z_nabla2_probs(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    tt_lheat_nofilt(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    z_nabla2_ttlh(nvec,pt_patch%nlev,pt_patch%nblks_c),& !
-    wobs_space(nvec,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
-    wobs_time(nvec,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
-    lhn_diag(nvec,pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
-    tt_lheat(nvec,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
-    qrsflux(nvec,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
-    scale_diag(nvec,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
-    treat_diag(nvec,pt_patch%nblks_c)  ! ,& ! diagnose of treatment
-!    windcor_diag(nvec,pt_patch%nblks_c) ,& ! weight with respect to the mean wind
+    pr_obs(nproma,pt_patch%nblks_c)     ,& ! observed (radar) precipitation rate         (kg/m2*s)
+    pr_mod(nproma,pt_patch%nblks_c)     ,& ! total model precipitation rate              (kg/m2*s)
+    pr_ref(nproma,pt_patch%nblks_c)     ,& ! total reference precipitation rate              (kg/m2*s)
+    pr_ana(nproma,pt_patch%nblks_c)     ,& ! analyzed precipitation rate                 (kg/m2*s)
+    pr_mod_nofilt(nproma,pt_patch%nblks_c),& !
+    pr_obs_nofilt(nproma,pt_patch%nblks_c),& !
+    z_pr_mod(nproma,1,pt_patch%nblks_c),& !
+    z_pr_obs(nproma,1,pt_patch%nblks_c),& !
+    z_nabla2_prmod(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    z_nabla2_probs(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    tt_lheat_nofilt(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    z_nabla2_ttlh(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
+    wobs_space(nproma,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
+    wobs_time(nproma,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
+    lhn_diag(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
+    tt_lheat(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
+    qrsflux(nproma,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
+    scale_diag(nproma,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
+    treat_diag(nproma,pt_patch%nblks_c)  ! ,& ! diagnose of treatment
+!    windcor_diag(nproma,pt_patch%nblks_c) ,& ! weight with respect to the mean wind
 
   INTEGER (KIND=i4)  ::        &
     ntreat(pt_patch%nblks_c)         ,&! number of grid points to be treated by lhn
-    i_treat(nvec,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
-    j_treat(nvec,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
+    i_treat(nproma,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
+    j_treat(nproma,pt_patch%nblks_c)   ,&! i indeces of grid points to be treated by lhn
     diag_out(pt_patch%nblks_c,ndiag_max) ! array for exchange between PE's (used by global_values)
 
   LOGICAL  :: &
-    scale_fac_index(nvec,pt_patch%nblks_c)
+    scale_fac_index(nproma,pt_patch%nblks_c)
 !#endif
 
 
@@ -314,7 +314,7 @@ SUBROUTINE organize_lhn ( &
   sec_per_hr_inv = 1.0_wp/sec_per_hr
 
   IF (msg_level > 10) THEN
-     WRITE(message_text,'(a,f10.2,3i10)' ) 'intent(in) parameter: ', p_sim_time, nvec, pt_patch%nlev,jg
+     WRITE(message_text,'(a,f10.2,3i10)' ) 'intent(in) parameter: ', p_sim_time, nproma, pt_patch%nlev,jg
      CALL message(yroutine,message_text)
   ENDIF
 
@@ -352,7 +352,7 @@ SUBROUTINE organize_lhn ( &
      INQUIRE (file=yulhn,OPENED=lopen_log)
      IF (.NOT. lopen_log ) THEN
        CALL open_lhn_log()
-       WRITE (nulhn,'(a,f10.2,3i10)' ) 'LHN : intent(in) parameter: ', p_sim_time, nvec, pt_patch%nlev,jg
+       WRITE (nulhn,'(a,f10.2,3i10)' ) 'LHN : intent(in) parameter: ', p_sim_time, nproma, pt_patch%nlev,jg
        WRITE (nulhn,'(a,2f10.2)' ) 'LHN : relevant time step/time now : ',zdt,p_sim_time*sec_per_hr_inv
        WRITE(nulhn, *)' parameters set for LHN :'
        WRITE(nulhn, *)' Climatological Profile enable : assimilation_config(jg)%lhn_artif = ',assimilation_config(jg)%lhn_artif
@@ -961,7 +961,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
   TYPE(t_patch),   TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
   TYPE(t_radar_fields),    INTENT(in)    :: radar_data
 
-  REAL (KIND=wp), DIMENSION(nvec,pt_patch%nblks_c),INTENT(OUT)    :: &
+  REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(OUT)    :: &
     wobs_time, wobs_space, pr_obs
 
   LOGICAL, INTENT(OUT) :: ltoold
@@ -999,7 +999,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
   INTEGER (KIND=i4)             ::       &
     icenter         ,&
 ! concerning the time interpolation of DX data
-    num_t_obs (nvec,pt_patch%nblks_c,0:4), &
+    num_t_obs (nproma,pt_patch%nblks_c,0:4), &
     num1delta_t_obs ,& ! number of points with obs-dist 1 delta_t
     num2delta_t_obs ,& ! number of points with obs-dist 2 delta_t
     num3delta_t_obs ,& ! number of points with obs-dist 3 delta_t
@@ -1568,17 +1568,17 @@ SUBROUTINE detect_bright_band(sumrad)
 !-------------------------------------------------------------------------------
 
   REAL (KIND=wp), INTENT(IN)                   ::       &
-   sumrad(nvec,ib_end-ib_start)
+   sumrad(nproma,ib_end-ib_start)
 
   INTEGER (KIND=i4) :: &
     nbright
 
   INTEGER (KIND=i4) :: &
-    iv,nh,anzheight(nvec,ib_end-ib_start)
+    iv,nh,anzheight(nproma,ib_end-ib_start)
 
   REAL  (KIND=wp)                ::       &
-    hzero_mod(nvec,ib_end-ib_start),height_interval(nvec,ib_end-ib_start),minheight(nvec,ib_end-ib_start),&
-    maxheight(nvec,ib_end-ib_start)
+    hzero_mod(nproma,ib_end-ib_start),height_interval(nproma,ib_end-ib_start),minheight(nproma,ib_end-ib_start),&
+    maxheight(nproma,ib_end-ib_start)
 
 !- End of header
 !===============================================================================
@@ -1595,7 +1595,7 @@ SUBROUTINE detect_bright_band(sumrad)
      nbright           = 0_i4
 
      CALL calhzero( hzero_mod(:,:), t(:,:,:), p_metrics%z_ifc, hhl_prof, &
-                    nvec, ke, t0_melt)
+                    nproma, ke, t0_melt)
      minheight(:,:) = 9999.9_wp
      maxheight(:,:) = -9999.9_wp
      height_interval(:,:) = 0.0_wp
@@ -1742,7 +1742,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat_in,wobs_time, wob
     n_windcor, n_windcor0, n_incloud, ntreat
 
   REAL (KIND=wp)                         ::       &
-    tt_lheat(nvec,ke)         ,& ! latent heating profile
+    tt_lheat(nproma,ke)         ,& ! latent heating profile
     prof_filt(ke)               ,& ! array for filtered vertical heating profile
     scale_fac           ,& ! scaling factor determined for each profile
     tt_artif(ke)                 ,& ! artificial heating profile
@@ -2433,16 +2433,16 @@ SUBROUTINE lhn_verification (ytime,pt_patch,nsteps,wobs_space,zprmod,zprmod_ref,
  REAL (KIND=wp), INTENT (IN) :: nsteps
 
  REAL (KIND=wp), INTENT(IN)  ::       &
-   zprmod(nvec,pt_patch%nblks_c),                    &
-   zprmod_ref(nvec,pt_patch%nblks_c),                &
-   zprrad(nvec,pt_patch%nblks_c)
+   zprmod(nproma,pt_patch%nblks_c),                    &
+   zprmod_ref(nproma,pt_patch%nblks_c),                &
+   zprrad(nproma,pt_patch%nblks_c)
 
- REAL (KIND=wp), DIMENSION(nvec,pt_patch%nblks_c),INTENT(IN)    :: &
+ REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(IN)    :: &
    wobs_space
 
  REAL (KIND=wp), INTENT(IN), OPTIONAL  ::       &
-   zprmod_ref_f(nvec,pt_patch%nblks_c),              &
-   zprrad_f(nvec,pt_patch%nblks_c)
+   zprmod_ref_f(nproma,pt_patch%nblks_c),              &
+   zprrad_f(nproma,pt_patch%nblks_c)
 
 ! Local scalars:
 ! -------------
@@ -2476,7 +2476,7 @@ SUBROUTINE lhn_verification (ytime,pt_patch,nsteps,wobs_space,zprmod,zprmod_ref,
 
 
  INTEGER (KIND=i4) :: &
-   jb,jc,n !,i_ver(nvec,pt_patch%nblks_c)
+   jb,jc,n !,i_ver(nproma,pt_patch%nblks_c)
 
  INTEGER :: i_rlstart, i_rlend
  INTEGER :: i_startblk, i_endblk    !> blocks
