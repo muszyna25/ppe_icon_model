@@ -697,6 +697,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
+!!!  i_am_accel_node = .false.    ! Dectivate GPUs
 
   CALL save_convenience_pointers( )
 

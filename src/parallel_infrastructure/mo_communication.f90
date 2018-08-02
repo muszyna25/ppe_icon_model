@@ -1083,7 +1083,7 @@ CONTAINS
 
     IF (ndim2 == 1) THEN
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
       ENDDO
@@ -1195,7 +1195,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
@@ -1234,7 +1234,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
@@ -1357,7 +1357,7 @@ CONTAINS
 
     IF (ndim2 == 1) THEN
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
       ENDDO
@@ -1469,7 +1469,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
@@ -1508,7 +1508,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
@@ -1780,7 +1780,7 @@ CONTAINS
 
     IF (ndim2 == 1) THEN
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
       ENDDO
@@ -1861,7 +1861,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
@@ -1894,7 +1894,7 @@ CONTAINS
       IF (ndim2 == 1) THEN
         k = 1
 !$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
@@ -1989,7 +1989,7 @@ CONTAINS
 
     IF (ndim2 == 1) THEN
 !$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
       ENDDO
@@ -2072,7 +2072,7 @@ CONTAINS
     IF (ndim2 == 1) THEN
       k = 1
 !$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i = 1, p_pat%n_pnts
         recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
           recv_buf(k,p_pat%recv_src(i))
@@ -2978,7 +2978,7 @@ CONTAINS
 !$ACC PARALLEL &
 !$ACC PRESENT( p_pat, send, recv, send_buf ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
 #endif
     DO i = 1, p_pat%n_send
       jb = p_pat%send_src_blk(i)
@@ -3197,6 +3197,7 @@ CONTAINS
 !$ACC LOOP GANG
     DO n = 1, nfields
 !CDIR UNROLL=6
+!$ACC LOOP VECTOR
       DO k = 1, ndim2(n)
         DO i = 1, p_pat%n_send
           send_buf(k+noffset(n),i) = &
@@ -4114,7 +4115,7 @@ CONTAINS
 
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
@@ -4124,7 +4125,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 !$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
@@ -4182,7 +4183,7 @@ CONTAINS
 
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
@@ -4192,7 +4193,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 !$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
@@ -4323,7 +4324,7 @@ CONTAINS
 
     IF(PRESENT(add)) THEN
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
@@ -4333,7 +4334,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 !$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &

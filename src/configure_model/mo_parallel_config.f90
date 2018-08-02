@@ -24,7 +24,7 @@ MODULE mo_parallel_config
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma
-
+!
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
        &  l_log_checks, l_fast_sum,   &
@@ -290,11 +290,17 @@ CONTAINS
   ! Trying to invert the above and catching cases with blk_no < 1
   !-------------------------------------------------------------------------
   ELEMENTAL INTEGER FUNCTION blk_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     blk_no = MAX((ABS(j)-1)/nproma + 1, 1) ! i.e. also 1 for j=0, nproma=1
   END FUNCTION blk_no
 
   ELEMENTAL INTEGER FUNCTION idx_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     IF(j==0) THEN
       idx_no = 0
@@ -304,6 +310,9 @@ CONTAINS
   END FUNCTION idx_no
 
   ELEMENTAL INTEGER FUNCTION idx_1d(jl,jb)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: jl, jb
     IF(jb<=0) THEN
       idx_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1

@@ -159,12 +159,12 @@ PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
 #if defined(__INTP_RBF_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 INTERFACE rbf_vec_interpol_vertex
@@ -289,31 +289,28 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_u_out, p_v_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
-#endif
 
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+  !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
+    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 !CDIR UNROLL=2
   DO jk = slev, elev
+    !$ACC LOOP VECTOR
     DO jc = i_startidx, i_endidx
 #endif
 
@@ -340,16 +337,15 @@ DO jb = i_startblk, i_endblk
 
     ENDDO
   ENDDO
+!$ACC END PARALLEL
 
 ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 END SUBROUTINE rbf_vec_interpol_cell
 !====================================================================================
@@ -440,9 +436,7 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifndef _OPENACC
 !$OMP PARALLEL
-#endif
 
 IF (ptr_patch%id > 1) THEN
 #ifdef _OPENACC
@@ -457,30 +451,28 @@ IF (ptr_patch%id > 1) THEN
 #endif
 ENDIF
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_cell_in, grad_x, grad_y ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
-#endif
 
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+  !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
+    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 !CDIR UNROLL=3
   DO jk = slev, elev
+    !$ACC LOOP VECTOR
     DO jc = i_startidx, i_endidx
 #endif
 
@@ -509,16 +501,14 @@ DO jb = i_startblk, i_endblk
 
     ENDDO
   ENDDO
+!$ACC END PARALLEL
 
 ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 END SUBROUTINE rbf_interpol_c2grad
 
@@ -620,30 +610,27 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
-#endif
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+  !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
+    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 !CDIR UNROLL=6
   DO jk = slev, elev
+    !$ACC LOOP VECTOR
     DO jv = i_startidx, i_endidx
 #endif
 
@@ -664,17 +651,15 @@ DO jb = i_startblk, i_endblk
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
 ENDDO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 END SUBROUTINE rbf_vec_interpol_vertex_wp
 
@@ -759,30 +744,28 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_e_in ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
-#endif
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+  !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
+    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 !CDIR UNROLL=6
   DO jk = slev, elev
+    !$ACC LOOP VECTOR
     DO jv = i_startidx, i_endidx
 #endif
 
@@ -803,17 +786,15 @@ DO jb = i_startblk, i_endblk
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
 ENDDO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 END SUBROUTINE rbf_vec_interpol_vertex_vp
 
@@ -907,30 +888,28 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_vt_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_vt_out ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+    !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=3
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = i_startidx, i_endidx
 #endif
 
@@ -942,15 +921,14 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
       ENDDO
     ENDDO
-  ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+  ENDDO
+
+!$ACC UPDATE HOST( p_vt_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 END SUBROUTINE rbf_vec_interpol_edge
 
