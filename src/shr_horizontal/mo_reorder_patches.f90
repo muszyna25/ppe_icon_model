@@ -291,7 +291,7 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, INTENT(IN) :: idx_old2new(:) ! permutation array
     INTEGER, INTENT(IN) :: n, nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: idx_old2new
 #endif
 
@@ -339,7 +339,7 @@ CONTAINS
     INTEGER,     INTENT(INOUT) :: arr(:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nentries
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -362,7 +362,7 @@ CONTAINS
     INTEGER,     INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -392,7 +392,7 @@ CONTAINS
     LOGICAL,     INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -422,7 +422,7 @@ CONTAINS
     REAL(wp),    INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -452,7 +452,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -482,7 +482,7 @@ CONTAINS
     TYPE(t_tangent_vectors), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -512,7 +512,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(INOUT) :: arr(:,:)
     INTEGER,     INTENT(IN)    :: idx_old2new(:) ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -545,7 +545,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
     LOGICAL, INTENT(IN), OPTIONAL :: opt_owner(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new, opt_owner
 #endif
     ! local variables
@@ -597,7 +597,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -634,7 +634,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -682,7 +682,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     INTEGER,     INTENT(IN)    :: idim_nproma, idim_blks ! index positions of nproma and blocks
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, idx_old2new
 #endif
     ! local variables
@@ -729,7 +729,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: glb_idx(:)             ! index local->global
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nentries               ! no. of local entries
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: arr, glb_idx, idx_old2new
 #endif
     ! local variables
@@ -756,7 +756,7 @@ CONTAINS
     INTEGER,     INTENT(IN)    :: idx_old2new(:)         ! permutation array
     INTEGER,     INTENT(IN)    :: nblks, npromz
     LOGICAL, INTENT(IN), OPTIONAL :: opt_owner(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#if (defined(HAVE_FC_ATTRIBUTE_CONTIGUOUS) && !defined(_CRAYFTN))
     CONTIGUOUS :: idx_arr, blk_arr, idx_old2new, opt_owner
 #endif
     ! local variables
