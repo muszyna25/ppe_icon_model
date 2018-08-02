@@ -67,6 +67,15 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
   REAL(wp),PUBLIC :: leadclose_2n       !< MPIOM's leadclose parameters par_3/par_2 to push new ice together
 
+
+  ! albedo scheme for OMIP, tuned for MPIOM
+  REAL(wp),PUBLIC :: albedoW_sim        !< albedo of the ocean used in sea ice model
+  REAL(wp),PUBLIC :: albs               !< Albedo of snow (not melting)
+  REAL(wp),PUBLIC :: albsm              !< Albedo of snow (melting)
+  REAL(wp),PUBLIC :: albi               !< Albedo of ice (not melting)
+  REAL(wp),PUBLIC :: albim              !< Albedo of ice (melting)
+
+
   ! some analytic initialization parameters
   REAL(wp),PUBLIC :: init_analytic_temp_under_ice= -1.6_wp
   REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
@@ -93,6 +102,11 @@ MODULE mo_sea_ice_nml
                                        ! Tevp_inv=3/dtime is the default value
 !  REAL(wp),PUBLIC :: alpha_evp        ! Parameters  of modified EVP formulation in Bouillon (2013)
 !  REAL(wp),PUBLIC :: beta_evp
+
+  REAL(wp),PUBLIC :: Pstar
+  REAL(wp),PUBLIC :: ellipse          
+  REAL(wp),PUBLIC :: c_pressure       
+
   ! Motion
   INTEGER ,PUBLIC :: i_ice_advec     ! type of ice advection: 0 -- upwind on ICON grid; 1 -- FCT advection on FE grid
   REAL(wp),PUBLIC :: theta_io          ! ice/ocean rotation angle. Implemented in EVP, can beadded to VP
@@ -104,7 +118,7 @@ MODULE mo_sea_ice_nml
     &  i_ice_therm, &
     &  i_ice_albedo, &
     &  i_ice_dyn, &
-    &  hnull, & 
+    &  hnull, &
     &  hmin, &
     &  ramp_wind, &
     &  i_Qio_type, &
@@ -112,6 +126,14 @@ MODULE mo_sea_ice_nml
     &  hci_layer, &
     &  leadclose_1, &
     &  leadclose_2n, &
+    &  albedoW_sim, &
+    &  albs, &
+    &  albsm, &
+    &  albi, &
+    &  albim, &
+    &  pstar, &
+    &  ellipse, &
+    &  c_pressure, &
     &  t_heat_base, &
     &  use_IceInitialization_fromTemperature, &
     &  use_constant_tfreez, &
@@ -160,6 +182,22 @@ CONTAINS
     hci_layer   = 0.10_wp
     leadclose_1 = 0.5_wp
     leadclose_2n = 0.0_wp
+
+
+  ! albedo scheme for OMIP, tuned for MPIOM
+    albedoW_sim  = 0.10_wp         ! albedo of the ocean used in sea ice model
+    albs         = 0.85_wp         ! Albedo of snow (not melting)
+    albsm        = 0.70_wp         ! Albedo of snow (melting)
+    albi         = 0.75_wp         ! Albedo of ice (not melting)
+    albim        = 0.70_wp         ! Albedo of ice (melting)
+
+
+   !RHEOLOGY
+    Pstar       = 27500._wp        ! MPIOM uses 20000 [N/m^2]
+    ellipse     = 2.0_wp
+    c_pressure  = 20.0_wp
+
+
 
     ramp_wind    = 1.0_wp
 

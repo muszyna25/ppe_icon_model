@@ -49,7 +49,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-01T00:01:20Z"
+end_date="2008-09-01T00:08:00Z"
 # restart intervals
 checkpoint_interval="P10D"
 restart_interval="P10D"

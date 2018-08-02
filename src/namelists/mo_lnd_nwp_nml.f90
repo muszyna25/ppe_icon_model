@@ -50,6 +50,7 @@ MODULE mo_lnd_nwp_nml
     &                            config_l2lay_rho_snow => l2lay_rho_snow, &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
+    &                            config_itype_snowevap => itype_snowevap, &
     &                               config_cwimax_ml   => cwimax_ml     , &
     &                               config_c_soil      => c_soil        , &
     &                               config_c_soil_urb  => c_soil_urb    , &
@@ -94,6 +95,7 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
+  INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation      
 
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
@@ -128,7 +130,7 @@ MODULE mo_lnd_nwp_nml
     &               lstomata                                        , & 
     &               l2tls                                           , & 
     &               lana_rho_snow, l2lay_rho_snow                   , & 
-    &               lsnowtile                                       , &
+    &               lsnowtile, itype_snowevap                       , &
     &               sstice_mode                                     , &
     &               sst_td_filename                                 , &
     &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
@@ -196,6 +198,7 @@ MODULE mo_lnd_nwp_nml
                               ! (also used for simplified two-layer snow density scheme)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
+    itype_snowevap = 2       ! 1: old method, 2: empirical correction, 3: more advanced empirical correction 
     !
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
                              ! Note that this is currently the only available option!
@@ -294,6 +297,7 @@ MODULE mo_lnd_nwp_nml
       config_lmulti_snow = lmulti_snow
       config_max_toplaydepth = max_toplaydepth
       config_idiag_snowfrac = idiag_snowfrac
+      config_itype_snowevap = itype_snowevap
       config_itype_trvg  = itype_trvg
       config_itype_evsl  = itype_evsl
       config_itype_lndtbl= itype_lndtbl

@@ -32,7 +32,9 @@ MODULE mo_surface_les
   USE mo_run_config,          ONLY: msg_level
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants    ,  ONLY: min_rlcell_int
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array, global_sum_array
+  USE mo_sync,                ONLY: sync_c, &
+       sync_patch_array, sync_patch_array_mult, &
+       global_sum_array
   USE mo_physical_constants,  ONLY: cpd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
@@ -42,6 +44,7 @@ MODULE mo_surface_les
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_turbdiff,       ONLY: akt, alpha0
   USE mo_turbdiff_config,     ONLY: turbdiff_config
+  USE mo_fortran_tools,       ONLY: insert_dimension
 
   IMPLICIT NONE
 
@@ -87,7 +90,7 @@ MODULE mo_surface_les
                                  prm_diag, theta, qv)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
+    TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
@@ -226,7 +229,7 @@ MODULE mo_surface_les
 
          END DO  
       END DO
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)
@@ -462,12 +465,17 @@ MODULE mo_surface_les
 
   END SELECT 
 
-
-  !Sync is required for mom fluxes 
-  CALL sync_patch_array(SYNC_C, p_patch, prm_diag%umfl_s)
-  CALL sync_patch_array(SYNC_C, p_patch, prm_diag%vmfl_s)
-
-
+  
+  !Sync is required for mom fluxes
+  CALL sync_uvml_s(prm_diag%umfl_s, prm_diag%vmfl_s)
+  CONTAINS
+    SUBROUTINE sync_uvml_s(u, v)
+      REAL(wp), TARGET, INTENT(inout) :: u(:,:), v(:,:)
+      REAL(wp), POINTER :: pu(:,:,:), pv(:,:,:)
+      CALL insert_dimension(pu, u, 2)
+      CALL insert_dimension(pv, v, 2)
+      CALL sync_patch_array_mult(sync_c, p_patch, 2, pu, pv)
+    END SUBROUTINE sync_uvml_s
   END SUBROUTINE surface_conditions
 
   !>

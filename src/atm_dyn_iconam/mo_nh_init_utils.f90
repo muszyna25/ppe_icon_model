@@ -50,7 +50,7 @@ MODULE mo_nh_init_utils
   USE mo_util_phys,             ONLY: virtual_temp
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg
+                                      nlev_soil, nlev_snow, lsnowtile, lprog_albsi, itype_trvg, itype_snowevap
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
 
@@ -76,13 +76,15 @@ CONTAINS
   !  OUT: initicon%const%z_mc_in
   !       initicon%atm_in%pres
   !
-  SUBROUTINE compute_input_pressure_and_height(p_patch, psfc, phi_sfc, initicon)
+  SUBROUTINE compute_input_pressure_and_height(p_patch, psfc, phi_sfc, initicon, opt_lmask)
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     REAL(wp),               INTENT(INOUT)    :: psfc(:,:)
-    REAL(wp),               INTENT(IN)       :: phi_sfc(:,:)
+    REAL(wp),               INTENT(INOUT)    :: phi_sfc(:,:)
     CLASS(t_init_state),    INTENT(INOUT)    :: initicon
+    LOGICAL, OPTIONAL,      INTENT(IN)       :: opt_lmask(:,:)
     ! LOCAL VARIABLES
     INTEGER :: jb, nlen, nlev_in
+    INTEGER :: jc, jc1, jb1
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev  ) :: delp, rdelp, rdlnpr, rdalpha, geop_mc
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev,p_patch%nblks_c) :: temp_v_in
     REAL(wp), DIMENSION(nproma,initicon%atm_in%nlev+1) :: pres_ic, lnp_ic, geop_ic
@@ -94,7 +96,51 @@ CONTAINS
                       initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs,            &
                       temp_v=temp_v_in)
 
+
     ! 1. Compute pressure and height of input data, using the IFS routines
+
+    ! If mask field is provided, fill data-void points (mask=.FALSE.) 
+    ! with dummy value.
+    IF (PRESENT(opt_lmask)) THEN
+      !
+      ! Detect first grid point for which the mask field is .true.
+      outer: DO jb = 1, p_patch%nblks_c
+        IF (jb /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+         nlen = p_patch%npromz_c
+        ENDIF
+        inner: DO jc = 1, nlen
+          IF (opt_lmask(jc,jb)) THEN
+            jc1 = jc
+            jb1 = jb
+            EXIT outer
+          ENDIF
+        ENDDO inner
+      ENDDO outer
+
+      ! Do filling for psfc, phi_sfc, temp_v_in
+!$OMP PARALLEL DO PRIVATE(jb,jc,nlen)
+      DO jb = 1,p_patch%nblks_c
+
+        IF (jb /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        ENDIF
+
+        DO jc = 1, nlen
+          IF (.NOT. opt_lmask(jc,jb)) THEN
+            psfc(jc,jb)                = psfc(jc1,jb1)
+            phi_sfc(jc,jb)             = phi_sfc(jc1,jb1)
+            temp_v_in(jc,1:nlev_in,jb) = temp_v_in(jc1,1:nlev_in,jb1)
+          ENDIF
+        ENDDO
+      ENDDO  ! jb
+!$OMP END PARALLEL DO
+
+    ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, pres_ic, lnp_ic, geop_ic, delp, rdelp, rdlnpr, &
@@ -750,7 +796,7 @@ CONTAINS
   !!
   SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c)
 
-    TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(INOUT) :: p_patch
     TYPE(t_int_state), INTENT(IN) :: p_int
 
     ! Input fields: topography on cells
@@ -885,9 +931,10 @@ CONTAINS
         ALLOCATE (saveinit(jg)%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntl))
       ENDIF
 
-      IF (iprog_aero == 1) ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
-      IF (lprog_albsi)     ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
-      IF (itype_trvg == 3) ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
+      IF (iprog_aero == 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
+      IF (lprog_albsi)         ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
+      IF (itype_trvg == 3)     ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
+      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%snow_age(nproma,nblks_c))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -944,6 +991,11 @@ CONTAINS
       IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
       IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
+      IF (itype_snowevap == 3) THEN
+        CALL copy(lnd_diag%hsnow_max, saveinit(jg)%hsnow_max)
+        CALL copy(lnd_diag%snow_age, saveinit(jg)%snow_age)
+      ENDIF
+
 !$OMP END PARALLEL
 
     ENDDO
@@ -1037,6 +1089,10 @@ CONTAINS
       IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
       IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
+      IF (itype_snowevap == 3) THEN
+        CALL copy(saveinit(jg)%hsnow_max, lnd_diag%hsnow_max)
+        CALL copy(saveinit(jg)%snow_age, lnd_diag%snow_age)
+      ENDIF
 
       ! Fields that need to be reset to zero in order to obtain identical results
       CALL init (p_nh(jg)%diag%ddt_vn_phy)
@@ -1080,6 +1136,7 @@ CONTAINS
       IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
       IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
+      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%snow_age)
     ENDDO
 
     DEALLOCATE(saveinit)

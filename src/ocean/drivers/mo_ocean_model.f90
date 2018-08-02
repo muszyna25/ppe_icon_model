@@ -15,13 +15,15 @@ MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
   USE mo_master_config,       ONLY: isRestart
-  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
+       &                            num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
        &                            set_mpi_work_communicators, p_pe_work, process_mpi_io_size, &
        &                            my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
+  USE mo_memory_log,              ONLY: memory_log_terminate
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
@@ -68,10 +70,11 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, &
+    & construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
-    & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
-    & init_patch_3d, construct_ocean_var_lists
+    & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
+    & init_patch_3d
   USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
     &                                destruct_hamocc_state         
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
@@ -97,7 +100,7 @@ MODULE mo_ocean_model
   USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
 
-  USE mo_alloc_patches,        ONLY: destruct_patches
+  USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -278,6 +281,10 @@ MODULE mo_ocean_model
       CALL finish(TRIM(method_name), 'deallocation of ext_data')
     ENDIF
 
+
+    ! Destruct communication patterns
+    CALL destruct_comm_patterns( ocean_patch_3d%p_patch_2d, p_patch_local_parent )
+
     !The 3D-ocean version of previous calls
     CALL destruct_patches( ocean_patch_3d%p_patch_2d )
     CALL destruct_patches( p_patch_local_parent )
@@ -296,6 +303,9 @@ MODULE mo_ocean_model
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
+
+    ! close memory logging files
+    CALL memory_log_terminate
 
     CALL message(TRIM(method_name),'clean-up finished')
 
@@ -343,7 +353,8 @@ MODULE mo_ocean_model
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
+      &                             dedicatedRestartProcs, num_test_pe)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -372,7 +383,7 @@ MODULE mo_ocean_model
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
-    IF(lhamocc)CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
+    IF(lhamocc) CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -491,8 +502,6 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
-    CALL init_oce_config
-
     ! initialize ocean indices for debug output (before ocean state, no 3-dim)
     CALL init_dbg_index(patch_3d%p_patch_2d(1))!(patch_2D(1))
 
@@ -516,7 +525,7 @@ MODULE mo_ocean_model
     CALL construct_hydro_ocean_state(patch_3d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    if(lhamocc)CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
+    if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 

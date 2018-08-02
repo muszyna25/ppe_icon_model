@@ -27,7 +27,7 @@ CONTAINS
 SUBROUTINE VEXCS(KIDIA,KFDIA,KLON,KITT,K_VMASS,LDINIT,PTMST,PRVDIFTS,&
  & PUMLEV,PVMLEV,PTMLEV,PQMLEV,PAPHMS,PGEOMLEV,PCPTGZLEV,&
  & PCPTS,PQSAM,PZ0MM,PZ0HM,PZ0QM,PZDL,PBUOM,PUCURR,PVCURR,&
- & PCFM,PCFH,PCFQ,PKH,PCM,PCH)  
+ & PCFM,PCFH,PCFQ,PKM,PKH,PCM,PCH)  
 
 ! USE PARKIND1  ,ONLY : JPIM     ,JPRB
 ! USE YOMHOOK   ,ONLY : LHOOK,   DR_HOOK
@@ -45,9 +45,8 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RG       ,RD       ,RETV     ,&                     !yomcst  (& yos_cst)   
       & RVTMP2   ,&                                         !yoethf  (& yos_thf)
       & RKAP     ,REPDU2   ,RPARZI   ,&                     !yoevdf  (& yos_exc)
-      & JPRITBL  ,RITBL    ,RCHBA    ,RCHBB    ,&           !yoevdfs (& yos_excs)
-      & RCHBD    ,RCHB23A  ,RCHBBCD  ,RCHBCD   ,RCHETA   ,& ! -
-      & RCHETB   ,RCHBHDL  ,RCDHALF  ,RCDHPI2  ,DRITBL   ,& ! -
+      & JPRITBL  ,RITBL    ,&                               !yoevdfs (& yos_excs)
+      & RCHBHDL  ,DRITBL   ,&                     ! -
       & VDIV     ,VEXP     ,VREC     ,VLOG
 USE mo_edmf_param   ,ONLY : &
       & PSIHU    ,PSIHS    ,PSIMU    ,PSIMS                 !fcsvdfs.h
@@ -120,6 +119,7 @@ USE mo_edmf_param   ,ONLY : &
 !                    AT LOWEST MODEL LEVEL; CALLED WITH ZCFM(1,KLEV)
 !     *PCFQ*         PROP. TO EXCH. COEFF. FOR MOISTURE (C-STAR IN DOC.)
 !                    (THIS ARRAY APPLIES TO BOTTOM LAYER ONLY)
+!     *PKM*          CM*U  IN SURFACE LAYER                        (M/S)
 !     *PKH*          CH*U  IN SURFACE LAYER                        (M/S)
 !     *PCM*          CM    IN SURFACE LAYER                        (1)
 !     *PCH*          CH    IN SURFACE LAYER                        (1)
@@ -174,6 +174,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PVCURR(:)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PCFM(:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PCFH(:) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PCFQ(:) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKM(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKH(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PCM(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PCH(:) 
@@ -196,9 +197,9 @@ REAL(KIND=JPRB) :: ZTMP4(KFDIA-KIDIA+1+K_VMASS)
 
 INTEGER(KIND=JPIM) :: IRIB, JIT, JL
 
-REAL(KIND=JPRB) :: ZA, ZAUX1, ZAUX2, ZB, ZCDNH,&
- & ZCDNM, ZCDNQ, ZCH, ZCM, ZCON1, ZCON2, ZCONS12, &
- & ZCQ, ZDRORO, ZETA, ZETA1, ZHU, ZIPBL, &
+REAL(KIND=JPRB) :: ZA, ZAUX1, ZAUX2, ZB, &
+ & ZCON1, ZCON2, ZCONS12, &
+ & ZDRORO, ZETA, ZETA1, ZHU, ZIPBL, &
  & ZL, ZPRH, ZPRH0, ZPRH1, ZPRM, ZPRM0, ZPRM1, &
  & ZPRQ, ZPRQ0, ZRIB1, ZTPFAC1, ZUABS, ZWST2, &
  & ZX2  
@@ -485,19 +486,20 @@ DO JL=KIDIA,KFDIA
   ZPRH   =ZXLNH(JL)-ZPRH1+ZPRH0
   ZPRQ   =ZXLNQ(JL)-ZPRH1+ZPRQ0
   ZAUX1  =ZCONS12*PAPHMS(JL)/&
-   & (PTMLEV(JL)*(1.0_JPRB+RETV*PQMLEV(JL)))  
-  ZUABS  =SQRT(ZDU2(JL))
-  ZAUX2  =ZAUX1*ZUABS*RKAP**2
+   & (PTMLEV(JL)*(1.0_JPRB+RETV*PQMLEV(JL)))  ! g * rho * alpha * dt
+  ZUABS  =SQRT(ZDU2(JL))                      ! |U|
+  ZAUX2  =ZAUX1*ZUABS*RKAP**2                 ! |U| * g * rho * alpha * dt * kappa^2
 
-  PCFM(JL)=ZAUX2/(ZPRM**2)
+  PCFM(JL)=ZAUX2/(ZPRM**2)                    ! C* = C * |U| * g * rho * alpha * dt
   PCFH(JL)=ZAUX2/(ZPRM*ZPRH)
   PCFQ(JL)=ZAUX2/(ZPRM*ZPRQ)
 
-!             U*CH FOR POSTPROCESSING ONLY
+!             U*CH FOR POSTPROCESSING ONLY  [m/s]
 
+  PKM(JL)=PCFM(JL)/ZAUX1
   PKH(JL)=PCFH(JL)/ZAUX1
 
-!             CM and CH FOR TERRA
+!             CM and CH FOR TERRA           [1]
 
   PCM(JL)=PCFM(JL)/ZAUX1/ZUABS
   PCH(JL)=PCFH(JL)/ZAUX1/ZUABS

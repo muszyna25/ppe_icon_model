@@ -155,9 +155,7 @@ REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX
 
 !*         0.2    LOCAL VARIABLES
       
-INTEGER(KIND=JPIM), PARAMETER ::  IPDF = 2
-      
-REAL(KIND=JPRB) ::    ZDUMMY       , ZFRC        , ZQSAT         , ZTHVM         ,ZQL
+REAL(KIND=JPRB) ::    ZDUMMY       , ZQSAT         , ZTHVM         ,ZQL
      
 REAL(KIND=JPRB) ::    ZQTXDEF(KLON,0:KLEV) , ZDQTXDEFDZ(KLON,0:KLEV), &
                  &    ZQTX(KLON,0:KLEV)    , &
@@ -169,8 +167,7 @@ REAL(KIND=JPRB) ::    ZS1(3)       , ZS0(3)      , ZNS(3)        , &
                  &    ZMZBSAT0(3)  , ZMZBSAT1(3) , &
                  &    ZXTHV0(3)    , ZXTHV1(3)   , ZXTHVFLAT0(3) , ZXTHVFLAT1(3) , XDIR    , &
                  &    ZNORM        , ZTHV0       , ZTHV1         , &
-                 &    ZX0(3)       , ZX1(3)      , ZNX(3)        , ZXMEAN(3)     , ZXMZB(3), &
-                 &    ZSIGX        , ZXDIST      , ZXMIN         , ZXBAR
+                 &    ZX0(3)       , ZX1(3)      , ZXMZB(3)
 
 REAL(KIND=JPRB) ::    ZAGRADLCL(KLON), ZAGRADTOP(KLON), &
                  &    ZAGRADLCLMIN, ZAGRADLCLMAX, &
@@ -180,7 +177,7 @@ REAL(KIND=JPRB) ::    ZAGRADLCL(KLON), ZAGRADTOP(KLON), &
 REAL(KIND=JPRB) ::    ZRG,ZCL,ZASTAR,ZDZ,ZDELTAMINEPS, &
                  &    ZFRAC, ZFAC, ZDUMR
                  
-INTEGER(KIND=JPIM) :: JK, JL, JP, JD
+INTEGER(KIND=JPIM) :: JK, JL
 
 LOGICAL ::            LLPBL(KLON,KLEV)
 
@@ -340,13 +337,11 @@ DO JK=1,KLEV-1
 !      ZX1(:)    = (/ PSLGUH(JL,JK,3)/RCPD, 1000._JPRB * PQTUH(JL,JK,3), 0._JPRB /)
       ZX1(:)    = (/ PSLGUH(JL,JK,1)/RCPD, 1000._JPRB * PQTUH(JL,JK,1), 0._JPRB /)
       ZX0(:)    = (/ PSLGM(JL,JK)/RCPD   , 1000._JPRB * PQTM(JL,JK)   , 0._JPRB /)
-      ZXMEAN(:) = ZX1(:)
       ZNORM     = SQRT(DOT_PRODUCT(ZX1(:) - ZX0(:),ZX1(:) - ZX0(:)))
       !IF (ZNORM.EQ.0.) THEN
         !-- Protection against zero length: assume mixing line = dry zero buoyancy line --
       !  print '(a)',"zero length mixing line vector - terror!"
       !ENDIF  
-      ZNX(:) = (ZX1(:) - ZX0(:))  / ZNORM
       
       
       !-- intersection point of moist zero buoy line and updraft PDF axis

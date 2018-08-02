@@ -12,20 +12,9 @@ restart_interval="P25Y"
 output_interval="P01D"
 # restart=".true."
 #-----------------------------------------------------------------------------
-# model timing
-(( years_checkpoint  = 25 ))    # write restart file interval [days]
-(( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
-#
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-(( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
-(( dt_checkpoint  = years_checkpoint  * year ))
-(( dt_restart     = years_restart     * year ))
-(( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
-(( dt_checkpoint  = 0 ))
-(( dt_restart     = 0 ))
-#steps_per_file=610                               # assigned output intervals per file interval
+steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12

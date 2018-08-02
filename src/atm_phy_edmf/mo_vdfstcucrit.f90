@@ -122,10 +122,7 @@ SUBROUTINE VDFSTCUCRIT (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & RD       ,RV       ,RG       ,RCPD     ,RETV    ,RLVTT    ,&         !yomcst
-                & RLSTT    ,RTT      ,&                                                ! -
-                & R2ES     ,R3LES    ,R3IES    ,R4LES    ,R4IES   ,R5LES    ,R5IES  ,& !yoethf
-                & R5ALVCP  ,R5ALSCP  ,RALVDCP  ,RALSDCP  ,RTWAT   ,RTICE    ,RTICECU,& ! -
-                & RTWAT_RTICE_R      ,RTWAT_RTICECU_R
+                & R4LES    ,R4IES    ,R5LES    ,R5IES                                  !yoethf
 USE mo_edmf_param   ,ONLY : &
                 & FOEALFA  ,FOEEWM                                                     !fcttre.f
 
@@ -158,7 +155,7 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTABILITY(KLON)
 
 !*         0.2    LOCAL VARIABLES
 
-REAL(KIND=JPRB) ::   ZRG, ZSTABILITY(KLON),  ZDCTEI(KLON)
+REAL(KIND=JPRB) ::   ZDCTEI(KLON)
 
 !          VARIABLES FOR CLOUD BASE ESTIMATION
 
@@ -166,7 +163,7 @@ REAL(KIND=JPRB) ::    ZQS(KLON,0:KLEV)  , ZALFAW  , ZFACW   , ZFACI   , ZFAC    
                     & ZESDP   , ZCOR    , ZDQSDTEMP(KLON)   , ZBETA   , ZDSL(KLEV)  , &
                     & ZDQT(KLEV)        , ZEIS(KLON)        , ZT850   , ZGAMMA850
                       
-INTEGER(KIND=JPIM) :: IS, JK, JL, JD
+INTEGER(KIND=JPIM) :: JK, JL
 
 INTEGER(KIND=JPIM) :: I700(KLON), I850(KLON)
 
@@ -186,10 +183,6 @@ REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 !                 --------------------
 
 IF (LHOOK) CALL DR_HOOK('VDFSTCUCRIT',0,ZHOOK_HANDLE)
-
-! optimization
-ZRG         = 1.0_JPRB/RG
-
 
 
 

@@ -32,7 +32,7 @@ MODULE mo_advection_config
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: fget_var_list_element_r3d
+  USE mo_var_list,              ONLY: fget_var_list_element_r3d, get_timelevel_string
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
@@ -997,15 +997,15 @@ CONTAINS
 
       ! generate tracer name
       WRITE(passive_tracer_id,'(I2)') ipassive
-      WRITE(str_ntl,'(I2)') ntl
-      tracer_name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_id))//'.TL'
+      str_ntl = get_timelevel_string(ntl)
+      tracer_name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_id))//TRIM(str_ntl)
 
 
       WRITE(message_text,'(2a)') 'Initialize additional passive tracer: ',TRIM(tracer_name)
       CALL message('',message_text)
 
       CALL formula%evaluate( fget_var_list_element_r3d (tracer_list(ntl), &
-        &                    TRIM(tracer_name)//TRIM(ADJUSTL(str_ntl))) )
+        &                    TRIM(tracer_name)))
       CALL formula%finalize()
 
 

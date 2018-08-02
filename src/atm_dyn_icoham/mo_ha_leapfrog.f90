@@ -70,7 +70,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: dtime_bdy   ! time step for boundary tendencies
     LOGICAL, INTENT(IN) :: ltheta_dyn
 
-    TYPE(t_patch),TARGET,    INTENT(IN) :: curr_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: curr_patch
     TYPE(t_int_state),TARGET,INTENT(IN) :: p_int_state
     TYPE(t_hydro_atm_prog),  INTENT(IN) :: p_old
     TYPE(t_external_data),   INTENT(INOUT) :: p_ext_data !< external data
