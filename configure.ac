@@ -999,7 +999,7 @@ dnl Checks for header files.
 if test -z "$CROSS" ; then
 
    AC_HEADER_STDC
-   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h )
+   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h link.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
    AC_C_CONST

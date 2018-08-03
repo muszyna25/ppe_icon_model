@@ -2148,6 +2148,7 @@ as_fn_append ac_header_list " sys/param.h"
 as_fn_append ac_header_list " sys/time.h"
 as_fn_append ac_header_list " sys/unistd.h"
 as_fn_append ac_header_list " sys/utsname.h"
+as_fn_append ac_header_list " link.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
 ac_cache_corrupted=false
@@ -5293,6 +5294,8 @@ _ACEOF
 fi
 
 done
+
+
 
 
 
