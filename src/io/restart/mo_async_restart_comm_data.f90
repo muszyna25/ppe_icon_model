@@ -1,6 +1,9 @@
 !>
 !! This class implements the asynchronous communication of the payload data to the restart processes.
 !!
+!!
+!! 2018-08: Major revision / revamp / refactoring : Harald Braun (Atos SE)
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in

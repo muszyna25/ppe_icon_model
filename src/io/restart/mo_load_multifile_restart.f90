@@ -1,5 +1,7 @@
 !> Module for reading multifile restart files
 !!
+!! 2018-08: Major revision / revamp / refactoring : Harald Braun (Atos SE)
+!!
 !! Note: The single file implementation of the restart input can be
 !!       found in the module "mo_load_singlefile_restart"
 !!

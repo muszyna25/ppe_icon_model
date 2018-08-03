@@ -5,6 +5,7 @@
 !!
 !! Initial implementation: Nathanael Huebbe
 !! Refactoring (point-to-point comm. replaced by one-sided comm.): F. Prill
+!! 2018-08: Major revision / revamp / refactoring : Harald Braun (Atos SE)
 !!
 !! @par Copyright and License
 !!
