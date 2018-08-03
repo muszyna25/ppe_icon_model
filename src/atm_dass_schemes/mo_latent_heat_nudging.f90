@@ -105,7 +105,7 @@ USE mo_mpi,                     ONLY: my_process_is_stdio
 USE mo_io_units,                ONLY: find_next_free_unit
 USE mo_run_config,              ONLY: msg_level, iqv, iqc, iqi
 USE mo_math_laplace,            ONLY: nabla2_scalar
-USE mo_sync,                    ONLY: SYNC_C, sync_patch_array, &
+USE mo_sync,                    ONLY: SYNC_C, sync_patch_array_mult, &
                                       global_sum_array,global_max,global_min,global_sum_array2
 USE mo_intp_data_strc,          ONLY: t_int_state
 
@@ -316,13 +316,17 @@ SUBROUTINE organize_lhn ( &
 
   rnlhn      = (p_sim_time)/REAL(assimilation_config(jg)%nlhn_end)
 
+  ! settings to exclude boundary interpolation zone of nested domains
+  i_rlstart = grf_bdywidth_c+1
+  i_rlend   = min_rlcell_int
+
+  i_startblk = pt_patch%cells%start_block(i_rlstart)
+  i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb)
   DO jb = 1, pt_patch%nblks_c
-
     pr_obs(:,jb) = 0.0_wp
-    pr_mod(:,jb) = 0.0_wp
     wobs_space(:,jb) = -1.0_wp
     wobs_time(:,jb) = -1.0_wp
     lhn_diag(:,:,jb) = -99.0_wp
@@ -333,18 +337,17 @@ SUBROUTINE organize_lhn ( &
     j_treat(:,jb) = 0
     diag_out(jb,:) = 0
     scale_fac_index(:,jb) =.FALSE.
+  END DO
+!$OMP END DO
 
-END DO
-
+!$OMP DO PRIVATE(jb)
+  DO jb = 1, i_startblk    ! initialization along nest boundaries
+    pr_mod(:,jb) = 0.0_wp
+    pr_ref(:,jb) = 0.0_wp
+    tt_lheat(:,:,jb) = 0._wp
+  END DO
 !$OMP END DO
 !$OMP END PARALLEL
-
-  ! exclude boundary interpolation zone of nested domains
-  i_rlstart = grf_bdywidth_c+1
-  i_rlend   = min_rlcell_int
-
-  i_startblk = pt_patch%cells%start_block(i_rlstart)
-  i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 
   IF (my_process_is_stdio() .AND. (assimilation_config(jg)%lhn_diag) ) THEN
@@ -442,9 +445,17 @@ END DO
 !-------------------------------------------------------------------------------
 
             IF (atm_phy_nwp_config(jg)%inwp_convection > 0) THEN
-              tt_lheat(:,:,jb) = prm_diag%tt_lheat(:,:,jb)*zdt_1 + prm_nwp_tend%ddt_temp_pconv(:,:,jb)
+              DO jk = kstart_moist(jg), nlev
+                DO jc = i_startidx, i_endidx
+                  tt_lheat(jc,jk,jb) = prm_diag%tt_lheat(jc,jk,jb)*zdt_1 + prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
+                ENDDO
+              ENDDO
             ELSE
-              tt_lheat(:,:,jb) = prm_diag%tt_lheat(:,:,jb)*zdt_1
+              DO jk = kstart_moist(jg), nlev
+                DO jc = i_startidx, i_endidx
+                  tt_lheat(jc,jk,jb) = prm_diag%tt_lheat(jc,jk,jb)*zdt_1
+                ENDDO
+              ENDDO
             ENDIF
 
           ENDDO
@@ -506,12 +517,11 @@ END DO
 
 
    IF (assimilation_config(jg)%lhn_relax) THEN
-      CALL sync_patch_array(SYNC_C, pt_patch, pr_ref)
-      CALL sync_patch_array(SYNC_C, pt_patch, pr_obs)
-      CALL sync_patch_array(SYNC_C, pt_patch, tt_lheat)
 
-      z_pr_obs(:,1,:)      = pr_obs(:,:)
-      z_pr_mod(:,1,:)      = pr_ref(:,:)
+      z_pr_obs(:,1,:) = pr_obs(:,:)
+      z_pr_mod(:,1,:) = pr_ref(:,:)
+
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, 3, z_pr_mod, z_pr_obs, tt_lheat)
 
       zdcoeff = 0.05_wp ! diffusion coefficient for nabla2 diffusion
   
@@ -519,46 +529,45 @@ END DO
                          ! note: a variable number of iterations (with an exit condition) potentially 
                          ! causes trouble with MPI reproducibility
   
-         CALL nabla2_scalar( z_pr_mod, pt_patch, pt_int_state, z_nabla2_prmod )
-         CALL nabla2_scalar( z_pr_obs, pt_patch, pt_int_state, z_nabla2_probs )
-         CALL nabla2_scalar( tt_lheat, pt_patch, pt_int_state, z_nabla2_ttlh )
+        CALL nabla2_scalar(z_pr_mod, pt_patch, pt_int_state, z_nabla2_prmod, 1, 1, grf_bdywidth_c+1, min_rlcell_int)
+        CALL nabla2_scalar(z_pr_obs, pt_patch, pt_int_state, z_nabla2_probs, 1, 1, grf_bdywidth_c+1, min_rlcell_int)
+        CALL nabla2_scalar(tt_lheat, pt_patch, pt_int_state, z_nabla2_ttlh,        &
+                           kstart_moist(jg), nlev, grf_bdywidth_c+1, min_rlcell_int)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-         DO jb = i_startblk,i_endblk
+        DO jb = i_startblk,i_endblk
 
-           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                              i_startidx, i_endidx, i_rlstart, i_rlend)
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, i_rlstart, i_rlend)
 
-           DO jc = i_startidx, i_endidx
-             pr_ref(jc,jb) = MAX(0.0_wp, z_pr_mod(jc,1,jb) + zdcoeff *           &
-                             pt_patch%cells%area(jc,jb) * z_nabla2_prmod(jc,1,jb))
+          DO jc = i_startidx, i_endidx
+            pr_ref(jc,jb) = MAX(0.0_wp, z_pr_mod(jc,1,jb) + zdcoeff *           &
+                            pt_patch%cells%area(jc,jb) * z_nabla2_prmod(jc,1,jb))
    
-             pr_obs(jc,jb) = MAX(0.0_wp, z_pr_obs(jc,1,jb) + zdcoeff *           &
-                             pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb))
-           ENDDO
+            pr_obs(jc,jb) = MAX(0.0_wp, z_pr_obs(jc,1,jb) + zdcoeff *           &
+                            pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb))
+          ENDDO
 
-           DO jk = kstart_moist(jg),pt_patch%nlev
-             DO jc = i_startidx, i_endidx
-               tt_lheat(jc,jk,jb) = tt_lheat(jc,jk,jb) + zdcoeff *                    &
-                                   pt_patch%cells%area(jc,jb) * z_nabla2_ttlh(jc,jk,jb)
-             ENDDO
-           ENDDO
+          DO jk = kstart_moist(jg),pt_patch%nlev
+            DO jc = i_startidx, i_endidx
+              tt_lheat(jc,jk,jb) = tt_lheat(jc,jk,jb) + zdcoeff *                    &
+                                  pt_patch%cells%area(jc,jb) * z_nabla2_ttlh(jc,jk,jb)
+            ENDDO
+          ENDDO
 
-         ENDDO
+        ENDDO
 !$OMP END DO 
 !$OMP END PARALLEL
    
-         z_pr_mod(:,1,:) = pr_ref(:,:)
-         CALL sync_patch_array(SYNC_C, pt_patch, z_pr_mod)
-         pr_ref(:,:) = z_pr_mod(:,1,:)
+        z_pr_mod(:,1,:) = pr_ref(:,:)
+        z_pr_obs(:,1,:) = pr_obs(:,:)
 
-         z_pr_obs(:,1,:) = pr_obs(:,:)
-         CALL sync_patch_array(SYNC_C, pt_patch, z_pr_obs)
-         pr_obs(:,:) = z_pr_obs(:,1,:)
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, 3, z_pr_mod, z_pr_obs, tt_lheat)
 
-         CALL sync_patch_array(SYNC_C, pt_patch, tt_lheat)
+        pr_ref(:,:) = z_pr_mod(:,1,:)
+        pr_obs(:,:) = z_pr_obs(:,1,:)
       ENDDO
 
    ENDIF

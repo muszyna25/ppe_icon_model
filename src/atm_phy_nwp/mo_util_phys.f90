@@ -1050,7 +1050,7 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
             pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
-          zqin = MAX(0._vp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          zqin = MAX(0._wp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
         ELSE
           zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
         ENDIF
