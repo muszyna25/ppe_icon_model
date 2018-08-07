@@ -32,11 +32,12 @@ MODULE mo_turbdiff_nml
 
   USE mo_data_turbdiff,       ONLY: &
     & itype_sher, imode_shshear, itype_wcld, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, imode_tkesso, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
-    & a_hshr, imode_frcsmot, lfreeslip, alpha0, alpha0_max, alpha0_pert, tkhmin_strat, tkmmin_strat
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, q_crit, &
+    & a_hshr, imode_frcsmot, lfreeslip, alpha0, alpha1, alpha0_max, alpha0_pert, &
+    & tkhmin_strat, tkmmin_strat
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
@@ -62,11 +63,11 @@ MODULE mo_turbdiff_nml
 
   NAMELIST/turbdiff_nml/ &
     & itype_sher, imode_shshear, itype_wcld, &
-    & imode_tran, imode_turb, icldm_tran, icldm_turb, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, imode_tkesso, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
-    & a_hshr, imode_frcsmot, alpha0, alpha0_max, tkhmin_strat, tkmmin_strat, &
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, q_crit, &
+    & a_hshr, imode_frcsmot, alpha0, alpha1, alpha0_max, tkhmin_strat, tkmmin_strat, &
 !   additional namelist parameters:
     & lconst_z0, const_z0, lfreeslip, ldiff_qi, ldiff_qs
 
@@ -113,7 +114,7 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
-    ldiff_qi     = .TRUE.   ! turbulent diffusion of QI  
+    ldiff_qi     = .FALSE.   ! turbulent diffusion of QI  
 
     ldiff_qs     = .FALSE.  ! no turbulent diffusion of QS  
 
@@ -152,7 +153,7 @@ CONTAINS
     ! 4. Sanity check
     !----------------------------------------------------
 
-
+    IF (.NOT. ltkesso) imode_tkesso = 0
 
 
     !----------------------------------------------------
@@ -167,6 +168,7 @@ CONTAINS
       turbdiff_config(jg)%itype_sher   = itype_sher
       turbdiff_config(jg)%imode_shshear= imode_shshear
       turbdiff_config(jg)%imode_frcsmot= imode_frcsmot
+      turbdiff_config(jg)%imode_tkesso = imode_tkesso
       turbdiff_config(jg)%ltkesso      = ltkesso
       turbdiff_config(jg)%ltkeshs      = ltkeshs
       turbdiff_config(jg)%ltkecon      = ltkecon
@@ -184,6 +186,7 @@ CONTAINS
       turbdiff_config(jg)%alpha0       = alpha0
       turbdiff_config(jg)%alpha0_max   = alpha0_max
       turbdiff_config(jg)%alpha0_pert  = alpha0_pert
+      turbdiff_config(jg)%alpha1       = alpha1
       turbdiff_config(jg)%tkhmin       = tkhmin
       turbdiff_config(jg)%tkmmin       = tkmmin
       turbdiff_config(jg)%tkhmin_strat = tkhmin_strat
@@ -197,6 +200,7 @@ CONTAINS
       turbdiff_config(jg)%impl_s       = impl_s
       turbdiff_config(jg)%impl_t       = impl_t
       turbdiff_config(jg)%a_hshr       = a_hshr
+      turbdiff_config(jg)%q_crit       = q_crit
 
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0

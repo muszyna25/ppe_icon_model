@@ -140,14 +140,6 @@ USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
 
 !------------------------------------------------------------------------------
 
-#ifdef NUDGING
-USE data_lheat_nudge,           ONLY :  &
-    llhn,         & ! main switch for latent heat nudging
-    llhnverif       ! main switch for latent heat nudging
-#endif
-
-!------------------------------------------------------------------------------
-
 #ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
                                  i4
@@ -166,9 +158,10 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b4w   => c4les     !!               -- " --
-USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water     !! saturation vapor pressure w.r.t. water
+USE mo_satad,              ONLY: sat_pres_water     !! saturation vapor pressure w.r.t. water
 USE mo_exception,          ONLY: message, message_text
+
+USE mo_run_config,         ONLY: ldass_lhn
 #endif
 
 !------------------------------------------------------------------------------
@@ -229,10 +222,9 @@ SUBROUTINE kessler  (             &
 #ifdef __COSMO__
   tinc_lh,                           & !  t-increment due to latent heat 
 #endif
-#ifdef NUDGING
-  tt_lheat,                          & !  t-increments due to latent heating (nud) 
-#endif
+  qrsflux,                           & !  precipitation flux
   l_cv,                              &
+  ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    ,                   & !> ddt_tend_xx are tendencies
   ddt_tend_qr    ,                   & !!    necessary for dynamics
@@ -279,14 +271,7 @@ SUBROUTINE kessler  (             &
     qc0              !> cloud ice/water threshold for autoconversion
 #endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(in)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(IN) ::      &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::      &   ! (ie,ke)
-#endif
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
@@ -294,12 +279,11 @@ SUBROUTINE kessler  (             &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(INOUT) ::   &
-#else
+  LOGICAL, INTENT(IN), OPTIONAL :: &
+    ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
+    ldiag_qtend            ! if true, moisture tendencies shall be diagnosed
+
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
-#endif
     t               ,    & !> temperature                                   (  K  )
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
@@ -310,40 +294,19 @@ SUBROUTINE kessler  (             &
        tinc_lh(:,:)    ! temperature increments due to heating             ( K/s ) 
 #endif  
 
-#ifdef NUDGING
   REAL(KIND=wp), INTENT(INOUT) :: &
-       tt_lheat(:,:)       !  t-increments due to latent heating (nudg) ( K/s )
-#endif
+       qrsflux(:,:)        !  precipitation flux
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec), INTENT(INOUT) ::   &
-#else
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
-#endif
     prr_gsp                !> precipitation rate of rain, grid-scale        (kg/(m2*s))
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
-#endif
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
     ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
     ddt_tend_qr         !! tendency qr                                      ( 1/s )
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &   ! dim (ie,ke)
-#endif
     ddt_diag_au     , & !> optional output autoconversion rate cloud to rain           ( 1/s )
     ddt_diag_ac     , & !! optional output accretion rate cloud to rain                ( 1/s )
     ddt_diag_ev         !! optional output evaporation of rain                         ( 1/s )
@@ -366,6 +329,8 @@ SUBROUTINE kessler  (             &
     iv, k             !> loop indices
 
   REAL    (KIND=wp   ) :: z_heat_cap_r !! reciprocal of cpdr or cvdr (depending on l_cv)
+
+  LOGICAL :: lldiag_ttend, lldiag_qtend
 
   INTEGER ::  &
     iv_start     ,    & !> start index for horizontal direction
@@ -478,14 +443,6 @@ SUBROUTINE kessler  (             &
 #endif
   ! Optional arguments
 
-  IF (PRESENT(ddt_tend_t)) THEN
-    ! save input arrays for final tendency calculation
-    t_in(:,:)  = t(:,:)
-    qv_in(:,:) = qv(:,:)
-    qc_in(:,:) = qc(:,:)
-    qr_in(:,:) = qr(:,:)
-  END IF
-
   IF (PRESENT(ivstart)) THEN
     iv_start = ivstart
   ELSE
@@ -506,18 +463,36 @@ SUBROUTINE kessler  (             &
   ELSE
     izdebug = 0
   END IF
+  IF (PRESENT(ldiag_ttend)) THEN
+    lldiag_ttend = ldiag_ttend
+  ELSE
+    lldiag_ttend = .FALSE.
+  ENDIF
+  IF (PRESENT(ldiag_qtend)) THEN
+    lldiag_qtend = ldiag_qtend
+  ELSE
+    lldiag_qtend = .FALSE.
+  ENDIF
+
+  ! save input arrays for final tendency calculation
+  IF (lldiag_ttend) THEN
+    t_in  = t
+  ENDIF
+  IF (lldiag_qtend) THEN
+    qv_in = qv
+    qc_in = qc
+    qr_in = qr
+  END IF
 
 ! timestep for calculations
   zdtr  = 1.0_wp / zdt
 
-#ifdef NUDGING
   ! add part of latent heating calculated in subroutine kessler to model latent
   ! heating field: subtract temperature from model latent heating field
-  IF (llhn) THEN
+  IF (ldass_lhn) THEN
     ! CALL get_gs_lheating ('add',1,ke) !XL :should not be called from block physics
-    tt_lheat(:,:) = tt_lheat(:,:) - t(:,:)
+    qrsflux(:,:) = 0.0_wp
   ENDIF
-#endif
 
 ! output for various debug levels
   IF (izdebug > 15) CALL message('','gscp_kessler:  Start of kessler')
@@ -691,9 +666,17 @@ loop_over_levels: DO k = 1, ke
       ! Store precipitation fluxes and sedimentation velocities for the next level
       zprvr(iv) = qrg*rhog*zvzr(iv)
       zvzr(iv)  = zvz0r * EXP(x1o8 * LOG(MAX((qrg+qr(iv,k+1))*0.5_wp*rhog,znull)))
+          ! for the latent heat nudging
+          IF (ldass_lhn) THEN
+            qrsflux(iv,k) = zprvr(iv)
+            qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv))
+          ENDIF
     ELSE
       ! Precipitation flux at the ground
       prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
+      ! for the latent heat nudging
+        IF (ldass_lhn) &
+           qrsflux(iv,k) = prr_gsp(iv)
     ENDIF
 
     ! Update of prognostic variables or tendencies
@@ -749,33 +732,6 @@ loop_over_levels: DO k = 1, ke
 
 ENDDO loop_over_levels
 
-#ifdef NUDGING
-! add part of latent heating calculated in subroutine hydci to model latent
-! heating field: add temperature to model latent heating field
-IF (llhn .OR. llhnverif) &
-! CALL get_gs_lheating ('inc',1,ke)  !XL :this should be called from within the block
-     tt_lheat(:,:) = tt_lheat(:,:) + t(:,:)
-#endif
-
-#ifdef __ICON__
-
- CALL satad_v_3d (                             &
-               & maxiter  = 10_i4        ,& !> IN
-               & tol      = 1.e-3_wp     ,& !> IN
-               & te       = t            ,&
-               & qve      = qv           ,&
-               & qce      = qc           ,&
-               & rhotot   = rho          ,&
-               & idim     = nvec         ,&
-               & kdim     = ke           ,&
-               & ilo      = iv_start     ,&
-               & iup      = iv_end       ,&
-               & klo      = k_start      ,&
-               & kup      = ke            &
-!              !& count, errstat,
-               )
-#endif
-
 !------------------------------------------------------------------------------
 ! final tendency calculation for ICON
 !
@@ -784,27 +740,25 @@ IF (llhn .OR. llhnverif) &
 ! be used to store the new values. Then we wont need the _in variables anymore.
 !------------------------------------------------------------------------------
 
-  IF (PRESENT(ddt_tend_t)) THEN
+! calculated pseudo-tendencies
 
+  IF ( lldiag_ttend ) THEN
     DO k=k_start,ke
-      DO iv=iv_start, iv_end
-
-        ! calculated pseudo-tendencies
+      DO iv=iv_start,iv_end
         ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
+     END DO
+    END DO
+  ENDIF
+ 
+  IF ( lldiag_qtend ) THEN
+    DO k=k_start,ke
+      DO iv=iv_start,iv_end
         ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
         ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
         ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
-
-        ! restore input values
-        t (iv,k) = t_in (iv,k)
-        qv(iv,k) = qv_in(iv,k)
-        qc(iv,k) = qc_in(iv,k)
-        qr(iv,k) = qr_in(iv,k)
-
       END DO
     END DO
-
-  END IF
+  ENDIF
 
   IF (izdebug > 25) THEN
     CALL message('mo_gscp', 'UPDATED VARIABLES')

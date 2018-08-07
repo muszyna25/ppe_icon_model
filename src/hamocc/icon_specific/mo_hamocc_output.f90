@@ -39,8 +39,10 @@
    
       USE mo_zaxis_type
 
-      USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, &
-   &                                    DATATYPE_PACK16, DATATYPE_INT8, &
+      USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+        &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+        &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+        &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
    &                                    GRID_LONLAT, GRID_UNSTRUCTURED
 
       USE mo_cf_convention
@@ -55,7 +57,9 @@
 
       USE mo_hamocc_nml,         ONLY: io_stdo_bgc
 
-      USE mo_var_metadata,       ONLY: groups, post_op
+      USE mo_var_metadata,       ONLY: post_op
+
+      USE mo_var_groups, ONLY: groups
 
       USE mo_var_metadata_types, ONLY: POST_OP_SCALE
 

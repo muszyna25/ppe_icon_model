@@ -48,8 +48,9 @@ USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_ve
 
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius
 
+USE mo_math_types,          ONLY: t_cartesian_coordinates
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length, &
-                                  t_cartesian_coordinates, arc_length_v
+                                  arc_length_v
 USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
 
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &

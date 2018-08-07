@@ -21,12 +21,13 @@
 #include "iconfor_dsl_definitions.inc"
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
+#include "crayftn_ptr_fail.inc"
 !----------------------------
 MODULE mo_ocean_ab_timestepping_mimetic
 
   USE mo_kind,                      ONLY: wp, sp
   USE mo_parallel_config,           ONLY: nproma, l_fast_sum
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array, sync_patch_array_mult
   USE mo_impl_constants,            ONLY: sea_boundary, &  !  sea,                          &
     & max_char_length, min_dolic
@@ -2314,7 +2315,7 @@ CONTAINS
   !!  results is valid only in in_domain edges
   FUNCTION lhs_primal_flip_flop( x, patch_3d, op_coeffs,jk) result(llhs)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_patch_3d ),TARGET, PTR_INTENT(in) :: patch_3d
     REAL(wp),INTENT(inout)               :: x(:,:)
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     INTEGER                              :: jk

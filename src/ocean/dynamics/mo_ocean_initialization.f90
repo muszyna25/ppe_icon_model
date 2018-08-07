@@ -48,9 +48,8 @@ MODULE mo_ocean_initialization
     & use_dummy_cell_closure
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nold
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
-    & t_geographical_coordinates, &!vector_product, &
-    & arc_length, set_zlev
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,      ONLY: gc2cc, arc_length, set_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v,sync_patch_array, global_sum_array, sync_idx, &
     & enable_sync_checks, disable_sync_checks
@@ -61,7 +60,6 @@ MODULE mo_ocean_initialization
     & delete_var_list,          &
     & default_var_list_settings,&
     & add_ref
-  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
@@ -893,8 +891,8 @@ CONTAINS
   !!  no-mpi parallelized
 !<Optimize:inUse>
   SUBROUTINE init_ho_basins( patch_2d, v_base )
-    
-    TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
+
+    TYPE(t_patch), TARGET, INTENT(inout)       :: patch_2d
     TYPE(t_hydro_ocean_base), INTENT(inout)    :: v_base
     
     REAL(wp) :: z_sync_c(nproma,patch_2d%alloc_cell_blocks)

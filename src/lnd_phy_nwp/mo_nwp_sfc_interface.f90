@@ -41,15 +41,16 @@ MODULE mo_nwp_sfc_interface
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
-    &                               lprog_albsi, itype_trvg
-  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
+    &                               lprog_albsi, itype_trvg, itype_snowevap
+  USe mo_extpar_config,       ONLY: itype_vegetation_cycle
+  USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_flake,               ONLY: flake_interface
   USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt
+  USE mo_physical_constants,  ONLY: tmelt, grav
 
   
   IMPLICIT NONE 
@@ -158,6 +159,7 @@ CONTAINS
     REAL(wp) :: v_10m_t    (nproma)
     REAL(wp) :: freshsnow_t(nproma)
     REAL(wp) :: snowfrac_t (nproma)
+    REAL(wp) :: snowfrac_lcu_t (nproma)
 
     REAL(wp) :: tch_t      (nproma)
     REAL(wp) :: tcm_t      (nproma)
@@ -175,6 +177,7 @@ CONTAINS
     REAL(wp) :: rootdp_t  (nproma)
     REAL(wp) :: sai_t     (nproma)
     REAL(wp) :: tai_t     (nproma)
+    REAL(wp) :: laifac_t  (nproma)
     REAL(wp) :: eai_t     (nproma)
     REAL(wp) :: rsmin2d_t (nproma)
 
@@ -208,8 +211,9 @@ CONTAINS
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil)
 
     INTEGER  :: i_count, i_count_snow, ic, icount_init, is1, is2, init_list(nproma), it1(nproma), it2(nproma)
-    REAL(wp) :: tmp1, tmp2, tmp3
-    REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma), tsnred(nproma)
+    REAL(wp) :: tmp1, tmp2, tmp3, qsat1, dqsdt1, qsat2, dqsdt2
+    REAL(wp) :: frac_sv(nproma), frac_snow_sv(nproma), fact1(nproma), fact2(nproma), tsnred(nproma), &
+                sntunefac(nproma), sntunefac2(nproma, ntiles_total)
     REAL(wp) :: rain_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: rain_con_rate(nproma, ntiles_total)
@@ -262,11 +266,12 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! canopy-type needed by TERRA:
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
+    CASE(icosmo,iedmf)
        icant=2 !canopy-treatment related to Raschendorfer-transfer-scheme
-    ELSE
+    CASE DEFAULT
        icant=1 !canopy-treatment related to Louis-transfer-scheme
-    END IF
+    END SELECT
 
     IF (msg_level >= 15) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
@@ -285,7 +290,8 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t,qsat1,dqsdt1,qsat2,dqsdt2,  &
+!$OMP   sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -320,8 +326,7 @@ CONTAINS
       ENDIF
 
 
-      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
-          & atm_phy_nwp_config(jg)%inwp_turb    /= iedmf ) THEN
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
@@ -339,6 +344,50 @@ CONTAINS
            graupel_gsp_rate(jc,isubs) = p_graupel_gsp_rate    (jc,jb)
          END DO
        END DO
+
+       IF (lsnowtile .AND. itype_snowevap == 3) THEN
+         DO jc = i_startidx, i_endidx
+           IF (lnd_diag%h_snow(jc,jb) > 5.e-4_wp) THEN ! traces of snow are ignored
+             lnd_diag%hsnow_max(jc,jb) = MAX(lnd_diag%hsnow_max(jc,jb), lnd_diag%h_snow(jc,jb))
+             lnd_diag%snow_age(jc,jb)  = MIN(365._wp,lnd_diag%snow_age(jc,jb) + tcall_sfc_jg/86400._wp)
+             ! Tuning factor for reduced snow evaporation (stronger reduction for long-lasting snow cover and during melting phase)
+             IF (lnd_diag%snow_age(jc,jb) >= 30._wp) THEN
+               sntunefac(jc) = 1._wp + MIN(2._wp,MAX(0._wp,(MIN(120._wp,lnd_diag%snow_age(jc,jb))-30._wp)/45._wp* &
+                 (0.5_wp+1.5_wp*(lnd_diag%hsnow_max(jc,jb)-lnd_diag%h_snow(jc,jb))/lnd_diag%hsnow_max(jc,jb)) ))
+             ELSE
+               sntunefac(jc) = 0.75_wp + MAX(0._wp,0.25_wp*(lnd_diag%snow_age(jc,jb)-10._wp)/20._wp)
+             ENDIF
+           ELSE
+             lnd_diag%hsnow_max(jc,jb) = 0._wp
+             lnd_diag%snow_age(jc,jb)  = 0._wp
+             sntunefac(jc) = 1._wp
+           ENDIF
+         ENDDO
+         DO isubs = ntiles_lnd+1, ntiles_total
+           i_count = ext_data%atm%gp_count_t(jb,isubs) 
+           DO ic = 1, i_count
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+             ! Another tuning factor in order to treat partial snow cover different for fresh snow and 'old' snow
+             IF (sntunefac(jc) < 1._wp) THEN
+               sntunefac2(jc,isubs) = 4._wp*(1._wp-sntunefac(jc))*lnd_diag%snowfrac_lc_t(jc,jb,isubs) + &
+                                      4._wp*(sntunefac(jc)-0.75_wp)
+             ELSE
+               sntunefac2(jc,isubs) = 1._wp
+             ENDIF
+           ENDDO
+         ENDDO
+       ELSE IF (lsnowtile) THEN
+         DO jc = i_startidx, i_endidx
+           sntunefac(jc) = 1._wp
+         ENDDO
+         DO isubs = ntiles_lnd+1, ntiles_total
+           i_count = ext_data%atm%gp_count_t(jb,isubs) 
+           DO ic = 1, i_count
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+             sntunefac2(jc,isubs) = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+           ENDDO
+         ENDDO
+       ENDIF
 
 !---------- Preparations for TERRA in the case if snow tiles are considered
        IF(lsnowtile) THEN      ! snow is considered as separate tiles
@@ -426,6 +475,7 @@ CONTAINS
           h_snow_t(ic)              =  lnd_diag%h_snow_t(jc,jb,isubs)
           freshsnow_t(ic)           =  lnd_diag%freshsnow_t(jc,jb,isubs)
           snowfrac_t(ic)            =  lnd_diag%snowfrac_t(jc,jb,isubs)
+          snowfrac_lcu_t(ic)        =  lnd_diag%snowfrac_lcu_t(jc,jb,isubs)
 
           IF (isubs > ntiles_lnd) THEN ! snowtiles
             ! grid-point averaged snow depth needed for snow aging parameterization
@@ -448,6 +498,18 @@ CONTAINS
             plevap_t(ic)            =  0._wp
           ENDIF
 
+          IF (itype_vegetation_cycle >= 2) THEN
+            laifac_t(ic)            =  ext_data%atm%laifac_t(jc,jb,isubs)
+          ELSE
+            laifac_t(ic)            =  1._wp
+          ENDIF
+
+          IF (isubs > ntiles_lnd) THEN
+            z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs-ntiles_lnd)/grav
+          ELSE
+            z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
+          ENDIF
+
           runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
           runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
@@ -466,33 +528,8 @@ CONTAINS
           tai_t(ic)                 =  ext_data%atm%tai_t(jc,jb,isubs)
           eai_t(ic)                 =  ext_data%atm%eai_t(jc,jb,isubs)
           rsmin2d_t(ic)             =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
-          z0_t(ic)                  =  ext_data%atm%z0_lcc(lc_class_t(ic))
 
           t_so_now_t(ic,nlev_soil+1)= lnd_prog_now%t_so_t(jc,nlev_soil+1,jb,isubs)
-
-          IF (isubs > ntiles_lnd) THEN 
-            ! compute temperature offset for reducing snow evaporation in vegetated areas,
-            ! parameterizing the temperature difference between the snow and the snow-vegetation-mixture
-            ! represented by the variable t_snow and the related snow albedo
-            tmp1 = spec_humi(sat_pres_ice(t_snow_now_t(ic)),p_diag%pres_sfc(jc,jb) )
-            tmp2 = 0.04_wp * sobs_t(ic) * (1._wp - MIN(1._wp,                                     &
-              (1._wp - (csalb_snow_min + freshsnow_t(ic)*(csalb_snow_max-csalb_snow_min))) /      &
-              (1._wp - prm_diag%albdif_t(jc,jb,isubs)) )) * lnd_diag%snowfrac_lc_t(jc,jb,isubs) * &
-              (0.15_wp + 1000._wp*MAX(1.5e-4_wp,tmp1-qv_t(ic)))
-            tsnred(ic) = MIN(10._wp, tmp2 - 0.045_wp*tmp2**2 + 1.e-3_wp*tmp2**3)
-          ELSE IF (lsnowtile) THEN
-            ! If there is at least 5 cm of snow on the corresponding snow tile, the bare soil evaporation
-            ! in TERRA is limited to the potential evaporation of snow at the melting point.
-            ! This is controlled by negative values of tsnred
-            IF (ext_data%atm%frac_t(jc,jb,isubs+ntiles_lnd) > 0._wp) THEN
-              tsnred(ic) = -1._wp*MIN(1._wp, 20._wp*lnd_diag%snowfrac_lc_t(jc,jb,isubs+ntiles_lnd)*&
-                                      lnd_diag%h_snow_t(jc,jb,isubs+ntiles_lnd) )
-            ELSE
-              tsnred(ic) = 0._wp
-            ENDIF
-          ELSE
-            tsnred(ic) = 0._wp
-          ENDIF
 
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1) = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
@@ -503,6 +540,38 @@ CONTAINS
           ENDIF
 
         ENDDO
+
+        IF (itype_snowevap == 1 .OR. .NOT. lsnowtile) THEN
+          DO ic = 1, i_count
+            tsnred(ic) = 0._wp
+          ENDDO
+        ELSE IF (isubs > ntiles_lnd) THEN
+          ! compute temperature offset for reducing snow evaporation in vegetated areas,
+          ! parameterizing the temperature difference between the snow and the snow-vegetation-mixture
+          ! represented by the variable t_snow and the related snow albedo
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            tmp1 = 0.06_wp * sntunefac(jc) * sobs_t(ic) * (1._wp - MIN(1._wp,                     &
+              (1._wp - (csalb_snow_min + freshsnow_t(ic)*(csalb_snow_max-csalb_snow_min))) /      &
+              (1._wp - prm_diag%albdif_t(jc,jb,isubs)) )) * sntunefac2(jc,isubs)
+            qsat1 = spec_humi(sat_pres_ice(t_snow_now_t(ic)),ps_t(ic) )
+            dqsdt1 = dqsatdT_ice(qsat1,t_snow_now_t(ic))
+            tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*1000._wp*dqsdt1)
+            qsat2 = spec_humi(sat_pres_ice(t_snow_now_t(ic)-tmp2),ps_t(ic) )
+            dqsdt2 = dqsatdT_ice(qsat2,t_snow_now_t(ic)-tmp2)
+            tmp2 = tmp1 * (0.1_wp + 1000._wp*MAX(0._wp,qsat1-qv_t(ic))) / (1._wp + tmp1*500._wp*(dqsdt1+dqsdt2))
+            tsnred(ic) = MIN(10._wp*SQRT(sntunefac(jc)),tmp2) / (1._wp + 4.e-5_wp*z0_t(ic)*sso_sigma_t(ic)**2)
+          ENDDO
+        ELSE
+          ! If the snow-cover fraction is artificially reduced by the melting-rate parameterization, the bare soil evaporation
+          ! in TERRA is turned off on the corresponding snow-free tile.
+          ! This is controlled by negative values of tsnred
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            tsnred(ic) = MIN(2._wp,sntunefac(jc))*(lnd_diag%snowfrac_lc_t(jc,jb,isubs)-snowfrac_lcu_t(ic))/ &
+                         (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,isubs))
+          ENDDO
+        ENDIF
 
        MSNOWI: IF(lmulti_snow) THEN
 
@@ -559,6 +628,7 @@ CONTAINS
         &  rootdp       = rootdp_t               , & !IN depth of the roots                ( m  )
         &  sai          = sai_t                  , & !IN surface area index                  --
         &  tai          = tai_t                  , & !IN surface area index                  --
+        &  laifac       = laifac_t               , & !IN ratio between current LAI and laimax                 --
         &  eai          = eai_t                  , & !IN surface area index                  --
         &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
         &  z0           = z0_t                   , & !IN vegetation roughness length        ( m )
@@ -684,16 +754,38 @@ CONTAINS
           &  freshsnow = freshsnow_t       , & ! fresh snow fraction
           &  meltrate  = meltrate          , & ! snow melting rate
           &  sso_sigma = sso_sigma_t       , & ! sso stdev
-          &  tai       = tai_t             , & ! effective leaf area index
+          &  z0        = z0_t              , & ! vegetation roughness length
           &  snowfrac  = snowfrac_t        , & ! OUT: snow cover fraction
+          &  snowfrac_u= snowfrac_lcu_t    , & ! OUT: unmodified snow cover fraction
           &  t_g       = t_g_t               ) ! OUT: averaged ground temp
 
-
-!---------- Copy index list fields back to state fields
 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+
+!---------- Further processing of snow-cover fraction in case of artificial reduction during melting phase
+
+          ! Avoid spreading of melting snow on warm surface before sunset
+          IF (isubs > ntiles_lnd .AND. snowfrac_t(ic) > lnd_diag%snowfrac_lc_t(jc,jb,isubs)) THEN 
+            IF (meltrate(ic) > 0._wp) THEN
+              tmp1 = MAX(0._wp,0.02_wp*(50._wp-prm_diag%swflxsfc_t(jc,jb,isubs-ntiles_lnd)))
+              tmp2 = MIN(1._wp,MAX(0._wp,tmelt+1._wp-lnd_prog_new%t_s_t(jc,jb,isubs-ntiles_lnd)))
+              snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+MAX(tmp1,tmp2)*tcall_sfc_jg/10800._wp)
+            ELSE IF (prs_gsp_t(ic) + prs_con_t(ic) + prg_gsp_t(ic) == 0._wp) THEN
+              snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/7200._wp)
+            ELSE
+              snowfrac_t(ic) = MIN(snowfrac_t(ic),lnd_diag%snowfrac_lc_t(jc,jb,isubs)+tcall_sfc_jg/1800._wp)
+            ENDIF
+          ENDIF
+
+          ! Remark: snowfrac_t and snowfrac_lc_t differ only if lsnowtile=true (see below)  
+          lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic) 
+          lnd_diag%snowfrac_t    (jc,jb,isubs) = snowfrac_t    (ic)
+          lnd_diag%snowfrac_lcu_t(jc,jb,isubs) = snowfrac_lcu_t(ic)
+
+!---------- Copy remaining index list fields back to state fields
+
           lnd_prog_new%t_snow_t  (jc,jb,isubs) = t_snow_new_t  (ic)         
           lnd_prog_new%t_s_t     (jc,jb,isubs) = t_s_new_t     (ic)              
           lnd_prog_new%t_g_t     (jc,jb,isubs) = t_g_t         (ic)
@@ -709,9 +801,6 @@ CONTAINS
             lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic)     
           END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic) 
-          ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
-          lnd_diag%snowfrac_lc_t (jc,jb,isubs) = snowfrac_t    (ic) 
-          lnd_diag%snowfrac_t    (jc,jb,isubs) = snowfrac_t    (ic) 
           lnd_diag%runoff_s_t    (jc,jb,isubs) = runoff_s_t    (ic)  
           lnd_diag%runoff_g_t    (jc,jb,isubs) = runoff_g_t    (ic)  
 
@@ -740,7 +829,8 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+            lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd)  = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
+            lnd_diag%snowfrac_lcu_t(jc,jb,isubs-ntiles_lnd) = lnd_diag%snowfrac_lcu_t(jc,jb,isubs)
           ENDDO
         ENDIF
 
@@ -852,6 +942,7 @@ CONTAINS
 
              lnd_diag%freshsnow_t   (jc,jb,is1) = lnd_diag%freshsnow_t   (jc,jb,is2)
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
+             lnd_diag%snowfrac_lcu_t(jc,jb,is1) = lnd_diag%snowfrac_lcu_t(jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 
              lnd_diag%runoff_s_t    (jc,jb,is1) = lnd_diag%runoff_s_t    (jc,jb,is2)
              lnd_diag%runoff_g_t    (jc,jb,is1) = lnd_diag%runoff_g_t    (jc,jb,is2)
@@ -959,10 +1050,12 @@ CONTAINS
                   MAX(0.01_wp,lnd_diag%snowfrac_t(jc,jb,isubs_snow))
              ELSE
                ! Rescale SWE and snow depth according to changes in the snow cover fraction
-               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
-                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
-               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
-                 frac_snow_sv(jc)/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+               lnd_prog_new%w_snow_t(jc,jb,isubs_snow) = (lnd_prog_new%w_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc) + lnd_prog_new%w_snow_t(jc,jb,isubs) * &
+                 frac_sv(jc) )/MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
+               lnd_diag%h_snow_t(jc,jb,isubs_snow)     = (lnd_diag%h_snow_t(jc,jb,isubs_snow) * &
+                 frac_snow_sv(jc) + lnd_diag%h_snow_t(jc,jb,isubs) * &
+                 frac_sv(jc) ) /MAX(small,ext_data%atm%frac_t(jc,jb,isubs_snow))
              ENDIF
 
              ! reset field for actual snow-cover for grid points / land-cover classes for which there
@@ -1090,6 +1183,7 @@ CONTAINS
            DO jc = i_startidx, i_endidx
              lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_g_t(jc,jb,1)
              lnd_diag%qv_s   (jc,jb)  = lnd_diag%qv_s_t   (jc,jb,1)
+             lnd_diag%h_snow (jc,jb)  = lnd_diag%h_snow_t (jc,jb,1)
            ENDDO
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
@@ -1100,6 +1194,7 @@ CONTAINS
        ELSE ! aggregate fields over tiles
          t_g_s(:)      = 0._wp
          lnd_diag%qv_s   (i_startidx:i_endidx,jb) = 0._wp
+         lnd_diag%h_snow (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%shfl_s (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%lhfl_s (i_startidx:i_endidx,jb) = 0._wp
          prm_diag%qhfl_s (i_startidx:i_endidx,jb) = 0._wp
@@ -1130,6 +1225,7 @@ CONTAINS
            DO jc = i_startidx, i_endidx
              area_frac = ext_data%atm%frac_t(jc,jb,isubs)
              prm_diag%lhfl_bs(jc,jb) = prm_diag%lhfl_bs(jc,jb) + prm_diag%lhfl_bs_t(jc,jb,isubs) * area_frac
+             lnd_diag%h_snow(jc,jb)  = lnd_diag%h_snow(jc,jb) + lnd_diag%h_snow_t(jc,jb,isubs) * area_frac
            ENDDO  ! jc
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx

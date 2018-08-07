@@ -29,7 +29,8 @@ MODULE mo_ocean_diagnostics
     & my_process_is_mpi_parallel
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks, &
     &                              sync_c, sync_e, sync_patch_array
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, cvec2gvec
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: cvec2gvec
   USE mo_advection_utils,    ONLY: laxfr_upflux
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_dbg_nml,            ONLY: idbg_val
@@ -79,14 +80,13 @@ MODULE mo_ocean_diagnostics
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums
   USE mo_fortran_tools,      ONLY: assign_if_present
-
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
     &                              new_var_list,             &
     &                              delete_var_list,          &
     &                              default_var_list_settings,&
     &                              add_ref
-  USE mo_var_metadata,       ONLY: groups
+  USE mo_var_groups,         ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED

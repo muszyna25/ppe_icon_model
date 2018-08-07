@@ -1,72 +1,191 @@
-  !>
-  !! This module contains the I/O routines for lateral boundary nudging 
-  !!
-  !! @author M. Pondkule (DWD)
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by M. Pondkule, DWD (2013-10-31)
-  !!
-  !!
-  !! @par Copyright and License
-  !!
-  !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-  !! its most recent form.
-  !! Please see the file LICENSE in the root of the source tree for this code.
-  !! Where software is supplied by third parties, it is indicated in the
-  !! headers of the routines.
-  !!
-  !!
-  !! ------------------------------------------------------------------------
-  !! Which fields are read from the lateral boundary conditions file?
-  !! ------------------------------------------------------------------------
-  !!
-  !! This question is answered independently from the "init_icon"
-  !! namelist parameter of the initial state setup!
-  !!
-  !! - If "VN" is available, then it is read from file, otherwise "U","V".
-  !! - "W" is always read (note that this may in fact contain OMEGA).
-  !! - "QV", "QC", "QI" are always read
-  !! - "QR", "QS" are read if available
-  !!
-  !! The other fields for the lateral boundary conditions are read
-  !! from file, based on the following decision tree.  Note that the
-  !! basic distinction between input from non-hydrostatic and
-  !! hydrostatic models is made on the availability of the HHL field.
-  !!
-  !!                            +------------------+
-  !!                            |  HHL available?  |
-  !!                            +------------------+
-  !!                                     |
-  !!                     ______yes_______|________no________
-  !!                     |                                  |
-  !!         +--------------------------+            +------------------------+
-  !!         | RHO & THETA_V available? |            | PS,GEOP & T available? |
-  !!         +--------------------------+            +------------------------+
-  !!                     |                                        |
-  !!           ____yes___|____no______                    ___yes__|________no___________
-  !!           |                      |                  |                              |
-  !!           |               +----------------+        |                          +--------+
-  !! * read HHL,RHO,THETA_V,W  | P,T available? |     * read in PS,GEOP,OMEGA,T     | ERROR! | 
-  !! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
-  !! * diagnose P,T                   |               * CALL OMEGA -> W
-  !!                          ___yes__|___no____
-  !!                         |                  |
-  !!                         |               +--------+
-  !!                    * read HHL,P,T,W     | ERROR! |
-  !!                    * ignore PS,GEOP     +--------+
-  !!
-  !!
-  !! Afterwards, we 
-  !! - re-compute the virtual temperature (inside the vertical
-  !!   interpolation subroutine)
-  !! - (re-)compute RHO (inside the vertical interpolation subroutine)
-  !! - perform vertical interpolation
+!>
+!! This module contains the I/O routines for lateral boundary nudging 
+!!
+!! @author M. Pondkule (DWD)
+!!
+!!
+!! @par Revision History
+!! Initial release by M. Pondkule, DWD (2013-10-31)
+!!
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!!
+!! ------------------------------------------------------------------------
+!! Which fields are read from the lateral boundary conditions file?
+!! ------------------------------------------------------------------------
+!!
+!! This question is answered independently from the "init_icon"
+!! namelist parameter of the initial state setup!
+!!
+!! - If "VN" is available, then it is read from file, otherwise "U","V".
+!! - "W" is optional and read if available in the input data (note that "W" may in fact contain OMEGA).
+!! - "QV", "QC", "QI" are always read
+!! - "QR", "QS" are read if available
+!!
+!! The other fields for the lateral boundary conditions are read
+!! from file, based on the following decision tree.  Note that the
+!! basic distinction between input from non-hydrostatic and
+!! hydrostatic models is made on the availability of the HHL field.
+!!
+!!                            +------------------+
+!!                            |  HHL available?  |
+!!                            +------------------+
+!!                                     |
+!!                     ______yes_______|________no________
+!!                     |                                  |
+!!         +--------------------------+            +------------------------+
+!!         | RHO & THETA_V available? |            | PS,GEOP & T available? |
+!!         +--------------------------+            +------------------------+
+!!                     |                                        |
+!!           ____yes___|____no______                    ___yes__|________no___________
+!!           |                      |                  |                              |
+!!           |               +----------------+        |                          +--------+
+!! * read HHL,RHO,THETA_V    | P,T available? |     * read in PS,GEOP,T           | ERROR! | 
+!! * read W if available     |                |     * read OMEGA if available     |        |
+!! * ignore PS,GEOP          +----------------+     * compute P,HHL               +--------+
+!! * diagnose P,T                   |               * CALL OMEGA -> W
+!!                          ___yes__|___no____
+!!                         |                  |
+!!                         |               +--------+
+!!                    * read HHL,P,T       | ERROR! |
+!!                    * ignore PS,GEOP     +--------+
+!!                    * read W if available
+!!
+!!
+!! Afterwards, we 
+!! - re-compute the virtual temperature (inside the vertical
+!!   interpolation subroutine)
+!! - (re-)compute RHO (inside the vertical interpolation subroutine)
+!! - perform vertical interpolation
+!!
+!!
+!!
+!! ------------------------------------------------------------------------
+!! Read-in of lateral boundary data: General Overview of the Implementation
+!! ------------------------------------------------------------------------
+!! 
+!! Note: This short documentation focuses on the "asynchronous
+!! prefetching" mode only, the old (possibly deprecated) synchronous
+!! read-in of the boundary data, "mo_sync_latbc.f90", is not covered.
+!! 
+!! Read-in of boundary data is invoked via
+!!   CALL recv_latbc_data
+!! in the time loop (module "mo_nh_stepping").
+!! 
+!! 
+!! Modules related to (asynchronous) boundary data read-in:
+!! --------------------------------------------------------
+!! 
+!! src/io/atmo/mo_async_latbc.f90              : Setup of the boundary data read-in functionality
+!! src/io/atmo/mo_async_utils.f90              : * Initialisation, allocation
+!!                                               * Top level routines: "read-in" (e.g. "recv_latbc_data")
+!!                                               * Top level routines: "fetch" (see explanation below)
+!! src/io/atmo/mo_async_latbc_types.f90        : Declaration of data types.
+!! src/io/atmo/mo_latbc_read_recv.f90          : Low level routines: 
+!!                                               read-in and sending of field data via MPI
+!! 
+!! src/atm_dyn_iconam/mo_initicon_types.f90    : Type declarations for the final destination buffers
+!! src/atm_dyn_iconam/mo_nh_nest_utilities.f90 : Actual usage of the boundary data: buffers -> tendencies
+!! 
+!! src/namelists/mo_limarea_nml.f90            : Namelist "limarea_nml"
+!! src/configure_model/mo_limarea_config.f90   : Configuration state (filled by namelist)
+!! 
+!! 
+!! 
+!! Important notes for understanding the read-in process:
+!! ------------------------------------------------------
+!! 
+!! * General switch: "latbc_config%itype_latbc" (INTEGER)
+!! 
+!!   This is set to the value LATBC_TYPE_EXT when the field data is
+!!   read from an external file (default situation).
+!! 
+!! * General switch: "latbc_config%lsparse_latbc" (LOGICAL)
+!! 
+!!   Lateral boundary data can be provided either as a boundary strip
+!!   or as the complete field, including the (unused) interior points.
+!! 
+!! * Variables which are considered for boundary data read-in are
+!!   contained in the variable group LATBC_PREFETCH_VARS.
+!!   Buffers are set up and allocated for group members.
+!! 
+!! * Most important data types: "t_latbc_data", and contained therein: "t_buffer"
+!! 
+!!   Defined in src/io/atmo/mo_async_latbc_types.f90 These derived
+!!   data types contain the raw data, that has been read from file,
+!!   together with a number of configurations settings
+!!   (LOGICAL-Flags), e.g. if specific optional fields are requested.
+!! 
+!! * "Decision tree": 
+!! 
+!!   During the setup phase, the boundary data module opens the first
+!!   boundary data file and analyzes its contents (subroutine
+!!   "check_variables" in "mo_async_latbc", contains numerous calls of
+!!   "test_cdi_varID").
+!! 
+!!   According to the available data, several LOGICAL flags
+!!   "lread_XXX" are set in the intermediate buffer "latbc%buffer".
+!!
+!! * Distinction between "read-in" and "fetch"
+!! 
+!!   (In the module "mo_async_latbc_utils":)
+!!   "read-in": A list of variables is read from file into a buffer.
+!!              * executed on the read-in process.
+!!              * reads all fields of the group LATBC_TYPE_EXT
+!!              * the intermediate buffer may have only the size of
+!!              * the boundary strip.
+!!              * most important subroutine in this context:
+!!                "read_latbc_data" and, therein, "CALL
+!!                prefetch_cdi_3d".
+!!
+!!   "Fetch": Copies the data from the intermediate buffer into
+!!            ICON-internal variables.
+!!              * executed on the compute processes.
+!!              * copy/processing of the fields depends on the
+!!                "lread_XXX" flags (see above), followed by vertical
+!!                interpolation.
+!!              * most important subroutine in this context:
+!!                compute_latbc_intp_data (mo_async_utils) and,
+!!                therein, "CALL fetch_from_buffer".
+!!              * Note that the "ICON-internal variables" are not the
+!!                prognostic fields, but again intermediate buffers of
+!!                the data type "t_init_state" (Modul
+!!                "mo_initicon_types").
+!!                Example: "latbc%latbc_data(tlev)%atm_in%u", which is
+!!                then later processed into tendencies (in
+!!                "mo_nh_nest_utilities").
+!! 
+!! * Recipe: How to implement additional boundary data
+!! 
+!!   1) Modify the "add_var" calls of the new fields in the ICON code,
+!!      such that these variables become members of the group
+!!      "LATBC_TYPE_EXT".
+!!   2) Extend the data type "t_buffer" by a LOGICAL flag for the new
+!!      field "lread_XXX".
+!!   3) Subroutine "check_variables" in "mo_async_latbc": Additional
+!!      test, if the new field is available in the boundary data file;
+!!      set the flag "lread_XXX" accordingly.
+!!   4) Extend the "t_latbc_data" data structure by a buffer for the
+!!      new field, similar to the contents of
+!!      "latbc%latbc_data(tlev)%atm_in".
+!!   5) Subroutine "compute_latbc_icon_data": Additional call to
+!!      "fetch_from_buffer", contained in an IF-condition "IF
+!!      (lread_XXX) ...".
+!!   6) Implement the vertical interpolation for the new field.
+!!   7) Use the new data in the application code.
+!! 
+!! 
 
-
-  !----------------------------
+!----------------------------
 #include "omp_definitions.inc"
-  !----------------------------
+!----------------------------
 
 MODULE mo_async_latbc
 
@@ -101,7 +220,7 @@ MODULE mo_async_latbc
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
@@ -111,12 +230,12 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
-    USE mo_var_metadata,              ONLY: TIMELEVEL_SUFFIX
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
     USE mo_time_config,               ONLY: time_config
+    USE mtime,                        ONLY: datetime, OPERATOR(+)
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  streamClose, streamInqFiletype,                    &
@@ -166,9 +285,8 @@ MODULE mo_async_latbc
     !
     SUBROUTINE close_prefetch()
 #ifndef NOMPI
-      IF((.not. my_process_is_io() .AND.&
-           & .not. my_process_is_pref()) .AND.&
-           & .not. my_process_is_mpi_test()) THEN
+
+      IF (my_process_is_work()) THEN
 
          CALL compute_wait_for_async_pref()
          CALL compute_shutdown_async_pref()
@@ -187,6 +305,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER :: routine = modname//"::prefetch_main_proc"
       LOGICAL                 :: done
       TYPE(t_latbc_data)      :: latbc
+      TYPE(datetime)          :: latbc_read_datetime
 
 #ifdef YAC_coupling
       ! The initialisation of YAC needs to be called by all (!) MPI processes
@@ -205,7 +324,8 @@ MODULE mo_async_latbc
          CALL async_pref_wait_for_start(done)
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
-         CALL read_latbc_data(latbc, ltime_incr=.TRUE.)
+         latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
+         CALL read_latbc_data(latbc, latbc_read_datetime)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
@@ -269,7 +389,7 @@ MODULE mo_async_latbc
       ! allocate patch data structure
       ! set number of global cells/edges/verts and patch ID
 
-      IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
+      IF (my_process_is_work()) THEN
          latbc%patch_data%nlev          = p_patch(1)%nlev
          latbc%patch_data%nlevp1        = p_patch(1)%nlevp1
          latbc%patch_data%level         = p_patch(1)%level
@@ -295,7 +415,7 @@ MODULE mo_async_latbc
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
-      CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
+      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
@@ -430,25 +550,23 @@ MODULE mo_async_latbc
 
       TYPE (t_dictionary)           :: latbc_varnames_dict
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
-      INTEGER                       :: ierrstat
-      
+      INTEGER                       :: ierrstat, ic, idx_c, blk_c
+      LOGICAL                       :: is_pref
+
       ! bcast_root is not used in this case
       bcast_root = 0
 
 #ifndef NOMPI
 
+      is_pref = my_process_is_pref()
       ! Set broadcast root for intercommunicator broadcasts
-      IF(my_process_is_pref()) THEN
+      IF (is_pref) THEN
          ! Root is proc 0 on the prefetch PE
          bcast_root = 0
       ELSE
-         ! Special root setting for inter-communicators:
-         ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
-         IF(p_pe_work == 0) THEN
-            bcast_root = MPI_ROOT
-         ELSE
-            bcast_root = MPI_PROC_NULL
-         ENDIF
+        ! Special root setting for inter-communicators:
+        ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
+        bcast_root = MERGE(MPI_ROOT, MPI_PROC_NULL, p_pe_work == 0)
       ENDIF
 
       ! read the map file into dictionary data structure
@@ -473,7 +591,8 @@ MODULE mo_async_latbc
       CALL dict_finalize(latbc_varnames_dict)
 
       ! initialize the memory window for communication
-      CALL init_remote_memory_window(latbc, StrLowCasegrp)
+      IF (.NOT. my_process_is_mpi_test()) &
+           CALL init_remote_memory_window(latbc, StrLowCasegrp)
 
       DEALLOCATE(StrLowCasegrp)
 
@@ -491,7 +610,7 @@ MODULE mo_async_latbc
 
         CALL message(routine, "sparse LATBC read-in mode.")
 
-        IF (my_process_is_pref()) THEN
+        IF (is_pref) THEN
        
           opt_att(1)%var_name = "global_cell_index"
           opt_att(1)%att_name = "nglobal"
@@ -532,6 +651,19 @@ MODULE mo_async_latbc
             &   " worker PEs are involved in the LATBC read-in."
         END IF
 
+        IF (.NOT. my_process_is_pref()) THEN
+          ! consistency check: test if all nudging points are filled by
+          ! the LATBC read-in
+          DO ic=1,p_nh_state(1)%metrics%nudge_c_dim
+            idx_c = p_nh_state(1)%metrics%nudge_c_idx(ic)
+            blk_c = p_nh_state(1)%metrics%nudge_c_blk(ic)
+            IF (.NOT. latbc%patch_data%cells%read_mask(idx_c,blk_c)) THEN
+              CALL finish(routine, "Nudging zone width mismatch: "//&
+                &" Not all nudging points are filled by the LATBC READ-in.")
+            END IF
+          END DO
+        END IF
+
       ELSE
 
         CALL message(routine, "non-sparse LATBC read-in mode.")
@@ -542,7 +674,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work()) THEN
         CALL compute_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
           &                          latbc%new_latbc_tlev)
-      ELSE IF( my_process_is_pref()) THEN
+      ELSE IF (is_pref) THEN
         CALL async_init_latbc_data(latbc)
       ENDIF
 
@@ -609,7 +741,7 @@ MODULE mo_async_latbc
 
       ! generate file name
       latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                time_config%tc_startdate, time_config%tc_exp_startdate)
+        &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
       latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
@@ -682,7 +814,7 @@ MODULE mo_async_latbc
                   latbc%buffer%internal_name(counter) = &
                     TRIM(dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name)))
                   ! getting the variable name in lower case letter
-                  StrLowCasegrp(counter) = TRIM(grp_vars(jp))
+                  StrLowCasegrp(counter) = grp_vars(jp)
 
                   IF (ldebug) THEN
                     WRITE(0,*) '=> internal_name ',  (latbc%buffer%internal_name(counter))
@@ -766,7 +898,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER        :: routine = modname//"::check_variables"
       INTEGER                        :: fileID_latbc
       LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
-        &                               lhave_hhl, lhave_theta_rho, lhave_w, lhave_vn, &
+        &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
       CHARACTER(LEN=filename_max)    :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
@@ -775,7 +907,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          ! generate file name
          latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-           &                                time_config%tc_startdate, time_config%tc_exp_startdate)
+           &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -800,7 +932,7 @@ MODULE mo_async_latbc
          ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
 
          ! Check if vertical velocity (or OMEGA) is provided as input
-         lhave_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
+         latbc%buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
 
          ! Check if surface pressure (VN) is provided as input
          lhave_vn = (test_cdi_varID(fileID_latbc, 'VN', latbc_dict) /= -1)
@@ -911,13 +1043,6 @@ MODULE mo_async_latbc
          !
          ! Consistency checks
          ! 
-
-         ! Check if vertical component of velocity (W) is provided as
-         ! input
-         IF (.NOT. lhave_w) THEN
-           CALL finish(routine, "Neither W nor OMEGA provided!")
-         END IF
-
          IF (latbc_config%init_latbc_from_fg .AND. .NOT. latbc%buffer%lread_hhl) THEN
            CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
          END IF
@@ -944,7 +1069,9 @@ MODULE mo_async_latbc
             CALL message(routine,'Input levels (HHL) are computed from sfc geopotential.')
          ENDIF
 
-         IF (latbc%buffer%lconvert_omega2w) THEN
+         IF (.NOT. latbc%buffer%lread_w) THEN
+           CALL message(routine, "Neither W nor OMEGA provided! W is set to zero at LBCs")
+         ELSE IF (latbc%buffer%lconvert_omega2w) THEN
             CALL message(routine,'Compute W from OMEGA.')
          ENDIF
 
@@ -987,6 +1114,7 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc%buffer%lread_qr,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_vn,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_u_v,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_w,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
       CALL p_bcast(latbc%buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
@@ -1015,6 +1143,7 @@ MODULE mo_async_latbc
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
            &                           all_nvars, nvars, i2, ierrstat
+      LOGICAL                       :: is_pref
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
       TYPE(t_list_element), POINTER :: element
       TYPE(t_var_metadata)          :: info
@@ -1022,18 +1151,16 @@ MODULE mo_async_latbc
       ! var_list_name should have at least the length of var_list names
       CHARACTER(LEN=256)            :: var_list_name
 
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
-
       ! get the size - in default INTEGER words - which is needed to
       ! hold the contents of TYPE(t_var_metadata)
       info_size = SIZE(TRANSFER(info, (/ 0 /)))
 
+      is_pref = my_process_is_pref()
       ! get the number of var lists
-      IF(.NOT. my_process_is_pref()) nv = nvar_lists
+      IF (.NOT. is_pref) nv = nvar_lists
       CALL p_bcast(nv, bcast_root, p_comm_work_2_pref)
 
-      IF(.NOT.my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
          all_nvars = 0
          DO i = 1, nvar_lists
 
@@ -1052,7 +1179,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! get the number of var lists
-      IF(.NOT. my_process_is_pref()) all_var = all_nvars
+      IF (.NOT. is_pref) all_var = all_nvars
       CALL p_bcast(all_var, bcast_root, p_comm_work_2_pref)
 
       IF (all_var <= 0) RETURN
@@ -1065,10 +1192,10 @@ MODULE mo_async_latbc
       DO iv = 1, nv
 
          ! Send name
-         IF(.NOT.my_process_is_pref()) var_list_name = var_lists(iv)%p%name
+         IF (.NOT. is_pref) var_list_name = var_lists(iv)%p%name
          CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_pref)
 
-         IF(.NOT.my_process_is_pref()) THEN
+         IF (.NOT. is_pref) THEN
             ! Count the number of variable entries
             element => var_lists(iv)%p%first_list_element
             nelems = 0
@@ -1083,7 +1210,7 @@ MODULE mo_async_latbc
          ! Send basic info:
          CALL p_bcast(list_info, bcast_root, p_comm_work_2_pref)
 
-         IF(my_process_is_pref()) THEN
+         IF (is_pref) THEN
             nelems = list_info
             ! Create var list
             CALL new_var_list( p_var_list, var_list_name)
@@ -1102,7 +1229,7 @@ MODULE mo_async_latbc
          ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         IF(.NOT.my_process_is_pref()) THEN
+         IF (.NOT. is_pref) THEN
             element => var_lists(iv)%p%first_list_element
             nelems = 0
             DO
@@ -1119,7 +1246,7 @@ MODULE mo_async_latbc
 
          CALL p_bcast(info_storage, bcast_root, p_comm_work_2_pref)
 
-         IF(my_process_is_pref()) THEN
+         IF (is_pref) THEN
 
             ! Insert elements into var list
             p_var_list%p%first_list_element => NULL()
@@ -1296,9 +1423,6 @@ MODULE mo_async_latbc
       INTEGER                             :: ierrstat
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
-
       !transfer the global number of points, this is not known on prefetching PE
       CALL p_bcast(p_reo%n_glb, bcast_root, p_comm_work_2_pref)
 
@@ -1337,9 +1461,6 @@ MODULE mo_async_latbc
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
-
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
 
       latbc%patch_data%mem_win%mpi_win = MPI_WIN_NULL
 

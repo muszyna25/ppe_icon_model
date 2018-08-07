@@ -32,6 +32,7 @@ MODULE mo_run_config
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing, logmaxrss, logmaxrss_all
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
+  PUBLIC :: ldass_lhn
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
@@ -60,6 +61,7 @@ MODULE mo_run_config
     INTEGER :: ntracer         !< Total number of advected tracers
 
     LOGICAL :: lart            !< switch for ICON-ART (Treatment of Aerosols and Trace Gases)
+    LOGICAL :: ldass_lhn         !< switch for assimilation of radar data using latent heat nudging
 
     LOGICAL :: lvert_nest         !< switch for vertical nesting
     INTEGER :: num_lev  (MAX_DOM) !< number of full levels for each domain

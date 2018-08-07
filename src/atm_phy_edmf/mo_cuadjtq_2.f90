@@ -107,11 +107,10 @@ SUBROUTINE CUADJTQ2 &
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
-                & RETV     ,RLVTT    ,RLSTT    ,RTT      ,&           !yomcst
+                & RETV     ,RTT      ,&                               !yomcst
                 & R2ES     ,R3LES    ,R3IES    ,R4LES    ,&           !yoethf
-                & R4IES    ,R5LES    ,R5IES    ,R5ALVCP  ,R5ALSCP  ,& ! -
-                & RALVDCP  ,RALSDCP  ,RTWAT    ,RTICE    ,RTICECU  ,& ! -
-                & RTWAT_RTICE_R      ,RTWAT_RTICECU_R    ,&           ! -
+                & R4IES    ,R5ALVCP  ,R5ALSCP  ,&                     ! -
+                & RALVDCP  ,RALSDCP  ,&                               ! -
                 & LPHYLIN  ,RLPTRC   ,RLPAL1   ,RLPAL2   ,&           !yoephli
                 & vdiv     ,vexp     ,vrec
 USE mo_edmf_param   ,ONLY : &
@@ -158,11 +157,10 @@ REAL(KIND=JPRB) :: ZPT, ZPQ
 !     STATEMENT FUNCTIONS
 !REAL_B :: FOEALFAJ,FOEDEMJ,FOELDCPMJ,FOEEWMJ
 
-REAL(KIND=JPRB) :: MINJ, MAXJ, X, Y
+REAL(KIND=JPRB) :: MINJ, X, Y
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 MINJ(X,Y) = Y - 0.5_JPRB*(ABS(X-Y)-(X-Y))
-MAXJ(X,Y) = Y + 0.5_JPRB*(ABS(X-Y)+(X-Y))
 
 !----------------------------------------------------------------------
 

@@ -45,7 +45,7 @@ MODULE mo_cuinit
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
     &                          lphylin               ,&
-    &                          lmfdudv,  rdepths     ,&
+    &                          lmfdudv               ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
     &                          lhook,   dr_hook      ,&
@@ -301,7 +301,7 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & entrorg,  texc,  qexc, mtnmask, ldland, ldlake,        &
+ & entrorg, rdepths, texc, qexc, mtnmask, ldland, ldlake, &
  & ptenh,  pqenh, pgeoh, paph,  pqhfl, pahfs,             &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -456,6 +456,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
 REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: rdepths
 REAL(KIND=jprb)   ,INTENT(in)    :: texc, qexc
 REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 LOGICAL           ,INTENT(in)    :: ldland(klon)
@@ -757,7 +758,8 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           is         = is+1
           zdz(jl)    = (pgeoh(jl,jk) - pgeoh(jl,jk+1))*zrg
           zeps       = entstpc1/((pgeoh(jl,jk)-pgeoh(jl,klev+1))*zrg) + entstpc2
-          zmix(jl)   = 0.5_JPRB*zdz(jl)*zeps
+  !        zmix(jl)   = 0.5_JPRB*zdz(jl)*zeps
+          zmix(jl)   = (1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)))*zdz(jl)*zeps
           zqf = (pqenh(jl,jk+1) + pqenh(jl,jk))*0.5_JPRB
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
           ztmp = 1.0_JPRB/(1.0_JPRB+zmix(jl))

@@ -152,16 +152,6 @@ USE src_stoch_physics,        ONLY : apply_tqx_tend_adj
 
 !------------------------------------------------------------------------------
 
-#ifdef NUDGING
-USE data_lheat_nudge,           ONLY :  &
-    llhn,         & ! main switch for latent heat nudging
-    llhnverif,    & ! main switch for latent heat nudging
-    lhn_qrs,      & ! use integrated precipitaion flux as reference
-    tt_lheat,     & ! latent heat release of the model
-    qrsflux         ! total precipitation flux
-#endif
-
-!------------------------------------------------------------------------------
 
 #ifdef __ICON__
 USE mo_kind,               ONLY: wp         , &
@@ -183,19 +173,17 @@ USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water va
 !                                g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
 
-USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
                                  b4w   => c4les , & !!               -- " --
                                  b4i   => c4ies , & !!               -- " --
                                  b234w => c5les     !!               -- " --
-USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+USE mo_satad,              ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
+USE mo_run_config,         ONLY: ldass_lhn
 #endif
 
 !------------------------------------------------------------------------------
@@ -217,7 +205,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
     zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
     zvz0i,     x13o12,    x2o3,      x5o24,     zasmel,                  &
-    zbsmel,    zcsmel,    x1o3,      zams => zams_gr,                    &
+    zbsmel,    zcsmel,    icesedi_exp, zams => zams_gr,                  &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
     mma, mmb
@@ -285,11 +273,9 @@ SUBROUTINE graupel     (             &
   tinc_lh,                           & !  t-increment due to latent heat 
   pstoph,                            & !  stochastic multiplier of physics tendencies
 #endif
-#ifdef NUDGING
-  tt_lheat,                          & !  t-increments due to latent heating (nud) 
   qrsflux,                           & !  total precipitation flux
-#endif
   l_cv,                              &
+  ldiag_ttend,     ldiag_qtend     , &
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
   ddt_tend_qr    , ddt_tend_qs     , & !!    necessary for dynamics
@@ -355,14 +341,7 @@ SUBROUTINE graupel     (             &
     qi0,qc0          !> cloud ice/water threshold for autoconversion
 #endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(in)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(IN) ::      &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::      &   ! (ie,ke)
-#endif
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
@@ -370,12 +349,11 @@ SUBROUTINE graupel     (             &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(INOUT) ::   &
-#else
+  LOGICAL, INTENT(IN), OPTIONAL :: &
+    ldiag_ttend,         & ! if true, temperature tendency shall be diagnosed
+    ldiag_qtend            ! if true, moisture tendencies shall be diagnosed
+
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
-#endif
     t               ,    & !> temperature                                   (  K  )
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
@@ -392,31 +370,16 @@ SUBROUTINE graupel     (             &
        pstoph(:,:)     ! stochastic multiplier of physics tendencies
 #endif
 
-#ifdef NUDGING
   REAL(KIND=wp), INTENT(INOUT) :: &
-       tt_lheat(:,:)  ,  & !  t-increments due to latent heating (nudg) ( K/s )
        qrsflux(:,:)       ! total precipitation flux (nudg)
-#endif
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  REAL(KIND=wp), DIMENSION(nvec), INTENT(INOUT) ::   &
-#else
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
-#endif
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
     prg_gsp,             & !! precipitation rate of graupel, grid-scale     (kg/(m2*s))
     qnc                    !! cloud number concentration
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
-#endif
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
     ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
@@ -425,14 +388,7 @@ SUBROUTINE graupel     (             &
     ddt_tend_qs     , & !! tendency qs                                      ( 1/s )
     ddt_tend_qg         !! tendency qg                                      ( 1/s )
 
-#ifdef __xlC__
-  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
-  ! note: that these are actually intent(out)
-  !       declared as intent(inout) to avoid copying
-  REAL(KIND=wp), DIMENSION(nvec,ke), INTENT(OUT), OPTIONAL ::   &
-#else
   REAL(KIND=wp), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &   ! dim (ie,ke)
-#endif
     ddt_diag_au     , & !> optional output autoconversion rate cloud to rain           ( 1/s )
     ddt_diag_ac     , & !! optional output accretion rate cloud to rain                ( 1/s )
     ddt_diag_ev     , & !! optional output evaporation of rain                         ( 1/s )
@@ -496,6 +452,7 @@ SUBROUTINE graupel     (             &
     zdtr ,             & ! reciprocal of timestep for integration
     zscsum, zscmax, zcorr,  & ! terms for limiting  total cloud water depletion
     zsrsum,            & ! terms for limiting  total rain water depletion
+    zsssum,            & ! terms for limiting snow depletion
     znin,              & ! number of cloud ice crystals at nucleation
     fnuc,              & !FR: coefficient needed for Forbes (2012) SLW layer parameterization 
     znid,              & ! number of cloud ice crystals for deposition
@@ -528,6 +485,7 @@ SUBROUTINE graupel     (             &
   LOGICAL :: &
     llqr
 
+  LOGICAL :: lldiag_ttend, lldiag_qtend
 
   REAL(KIND=wp), DIMENSION(nvec,ke) ::   &
     t_in               ,    & !> temperature                                   (  K  )
@@ -588,7 +546,7 @@ SUBROUTINE graupel     (             &
     zdtdh             ,     & !
     z1orhog           ,     & ! 1/rhog
     zrho1o2           ,     & ! (rho0/rhog)**1/2
-    zrho1o3           ,     & ! (rho0/rhog)**1/3
+    zrhofac_qi        ,     & ! (rho0/rhog)**icesedi_exp
     zeln7o8qrk        ,     & !
     zeln7o4qrk        ,     & ! FR new  
     zeln27o16qrk      ,     & !
@@ -690,16 +648,6 @@ SUBROUTINE graupel     (             &
 
 ! Optional arguments
 
-  IF (PRESENT(ddt_tend_t)) THEN
-    ! save input arrays for final tendency calculation
-    t_in  = t
-    qv_in = qv
-    qc_in = qc
-    qi_in = qi
-    qr_in = qr
-    qs_in = qs
-    qg_in = qg
-  END IF
   IF (PRESENT(ivstart)) THEN
     iv_start = ivstart
   ELSE
@@ -720,7 +668,29 @@ SUBROUTINE graupel     (             &
   ELSE
     izdebug = 0
   END IF
+  IF (PRESENT(ldiag_ttend)) THEN
+    lldiag_ttend = ldiag_ttend
+  ELSE
+    lldiag_ttend = .FALSE.
+  ENDIF
+  IF (PRESENT(ldiag_qtend)) THEN
+    lldiag_qtend = ldiag_qtend
+  ELSE
+    lldiag_qtend = .FALSE.
+  ENDIF
 
+  ! save input arrays for final tendency calculation
+  IF (lldiag_ttend) THEN
+    t_in  = t
+  ENDIF
+  IF (lldiag_qtend) THEN
+    qv_in = qv
+    qc_in = qc
+    qi_in = qi
+    qr_in = qr
+    qs_in = qs
+    qg_in = qg
+  END IF
 
 ! timestep for calculations
   zdtr  = 1.0_wp / zdt
@@ -786,17 +756,11 @@ SUBROUTINE graupel     (             &
     DO iv = iv_start, iv_end  !loop over horizontal domain
 
 
-#ifdef NUDGING
       ! add part of latent heating calculated in subroutine graupel to model latent
       ! heating field: subtract temperature from model latent heating field
-      IF (llhn .OR. llhnverif) THEN
-        IF (lhn_qrs) THEN
-          qrsflux(iv,k) = 0.0_wp
-        ENDIF
-        ! replaces: CALL get_gs_lheating ('add',1,ke)
-        tt_lheat(iv,k) = tt_lheat(iv,k) - t(iv,k)
+      IF (ldass_lhn) THEN
+        qrsflux(iv,k) = 0.0_wp
       ENDIF
-#endif
 
 #ifdef __COSMO__
       IF ( ldiabf_lh ) THEN
@@ -835,7 +799,7 @@ SUBROUTINE graupel     (             &
       z1orhog = 1.0_wp/rhog
       hlp     = LOG(zrho0*z1orhog)
       zrho1o2 = EXP(hlp*x1o2)
-      zrho1o3 = EXP(hlp*x1o3)
+      zrhofac_qi = EXP(hlp*icesedi_exp)
 
       zqrk = qrg * rhog
       zqsk = qsg * rhog
@@ -942,7 +906,7 @@ SUBROUTINE graupel     (             &
       !-------------------------------------------------------------------------
 
       IF (llqi) THEN
-        zlnqik = zvz0i * EXP (zbvi * LOG (zqik)) * zrho1o3
+        zlnqik = zvz0i * EXP (zbvi * LOG (zqik)) * zrhofac_qi
         zpki(iv) = zqik * zlnqik
         IF (zvzi(iv) == 0.0_wp) THEN
           zvzi(iv) = zlnqik * zbvi_ln1o2
@@ -1259,7 +1223,13 @@ SUBROUTINE graupel     (             &
             sidep     = zcidep * znid * EXP(0.33_wp * zlnlogmi) * zqvsidiff
             zsvidep   = 0.0_wp
             zsvisub   = 0.0_wp
-            zsimax    = qig*zdtr
+            ! for sedimenting quantities the maximum 
+            ! allowed depletion is determined by the predictor value. 
+            IF (lsedi_ice) THEN
+              zsimax  = zzai*z1orhog*zdtr
+            ELSE
+              zsimax  = qig*zdtr
+            ENDIF
             IF( sidep > 0.0_wp ) THEN
               IF (lred_depgrow ) THEN
                 sidep = sidep * reduce_dep  !FR new: depositional growth reduction
@@ -1321,7 +1291,11 @@ SUBROUTINE graupel     (             &
           !------------------------------------------------------------------------
 
           ! cloud ice melts instantaneously
-          simelt = qig*zdtr
+          IF (lsedi_ice) THEN
+            simelt = zzai*z1orhog*zdtr
+          ELSE
+            simelt = qig*zdtr
+          ENDIF
 
 #ifdef __COSMO__
           zqvsw0     = fqvs( zpvsw0, ppg)
@@ -1430,13 +1404,33 @@ SUBROUTINE graupel     (             &
 
       zsrsum = sev + srfrz + srcri
       zcorr  = 1.0_wp
-      IF(zsrsum > 0) THEN
+      IF(zsrsum > 0._wp) THEN
         zcorr  = zsrmax / MAX( zsrmax, zsrsum )
       ENDIF
       sev   = zcorr*sev
       srfrz = zcorr*srfrz
       srcri = zcorr*srcri
-      
+
+      ! limit snow depletion in order to avoid negative values of qs
+      zcorr  = 1.0_wp
+      IF (ssdep <= 0._wp) THEN
+        zsssum = ssmelt + sconsg - ssdep
+        IF(zsssum > 0._wp) THEN
+          zcorr  = zssmax / MAX( zssmax, zsssum )
+        ENDIF
+        ssmelt = zcorr * ssmelt
+        sconsg = zcorr * sconsg
+        ssdep  = zcorr * ssdep
+      ELSE
+        zsssum = ssmelt + sconsg
+        IF(zsssum > 0._wp) THEN
+          zcorr  = zssmax / MAX( zssmax, zsssum )
+        ENDIF
+        ssmelt = zcorr * ssmelt
+        sconsg = zcorr * sconsg
+      ENDIF
+
+
       zqvt =   sev    - sidep  - ssdep  - sgdep  - snuc   - sconr 
       zqct =   simelt - scau   - scfrz  - scac   - sshed  - srim   - srim2 
       zqit =   snuc   + scfrz  - simelt - sicri  + sidep  - sdau   - sagg   - sagg2  - siau
@@ -1484,9 +1478,8 @@ SUBROUTINE graupel     (             &
         IF (zprvi(iv) .LE. zqmin) zprvi(iv)=0.0_wp
 
 
-#ifdef NUDGING
         ! for the latent heat nudging
-        IF ((llhn .OR. llhnverif) .AND. lhn_qrs ) THEN
+        IF (ldass_lhn) THEN
           IF (lsedi_ice) THEN
             qrsflux(iv,k) = zprvr(iv)+zprvs(iv)+zprvg(iv)+zprvi(iv)
             qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv)+zpks(iv)+zpkg(iv)+zpki(iv))
@@ -1495,7 +1488,6 @@ SUBROUTINE graupel     (             &
             qrsflux(iv,k) = 0.5_wp*(qrsflux(iv,k)+zpkr(iv)+zpks(iv)+zpkg(iv))
           END IF
         ENDIF
-#endif
 
         IF (qrg+qr(iv,k+1) <= zqmin) THEN
           zvzr(iv)= 0.0_wp
@@ -1515,7 +1507,7 @@ SUBROUTINE graupel     (             &
         IF (qig+qi(iv,k+1) <= zqmin ) THEN
           zvzi(iv)= 0.0_wp
         ELSE
-          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrho1o3
+          zvzi(iv)= zvz0i * EXP(zbvi*LOG((qig+qi(iv,k+1))*0.5_wp*rhog)) * zrhofac_qi
         ENDIF
           
       ELSE
@@ -1528,12 +1520,10 @@ SUBROUTINE graupel     (             &
         END IF
         prg_gsp(iv) = 0.5_wp * (qgg*rhog*zvzg(iv) + zpkg(iv))
 
-#ifdef NUDGING
         ! for the latent heat nudging
-        IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
+        IF (ldass_lhn) THEN
           qrsflux(iv,k) = prr_gsp(iv)+prs_gsp(iv)+prg_gsp(iv)
         ENDIF
-#endif
 
       ENDIF
 
@@ -1600,35 +1590,8 @@ SUBROUTINE graupel     (             &
         tinc_lh(iv,k) = tinc_lh(iv,k) + t(iv,k)
       ENDIF
 
-#ifdef NUDGING
-      ! add part of latent heating calculated in subroutine hydci to model latent
-      ! heating field: add temperature to model latent heating field
-      IF (llhn .OR. llhnverif) THEN
-        !CALL get_gs_lheating ('inc',1,ke)  !XL: this should be called from within the block
-        tt_lheat(iv,k) = tt_lheat(iv,k) + t(iv,k)
-      ENDIF
-#endif
     ENDDO
   ENDDO
-#endif
-
-#ifdef __ICON__
-
-CALL satad_v_3d (                         &
-               & maxiter  = 10_i4        ,& !> IN
-               & tol      = 1.e-3_wp     ,& !> IN
-               & te       = t            ,&
-               & qve      = qv           ,&
-               & qce      = qc           ,&
-               & rhotot   = rho          ,&
-               & idim     = nvec         ,&
-               & kdim     = ke           ,&
-               & ilo      = iv_start     ,&
-               & iup      = iv_end       ,&
-               & klo      = k_start      ,&
-               & kup      = ke            &
-               )
-
 #endif
 
 !------------------------------------------------------------------------------
@@ -1639,24 +1602,28 @@ CALL satad_v_3d (                         &
 ! be used to store the new values. Then we wont need the _in variables anymore.
 !------------------------------------------------------------------------------
 
-  IF (PRESENT(ddt_tend_t)) THEN
+! calculated pseudo-tendencies
 
+  IF ( lldiag_ttend ) THEN
     DO k=k_start,ke
-       DO iv=iv_start,iv_end
-
-          ! calculated pseudo-tendencies
-          ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
-          ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
-          ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
-          ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
-          ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
-          ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
-          ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
-
+      DO iv=iv_start,iv_end
+        ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
       END DO
     END DO
+  ENDIF
 
-  END IF
+  IF ( lldiag_qtend ) THEN
+    DO k=k_start,ke
+      DO iv=iv_start,iv_end
+        ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
+        ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
+        ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
+        ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
+        ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
+!       ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
+      END DO
+    END DO
+  ENDIF
 
   IF (izdebug > 15) THEN
    CALL message('gscp_graupel', 'UPDATED VARIABLES')

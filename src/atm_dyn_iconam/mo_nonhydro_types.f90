@@ -157,7 +157,7 @@ MODULE mo_nonhydro_types
     &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
     &  exner_incr(:,:,:),   & ! exner inrement                   [-]
     &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
-    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    &  rhov_incr (:,:,:),   & ! water vapour partial density increment [kg/m^3]
     ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 

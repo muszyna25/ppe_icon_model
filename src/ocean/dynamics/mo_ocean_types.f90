@@ -23,7 +23,7 @@ MODULE mo_ocean_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
+  USE mo_math_types,          ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d

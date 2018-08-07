@@ -8,9 +8,9 @@
 MODULE mo_restart_attributes
 
   USE ISO_C_BINDING,            ONLY: C_DOUBLE, C_INT, C_INT32_T, C_INT64_T
-  USE mo_cdi,                   ONLY: DATATYPE_FLT64, DATATYPE_INT32, DATATYPE_TXT, CDI_GLOBAL, vlistInqNatts, vlistInqAtt, &
-                                    & vlistInqAttFlt, vlistInqAttInt, vlistInqAttTxt, vlistDefAttTxt, vlistDefAttFlt, &
-                                    & vlistDefAttInt
+  USE mo_cdi,                   ONLY: DATATYPE_FLT64, DATATYPE_INT32, DATATYPE_TXT, CDI_GLOBAL, cdiinqNatts, cdiinqAtt, &
+                                    & cdiinqAttFlt, cdiinqAttInt, cdiinqAttTxt, cdidefAttTxt, cdidefAttFlt, &
+                                    & cdidefAttInt
   USE mo_exception,             ONLY: finish
   USE mo_fortran_tools,         ONLY: t_Destructible
   USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
@@ -496,16 +496,16 @@ CONTAINS
                 SELECT TYPE(curValueAlias)
                     TYPE IS(t_Text)
                         textAlias => curValueAlias%text
-                        error = vlistDefAttTxt(vlistId, CDI_GLOBAL, curKeyAlias%text, LEN(textAlias), curValueAlias%text)
+                        error = cdidefAttTxt(vlistId, CDI_GLOBAL, curKeyAlias%text, LEN(textAlias), curValueAlias%text)
                     TYPE IS(t_Real)
-                        error = vlistDefAttFlt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_FLT64, 1, [curValueAlias%val])
+                        error = cdidefAttFlt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_FLT64, 1, [curValueAlias%val])
                     TYPE IS(t_integer)
-                        error = vlistDefAttInt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_INT32, 1, [curValueAlias%val])
+                        error = cdidefAttInt(vlistId, CDI_GLOBAL, curKeyAlias%text, DATATYPE_INT32, 1, [curValueAlias%val])
                     TYPE IS(t_logical)
                         IF(curValueAlias%val) THEN
-                            error = vlistDefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [1])
+                            error = cdidefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [1])
                         ELSE
-                            error = vlistDefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [0])
+                            error = cdidefAttInt(vlistId, CDI_GLOBAL, 'bool_'//curKeyAlias%text, DATATYPE_INT32, 1, [0])
                         END IF
                     CLASS DEFAULT
                         CALL finish(routine, "assertion failed")
@@ -532,14 +532,14 @@ CONTAINS
 
     lread_pe = p_comm_rank(comm) == root_pe
     IF (lread_pe) THEN
-        error = vlistInqNatts(vlistID, CDI_GLOBAL, attributeCount)
+        error = cdiinqNatts(vlistID, CDI_GLOBAL, attributeCount)
         IF(error /= SUCCESS) CALL finish(routine, "couldn't inquire number of attributes from the restart file")
     END IF
     CALL p_bcast(attributeCount, root_pe, comm)
 
     DO i = 0, attributeCount - 1
         IF (lread_pe) THEN
-            error = vlistInqAtt(vlistId, CDI_GLOBAL, i, attributeName, attributeType, attributeLength)
+            error = cdiinqAtt(vlistId, CDI_GLOBAL, i, attributeName, attributeType, attributeLength)
             IF(error /= SUCCESS) CALL finish(routine, "error while reading attributes from the restart file")
         END IF
         CALL p_bcast(attributeName, root_pe, comm)
@@ -549,14 +549,14 @@ CONTAINS
         SELECT CASE(attributeType)
             CASE(DATATYPE_FLT64)
                 IF (lread_pe) THEN
-                    error = vlistInqAttFlt(vlistID, CDI_GLOBAL, TRIM(attributeName), 1, oneDouble)
+                    error = cdiinqAttFlt(vlistID, CDI_GLOBAL, TRIM(attributeName), 1, oneDouble)
                     IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
                 END IF
                 CALL p_bcast(oneDouble(1), root_pe, comm)
                 CALL me%setReal(TRIM(attributeName), oneDouble(1))
             CASE(DATATYPE_INT32)
                 IF (lread_pe) THEN
-                    error = vlistInqAttInt(vlistID, CDI_GLOBAL, TRIM(attributeName), 1, oneInt)
+                    error = cdiinqAttInt(vlistID, CDI_GLOBAL, TRIM(attributeName), 1, oneInt)
                     IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
                 END IF
                 CALL p_bcast(oneInt(1), root_pe, comm)
@@ -566,15 +566,15 @@ CONTAINS
                     CALL me%setInteger(TRIM(attributeName), oneInt(1))
                 ENDIF
             CASE(DATATYPE_TXT)
-              !This is required because vlistInqAttTxt() seems not to
-              !output a properly zero terminated string in all cases:
-              text = ''   
-              IF (lread_pe) THEN
-                error = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(attributeName), attributeLength, text)
-                IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
-              END IF
-              CALL p_bcast(text, root_pe, comm)
-              CALL me%setText(TRIM(attributeName), TRIM(text))
+                !This is required because cdiinqAttTxt() seems not to
+                !output a properly zero terminated string in all cases:
+                text = ''   
+                IF (lread_pe) THEN
+                  error = cdiinqAttTxt(vlistID, CDI_GLOBAL, TRIM(attributeName), attributeLength, text)
+                  IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
+                END IF
+                CALL p_bcast(text, root_pe, comm)
+                CALL me%setText(TRIM(attributeName), TRIM(text))
         END SELECT
     ENDDO
   END SUBROUTINE RestartAttributeList_readFromFile

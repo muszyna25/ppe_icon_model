@@ -153,8 +153,8 @@ USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_grid_config,         ONLY: l_limited_area
 USE mo_dynamics_config,     ONLY: iequations
-USE mo_math_utilities,      ONLY: gvec2cvec, arc_length_v,  &
-  &                               t_cartesian_coordinates
+USE mo_math_types,          ONLY: t_cartesian_coordinates
+USE mo_math_utilities,      ONLY: gvec2cvec, arc_length_v
 USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -213,7 +213,7 @@ SUBROUTINE rbf_vec_index_cell( ptr_patch, ptr_int )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -315,7 +315,7 @@ SUBROUTINE rbf_c2grad_index( ptr_patch, ptr_int )
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -447,7 +447,7 @@ END SUBROUTINE rbf_c2grad_index
 SUBROUTINE rbf_vec_index_vertex( ptr_patch, ptr_int )
 
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -608,7 +608,7 @@ END SUBROUTINE rbf_vec_index_vertex
 !!
 SUBROUTINE rbf_vec_index_edge(ptr_patch, ptr_int)
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -712,7 +712,7 @@ SUBROUTINE rbf_vec_compute_coeff_cell( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -1098,7 +1098,7 @@ SUBROUTINE rbf_compute_coeff_c2grad (ptr_patch, ptr_int)
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), INTENT(in) :: ptr_patch
+TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 ! interpolation state
 !
@@ -1226,7 +1226,7 @@ SUBROUTINE rbf_vec_compute_coeff_vertex( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
@@ -1649,7 +1649,7 @@ SUBROUTINE rbf_vec_compute_coeff_edge( ptr_patch, ptr_int )
 !
 
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 

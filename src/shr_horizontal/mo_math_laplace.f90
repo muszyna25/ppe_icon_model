@@ -137,6 +137,7 @@ END INTERFACE
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -168,7 +169,7 @@ SUBROUTINE nabla2_vec_atmos( vec_e, ptr_patch, ptr_int, nabla2_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -270,8 +271,9 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$ACC DATA CREATE( z_div_c, z_rot_v, z_rot_e ), PCOPYIN( vec_e ), PCOPY( nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( vec_e, nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_div_c, z_rot_v, z_rot_e ), PCOPYIN( vec_e ), PCOPY( nabla2_vec_e ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( vec_e, nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 ! Initialization of unused elements of nabla2_vec_e
 ! DO jb = 1, i_startblk
@@ -299,27 +301,24 @@ CASE (3) ! (cell_type == 3)
   CALL rot_vertex( vec_e, ptr_patch, ptr_int, z_rot_v, slev, elev, &
                    opt_rlstart=rl_start_v, opt_rlend=rl_end_v)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, z_rot_v, z_div_c, nabla2_vec_e ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+   !$ACC LOOP GANG
     DO je = i_startidx, i_endidx
+     !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=3
+   !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = i_startidx, i_endidx
 #endif
 
@@ -334,14 +333,12 @@ CASE (3) ! (cell_type == 3)
 
       END DO
     END DO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 CASE (6) ! (cell_type == 6)
 
@@ -362,16 +359,8 @@ CASE (6) ! (cell_type == 6)
   nblks_e   = ptr_patch%nblks_e
   npromz_e  = ptr_patch%npromz_e
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, z_rot_v, z_div_c, nabla2_vec_e ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = 1, nblks_e
 
     IF (jb /= nblks_e) THEN
@@ -380,11 +369,15 @@ CASE (6) ! (cell_type == 6)
       nlen = npromz_e
     ENDIF
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+   !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
     DO je = 1, nlen
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = 1, nlen
 #endif
 
@@ -400,17 +393,16 @@ CASE (6) ! (cell_type == 6)
       END DO
 
     END DO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
 END SELECT
 
-!ACC_DEBUG UPDATE HOST( nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( nabla2_vec_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
 END SUBROUTINE nabla2_vec_atmos
@@ -442,7 +434,7 @@ SUBROUTINE nabla4_vec( vec_e, ptr_patch, ptr_int, nabla4_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -531,7 +523,8 @@ ELSE
   p_nabla2 => z_nabla2_vec_e
 ENDIF
 
-!$ACC DATA CREATE( z_nabla2_vec_e), PCOPYIN( vec_e ), PCOPY( nabla4_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_nabla2_vec_e), PCOPYIN( vec_e ), PCOPY( nabla4_vec_e ), &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 
 !
 ! apply second order Laplacian twice
@@ -583,7 +576,7 @@ SUBROUTINE nabla6_vec( vec_e, ptr_patch, ptr_int, nabla6_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -665,7 +658,8 @@ ENDIF
 rl_end_s1 = MAX(min_rledge,rl_end_s1)
 rl_end_s2 = MAX(min_rledge,rl_end_s2)
 
-!$ACC DATA CREATE( z_nabla2_vec_e, z_nabla4_vec_e ), PCOPYIN( vec_e ), PCOPY( nabla6_vec_e ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_nabla2_vec_e, z_nabla4_vec_e ), PCOPYIN( vec_e ), PCOPY( nabla6_vec_e ),  &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 
 !
 ! apply second order Laplacian three times
@@ -684,7 +678,7 @@ CALL nabla2_vec( z_nabla4_vec_e, ptr_patch, ptr_int, nabla6_vec_e,  &
   &              slev, elev, opt_rlstart=rl_start, opt_rlend=rl_end )
 
 !$ACC END DATA
-!ACC_DEBUG UPDATE HOST( nabla6_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( nabla6_vec_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 END SUBROUTINE nabla6_vec
 !-----------------------------------------------------------------------
@@ -785,8 +779,9 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$ACC DATA CREATE( z_grad_fd_norm_e ), PCOPYIN( psi_c ), PCOPY( nabla2_psi_c ),  IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_grad_fd_norm_e ), PCOPYIN( psi_c ), PCOPY( nabla2_psi_c ),  &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
@@ -796,16 +791,9 @@ CASE (3) ! (cell_type == 3)
 
 IF (slev == elev) THEN
   jk = slev
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, psi_c, nabla2_psi_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -820,7 +808,8 @@ IF (slev == elev) THEN
       i_endidx   = nproma
     ENDIF
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR
     DO jc = i_startidx, i_endidx
 
       !
@@ -833,41 +822,34 @@ IF (slev == elev) THEN
         &  + psi_c(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_n2s(jc,4,jb)
 
     END DO
+!$ACC END PARALLEL
   END DO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ELSE
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, psi_c, nabla2_psi_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+    !$ACC LOOP GANG 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
         !
@@ -881,14 +863,15 @@ ELSE
       END DO !cell loop
 
     END DO !vertical levels loop
-  END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+
+  END DO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
 ENDIF
+
 CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
 
   ! compute finite difference gradient in normal direction
@@ -900,7 +883,7 @@ CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
 END SELECT
 
 !$ACC END DATA
-!ACC_DEBUG UPDATE HOST( nabla2_psi_c ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( nabla2_psi_c ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 END SUBROUTINE nabla2_scalar
 
@@ -984,8 +967,9 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-!$ACC DATA CREATE( aux_c ), PCOPYIN( avg_coeff, psi_c ), PCOPY( nabla2_psi_c ),  IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( avg_coeff, psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( aux_c ), PCOPYIN( avg_coeff, psi_c ), PCOPY( nabla2_psi_c ), &
+!$ACC      PRESENT( ptr_patch, ptr_int), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( avg_coeff, psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 SELECT CASE (ptr_patch%geometry_info%cell_type)
 
@@ -994,23 +978,13 @@ CASE (3) ! (cell_type == 3)
 IF (slev == elev) THEN
   jk = slev
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
 
 ! values for the blocking
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, psi_c, aux_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -1025,7 +999,8 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       i_endidx   = nproma
     ENDIF
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR
     DO jc = i_startidx, i_endidx
 
       !
@@ -1038,12 +1013,10 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
         &  + psi_c(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_n2s(jc,4,jb)
 
     END DO
-  END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+  END DO
+
 !$OMP END DO
-#endif
 
   IF (l_limited_area .OR. ptr_patch%id > 1) THEN
     ! Fill nabla2_psi_c along the lateral boundaries of nests
@@ -1063,15 +1036,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, avg_coeff, aux_c, nabla2_psi_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     IF (jb == i_startblk) THEN
@@ -1086,7 +1051,8 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       i_endidx   = nproma
     ENDIF
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP VECTOR
     DO jc = i_startidx, i_endidx
       !
       !  calculate the weighted average
@@ -1098,48 +1064,38 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
         &  + aux_c(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * avg_coeff(jc,4,jb)
 
     END DO !cell loop
+!$ACC END PARALLEL
 
   END DO !block loop
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ELSE
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
 
 ! values for the blocking
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, psi_c, aux_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
         !
@@ -1153,12 +1109,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       END DO !cell loop
 
     END DO !vertical levels loop
-  END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+  END DO
 !$OMP END DO
-#endif
 
   IF (l_limited_area .OR. ptr_patch%id > 1) THEN
     ! Fill nabla2_psi_c along the lateral boundaries of nests
@@ -1178,29 +1131,24 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, avg_coeff, aux_c, nabla2_psi_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start_l2, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
         !
@@ -1215,15 +1163,13 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       END DO !cell loop
 
     END DO !vertical levels loop
+!$ACC END PARALLEL
 
   END DO !block loop
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 ENDIF
+
 END SELECT
 
 !$ACC END DATA
@@ -1255,7 +1201,7 @@ SUBROUTINE nabla4_scalar( psi_c, ptr_patch, ptr_int, nabla4_psi_c, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -1344,8 +1290,8 @@ ELSE
   p_nabla2 => z_nab2_c
 ENDIF
 
-!$ACC DATA CREATE( z_nab2_c ), PCOPYIN( psi_c ), PCOPY( nabla4_psi_c ),  IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( psi_c, nabla4_psi_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_nab2_c ), PCOPYIN( psi_c ), PCOPY( nabla4_psi_c ),  &
+!$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 
 ! apply second order Laplacian twice
 IF (p_test_run) p_nabla2(:,:,:) = 0.0_wp
@@ -1385,7 +1331,7 @@ END SUBROUTINE nabla4_scalar
   SUBROUTINE directional_laplace (p_vn, p_scalar, pt_patch, pt_int, p_upstr_beta, &
     &                             p_lapl_e, opt_slev, opt_elev)
 
-    TYPE(t_patch), TARGET, INTENT(in) :: pt_patch           !< patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: pt_patch           !< patch
     TYPE(t_int_state), TARGET,INTENT(in) :: pt_int !< interpolation state
     REAL(wp), INTENT(in)    :: p_vn(:,:,:)  &
     & ; !< normal velocity field, needed for determination of upstream direction

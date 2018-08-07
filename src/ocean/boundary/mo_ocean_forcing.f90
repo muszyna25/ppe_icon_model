@@ -59,7 +59,7 @@ MODULE mo_ocean_forcing
   USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_cf_convention
   USE mo_grib2

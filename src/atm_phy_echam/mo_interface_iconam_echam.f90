@@ -139,7 +139,7 @@ CONTAINS
     REAL(wp)              , INTENT(in)            :: dt_loc          !< advective time step
     TYPE(datetime)        , POINTER               :: datetime_new    !< date and time at the end of this time step
 
-    TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
+    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
     TYPE(t_nh_metrics)    , INTENT(in)            :: p_metrics
 

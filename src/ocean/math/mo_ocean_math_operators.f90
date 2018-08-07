@@ -24,6 +24,7 @@
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
 #include "iconfor_dsl_definitions.inc"
+#include "crayftn_ptr_fail.inc"
 !=============================================================================================
 !----------------------------
 MODULE mo_ocean_math_operators
@@ -47,7 +48,8 @@ MODULE mo_ocean_math_operators
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad, timers_level
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_solvercoeff_singleprecision, &
     & t_verticaladvection_ppm_coefficients, t_operator_coeff
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: vector_product
 !   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array
@@ -1303,7 +1305,7 @@ CONTAINS
   SUBROUTINE smooth_onCells_3D( patch_3D, in_value, out_value, smooth_weights, &
     & has_missValue, missValue)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET, PTR_INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)          :: in_value(:,:,:)  ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)       :: out_value(:,:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)          :: smooth_weights(1:2) ! 1st=weight for this cell, 2nd=weight for the some of the neigbors
@@ -1421,7 +1423,7 @@ CONTAINS
   SUBROUTINE smooth_onCells_2D( patch_3D, in_value, out_value, smooth_weights, &
     & has_missValue, missValue)
 
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_patch_3D ),TARGET, PTR_INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)          :: in_value(:,:)  ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)       :: out_value(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(in)          :: smooth_weights(1:2) ! 1st=weight for this cell, 2nd=weight for the some of the neigbors
