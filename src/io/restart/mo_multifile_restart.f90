@@ -209,7 +209,7 @@ MODULE mo_multifile_restart
   USE mo_kind,                         ONLY: dp, i8
   USE mtime,                           ONLY: datetime
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
-    &                                        p_comm_work_2_restart, p_comm_work,                        &
+    &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
     &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
@@ -267,7 +267,7 @@ CONTAINS
     INTEGER, ALLOCATABLE                :: srcRanks(:)
     TYPE(t_MultifilePatchData), POINTER :: patchData
     INTEGER                             :: error, jg, myProcId, myWrt, i, sRStrt, sREnd, jg0, &
-      &                                    jfile, nStreams, nSrcRanks, ierr, ckSize
+      &                                    jfile, nStreams, nSrcRanks, ckSize
 
     IF(.NOT.my_process_is_work() .AND. .NOT.my_process_is_restart()) RETURN
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
@@ -275,7 +275,7 @@ CONTAINS
     CALL restartWritingParameters(opt_nrestart_streams = nStreams)
     IF(isAsync()) CALL me%transferGlobalParameters()
     !set some local variables describing the communication that needs to be done
-    CALL MPI_Comm_rank(p_comm_work_restart, myProcId, ierr)!restartWorkProcId()
+    myProcId = p_comm_rank(p_comm_work_restart)
     myWrt  = rBuddy() 
     nSrcRanks = COUNT((/(rBuddy(pe_in=i) == myWrt, i = 0, num_work_procs -1)/))
     ALLOCATE(srcRanks(nSrcRanks))
