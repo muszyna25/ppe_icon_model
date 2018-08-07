@@ -161,7 +161,7 @@ void util_compiler_release(char *release_str, int *rstr_len)
   return;
 }
 
-#ifdef HAVE__LINK_H
+#ifdef HAVE_LINK_H
 static int dump_dl(struct dl_phdr_info *info, size_t size, void *data)
 {
 	FILE *f = (FILE *)data;
