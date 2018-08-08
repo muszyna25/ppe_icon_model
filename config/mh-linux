@@ -935,6 +935,7 @@ case "$ac_sitename" in
                       MPIROOT     = /software/all/mpi/openmpi/3.0_intel_17.0
                       XML2ROOT    = /usr
                       GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                      GRIB_API = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
                       MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                       CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                       STD_FLAGS = $STD_FLAGS -standard-semantics               
@@ -952,6 +953,7 @@ case "$ac_sitename" in
                       MPIROOT     = /software/community/ICON/mpi/1.10.7_gnu7/
                       XML2ROOT    = /usr
                       GRIBAPIROOT = /software/community/ICON/lib/grib_api/rib_api-1.22.0_gnu/
+                      GRIB_API = /software/community/ICON/lib/grib_api/rib_api-1.22.0_gnu/
                       MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                       CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                       STD_FLAGS = -g    -march=native -fbacktrace -fstack-protector-all $FCHECK -march=native -O2 -mpc64 -D__LOOP_EXCHANGE
