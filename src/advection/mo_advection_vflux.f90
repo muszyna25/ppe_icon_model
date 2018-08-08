@@ -468,7 +468,7 @@ CONTAINS
 #endif
 #ifdef _OPENACC
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
+#endif
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev

@@ -14,7 +14,7 @@ MODULE mo_checksum
     USE ISO_C_BINDING,  ONLY: C_INT32_T, C_DOUBLE, C_FLOAT, c_int, c_ptr, c_loc
     USE mo_mpi,         ONLY: p_comm_size, p_comm_rank, p_comm_work, p_gather
     USE mo_util_string, ONLY: int2string
-    USE mo_cdi,         ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_UINT32
+    USE mo_cdi,         ONLY: DATATYPE_FLT32, DATATYPE_FLT64
 #ifndef NOMPI
 #ifndef __SUNPRO_F95
     USE mpi !, ONLY: MPI_INT32_T, MPI_GATHER
@@ -115,7 +115,7 @@ CONTAINS
 
         !hash the results of the different processes down to a single VALUE AND print that.
         IF(p_comm_rank(communicator) == 0) THEN
-            hash = cdi_check_sum(DATATYPE_UINT32, processCount, c_loc(processChecksums))
+            hash = cdi_check_sum(DATATYPE_FLT32, processCount, c_loc(processChecksums))
 
             IF(printDetails) THEN
                 WRITE(0, *) prefix//"details:"
@@ -145,7 +145,7 @@ CONTAINS
         LOGICAL,                 OPTIONAL, INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        local_chksum = cdi_check_sum(DATATYPE_UINT32, arr_size, c_loc(array))
+        local_chksum = cdi_check_sum(DATATYPE_FLT32, arr_size, c_loc(array))
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_int32
 

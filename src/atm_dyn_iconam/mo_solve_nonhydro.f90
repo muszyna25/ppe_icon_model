@@ -598,7 +598,6 @@ MODULE mo_solve_nonhydro
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG
 #endif
-__COLLAPSE_2_LOOPS
           DO jk = 2, nlev
 !DIR$ IVDEP
             !$ACC LOOP VECTOR

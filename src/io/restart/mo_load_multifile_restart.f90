@@ -38,9 +38,10 @@ MODULE mo_load_multifile_restart
   USE mo_impl_constants,         ONLY: SUCCESS, VARNAME_LEN, SINGLE_T, REAL_T, INT_T
   USE mo_cdi_constants,          ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
   USE mo_cdi,                    ONLY: streamOpenRead, streamInqVlist, vlistNvars, vlistCopyVarName, &
-    &                                  streamClose, streamReadVar, vlistInqAttInt,  CDI_GLOBAL,      &
+    &                                  streamClose, streamReadVar, cdiInqAttInt,  CDI_GLOBAL,      &
     &                                  streamReadVarSlice, streamReadVarSliceF
-  USE mo_communication,          ONLY: t_comm_pattern, setup_comm_pattern, delete_comm_pattern, exchange_data_noblk
+! TODO : get rid of mo_communication_orig -> use mo_communication instead
+  USE mo_communication_orig,     ONLY: t_comm_pattern_orig, exchange_data_noblk
   USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
     &                                  deallocate_glb2loc_index_lookup
   USE mo_dynamics_config,        ONLY: nnew, nnew_rcf
@@ -82,7 +83,7 @@ MODULE mo_load_multifile_restart
   TYPE t_ReadBuffer
     INTEGER, PRIVATE :: curWindowOffset
     TYPE(commonBuf_t) :: readBuf_1d
-    TYPE(t_comm_pattern), PRIVATE :: commPattern
+    TYPE(t_comm_pattern_orig), POINTER, PRIVATE :: commPattern 
   CONTAINS
     PROCEDURE :: construct => readBuffer_construct
     PROCEDURE, PRIVATE :: redistribute => readBuffer_redistribute
@@ -132,7 +133,7 @@ CONTAINS
           IF(haveCount(iG)) &
             & CALL finish(routine, &
               & "corrupted restart file: double def "//vNames_glbIdx(iG))
-          dummy = vlistInqAttInt(me%vlistId, CDI_GLOBAL, attNames(iG), 1, icount);
+          dummy = cdiInqAttInt(me%vlistId, CDI_GLOBAL, attNames(iG), 1, icount);
           me%iCnts(iG) = icount(1)
           me%iVarIds(iG) = varId
           haveCount(iG) = .true.
@@ -256,8 +257,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":readBuffer_destruct"
 
     IF(me%curWindowOffset /= 1) CALL finish(routine, "buffer NOT empty on destruction")
-    DEALLOCATE(me%readBuf_1d%d, me%readBuf_1d%s, me%readBuf_1d%i)
-    CALL delete_comm_pattern(me%commPattern)
+    CALL me%commPattern%delete()
+    DEALLOCATE(me%commPattern)
   END SUBROUTINE readBuffer_destruct
 
   SUBROUTINE multifileCheckRestartFiles(filename)
@@ -329,10 +330,10 @@ CONTAINS
   ! must be IN the range [1, globalSize].  owners(M): Rank of the PE
   ! providing each of the required points.
   FUNCTION makeCommPattern(glbSize, provGlbIdces, reqdGlbIdces, owners) RESULT(resVar)
-    TYPE(t_comm_pattern) :: resVar
+    TYPE(t_comm_pattern_orig), POINTER :: resVar
     INTEGER, VALUE :: glbSize
     INTEGER, INTENT(IN) :: provGlbIdces(:), reqdGlbIdces(:), owners(:)
-    INTEGER :: i
+    INTEGER :: i, local_owner(SIZE(provGlbIdces))
     TYPE(t_glb2loc_index_lookup) :: lookupTable
     CHARACTER(*), PARAMETER :: routine = modname//":makeCommPattern"
 
@@ -341,15 +342,17 @@ CONTAINS
     CALL init_glb2loc_index_lookup(lookupTable, glbSize)
     CALL set_inner_glb_index(lookupTable, provGlbIdces, &
       &                      [(i, i = 1, SIZE(provGlbIdces))])
-    CALL setup_comm_pattern(SIZE(reqdGlbIdces), owners, &
-      &                     reqdGlbIdces, lookupTable, resVar)
+    local_owner(:) = p_comm_rank(p_comm_work)
+    ALLOCATE(resVar)
+    CALL resVar%setup(SIZE(reqdGlbIdces), owners, reqdGlbIdces, &
+      &               lookupTable, SIZE(provGlbIdces), local_owner, provGlbIdces)
     CALL deallocate_glb2loc_index_lookup(lookupTable)
   END FUNCTION makeCommPattern
 
   ! This asserts that the given pattern redistributes a given array
   ! exactly as described by the global indices arrays.
   SUBROUTINE checkRedistributionPattern(pattern, provGlbIdces, reqdGlbIdces)
-    TYPE(t_comm_pattern), INTENT(IN) :: pattern
+    TYPE(t_comm_pattern_orig), INTENT(IN) :: pattern
     INTEGER, INTENT(IN) :: provGlbIdces(:), reqdGlbIdces(:)
     INTEGER :: iSize, oSize, i, error
     INTEGER, ALLOCATABLE :: input(:,:), output(:,:)
@@ -385,7 +388,7 @@ CONTAINS
   !
   ! The resulting t_comm_pattern will also initialize the halo points.
   FUNCTION makeRedistributionPattern(provGlbIdces, reqdGlbIdces) RESULT(resultVar)
-    TYPE(t_comm_pattern) :: resultVar
+    TYPE(t_comm_pattern_orig) :: resultVar
     INTEGER, INTENT(IN) :: provGlbIdces(:), reqdGlbIdces(:)
     INTEGER :: globalSize, procCount, myRank, error, i
     INTEGER, ALLOCATABLE :: brokBnds(:), provBuf(:), brokBuf(:), provOfReqdPt(:)

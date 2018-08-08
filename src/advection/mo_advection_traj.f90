@@ -392,17 +392,16 @@ CONTAINS
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
                & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
-
+#endif
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
-#endif
     END DO    ! loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
 
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-
+#endif
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
