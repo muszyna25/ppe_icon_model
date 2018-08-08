@@ -52,6 +52,7 @@ MODULE mo_multifile_restart_patch_data
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_MultifilePatchData
     PRIVATE
+    INTEGER :: cnkLvs
     TYPE(commonBuf_t) :: RecvBuffer
     TYPE(ptr_arr_t) :: glb_idx(3)
     INTEGER,  POINTER :: varReordered(:)
@@ -154,6 +155,7 @@ CONTAINS
     END DO
     IF (i .NE. nVar) CALL finish(routine, "inconsistentcy!!!")
     CALL me%collector%construct(me%cellColl, me%edgeColl, me%vertColl, me%glb_sendbuf, nVar)
+    me%cnkLvs = 1
     DO curVar = 1, nVar
       curInfo => me%varData(me%varReordered(curVar))%info
       iType = curInfo%data_type
@@ -163,7 +165,9 @@ CONTAINS
       IF (curInfo%ndims > 3) CALL finish(routine, "ndims > 3 is not supported")
       ! get the correct collector and buffer for the first level
       CALL me%collector%defVar(curVar, nLevs, iType, curInfo%hgrid, iOffset) !, sourceOffset)
+      me%cnkLvs = MAX(me%cnkLvs, nLevs)
     END DO
+    me%cnkLvs = MERGE(restart_chunk_size, me%cnkLvs, restart_chunk_size .GT. 0)
     ! finally, allocate the global send buffers:
     CALL me%glb_sendbuf%construct(iOffset, me%cellColl, me%edgeColl, me%vertColl)
     IF (timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
@@ -292,7 +296,7 @@ CONTAINS
     INTEGER, ALLOCATABLE, DIMENSION(:) :: used_size, lCnt, lStart
     LOGICAL, ALLOCATABLE, DIMENSION(:) :: vSkip
     INTEGER :: lFree, vNext, lNext, vCnt, vFrst, lOff, vOff, lInc, &
-               lFrst, tFrst, i, iV, iL, lN, iG
+      &        lFrst, tFrst, i, iV, iL, lN, iG
     INTEGER(KIND=i8), ALLOCATABLE :: srcOff(:,:)
 
     DO iG = 1, 3
@@ -306,7 +310,7 @@ CONTAINS
     vNext = 1
     lNext = 1
     DO WHILE (vNext .LE. SIZE(me%varData))
-      lFree = restart_chunk_size
+      lFree = me%cnkLvs
       vCnt = 0
       vFrst = vNext
       lFrst = lNext
