@@ -1436,9 +1436,10 @@ MODULE mo_nh_diffusion
             nlen_zdiffu = nproma_zdiffu
           ENDIF
           ishift = (jb-1)*nproma_zdiffu
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !CDIR NODEP,VOVERTAKE,VOB
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = 1, nlen_zdiffu
             ic = ishift+jc
             z_temp(icell(1,ic),ilev(1,ic),iblk(1,ic)) =                                          &
