@@ -14,7 +14,7 @@ MODULE mo_checksum
     USE ISO_C_BINDING,  ONLY: C_INT32_T, C_DOUBLE, C_FLOAT, c_int, c_ptr, c_loc
     USE mo_mpi,         ONLY: p_comm_size, p_comm_rank, p_comm_work, p_gather
     USE mo_util_string, ONLY: int2string
-    USE mo_cdi,         ONLY: DATATYPE_FLT32, DATATYPE_FLT64
+    USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT32, DATATYPE_FLT64
 #ifndef NOMPI
 #ifndef __SUNPRO_F95
     USE mpi !, ONLY: MPI_INT32_T, MPI_GATHER
@@ -115,7 +115,10 @@ CONTAINS
 
         !hash the results of the different processes down to a single VALUE AND print that.
         IF(p_comm_rank(communicator) == 0) THEN
-            hash = cdi_check_sum(DATATYPE_FLT32, processCount, c_loc(processChecksums))
+        ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does not know about 
+        ! a DATATYPE_INT32, so use DATATYPE_INT as workaround
+        ! (which SHOULD hopefully have same storage size...)
+            hash = cdi_check_sum(DATATYPE_INT, processCount, c_loc(processChecksums))
 
             IF(printDetails) THEN
                 WRITE(0, *) prefix//"details:"
@@ -145,7 +148,10 @@ CONTAINS
         LOGICAL,                 OPTIONAL, INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        local_chksum = cdi_check_sum(DATATYPE_FLT32, arr_size, c_loc(array))
+        ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
+        ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround 
+        ! (which SHOULD hopefully have same storage size...)
+        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_int32
 
@@ -156,11 +162,10 @@ CONTAINS
         LOGICAL,    OPTIONAL,         INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        ! This leads to an abort with "Unexpected datatype" with the current
-        ! (ancient) version of cdilib. A work-around would be to use
-        ! DATATYPE_UINT32 but I was told a version with more support of
-        ! DATATYPE_FLT32 is upcoming.
-        local_chksum = cdi_check_sum(DATATYPE_FLT32, arr_size, c_loc(array))
+        ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
+        ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround 
+        ! (which SHOULD hopefully have same storage size...)
+        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_float
 
@@ -174,7 +179,6 @@ CONTAINS
         local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_double
-
 
     ! This is the call layer computing the size from assumed shape arrays,
     ! which is then past down together with assumed size arrays.
