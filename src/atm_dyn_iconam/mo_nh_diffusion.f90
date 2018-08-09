@@ -1046,12 +1046,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_block(start_bdydiff_e)
       i_endblk   = p_patch%edges%end_block(grf_bdywidth_e)
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh_prog, z_nabla2_e ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1103,6 +1098,7 @@ MODULE mo_nh_diffusion
 #ifdef _CRAYFTN
 !DIR$ PREFERVECTOR
 #endif
+          !$ACC LOOP VECTOR
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1332,6 +1328,7 @@ MODULE mo_nh_diffusion
 #ifdef _CRAYFTN
 !DIR$ PREFERVECTOR
 #endif
+            !$ACC LOOP VECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
@@ -1375,6 +1372,7 @@ MODULE mo_nh_diffusion
 #ifdef _CRAYFTN
 !DIR$ PREFERVECTOR
 #endif
+            !$ACC LOOP VECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev

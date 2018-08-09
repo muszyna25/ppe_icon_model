@@ -661,6 +661,8 @@ MODULE mo_velocity_advection
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Sum up terms of horizontal wind advection: grad(Ekin_h) + vt*(f+relvort_e) + wcon_e*dv/dz
+!$ACC PARALLEL PRESENT( p_patch, p_int, p_metrics, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP
