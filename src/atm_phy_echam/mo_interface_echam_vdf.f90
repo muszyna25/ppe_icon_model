@@ -199,7 +199,8 @@ CONTAINS
           !
           CALL vdiff_down(jg,                              &! in
                &          jb,                              &! in  used for debugging only
-               &          jce, nproma, nlev, nlevm1,nlevp1,&! in
+               &          jcs, jce, nproma,                &! in
+               &          nlev, nlevm1, nlevp1,            &! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
                &          pdtime,                          &! in, time step
@@ -292,7 +293,7 @@ CONTAINS
           !$ser verbatim   pdtime, field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
           !$ser verbatim   zcpt_sfc_tile, zco2, zch_tile)
           !
-          CALL update_surface(jg, jce, nproma, field%kice,                    &! in
+          CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
                &              pdtime,                                         &! in, time step
@@ -403,7 +404,7 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zaa,&
           !$ser verbatim   zcptgz, ztottevn, zbb, zthvvar, dummyx)
           !
-          CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
+          CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
                &        pdtime,                          &! in, time steps
@@ -564,7 +565,7 @@ CONTAINS
        !$ser verbatim   ilnd, field, zqx(:,nlev), zcptgz(:,nlev), zcpt_sfc_tile, zbn_tile,&
        !$ser verbatim   zbhn_tile, zbh_tile, zbm_tile, zri_tile)
        !
-       CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
+       CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1

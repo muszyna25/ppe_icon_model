@@ -66,15 +66,13 @@ MODULE mo_psrad_radiation
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
-  USE mo_ext_data_types,      ONLY: t_external_atmos_td
-  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_run_config,          ONLY: nlev, iqv, iqc, iqi, ico2, io3, &
                                     ntracer, lart
   USE mo_echam_phy_config,    ONLY: echam_phy_tc
   USE mo_echam_cld_config,    ONLY: echam_cld_config
   USE mo_echam_rad_config,    ONLY: echam_rad_config
   USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
-  USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
+  USE mo_bc_ozone,            ONLY: ext_ozone
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
 
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, get_orbit_times
@@ -698,13 +696,10 @@ MODULE mo_psrad_radiation
 
     INTEGER             :: jk
     INTEGER             :: jtrc      !< tracer index
-    INTEGER             :: selmon    !< index to select a calendar month
 
-    REAL(wp)            :: zo3_timint(kbdim,nplev_o3) !< intermediate value of ozon
+    REAL(wp),ALLOCATABLE:: zo3_timint(:,:) !< intermediate value of ozon
     REAL(wp)            :: mmr       !< local mass mixing ratio
 
-    TYPE(t_external_atmos_td) ,POINTER :: atm_td
-    
     ! vertical profile parameters (vpp) of CH4 and N2O
     REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
     REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
@@ -714,7 +709,9 @@ MODULE mo_psrad_radiation
     INTEGER , POINTER   :: irad_h2o, irad_co2, irad_ch4, irad_n2o, irad_o3, irad_o2, irad_cfc11, irad_cfc12
     REAL(wp), POINTER   ::            vmr_co2,  vmr_ch4,  vmr_n2o,           vmr_o2,  vmr_cfc11,  vmr_cfc12
     REAL(wp), POINTER   :: frad_h2o, frad_co2, frad_ch4, frad_n2o, frad_o3, frad_o2, frad_cfc
-    !
+
+    ALLOCATE(zo3_timint(kbdim,ext_ozone(jg)%nplev_o3))
+    
     irad_h2o   => echam_rad_config(jg)% irad_h2o
     irad_co2   => echam_rad_config(jg)% irad_co2
     irad_ch4   => echam_rad_config(jg)% irad_ch4
@@ -806,60 +803,48 @@ MODULE mo_psrad_radiation
          &                             gas_scenario = ghg_cfcmmr(2),     &
          &                             gas_factor   = frad_cfc)
 
-    ! O3: provisionally construct here the ozone profiles
-    atm_td => ext_data(jg)%atm_td
+    ! O3
     SELECT CASE(irad_o3)
+      !
     CASE default
       CALL finish('radiation','o3: this "irad_o3" is not supported')
-    CASE(0) 
+      !
+    CASE(0) ! no ozone 
       xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
            &                             gas_scenario_v = xm_ozn(1:kproma,:), &
            &                             gas_factor     = frad_o3)
-    CASE(1)
+      !
+    CASE(1) ! ozone tracer
       jtrc=MIN(io3,ntracer)
       xm_o3 (1:kproma,:)   = gas_profile(kproma, klev, irad_o3, xm_dry,            &
            &                             gas_val        = xm_trc(1:kproma,:,jtrc), &
            &                             gas_factor     = frad_o3)
-
-    CASE(10) ! ozone from ART
-      IF(.NOT. lart) CALL finish('psrad:mo_psrad_radiation', &
-        & 'irad_o3=10 not supported without lart = .True.'   )
-
-      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, 8, xm_dry,             &
-        &                                gas_scenario_v = xm_ozn(1:kproma,:), &
-        &                                gas_factor     = frad_o3)
-
-
-    CASE(2,4)
-
-      IF(irad_o3 == 4) THEN
-        selmon=1 ! select 1st month of file
-      ELSE
-        selmon=9 ! select 9th month of file
-      ENDIF
-
-      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
-           &          nlev_pres = nlev_o3, klev = klev,      &
-           &          pfoz = atm_td%pfoz(:),                 &
-           &          phoz = atm_td%phoz(:),                 &! in o3-levs
+      !
+    CASE(4) ! ozone is constant in time
+      CALL o3_pl2ml ( 1, kproma = kproma, kbdim = kbdim,        &
+           &          nlev_pres = ext_ozone(jg)%nplev_o3,    &
+           &          klev = klev,                           &
+           &          pfoz = ext_ozone(jg)%plev_full_o3,     &
+           &          phoz = ext_ozone(jg)%plev_half_o3,     &
            &          ppf  = pp_fl(:,:),                     &! in  app1
            &          pph  = pp_hl(:,:),                     &! in  aphp1
-           &          o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
+           &          o3_time_int = ext_ozone(jg)%o3_plev(:,:,jb,1),&! in
            &          o3_clim     = xm_ozn(:,:)              )! OUT
       xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
            &                             gas_scenario_v = xm_ozn(1:kproma,:), &
            &                             gas_factor     = frad_o3)
 
-    CASE(8)
-      CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
-           &          nlev_pres=nplev_o3,                    &
-           &          ext_o3=o3_plev(:,:,jb,:),              &
+    CASE(2,8)
+      CALL o3_timeint(1, kproma = kproma, kbdim = kbdim,     &
+           &          nlev_pres=ext_ozone(jg)%nplev_o3,      &
+           &          ext_o3=ext_ozone(jg)%o3_plev(:,:,jb,:),&
            &          current_date=this_datetime,            &
            &          o3_time_int=zo3_timint                 )
-      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
-           &          nlev_pres = nplev_o3, klev = klev,     &
-           &          pfoz = plev_full_o3,                   &
-           &          phoz = plev_half_o3,                   &
+      CALL o3_pl2ml ( 1, kproma = kproma, kbdim = kbdim,     &
+           &          nlev_pres = ext_ozone(jg)%nplev_o3,    &
+           &          klev = klev,                           &
+           &          pfoz = ext_ozone(jg)%plev_full_o3,     &
+           &          phoz = ext_ozone(jg)%plev_half_o3,     &
            &          ppf  = pp_fl(:,:),                     &
            &          pph  = pp_hl(:,:),                     &
            &          o3_time_int = zo3_timint,              &
@@ -867,12 +852,23 @@ MODULE mo_psrad_radiation
       xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
            &                             gas_scenario_v = xm_ozn(1:kproma,:), &
            &                             gas_factor     = frad_o3)
+      !
+    CASE(10) ! ozone from ART
+      IF(.NOT. lart) CALL finish('psrad:mo_psrad_radiation', &
+        & 'irad_o3=10 not supported without lart = .True.'   )
+      !
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, 8, xm_dry,             &
+        &                                gas_scenario_v = xm_ozn(1:kproma,:), &
+        &                                gas_factor     = frad_o3)
+
     END SELECT
 
     mmr = vmr_o2 * amo2/amd
     xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2, xm_dry,    &
          &                             gas_mmr      = mmr,               &
          &                             gas_factor   = frad_o2)
+
+    DEALLOCATE(zo3_timint)
 
   END SUBROUTINE psrad_get_gas_profiles
   !-------------------------------------------------------------------
@@ -950,6 +946,9 @@ MODULE mo_psrad_radiation
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_mmr_v)) THEN  ! 2b: = (1)
         gas_profile(1:kproma,:) = gas_mmr_v(1:kproma,:)  * xm_dry(1:kproma,:)
+        gas_initialized = .TRUE.
+      ELSE IF (PRESENT(gas_scenario_v)) THEN ! 2c: = (1)
+        gas_profile(1:kproma,:) = gas_scenario_v(1:kproma,:) * xm_dry(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 

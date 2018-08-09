@@ -61,7 +61,8 @@ CONTAINS
   !!
   SUBROUTINE atm_exchange_coeff( jg,                                      &! in
                                & jb,                                      &! in, for debugging only
-                               & kproma, kbdim, klev, klevm1, klevp1,     &! in
+                               & jcs, kproma, kbdim,                      &! in
+                               & klev, klevm1, klevp1,     &! in
                                & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
                                & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -79,7 +80,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: jb
-    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
     REAL(wp),INTENT(IN) :: pdtime
     REAL(wp),INTENT(IN) :: pcoriol(kbdim)
@@ -183,14 +184,14 @@ CONTAINS
     !-------------------------------------
 
     DO 212 jk=1,klev
-      CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1)  &
+      CALL prepare_ua_index_spline('vdiff (1)',jcs,kproma,ptm1(:,jk),idx,za       &
       &                                       ,klev=jk,kblock=jb,kblock_size=kbdim)
-      CALL lookup_ua_spline(kproma,idx(1),za(1),zua(1))
+      CALL lookup_ua_spline(jcs,kproma,idx,za,zua)
 
-      zpapm1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
-      ztheta(1:kproma,jk) = (p0ref*zpapm1i(1:kproma))**rd_o_cpd
+      zpapm1i(jcs:kproma) = 1._wp/papm1(jcs:kproma,jk)
+      ztheta(jcs:kproma,jk) = (p0ref*zpapm1i(jcs:kproma))**rd_o_cpd
 
-      DO 211 jl=1,kproma
+      DO 211 jl=jcs,kproma
 
         ! Virtual dry static energy, potential temperature, virtual potential
         ! temperature
@@ -213,11 +214,11 @@ CONTAINS
 
     ! Copy bottom-level values to dummy arguments
 
-    ptheta_b (1:kproma) = ztheta (1:kproma,klev)
-    pthetav_b(1:kproma) = zthetav(1:kproma,klev)
-    pthetal_b(1:kproma) = zthetal(1:kproma,klev)
-    pqsat_b  (1:kproma) = zqsat  (1:kproma,klev)
-    plh_b    (1:kproma) = zlh    (1:kproma,klev)
+    ptheta_b (jcs:kproma) = ztheta (jcs:kproma,klev)
+    pthetav_b(jcs:kproma) = zthetav(jcs:kproma,klev)
+    pthetal_b(jcs:kproma) = zthetal(jcs:kproma,klev)
+    pqsat_b  (jcs:kproma) = zqsat  (jcs:kproma,klev)
+    plh_b    (jcs:kproma) = zlh    (jcs:kproma,klev)
 
     !---------------------------------------------------------
     ! 3. Preparation for computation of exchange coefficients
@@ -226,7 +227,7 @@ CONTAINS
     ! using linear interpolation in pressure coordinate
 
     DO 214 jk=1,klevm1
-      DO 213 jl=1,kproma
+      DO 213 jl=jcs,kproma
         zdgmid(jl,jk) = pghf(jl,jk) - pghf(jl,jk+1)
 
         ! interpolation coefficients
@@ -257,7 +258,7 @@ CONTAINS
     ! 4. Compute convective dry boundary layer height
     !------------------------------------------------
 
-    DO jl = 1,kproma
+    DO jl = jcs,kproma
       zcor=MAX(ABS(pcoriol(jl)),eps_corio)
       zhdyn(jl)=MIN(pghf(jl,1),chneu*pustarm(jl)/zcor)
       ihpblc(jl)=klev
@@ -265,7 +266,7 @@ CONTAINS
     END DO
 
     DO jk=klevm1,1,-1
-      DO jl=1,kproma
+      DO jl=jcs,kproma
         zds=pcptgz(jl,jk)-pcptgz(jl,klev)
         zdz=pghf(jl,jk)-zhdyn(jl)
         ihpblc(jl)=MERGE(jk,ihpblc(jl),ihpblc(jl).EQ.klev.AND.zds.GT.0._wp)
@@ -273,7 +274,7 @@ CONTAINS
       END DO
     END DO
 
-    DO jl=1,kproma
+    DO jl=jcs,kproma
       ihpbl (jl) = MIN(ihpblc(jl),ihpbld(jl))
       phdtcbl(jl) = pghf(jl,ihpblc(jl))                                        &
                   & -((pghf(jl,ihpblc(jl))-pghf(jl,ihpblc(jl)+1))              &
@@ -289,7 +290,7 @@ CONTAINS
     ! 5. Compute exchange coefficients
     !--------------------------------------------
     DO 372 jk=1,klevm1
-      DO 361 jl=1,kproma
+      DO 361 jl=jcs,kproma
 
         ! gradient of specific humidity, wind shear, buoyancy, Ri-number
         ! according to Brinkop and Roeckner (1995, Tellus A)
@@ -438,7 +439,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE sfc_exchange_coeff( jg,                                     &! in
-                               & kproma, kbdim, ksfc_type,               &! in
+                               & jcs, kproma, kbdim, ksfc_type,          &! in
                                & idx_wtr, idx_ice, idx_lnd,              &! in
                                & pz0m, ptsfc,                            &! in
                                & pfrc, phdtcbl,                          &! in
@@ -469,7 +470,7 @@ CONTAINS
                                & )
 
     INTEGER, INTENT(IN) :: jg
-    INTEGER, INTENT(IN) :: kproma, kbdim
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
 
     REAL(wp),INTENT(IN) :: pz0m     (kbdim,ksfc_type) !< aerodynamic roughness length
@@ -614,9 +615,9 @@ CONTAINS
     ! coefficients when building the linear algebraic equations. The density here is
     ! computed using air temperature of the lowest model level at time step n-1.
     !------------------------------------------------------------------------------
-    pprfac_sfc(1:kproma) =  ppsfc(1:kproma)                                     &
-                         & /( rd*ptm1_b(1:kproma)                               &
-                         &   *(1._wp+vtmpc1*pqm1_b(1:kproma)-pqxm1_b(1:kproma)) )
+    pprfac_sfc(jcs:kproma) =  ppsfc(jcs:kproma)                                     &
+                         & /( rd*ptm1_b(jcs:kproma)                               &
+                         &   *(1._wp+vtmpc1*pqm1_b(jcs:kproma)-pqxm1_b(jcs:kproma)) )
 
     !-------------------------------------------------------------
     ! COMPUTATION OF BASIC QUANTITIES: WIND SHEAR,
@@ -634,7 +635,7 @@ CONTAINS
      ! check for masks
      !
       is(jsfc) = 0
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
         IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
           is(jsfc) = is(jsfc) + 1
           loidx(is(jsfc),jsfc) = jl
@@ -820,11 +821,11 @@ CONTAINS
     END IF
 
     IF (.NOT.lsfc_mom_flux ) THEN  ! Surface momentum flux is switched off
-      pcfm_tile(1:kproma,1:ksfc_type) = 0._wp
+      pcfm_tile(jcs:kproma,1:ksfc_type) = 0._wp
     END IF
 
     IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
-      pcfh_tile(1:kproma,1:ksfc_type) = 0._wp
+      pcfh_tile(jcs:kproma,1:ksfc_type) = 0._wp
     END IF
 
     !------------------------------------------------------------------------------
@@ -945,7 +946,7 @@ CONTAINS
     ! Surface value of TTE and its exchange coefficient
     !---------------------------------------------------
     ! The exchange coefficient of TTE is set to the same value as for momentum
-    pcftotte_sfc(1:kproma) = pcfm_gbm(1:kproma)
+    pcftotte_sfc(jcs:kproma) = pcfm_gbm(jcs:kproma)
 
     ! TTE at the surface
     ptottevn_sfc(:) = 0._wp  ! initialize the weighted average
@@ -965,17 +966,17 @@ CONTAINS
        ptottevn_sfc(js) = ptottevn_sfc(js) + ztottev*pfrc(js,jsfc)
       END DO
     END DO
-    ptottevn_sfc(1:kproma) = MAX( totte_min,ptottevn_sfc(1:kproma) )
+    ptottevn_sfc(jcs:kproma) = MAX( totte_min,ptottevn_sfc(jcs:kproma) )
 
     !----------------------------------------------------------------
     ! Surface value and exchange coefficient of theta_v variance
     !----------------------------------------------------------------
     ! The exchange coefficient is set to the aggregated coefficient
     ! of heat and moisture.
-    pcfthv_sfc(1:kproma) = pcfh_gbm(1:kproma)
+    pcfthv_sfc(jcs:kproma) = pcfh_gbm(jcs:kproma)
 
     ! thvvar at the surface
-    pthvvar_sfc(1:kproma) = pthvvar_b(1:kproma)
+    pthvvar_sfc(jcs:kproma) = pthvvar_b(jcs:kproma)
 
   END SUBROUTINE sfc_exchange_coeff
   !-------------

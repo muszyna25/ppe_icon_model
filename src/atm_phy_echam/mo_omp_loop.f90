@@ -28,12 +28,13 @@
 
 MODULE mo_omp_loop
 
-  USE mo_kind           ,ONLY: wp
-  USE mtime             ,ONLY: datetime
-  USE mo_parallel_config,ONLY: nproma
-  USE mo_model_domain   ,ONLY: t_patch
-  USE mo_loopindices    ,ONLY: get_indices_c
-  USE mo_impl_constants ,ONLY: min_rlcell_int, grf_bdywidth_c
+  USE mo_kind               ,ONLY: wp
+  USE mtime                 ,ONLY: datetime
+  USE mo_parallel_config    ,ONLY: nproma
+  USE mo_model_domain       ,ONLY: t_patch
+  USE mo_loopindices        ,ONLY: get_indices_c
+  USE mo_impl_constants     ,ONLY: min_rlcell_int
+  USE mo_impl_constants_grf ,ONLY: grf_bdywidth_c
 
   IMPLICIT NONE
   PRIVATE

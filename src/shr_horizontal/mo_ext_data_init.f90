@@ -53,7 +53,6 @@ MODULE mo_ext_data_init
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
-  USE mo_echam_rad_config,   ONLY: echam_rad_config
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
   USE mo_model_domain,       ONLY: t_patch
@@ -174,7 +173,11 @@ CONTAINS
     ! Allocate and open CDI stream (files):
     ALLOCATE (cdi_extpar_id(n_dom), cdi_filetype(n_dom), stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
-    CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
+    
+    ! Initialize stream-IDs as "uninitialized"
+    IF(my_process_is_mpi_workroot()) cdi_extpar_id(:) = -1
+
+    IF (iforcing == inwp) CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
     CALL dict_init(extpar_varnames_dict, lcase_sensitive=.FALSE.)
@@ -237,12 +240,12 @@ CONTAINS
       END IF
 
       ! call read_ext_data_atm to read O3
-      IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
-         & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) &
-         & .OR. sstice_mode == SSTICE_CLIM) THEN
-        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
-          &                     extpar_varnames_dict)
-        CALL message( TRIM(routine),'read_ext_data_atm completed' )
+      IF ( iforcing == inwp ) THEN
+        IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM) THEN
+          CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
+            &                     extpar_varnames_dict)
+          CALL message( TRIM(routine),'read_ext_data_atm completed' )
+        END IF
       END IF
 
     CASE(1) ! itopo, read external data from file
@@ -573,11 +576,6 @@ CONTAINS
 
 !--------------------------------------------------------------------------
 
-    ! set stream IDs to "uninitialized":
-    IF(my_process_is_mpi_workroot()) THEN
-      cdi_extpar_id(:) = -1
-    END IF
-
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
     ELSE
@@ -590,7 +588,7 @@ CONTAINS
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
 
-      IF ( itopo == 1 .AND. iforcing == inwp) THEN
+      IF ( itopo == 1 ) THEN
         CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
           &                      is_frglac_in(jg))
       END IF
@@ -603,17 +601,11 @@ CONTAINS
       nlev_o3 = 1
       nmonths   = 1
 
-      O3 : IF (                        irad_o3 == io3_clim .OR.                      irad_o3 == io3_ape &
-           & .OR. echam_rad_config(jg)%irad_o3 == io3_clim .OR. echam_rad_config(jg)%irad_o3 == io3_ape ) THEN
+      O3 : IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape ) THEN
 
         IF(iforcing == inwp .AND. irad_o3 == io3_ape) THEN
           levelname = 'level'
           cellname  = 'ncells'
-          o3name    = 'O3'
-          o3unit    = 'g/g'
-        ELSE IF(iforcing == iecham .AND. echam_rad_config(jg)%irad_o3 == io3_ape) THEN
-          levelname = 'plev'
-          cellname  = 'cell'
           o3name    = 'O3'
           o3unit    = 'g/g'
         ELSE ! o3_clim
@@ -1233,14 +1225,13 @@ CONTAINS
 
       ENDDO  ! jg
 
-    ENDIF ! (itopo == 1)
+    ENDIF ! (itopo == 1 and inwp)
 
     !-------------------------------------------------------
     ! Read ozone
     !-------------------------------------------------------
 
-    IF (                              irad_o3 == io3_clim  .OR.                         irad_o3 == io3_ape  &
-       & .OR. ANY(echam_rad_config(:)%irad_o3 == io3_clim) .OR. ANY(echam_rad_config(:)%irad_o3 == io3_ape) ) THEN
+    IF ( iforcing == inwp .AND. (irad_o3 == io3_clim .OR. irad_o3 == io3_ape) ) THEN
 
       DO jg = 1,n_dom
 
@@ -1296,12 +1287,6 @@ CONTAINS
                 & MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
            CALL message(routine, TRIM(message_text))
            ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
-        ELSE IF(iforcing == iecham .AND. echam_rad_config(jg)%irad_o3 == io3_ape) THEN
-           ! ozone input expected in units of mole/mole
-           WRITE(message_text,'(a,e12.4,e12.4)')'MAX/MIN o3 mole/mole', &
-                & MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
-           CALL message(routine, TRIM(message_text))
-           ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
         END IF
 
         WRITE(message_text,'(a,e12.4,e12.4)')'MAX/MIN o3 g/g', &
@@ -1312,7 +1297,7 @@ CONTAINS
         CALL closeFile(stream_id)
 
       ENDDO ! ndom
-    END IF ! irad_o3
+    END IF ! irad_o3 and inwp
 
 
     !------------------------------------------
@@ -1372,7 +1357,7 @@ CONTAINS
 
       END DO ! ndom
 
-   END IF ! sstice_mode
+   END IF ! sstice_mode and inwp
 
    CONTAINS
 

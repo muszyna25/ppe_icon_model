@@ -29,7 +29,6 @@ MODULE mo_echam_phy_bcs
        &                                   getTotalSecondsTimeDelta,                       &
        &                                   isCurrentEventActive, deallocateDatetime
   USE mo_model_domain               ,ONLY: t_patch
-  USE mo_impl_constants             ,ONLY: io3_amip
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
@@ -200,7 +199,10 @@ CONTAINS
       END IF
       !
       ! ozone concentration
-      IF (irad_o3 == io3_amip .OR. irad_o3 == 10 ) THEN
+      IF   (      irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
+           & .OR. irad_o3 ==  4 &       ! constant in time
+           & .OR. irad_o3 ==  8 &       ! transient time series defined by monthly data
+           & .OR. irad_o3 == 10 ) THEN  ! coupled to ART
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !

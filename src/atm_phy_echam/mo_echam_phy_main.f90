@@ -30,7 +30,6 @@ MODULE mo_echam_phy_main
   USE mo_exception           ,ONLY: message
   USE mtime                  ,ONLY: datetime, isCurrentEventActive, &
        &                            OPERATOR(<=), OPERATOR(>)
-  USE mo_echam_diagnostics,            ONLY: echam_global_diagnostics
 
   USE mo_model_domain        ,ONLY: t_patch
 
@@ -43,6 +42,8 @@ MODULE mo_echam_phy_main
     &                               cpair_cvair_qconv, &
     &                               initialize,        &
     &                               finalize
+
+  USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
   USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
@@ -133,8 +134,7 @@ CONTAINS
             &                          (echam_phy_tc(jg)%ed_rad >  datetime_old)
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
-
-      CALL message_forcing_action('LW and SW radiation (rad)'     ,&
+       CALL message_forcing_action('LW and SW radiation (rad)'     ,&
             &                      is_in_sd_ed_interval, is_active )
        !
        ! radiative fluxes
@@ -316,9 +316,13 @@ CONTAINS
     END IF
 
 
-
-    ! global diagnostics
+    !-------------------------------------------------------------------
+    ! Global output diagnostics
+    !-------------------------------------------------------------------
+    !
     CALL echam_global_diagnostics(patch)
+
+
     !-------------------------------------------------------------------
     ! Finalize (diagnostic)
     !-------------------------------------------------------------------

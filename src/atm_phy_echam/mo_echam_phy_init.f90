@@ -23,13 +23,14 @@ MODULE mo_echam_phy_init
 
   ! infrastructure
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish
+  USE mo_exception,            ONLY: finish, message, message_text
   USE mtime,                   ONLY: datetime, OPERATOR(>), OPERATOR(==)
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
+  USE mo_impl_constants,       ONLY: max_char_length
 
   ! model configuration
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
@@ -40,6 +41,7 @@ MODULE mo_echam_phy_init
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
 
   ! vertical grid
@@ -50,7 +52,7 @@ MODULE mo_echam_phy_init
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3
 
-  USE mo_sea_ice_nml,           ONLY: albi
+  USE mo_sea_ice_nml,          ONLY: albi
 
   ! echam phyiscs
   USE mo_echam_phy_config,     ONLY: eval_echam_phy_config, eval_echam_phy_tc, print_echam_phy_config, &
@@ -108,9 +110,9 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
+
   ! psrad
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
-
 
   IMPLICIT NONE
 
@@ -315,8 +317,8 @@ CONTAINS
       CALL init_methox
     END IF
 
-     !-------------------------------------------------------------------
-    ! 5. If there are concurrent psrad processes, set up communication between the
+    !-------------------------------------------------------------------
+    ! If there are concurrent psrad processes, set up communication between the
     ! atmo and psrad processes
     !-------------------------------------------------------------------
     CALL setup_atmo_2_psrad()
@@ -334,9 +336,9 @@ CONTAINS
     INTEGER :: jg
     TYPE(t_stream_id) :: stream_id
 
-    CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
-    CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
-    CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
+    CHARACTER(len=max_char_length) :: land_frac_fn
+    CHARACTER(len=max_char_length) :: land_phys_fn
+    CHARACTER(len=max_char_length) :: land_sso_fn
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
@@ -352,9 +354,23 @@ CONTAINS
 
     DO jg= 1,n_dom
 
+      IF (jg > 1) THEN
+        WRITE(land_frac_fn, '(a,i2.2,a)') 'bc_land_frac_DOM', jg, '.nc'
+        WRITE(land_phys_fn, '(a,i2.2,a)') 'bc_land_phys_DOM', jg, '.nc'
+        WRITE(land_sso_fn, '(a,i2.2,a)') 'bc_land_sso_DOM', jg, '.nc'
+      ELSE
+        land_frac_fn = 'bc_land_frac.nc'
+        land_phys_fn = 'bc_land_phys.nc'
+        land_sso_fn  = 'bc_land_sso.nc'
+      ENDIF
+
       IF (ilnd <= nsfc_type) THEN
 
         ! land, glacier and lake masks
+        !
+        WRITE(message_text,'(2a)') 'Read land, glac and lake from file ', TRIM(land_frac_fn)
+        CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+        !
         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='land',               &
@@ -375,6 +391,10 @@ CONTAINS
         END IF
 
         ! roughness length and background albedo
+        !
+        WRITE(message_text,'(2a)') 'Read roughness_length and albedo from file: ', TRIM(land_phys_fn)
+        CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+        !
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
@@ -393,6 +413,10 @@ CONTAINS
 
         ! orography
         IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
+          !
+          WRITE(message_text,'(2a)') 'Read oroxyz from file: ', TRIM(land_sso_fn)
+          CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+          !
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
           CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
@@ -454,7 +478,7 @@ CONTAINS
       !
       DO jg= 1,n_dom
         !
-        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
+        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
              &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)  &
@@ -462,7 +486,7 @@ CONTAINS
              &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
              &                             prm_field(jg)%seaice (:,:)                           ,&
              &                             prm_field(jg)%siced  (:,:)                           ,&
-             &                             p_patch(1)                                           )
+             &                             p_patch(jg)                                          )
         !
       END DO
       !

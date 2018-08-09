@@ -81,7 +81,7 @@ CONTAINS
           !
           CALL cloud(jg,                           &! in
                &     jb,                           &! in
-               &     jce, nproma, nlev,            &! in
+               &     jcs, jce, nproma, nlev,       &! in
                &     pdtime,                       &! in
                &     field% ictop    (:,  jb),     &! in (from "cucall")
                &     field% presm_old(:,:,jb),     &! in

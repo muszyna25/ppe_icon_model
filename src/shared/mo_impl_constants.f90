@@ -346,7 +346,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_interact =  1
   INTEGER, PARAMETER :: io3_clim     =  2
   INTEGER, PARAMETER :: io3_ape      =  4
-  INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
   INTEGER, PARAMETER :: io3_art      =  10
 
