@@ -395,13 +395,11 @@ CONTAINS
 #endif
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
-    END DO    ! loop over blocks
-#ifdef _OPENACC
 !$ACC END PARALLEL
+    END DO    ! loop over blocks
 
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-#endif
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
