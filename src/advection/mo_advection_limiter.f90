@@ -753,20 +753,12 @@ CONTAINS
     !    z_mflx < 0: inward
     !
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_mflx_tracer_h, iidx, iblk ), &
-!$ACC PRIVATE( z_mflx ),                                          &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 #ifdef __INTEL_COMPILER
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m, &
 !$OMP            z_mflx1,z_mflx2,z_mflx3) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
+
 #endif
     DO jb = i_startblk, i_endblk
 
