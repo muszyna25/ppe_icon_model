@@ -34,7 +34,7 @@ MODULE mo_statistics
   !   USE mo_io_units,           ONLY: nnml, filename_max
   !   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
-  USE mo_math_utilities, ONLY: t_geographical_coordinates
+  USE mo_math_types,     ONLY: t_geographical_coordinates
   USE mo_math_constants, ONLY: rad2deg
   
   IMPLICIT NONE

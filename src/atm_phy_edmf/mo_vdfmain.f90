@@ -59,28 +59,13 @@ SUBROUTINE VDFMAIN ( CDCONF , &
  & PUSTRTI, PVSTRTI, PAHFSTI, PEVAPTI, PTSKTI , &
  ! OUTPUT FLUXES
  & PDIFTS , PDIFTQ , PDIFTL , PDIFTI , PSTRTU , PSTRTV , PTOFDU , PTOFDV, &
- & PSTRSOU, PSTRSOV, PKH    , &
-!amk
+ & PSTRSOU, PSTRSOV, PKH    , PKM    , &
  & LDLAND , &   
-!xxx
- ! DDH OUTPUTS
- & PDHTLS , PDHTSS , PDHTTS , PDHTIS &
+! surface fluxes from TERRA for EDMF atmospheric transport
+ & SHFL_S , LHFL_S , UMFL_S , VMFL_S , &
 ! TERRA data
- & , ext_data                                                           & !in
- & , jb, jg                                                             & ! -
- & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
- & , w_snow_ex                                                          & ! -
- & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
- & , t_so_ex, w_so_ex, w_so_ice_ex  &  !, t_2m_ex, u_10m_ex, v_10m_ex   & ! -
- & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
- & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
- & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
- & , tch_ex, tcm_ex, tfv_ex                                             & !inout
- & , sobs_ex, thbs_ex, pabs_ex                                          & !in
- & , runoff_s_ex, runoff_g_ex                                           & !inout
- & , t_g, qv_s                                                          & ! -
- & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
- & , fr_seaice                                                          ) ! -
+ & frac_t , t_g_t  , qv_s   , t_ice )
+
 !***
 
 !**   *VDFMAIN* - DOES THE VERTICAL EXCHANGE OF U,V,SLG,QT BY TURBULENCE.
@@ -287,14 +272,16 @@ SUBROUTINE VDFMAIN ( CDCONF , &
 
 !    *PKH*          TURB. DIFF. COEFF. FOR HEAT ABOVE SURF. LAY.  (M2/S)
 !                   IN SURFACE LAYER: CH*U                        (M/S)
-!    *PDHTLS*       Diagnostic array for tiles (see module yomcdh)
-!                      (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
-!    *PDHTSS*       Diagnostic array for snow T (see module yomcdh)
-!                      (Wm-2 for fluxes)
-!    *PDHTTS*       Diagnostic array for soil T (see module yomcdh)
-!                      (Wm-2 for fluxes)
-!    *PDHTIS*       Diagnostic array for ice T (see module yomcdh)
-!                      (Wm-2 for fluxes)
+!    *PKM*          TURB. DIFF. COEFF. FOR MOM. ABOVE SURF. LAY.  (M2/S)
+!                   IN SURFACE LAYER: CH*U                        (M/S)
+!!!  *PDHTLS*       Diagnostic array for tiles (see module yomcdh)
+!!!                    (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
+!!!  *PDHTSS*       Diagnostic array for snow T (see module yomcdh)
+!!!                    (Wm-2 for fluxes)
+!!!  *PDHTTS*       Diagnostic array for soil T (see module yomcdh)
+!!!                    (Wm-2 for fluxes)
+!!!  *PDHTIS*       Diagnostic array for ice T (see module yomcdh)
+!!!                    (Wm-2 for fluxes)
 
 !     Additional parameters for flux boundary condition (in SCM model):
 
@@ -376,28 +363,23 @@ SUBROUTINE VDFMAIN ( CDCONF , &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & RG       ,RD       ,&                               !yomcst
-                & RCPD     ,RETV     ,RLVTT    ,RLSTT    ,RTT      ,& ! -
-                & R2ES     ,R3LES    ,R3IES    ,R4LES    ,&           !yoethf
-                & R4IES    ,R5LES    ,R5IES    ,RVTMP2   ,R5ALVCP  ,& ! -
-                & R5ALSCP  ,RALVDCP  ,RALSDCP  ,RTWAT    ,RTICE    ,& ! -
-                & RTICECU  ,RTWAT_RTICE_R      ,RTWAT_RTICECU_R    ,& ! -
+                & RCPD     ,RETV     ,RLVTT    ,RLSTT    ,&           ! -
+                & RVTMP2   ,&                                         ! -
                 & RVDIFTS                                             !yoevdf
 USE mo_edmf_param   ,ONLY : &
                 & LSCMEC   ,LSFCFLX  ,REXTSHF  ,REXTLHF  ,&           !yomct0
                 & LVDFTRAC ,&                                         !yoephy 
-                & N_SEKF_PT          ,LUSEKF_REF         ,LUSE_JATM,& !yomsekf
                 & N_VMASS  ,&                                         !yomjfh
                 & FOEALFA  ,&                                         !fcttre.f
-                & ntiles_edmf
+                & ntiles_edmf        ,edmf_conf
 USE mo_physical_constants,  ONLY:  p0ref, rd_o_cpd
-USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_lnd_nwp_config,ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
+USE mo_lnd_nwp_config,ONLY: ntiles_total, ntiles_water, &
                             isub_water, isub_seaice
-USE mo_ext_data_types,ONLY: t_external_data
 
 USE mo_vdfdpbl      ,ONLY : vdfdpbl
 USE mo_vdfhghtn     ,ONLY : vdfhghtn
 USE mo_vdfexcu      ,ONLY : vdfexcu
+USE mo_vdfexcu_new  ,ONLY : vdfexcu_new
 USE mo_vdftofdc     ,ONLY : vdftofdc
 USE mo_vdfdifm      ,ONLY : vdfdifm
 USE mo_vdfdifh      ,ONLY : vdfdifh
@@ -536,59 +518,23 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PTOFDV(KLON)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRSOU(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PSTRSOV(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKH(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTLS(KLON,KTILES,KDHVTLS+KDHFTLS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTSS(KLON,KLEVSN,KDHVTSS+KDHFTSS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTTS(KLON,KLEVS,KDHVTTS+KDHFTTS) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTIS(KLON,KLEVI,KDHVTIS+KDHFTIS) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PKM(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVERVEL(KLON,KLEV) 
-!amk
 LOGICAL                          :: LDLAND(KLON)
-!xxx
+REAL(KIND=JPRB)   ,INTENT(IN)    :: SHFL_S(KLON)              !sensible heat flux from TERRA
+REAL(KIND=JPRB)   ,INTENT(IN)    :: LHFL_S(KLON)              !latent   heat from from TERRA
+REAL(KIND=JPRB)   ,INTENT(IN)    :: UMFL_S(KLON)              !u-flux from TURBTRAN & SFCinterface
+REAL(KIND=JPRB)   ,INTENT(IN)    :: VMFL_S(KLON)              !v-flux from TURBTRAN & SFCinterface
 !          DIAGNOSTIC OUTPUT
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFLDX2, KLEVX, KFLDX
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PEXTR2(KLON,KFLDX2), PEXTRA(KLON,KLEVX,KFLDX)
 LOGICAL           ,INTENT(IN)    :: LLDIAG
 
-! TERRA data
+REAL(KIND=JPRB)   ,INTENT(IN)    :: frac_t (:,:)              !(KLON,ntiles_total)  tile fraction
+REAL(KIND=JPRB)   ,INTENT(IN)    :: t_g_t  (:,:)              !(KLON,ntiles_total)  tiled sfc temperature
+REAL(KIND=JPRB)   ,INTENT(IN)    :: qv_s   (:)                !(KLON)               mean  sfc qsat
+REAL(KIND=JPRB)   ,INTENT(IN)    :: t_ice  (:)                !(KLON)               ice temperature
 
-INTEGER          ,INTENT(IN)                                               :: &
-  jb             ,jg                 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_snow,ntiles_total) :: &
-  t_snow_mult_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
-  rho_snow_mult_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  t_g_ex         ,qv_s_ex  
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  t_snow_ex      ,t_s_ex         ,                                            & 
-  w_snow_ex      ,rho_snow_ex    ,h_snow_ex       ,                           &
-  w_i_ex         ,w_p_ex         ,w_s_ex
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
-  t_so_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total)   :: &
-  w_so_ex        ,w_so_ice_ex          
-!REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                         :: &
-! u_10m_ex       ,v_10m_ex             
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  freshsnow_ex   ,snowfrac_lc_ex ,snowfrac_ex 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
-  wliq_snow_ex   ,wtot_snow_ex   ,dzh_snow_ex          
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON)                          :: &
-  prr_con_ex     ,prs_con_ex     ,prr_gsp_ex     ,prs_gsp_ex           
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  tch_ex         ,tcm_ex         ,tfv_ex               
-REAL(KIND=JPRB)  ,INTENT(IN)     ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  sobs_ex        ,thbs_ex        ,pabs_ex              
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  runoff_s_ex    ,runoff_g_ex        
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_g            ,qv_s
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  t_ice          ,h_ice          ,t_snow_si      ,h_snow_si       ,alb_si 
-REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
-  fr_seaice
-TYPE(t_external_data), INTENT(INOUT)                                       :: &
-  ext_data
 
 !*         0.2    LOCAL VARIABLES
 
@@ -602,7 +548,7 @@ REAL(KIND=JPRB) ::    ZCPTGZ(KLON,KLEV) , ZCFM(KLON,KLEV)   , ZCFH(KLON,KLEV)   
 REAL(KIND=JPRB) ::    ZKHFL(KLON)       , ZKQFL(KLON)       , ZKMFL(KLON)  
 REAL(KIND=JPRB) ::    ZQEA(KLON,KLEV)   , ZLEA(KLON,KLEV)   , ZIEA(KLON,KLEV)   ,&
                     & ZQTEA(KLON,KLEV)  , ZSLGEA(KLON,KLEV) ,                    &
-                    & ZSLGEWODIS(KLON,KLEV) , ZPTEA(KLON,KLEV)
+                    & ZSLGEWODIS(KLON,KLEV)
 REAL(KIND=JPRB) ::    ZQTEP(KLON,KLEV)  , ZSLGEP(KLON,KLEV), ZDZRHOI
 
 !RN --- variables associated with dualM scheme -------------------------
@@ -628,22 +574,17 @@ REAL(KIND=JPRB) ::    ZZ0MW(KLON)       , ZZ0HW(KLON)       , ZZ0QW(KLON)       
 REAL(KIND=JPRB) ::    ZZCPTS(KLON)      , ZZQSA(KLON)       , ZZBUOM(KLON)      ,&
                     & ZZZDL(KLON)
 REAL(KIND=JPRB) ::    ZTUPD(KLON,KLEV)  , ZQUPD(KLON,KLEV)  , ZLUPD(KLON,KLEV)  ,&
-                    & ZIUPD(KLON,KLEV)  , ZQTUPD(KLON,KLEV) , ZLIUPD(KLON,KLEV) ,&
+                    & ZIUPD(KLON,KLEV)  , ZQTUPD(KLON,KLEV) , &
                     & ZSLGUPD(KLON,KLEV), ZAUPD(KLON,KLEV)  
 REAL(KIND=JPRB) ::    ZTAUXCG(KLON,KLEV), ZTAUYCG(KLON,KLEV)
-REAL(KIND=JPRB) ::    ZSVFLUXCLD(KLON,0:KLEV)               , ZSVFLUXSUB(KLON,0:KLEV),&
-                    & ZSVFLUX(KLON,0:KLEV),ZBUOYPOS(KLON)   , ZBUOYNEG(KLON)    ,&
-                    & ZDZH(KLON,0:KLEV)
 
 REAL(KIND=JPRB) ::    ZCLDBASE(KLON)    , ZCLDTOP(KLON)     , &
                     & ZRICUI(KLON)      , ZMCU(KLON)        , ZDTHV(KLON)
 
-REAL(KIND=JPRB) ::    ZPFLXUSUM(KLON,0:KLEV)
-
 !RN --- VDF qt variance budget & bimodal cloud scheme variables ---------
 
 REAL(KIND=JPRB) ::    ZVARGEN           , ZVARTRANS         , ZVARDISS          ,&
-                    & ZTAU(KLON,KLEV)   , ZTAUNEW           , &
+                    & ZTAU(KLON,KLEV)   , &
                     & ZDQTDZ(KLON,0:KLEV),ZWQTF             , &
                     & ZWQT2(KLON,0:KLEV), & 
                     & ZQTUP(KLON,KLEV)  , ZSLGUP(KLON,KLEV) , &               
@@ -664,7 +605,7 @@ REAL(KIND=JPRB) ::    ZSTR(KLON,KTILES)   , ZG0(KLON,KTILES)
 
 LOGICAL ::            LLRUNDRY(KLON), LLPBL(KLON,KLEV)
 
-INTEGER(KIND=JPIM) :: ITOP, JD, JK, JL, JT, KCAP
+INTEGER(KIND=JPIM) :: ITOP, JD, JK, JL, JT
 
 REAL(KIND=JPRB) ::    ZGDPH, ZRHO, ZTMST, ZRG, ZRTMST
 LOGICAL ::            LLSFCFLX, LLTERRA
@@ -675,31 +616,21 @@ REAL(KIND=JPRB) ::    ZDETR(KLON,KLEV), ZAWAKE(KLON,KLEV)
 
 
 !amk ... for moist static energy BL equilibrium M closure
-REAL(KIND=JPRB) ::    ZDHPBL(KLON), ZMSCALE(KLON), ZMGEOM, &
-                    & ZDT, ZDQ, ZKHFLTOP, ZKQFLTOP, ZSLGENH, ZDMSE, ZMFLXNEW, &
-                    & ZMFS(KLON), ZCONS10, ZMFMAX
-LOGICAL ::            LMPBLEQU
+REAL(KIND=JPRB) ::    ZDHPBL(KLON),  ZMGEOM, &
+                    & ZDT, ZDQ, ZKHFLTOP, ZKQFLTOP
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
 REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) ::             &
-                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t, &
-                    & shfl_s_t   , lhfl_s_t   , qhfl_s_t                , &
-                    & lhfl_bs_t  , rstom_t                   
-REAL(KIND=JPRB), DIMENSION(KLON,nlev_soil,ntiles_total+ntiles_water) :: &
-  lhfl_pl_t
+                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t
 REAL(KIND=JPRB)       ZTMEAN
 
-!amk testing only!!!
-REAL(KIND=JPRB) ::    ZCFNC1  
-!xxx
 
 !Parameters for RICO case
 REAL(KIND=JPRB), PARAMETER :: c_h = 0.001094_jprb   ! drag coefficient for heat
 REAL(KIND=JPRB), PARAMETER :: c_q = 0.001133_jprb   ! drag coefficient for moisture
 REAL(KIND=JPRB), PARAMETER :: th0_rico = 298.5_jprb ! SST
-REAL(KIND=JPRB), PARAMETER :: psfc = 101540._jprb   ! surface pressure
-REAL(KIND=JPRB) mwind, th_l
+REAL(KIND=JPRB) mwind, th_l, t_g_temp
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
@@ -748,11 +679,8 @@ ELSE
   ZEXTSHF(:) = 0.0_JPRB
   ZEXTLHF(:) = 0.0_JPRB
 ENDIF
-!IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-!  LLTERRA = .TRUE.
-!ELSE
- LLTERRA = .TRUE.
-!ENDIF
+LLTERRA = .TRUE.
+
 
 !amk  turn on specified surface fluxes everywhere globally
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
@@ -831,7 +759,6 @@ DO JK=1,KLEV
     ZQTE(JL,JK)   = PQE(JL,JK)  + PLE(JL,JK)  + PIE(JL,JK)             !rad+dyn. qt tendency
     
     ZSLGEA(JL,JK) = ZSLGE(JL,JK)
-    ZPTEA(JL,JK)  = PTE(JL,JK)
     ZQTEA(JL,JK)  = ZQTE(JL,JK)
     
   ENDDO
@@ -848,59 +775,47 @@ ENDDO
 DO JL=KIDIA,KFDIA
   ztmean = 0.0_jprb
   DO jt=1,ntiles_total
-    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+    ztmean = ztmean + t_g_t(jl,jt) * frac_t(jl,jt)
   ENDDO
-  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
-    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  IF (SUM(frac_t(jl,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(frac_t(jl,1:ntiles_total))
   ELSE
-    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
+    ztmean = t_g_t(jl,isub_water)       ! set to SST if no land for safety
   ENDIF  
 
-  PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
-  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+! PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
+  PTSKTI(JL,1) = t_g_t(jl,isub_water)   ! ocean tile  (cold skin, warm layer from last step)
+  PTSKTI(JL,2) = t_g_t(jl,isub_seaice)  ! SEAICE tile
   PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
-  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
-    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vupdz0 calculations
+  IF (frac_t(jl,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_t(jl,isub_water) ! safety for vupdz0 calculations
   ENDIF
-ENDDO
-
-! use sea ice fluxes from previous step for sea ice calculation in the surface interface
-DO JL=KIDIA,KFDIA
-  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
-  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
-  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
-  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
 ENDDO
 
 !debug
 DO JL=KIDIA,KFDIA
- if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0 ) then
-  write(*,*) 'vdfmain1: ', JL, JB, PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1)
+ if ( PTSKM1M(JL)  > 400.0 .or. PTSKM1M(JL)  < 100.0 .or. &
+    & PTSKTI(JL,1) > 400.0 .or. PTSKTI(JL,1) < 100.0 .or. &
+    & PTSKTI(JL,2) > 400.0 .or. PTSKTI(JL,2) < 100.0 .or. &
+    & PTSKTI(JL,3) > 400.0 .or. PTSKTI(JL,3) < 100.0      ) then
+  write(*,*) 'vdfmain1: JL, TSKmean: ', JL, PTSKM1M(JL), &
+    ' -- TSK 1,2,3: ', PTSKTI(JL,1), PTSKTI(JL,2), PTSKTI(JL,3), &
+    ' -- T k and k-1: ', PTM1(JL,KLEV), PTM1(JL,KLEV-1)
  endif
 ENDDO
 !xxxxx
 
-CALL SURFEXCDRIVER( &
-  ! TERRA data
-   &   ext_data                                                           & !in
-   & , jb, jg                                                             & ! -
-   & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
-   & , w_snow_ex                                                          & ! -
-   & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
-   & , t_so_ex, w_so_ex, w_so_ice_ex                                      & ! -
-   & , PU10M, PV10M                    &  !, t_2m_ex, u_10m_ex, v_10m_ex  & ! -
-   & , freshsnow_ex, snowfrac_lc_ex, snowfrac_ex                          & ! -
-   & , wliq_snow_ex, wtot_snow_ex, dzh_snow_ex                            & ! -
-   & , prr_con_ex, prs_con_ex, prr_gsp_ex, prs_gsp_ex                     & !in
-   & , tch_ex, tcm_ex, tfv_ex                                             & !inout
-   & , sobs_ex, thbs_ex, pabs_ex                                          & !in
-   & , runoff_s_ex, runoff_g_ex                                           & !inout
-   & , t_g, qv_s                                                          & ! -
-   & , t_ice, h_ice, t_snow_si, h_snow_si, alb_si                         & ! -
-   & , fr_seaice                                                          & !in
-   & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
-   & , shfl_s_t   , lhfl_s_t   , qhfl_s_t                                 &
-   & , lhfl_bs_t  , lhfl_pl_t  , rstom_t    ,                             & !out
+IF (edmf_conf == 1 ) THEN
+
+! use sea ice fluxes from previous step for sea ice calculation in the surface interface
+ DO JL=KIDIA,KFDIA
+  shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
+  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
+  shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
+  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
+ ENDDO
+
+ CALL SURFEXCDRIVER( &
   ! standard input
    & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
@@ -933,13 +848,11 @@ CALL SURFEXCDRIVER( &
    & PKQFL=ZKQFL, PEVAPSNW=PEVAPSNW, PZ0MW=ZZ0MW, PZ0HW=ZZ0HW, PZ0QW=ZZ0QW, &
    & PBLENDPP=ZBLEND, PCPTSPP=ZZCPTS, PQSAPP=ZZQSA, PBUOMPP=ZZBUOM, &
    & PZDLPP=ZZZDL )
-! output data, diagnostics
-!dmk   & PDHTLS=PDHTLS, PDHTSS=PDHTSS, PDHTTS=PDHTTS, PDHTIS=PDTHIS &
 
 
 !amk  overwrite SCM surface fluxes from above calculation
 !     (attention: number here and in mo_nwp_conv_interactive.f90)
-DO JL=KIDIA,KFDIA
+ DO JL=KIDIA,KFDIA
 
 ! surface fluxes from TERRA
 !      should really be handed over for each tile not mean ???????
@@ -948,12 +861,10 @@ DO JL=KIDIA,KFDIA
   ZEXTLHF(JL) = 0.0_JPRB
   DO JT=1,ntiles_total      ! land points only
     IF (LLTERRA) THEN
-      ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
-        ( SHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-          SHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
-      ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
-        ( LHFL_SOIL_T(JL,JT) * (1.0_JPRB - SNOWFRAC_EX(JL,JT)) +  &
-          LHFL_SNOW_T(JL,JT) *             SNOWFRAC_EX(JL,JT)  )
+      ZEXTSHF(JL) = ZEXTSHF(JL) + frac_t(JL,JT) *    &
+          SHFL_SOIL_T(JL,JT)
+      ZEXTLHF(JL) = ZEXTLHF(JL) + frac_t(JL,JT) *    &
+          LHFL_SOIL_T(JL,JT)
     END IF
   ENDDO
 
@@ -961,47 +872,80 @@ DO JL=KIDIA,KFDIA
 
   ztmean = 0.0_jprb
   DO jt=1,ntiles_total
-    ztmean = ztmean + t_g_ex(jl,jt) * ext_data%atm%frac_t(jl,jb,jt)
+    ztmean = ztmean + t_g_t(jl,jt) * frac_t(jl,jt)
   ENDDO
-  IF (SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total)) > 0.0_JPRB ) THEN
-    ztmean = ztmean / SUM(ext_data%atm%frac_t(jl,jb,1:ntiles_total))
+  IF (SUM(frac_t(jl,1:ntiles_total)) > 0.0_JPRB ) THEN
+    ztmean = ztmean / SUM(frac_t(jl,1:ntiles_total))
   ELSE
-    ztmean = t_g_ex(jl,isub_water)       ! set to SST if no land for safety
+    ztmean = t_g_t(jl,isub_water)        ! set to SST if no land for safety
   ENDIF
 
   PTSKTI(JL,1) = PSST(jl)                ! ocean tile  (use SST as input, not skin)
-  PTSKTI(JL,2) = t_g_ex(jl,isub_seaice)  ! SEAICE tile
+ !PTSKTI(JL,1) = t_g_t(jl,isub_water)    ! ocean tile  (cold skin, warm layer from last step)
+  PTSKTI(JL,2) = t_g_t(jl,isub_seaice)   ! SEAICE tile
   PTSKTI(JL,3:ntiles_edmf) = ztmean      ! TESSEL/IFS land tiles (take mean land value)
-  IF (ext_data%atm%frac_t(jl,jb,isub_water) == 0.0_jprb) THEN
-    PTSKTI(JL,1) = t_g_ex(jl,isub_water) ! safety for vdfdifh calculations
+  IF (frac_t(jl,isub_water) == 0.0_jprb) THEN
+    PTSKTI(JL,1) = t_g_t(jl,isub_water)  ! safety for vdfdifh calculations
   ENDIF
-
-! sea ice fluxes (mean flux stored in '_soil' flux)
-!  JT = isub_seaice
-!  ZEXTSHF(JL) = ZEXTSHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
-!    SHFL_SOIL_T(JL,JT)
-!  ZEXTLHF(JL) = ZEXTLHF(JL) + ext_data%atm%frac_t(JL,JB,JT) *    &
-!    LHFL_SOIL_T(JL,JT)
-
-! normalize to get mean over land points
-!  ZEXTSHF(JL) = ZEXTSHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
-!  ZEXTLHF(JL) = ZEXTLHF(JL) / SUM(ext_data%atm%frac_t(JL,JB,1:ntiles_total))
 
 ! test: fixed surface fluxes
    !ZEXTSHF(JL) = -15.0_JPRB
    !ZEXTLHF(JL) = -60.0_JPRB
    !ZKMFL(JL)   = 0.0_JPRB  ! - " -      (0 is bad idea!!!)
 
+ ENDDO
+
+
+ELSE    ! new EDMF setup: mean fluxed from SURFACE interface in NWP
+
+
+  DO JL=KIDIA,KFDIA  
+    ZEXTSHF(JL) = SHFL_S(JL)
+    ZEXTLHF(JL) = LHFL_S(JL)
+  ENDDO
+
+!          COMPUTE SURFACE FLUXES, WEIGHTED AVERAGE OVER TILES (taken from mo_surfexcdriver_ctl.f90)
+
+! ... EDMF momentum flux
+! ZKMFL(KIDIA:KFDIA)=0.0_JPRB
+! DO JT=1,ntiles_total
+!   DO JL=KIDIA,KFDIA
+!     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+!     ZKMFL(JL) = ZKMFL(JL) + &
+!                 frac_t(JL,JT) * SQRT( PUSTRTI(JL,JT)**2 + PVSTRTI(JL,JT)**2 ) / ZRHO
+!   ENDDO
+! ENDDO
+
+! ... TURBTRAN momentum flux (tile interpolation in surface interface)
+
+  DO JL=KIDIA,KFDIA
+    ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
+    ZKMFL(JL) = SQRT( UMFL_S(JL)**2 + VMFL_S(JL)**2 ) / ZRHO                  ! [m2/s2]
+
+!!  ZCFM not needed when EDMF + TURBTRAN -> but in mo_vdfdifm.f90
+!   ZAUX1         = RG * ZRHO * RVDIFTS * PTSPHY   ! g * rho * alpha * dt
+!   ZCFM(JL,KLEV) = TCM(JL) * ZAUX1                ! same as in mo_vexcs.f90
+  ENDDO
+
+
+ENDIF
+
+
 ! optional SCM case definition after Stevens(2007) for dry BL
 
+DO JL=KIDIA,KFDIA  
   IF (ltestcase) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     SELECT CASE(nh_test_name)
-    CASE ('CBL')
+    CASE ('CBL')   ! best run with 1 tile and no radiation, iterate on TSK
+      t_g_temp = PTSKM1M(JL)
       CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
-                             & ZRHO         , T_G(JL)      , &
+                             & ZRHO         , t_g_temp     , &    ! T_G(JL) , &
                              & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
-      LLSFCFLX    = .TRUE.
+      CALL cbl_stevens_fluxes( PTM1(JL,KLEV), PQM1(JL,KLEV), PAPM1(JL,KLEV), &
+                             & ZRHO         , t_g_temp     , &    ! T_G(JL) , &
+                             & ZEXTSHF(JL)  , ZEXTLHF(JL)  )
+     LLSFCFLX    = .TRUE.
     CASE ('RICO')
       mwind = SQRT(PUM1(JL,KLEV)**2 + PVM1(JL,KLEV)**2) 
       th_l  = PTM1(JL,KLEV) * (p0ref/PAPM1(JL,KLEV))**rd_o_cpd  
@@ -1010,17 +954,17 @@ DO JL=KIDIA,KFDIA
       LLSFCFLX    = .TRUE.
     END SELECT
   ENDIF
-
 ENDDO
+
 
 !          FLUX BOUNDARY CONDITION
 
 DO JL=KIDIA,KFDIA  
-  IF (LDLAND(JL) .OR. LLSFCFLX) THEN
+  IF (LDLAND(JL) .OR. LLSFCFLX .OR. (edmf_conf == 2) ) THEN
     ZRHO = PAPHM1(JL,KLEV)/( RD*PTM1(JL,KLEV)*(1.0_JPRB+RETV*PQM1(JL,KLEV)) )
     ZKHFL(JL) = ZEXTSHF(JL) / ZRHO / RCPD
     ZKQFL(JL) = ZEXTLHF(JL) / ZRHO / RLVTT
-   !ZKMFL(JL) = calculated as mean of TESSEL tiles in surfexcdriver
+   !ZKMFL(JL) =               calculated as mean of TESSEL tiles in surfexcdriver (see above)
     IF (LLSFCFLX) THEN      ! ATTENTION: surface momentum flux
       ZKMFL(JL) = 0.0_JPRB  ! needs to be calculated in surfexcdriver!!!
     END IF
@@ -1054,9 +998,9 @@ CALL VDFDPBL(KIDIA,KFDIA,KLON,KLEV,&
 
 !*         4.6  ORGANIZED UPDRAFTS
 
-CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTEP   , &
-             & PUM1    , PVM1    , PTM1    , PQM1    , PLM1     , PIM1    , PAM1    , &
-             & PAPHM1  , PAPM1   , PGEOM1  , PGEOH   , PVERVEL  , PQE     , PTE     , &
+CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , &
+             & PUM1    , PVM1    , PTM1    , PQM1    , PLM1     , PIM1    , &
+             & PAPHM1  , PAPM1   , PGEOM1  , PGEOH   , PVERVEL  , &
              & ZKMFL   , ZKHFL   , ZKQFL   , ZMFLX   , &
 ! DIAGNOSTIC OUTPUT
              & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX   , KFLDX    , KCNT    , LLDIAG  , &
@@ -1068,7 +1012,7 @@ CALL VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV    , IDRAFT   , ZTMST   , KSTE
 !amk: for convective preconditioning
              & PVAR    , &
              & LDLAND  , &   
-             & PBIR    , LDNODECP, LLRUNDRY, KPBLTYPE, ZWQT2 )
+             & LDNODECP, KPBLTYPE, ZWQT2 )
 
 
 !--- set some PBL heights based on i) PBL type and ii) various updraft properties ---
@@ -1174,19 +1118,31 @@ ENDDO
 
 !*         4.7  EXCHANGE COEFFICIENTS ABOVE THE SURFACE LAYER
 
-CALL VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV    , IDRAFT  , ZTMST  , PZ0M   , &
-           & PHRLW  , PHRSW  , &
-           & PUM1   , PVM1   , PTM1   , PQM1    , PLM1    , PIM1   , &
-           & PAPHM1 , PAPM1  , PGEOM1 , PGEOH   , ZCPTGZ  , &
-! DIAGNOSTIC OUTPUT
-            &PEXTR2 , KFLDX2 , PEXTRA , KLEVX   , KFLDX   , &
-!              
-           & ZKMFL  , ZKHFL  , ZKQFL  , ZCFM    , ZCFH    , ZTAUXCG, ZTAUYCG, &
-           & ZRICUI , ZMCU   , ZDTHV  , ZMFLX   , KVARTOP , &
-           & PZINV  , KHPBLN , PKH    , ZCLDBASE, ZCLDTOP , KPBLTYPE)  
+IF (.TRUE.) THEN
 
+  CALL VDFEXCU(KIDIA  , KFDIA  , KLON   , KLEV    , IDRAFT  , ZTMST  , PZ0M   , &
+             & PHRLW  , PHRSW  , &
+             & PUM1   , PVM1   , PTM1   , PQM1    , PLM1    , PIM1   , &
+             & PAPHM1 , PAPM1  , PGEOM1 , PGEOH   , ZCPTGZ  , &
+  ! DIAGNOSTIC OUTPUT
+             & PEXTR2 , KFLDX2 , PEXTRA , KLEVX   , KFLDX   , &
+  !              
+             & ZKMFL  , ZKHFL  , ZKQFL  , ZCFM    , ZCFH    , ZTAUXCG, ZTAUYCG, &
+             & ZRICUI , ZMCU   , ZDTHV  , ZMFLX   , KVARTOP , &
+             & PZINV  , KHPBLN , PKH    , PKM     , ZCLDBASE, ZCLDTOP, KPBLTYPE)  
 
-!amk
+ELSE
+
+  CALL VDFEXCU_NEW ( &
+               KIDIA  , KFDIA  , KLON   , KLEV    , ZTMST   , PZ0M    , &
+             & PHRLW  , PHRSW  , &
+             & PUM1   , PVM1   , PTM1   , PQM1    , &
+             & PAPHM1 , PGEOM1 , PGEOH  , ZCPTGZ  , &
+             & ZKMFL  , ZKHFL  , ZKQFL  , ZCFM    , ZCFH    , &
+             & PZINV  , PKH    , PKM    , ZCLDBASE, KPBLTYPE)  
+
+ENDIF
+
 
 !*         4.7.1  Moist static energy MSE mass-flux closure (diagnostic only)
  
@@ -1305,7 +1261,8 @@ ZSOC(KIDIA:KFDIA,1:KLEV)=PSOBETA(KIDIA:KFDIA,1:KLEV)*ZHU1
 CALL VDFDIFM (KIDIA, KFDIA, KLON , KLEV  , IDRAFT , ITOP  , &
             & ZTMST, PUM1 , PVM1 , PAPHM1, ZCFM   , ZMFLXM, ZUUH , ZVUH ,&
             & ZTOFDC,PSOTEU,PSOTEV,ZSOC  , &
-            & PVOM , PVOL , ZUCURR,ZVCURR, ZUDIF  , ZVDIF , ZTAUX, ZTAUY)
+            & PVOM  ,PVOL  ,ZUCURR,ZVCURR, UMFL_S , VMFL_S, &
+            & ZUDIF ,ZVDIF ,ZTAUX, ZTAUY)
 
 
 !*         5.2  GENERALIZED LIQUID WATER STATIC ENERGY AND TOTAL WATER
@@ -1346,14 +1303,14 @@ CALL VDFDIFH (KIDIA  , KFDIA  , KLON   , KLEV   , IDRAFT , ITOP   , KTILES, &
 !*         5.3  INCREMENTATION OF U AND V TENDENCIES, STORAGE OF
 !*              THE DISSIPATION, COMPUTATION OF MULTILEVEL FLUXES.
 
-CALL VDFINCR (KIDIA  , KFDIA  , KLON   , KLEV   , ITOP   , ZTMST  , &
-            & PUM1   , PVM1   , ZSLGM1 , PTM1   , ZQTM1  , PAPHM1 , PGEOM1 , &
-            & ZCFM   , ZTOFDC , PSOTEU , PSOTEV , ZSOC   ,&
-            & ZUDIF  , ZVDIF  , PUCURR , PVCURR ,ZSLGDIF, ZQTDIF , &
+CALL VDFINCR (KIDIA  , KFDIA  , KLON   , KLEV   , ZTMST  , &
+            & PUM1   , PVM1   , ZSLGM1 , ZQTM1  , PAPHM1 , &
+            & ZTOFDC , PSOTEU , PSOTEV , ZSOC   , &
+            & ZUDIF  , ZVDIF  , ZSLGDIF, ZQTDIF , &
             & PVOM   , PVOL   , ZSLGE  , ZQTE   , ZSLGEWODIS, &
             & PVDIS  , PVDISG , PSTRTU , PSTRTV , PSTRSOU, PSTRSOV , PTOFDU , PTOFDV, & 
 ! DIAGNOSTIC OUTPUT
-            & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , KCNT   , LLDIAG,&
+            & PEXTR2 , KFLDX2 , PEXTRA , KLEVX  , KFLDX  , KCNT    , LLDIAG , &
             & PDISGW3D)  
 
 
@@ -1416,6 +1373,10 @@ ENDIF
 !*         AND    COMPUTE 2M TEMPERATURE AND HUMIDITY, 10M WIND,
 !*                  and gustiness
 
+
+IF ( edmf_conf == 1 ) THEN
+
+
 !  Compute wind speed at blending height
 
 CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
@@ -1424,20 +1385,9 @@ CALL VDFFBLEND(KIDIA,KFDIA,KLON,KLEV, &
 
 ! Wrap-up computations for the surface and 2T/2D/10U/10V/gustiness computation
 
-!amk  ATTENTION: Surface fluxes need to be aggregated from tiles in SURFPP!!!
-!PDIFTS(KIDIA:KFDIA,KLEV) = 0.0_JPRB
-!PDIFTQ(KIDIA:KFDIA,KLEV) = 0.0_JPRB
-!DO JT=1,KTILES
-!  DO JL=KIDIA,KFDIA
-!    PDIFTS(JL,KLEV) = PDIFTS(JL,KLEV) + PFRTI(JL,JT) * PAHFSTI(JL,JT)
-!    PDIFTQ(JL,KLEV) = PDIFTQ(JL,KLEV) + PFRTI(JL,JT) * PEVAPTI(JL,JT)
-!  ENDDO
-!ENDDO
-!xxx
-
 !debug
 DO JL=KIDIA,KFDIA
- if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 100.0  ) then
+ if ( PTSKM1M(JL) > 400.0 .or. PTSKM1M(JL) < 150.0  ) then
   write(*,*) 'vdfmain3: ', PTSKM1M(JL), PTM1(JL,KLEV), PTM1(JL,KLEV-1), PFRTI(JL,1)
  endif
 ENDDO
@@ -1461,56 +1411,16 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
  & PDIFTSLEV=PDIFTS(:,KLEV), PDIFTQLEV=PDIFTQ(:,KLEV), PUSTRTI=PUSTRTI, &
  & PVSTRTI=PVSTRTI,  PTSKTI=PTSKTI, PAHFLEV=PAHFLEV, PAHFLSB=PAHFLSB, &
  & PFWSB=PFWSB, PU10M=PU10M, PV10M=PV10M, PT2M=PT2M, PD2M=PD2M, PQ2M=PQ2M, &
- & PGUST=PGUST, &
-! output DDH
- & PDHTLS=PDHTLS &
- & )
+ & PGUST=PGUST )
 
-! store skin temperature in t_g_ex for next step
 
-DO JL=KIDIA,KFDIA
- !ztmean = 0.0_jprb
- !DO jt=3,ntiles_edmf
- !  ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)   ! why not use ZTSKTIP1 (new)?
- !ENDDO
- !IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
- !  ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
- !ELSE
- !  ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
- !ENDIF
+ELSE  ! edmf_conf
 
-! ATTENTION: overwriting t_g_ex highly dangerous!!!!!
+  PDIFTS(:,KLEV) = SHFL_S(:)
+  PDIFTQ(:,KLEV) = LHFL_S(:) / RLVTT
 
-  t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles (includes cold skin ..., NOT SST) ???
- !t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
- !t_g_ex(jl,isub_seaice)    = t_g_ex(jl,isub_seaice) !sea ice tiles
- !t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
-ENDDO
+ENDIF ! edmf_conf
 
-!DO JL=KIDIA,KFDIA
-!  IF ( ABS(PDIFTS(JL,KLEV))          > 1000.0_JPRB  .OR. & 
-!       ABS(PDIFTQ(JL,KLEV) * RLVTT ) > 2000.0_JPRB ) THEN
-!    write(*,*) 'vdfmain: SHF, LHF ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV) * RLVTT 
-!  ENDIF
-!ENDDO
-
-!amk  diagnostic values have to be set !!!!
-! DO JL=KIDIA,KFDIA
-!   PU10M(JL) = 0.0_JPRB
-!   PV10M(JL) = 0.0_JPRB
-!   PT2M (JL) = 0.0_JPRB
-!   PD2M (JL) = 0.0_JPRB
-!   PQ2M (JL) = 0.0_JPRB
-! ENDDO
-!xxx
-
-!amk dummy (unused!!)
-! DO JL=KIDIA,KFDIA
-!   PAHFLEV(JL) = 0.0_JPRB
-!   PAHFLSB(JL) = 0.0_JPRB
-!   PFWSB(JL)   = 0.0_JPRB
-! ENDDO
-!xxx
 
 PDIFTL  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
 PDIFTI  (KIDIA:KFDIA,KLEV) = 0.0_JPRB
@@ -1568,8 +1478,6 @@ DO JK=1,KLEV
       ZIUPD(JL,JK)  = PIM1(JL,JK) + PIE(JL,JK) * ZTMST
       ZQUPD(JL,JK)  = PQM1(JL,JK) + PQE(JL,JK) * ZTMST
       ZTUPD(JL,JK)  = PTM1(JL,JK) + PTE(JL,JK) * ZTMST
-!          total condensate (water + ice)
-      ZLIUPD(JL,JK) = ZLUPD(JL,JK) + ZIUPD(JL,JK)
       
   ENDDO
 ENDDO
@@ -1635,7 +1543,7 @@ DO JK=KLEV-1,2,-1
       ZVARDISS   = 0._JPRB
       ZVARGEN    = 0._JPRB
       ZVARTRANS  = 0._JPRB
-      ZWQTF   = 0._JPRB
+      ZWQTF      = 0._JPRB
       
       IF (LLPBL(JL,JK)) THEN
       
@@ -1829,8 +1737,8 @@ ENDDO
       !    Result: * above PBL, VDFMAIN does not change cloud variables:
       !                tendencies only contain contributions by rad+dyn.
       !
-      IF (LLPBL(JL,JK)) THEN    !reset cloudiness within PBL
-      !IF (.TRUE.) THEN          !reset cloudiness everywhere! (also above PBL)
+      IF (LLPBL(JL,JK)) THEN     !reset cloudiness within PBL
+      !IF (.TRUE.) THEN          !reset cloudiness everywhere! (also above PBL), ZQLAV not defined!!!
 
         !-- safety: total condensate can not be larger than total specific humidity ---
         ZQLAV(JL,JK) = MIN( ZQTUPD(JL,JK) ,ZQLAV(JL,JK) )
@@ -1838,16 +1746,19 @@ ENDDO
 
         !-- decomposition of total condensate into ice and liquid ---
         !ZALFAW(JL,JK) = FOEALFA(PTM1(JL,JK))   !new alpha?
-        ZLUPD(JL,JK) = ZQLAV(JL,JK) * ZALFAW(JL,JK) 
-        ZIUPD(JL,JK) = ZQLAV(JL,JK) * ( 1.0_JPRB - ZALFAW(JL,JK))
+!       ZLUPD(JL,JK) = ZQLAV(JL,JK) * ZALFAW(JL,JK)                 ! liq/ice as fct of T
+!       ZIUPD(JL,JK) = ZQLAV(JL,JK) * ( 1.0_JPRB - ZALFAW(JL,JK))
+
+        ZIUPD(JL,JK) = MIN(PIM1(JL,JK), ZQLAV(JL,JK))               ! keep ice fixed if possible
+        ZLUPD(JL,JK) = ZQLAV(JL,JK) - ZIUPD(JL,JK)
 
       ELSE
-      
+
         !-- outside PBL, maintain tendencies from rad+dyn ---
         ZAUPD(JL,JK) = PAM1(JL,JK) + PAE(JL,JK)*ZTMST
         ZLUPD(JL,JK) = PLM1(JL,JK) + PLE(JL,JK)*ZTMST
         ZIUPD(JL,JK) = PIM1(JL,JK) + PIE(JL,JK)*ZTMST
-        
+
       ENDIF  
       
       
@@ -1864,42 +1775,31 @@ ENDDO
       PLE(JL,JK) = ( ZLUPD(JL,JK) - PLM1(JL,JK) ) * ZRTMST
       PIE(JL,JK) = ( ZIUPD(JL,JK) - PIM1(JL,JK) ) * ZRTMST
       PAE(JL,JK) = ( ZAUPD(JL,JK) - PAM1(JL,JK) ) * ZRTMST
-      
-!amk: debug
-!IF ( PTE(JL,JK)  > 50.0/3600 ) THEN
-!  WRITE(*,*) 'PTE>50K/h PTE(JL,JK), JK',     PTE(JL,JK),  JK
-!ENDIF
-!IF ( PVOM(JL,JK) > 50.0/3600 ) THEN
-!  WRITE(*,*) 'PVOM>50m/s/h PVOM(JL,JK), JK', PVOM(JL,JK), JK
-!ENDIF
-!IF ( PVOL(JL,JK) > 50.0/3600 ) THEN
-!  WRITE(*,*) 'PVOL>50m/s/h PVOL(JL,JK), JK', PVOL(JL,JK), JK
-!ENDIF
-!xxx
 
     ENDDO
   ENDDO
 
 !amk: debug
-! DO JK=1,KLEV
-!   DO JL=KIDIA,KFDIA
-!      IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
-!        WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
-!      ENDIF
-!      IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
-!        WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
-!      ENDIF
-!   ENDDO
-! ENDDO
+DO JK=1,KLEV
+  DO JL=KIDIA,KFDIA
+    IF ( ABS(PTE(JL,JK)) > 50.0/3600 ) THEN
+      WRITE(*,*) 'vdfmain PTE>50K/h PTE(JL,JK) [K/step], JK', &
+               & PTE(JL,JK)*PTSPHY,  JK
+    ENDIF
+    IF ( SQRT( PVOM(JL,JK)**2 + PVOL(JL,JK)**2 ) > 100.0/3600 ) THEN
+      WRITE(*,*) 'vdfmain PVOM+PVOL>100m/s/h PVOM/L(JL,JK) [m/s/step], z0m, JL, JK', &
+               & PVOM(JL,JK)*PTSPHY ,PVOL(JL,JK)*PTSPHY, PZ0M(JL), JL, JK
+    ENDIF
+    IF ( ZTUPD(JL,JK) < 100.0_JPRB .OR. ZTUPD(JL,JK) > 400.0_JPRB ) THEN
+      WRITE(*,*) 'vdfmain T<100 or T>400, kstep, JL,JK,T:', KSTEP, JL, JK, ZTUPD(JL,JK)
+    ENDIF
+    IF ( ZQUPD(JL,JK) < -0.01_JPRB .OR. ZQUPD(JL,JK) > 0.1_JPRB ) THEN
+      WRITE(*,*) 'vdfmain q<-10g/kg or q>100g/kg, kstep, JL,JK,Q:', KSTEP, JL, JK, ZQUPD(JL,JK)
+    ENDIF
+  ENDDO
+ENDDO
 !xxx
 
-! DO JL=KIDIA,KFDIA
-!   IF ( (SUM(PAHFSTI(JL,:)) == 0.0) .or. (SUM(PEVAPTI(JL,:)) == 0.0) .or. &
-!        (PDIFTS(JL,KLEV)    == 0.0) .or. (PDIFTQ(JL,KLEV)    == 0.0) ) THEN
-!     write(*,*) 'vdfmain5: ', PDIFTS(JL,KLEV), PDIFTQ(JL,KLEV), PAHFSTI(JL,:), PEVAPTI(JL,:)*RLVTT, &
-!       & PFRTI(JL,:)
-!   ENDIF
-! ENDDO
 
 !     ------------------------------------------------------------------
 

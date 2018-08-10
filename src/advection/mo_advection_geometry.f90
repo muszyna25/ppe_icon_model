@@ -33,8 +33,8 @@ MODULE mo_advection_geometry
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
   USE mo_math_constants,      ONLY: rad2deg
-  USE mo_math_utilities,      ONLY: lintersect, line_intersect, t_line, &
-    &                               t_geographical_coordinates
+  USE mo_math_types,          ONLY: t_line, t_geographical_coordinates
+  USE mo_math_utilities,      ONLY: lintersect, line_intersect 
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_fortran_tools,       ONLY: copy
 

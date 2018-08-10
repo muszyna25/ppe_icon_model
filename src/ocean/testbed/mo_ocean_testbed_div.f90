@@ -38,7 +38,8 @@ MODULE mo_ocean_testbed_div
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   !USE mo_exception,          ONLY: finish, message
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_div, timer_grad
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,      ONLY: vector_product
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
   USE mo_grid_config,         ONLY: n_dom

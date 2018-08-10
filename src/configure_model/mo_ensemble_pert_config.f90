@@ -28,7 +28,8 @@ MODULE mo_ensemble_pert_config
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
     &                        tune_minsnowfrac, tune_rhebc_land_trop, tune_rhebc_ocean_trop, &
-    &                        tune_rcucov_trop, tune_gfrcrit
+    &                        tune_rcucov_trop, tune_gfrcrit, tune_capdcfac_tr,              &
+    &                        tune_lowcapefac, limit_negpblcape
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, c_soil, cwimax_ml
@@ -49,7 +50,8 @@ MODULE mo_ensemble_pert_config
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
             range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock,   &
-            range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml
+            range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,           &
+            range_lowcapefac, range_negpblcape
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -77,6 +79,15 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  range_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  range_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    &  range_lowcapefac            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Minimum allowed negative PBL cape in diurnal cycle correction
+    &  range_negpblcape            ! (relevant only if icapdcycl = 3)
 
   REAL(wp) :: &                    !< RH thresholds for evaporation below cloud base
     &  range_rhebc
@@ -168,11 +179,11 @@ MODULE mo_ensemble_pert_config
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for gkwake and gfrcrit must be correlated
       ! (for gfrcrit, a higher value means a thinner blocking layer)
-      tune_gkwake  = tune_gkwake  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
-      tune_gfrcrit = tune_gfrcrit + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
+      tune_gkwake(1:max_dom)  = tune_gkwake(1:max_dom)  + 2._wp*(rnd_num-0.5_wp)*range_gkwake
+      tune_gfrcrit(1:max_dom) = tune_gfrcrit(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_gfrcrit
 
       CALL RANDOM_NUMBER(rnd_num)
-      tune_gkdrag = tune_gkdrag + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
+      tune_gkdrag(1:max_dom) = tune_gkdrag(1:max_dom) + 2._wp*(rnd_num-0.5_wp)*range_gkdrag
 
       CALL RANDOM_NUMBER(rnd_num)
       ! perturbations for zvz0i and entrorg must be anticorrelated
@@ -186,6 +197,13 @@ MODULE mo_ensemble_pert_config
       ! Scale factor for CAPE diurnal cycle correction must be non-negative; for the current default
       ! of tune_capdcfac_et=0, the perturbation is zero for half of the ensemble members
       tune_capdcfac_et = MAX(0._wp, tune_capdcfac_et + 2._wp*(rnd_num-0.5_wp)*range_capdcfac_et)
+      CALL RANDOM_NUMBER(rnd_num)
+      tune_capdcfac_tr = MAX(0._wp, tune_capdcfac_tr + 2._wp*(rnd_num-0.5_wp)*range_capdcfac_tr)
+
+      CALL RANDOM_NUMBER(rnd_num)
+      tune_lowcapefac  = MAX(0._wp, tune_lowcapefac + 2._wp*(rnd_num-0.5_wp)*range_lowcapefac)
+      CALL RANDOM_NUMBER(rnd_num)
+      limit_negpblcape = MIN(0._wp, limit_negpblcape + 2._wp*(rnd_num-0.5_wp)*range_negpblcape)
 
       CALL RANDOM_NUMBER(rnd_num)
       tune_box_liq = tune_box_liq + 2._wp*(rnd_num-0.5_wp)*range_box_liq
@@ -248,11 +266,15 @@ MODULE mo_ensemble_pert_config
       turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
 
       ! control output
-      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_gfluxlaun, c_soil, cwimax_ml
+      WRITE(message_text,'(3f8.4,e11.4,f8.4,e11.4)') tune_gkwake(1), tune_gkdrag(1), tune_gfrcrit(1), &
+                                                     tune_gfluxlaun, c_soil, cwimax_ml
       CALL message('Perturbed values, gkwake, gkdrag, gfrcrit, gfluxlaun, c_soil, cwimax_ml', TRIM(message_text))
 
-      WRITE(message_text,'(4f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_capdcfac_et, tune_zvz0i, tune_entrorg
-      CALL message('Perturbed values, box_liq, minsnowfrac, capdcfac_et, zvz0i, entrorg', TRIM(message_text))
+      WRITE(message_text,'(3f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_zvz0i, tune_entrorg
+      CALL message('Perturbed values, box_liq, minsnowfrac, zvz0i, entrorg', TRIM(message_text))
+
+      WRITE(message_text,'(3f8.4,f8.1)') tune_capdcfac_et, tune_capdcfac_tr, tune_lowcapefac, limit_negpblcape
+      CALL message('Perturbed values, capdcfac_et, capdcfac_tr, lowcapefac, negpblcape', TRIM(message_text))
 
       WRITE(message_text,'(4f8.4,f8.5)') tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc
       CALL message('Perturbed values, rhebc_land, rhebc_ocean, rcucov, texc, qexc', TRIM(message_text))

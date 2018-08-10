@@ -95,6 +95,7 @@ PROGRAM icon
   INTEGER                     :: iret
 #endif
 
+
 !--------------------------------------------------------------------
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
@@ -222,6 +223,7 @@ PROGRAM icon
 
     CALL message('','')
   END IF
+
 
   !-------------------------------------------------------------------
   ! Initialize the master control

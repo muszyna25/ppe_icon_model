@@ -24,7 +24,7 @@ MODULE mo_scatter
   USE mo_kind,          ONLY: wp
   USE mo_communication, ONLY: idx_no, blk_no
   USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
-                              my_process_is_mpi_seq, my_process_is_mpi_workroot
+                              my_process_is_mpi_workroot
   !
   IMPLICIT NONE
   !
@@ -89,10 +89,7 @@ CONTAINS
   SUBROUTINE broadcast_int_array_1D(in_array)
     INTEGER, TARGET  :: in_array(:)
 
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
   END SUBROUTINE broadcast_int_array_1D
 
   !================================================================================================
@@ -217,10 +214,7 @@ CONTAINS
   SUBROUTINE broadcast_real_array_1D(in_array)
     REAL(wp), TARGET  :: in_array(:)
 
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
   END SUBROUTINE broadcast_real_array_1D
   !--------------------------------------------------------------------------------------
 
@@ -229,10 +223,7 @@ CONTAINS
   SUBROUTINE broadcast_real_array_2D(in_array)
     REAL(wp), TARGET  :: in_array(:,:)
 
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
   END SUBROUTINE broadcast_real_array_2D
   !--------------------------------------------------------------------------------------
 
@@ -241,10 +232,7 @@ CONTAINS
   SUBROUTINE broadcast_real_array_3D(in_array)
     REAL(wp), TARGET  :: in_array(:,:,:)
 
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
   END SUBROUTINE broadcast_real_array_3D
   !--------------------------------------------------------------------------------------
 
@@ -253,10 +241,7 @@ CONTAINS
   SUBROUTINE broadcast_real_array_4D(in_array)
     REAL(wp), TARGET  :: in_array(:,:,:,:)
 
-    IF (my_process_is_mpi_seq()) RETURN
-#ifndef NOMPI
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-#endif
   END SUBROUTINE broadcast_real_array_4D
   !-----------------------------------------------------------------
   !>
@@ -416,7 +401,7 @@ CONTAINS
   !
   !------------------------------------------------------------------------------------------------
   !
-  !================================================================================================ 
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE reorder_backward_r2d(in, out)
@@ -510,7 +495,7 @@ CONTAINS
     !
   END SUBROUTINE reorder_foreward_r3d
   !
-  !================================================================================================ 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE reorder_backward_i2d(in, out)
@@ -563,7 +548,7 @@ CONTAINS
         out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
       ENDIF
     ENDDO
-    !   
+    !
     IF (idiscrep /= 0 )THEN
       DEALLOCATE (lmask)
     ENDIF
@@ -634,7 +619,7 @@ CONTAINS
     !
   END SUBROUTINE reorder_foreward_i3d
   !
-  !================================================================================================ 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE reorder_backward_l2d(in, out)
@@ -687,7 +672,7 @@ CONTAINS
         out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
       ENDIF
     ENDDO
-    !   
+    !
     IF (idiscrep /= 0 )THEN
       DEALLOCATE (lmask)
     ENDIF
@@ -720,7 +705,7 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE reorder_foreward_l2d
-  
+
   !
   SUBROUTINE reorder_foreward_l3d(in, out)
     LOGICAL, INTENT(in)    :: in(:,:)

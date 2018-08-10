@@ -65,13 +65,6 @@ MODULE mo_velocity_advection
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
-#define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
-#else
-#if defined(_INTEL_COMPILER)  
-#define __COLLAPSE_2_LOOPS !$OMP SIMD
-#else
-#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
-#endif
 #endif
 
   CONTAINS
@@ -151,6 +144,7 @@ MODULE mo_velocity_advection
     INTEGER  :: ic, ie, nrdmax_jg, nflatlev_jg
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
+
 #ifdef _OPENACC
     REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp
     REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp
@@ -158,6 +152,7 @@ MODULE mo_velocity_advection
     REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
     REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
 #endif
+
     !--------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_solve_nh_veltend)
@@ -193,8 +188,9 @@ MODULE mo_velocity_advection
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-!$ACC DATA PCOPY( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
+!$ACC DATA PCOPYIN( p_prog, p_diag, p_metrics, p_int, z_w_concorr_me, z_kin_hor_e, z_vt_ie ), &
 !$ACC CREATE( z_w_concorr_mc, z_w_con_c, cfl_clipping, vcflmax, z_w_con_c_full, z_v_grad_w, z_w_v, zeta, z_ekinh, levmask, levelmask ), &
+!$ACC PRESENT( icidx, icblk, ieidx, ieblk, ividx, ivblk, incidx, incblk ), &
 !$ACC IF ( i_am_accel_node .AND. acc_on )
 
 #ifdef _OPENACC
@@ -221,9 +217,7 @@ MODULE mo_velocity_advection
     ! Compute vertical vorticity component at vertices
     CALL rot_vertex_ri (p_prog%vn, p_patch, p_int, zeta, opt_rlend=min_rlvert_int-1)
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk, rl_start_2, rl_end_2, i_startblk_2, i_endblk_2)
-#endif
 
     IF (istep == 1) THEN ! Computations of velocity-derived quantities that come from solve_nh in istep=2
 
@@ -233,21 +227,14 @@ MODULE mo_velocity_advection
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag, z_vt_ie, z_w_concorr_me, z_kin_hor_e ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_prog, p_diag, p_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -264,9 +251,11 @@ __COLLAPSE_2_LOOPS
               p_int%rbf_vec_coeff_e(4,je,jb) * p_prog%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         ! Interpolate vn to interface levels and compute horizontal part of kinetic energy on edges
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -276,10 +265,16 @@ __COLLAPSE_2_LOOPS
             z_kin_hor_e(je,jk,jb) = 0.5_wp*(p_prog%vn(je,jk,jb)**2 + p_diag%vt(je,jk,jb)**2)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         IF (.NOT. lvn_only) THEN ! Interpolate also vt to interface levels
 
-__COLLAPSE_2_LOOPS
+!WS: this gang loop is independent of the previous one and could execute concurrently
+!    but overlapping is MUCH SLOWER with PGI
+
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -288,12 +283,17 @@ __COLLAPSE_2_LOOPS
                (1._wp - p_metrics%wgtfac_e(je,jk,jb))*p_diag%vt(je,jk-1,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Compute contravariant correction for vertical velocity at interface levels
         ! (will be interpolated to cell centers below)
 
-__COLLAPSE_2_LOOPS
+!WS: this gang loop is independent of the previous one and could execute concurrently
+!    but overlapping is MUCH SLOWER with PGI
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = nflatlev_jg, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -302,11 +302,14 @@ __COLLAPSE_2_LOOPS
               p_diag%vt(je,jk,jb)*p_metrics%ddxt_z_full(je,jk,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         IF (.NOT. l_vert_nested) THEN
+
           ! Top and bottom levels
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
             ! Quadratic extrapolation at the top turned out to cause numerical instability in pathological cases,
             ! thus we use a no-gradient condition in the upper half layer
@@ -320,10 +323,13 @@ __COLLAPSE_2_LOOPS
               p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
               p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
           ENDDO
+!$ACC END PARALLEL
+
         ELSE
-          ! vn_ie(jk=1) is extrapolated using parent domain information in this case
+
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
             p_diag%vn_ie(je,1,jb) = p_diag%vn_ie(je,2,jb) + p_diag%dvn_ie_ubc(je,jb)
             ! vt_ie(jk=1) is actually unused, but we need it for convenience of implementation
@@ -335,14 +341,11 @@ __COLLAPSE_2_LOOPS
               p_metrics%wgtfacq_e(je,2,jb)*p_prog%vn(je,nlev-1,jb) + &
               p_metrics%wgtfacq_e(je,3,jb)*p_prog%vn(je,nlev-2,jb)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
       ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
     ENDIF ! istep = 1
 
@@ -353,13 +356,7 @@ __COLLAPSE_2_LOOPS
     i_endblk   = p_patch%edges%end_block(rl_end)
 
     IF (.NOT. lvn_only) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_prog, p_diag, z_vt_ie ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -367,7 +364,9 @@ __COLLAPSE_2_LOOPS
 
         ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
         ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
-__COLLAPSE_2_LOOPS
+
+!$ACC PARALLEL PRESENT( p_patch, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -389,13 +388,9 @@ __COLLAPSE_2_LOOPS
 
           ENDDO
         ENDDO
-
-      ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+      ENDDO
 !$OMP END DO
-#endif
 
     ENDIF
 
@@ -411,24 +406,17 @@ __COLLAPSE_2_LOOPS
     i_startblk_2 = p_patch%cells%start_block(rl_start_2)
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), &
-!$ACC PRESENT( z_kin_hor_e, z_w_concorr_me ), &
-!$ACC PRIVATE( z_w_concorr_mc, z_w_con_c, cfl_clipping ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
 !$OMP            z_w_concorr_mc, ic, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Interpolate horizontal kinetic energy to cell centers
-__COLLAPSE_2_LOOPS
+
+!$ACC PARALLEL PRESENT( p_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -445,11 +433,13 @@ __COLLAPSE_2_LOOPS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       IF (istep == 1) THEN
 
         ! Interpolate contravariant correction to cell centers ...
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -466,11 +456,14 @@ __COLLAPSE_2_LOOPS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         ! ... and to interface levels
         ! Remark: computation of w_concorr_c at nlevp1 is needed in solve_nh only
         ! because this serves solely for setting the lower boundary condition for w
-__COLLAPSE_2_LOOPS
+
+!$ACC PARALLEL PRESENT( p_metrics, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = nflatlev_jg+1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -479,14 +472,35 @@ __COLLAPSE_2_LOOPS
              (1._vp - p_metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc(jc,jk-1) 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
       ENDIF
 
-      z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
-      z_w_con_c(:,nlevp1) = 0._wp
+!
+! WS: This array syntax yields poor performance on GPUs for large nproma; replace with explicit for loops
+!
+!!!      z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
+!!!      z_w_con_c(:,nlevp1) = 0._wp
+
+!$ACC PARALLEL PRESENT( p_prog ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1, nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          z_w_con_c(jc,jk) =  p_prog%w(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+! WS: there is no dependency with previous loop -- they can execute in parallel
+      !$ACC LOOP GANG VECTOR
+      DO jc = i_startidx, i_endidx
+        z_w_con_c(jc,nlevp1) = 0.0_wp
+      ENDDO
+!$ACC END PARALLEL
 
       ! Contravariant vertical velocity on w points and interpolation to full levels
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = nlev, nflatlev_jg+1, -1
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -494,18 +508,24 @@ __COLLAPSE_2_LOOPS
         ENDDO
       ENDDO
 
+#ifndef PGI_OVERLAP_BUG_SOLVED
+!$ACC END PARALLEL
+
+!$ACC PARALLEL PRESENT( p_diag ), IF( i_am_accel_node .AND. acc_on )
+#endif
       ! Search for grid points for which w_con is close to or above the CFL stability limit
       ! At these points, additional diffusion is applied in order to prevent numerical 
       ! instability if lextra_diffu = .TRUE.
       ! WS:  We split out levmask in order to collapse the subsequent loop, and avoid problems with two levels of REDUCTION
-!$ACC LOOP VECTOR
+      !$ACC LOOP GANG VECTOR
       DO jk = MAX(3,nrdmax_jg-2), nlev-3
         levmask(jb,jk) = .FALSE.
       ENDDO
+!$ACC END PARALLEL
 
       maxvcfl = 0
-!WS:  TODO, investigate how to collapse this loop with reduction with OMP 4.5
-!$ACC LOOP VECTOR, COLLAPSE(2), REDUCTION( max:maxvcfl )
+!$ACC PARALLEL PRESENT( p_metrics ), IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2) REDUCTION( max:maxvcfl )
       DO jk = MAX(3,nrdmax_jg-2), nlev-3
         DO jc = i_startidx, i_endidx
           cfl_clipping(jc,jk) = (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb))
@@ -524,14 +544,17 @@ __COLLAPSE_2_LOOPS
           ENDIF
         ENDDO
       ENDDO
+!$ACC END PARALLEL
       vcflmax(jb) = maxvcfl
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       ! The remaining computations are not needed in vn_only mode and only on prognostic grid points
       IF (lvn_only) CYCLE
@@ -540,9 +563,10 @@ __COLLAPSE_2_LOOPS
       CALL get_indices_c(p_patch, jb, i_startblk_2, i_endblk_2, &
                          i_startidx_2, i_endidx_2, rl_start_2, rl_end_2)
 
-
       ! Compute vertical derivative terms of vertical wind advection
-__COLLAPSE_2_LOOPS
+! TODO:  check with Guenther why this kernel cannot be incorporated into the subsequent gang loop
+!$ACC PARALLEL PRESENT( p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx_2, i_endidx_2
@@ -552,9 +576,11 @@ __COLLAPSE_2_LOOPS
              p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       ! Interpolate horizontal advection of w from edges to cells and add to advective tendency
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_int, p_diag ), IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx_2, i_endidx_2
 !DIR$ IVDEP
@@ -573,13 +599,16 @@ __COLLAPSE_2_LOOPS
 #endif
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       IF (lextra_diffu) THEN
+
         ! Apply extra diffusion at grid points where w_con is close to or above the CFL stability limit
-!$ACC LOOP WORKER
+!$ACC PARALLEL PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
         DO jk = MAX(3,nrdmax_jg-2), nlev-3
           IF (levmask(jb,jk)) THEN
-!$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR
             DO jc = i_startidx_2, i_endidx_2
               IF (cfl_clipping(jc,jk) .AND. p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
                 difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
@@ -597,29 +626,22 @@ __COLLAPSE_2_LOOPS
             ENDDO
           ENDIF
         ENDDO
+!$ACC END PARALLEL
+
       ENDIF
 
     ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( levmask, levelmask ), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP
-#else
 !$OMP DO PRIVATE(jk)
-#endif
     DO jk = MAX(3,nrdmax_jg-2), nlev-3
       levelmask(jk) = ANY(levmask(i_startblk:i_endblk,jk))
     ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
     rl_start = grf_bdywidth_e+1
     rl_end = min_rledge_int
@@ -627,20 +649,15 @@ __COLLAPSE_2_LOOPS
     i_startblk = p_patch%edges%start_block(rl_start)
     i_endblk   = p_patch%edges%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, difcoef) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
       ! Sum up terms of horizontal wind advection: grad(Ekin_h) + vt*(f+relvort_e) + wcon_e*dv/dz
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL PRESENT( p_patch, p_int, p_metrics, p_diag ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
@@ -671,15 +688,18 @@ __COLLAPSE_2_LOOPS
         ENDDO
       ENDDO
 #endif
+!$ACC END PARALLEL
 
       IF (lextra_diffu) THEN
         ! Search for grid points for which w_con is close to or above the CFL stability limit
         ! At these points, additional diffusion is applied in order to prevent numerical instability
+
         ie = 0
-!$ACC LOOP WORKER
+!$ACC PARALLEL PRESENT( p_patch, p_int, p_metrics, p_prog, p_diag ), IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = MAX(3,nrdmax_jg-2), nlev-4
           IF (levelmask(jk) .OR. levelmask(jk+1)) THEN
-!$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
                         p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))
@@ -704,15 +724,13 @@ __COLLAPSE_2_LOOPS
             ENDDO
           ENDIF
         ENDDO
+!$ACC END PARALLEL
+
       ENDIF
 
     ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO 
 !$OMP END PARALLEL
-#endif
 
 #ifdef _OPENACC
 ! In validation mode, update all the output fields on the host
@@ -735,5 +753,54 @@ __COLLAPSE_2_LOOPS
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 
   END SUBROUTINE velocity_tendencies
+
+#ifdef _OPENACC
+     SUBROUTINE h2d_velocity_tendencies( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+       TYPE(t_nh_prog), INTENT(INOUT)            :: p_prog
+       TYPE(t_nh_diag), INTENT(INOUT)            :: p_diag
+       REAL(vp), DIMENSION(:,:,:), INTENT(INOUT) :: z_w_concorr_me, z_kin_hor_e, z_vt_ie
+
+
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
+       REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
+       REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
+
+       vn_tmp              => p_prog%vn
+       w_tmp               => p_prog%w
+       vt_tmp              => p_diag%vt
+       vn_ie_tmp           => p_diag%vn_ie
+       w_concorr_c_tmp     => p_diag%w_concorr_c
+       ddt_vn_adv_tmp      => p_diag%ddt_vn_adv
+       ddt_w_adv_tmp       => p_diag%ddt_w_adv
+
+!$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp )
+!$ACC UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+
+     END SUBROUTINE h2d_velocity_tendencies
+
+     SUBROUTINE d2h_velocity_tendencies( istep, ntnd, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+
+       INTEGER, INTENT(IN)                       :: istep, ntnd
+       TYPE(t_nh_diag), INTENT(INOUT)            :: p_diag
+       REAL(vp), DIMENSION(:,:,:), INTENT(INOUT) :: z_w_concorr_me, z_kin_hor_e, z_vt_ie
+
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: w_concorr_c_tmp
+       REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp
+       REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
+
+       vt_tmp              => p_diag%vt
+       vn_ie_tmp           => p_diag%vn_ie
+       w_concorr_c_tmp     => p_diag%w_concorr_c
+       ddt_vn_adv_tmp      => p_diag%ddt_vn_adv
+       ddt_w_adv_tmp       => p_diag%ddt_w_adv
+
+!$ACC UPDATE HOST( z_kin_hor_e, z_vt_ie, z_w_concorr_me, vt_tmp, vn_ie_tmp, w_concorr_c_tmp ), IF( istep==1 )
+!$ACC UPDATE HOST( ddt_vn_adv_tmp, ddt_w_adv_tmp(:,:,:,ntnd) )
+
+     END SUBROUTINE d2h_velocity_tendencies
+#endif
 
 END MODULE mo_velocity_advection

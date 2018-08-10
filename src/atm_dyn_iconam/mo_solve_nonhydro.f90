@@ -69,7 +69,6 @@ MODULE mo_solve_nonhydro
   USE mo_fortran_tools,     ONLY: init_zero_contiguous_dp, init_zero_contiguous_sp ! Import both for mixed prec.
 #ifdef _OPENACC
   USE mo_mpi,               ONLY: i_am_accel_node, my_process_is_work
-  USE mo_nonhydro_gpu_types,ONLY: h2d_solve_nonhydro, d2h_solve_nonhydro
 #endif
 
   IMPLICIT NONE
@@ -94,14 +93,7 @@ MODULE mo_solve_nonhydro
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
-#define __COLLAPSE_2_LOOPS !$ACC LOOP VECTOR COLLAPSE(2)
-#else
-#if defined(_INTEL_COMPILER)
-#define __COLLAPSE_2_LOOPS !$OMP SIMD
-#else
-#define __COLLAPSE_2_LOOPS !NO LOOP COLLAPSE DIRECTIVE AVAILABLE
-#endif
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.    ! Only .TRUE. during unit testing
 #endif
 
   CONTAINS
@@ -120,7 +112,7 @@ MODULE mo_solve_nonhydro
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
-    TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
@@ -221,21 +213,6 @@ MODULE mo_solve_nonhydro
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
-#ifdef _OPENACC
-    REAL(wp) :: vn_1, vn_2, vn_3, vn_4
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
-    REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_int_tmp, dvn_ie_ubc_tmp                                 ! p_diag  WP 2D
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp, dw_int_tmp, dw_ubc_tmp             ! p_diag  WP
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: dtheta_v_ic_int_tmp, dtheta_v_ic_ubc_tmp, grf_bdy_mflx_tmp     ! p_diag  WP
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp,  mflx_ic_int_tmp, mflx_ic_ubc_tmp, exner_pr_tmp ! p_diag  WP
-    REAL(vp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_sv_tmp, rho_incr_tmp, exner_incr_tmp                 ! p_diag  VP
-    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_exner_phy_tmp          ! p_diag  VP
-    REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp, ddt_vn_phy_tmp                             ! p_diag  VP
-    REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_vn_adv_tmp, ddt_w_adv_tmp                                  ! p_diag  VP 4D
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_ref_tmp, w_ref_tmp                                          ! p_ref   WP
-#endif
-
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
 
@@ -269,7 +246,6 @@ MODULE mo_solve_nonhydro
     ENDIF
     !-------------------------------------------------------------------
 
-    IF (ltimer) CALL timer_start(timer_solve_nh)
 #ifndef __LOOP_EXCHANGE
     CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 #endif
@@ -298,6 +274,7 @@ MODULE mo_solve_nonhydro
     IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
       CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, is_iau_active, p_nh, prep_adv )
 #endif
+    IF (ltimer) CALL timer_start(timer_solve_nh)
 
     ! Inverse value of ndyn_substeps for tracer advection precomputations
     r_nsubsteps = 1._wp/REAL(ndyn_substeps_var(jg),wp)
@@ -341,6 +318,7 @@ MODULE mo_solve_nonhydro
 #endif
 !$ACC              scal_divdamp, enh_divdamp_fac, bdy_divdamp ), &
 !$ACC      COPYIN( nflatlev, nflat_gradp, vct_a, kstart_dd3d, kstart_moist, nrdmax, z_raylfac, ndyn_substeps_var ), &
+!$ACC      PRESENT( p_patch, p_nh, prep_adv ), &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     ! scaling factor for second-order divergence damping: divdamp_fac_o2*delta_x**2
@@ -352,9 +330,7 @@ MODULE mo_solve_nonhydro
     ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
     ! with height to a value of 0.004 (= the namelist default) at 40 km
 
-!$ACC KERNELS &
-!$ACC PRESENT( p_patch, bdy_divdamp, scal_divdamp, enh_divdamp_fac, ndyn_substeps_var, vct_a ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
 
     DO jk = 1, nlev
       jks = jk + nshift_total
@@ -378,7 +354,7 @@ MODULE mo_solve_nonhydro
 !$ACC END KERNELS
 
     IF (p_test_run) THEN
-!$ACC KERNELS PRESENT( z_rho_e, z_theta_v_e, z_dwdz_dd ), IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
       z_rho_e     = 0._wp
       z_theta_v_e = 0._wp
       z_dwdz_dd   = 0._wp
@@ -447,9 +423,7 @@ MODULE mo_solve_nonhydro
       IF (timers_level > 5) CALL timer_start(timer_solve_nh_cellcomp)
 
       ! Computations on mass points
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
-#endif
 
       rl_start = 3
       IF (istep == 1) THEN
@@ -471,17 +445,9 @@ MODULE mo_solve_nonhydro
 !$OMP BARRIER
       ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh, z_exner_ex_pr, z_thermal_exp, nflat_gradp, nflatlev, &
-!$ACC                   z_dexner_dz_c, z_rth_pr, z_th_ddz_exner_c ), &
-!$ACC          PRIVATE( z_theta_v_pr_ic, z_exner_ic ), &
-!$ACC          IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic,z_theta_v_pr_ic,z_w_backtraj,&
 !$OMP            z_theta_v_pr_mc_m1,z_theta_v_pr_mc,z_rho_tavg_m1,z_rho_tavg, &
 !$OMP            z_theta_tavg_m1,z_theta_tavg) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -489,9 +455,11 @@ MODULE mo_solve_nonhydro
 
         IF (istep == 1) THEN ! to be executed in predictor step only
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
               ! temporally extrapolated perturbation Exner pressure (used for horizontal gradients only)
               z_exner_ex_pr(jc,jk,jb) = (1._wp + p_nh%metrics%exner_exfac(jc,jk,jb)) *    &
@@ -504,41 +472,50 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
           ! The purpose of the extra level of exner_pr is to simplify coding for
           ! igradp_method=4/5. It is multiplied with zero and thus actually not used
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
           z_exner_ex_pr(:,nlevp1,jb) = 0._wp
+!$ACC END KERNELS
 
           IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
             ! Compute contribution of thermal expansion to vertical wind at model top
             ! Isothermal expansion is assumed
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
             z_thermal_exp(:,jb) = 0._wp
-__COLLAPSE_2_LOOPS
+            !$ACC LOOP SEQ   ! TODO: investigate parallel reduction
             DO jk = 1, nlev
 !DIR$ IVDEP
+              !$ACC LOOP GANG VECTOR
               DO jc = i_startidx, i_endidx
                 z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb) + cvd_o_rd                      &
                   * p_nh%diag%ddt_exner_phy(jc,jk,jb)                                       &
                   /  (p_nh%prog(nnow)%exner(jc,jk,jb)*p_nh%metrics%inv_ddqz_z_full(jc,jk,jb))
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
           IF (igradp_method <= 3) THEN
             ! Perturbation Exner pressure on bottom half level
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
               z_exner_ic(jc,nlevp1) =                                         &
                 p_nh%metrics%wgtfacq_c(jc,1,jb)*z_exner_ex_pr(jc,nlev  ,jb) + &
                 p_nh%metrics%wgtfacq_c(jc,2,jb)*z_exner_ex_pr(jc,nlev-1,jb) + &
                 p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
             ENDDO
+!$ACC END PARALLEL
 
-__COLLAPSE_2_LOOPS
-!WS:  not sure why this loop was !$ACC LOOP SEQ
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
             DO jk = nlev, MAX(2,nflatlev(jg)), -1
 !DIR$ IVDEP
+              !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
                 ! Exner pressure on remaining half levels for metric correction term
                 z_exner_ic(jc,jk) =                                                    &
@@ -551,11 +528,13 @@ __COLLAPSE_2_LOOPS
                   p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
               ENDDO
             ENDDO
+!$ACC END PARALLEL
 
             IF (nflatlev(jg) == 1) THEN
               ! Perturbation Exner pressure on top half level
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG VECTOR
               DO jc = i_startidx, i_endidx
                 z_exner_ic(jc,1) =                                          &
                   p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_exner_ex_pr(jc,1,jb) + &
@@ -567,19 +546,24 @@ __COLLAPSE_2_LOOPS
                   (z_exner_ic(jc,1) - z_exner_ic(jc,2)) *   &
                   p_nh%metrics%inv_ddqz_z_full(jc,1,jb)
               ENDDO
+!$ACC END PARALLEL
             ENDIF
 
           ENDIF
 
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
           z_rth_pr(1,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
             p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
 
           z_rth_pr(2,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
             p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
+!$ACC END KERNELS
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 2, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
               ! density at interface levels for vertical flux divergence computation
               p_nh%diag%rho_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb) *p_nh%prog(nnow)%rho(jc,jk  ,jb) + &
@@ -593,10 +577,13 @@ __COLLAPSE_2_LOOPS
 #ifdef _OPENACC
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 2, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
 #endif
 
@@ -617,13 +604,16 @@ __COLLAPSE_2_LOOPS
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ELSE  ! istep = 2 - in this step, an upwind-biased discretization is used for rho_ic and theta_v_ic
           ! in order to reduce the numerical dispersion errors
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 2, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR PRIVATE(z_w_backtraj)
             DO jc = i_startidx, i_endidx
               ! backward trajectory - use w(nnew) in order to be at the same time level as w_concorr
               z_w_backtraj = - (p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb)) * &
@@ -667,6 +657,7 @@ __COLLAPSE_2_LOOPS
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDIF ! istep = 1/2
 
@@ -674,17 +665,20 @@ __COLLAPSE_2_LOOPS
         !                             are set in the vertical solver loop)
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           IF ( istep == 1 ) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+            !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
               p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
                 p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_rth_pr(2,jc,1,jb) +           &
                 p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_rth_pr(2,jc,2,jb) +           &
                 p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_rth_pr(2,jc,3,jb)
             ENDDO
+!$ACC END PARALLEL
           ELSE ! ISTEP == 2
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+            !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
               p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
                 p_nh%metrics%wgtfacq1_c(jc,1,jb)* ( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,1,jb) +     &
@@ -694,9 +688,11 @@ __COLLAPSE_2_LOOPS
                 p_nh%metrics%wgtfacq1_c(jc,3,jb)*( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,3,jb) +      &
                 wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,3,jb) - p_nh%metrics%theta_ref_mc(jc,3,jb) )
             ENDDO
+!$ACC END PARALLEL
           ENDIF
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP GANG VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%diag%rho_ic(jc,1,jb) =  wgt_nnow_rth*(                        &
               p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
@@ -707,13 +703,15 @@ __COLLAPSE_2_LOOPS
               p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
               p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (istep == 1) THEN
 
           ! Perturbation theta at top and surface levels
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP GANG VECTOR
           DO jc = i_startidx, i_endidx
             z_theta_v_pr_ic(jc,1)      = 0._wp
             z_theta_v_pr_ic(jc,nlevp1) =                                   &
@@ -723,11 +721,15 @@ __COLLAPSE_2_LOOPS
             p_nh%diag%theta_v_ic(jc,nlevp1,jb) =                                  &
               p_nh%metrics%theta_ref_ic(jc,nlevp1,jb) + z_theta_v_pr_ic(jc,nlevp1)
           ENDDO
+!$ACC END PARALLEL
 
           IF (igradp_method <= 3) THEN
-__COLLAPSE_2_LOOPS
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
             DO jk = nflat_gradp(jg), nlev
 !DIR$ IVDEP
+              !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
                 ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
                 z_dexner_dz_c(2,jc,jk,jb) = -0.5_vp *                                &
@@ -736,16 +738,13 @@ __COLLAPSE_2_LOOPS
                   p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
         ENDIF ! istep == 1
 
       ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
-#endif
 
       IF (istep == 1) THEN
         ! Add computation of z_grad_rth (perturbation density and virtual potential temperature at main levels)
@@ -756,19 +755,16 @@ __COLLAPSE_2_LOOPS
         i_startblk = p_patch%cells%start_block(rl_start)
         i_endblk   = p_patch%cells%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
 
               z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
@@ -776,16 +772,12 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
-        ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+        ENDDO
 !$OMP END DO NOWAIT
-#endif
+
       ENDIF
-#ifndef _OPENACC
 !$OMP END PARALLEL
-#endif
 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_cellcomp)
@@ -847,9 +839,7 @@ __COLLAPSE_2_LOOPS
         ENDIF
       ENDIF ! istep = 1
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
-#endif
       IF (istep == 1) THEN
         ! Compute 'edge values' of density and virtual potential temperature for horizontal
         ! flux divergence term; this is included in upwind_hflux_miura3 for option 3
@@ -882,16 +872,8 @@ __COLLAPSE_2_LOOPS
 !$OMP BARRIER
           ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_nh, icidx, icblk, ividx, ivblk ), &
-!$ACC PRESENT( z_rho_v, z_theta_v_v, z_rth_pr, z_grad_rth ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0,lvn_pos,&
 !$OMP            z_ntdistv_bary_1,z_ntdistv_bary_2,distv_bary_1,distv_bary_2) ICON_OMP_DEFAULT_SCHEDULE
-#endif
           DO jb = i_startblk, i_endblk
 
             CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -901,11 +883,13 @@ __COLLAPSE_2_LOOPS
               ! Operations from upwind_hflux_miura are inlined in order to process both
               ! fields in one step
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
               ! For cache-based machines, also the back-trajectory computation is inlined to improve efficiency
+              !$ACC LOOP GANG
               DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
+                !$ACC LOOP VECTOR PRIVATE(lvn_pos,ilc0,ibc0,z_ntdistv_bary_1,z_ntdistv_bary_2,distv_bary_1,distv_bary_2)
                 DO jk = 1, nlev
 
                   lvn_pos = p_nh%prog(nnow)%vn(je,jk,jb) >= 0._wp
@@ -953,8 +937,9 @@ __COLLAPSE_2_LOOPS
                     + distv_bary_2 * z_grad_rth(4,ilc0,jk,ibc0)
 
 #else
+              !$ACC LOOP GANG
               DO jk = 1, nlev
-!$ACC LOOP VECTOR
+                !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
                 DO je = i_startidx, i_endidx
 
                   ilc0 = btraj%cell_idx(je,jk,jb)
@@ -976,16 +961,20 @@ __COLLAPSE_2_LOOPS
 
                 ENDDO ! loop over edges
               ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
             ELSE ! iadv_rhotheta = 1
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
               DO je = i_startidx, i_endidx
 !DIR$ IVDEP
+                !$ACC LOOP VECTOR
                 DO jk = 1, nlev
 #else
               DO jk = 1, nlev
+                !$ACC LOOP VECTOR
                 DO je = i_startidx, i_endidx
 #endif
 
@@ -1013,14 +1002,11 @@ __COLLAPSE_2_LOOPS
 
                 ENDDO ! loop over edges
               ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
             ENDIF
 
           ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
         ENDIF
 
@@ -1034,29 +1020,25 @@ __COLLAPSE_2_LOOPS
         i_startblk = p_patch%edges%start_block(rl_start)
         i_endblk   = p_patch%edges%end_block  (rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_nh, icidx, icblk, z_dwdz_dd, z_graddiv_vn, kstart_dd3d ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
+            !$ACC LOOP VECTOR
             DO jk = kstart_dd3d(jg), nlev
               z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
                 p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
                 ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #else
           DO jk = kstart_dd3d(jg), nlev
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
                 p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
@@ -1064,12 +1046,9 @@ __COLLAPSE_2_LOOPS
 #endif
             ENDDO
           ENDDO
-        ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+        ENDDO
 !$OMP END DO
-#endif
 
       ENDIF ! istep = 1/2
 
@@ -1082,15 +1061,8 @@ __COLLAPSE_2_LOOPS
       i_endblk   = p_patch%edges%end_block(rl_end)
 
       IF (istep == 1) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_nh, icidx, icblk, ikidx, z_dexner_dz_c, z_exner_ex_pr ), &
-!$ACC PRESENT( z_gradh_exner, z_hydro_corr, nflatlev, nflat_gradp ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1098,20 +1070,25 @@ __COLLAPSE_2_LOOPS
 
           ! Store values at nest interface levels
           IF (idyn_timestep == 1 .AND. l_child_vertnest) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR 
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%diag%dvn_ie_int(je,jb) = p_nh%diag%vn_ie(je,nshift,jb) - &
                                             p_nh%diag%vn_ie(je,nshift+1,jb)
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
+            !$ACC LOOP VECTOR
             DO jk = 1, nflatlev(jg)-1
 #else
           DO jk = 1, nflatlev(jg)-1
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
 #endif
               ! horizontal gradient of Exner pressure where coordinate surfaces are flat
@@ -1120,16 +1097,20 @@ __COLLAPSE_2_LOOPS
                 z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) )
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
           IF (igradp_method <= 3) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
             DO je = i_startidx, i_endidx
 !DIR$ IVDEP
+              !$ACC LOOP VECTOR
               DO jk = nflatlev(jg), nflat_gradp(jg)
 #else
             DO jk = nflatlev(jg), nflat_gradp(jg)
+              !$ACC LOOP VECTOR
               DO je = i_startidx, i_endidx
 #endif
                 ! horizontal gradient of Exner pressure, including metric correction
@@ -1142,14 +1123,18 @@ __COLLAPSE_2_LOOPS
 
               ENDDO
             ENDDO
+!$ACC END PARALLEL
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
             DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
+              !$ACC LOOP VECTOR
               DO jk = nflat_gradp(jg)+1, nlev
 #else
             DO jk = nflat_gradp(jg)+1, nlev
+              !$ACC LOOP VECTOR
               DO je = i_startidx, i_endidx
 #endif
                 ! horizontal gradient of Exner pressure, Taylor-expansion-based reconstruction
@@ -1167,14 +1152,18 @@ __COLLAPSE_2_LOOPS
 
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ELSE IF (igradp_method == 4 .OR. igradp_method == 5) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
             DO je = i_startidx, i_endidx
+              !$ACC LOOP VECTOR
               DO jk = nflatlev(jg), nlev
 #else
             DO jk = nflatlev(jg), nlev
+              !$ACC LOOP VECTOR
               DO je = i_startidx, i_endidx
 #endif
                 ! horizontal gradient of Exner pressure, cubic/quadratic interpolation
@@ -1198,12 +1187,14 @@ __COLLAPSE_2_LOOPS
 
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
           ! compute hydrostatically approximated correction term that replaces downward extrapolation
           IF (igradp_method == 3) THEN
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR PRIVATE(z_theta1,z_theta2)
             DO je = i_startidx, i_endidx
 
               z_theta1 = &
@@ -1224,9 +1215,12 @@ __COLLAPSE_2_LOOPS
                 (z_theta2-z_theta1)*4._wp/(z_theta1+z_theta2)**2
 
             ENDDO
+!$ACC END PARALLEL
+
           ELSE IF (igradp_method == 5) THEN
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR PRIVATE(ikp1,ikp2,z_theta1,z_theta2)
             DO je = i_startidx, i_endidx
 
               ikp1 = MIN(nlev,ikidx(1,je,nlev,jb)+2)
@@ -1256,26 +1250,18 @@ __COLLAPSE_2_LOOPS
                 (z_theta2-z_theta1)*4._wp/(z_theta1+z_theta2)**2
 
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
         ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       ENDIF ! istep = 1
 
 
       IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_nh, z_hydro_corr, ipeidx, ipeblk, z_gradh_exner ), &
-!$ACC          PRESENT( iplev, ipeidx, ipeblk), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-#else
+
 !$OMP DO PRIVATE(jb,je,ie,nlen_gradp,ishift) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = 1, nblks_gradp
           IF (jb == nblks_gradp) THEN
             nlen_gradp = npromz_gradp
@@ -1283,8 +1269,9 @@ __COLLAPSE_2_LOOPS
             nlen_gradp = nproma_gradp
           ENDIF
           ishift = (jb-1)*nproma_gradp
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !CDIR NODEP,VOVERTAKE,VOB
-!$ACC LOOP VECTOR
+          !$ACC LOOP GANG VECTOR
           DO je = 1, nlen_gradp
             ie = ishift+je
 
@@ -1293,26 +1280,15 @@ __COLLAPSE_2_LOOPS
               p_nh%metrics%pg_exdist(ie)*z_hydro_corr(ipeidx(ie),ipeblk(ie))
 
           ENDDO
-        ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+        ENDDO
 !$OMP END DO
-#endif
 
       ENDIF
 
       ! Update horizontal velocity field: advection (including Coriolis force) and pressure-gradient term
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_nh, z_theta_v_e, z_gradh_exner, z_graddiv_vn, z_graddiv2_vn ), &
-!$ACC PRESENT( iqidx, iqblk, bdy_divdamp, scal_divdamp, nrdmax ), &
-!$ACC PRIVATE( z_graddiv2_vn  ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_graddiv2_vn) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1320,9 +1296,11 @@ __COLLAPSE_2_LOOPS
 
         IF ((itime_scheme >= 4) .AND. istep == 2) THEN ! use temporally averaged velocity advection terms
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
                 & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
@@ -1330,26 +1308,32 @@ __COLLAPSE_2_LOOPS
                 & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ELSE
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
                 & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
                 & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
 
         ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO jk = 1, nlev
               z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(jk,je,jb)      &
                 + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(jk,iqidx(je,jb,1),iqblk(je,jb,1)) &
@@ -1358,6 +1342,7 @@ __COLLAPSE_2_LOOPS
                 + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(jk,iqidx(je,jb,4),iqblk(je,jb,4))
 #else
           DO jk = 1, nlev
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
                 + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1368,15 +1353,18 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (lhdiff_rcf .AND. istep == 2) THEN
           ! apply divergence damping if diffusion is not called every sound-wave time step
           IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! second-order divergence damping
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG
             DO jk = 1, nlev
 !DIR$ IVDEP
+              !$ACC LOOP VECTOR
               DO je = i_startidx, i_endidx
                 p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) + scal_divdamp_o2* &
 #ifdef __LOOP_EXCHANGE
@@ -1386,6 +1374,7 @@ __COLLAPSE_2_LOOPS
 #endif
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
           IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
             IF (l_limited_area .OR. jg > 1) THEN
@@ -1393,47 +1382,59 @@ __COLLAPSE_2_LOOPS
               ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
               ! damping along nest boundaries is beneficial because this reduces the interference
               ! with the increased diffusion applied in nh_diffusion)
-__COLLAPSE_2_LOOPS
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG
               DO jk = 1, nlev
 !DIR$ IVDEP
+                !$ACC LOOP VECTOR
                 DO je = i_startidx, i_endidx
                   p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
                     + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
                 ENDDO
               ENDDO
+!$ACC END PARALLEL
             ELSE ! fourth-order divergence damping
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG
               DO jk = 1, nlev
 !DIR$ IVDEP
+                !$ACC LOOP VECTOR
                 DO je = i_startidx, i_endidx
                   p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
                     + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
                 ENDDO
               ENDDO
+!$ACC END PARALLEL
             ENDIF
           ENDIF
         ENDIF
 
         IF (is_iau_active) THEN ! add analysis increment from data assimilation
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) +  &
                 iau_wgt_dyn*p_nh%diag%vn_incr(je,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Classic Rayleigh damping mechanism for vn (requires reference state !!)
         !
         IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nrdmax(jg)
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)       &
                 &                          - dtime*p_nh%metrics%rayleigh_vn(jk) &
@@ -1441,37 +1442,31 @@ __COLLAPSE_2_LOOPS
                 &                          - p_nh%ref%vn_ref(je,jk,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
       ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_int, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-#else
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
+
 !$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO ic = 1, p_nh%metrics%nudge_e_dim
           je = p_nh%metrics%nudge_e_idx(ic)
           jb = p_nh%metrics%nudge_e_blk(ic)
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP VECTOR
           DO jk = 1, nlev
             p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
               + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
           ENDDO
         ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+
 !$OMP END DO
-#endif
+
       ENDIF
 
       ! Boundary update of horizontal velocity
@@ -1482,62 +1477,53 @@ __COLLAPSE_2_LOOPS
         i_startblk = p_patch%edges%start_block(rl_start)
         i_endblk   = p_patch%edges%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
             i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG
           DO jk = 1, nlev
 !DIR$ IVDEP
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb) + &
                 dtime*p_nh%diag%grf_tend_vn(je,jk,jb)
             ENDDO
           ENDDO
-        ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+        ENDDO
 !$OMP END DO
-#endif
+
       ENDIF
 
       ! Preparations for nest boundary interpolation of mass fluxes from parent domain
       IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1 .AND. jstep == 0 .AND. istep == 1) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_nh, prep_adv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-#else
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
+
 !$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
           je = p_nh%metrics%bdy_mflx_e_idx(ic)
           jb = p_nh%metrics%bdy_mflx_e_blk(ic)
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP VECTOR
           DO jk = 1, nlev
             p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
             p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
           ENDDO
 
         ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
+
+!$ACC END PARALLEL
+
       ENDIF
 
-#ifndef _OPENACC
 !$OMP END PARALLEL
-#endif
 
       !-------------------------
       ! communication phase
@@ -1571,25 +1557,14 @@ __COLLAPSE_2_LOOPS
       ! end communication phase
       !-------------------------
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
-#endif
       rl_start = 5
       rl_end   = min_rledge_int - 2
 
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_int, p_nh, prep_adv, iqidx, iqblk, nflatlev, z_rho_e, z_theta_v_e ), &
-!$ACC PRESENT( iqidx, iqblk, z_graddiv_vn, z_theta_v_fl_e, z_w_concorr_me, z_vt_ie, z_kin_hor_e ), &
-!$ACC PRIVATE( z_vn_avg), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1597,7 +1572,8 @@ __COLLAPSE_2_LOOPS
 
         IF (istep == 1) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1637,10 +1613,12 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ELSE IF (itime_scheme >= 5) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1668,10 +1646,12 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ELSE
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1689,12 +1669,14 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDIF
 
         IF (idiv_method == 1) THEN  ! Compute fluxes at edges using averaged velocities
                                   ! corresponding computation for idiv_method=2 follows later
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -1706,29 +1688,39 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
           IF (lsave_mflx .AND. istep == 2) THEN ! store mass flux for nest boundary interpolation
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
             DO je = i_startidx, i_endidx
               IF (p_patch%edges%refin_ctrl(je,jb) <= -4 .AND. p_patch%edges%refin_ctrl(je,jb) >= -6) THEN
 !DIR$ IVDEP
-                p_nh%diag%mass_fl_e_sv(je,:,jb) = p_nh%diag%mass_fl_e(je,:,jb)
+                !$ACC LOOP SEQ
+                DO jk=1,nlev
+                  p_nh%diag%mass_fl_e_sv(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb)
+                ENDDO
               ENDIF
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
           IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
             IF (lclean_mflx) THEN
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
               prep_adv%mass_flx_me(:,:,jb) = 0._wp
               prep_adv%vn_traj    (:,:,jb) = 0._wp
+!$ACC END KERNELS
             ENDIF
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
               DO je = i_startidx, i_endidx
                 prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_nsubsteps*z_vn_avg(je,jk)
                 prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
         ENDIF
@@ -1736,7 +1728,8 @@ __COLLAPSE_2_LOOPS
         IF (istep == 1 .OR. itime_scheme >= 5) THEN
           ! Compute contravariant correction for vertical velocity at full levels
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = nflatlev(jg), nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -1745,13 +1738,15 @@ __COLLAPSE_2_LOOPS
                 p_nh%diag%vt(je,jk,jb)      *p_nh%metrics%ddxt_z_full(je,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (istep == 1) THEN
           ! Interpolate vn to interface levels and compute horizontal part of kinetic energy on edges
           ! (needed in velocity tendencies called at istep=2)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -1764,11 +1759,13 @@ __COLLAPSE_2_LOOPS
               z_kin_hor_e(je,jk,jb) = 0.5_wp*(p_nh%prog(nnew)%vn(je,jk,jb)**2 + p_nh%diag%vt(je,jk,jb)**2)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
           IF (.NOT. l_vert_nested) THEN
             ! Top and bottom levels
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
             DO je = i_startidx, i_endidx
               ! Quadratic extrapolation at the top turned out to cause numerical instability in pathological cases,
               ! thus we use a no-gradient condition in the upper half layer
@@ -1782,10 +1779,12 @@ __COLLAPSE_2_LOOPS
                 p_nh%metrics%wgtfacq_e(je,2,jb)*p_nh%prog(nnew)%vn(je,nlev-1,jb) + &
                 p_nh%metrics%wgtfacq_e(je,3,jb)*p_nh%prog(nnew)%vn(je,nlev-2,jb)
             ENDDO
+!$ACC END PARALLEL
           ELSE
             ! vn_ie(jk=1) is extrapolated using parent domain information in this case
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               p_nh%diag%vn_ie(je,1,jb) = p_nh%diag%vn_ie(je,2,jb) + p_nh%diag%dvn_ie_ubc(je,jb)
               ! vt_ie(jk=1) is actually unused, but we need it for convenience of implementation
@@ -1797,31 +1796,28 @@ __COLLAPSE_2_LOOPS
                 p_nh%metrics%wgtfacq_e(je,2,jb)*p_nh%prog(nnew)%vn(je,nlev-1,jb) + &
                 p_nh%metrics%wgtfacq_e(je,3,jb)*p_nh%prog(nnew)%vn(je,nlev-2,jb)
             ENDDO
+!$ACC END PARALLEL
           ENDIF
         ENDIF
 
       ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       ! Apply mass fluxes across lateral nest boundary interpolated from parent domain
       IF (jg > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_nh, prep_adv, z_rho_e ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-#else
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+! WS: not sure what the correct combination of GANG/VECTOR is
+        !$ACC LOOP GANG
+
 !$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
           je = p_nh%metrics%bdy_mflx_e_idx(ic)
           jb = p_nh%metrics%bdy_mflx_e_blk(ic)
 
           ! This is needed for tracer mass consistency along the lateral boundaries
           IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
-!$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR
             DO jk = 1, nlev
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
               prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
@@ -1830,7 +1826,7 @@ __COLLAPSE_2_LOOPS
           ENDIF
 
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP VECTOR
           DO jk = 1, nlev
             p_nh%diag%mass_fl_e(je,jk,jb) = p_nh%diag%grf_bdy_mflx(jk,ic,1) + &
               REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
@@ -1838,7 +1834,7 @@ __COLLAPSE_2_LOOPS
           ENDDO
 
           IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
-!$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR
             DO jk = 1, nlev
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
               prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
@@ -1847,11 +1843,10 @@ __COLLAPSE_2_LOOPS
           ENDIF
 
         ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
+
+!$ACC END PARALLEL
+
       ENDIF
 
 
@@ -1870,15 +1865,14 @@ __COLLAPSE_2_LOOPS
 !
 ! This is one of the very few code divergences for OPENACC (see comment below)
 !
-!$ACC PARALLEL PRESENT( p_patch, p_nh, p_int, z_w_concorr_me, nflatlev ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
             i_startidx, i_endidx, rl_start, rl_end)
 
           ! ... and to interface levels
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = nflatlev(jg)+1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -1897,8 +1891,11 @@ __COLLAPSE_2_LOOPS
                 (1._vp - p_nh%metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc_m1
             ENDDO
           ENDDO
+!$ACC END PARALLEL
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             ! Interpolate contravariant correction to cell centers...
             z_w_concorr_mc_m2 =  &
@@ -1921,10 +1918,13 @@ __COLLAPSE_2_LOOPS
               p_nh%metrics%wgtfacq_c(jc,2,jb)*z_w_concorr_mc_m1 +       &
               p_nh%metrics%wgtfacq_c(jc,3,jb)*z_w_concorr_mc_m2
           ENDDO
+!$ACC END PARALLEL
 
         ENDDO
-!$ACC END PARALLEL
 #else
+!
+! OMP-only code
+!
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
@@ -1985,17 +1985,14 @@ __COLLAPSE_2_LOOPS
 !$OMP BARRIER
         ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, z_theta_v_fl_e ), IF( i_am_accel_node .AND. acc_on )
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
             i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
@@ -2007,19 +2004,14 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       ENDIF  ! idiv_method = 2
 
-#ifndef _OPENACC
 !$OMP END PARALLEL
-#endif
 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_edgecomp)
@@ -2034,9 +2026,7 @@ __COLLAPSE_2_LOOPS
                      opt_rlend=min_rlcell_int)
       ENDIF
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jk_start)
-#endif
 
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
@@ -2050,20 +2040,8 @@ __COLLAPSE_2_LOOPS
         jk_start = 1
       ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_nh, p_int, prep_adv), &
-!$ACC PRESENT( z_mass_fl_div, z_theta_v_fl_div, z_theta_v_fl_e, z_dwdz_dd, z_thermal_exp ), &
-!$ACC PRESENT( z_raylfac, z_mflx_top, z_th_ddz_exner_c, ieidx, ieblk ), &
-!$ACC PRESENT(  nrdmax, kstart_dd3d, kstart_moist), &
-!$ACC PRIVATE( z_w_expl,z_contr_w_fl_l, z_rho_expl, z_exner_expl, z_q ),    &
-!$ACC PRIVATE( z_alpha,z_beta,z_flxdiv_mass,z_flxdiv_theta ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
 !$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_flxdiv_mass,z_flxdiv_theta  ) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2072,7 +2050,8 @@ __COLLAPSE_2_LOOPS
         IF (idiv_method == 1) THEN
         ! horizontal divergences of rho and rhotheta are inlined and processed in one step for efficiency
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
@@ -2094,23 +2073,27 @@ __COLLAPSE_2_LOOPS
 
             END DO
           END DO
+!$ACC END PARALLEL
 
         ELSE ! idiv_method = 2 - just copy values to local 2D array
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               z_flxdiv_mass(jc,jk)  = z_mass_fl_div(jc,jk,jb)
               z_flxdiv_theta(jc,jk) = z_theta_v_fl_div(jc,jk,jb)
             END DO
           END DO
+!$ACC END PARALLEL
 
         ENDIF
 
         ! upper boundary conditions for rho_ic and theta_v_ic in the case of vertical nesting
         IF (l_vert_nested .AND. istep == 1) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
               p_nh%diag%dtheta_v_ic_ubc(jc,jb)
@@ -2118,15 +2101,19 @@ __COLLAPSE_2_LOOPS
               REAL(jstep,wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
             p_nh%diag%rho_ic(jc,1,jb) =  0._wp ! not used in dynamical core in this case, will be set for tracer interface later
           ENDDO
+!$ACC END PARALLEL
+
         ELSE IF (l_vert_nested .AND. istep == 2) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
               p_nh%diag%dtheta_v_ic_ubc(jc,jb)
             z_mflx_top(jc,jb)             = p_nh%diag%mflx_ic_ubc(jc,jb,1) + &
               (REAL(jstep,wp)+0.5_wp)*dtime*p_nh%diag%mflx_ic_ubc(jc,jb,2)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Start of vertically implicit solver part for sound-wave terms;
@@ -2134,7 +2121,8 @@ __COLLAPSE_2_LOOPS
         !
         IF (istep == 2 .AND. (itime_scheme >= 4)) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2152,9 +2140,11 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ELSE
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2169,10 +2159,12 @@ __COLLAPSE_2_LOOPS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Solver coefficients
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -2184,44 +2176,56 @@ __COLLAPSE_2_LOOPS
               &  p_nh%diag%theta_v_ic(jc,jk,jb)*p_nh%diag%rho_ic(jc,jk,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
         z_alpha(:,nlevp1) = 0.0_wp
+!$ACC END KERNELS
 
         ! upper boundary condition for w (interpolated from parent domain in case of vertical nesting)
         ! Note: the upper b.c. reduces to w(1) = 0 in the absence of diabatic heating
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%prog(nnew)%w(jc,1,jb) = z_thermal_exp(jc,jb)
             z_contr_w_fl_l(jc,1) = p_nh%diag%rho_ic(jc,1,jb)*p_nh%prog(nnow)%w(jc,1,jb)   &
               * p_nh%metrics%vwind_expl_wgt(jc,jb)
           ENDDO
+!$ACC END PARALLEL
         ELSE IF (.NOT. l_open_ubc .AND. .NOT. l_vert_nested) THEN
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
           p_nh%prog(nnew)%w(:,1,jb) = 0._wp
           z_contr_w_fl_l(:,1)       = 0._wp
+!$ACC END KERNELS
         ELSE  ! l_vert_nested
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             z_contr_w_fl_l(jc,1) = z_mflx_top(jc,jb) * p_nh%metrics%vwind_expl_wgt(jc,jb)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! lower boundary condition for w, consistent with contravariant correction
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%diag%w_concorr_c(jc,nlevp1,jb)
           z_contr_w_fl_l(jc,nlevp1)       = 0.0_wp
         ENDDO
+!$ACC END PARALLEL
 
 
         ! Explicit parts of density and Exner pressure
         !
         ! Top level first
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           z_rho_expl(jc,1)=        p_nh%prog(nnow)%rho(jc,1,jb)   &
             &        -dtime*p_nh%metrics%inv_ddqz_z_full(jc,1,jb) &
@@ -2235,9 +2239,11 @@ __COLLAPSE_2_LOOPS
             & -p_nh%diag%theta_v_ic(jc,2,jb)*z_contr_w_fl_l(jc,2)) &
             & +dtime*p_nh%diag%ddt_exner_phy(jc,1,jb)
         ENDDO
+!$ACC END PARALLEL
 
         ! Other levels
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -2255,10 +2261,12 @@ __COLLAPSE_2_LOOPS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         ! Solve tridiagonal matrix for w
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           z_gamma = dtime*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)*    &
             p_nh%diag%theta_v_ic(jc,2,jb)/p_nh%metrics%ddqz_z_half(jc,2,jb)
@@ -2270,11 +2278,13 @@ __COLLAPSE_2_LOOPS
             &      *(z_exner_expl(jc,1)-z_exner_expl(jc,2))
           p_nh%prog(nnew)%w(jc,2,jb)= p_nh%prog(nnew)%w(jc,2,jb)/z_b
         ENDDO
+!$ACC END PARALLEL
 
-!$ACC LOOP SEQ
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP SEQ
         DO jk = 3, nlev
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP GANG VECTOR
           DO jc = i_startidx, i_endidx
             z_gamma = dtime*cpd*p_nh%metrics%vwind_impl_wgt(jc,jb)*    &
               p_nh%diag%theta_v_ic(jc,jk,jb)/p_nh%metrics%ddqz_z_half(jc,jk,jb)
@@ -2290,30 +2300,36 @@ __COLLAPSE_2_LOOPS
               -z_a*p_nh%prog(nnew)%w(jc,jk-1,jb))*z_g
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
-!$ACC LOOP SEQ
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP SEQ
         DO jk = nlev-1, 2, -1
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP GANG VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnew)%w(jc,jk,jb)&
               &             +p_nh%prog(nnew)%w(jc,jk+1,jb)*z_q(jc,jk)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         IF (l_vert_nested) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%prog(nnew)%w(jc,1,jb) = p_nh%prog(nnew)%w(jc,2,jb) + p_nh%diag%dw_ubc(jc,jb)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis: MWR136,pp.3987-4004)
         !
         IF ( rayleigh_type == RAYLEIGH_KLEMP ) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nrdmax(jg)
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2321,11 +2337,13 @@ __COLLAPSE_2_LOOPS
                                             (1._wp-z_raylfac(jk))*p_nh%prog(nnew)%w(jc,1,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ! Classic Rayleigh damping mechanism for w (requires reference state !!)
         !
         ELSE IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 2, nrdmax(jg)
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2335,11 +2353,13 @@ __COLLAPSE_2_LOOPS
                 &                         - p_nh%ref%w_ref(jc,jk,jb) )
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2347,10 +2367,12 @@ __COLLAPSE_2_LOOPS
               z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Results for thermodynamic variables
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = jk_start, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -2375,11 +2397,13 @@ __COLLAPSE_2_LOOPS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
         ! Special treatment of uppermost layer in the case of vertical nesting
         IF (l_vert_nested) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
 
             ! density
@@ -2400,12 +2424,14 @@ __COLLAPSE_2_LOOPS
               /p_nh%prog(nnew)%rho(jc,1,jb)
 
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (istep == 2 .AND. l_vert_nested) THEN
           ! Diagnose rho_ic(jk=1) for tracer transport, and rediagnose appropriate w(jk=1)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
             p_nh%diag%rho_ic(jc,1,jb) =  wgt_nnow_rth*(                        &
               p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
@@ -2417,12 +2443,14 @@ __COLLAPSE_2_LOOPS
               p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
             p_nh%prog(nnew)%w(jc,1,jb) = z_mflx_top(jc,jb)/p_nh%diag%rho_ic(jc,1,jb)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = kstart_dd3d(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2431,32 +2459,43 @@ __COLLAPSE_2_LOOPS
                 (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Preparations for tracer advection
         IF (lprep_adv .AND. istep == 2) THEN
-          IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
-__COLLAPSE_2_LOOPS
+          IF (lclean_mflx) THEN 
+!$ACC KERNELS  IF( i_am_accel_node .AND. acc_on )
+            prep_adv%mass_flx_ic(:,:,jb) = 0._wp
+!$ACC END KERNELS
+          ENDIF
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps * ( z_contr_w_fl_l(jc,jk) + &
                 p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! store dynamical part of exner time increment in exner_dyn_incr
         ! the conversion into a temperature tendency is done in the NWP interface
         IF (istep == 1 .AND. idyn_timestep == 1) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ELSE IF (istep == 2 .AND. idyn_timestep == ndyn_substeps_var(jg)) THEN
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2464,12 +2503,14 @@ __COLLAPSE_2_LOOPS
                (p_nh%diag%exner_dyn_incr(jc,jk,jb) + ndyn_substeps_var(jg)*dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb))
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         IF (istep == 2 .AND. l_child_vertnest) THEN
           ! Store values at nest interface levels
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
           DO jc = i_startidx, i_endidx
 
             p_nh%diag%dw_int(jc,jb,idyn_timestep) =                                         &
@@ -2483,14 +2524,11 @@ __COLLAPSE_2_LOOPS
             p_nh%diag%dtheta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
               p_nh%diag%theta_v_ic(jc,nshift+1,jb)
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
       ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       ! Boundary update in case of nesting
       IF (l_limited_area .OR. jg > 1) THEN
@@ -2501,14 +2539,7 @@ __COLLAPSE_2_LOOPS
         i_startblk = p_patch%cells%start_block(rl_start)
         i_endblk   = p_patch%cells%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_nh, prep_adv, z_dwdz_dd, kstart_dd3d ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2517,7 +2548,8 @@ __COLLAPSE_2_LOOPS
           ! non-MPI-parallelized (serial) case
           IF (istep == 1 .AND. my_process_is_mpi_all_seq() ) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
 #if __INTEL_COMPILER != 1400 || __INTEL_COMPILER_UPDATE != 3
 !DIR$ IVDEP
@@ -2539,12 +2571,15 @@ __COLLAPSE_2_LOOPS
 
               ENDDO
             ENDDO
+!$ACC END PARALLEL
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
               p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
                 dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
             ENDDO
+!$ACC END PARALLEL
 
           ELSE IF (istep == 1 ) THEN
 
@@ -2552,7 +2587,8 @@ __COLLAPSE_2_LOOPS
             ! and theta_v is preliminarily stored on exner in order to save
             ! halo communications
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
 #if __INTEL_COMPILER != 1400 || __INTEL_COMPILER_UPDATE != 3
 !DIR$ IVDEP
@@ -2572,19 +2608,23 @@ __COLLAPSE_2_LOOPS
 
               ENDDO
             ENDDO
+!$ACC END PARALLEL
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
               p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
                 dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
             ENDDO
+!$ACC END PARALLEL
 
           ENDIF
 
           ! compute dw/dz for divergence damping term
           IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = kstart_dd3d(jg), nlev
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -2593,12 +2633,18 @@ __COLLAPSE_2_LOOPS
                   (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
           ! Preparations for tracer advection
           IF (lprep_adv .AND. istep == 2) THEN
-            IF (lclean_mflx) prep_adv%mass_flx_ic(i_startidx:i_endidx,:,jb) = 0._wp
-__COLLAPSE_2_LOOPS
+            IF (lclean_mflx) THEN
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+              prep_adv%mass_flx_ic(i_startidx:i_endidx,:,jb) = 0._wp
+!$ACC END KERNELS
+            ENDIF
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -2607,20 +2653,15 @@ __COLLAPSE_2_LOOPS
                    p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb) )
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF
 
         ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
 
       ENDIF
 
-#ifndef _OPENACC
 !$OMP END PARALLEL
-#endif
 
       !-------------------------
       ! communication phase
@@ -2677,27 +2718,25 @@ __COLLAPSE_2_LOOPS
     IF ( .NOT. my_process_is_mpi_all_seq() ) THEN
 
 ! OpenMP directives are commented for the NEC because the overhead is too large
-#if !defined( __SX__ ) && !defined( _OPENACC )
+#if !defined( __SX__ ) 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 #endif
     IF (l_limited_area .OR. jg > 1) THEN
 
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points
-#ifdef _OPENACC
+
 !$ACC PARALLEL PRESENT( p_nh ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
-#else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
       DO ic = 1, p_nh%metrics%bdy_halo_c_dim
 
         jb = p_nh%metrics%bdy_halo_c_blk(ic)
         jc = p_nh%metrics%bdy_halo_c_idx(ic)
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR
         DO jk = 1, nlev
           p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
 
@@ -2707,35 +2746,30 @@ __COLLAPSE_2_LOOPS
 
         ENDDO
       ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
 #ifndef __SX__
 !$OMP END DO
 #endif
-#endif
+
       rl_start = 1
       rl_end   = grf_bdywidth_c
 
       i_startblk = p_patch%cells%start_block(rl_start)
       i_endblk   = p_patch%cells%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-__COLLAPSE_2_LOOPS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = 1, nlev
 !DIR$ IVDEP
+          !$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
 
             p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb)
@@ -2746,13 +2780,10 @@ __COLLAPSE_2_LOOPS
 
           ENDDO
         ENDDO
-      ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+      ENDDO
 #ifndef __SX__
 !$OMP END DO
-#endif
 #endif
     ENDIF
 
@@ -2762,28 +2793,25 @@ __COLLAPSE_2_LOOPS
     i_startblk = p_patch%cells%start_block(rl_start)
     i_endblk   = p_patch%cells%end_block(rl_end)
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_patch, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
 !DIR$ IVDEP
-!$ACC LOOP VECTOR
+          !$ACC LOOP VECTOR
           DO jk = 1, nlev
 #else
-__COLLAPSE_2_LOOPS
       DO jk = 1, nlev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
 #endif
@@ -2799,20 +2827,18 @@ __COLLAPSE_2_LOOPS
         ENDDO
 #endif
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 #ifndef __SX__
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
-#endif
 
     ENDIF  ! .NOT. my_process_is_mpi_all_seq()
 
-!$ACC END DATA
+    IF (ltimer) CALL timer_stop(timer_solve_nh)
+
 
 #ifdef _OPENACC
 ! In validation mode, update all the output fields on the host
@@ -2823,8 +2849,160 @@ __COLLAPSE_2_LOOPS
 #ifndef __LOOP_EXCHANGE
     CALL btraj%destruct()
 #endif
-    IF (ltimer) CALL timer_stop(timer_solve_nh)
+
+!$ACC END DATA
 
   END SUBROUTINE solve_nh
+
+#ifdef _OPENACC
+     SUBROUTINE h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, is_iau_active, p_nh, prep_adv )
+
+       INTEGER, INTENT(IN)       :: nnow, jstep, jg, idiv_method, grf_intmethod_e
+       LOGICAL, INTENT(IN)       :: l_vert_nested, lprep_adv, is_iau_active
+
+       TYPE(t_nh_state),          INTENT(INOUT) :: p_nh
+       TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
+
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp                                     ! p_diag  WP
+       REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_ubc_tmp,  dtheta_v_ic_ubc_tmp, dw_ubc_tmp               ! p_diag  WP 2D
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp,  mflx_ic_ubc_tmp, exner_pr_tmp                  ! p_diag  WP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: grf_bdy_mflx_tmp                                               ! p_diag  WP
+
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_exner_phy_tmp          ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: exner_dyn_incr_tmp, ddt_vn_phy_tmp                             ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: rho_incr_tmp, exner_incr_tmp                                   ! p_diag  VP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_ref_tmp, w_ref_tmp                                          ! p_ref   WP
+
+!
+! OpenACC Implementation:  For testing in ACC_VALIDATE=.TRUE. mode, we would ultimately like to be able to run 
+!                          this routine entirely on the accelerator with input on the host, and moving
+!                          output back to the host.  I order to do this, an additional, far larger, number of fields
+!                          must be updated here on the device:
+!
+! p_nh%prog(nnow)          All present (above)
+! p_nh%diag:               ddt_exner_phy, ddt_vn_adv, ddt_vn_phy, ddt_w_adv
+!                          vn_ref, dtheta_v_ic_ubc, dw_ubc, dvn_ie_ubc, mflx_ic_ubc
+!                          rho_incr, exner_incr, vn_incr, exner_pr
+!                          grf_tend_vn, grf_tend_mflx, grf_tend_rho, grf_tend_thv, grf_tend_w
+!
+! p_nh%metrics:            Entire structure (read-only)
+!
+! p_patch:                 Entire structure (read-only)
+!  
+
+       exner_tmp           => p_nh%prog(nnow)%exner 
+       rho_tmp             => p_nh%prog(nnow)%rho
+       theta_v_tmp         => p_nh%prog(nnow)%theta_v 
+       vn_tmp              => p_nh%prog(nnow)%vn
+       w_tmp               => p_nh%prog(nnow)%w
+!$ACC UPDATE DEVICE ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp )
+
+       rho_ic_tmp          => p_nh%diag%rho_ic
+       theta_v_ic_tmp      => p_nh%diag%theta_v_ic
+!$ACC UPDATE DEVICE ( rho_ic_tmp, theta_v_ic_tmp )
+
+       vt_tmp              => p_nh%diag%vt
+       vn_ie_tmp           => p_nh%diag%vn_ie
+       w_concorr_c_tmp     => p_nh%diag%w_concorr_c
+!$ACC UPDATE DEVICE ( vt_tmp, vn_ie_tmp, w_concorr_c_tmp )
+
+       mass_fl_e_tmp       => p_nh%diag%mass_fl_e
+       exner_pr_tmp        => p_nh%diag%exner_pr
+       exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
+!$ACC UPDATE DEVICE ( mass_fl_e_tmp, exner_pr_tmp, exner_dyn_incr_tmp )
+
+       mflx_ic_ubc_tmp     => p_nh%diag%mflx_ic_ubc
+       dvn_ie_ubc_tmp      => p_nh%diag%dvn_ie_ubc
+       dtheta_v_ic_ubc_tmp => p_nh%diag%dtheta_v_ic_ubc
+       dw_ubc_tmp          => p_nh%diag%dw_ubc
+!$ACC UPDATE DEVICE ( mflx_ic_ubc_tmp, dvn_ie_ubc_tmp, dtheta_v_ic_ubc_tmp, dw_ubc_tmp ) IF( l_vert_nested )
+
+       ddt_exner_phy_tmp   => p_nh%diag%ddt_exner_phy
+       ddt_vn_phy_tmp      => p_nh%diag%ddt_vn_phy
+!$ACC UPDATE DEVICE ( ddt_exner_phy_tmp,ddt_vn_phy_tmp )
+
+       rho_incr_tmp        => p_nh%diag%rho_incr
+       exner_incr_tmp      => p_nh%diag%exner_incr
+!$ACC UPDATE DEVICE ( rho_incr_tmp, exner_incr_tmp )
+
+       vn_traj_tmp       => prep_adv%vn_traj
+       mass_flx_me_tmp   => prep_adv%mass_flx_me
+       mass_flx_ic_tmp   => prep_adv%mass_flx_ic
+!$ACC UPDATE DEVICE ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( lprep_adv )
+
+       vn_ref_tmp          => p_nh%ref%vn_ref
+       w_ref_tmp           => p_nh%ref%w_ref
+!$ACC UPDATE DEVICE ( vn_ref_tmp, w_ref_tmp )
+
+       grf_bdy_mflx_tmp   => p_nh%diag%grf_bdy_mflx
+!$ACC UPDATE DEVICE( grf_bdy_mflx_tmp ) IF( (jg > 1) .AND. (grf_intmethod_e >= 5) .AND. (idiv_method == 1) .AND. (jstep == 0) )
+
+     END SUBROUTINE h2d_solve_nonhydro
+
+     SUBROUTINE d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, l_child_vertnest, lprep_adv, p_nh, prep_adv )
+
+       INTEGER, INTENT(IN)       :: nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method
+       LOGICAL, INTENT(IN)       :: lsave_mflx, l_child_vertnest, lprep_adv
+
+       TYPE(t_nh_state),          INTENT(INOUT) :: p_nh
+       TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
+
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp                 ! p_prog  WP
+       REAL(wp), DIMENSION(:,:),     POINTER  :: dvn_ie_int_tmp                                                 ! p_diag  WP 2D
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, rho_ic_tmp, dw_int_tmp                         ! p_diag  WP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: dtheta_v_ic_int_tmp,  grf_bdy_mflx_tmp                         ! p_diag  WP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_tmp,  mflx_ic_int_tmp, exner_pr_tmp                  ! p_diag  WP
+
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp, vn_ie_tmp, w_concorr_c_tmp                             ! p_diag  VP
+       REAL(vp), DIMENSION(:,:,:),   POINTER  :: mass_fl_e_sv_tmp, exner_dyn_incr_tmp                           ! p_diag  VP
+       REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp                  ! prep_adv WP
+
+
+! The following code is necessary if the Dycore is to be run in isolation on the GPU
+! Update all device output on host: the prognostic variables have shifted from nnow to nnew; diagnostics pointers set above
+
+       exner_tmp           => p_nh%prog(nnew)%exner
+       rho_tmp             => p_nh%prog(nnew)%rho
+       theta_v_tmp         => p_nh%prog(nnew)%theta_v
+       vn_tmp              => p_nh%prog(nnew)%vn
+       w_tmp               => p_nh%prog(nnew)%w
+!$ACC UPDATE HOST ( exner_tmp, rho_tmp, theta_v_tmp, vn_tmp, w_tmp )
+
+       vt_tmp              => p_nh%diag%vt
+       vn_ie_tmp           => p_nh%diag%vn_ie
+       rho_ic_tmp          => p_nh%diag%rho_ic
+       theta_v_ic_tmp      => p_nh%diag%theta_v_ic
+       exner_pr_tmp        => p_nh%diag%exner_pr
+!$ACC UPDATE HOST ( vt_tmp, vn_ie_tmp, rho_ic_tmp, theta_v_ic_tmp, exner_pr_tmp )
+
+       w_concorr_c_tmp     => p_nh%diag%w_concorr_c
+       mass_fl_e_tmp       => p_nh%diag%mass_fl_e
+       exner_dyn_incr_tmp  => p_nh%diag%exner_dyn_incr
+!$ACC UPDATE HOST ( w_concorr_c_tmp, mass_fl_e_tmp, exner_dyn_incr_tmp )
+
+       mass_fl_e_sv_tmp    => p_nh%diag%mass_fl_e_sv
+!$ACC UPDATE HOST ( mass_fl_e_sv_tmp ) IF( lsave_mflx )
+
+       dw_int_tmp          => p_nh%diag%dw_int
+       mflx_ic_int_tmp     => p_nh%diag%mflx_ic_int
+       dtheta_v_ic_int_tmp => p_nh%diag%dtheta_v_ic_int
+!$ACC UPDATE HOST ( dw_int_tmp, mflx_ic_int_tmp, dtheta_v_ic_int_tmp ) IF( l_child_vertnest )
+
+      dvn_ie_int_tmp      => p_nh%diag%dvn_ie_int
+!$ACC UPDATE HOST ( dvn_ie_int_tmp ) IF( idyn_timestep == 1 .AND. l_child_vertnest)
+
+      grf_bdy_mflx_tmp    => p_nh%diag%grf_bdy_mflx
+!$ACC UPDATE HOST ( grf_bdy_mflx_tmp ) IF( (jg > 1) .AND. (grf_intmethod_e >= 5) .AND. (idiv_method == 1) .AND. (jstep == 0) )
+
+      vn_traj_tmp         => prep_adv%vn_traj
+      mass_flx_me_tmp     => prep_adv%mass_flx_me
+      mass_flx_ic_tmp     => prep_adv%mass_flx_ic
+!$ACC UPDATE HOST ( vn_traj_tmp, mass_flx_me_tmp, mass_flx_ic_tmp ) IF( lprep_adv )
+
+     END SUBROUTINE d2h_solve_nonhydro
+
+#endif
 
 END MODULE mo_solve_nonhydro

@@ -342,8 +342,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmfsolct
   REAL(KIND=jprb) :: rmfcmax
   REAL(KIND=jprb) :: rmfcmin
-  REAL(KIND=jprb) :: rmfdeps
-  REAL(KIND=jprb) :: rdepths
+  REAL(KIND=jprb) :: rmfdeps, rmfdeps_ocean
   REAL(KIND=jprb) :: rprcon
   ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
@@ -481,22 +480,23 @@ MODULE mo_cuparameters
   !yoecumf
   PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
           & rprcon   ,rmfcmax  ,rmfcmin   ,detrpen  ,&
-          & lmfdd    ,lmfdudv  , rdepths            ,&
+          & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
-          & entrdd   ,& ! njkt1                    ,&
+          & entrdd   ,& ! njkt1     ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
           & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
-          & rmfdeps, icapdcycl, lmfglac, lmfwetb
+          & rmfdeps, rmfdeps_ocean, icapdcycl, lmfglac, lmfwetb
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,rlpdrag
   !yoephy
   PUBLIC :: lepcld
   !yoevdf
   PUBLIC :: rkap     ,rvdifts  ,repdu2   ,repust   ,rz0ice  ,&
-          & rnum     ,rnuh     ,rnuq     ,rparzi   ,lelwdd
+          & rnum     ,rnuh     ,rnuq     ,rparzi   ,lelwdd  ,&
+          & rlam     ,rchar
   !yoethf
   PUBLIC :: r2es     ,r3les    ,r3ies    ,r4les    ,r4ies   ,&
           & r5les    ,r5ies    ,rvtmp2   ,rhoh2o   ,r5alvcp ,&
@@ -1123,7 +1123,7 @@ nflevg=klev
 !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
 !     -------
 
-detrpen=0.75E-4_JPRB  
+detrpen=0.75E-4_JPRB
 
 !         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
 !              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
@@ -1142,16 +1142,23 @@ ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
-
-ENTSTPC1=0.55_JPRB
-ENTSTPC2=1.E-4_JPRB
+IF (lshallow_only) THEN
+  entstpc1 = 1.0_JPRB
+  entstpc2 = 2.E-4_JPRB
+ELSE
+  entstpc1 = 0.55_JPRB
+  entstpc2 = 1.E-4_JPRB
+ENDIF
 !ENTSTPC1=0.8_JPRB        !40r3 default
 !ENTSTPC2=2.E-4_JPRB      !40r3 default
 
 !     ENTRDD: AVERAGE ENTRAINMENT RATE FOR DOWNDRAFTS
 !     ------
-
-entrdd =2.0E-4_JPRB
+IF (lshallow_only) THEN
+  entrdd       = 2.0E-4_JPRB
+ELSE
+  entrdd       = 3.0E-4_JPRB
+ENDIF
 !entrdd =3.0E-4_JPRB      !40r3 default
 
 !     RMFCMAX:   MAXIMUM MASSFLUX VALUE ALLOWED FOR UPDRAFTS ETC
@@ -1167,17 +1174,26 @@ rmfcmin=1.e-10_JPRB
 !     RMFDEPS:   FRACTIONAL MASSFLUX FOR DOWNDRAFTS AT LFS
 !     -------
 
-RMFDEPS=0.30_JPRB
+IF (lshallow_only) THEN
+  rmfdeps       = 0.30_JPRB
+  rmfdeps_ocean = rmfdeps
+ELSE
+  rmfdeps       = 0.25_JPRB
+  rmfdeps_ocean = 0.15_JPRB
+ENDIF
 
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
-
-rdepths=2.e4_jprb
+IF (lshallow_only) THEN
+  phy_params%rdepths=1.3e4_jprb/MAX(1._jprb,(5.e3_jprb/rsltn)**0.75_jprb)
+ELSE
+  phy_params%rdepths=2.e4_jprb
+ENDIF
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
 
-rprcon =1.4E-3_JPRB
+rprcon = 1.4E-3_JPRB
 
 !                COEFFICIENTS FOR RAIN EVAPORATION BELOW CLOUD
 !                AND MELTING
@@ -1193,7 +1209,7 @@ rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
 zres_thresh      = 20.0E3_JPRB   ! 20 km
-zres_thresh_trop = 12.5E3_JPRB   ! 12.5 km for tropics
+zres_thresh_trop = 20.0E3_JPRB   ! new since 02/18: 20 km also for tropics
 ztrans_end       = 1.0E3_JPRB    ! 1 km - end of transition range
 
 phy_params%rhebc_land       = tune_rhebc_land
@@ -1233,8 +1249,11 @@ ENDIF
 
 
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
+phy_params%entrorg = tune_entrorg !!! + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
 
+IF (lshallow_only) THEN
+  phy_params%entrorg = phy_params%entrorg*MAX(1.25_jprb,SQRT(5.e3_jprb/rsltn))
+ENDIF
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
@@ -1310,7 +1329,11 @@ lmfglac =.TRUE.   ! glaciation of precip in updraught
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
-phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
+IF (lshallow_only) THEN
+  phy_params%mfcfl = 1._JPRB
+ELSE
+  phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
+ENDIF
 
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
@@ -1933,7 +1956,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 !------------------------------------------------------------------------------
 
 
-  SUBROUTINE SUGWD(KLEV,pmean,phy_params)
+  SUBROUTINE SUGWD(KLEV,pmean,phy_params,jg)
   
   !**** *SUGWD* INITIALIZE COMMON YOEGWD CONTROLLING GRAVITY WAVE DRAG
   
@@ -1992,6 +2015,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
 
   TYPE(t_phy_params), INTENT(inout) :: phy_params
   REAL(KIND=jprb)   , INTENT(in)    :: pmean(klev)
+  INTEGER           , INTENT(in)    :: jg
 
   !      ----------------------------------------------------------------
   
@@ -2047,17 +2071,11 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
     ENDIF
   ENDDO
   
-  !GKDRAG =0.3_JPRB
-  !GKWAKE =1._JPRB
-  !  Revised gwd parameter values
-  GKDRAG = tune_gkdrag
-  GKWAKE = tune_gkwake
-
-  !38r2
-  !GKWAKE =1.3_JPRB
-  
-  GRCRIT  = tune_grcrit
-  GFRCRIT = tune_gfrcrit
+  ! SSO tuning parameters
+  phy_params%gkdrag  = tune_gkdrag(jg)
+  phy_params%gkwake  = tune_gkwake(jg)
+  phy_params%grcrit  = tune_grcrit(jg)
+  phy_params%gfrcrit = tune_gfrcrit(jg)
   
   !      ----------------------------------------------------------------
   

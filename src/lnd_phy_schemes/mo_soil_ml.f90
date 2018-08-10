@@ -471,6 +471,7 @@ END SUBROUTINE message
                   rootdp           , & ! depth of the roots                            ( m  )
                   sai              , & ! surface area index                              --
                   tai              , & ! transpiration area index                        --
+                  laifac           , & ! ratio between current LAI and laimax            --
                   eai              , & ! earth area (evaporative surface area) index     --
 !                 llandmask        , & ! landpoint mask                                  --
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
@@ -608,7 +609,8 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                  rsmin2d               ! minimum stomata resistance                    ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), OPTIONAL, INTENT(IN) :: &
-                  z0                   ! vegetation roughness length                    ( m )
+                  z0               , & ! vegetation roughness length                    ( m )
+                  laifac               ! ratio between current LAI and laimax
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -1096,8 +1098,10 @@ END SUBROUTINE message
 !   Snow density
     ztau_snow      , & ! 'ageing constant' for snow density          (-)
     zrhosmax       , & ! temperature-dependent target density for snow ageing
+    zgrfrac        , & ! fraction of graupel / convective snow
     zrho_snowe     , & ! updated density of existing snow ('ageing') kg/m**3
     zrho_snowf     , & ! density of fresh snow                       kg/m**3
+    zrho_grauf     , & ! density of fresh graupel / convective snow  kg/m**3
     znorm          , & ! normalisation factor for weighted snow density mH2O
 !
 !
@@ -1281,7 +1285,6 @@ END SUBROUTINE message
 
   LOGICAL     :: &
 !
-    ldebug                , & !
     limit_tch (ie)         ! indicator for flux limitation problem
 
   ! ground water as lower boundary of soil column
@@ -1689,6 +1692,13 @@ END SUBROUTINE message
         ENDIF
         hzalam(i,kso) = (zKe*(zlamsat - zlamdry) + zlamdry)*(1._ireals-zxx) + zxx*0.06_ireals
 
+        ! heat conductivity is also artificially reduced on snow-free forest-covered tiles generated 
+        ! by the melting-rate parameterization
+        IF (tsnred(i) < -1._ireals .AND. z0(i) >= 0.2_ireals) THEN
+          zxx = MAX(0._ireals,2._ireals - ABS(tsnred(i)))
+          hzalam(i,kso) = zxx*hzalam(i,kso) + (1._ireals-zxx)*0.06_ireals
+        ENDIF
+
       ENDDO
     ENDDO
 
@@ -1732,7 +1742,6 @@ END SUBROUTINE message
 ! Initialisations and conversion of tch to tmch
 
   limit_tch(:) = .false.  !  preset problem indicator
-  ldebug       = .false.
 
   DO i = istarts, iends
 !      IF (llandmask(i)) THEN     ! for land-points only
@@ -1768,18 +1777,19 @@ END SUBROUTINE message
         zshfl(i) = tch(i)*zuv*zrho_atm(i)*cp_d*zdt_atm(i)
         zlhfl(i) = tch(i)*zuv*zrho_atm(i)*lh_v*zdq_atm(i)
 
+!   net radiative fluxes at surface
+        zradfl(i) = sobs(i)+thbs(i)
+
+        zxx = MIN(500._ireals,200._ireals+0.5_ireals*ABS(zradfl(i)))
         IF (zshfl(i)*zlhfl(i) >= 0._ireals) THEN
           zthfl(i) = zshfl(i) + zlhfl(i)
         ELSE IF (ABS(zshfl(i)) > ABS(zlhfl(i))) THEN
-          zthfl(i) = zshfl(i) + SIGN(MIN(500._ireals,ABS(zlhfl(i))),zlhfl(i))
+          zthfl(i) = zshfl(i) + SIGN(MIN(zxx,ABS(zlhfl(i))),zlhfl(i))
         ELSE
-          zthfl(i) = zlhfl(i) + SIGN(MIN(500._ireals,ABS(zshfl(i))),zshfl(i))
+          zthfl(i) = zlhfl(i) + SIGN(MIN(zxx,ABS(zshfl(i))),zshfl(i))
         ENDIF
 
         IF (ABS(zthfl(i)) <= zepsi) zthfl(i)=SIGN(zepsi,zthfl(i))
-
-!   net radiative fluxes at surface
-        zradfl(i) = sobs(i)+thbs(i)
 
 !   unconstrained estimated energy budget of topmost soil layer
         zeb1(i) = zthfl(i)+zradfl(i)-zg1(i)
@@ -1826,14 +1836,12 @@ END SUBROUTINE message
 
         ztchv(i)    = tch(i)*zuv  ! transfer coefficient * velocity
 
-        IF ( inwp_turb /= iedmf ) THEN
           LIM: IF (ztchv(i) > ztchv_max(i)) THEN
             tch(i)=ztchv_max(i)/MAX(zuv,1.E-06_ireals)
 !           IF (ntstep > 10) THEN          ! control print only after initial adaptation
 !                                          ! to analysis state
             limit_tch(i) = .true.          ! set switch for later use
           END IF LIM
-        ENDIF
 
         ztmch(i) = tch(i)*zuv*g*zrho_atm(i)
 !     ENDIF
@@ -1843,28 +1851,20 @@ END SUBROUTINE message
   m_limit = COUNT( limit_tch(:) )
 
 
-! In debugging mode and if transfer coefficient occured for at least one grid point
-  IF (m_limit > 0 .AND. ldebug .AND. msg_level >= 20) THEN
+! In debugging mode and if transfer coefficient limiter occured for at least one grid point
+  IF (m_limit > 0 .AND. msg_level >= 20) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
            'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
            'max. temperature increment allowed per time step:',zlim_dtdt,' K',       &
            'upper soil model layer thickness                :', zdzhs(1)
-
-      DO i = istarts, iends
-#ifdef __ICON__
-      IF (limit_tch(i)) THEN
-        zuv        = SQRT (u(i)**2 + v(i)**2 )
-#else
-      im1 = MAX(1,i-1)
-      IF (limit_tch(i)) THEN
-        zuv        = 0.5_ireals*SQRT ( (u(i) + u(im1))**2 &
-                               +(v(i) + v(im1))**2 )
-#endif
-        yhc       ='COOLING'
-        IF (zeb1(i) > 0._ireals) Yhc='HEATING'
-        END IF
-      END DO
+     DO i = istarts, iends
+       IF ( limit_tch(i) ) THEN 
+         zuv        = SQRT ( u(i)**2 + v(i)**2 )
+         WRITE(*,*) 'TERRA flux limiter: TCH before and after, zshfl, zlhf, Tsfc, Tatm ', &
+                    ztchv(i)/zuv, tch(i), zshfl(i), zlhfl(i), t_g(i), t(i)
+       END IF
+     END DO
   ENDIF
 
 
@@ -2080,11 +2080,7 @@ END SUBROUTINE message
     z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
     z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
     z234iw      = z2iw*(b3 - z4iw)
-    IF (tsnred(i) >= 0._ireals) THEN
-      zqsnow    = zsf_qsat(zsf_psat_iw(ztsnow(i)-tsnred(i),z2iw,z4iw), ps(i))
-    ELSE
-      zqsnow    = zsf_qsat(zsf_psat_iw(MIN(t0_melt,ztsnow(i)),z2iw,z4iw), ps(i))
-    ENDIF
+    zqsnow    = zsf_qsat(zsf_psat_iw(ztsnow(i)-MAX(0._ireals,tsnred(i)),z2iw,z4iw), ps(i))
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
     IF (ABS(zdqsnow).LT.0.01_ireals*zepsi) zdqsnow = 0._ireals
@@ -2107,7 +2103,7 @@ END SUBROUTINE message
 !      IF (llandmask(i)) THEN          ! land-points only
         ! snow and water covered fraction
 !em        zrss = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i)/cf_snow) )
-        zzz  = MAX(0.25*cf_w,0.4*cwimax_ml*tai(i))
+        zzz  = MAX(0.25_ireals*cf_w,0.4_ireals*cwimax_ml*MAX(2.5_ireals*plcov(i),tai(i)))
         zrww = MAX( 0.01_ireals, 1.0_ireals -                           &
                                  EXP(MAX( -5.0_ireals, - zwin(i)/zzz) ) )
 !em        zf_snow(i) = zrss*zsf_heav(zwsnow(i) - zepsi)
@@ -2444,19 +2440,22 @@ END SUBROUTINE message
               zuv        = SQRT (u(i) **2 + v(i)**2 )
               zcatm      = tch(i)*zuv           ! Function CA
 
-              IF(icant == 1) THEN !additional laminar canopy resistance in case of Louis-transfer-scheme
-                zustar     = zuv*SQRT(tcm(i))
-                zrla       = 1.0_ireals/MAX(cdash*SQRT(zustar),zepsi)
-              ELSE !in case of Raschendorfer-transfer-scheme a laminar canopy resistance is already considered
-                zrla       = 0._ireals
-              ENDIF
+              SELECT CASE ( icant )
+                CASE (1)   ! Louis-transfer-scheme: additional laminar canopy resistance
+                  zustar = zuv*SQRT(tcm(i))
+                  zrla   = 1.0_ireals/MAX(cdash*SQRT(zustar),zepsi)
+                CASE (2)   ! Raschendorfer transfer scheme: laminar canopy resistance already considered
+                  zrla   = 0._ireals
+                CASE (3)   ! EDMF: additional laminar canopy resistance
+                  zrla   = 1.0_ireals/MAX(tch(i)*zuv,zepsi)
+              END SELECT
 
               ! to compute CV, first the stomatal resistance has to be determined
               ! this requires the determination of the F-functions:
               ! Radiation function
               IF (itype_trvg == 3) THEN
                 ! modification depending on accumulated plant evaporation in order to reduce evaporation in the evening
-                zxx      = 0.75_ireals*ABS(plevap(i))/MAX(0.2_ireals,plcov(i))
+                zxx      = 0.75_ireals*MAX(zepsi,ABS(plevap(i)))/MAX(0.2_ireals,plcov(i))
                 zzz      = MIN(3._ireals,MAX(1._ireals,zxx))
                 ! stronger limitation for non-forest vegetation classes
                 IF (z0(i) <= 0.4_ireals) zzz = MIN(2._ireals, zzz)
@@ -2503,10 +2502,7 @@ END SUBROUTINE message
                 IF (itype_trvg == 3) THEN
                   ! Modification of rsmin depending on accumulated plant evaporation; the z0 dependency
                   ! is used to get a stronger effect for trees than for low vegetation
-                  IF (z0(i) <= 0.4_ireals) zxx = MIN(1.25_ireals, zxx)
-                  zzz = MAX(0.5_ireals, EXP(SQRT(z0(i))*LOG(zxx)) )
-                  ! limit reduction of rsmin-factor below 1 at low temperatures
-                  zzz = MAX(zzz, MIN(1._ireals,(t0_melt+15._ireals-t(i))/15._ireals))
+                  zzz = MAX(0.5_ireals+MIN(0.5_ireals,1._ireals-laifac(i)), EXP(SQRT(z0(i))*LOG(zxx)) )
                 ELSE
                   zzz = 1._ireals
                 ENDIF
@@ -2610,7 +2606,10 @@ ELSE          IF (itype_interception == 2) THEN
       zdwsndt(i) = zdwsndt(i)*zzz
       zdwidt(i)  = zdwidt(i) *zzz
       zesoil(i)  = zesoil(i) *zzz
+      lhfl_bs(i) = lhfl_bs(i)*zzz
       ztrangs(i) = ztrangs(i)*zzz
+      ztrang(i,:)  = ztrang(i,:)*zzz
+      lhfl_pl(i,:) = lhfl_pl(i,:)*zzz
     ENDIF
     IF (itype_trvg == 3) THEN
       ! accumulated plant evaporation since sunrise; an offset is subtracted to parameterize the
@@ -2620,12 +2619,17 @@ ELSE          IF (itype_interception == 2) THEN
       plevap(i) = MAX(-6._ireals, MIN(0._ireals, plevap(i) + zzz*dt/lh_v *           &
                  (SUM(lhfl_pl(i,1:ke_soil_hy))+MAX(0.2_ireals,plcov(i))*75._ireals) ))
     ENDIF
-    ! Negative values of tsnred indicate that snow is present on the corresponding snow tile;
-    ! in this case, bare soil evaporation is limited to potential evaporation at the freezing level.
-    ! A linear transition is applied between 0 and 5 cm of snow.
-    IF (tsnred(i) < 0._ireals .AND. zesoil(i) < 0._ireals .AND. zesoil(i) < zep_snow(i)) THEN
-      zzz = MAX(0._ireals,zep_snow(i)/zesoil(i))*ABS(tsnred(i)) + (1._ireals-ABS(tsnred(i)))
-      zesoil(i)  = zesoil(i) *zzz
+    ! Negative values of tsnred indicate that snow is present on the corresponding snow tile
+    ! and that the snow-free tile has been artificially generated by the melting-rate parameterization
+    ! in this case, bare soil evaporation and, in the case of a long-lasting snow cover, plant evaporation, are turned off.
+    IF (tsnred(i) < 0._ireals .AND. zep_s(i) < 0._ireals) THEN
+      zzz = MAX(0._ireals,1._ireals-ABS(tsnred(i)))
+      zxx = MIN(1._ireals,MAX(0._ireals,2._ireals-ABS(tsnred(i))))
+      zesoil(i)  = zzz*zesoil(i)
+      lhfl_bs(i) = zzz*lhfl_bs(i)
+      ztrang(i,:)  = zxx*ztrang(i,:)
+      ztrangs(i)   = zxx*ztrangs(i)
+      lhfl_pl(i,:) = zxx*lhfl_pl(i,:)
     ENDIF
   ENDDO
 
@@ -2790,7 +2794,8 @@ ELSE          IF (itype_interception == 2) THEN
         zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
         zwinstr(i) = MAX(0.0_ireals,zwinstr(i))
 
-        zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, tai(i))
+        zwimax(i) = cwimax_ml*(1._ireals+ztfunc(i))*MAX(ztfunc(i), zepsi, MAX(2.5_ireals*plcov(i),tai(i)))
+
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr(i)/zwimax(i)))
 
         ! water supply from interception store (if Ts above freezing)
@@ -3518,19 +3523,6 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-!!$IF (msg_level >= 14) THEN
-!!$  DO i = istarts, iends
-!!$  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-!!$    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. &
-!!$         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
-!!$      write(*,*) 'hello mo_soil_ml 1: ', zshfl_s(i),cp_d, zrhoch(i),zth_low(i),zts(i), &
-!!$        '  ......  ', zlhfl_s(i),zts_pm(i),lh_v,          lh_s,zverbo(i),zf_snow(i), &
-!!$        '  ......  ', tch(i), tcm(i)
-!!$    ENDIF
-!!$  ENDIF
-!!$  END DO
-!!$ENDIF
-
     DO ksn = 1,ke_snow
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN          ! land-points only
@@ -3793,21 +3785,7 @@ ELSE   IF (itype_interception == 2) THEN
 !      END IF          ! land-points only
     END DO
 
-IF (msg_level >= 20) THEN
-  DO i = istarts, iends
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_s(i) )  >  500.0_ireals  .OR. &
-         ABS( zlhfl_s(i) )  > 2000.0_ireals ) THEN
-      write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
-        '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
-        '  ...CH,CM...  ', tch(i), tcm(i)
-    ENDIF
-  ENDIF
-  END DO
-ENDIF
-
   ENDIF ! lmulti_snow
-
 
 
 !------------------------------------------------------------------------------
@@ -4178,15 +4156,17 @@ ENDIF
                 IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
                   ! melting point adjustment (time scale 30 min)
                   zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
-                ELSE IF (zdelwice < 0.0_ireals) THEN
+                ELSE IF (zdelwice < 0.0_ireals) THEN ! this branch contains cases of melting and freezing
                   zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
                   ! limit latent heat consumption due to melting to half the temperature increase since last time step
-                  ! or 2.5 K within 30 min
+                  ! or 2.5 K within 30 min; the freezing rate is limited below
                   zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
                 ELSE
                   zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
-                  ! limit latent heat release due to freezing to half the differene from the melting point
-                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
+                ENDIF
+                IF (zdelwice > 0._ireals) THEN
+                  ! limit latent heat release due to freezing to half the difference from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*MAX(0._ireals,(t0_melt-t_so_new(i,kso)))*zfak)
                 ENDIF
                 w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
                 t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
@@ -4247,14 +4227,19 @@ ENDIF
 
 IF (msg_level >= 20) THEN
   DO i = istarts, iends
-  IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0_ireals  .OR. &
-         ABS( zlhfl_snow(i) )  > 2000.0_ireals ) THEN
-      write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
-        zth_low(i), ztsnow(i), '....', &
-        zwsnow(i), zrr(i), zrs(i), zdwsndt(i)
+!   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
+    IF ( ABS( zshfl_s(i)    * (1._ireals-zf_snow(i)) )  >  700.0_ireals  .OR. &
+         ABS( zlhfl_s(i)    * (1._ireals-zf_snow(i)) )  > 2000.0_ireals  ) THEN
+      write(*,*) 'soil soil: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
+        '  ...LHF...  ',        zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
+        '  ...CH,CM...  ', tch(i), tcm(i)
     ENDIF
-  ENDIF
+    IF ( ABS( zshfl_snow(i) *            zf_snow(i)  )  >  700.0_ireals  .OR. &
+         ABS( zlhfl_snow(i) *            zf_snow(i)  )  > 2000.0_ireals  ) THEN
+      write(*,*) 'soil snow: shf lhf ... Tatm Tsnow ', zshfl_snow(i), zlhfl_snow(i), '....', &
+        zth_low(i), ztsnow(i), '....', zwsnow(i), zrr(i), zrs(i), zdwsndt(i)
+    ENDIF
+!   ENDIF
   END DO
 ENDIF
 
@@ -4951,17 +4936,27 @@ ENDIF
          zzz       = (t_snow_new(i)-csnow_tmin)/(t0_melt-csnow_tmin)
          ztau_snow = crhosmint+(crhosmaxt-crhosmint)*zzz
          ztau_snow = MAX(0.05_ireals,MIN(crhosmaxt,ztau_snow)) ! use 20 days in combination with temperature-dependent equilibrium density
-         zrhosmax  = crhosmax_tmin+MAX(0._ireals,zzz)*(crhosmax_ml-crhosmax_tmin)
+         zrhosmax  = crhosmax_tmin+MAX(-0.25_ireals,zzz)*(crhosmax_ml-crhosmax_tmin)
          zrho_snowe= MAX(rho_snow_now(i),zrhosmax+(rho_snow_now(i)-zrhosmax)* &
                      EXP(-ztau_snow*zdt/86400._ireals) )
 !
 !     b) density of fresh snow
 !
-         zrho_snowf= crhosminf+(crhosmaxf-crhosminf)* (zth_low(i)-csnow_tmin) &
-                                                     /(t0_melt   -csnow_tmin)
+         zrho_snowf= crhosminf+(crhosmaxf-crhosminf)* ((zth_low(i)-csnow_tmin)/(t0_melt-csnow_tmin))**2
          zrho_snowf= MAX(crhosminf,MIN(crhosmaxf,zrho_snowf))
+
+         zrho_grauf= crhogminf+(crhogmaxf-crhogminf)* ((zth_low(i)-csnow_tmin)/(t0_melt-csnow_tmin))**2
+         zrho_grauf= MAX(crhogminf,MIN(crhogmaxf,zrho_grauf))
+
+         ! graupel fraction
+         IF ( nclass_gscp >= 6 ) THEN
+           zgrfrac = (prg_gsp(i)+prs_con(i)) / MAX(zepsi,prs_gsp(i)+prs_con(i)+prg_gsp(i))
+         ELSE
+           zgrfrac = prs_con(i) / MAX(zepsi,prs_gsp(i)+prs_con(i))
+         ENDIF
+
 !
-!     c) new snow density is computed by adding depths of exisiting and new snow
+!     c) new snow density is computed by adding depths of existing and new snow
 !
          IF ( nclass_gscp >= 6 ) THEN
            zzz = (prs_gsp(i)+prs_con(i)+prg_gsp(i))*zdtdrhw
@@ -5002,8 +4997,12 @@ ENDIF
            zzz = zxx
            w_snow_new(i) = MIN(w_snow_new(i),w_snow_now(i)+zzz)
          ENDIF
-         rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
-          ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
+         IF (soiltyp_subs(i) /= 1) THEN
+           rho_snow_new(i)  = (w_snow_now(i)+zzz) / &
+            ( MAX(w_snow_now(i),zepsi)/zrho_snowe + zzz/( (1._ireals-zgrfrac)*zrho_snowf + zgrfrac*zrho_grauf) )
+         ELSE ! constant snow density over glaciers
+           rho_snow_new(i) = rho_snow_now(i)
+         ENDIF
 
     ! previous code based on weighted averaging of rho_snow
     !       znorm=MAX(w_snow_now(i)+(prs_gsp(i)+prs_con(i)+prg_gsp(i))      &
@@ -5230,8 +5229,10 @@ ENDIF
 !       i=melt_list(ic)
       DO i = istarts, iends
 
-        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals .OR. &
-            t_snow_new(i) < 190._ireals .OR. t_s_now(i) < 200._ireals .OR. t_s_new(i) < 200._ireals) THEN
+        IF (ABS(t_s_now(i)-t_s_new(i)) > 25._ireals) THEN
+
+!        IF (t_snow_new(i) > 355._ireals .OR. t_s_now(i) > 355._ireals .OR. t_s_new(i) > 355._ireals .OR. &
+!            t_snow_new(i) < 190._ireals .OR. t_s_now(i) < 200._ireals .OR. t_s_new(i) < 200._ireals) THEN
 
 !        IF ((t_snow_new(i) > t0_melt .AND. w_snow_new(i) > zepsi).OR.&
 !   (w_snow_new(i) <= zepsi .OR. w_snow_new(i) > zepsi .AND. t_s_new(i) > t0_melt+15.0_ireals .AND. &
@@ -5253,6 +5254,7 @@ ENDIF
               write(0,*) "t_so_new",i,t_so_new(i,:)
               write(0,*) "w_so_now",i,w_so_now(i,:)
               write(0,*) "w_so_new",i,w_so_new(i,:)
+              write(0,*) "zf_snow,sn_frac",i,zf_snow(i),sn_frac(i)
               IF (lmulti_snow) THEN
                 write(0,*) "t_snow_mult",i,t_snow_mult_now(i,:),t_snow_mult_new(i,:)
                 write(0,*) "t_snow_mult_now",i,t_snow_mult_now(i,0),t_snow_mult_now(i,1),t_snow_mult_now(i,2)

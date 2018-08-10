@@ -63,7 +63,8 @@ CONTAINS
     TYPE(t_stream_id)                 :: stream_id
     CHARACTER(len=4)                  :: cyear
     CHARACTER(len=2)                  :: cjg
-    CHARACTER(len=25)                 :: subprog_name
+    CHARACTER(len=*), PARAMETER       :: subprog_name &
+         = 'mo_bc_ozone:read_bc_ozone'
     INTEGER                           :: ncid, varid, mpi_comm, jg, jk
     INTEGER                           :: nplev_o3
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)           ! (nproma, levels, blocks, time)
@@ -257,14 +258,9 @@ CONTAINS
         ALLOCATE(ext_ozone(jg)% plev_full_o3(nplev_o3  ))
         ALLOCATE(ext_ozone(jg)% plev_half_o3(nplev_o3+1))
 
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test
-        ELSE
-          mpi_comm = p_comm_work
-        ENDIF
+        mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
         IF(my_process_is_stdio()) THEN
-          subprog_name='mo_bc_ozone:read_bc_ozone'
           CALL nf(nf_open(TRIM(fname), NF_NOWRITE, ncid), subprog_name)
           CALL nf(nf_inq_varid(ncid, 'plev', varid), subprog_name)
           CALL nf(nf_get_var_double(ncid, varid, ext_ozone(jg)% plev_full_o3), subprog_name)

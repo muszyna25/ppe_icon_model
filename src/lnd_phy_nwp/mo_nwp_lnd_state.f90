@@ -59,7 +59,9 @@ MODULE mo_nwp_lnd_state
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
-    &                                itype_interception, l2lay_rho_snow, itype_trvg
+    &                                itype_interception, l2lay_rho_snow, itype_trvg, &
+    &                                itype_snowevap
+  USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_linked_list,          ONLY: t_var_list
@@ -68,9 +70,10 @@ MODULE mo_nwp_lnd_state
     &                                new_var_list,               &
     &                                delete_var_list,            &
     &                                get_timelevel_string
+  USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
-    &                                groups, post_op
+    &                                post_op
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &
@@ -80,7 +83,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
-    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
+    &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
 
 
 
@@ -1197,6 +1200,10 @@ MODULE mo_nwp_lnd_state
     &       p_diag_lnd%snowfrac, &
     &       p_diag_lnd%snowfrac_t, &
     &       p_diag_lnd%snowfrac_lc_t, &
+    &       p_diag_lnd%snowfrac_lcu_t, &
+    &       p_diag_lnd%t2m_bias, &
+    &       p_diag_lnd%hsnow_max, &
+    &       p_diag_lnd%snow_age, &
     &       p_diag_lnd%t_snow_mult, &
     &       p_diag_lnd%rho_snow_mult, &
     &       p_diag_lnd%wliq_snow, &
@@ -1328,7 +1335,35 @@ MODULE mo_nwp_lnd_state
 
     END IF  ! itype_interception == 2
 
+! ** attention: GRIB encoding for this variable still needs to be defined/corrected **
+    IF (itype_vegetation_cycle == 3) THEN
+      !  Filtered T2M bias
+      cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
+      grib2_desc = grib2_var(0, 0, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 't2m_bias', p_diag_lnd%t2m_bias,                       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+        &           ldims=shape2d, lrestart=.true.,                                   &
+        &           in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in") )
+    ENDIF
 
+    IF (itype_snowevap == 3) THEN
+      ! maximum snow depth reached within current snow-cover period
+      cf_desc    = t_cf_var('hsnow_max', 'm', 'maximum snow depth', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 235, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'hsnow_max', p_diag_lnd%hsnow_max,                &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+             & ldims=shape2d, lrestart=.TRUE.,                                   &
+             & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in") )
+
+      ! duration of current snow-cover peiod
+      cf_desc    = t_cf_var('snow_age', 'd', 'duration of snow cover', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 17, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'snow_age', p_diag_lnd%snow_age,                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+             & ldims=shape2d, lrestart=.TRUE.,                                   &
+             & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in") )
+
+    ENDIF
 
     ! & p_diag_lnd%t_so(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)', &
@@ -1479,8 +1514,8 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
-           & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in"),  &
-           & lrestart=.FALSE., loutput=.TRUE. )
+           & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in",   &
+           & "mode_dwd_fg_in"), lrestart=.FALSE., loutput=.TRUE. )
 
       ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &
@@ -1638,6 +1673,8 @@ MODULE mo_nwp_lnd_state
            & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
 
 
+    ! local snow-cover referring to a tile; zero on snow-free tiles, one (except for very low snow depths) on snow-tile
+    !
     ! & p_diag_lnd%snowfrac_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('snowfrac_t', '1 ', 'local tile-based snow-cover fraction', datatype_flt)
     new_cf_desc= t_cf_var('snowfrac_t', '% ', 'local tile-based snow-cover fraction', DATATYPE_FLT32)
@@ -1664,6 +1701,9 @@ MODULE mo_nwp_lnd_state
     END DO
 
 
+    ! snow-cover fraction referring to a landuse tile of a grid point; has the same value on a snow tile
+    ! and the corresponding snow-free tile
+    !
     ! & p_diag_lnd%snowfrac_lc_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('snowfrac_lc_t', '1 ', 'tile-based snow-cover fraction', datatype_flt)
     new_cf_desc= t_cf_var('snowfrac_lc_t', '% ', 'tile-based snow-cover fraction', DATATYPE_FLT32)
@@ -1686,6 +1726,32 @@ MODULE mo_nwp_lnd_state
                & var_class=CLASS_TILE_LAND, ldims=shape2d,                     &
                & in_group=groups("land_tile_vars", "dwd_fg_sfc_vars_t"),       &
                & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
+    END DO
+
+
+    ! same as snowfrac_lc_t if no melting occurs on a given grid point; in the case of melting snow,
+    ! this quantity carries the unmodifed snow-cover fraction diagnosed from the snow depth, whereas
+    ! snowfrac_lc_t carries an artificially reduced snow-cover fraction
+    !
+    ! & p_diag_lnd%snowfrac_lcu_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('snowfrac_lcu_t', '1 ', 'tile-based snow-cover fraction', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'snowfrac_lcu_t', p_diag_lnd%snowfrac_lcu_t, &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
+    ! fill the separate variables belonging to the container snowfrac
+    ALLOCATE(p_diag_lnd%snowfrac_lcu_ptr(ntiles_total))
+    DO jsfc = 1,ntiles_total
+      NULLIFY(p_diag_lnd%snowfrac_lcu_ptr(jsfc)%p_2d, p_diag_lnd%snowfrac_lcu_ptr(jsfc)%p_3d)
+      WRITE(csfc,'(i2)') jsfc 
+      CALL add_ref( diag_list, vname_prefix//'snowfrac_lcu_t',                 &
+               & vname_prefix//'snowfrac_lcu_t_'//ADJUSTL(TRIM(csfc)),         &
+               & p_diag_lnd%snowfrac_lc_ptr(jsfc)%p_2d,                        &
+               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+               & t_cf_var('snowfrac_lcu_t_'//csfc, '', '', datatype_flt),      &
+               & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+               & var_class=CLASS_TILE_LAND, ldims=shape2d, lrestart=.TRUE. )
     END DO
 
 

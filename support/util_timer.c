@@ -80,6 +80,14 @@ double cf_util_walltime(void)
   return (time_in_secs);
 }
 
+double
+util_gettimeofday(void)
+{
+  struct timeval tbuf;
+  if (gettimeofday(&tbuf,NULL) == -1) perror("util_gettimeofday");
+  return (double)tbuf.tv_sec + tbuf.tv_usec * (1.0 / 1000000.0);
+}
+
 /****************************************************************************/
 
 #ifdef _AIX

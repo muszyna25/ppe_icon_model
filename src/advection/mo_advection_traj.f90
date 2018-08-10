@@ -122,8 +122,6 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: construct'
@@ -140,10 +138,7 @@ CONTAINS
     ENDIF
 
 #if _OPENACC
-    p_cell_idx =>  obj%cell_idx
-    p_cell_blk =>  obj%cell_blk
-    p_distv_bary => obj%distv_bary
-!$ACC ENTER DATA CREATE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+!!!!  !$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
 #endif
 
   END SUBROUTINE construct
@@ -164,17 +159,12 @@ CONTAINS
     !
     ! local
     INTEGER :: ist
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
 
 #if _OPENACC
-    p_cell_idx =>  obj%cell_idx
-    p_cell_blk =>  obj%cell_blk
-    p_distv_bary => obj%distv_bary
-!$ACC EXIT DATA DELETE( p_cell_idx, p_cell_blk, p_distv_bary ), IF (i_am_accel_node .AND. acc_on)
+!!!! !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
 #endif
 
     IF (ASSOCIATED(obj%cell_idx)) THEN
@@ -298,24 +288,23 @@ CONTAINS
     p_cell_idx   => btraj%cell_idx
     p_cell_blk   => btraj%cell_blk
     p_distv_bary => btraj%distv_bary
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ),  IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+#endif
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary_1,z_ntdistv_bary_2,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           !
@@ -373,15 +362,14 @@ CONTAINS
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
-    END DO    ! loop over blocks
-#ifdef _OPENACC
 !$ACC END PARALLEL
+    END DO    ! loop over blocks
+
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
     IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
@@ -493,7 +481,7 @@ CONTAINS
          &  pos_on_tplane_e(nproma,2)        !< on the sign of vn
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
-         &  pn_cell(2), dn_cell(2)    !< in the direction of vn
+         &  pn_cell_1, pn_cell_2, dn_cell_1, dn_cell_2    !< in the direction of vn
 
     REAL(wp) ::            &       !< edge vertices
          &  edge_verts(nproma,2,2)
@@ -552,22 +540,15 @@ CONTAINS
     i_endblk   = ptr_p%edges%end_block(i_rlend)
 
 
-#ifdef _OPENACC
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_coords_dreg_v, p_cell_idx, p_cell_blk ),  &
-!$ACC      CREATE(  edge_verts,lvn_sys_pos,depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), IF( i_am_accel_node .AND. acc_on )
-!$ACC  UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_coords_dreg_v, p_cell_idx, p_cell_blk ), &
-!$ACC PRIVATE( edge_verts, lvn_sys_pos, depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC      CREATE(  edge_verts,lvn_sys_pos,depart_pts,pos_dreg_vert_c,pos_on_tplane_e ), &
+!$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx,traj_length,e2c_length, &
-!$OMP depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,&
+!$OMP depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell_1,pn_cell_2,dn_cell_1,dn_cell_2,lvn_pos,&
 !$OMP lvn_sys_pos,edge_verts,ie_capture) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -575,29 +556,45 @@ CONTAINS
 
 
       ! get local copy of edge vertices
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR
       DO je = i_startidx, i_endidx
         edge_verts(je,1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
       ENDDO
+!$ACC END PARALLEL
 
       ! logical switch for merge options regarding the counterclockwise numbering
       IF (lcounterclock) THEN
-!$ACC LOOP VECTOR COLLAPSE(2)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
             lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%tangent_orientation(je,jb) >= 0._wp
           ENDDO
         ENDDO
+!$ACC END PARALLEL
       ELSE
-        lvn_sys_pos(i_startidx:i_endidx,slev:elev) = .FALSE.
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
+        DO jk = slev, elev
+          !$ACC LOOP VECTOR
+          DO je = i_startidx, i_endidx
+            lvn_sys_pos(je,jk) = .FALSE.
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
       ENDIF
 
       ! generate list of points that require special treatment
       !
       IF (llist_gen) THEN
         ie = 0
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
             ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
             lvn_pos     = p_vn(je,jk,jb) >= 0._wp
@@ -621,14 +618,18 @@ CONTAINS
             ENDIF
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
         ! store list dimension
         opt_falist%len(jb) = ie
       ENDIF
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( depart_pts, pos_dreg_vert_c, pos_on_tplane_e ), &
+
       DO jk = slev, elev
 !DIR$ IVDEP
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
 
@@ -731,38 +732,36 @@ CONTAINS
           ! North.
           !
           ! Determine primal and dual normals of the cell lying in the direction of vn
-          pn_cell(1) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
+          pn_cell_1 = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
                &             ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
 
-          pn_cell(2) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
+          pn_cell_2 = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
                &             ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
 
-          dn_cell(1) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,       &
+          dn_cell_1 = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,       &
                &             ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
-          dn_cell(2) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,       &
+          dn_cell_2 = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,       &
                &             ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
           ! components in longitudinal direction
           p_coords_dreg_v(je,1:4,1,jk,jb) =                                         &
-               & pos_dreg_vert_c(je,1:4,1) * pn_cell(1) + pos_dreg_vert_c(je,1:4,2) * dn_cell(1)
+               & pos_dreg_vert_c(je,1:4,1) * pn_cell_1 + pos_dreg_vert_c(je,1:4,2) * dn_cell_1
 
           ! components in latitudinal direction
           p_coords_dreg_v(je,1:4,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(je,1:4,1) * pn_cell(2) + pos_dreg_vert_c(je,1:4,2) * dn_cell(2)
+               & pos_dreg_vert_c(je,1:4,1) * pn_cell_2 + pos_dreg_vert_c(je,1:4,2) * dn_cell_2
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
     END DO    ! loop over blocks
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_coords_dreg_v ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
     IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
@@ -908,30 +907,28 @@ CONTAINS
     p_cell_idx   => btraj%cell_idx
     p_cell_blk   => btraj%cell_blk
     p_distv_bary => btraj%distv_bary
+#endif
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC CREATE( z_vn_plane ),   IF( i_am_accel_node .AND. acc_on )
+!$ACC CREATE( z_vn_plane ), PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
-          DO jk = slev, elev
-            DO je = i_startidx, i_endidx
+      DO jk = slev, elev
+        !$ACC LOOP VECTOR
+        DO je = i_startidx, i_endidx
 #endif
 
               z_vn_plane(je,jk,jb,1) =                                                         &
@@ -980,27 +977,22 @@ CONTAINS
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
-        END DO    ! loop over blocks
-#ifdef _OPENACC
 !$ACC END PARALLEL
-
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+        END DO    ! loop over blocks
 !$OMP END DO
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter_1, pos_barycenter_2,zcell,w1,w2,w3, &
 !$OMP            vn_new,vt_new,z_ntdistv_bary_1,z_ntdistv_bary_2) ICON_OMP_DEFAULT_SCHEDULE
-#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+          !$ACC LOOP GANG
           DO jk = slev, elev
+            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
 
 
@@ -1112,16 +1104,14 @@ CONTAINS
 
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
-        END DO    ! loop over blocks
-
-#ifdef _OPENACC
 !$ACC END PARALLEL
+        ENDDO    ! loop over blocks
+
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
       END SUBROUTINE btraj_compute_o2
 

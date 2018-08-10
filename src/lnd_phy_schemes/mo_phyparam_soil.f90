@@ -255,6 +255,8 @@ IMPLICIT NONE
     crhosmax_tmin= 200.00_ireals,&!  maximum density of snow at csnow_tmin
     crhosminf  =  50.00_ireals, & !  minimum density of fresh snow
     crhosmaxf  = 150.00_ireals, & !  maximum density of fresh snow
+    crhogminf  = 100.00_ireals, & !  minimum density of fresh graupel / convective snow
+    crhogmaxf  = 200.00_ireals, & !  maximum density of fresh graupel / convective snow
     crhosmint  =   0.125_ireals,& !  value of time constant for ageing 
                                   !  of snow at csnow_tmin (8 days)
     crhosmaxt  =   0.40_ireals, & !  maximum value of time constant for ageing 

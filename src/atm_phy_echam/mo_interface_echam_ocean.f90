@@ -473,7 +473,7 @@ CONTAINS
 
     ! Arguments
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT)    :: p_patch
 
     ! Local variables
 

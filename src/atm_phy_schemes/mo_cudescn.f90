@@ -45,7 +45,7 @@ MODULE mo_cudescn
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc, rg ,rcpd     ,retv,&
     &                        rlvtt    ,rlstt    , &
     &                        entrdd   ,rmfcmin,       &
-    &                        rmfdeps  ,lmfdd,         &
+    &                        rmfdeps  ,rmfdeps_ocean, lmfdd,   &
     &                        lhook,   dr_hook
   
   IMPLICIT NONE
@@ -66,7 +66,7 @@ CONTAINS
     & pmfub,    prfl,&
     & ptd,      pqd,&
     & pmfd,     pmfds,    pmfdq,    pdmfdp,&
-    & kdtop,    lddraf)
+    & kdtop,    lddraf, ldland,   ldlake)
     !!
     !! Description:
     !!          THIS ROUTINE CALCULATES LEVEL OF FREE SINKING FOR
@@ -197,6 +197,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdq(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdmfdp(klon,klev)
     INTEGER(KIND=jpim),INTENT(out)   :: kdtop(klon)
+    LOGICAL ,INTENT(in)              :: ldland(klon),   ldlake(klon)
     LOGICAL ,INTENT(out)   :: lddraf(klon)
     INTEGER(KIND=jpim) ::            ikhsmin(klon)
     REAL(KIND=jprb) ::     ztenwb(klon,klev),      zqenwb(klon,klev),&
@@ -327,7 +328,7 @@ CONTAINS
             zbuo=zttest*(1.0_JPRB+retv  *zqtest)-&
               & ptenh(jl,jk)*(1.0_JPRB+retv  *pqenh(jl,jk))
             zcond(jl)=pqenh(jl,jk)-zqenwb(jl,jk)
-            zmftop=-rmfdeps*pmfub(jl)
+            zmftop=-MERGE(rmfdeps,rmfdeps_ocean,ldland(jl).OR.ldlake(jl))*pmfub(jl)
             IF(zbuo < 0.0_JPRB.AND.prfl(jl) > 10._jprb*zmftop*zcond(jl)) THEN
               kdtop(jl)=jk
               lddraf(jl)=.TRUE.

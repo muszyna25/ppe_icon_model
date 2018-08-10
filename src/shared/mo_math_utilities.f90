@@ -83,16 +83,13 @@ MODULE mo_math_utilities
   USE mo_impl_constants,      ONLY: SUCCESS, TORUS_MAX_LAT
   USE mo_exception,           ONLY: finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
-  USE mo_math_types
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
+    &                               t_line, t_tangent_vectors
   USE mo_util_sort,           ONLY: quicksort
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: t_cartesian_coordinates
-  PUBLIC :: t_geographical_coordinates
-  PUBLIC :: t_line
-  PUBLIC :: t_tangent_vectors
 
   PUBLIC :: cc2gc
   PUBLIC :: gc2cc

@@ -24,7 +24,7 @@ MODULE mo_testbed_ocean_performance
 
   ! USE mo_icon_testbed_config, ONLY: testbed_iterations
 
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea
   USE mo_math_constants,            ONLY: pi
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &

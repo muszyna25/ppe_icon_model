@@ -95,9 +95,8 @@ MODULE mo_hierarchy_management
   USE mtime,                  ONLY: datetime, timeDelta, MAX_DATETIME_STR_LEN, &
     &                               newTimeDelta, newDatetime, OPERATOR(*),    &
     &                               OPERATOR(+), deallocateDatetime,           &
-    &                               deallocateTimedelta, datetimeToString,     &
-    &                               getTimedeltaFromDatetime,                  &
-    &                               getTotalMillisecondsTimedelta
+    &                               deallocateTimedelta, datetimeToString
+  USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
@@ -145,7 +144,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management:process_grid'
 
-    TYPE(t_patch),TARGET, INTENT(IN)           :: p_patch(n_dom)
+    TYPE(t_patch),TARGET, INTENT(INOUT)        :: p_patch(n_dom)
     TYPE(t_hydro_atm),  TARGET,INTENT(INOUT)   :: p_hydro_state(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN)        :: p_int_state(n_dom)
     TYPE(t_gridref_state),INTENT(INOUT)        :: p_grf_state(n_dom)
@@ -192,14 +191,10 @@ CONTAINS
     INTEGER :: ist
     INTEGER, EXTERNAL :: util_cputime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
-    TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds
-    time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
-    CALL deallocateTimedelta(time_diff)
+    sim_time = getElapsedSimTimeInSeconds(mtime_current, anchor_datetime=time_config%tc_startdate) 
 
     !---------------
 
@@ -1293,7 +1288,7 @@ CONTAINS
     ! Arguments
 
     INTEGER, INTENT(IN) :: ileapfrog_startup
-    TYPE(t_patch),TARGET, INTENT(IN)    ::  p_patch(n_dom)
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  p_patch(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN) ::  p_int_state(n_dom)
     TYPE(t_external_data), INTENT(INOUT)::  ext_data(n_dom)
 

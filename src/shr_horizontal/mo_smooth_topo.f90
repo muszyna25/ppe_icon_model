@@ -62,7 +62,7 @@ CONTAINS
   !!
   SUBROUTINE smooth_topo (p_patch, p_int, topography_c)
 
-    TYPE(t_patch)      , INTENT(IN)    :: p_patch
+    TYPE(t_patch)      , INTENT(INOUT) :: p_patch
     TYPE(t_int_state)  , INTENT(IN)    :: p_int
     REAL(wp)           , INTENT(INOUT) :: topography_c(:,:) ! original topography on input
                                                             ! smoothed one on output
@@ -322,7 +322,7 @@ CONTAINS
   !!
   SUBROUTINE smooth_topo_real_data (p_patch, p_int, fr_land, fr_lake, topography_c, sso_stdh)
 
-    TYPE(t_patch)      , INTENT(IN)    :: p_patch
+    TYPE(t_patch)      , INTENT(INOUT) :: p_patch
     TYPE(t_int_state)  , INTENT(IN)    :: p_int
     REAL(wp)           , INTENT(IN)    :: fr_land(:,:)
     REAL(wp)           , INTENT(IN)    :: fr_lake(:,:)

@@ -46,6 +46,7 @@ AC_DEFUN([ACX_FC_ATTRIBUTE_CONTIGUOUS],
       AC_COMPILE_IFELSE([      SUBROUTINE f(x)
       REAL, CONTIGUOUS, TARGET, INTENT(IN) :: x(:, :)
       REAL, CONTIGUOUS, POINTER :: p(:, :)
+      INTEGER :: i, j
       p => x
       DO j = 1, SIZE(p, 2)
       DO i = 1, SIZE(p, 1)

@@ -42,7 +42,6 @@ MODULE mo_impl_constants
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
@@ -607,6 +606,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW_RCF = 1
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
+
+  ! separator for varname and time level
+  CHARACTER(LEN=3), PARAMETER, PUBLIC :: TIMELEVEL_SUFFIX = '.TL'
 
   !-------------------------!
   !  RTTOV FIELD CATEGORIES !

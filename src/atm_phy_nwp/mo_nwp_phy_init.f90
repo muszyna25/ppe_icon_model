@@ -31,6 +31,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_state,      ONLY: nlev_o3, nmonths
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, vege_clim
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
@@ -46,6 +47,7 @@ MODULE mo_nwp_phy_init
     &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename, icpl_aero_conv, iprog_aero
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
@@ -105,9 +107,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_initicon_config,     ONLY: init_mode, lread_tke
 
-  USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_gfrcrit, tune_grcrit, tune_zceff_min, &
-    &                               tune_v0snow, tune_zvz0i
-  USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
+  USE mo_nwp_tuning_config,   ONLY: tune_zceff_min, tune_v0snow, tune_zvz0i, tune_icesedi_exp
   USE mo_cuparameters,        ONLY: sugwd
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
@@ -132,7 +132,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
                        &  p_prog_wtr_now, p_prog_wtr_new,      &
                        &  p_diag_lnd,                          &
                        &  ext_data, phy_params, ini_date, &
-                       &  lnest_start)
+                       &  lnest_start, lreset)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -146,7 +146,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
   TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
-  LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start
+  LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start, lreset
 
   INTEGER             :: jk, jk1
   REAL(wp)            :: rsltn   ! horizontal resolution
@@ -178,7 +178,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   LOGICAL :: lland, lglac, lshallow, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
-  LOGICAL :: linit_mode, lturb_init
+  LOGICAL :: linit_mode, lturb_init, lreset_mode
 
   INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -222,6 +222,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     lturb_init = .TRUE.
   ELSE
     linit_mode = .NOT. isRestart()
+  ENDIF
+
+  IF (PRESENT(lreset)) THEN
+    lreset_mode = lreset
+  ELSE
+    lreset_mode = .FALSE.
   ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -272,6 +278,20 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! for both restart and non-restart runs. Could not be included into
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
   CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
+
+
+  IF (.NOT. lreset_mode .AND. itype_vegetation_cycle >= 2) THEN
+    CALL vege_clim (p_patch, ext_data, p_diag_lnd)
+  ENDIF
+
+
+  ! Diagnose aggregated external parameter fields
+  ! (mainly for output purposes)
+  ! aggregated sai needed below for organize_turbdiff
+  ! This routine is called after init_sea_lists, since 
+  ! in order to have all tile-related index lists available.
+  !
+  CALL diagnose_ext_aggr (p_patch, ext_data)
 
 
   ! mask field to distinguish between tropics and extratropics (needed for some tuning measures)
@@ -577,7 +597,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     CALL gscp_set_coefficients(tune_zceff_min = tune_zceff_min,               &
       &                        tune_v0snow    = tune_v0snow,                  &
       &                        tune_zvz0i     = tune_zvz0i,                   &
-      &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain )
+      &                      tune_icesedi_exp = tune_icesedi_exp,             &
+      &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
+      &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
@@ -1131,7 +1153,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
     IF (linit_mode) THEN
       CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
-        &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
+        &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag, prm_diag)
     ELSE
       IF ( lsnowtile ) THEN ! restart mode with snowtiles
         CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
@@ -1152,7 +1174,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
+  IF ( ANY( (/icosmo,igme,ismag,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
 
 
     ! gz0 is initialized if we do not start from an own first guess
@@ -1229,7 +1251,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ENDIF
 
-  IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+  IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
     ! allocate and init implicit weights for tridiagonal solver
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
@@ -1257,7 +1279,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! Initialize turbulence models
   !
-  IF ( (atm_phy_nwp_config(jg)%inwp_turb == icosmo) .AND. linit_mode ) THEN
+  IF ( ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) ) .AND. linit_mode ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
@@ -1342,9 +1364,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
         &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
 
+      IF ( iedmf /= atm_phy_nwp_config(jg)%inwp_turb )  THEN
 
       ! turbdiff
-      CALL organize_turbdiff( &
+        CALL organize_turbdiff( &
         &  iini=1, lturatm=.TRUE. , ltursrf=.FALSE., lstfnct=.TRUE. ,         & !atmosph. turbulence and vertical diffusion
         &          lnsfdia=.FALSE., ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !but no surface-layer turbulence (turbtran)
         &  itnd=0, lum_dif=.TRUE. , lvm_dif=.TRUE. , lscadif=.TRUE. ,         & !and thus (implicitly) neither surface-layer diagn.
@@ -1381,6 +1404,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
+      END IF
+
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
         prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
@@ -1406,6 +1431,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         p_prog_now%tke(i_startidx:i_endidx,jk,jb)= 0.5_wp                        &
           &                                * (p_prog_now%tke(i_startidx:i_endidx,jk,jb))**2
       ENDDO
+
     ENDDO  ! jb
 !$OMP END DO
 
@@ -1456,7 +1482,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       !Default: Already set above
     END IF
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN  !EDMF DUALM
+  END IF
+ 
+  IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf .AND. linit_mode ) THEN  !EDMF DUALM
+
     CALL suct0
     CALL su0phy
     CALL susekf
@@ -1482,15 +1511,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! SSO scheme
   !
-  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_sso )
-  CASE ( 1 )                                ! COSMO SSO scheme
-    IF (jg == 1) CALL sso_cosmo_init_param(tune_gkwake=tune_gkwake, tune_gkdrag=tune_gkdrag, &
-                                           tune_gfrcrit=tune_gfrcrit, tune_grcrit=tune_grcrit)
-    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
-  CASE ( 2 )                                ! IFS SSO scheme
-    CALL sugwd(nlev, pref, phy_params )
-    IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
-  END SELECT
+  CALL sugwd(nlev, pref, phy_params, jg )
+  IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
 
 
 END SUBROUTINE init_nwp_phy

@@ -25,9 +25,9 @@ MODULE mo_vdfhghtn
 CONTAINS
 
 !! !OPTIONS XOPT(HSFUN)
-SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , KSTEP    , &
-                   & PUM1    , PVM1    , PTM1    , PQM1   , PLM1    , PIM1   , PAM1     , &
-                   & PAPHM1  , PAPM1   , PGEOM1  , PGEOH  , PVERVEL , PQE    , PTE      , &
+SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , &
+                   & PUM1    , PVM1    , PTM1    , PQM1   , PLM1    , PIM1   , &
+                   & PAPHM1  , PAPM1   , PGEOM1  , PGEOH  , PVERVEL , &
                    & PKMFL   , PKHFL   , PKQFL   , PMFLX  , &
 ! DIAGNOSTIC OUTPUT
                    & PEXTR2  , KFLDX2  , PEXTRA  , KLEVX  , KFLDX   , JCNT   , LLDIAG   , &
@@ -42,7 +42,7 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
 !amk
                    & LDLAND  , &   
 !xxx
-                   & PBIR    , LDNODECP, LDRUNDRY, KPBLTYPE, PWQT2)
+                   & LDNODECP, KPBLTYPE, PWQT2)
                    
                      
 !     ------------------------------------------------------------------
@@ -89,7 +89,7 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
 !     *PQM1*         SPECIFIC HUMUDITY AT T-1                     KG/KG
 !     *PLM1*         SPECIFIC CLOUD LIQUID WATER AT T-1           KG/KG
 !     *PIM1*         SPECIFIC CLOUD ICE AT T-1                    KG/KG
-!     *PAM1*         CLOUD FRACTION AT T-1                        KG/KG
+!!!   *PAM1*         CLOUD FRACTION AT T-1                        KG/KG
 !     *PAPHM1*       PRESSURE AT HALF LEVEL AT T-1                PA
 !     *PAPM1*        PRESSURE AT FULL LEVEL AT T-1                PA
 !     *PGEOM1*       GEOPOTENTIAL AT T-1                          M2/S2
@@ -97,7 +97,7 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
 !     *PKMFL*        SURFACE KINEMATIC MOMENTUM FLUX              M2/S2  
 !     *PKHFL*        SURFACE KINEMATIC HEAT FLUX                  K*M/S
 !     *PKQFL*        SURFACE KINEMATIC MOISTURE FLUX              M/S
-!     *PBIR*         BUOYANCY-FLUX INTEGRAL RATIO (-N/P)
+!!!   *PBIR*         BUOYANCY-FLUX INTEGRAL RATIO (-N/P)
 !                    USED FOR DECOUPLING CRITERIA
 
 !     *PVERVEL*      VERTICAL VELOCITY
@@ -106,7 +106,7 @@ SUBROUTINE VDFHGHTN (KIDIA   , KFDIA   , KLON    , KLEV   , KDRAFT  , PTMST  , K
 
 !     *LDNODECP*     TRUE:  NEVER DECOUPLE
 !                    FALSE: MAYBE DECOUPLE
-!     *LDRUNDRY*     TRUE:  RUN PARCEL WITHOUT CONDENSATION
+!!!   *LDRUNDRY*     TRUE:  RUN PARCEL WITHOUT CONDENSATION
 !                    FALSE: RUN PARCEL WITH CONDENSATION
 
 !     OUTPUT PARAMETERS (REAL):
@@ -159,10 +159,6 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
                 & RG       ,RD       ,RCPD     ,RETV     ,RLVTT    ,& !yomcst
                 & RLSTT    ,RATM     ,RTT      ,RLMLT    ,&           ! -
-                & R2ES     ,R3LES    ,R3IES    ,R4LES    ,&           !yoethf
-                & R4IES    ,R5LES    ,R5IES    ,RVTMP2   ,R5ALVCP  ,& ! -
-                & R5ALSCP  ,RALVDCP  ,RALSDCP  ,RTWAT    ,RTICE    ,& ! -
-                & RTICECU  ,RTWAT_RTICE_R      ,RTWAT_RTICECU_R    ,& ! -
                 & RKAP     ,RVDIFTS  ,&                               !yoevdf
                 & RTAUMEL                                             !yoecumf
 USE mo_edmf_param   ,ONLY : &
@@ -184,10 +180,10 @@ INTEGER(KIND=JPIM),INTENT(IN)    :: KLEV
 INTEGER(KIND=JPIM),INTENT(IN)    :: KDRAFT
 INTEGER(KIND=JPIM),INTENT(IN)    :: KIDIA 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFDIA 
-INTEGER(KIND=JPIM),INTENT(IN)    :: KSTEP 
-INTEGER(KIND=JPIM),INTENT(INOUT)   :: KPLCL(KLON,KDRAFT) 
-INTEGER(KIND=JPIM),INTENT(INOUT)   :: KPTOP(KLON,KDRAFT) 
-INTEGER(KIND=JPIM),INTENT(INOUT)   :: KPLZB(KLON,KDRAFT) 
+!! INTEGER(KIND=JPIM),INTENT(IN)    :: KSTEP 
+INTEGER(KIND=JPIM),INTENT(INOUT) :: KPLCL(KLON,KDRAFT) 
+INTEGER(KIND=JPIM),INTENT(INOUT) :: KPTOP(KLON,KDRAFT) 
+INTEGER(KIND=JPIM),INTENT(INOUT) :: KPLZB(KLON,KDRAFT) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PTMST 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PUM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVM1(KLON,KLEV) 
@@ -195,7 +191,7 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PTM1(KLON,KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PQM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PLM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PIM1(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PAM1(KLON,KLEV) 
+!! REAL(KIND=JPRB)   ,INTENT(IN)    :: PAM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPHM1(KLON,0:KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOM1(KLON,KLEV) 
@@ -203,31 +199,31 @@ REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOH(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PKMFL(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PKHFL(KLON) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PKQFL(KLON) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PMFLX(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(OUT)     :: PUUH(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(OUT)     :: PVUH(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PSLGUH(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PQTUH(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PWUH(KLON,0:KLEV,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(OUT)     :: PFRACB(KLON,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PZPLCL(KLON,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PZPTOP(KLON,KDRAFT) 
-REAL(KIND=JPRB)   ,INTENT(INOUT)   :: PWUAVG(KLON) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PMFLX(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PUUH(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PVUH(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PSLGUH(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PQTUH(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PWUH(KLON,0:KLEV,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(OUT)   :: PFRACB(KLON,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PZPLCL(KLON,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PZPTOP(KLON,KDRAFT) 
+REAL(KIND=JPRB)   ,INTENT(INOUT) :: PWUAVG(KLON) 
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFPLVL(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(INOUT) :: PFPLVN(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDETR(KLON,KLEV)
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PBIR(KLON) 
+!! REAL(KIND=JPRB)   ,INTENT(IN)    :: PBIR(KLON) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PRICUI(KLON)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDTHV(KLON)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PMCU(KLON) 
 LOGICAL           ,INTENT(IN)    :: LDNODECP(KLON) 
 !ldrundry not used now
-LOGICAL           ,INTENT(IN)    :: LDRUNDRY(KLON) 
-INTEGER(KIND=JPIM),INTENT(INOUT)   :: KPBLTYPE(KLON) 
+!! LOGICAL           ,INTENT(IN)    :: LDRUNDRY(KLON) 
+INTEGER(KIND=JPIM),INTENT(INOUT) :: KPBLTYPE(KLON) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWQT2(KLON,0:KLEV)
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVERVEL(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PTE(KLON,KLEV) 
-REAL(KIND=JPRB)   ,INTENT(IN)    :: PQE(KLON,KLEV) 
+!! REAL(KIND=JPRB)   ,INTENT(IN)    :: PTE(KLON,KLEV) 
+!! REAL(KIND=JPRB)   ,INTENT(IN)    :: PQE(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PVAR(KLON,KLEV)
 !amk
 LOGICAL                          :: LDLAND(KLON)
@@ -264,10 +260,10 @@ REAL(KIND=JPRB) ::    ZWU2H (KLON,0:KLEV,KDRAFT), ZWUH, &
 REAL(KIND=JPRB) ::    ZQSATM, ZSATDEF, &
                     & ZUPFLXL(KLON,0:KLEV,KDRAFT), ZUPFLXN(KLON,0:KLEV,KDRAFT), &
                     & ZUPGENL(KLON,KLEV,KDRAFT), ZUPGENN(KLON,KLEV,KDRAFT), &
-                    & ZALFAW, ZDZRHO, ZPFLXTOT, ZPEVAPUP, ZFAC, ZUPMELT, ZAPRECEVAP, ZQTEP
+                    & ZDZRHO, ZPFLXTOT, ZPEVAPUP, ZFAC, ZUPMELT, ZAPRECEVAP
 
 REAL(KIND=JPRB) ::    ZFRACB(KLON,KDRAFT), ZMFLXB(KLON,KDRAFT)
-      
+
 REAL(KIND=JPRB) ::    ZFRACMAX , ZFACMAXEXC , ZFRACTEST , ZFACTESTEXC , &
                     & ZFACEXC(KLON,KDRAFT), ZDUMFRAC, ZDUMR, ZMASSCAPDEPTH, &
                     & ZPDFFACPHI(KLON), ZPDFFACW(KLON), ZLOBUKHOV, &
@@ -277,12 +273,11 @@ LOGICAL ::            LLDONE(KLON,KDRAFT), LLMASSCAP, LLMCIND(KLON), &
                     & LLWIPE, LLSTCU
 
 
-INTEGER(KIND=JPIM) :: IS, JK, JL, JD, IBASE, JKH, ITOP
+INTEGER(KIND=JPIM) :: JK, JL, JD, ITOP
 
 REAL(KIND=JPRB) ::    ZQEXC   , ZTEXC   , ZDZ     ,  ZDB   , &
-                    & ZSPEEDENV         , ZSPEEDUP, ZWINDIR , &
-                    & ZZ      , ZTOTW2(KLON)      , ZTOTP(KLON) , &
-                    & ZCONS10 , ZCFNC1(KLON,0:KLEV)      , ZTVMEAN     , &
+                    & ZSPEEDENV         , ZSPEEDUP, &
+                    & ZCONS10 , ZCFNC1(KLON,0:KLEV)        , ZTVMEAN     , &
                     & ZRG     , ZMFMAX  , ZMFS(KLON,KDRAFT)
 
 !          REMAINING MODEL PARAMETERS
@@ -297,14 +292,11 @@ REAL(KIND=JPRB) ::    ZZI(KLON)
 
 INTEGER(KIND=JPIM) :: IZI(KLON,KDRAFT)
 
-REAL(KIND=JPRB) ::    ZBUOYCU, ZDTHVCUTOP, ZRICUINORM, ZDMDZ
+REAL(KIND=JPRB) ::    ZBUOYCU, ZDTHVCUTOP, ZDMDZ
 
-REAL(KIND=JPRB) ::    ZFRACBPLUS(KLON,0:KLEV), ZWUHBPLUS(KLON,0:KLEV), &
-                    & ZQTUHBPLUS(KLON,0:KLEV), ZSLGUHBPLUS(KLON,0:KLEV)
+REAL(KIND=JPRB) ::    ZTAUBM
 
-REAL(KIND=JPRB) ::    ZRHS(KLON), ZMASSCAPE(KLON), ZMFAC(KLON), ZTAUBM
-
-REAL(KIND=JPRB) ::    ZVERVELCRIT, ZZFUNC5(KLON)
+REAL(KIND=JPRB) ::    ZVERVELCRIT
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
@@ -353,7 +345,8 @@ ZCLDDEPTHDP = 3000._JPRB
 !ZCLDDEPTHDP = 100000._JPRB   
 
 ZSTABTHRESH = 20._JPRB     ! threshold stability (Klein & Hartmann criteria) [K]
-ZEISTHRESH  = 7.0_JPRB     ! threshold stability (Wood & Bretherton) [K]
+!ZEISTHRESH  = 7.0_JPRB    ! threshold stability (Wood & Bretherton) [K]
+ZEISTHRESH  = 10.0_JPRB    ! threshold stability (Wood & Bretherton) [K]
 ZBIRTHRESH  = 0.1_JPRB     ! threshold BIR (TKE decoupling criteria) [1]
 ZTVLIM      = 0.1_JPRB     ! cloud fraction limit in Tv,env calculation
 
@@ -402,24 +395,20 @@ ZRG    = 1.0_JPRB/RG
 DO JL=KIDIA,KFDIA
   
   PWUAVG(JL)     = 0.0_JPRB
-  KPBLTYPE(JL)   = -1          ! -1 means: yet unknown
+  KPBLTYPE(JL)   = -1            ! -1 means: yet unknown
   
-  ZZI(JL)        = 0._JPRB      !mixed layer scalings
+  ZZI(JL)        = 0._JPRB       !mixed layer scalings
   ZWSTAR(JL)     = 0._JPRB        
   ZWSTARCAPE(JL) = 0._JPRB        
   ZWSTARMSE(JL)  = 0._JPRB        
   
-  PRICUI(JL)  = 1._JPRB       ! 1 / cumulus inversion Richardson number
-  PDTHV(JL)   = 0._JPRB
+  PRICUI(JL   )  = 1._JPRB       ! 1 / cumulus inversion Richardson number
+  PDTHV(JL)      = 0._JPRB
    
   ZCAPE1(JL)     = 0._JPRB
 
-  ZMCLD(JL)       = 0._JPRB
-  PMCU(JL)        = 0._JPRB       !cloud-depth average moist updraft mass flux
-  
-  ZRHS(JL)      = 0._JPRB 
-  ZMASSCAPE(JL) = 0._JPRB 
-  ZMFAC(JL)     = 1._JPRB 
+  ZMCLD(JL)      = 0._JPRB
+  PMCU(JL)       = 0._JPRB       ! cloud-depth average moist updraft mass flux
   
 ENDDO
 
@@ -1090,12 +1079,8 @@ ENDIF
                   & ZQUH    , ZTUH    , ZEPS    , ZFACEXC , &
                   & PZPLCL  , KPLCL   , PZPTOP  , KPTOP   , KPLZB   , &
                   & JD      , ZUPGENL , ZUPGENN , &
-!amk: for convective preconditioning
                   & PVAR    , &
-!xxx
-!amk
                   & LDLAND , &   
-!xxx
                   & ZTAUEPS , PVERVEL , ZW2THRESH, LLDONE , KPBLTYPE)  
     
   ENDDO !JD 

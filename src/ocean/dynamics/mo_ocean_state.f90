@@ -57,8 +57,7 @@ MODULE mo_ocean_state
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -66,12 +65,18 @@ MODULE mo_ocean_state
     &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, GRID_ZONAL
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+    &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+    &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
+    &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
+    &                               GRID_ZONAL
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
+      &                             grid_unstructured_vert, grid_vertex 
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output

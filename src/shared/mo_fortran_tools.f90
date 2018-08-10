@@ -27,6 +27,7 @@ MODULE mo_fortran_tools
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
 #endif
+  USE iso_c_binding, ONLY: c_ptr, c_f_pointer, c_loc
 
   IMPLICIT NONE
 
@@ -46,9 +47,12 @@ MODULE mo_fortran_tools
   PUBLIC :: copy, init, swap, negative2zero
   PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
+  PUBLIC :: init_contiguous_dp, init_contiguous_sp
+  PUBLIC :: init_contiguous_i4, init_contiguous_l
   PUBLIC :: resize_arr_c1d
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
+  PUBLIC :: insert_dimension
 
   PRIVATE
 
@@ -228,6 +232,14 @@ MODULE mo_fortran_tools
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! Only activate for validation phase
 #endif
 
+
+  INTERFACE insert_dimension
+    MODULE PROCEDURE insert_dimension_r_wp_3_2, insert_dimension_r_wp_3_2_s
+    MODULE PROCEDURE insert_dimension_i4_3_2, insert_dimension_i4_3_2_s
+    MODULE PROCEDURE insert_dimension_r_wp_6_5, insert_dimension_r_wp_6_5_s
+    MODULE PROCEDURE insert_dimension_r_sp_6_5, insert_dimension_r_sp_6_5_s
+    MODULE PROCEDURE insert_dimension_i4_6_5, insert_dimension_i4_6_5_s
+  END INTERFACE insert_dimension
 
 CONTAINS
 
@@ -1360,9 +1372,10 @@ CONTAINS
 #endif
   END SUBROUTINE negative2zero_4d_dp
 
-  SUBROUTINE init_zero_contiguous_dp(var, n)
+  SUBROUTINE init_contiguous_dp(var, n, v)
     INTEGER, INTENT(in) :: n
     REAL(dp), INTENT(out) :: var(n)
+    REAL(dp), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1373,7 +1386,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_dp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1382,11 +1395,49 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
+  END SUBROUTINE init_contiguous_dp
+
+  SUBROUTINE init_zero_contiguous_dp(var, n)
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(out) :: var(n)
+    CALL init_contiguous_dp(var, n, 0.0_dp)
   END SUBROUTINE init_zero_contiguous_dp
+
+  SUBROUTINE init_contiguous_sp(var, n, v)
+    INTEGER, INTENT(in) :: n
+    REAL(sp), INTENT(out) :: var(n)
+    REAL(sp), INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_sp
 
   SUBROUTINE init_zero_contiguous_sp(var, n)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
+    CALL init_contiguous_sp(var, n, 0.0_sp)
+  END SUBROUTINE init_zero_contiguous_sp
+
+  SUBROUTINE init_contiguous_i4(var, n, v)
+    INTEGER, INTENT(in) :: n
+    INTEGER(ik4), INTENT(out) :: var(n)
+    INTEGER(ik4), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1397,7 +1448,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_sp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1406,8 +1457,244 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
-  END SUBROUTINE init_zero_contiguous_sp
+  END SUBROUTINE init_contiguous_i4
 
+  SUBROUTINE init_contiguous_l(var, n, v)
+    INTEGER, INTENT(in) :: n
+    LOGICAL, INTENT(out) :: var(n)
+    LOGICAL, INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_l
+
+  SUBROUTINE insert_dimension_r_wp_3_2_s(ptr_out, ptr_in, in_shape, &
+       new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in
+    INTEGER :: out_shape(out_rank), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:out_rank-1) = in_shape
+    cptr = C_LOC(ptr_in)
+    DO i = out_rank, new_dim_rank+1, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_wp_3_2_s
+
+  SUBROUTINE insert_dimension_r_wp_3_2(ptr_out, ptr_in, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    ! note: must have target attribute in caller!
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: base_shape(out_rank-1), &
+         in_shape(out_rank-1), in_stride(out_rank-1), &
+         out_shape(out_rank), out_stride(out_rank), i
+    INTEGER, PARAMETER :: elem_byte_size=8
+    ! reconstruct underlying array shape and corresponding stride
+    in_shape = SHAPE(ptr_in)
+    in_stride(1) = 1
+    in_stride(2) = in_shape(1)
+    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+      CALL util_stride_2d(in_stride, elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    ELSE IF (in_shape(1) > 1) THEN
+      CALL util_stride_1d(in_stride(1), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1))
+      base_shape(1) = in_stride(1) * in_shape(1)
+    ELSE IF (in_shape(2) > 1) THEN
+      CALL util_stride_1d(in_stride(2), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    END IF
+    base_shape(2) = in_shape(2)
+    CALL insert_dimension_r_wp_3_2_s(ptr_out, ptr_in(1,1), &
+         base_shape, new_dim_rank)
+    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+         .OR. base_shape(1) /= in_shape(1)) THEN
+      out_stride(1) = in_stride(1)
+      out_stride(2) = 1
+      out_shape(1:out_rank-1) = in_shape
+      DO i = out_rank, new_dim_rank+1, -1
+        out_shape(i) = out_shape(i - 1)
+        out_stride(i) = out_stride(i - 1)
+      END DO
+      out_stride(new_dim_rank) = 1
+      out_shape(new_dim_rank) = 1
+      out_shape = (out_shape - 1) * out_stride + 1
+      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+           &             :out_shape(2):out_stride(2), &
+           &             :out_shape(3):out_stride(3))
+    END IF
+  END SUBROUTINE insert_dimension_r_wp_3_2
+
+  SUBROUTINE insert_dimension_i4_3_2_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in
+    INTEGER :: out_shape(out_rank), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:out_rank-1) = in_shape
+    cptr = C_LOC(ptr_in)
+    DO i = out_rank, new_dim_rank+1, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_i4_3_2_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_i4_3_2(ptr_out, ptr_in, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: base_shape(out_rank-1), &
+         in_shape(out_rank-1), in_stride(out_rank-1), &
+         out_shape(out_rank), out_stride(out_rank), i
+    INTEGER, PARAMETER :: elem_byte_size=4
+    ! reconstruct underlying array shape and corresponding stride
+    in_shape = SHAPE(ptr_in)
+    in_stride(1) = 1
+    in_stride(2) = in_shape(1)
+    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+      CALL util_stride_2d(in_stride, elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    ELSE IF (in_shape(1) > 1) THEN
+      CALL util_stride_1d(in_stride(1), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1))
+      base_shape(1) = in_stride(1) * in_shape(1)
+    ELSE IF (in_shape(2) > 1) THEN
+      CALL util_stride_1d(in_stride(2), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    END IF
+    base_shape(2) = in_shape(2)
+    CALL insert_dimension_i4_3_2_s(ptr_out, ptr_in(1,1), base_shape, &
+         new_dim_rank)
+    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+         .OR. base_shape(1) /= in_shape(1)) THEN
+      out_stride(1) = in_stride(1)
+      out_stride(2) = 1
+      out_shape(1:out_rank-1) = in_shape
+      DO i = out_rank, new_dim_rank+1, -1
+        out_shape(i) = out_shape(i - 1)
+        out_stride(i) = out_stride(i - 1)
+      END DO
+      out_stride(new_dim_rank) = 1
+      out_shape(new_dim_rank) = 1
+      out_shape = (out_shape - 1) * out_stride + 1
+      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+           &             :out_shape(2):out_stride(2), &
+           &             :out_shape(3):out_stride(3))
+    END IF
+  END SUBROUTINE insert_dimension_i4_3_2
+
+  SUBROUTINE insert_dimension_r_wp_6_5_s(ptr_out, ptr_in, in_shape, &
+       new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_wp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_wp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_wp_6_5
+
+  SUBROUTINE insert_dimension_r_sp_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_sp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_sp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_sp_6_5
+
+  SUBROUTINE insert_dimension_i4_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_i4_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_i4_6_5(ptr_out, ptr_in, new_dim_rank)
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_i4_6_5
 
 
   ! AUXILIARY ROUTINES FOR DEALLOCATION

@@ -21,7 +21,7 @@
 MODULE mo_ocean_GM_Redi
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea, min_dolic
   USE mo_math_constants,            ONLY: pi, dbl_eps
   USE mo_physical_constants,        ONLY: grav, sal_ref, rho_inv, a_t, b_s, &

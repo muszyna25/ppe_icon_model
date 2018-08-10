@@ -1,0 +1,606 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+##-----------------------------------------------------------------------------
+# global timing
+start_date="2013-04-24T00:00:00Z" 
+end_date="2013-04-26T00:00:00Z"
+##KGinit_date=2013042500
+init_date=`echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
+
+ndays_restart=6
+dt_restart=`expr ${ndays_restart} \* 86400`
+#restart=".true."
+#
+#Timing for output
+
+typeset -Z4  years 
+typeset -Z2 months days hours  nhours
+
+ years=$(echo $start_date | cut -f1 -d -)
+months=$(echo $start_date | cut -f2 -d -)
+  days=$(echo $start_date | cut -f1 -d T | cut -f3 -d - )
+ hours=$(echo $start_date | cut -f2 -d T | cut -f1 -d : )
+  mins=$(echo $start_date | cut -f2 -d T | cut -f2-3 -d : )
+
+nhours=$((${hours} + 06))
+if [[ $nhours -gt 23 ]] ; then 
+   ndays=$((${days} + 01))
+   let "nhours= $((06 - (24 - ${hours})))"
+else
+   nhours=$((${hours} + 06))
+   ndays=${days}
+fi
+out_start_day="${years}-${months}-${ndays}T${nhours}:${mins}"
+#KG out_start_day="2013-04-24T06:00:00Z" 
+out_end_day=${end_date} 
+out_start_night=${start_date} 
+out_end_night=${out_start_day} 
+#Write out grid only once
+out_start_grid=${start_date}
+out_end_grid=${out_start_grid}
+#
+#
+#for 3D fine based on A-train overpass timing
+#which needs to be adjusted everywhere day
+#Use the list below to adjust output timing
+#
+
+notsatpass=${start_date%%T*}
+currentdate=`echo ${start_date%%T*} | sed 's/\-//g' `
+case $currentdate in
+      20130424) sat_pass_in="2013-04-24T12:35:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130425) sat_pass_in="2013-04-25T02:07:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130426) sat_pass_in="2013-04-26T12:22:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130502) sat_pass_in="2013-05-02T02:12:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130504) sat_pass_in="2013-05-04T02:01:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130505) sat_pass_in="2013-05-05T12:16:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FASLE."   ;;
+      20130507) sat_pass_in="2013-05-07T12:04:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+##      20130508) sat_pass_in="2013-05-08T01:36:00Z" ;  out_int="PT11H"  ; 
+##                sat_pass_out="2013-05-08T18:36:00Z" ; inc_las=".FALSE."  ;;
+      20130511) sat_pass_in="2013-05-11T02:06:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+##      20130517) sat_pass_in="2013-05-05T12:16:00Z" ;  out_int="PT6H" ; 
+##                sat_pass_out="${end_date}" ;  inc_las=".FASLE." ;;
+      20130518) sat_pass_in="2013-05-18T02:12:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130519) sat_pass_in="2013-05-19T12:28:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ; inc_las=".FALSE."    ;;
+      20130521) sat_pass_in="2013-05-21T12:16:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130522) sat_pass_in="2013-05-22T01:48:00Z" ;  out_int="PT13H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130523) sat_pass_in="2013-05-23T12:04:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ; inc_las=".FALSE."    ;;
+      20130528) sat_pass_in="2013-05-28T12:22:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130529) sat_pass_in="2013-05-29T01:54:00Z" ;  out_int="PT13H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+       *)       sat_pass_in="${notsatpass}T06:00:00" ;  out_int="PT8H" ; 
+                sat_pass_out="${notsatpass}T21:00:00" ;  inc_las=".FALSE." ;; 
+esac
+
+#     date     time_in   time_out
+# 24/04/2013     12:34   12:36
+##KGsat_pass_time_2404=2013-04-24T12:35:00Z
+# 25/04/2013     02:06   02:08
+##KGsat_pass_time_2504=2013-04-25T02:07:00Z
+#
+# 26/04/2013     12:21   12:24
+##KGsat_pass_time_2604=2013-04-26T12:22:00Z
+#
+# 02/05/2013     02:12   02:13
+##KGsat_pass_time_0205=2013-05-02T02:12:00Z
+#
+# 04/05/2013     01:59   02:02
+##KGsat_pass_time_0405=2013-05-04T02:00:00Z
+#
+# 05/05/2013     12:15   12:17
+##KGsat_pass_time_0505=2013-05-05T12:16:00Z
+#
+# 07/05/2013     12:04   12:05
+##KGsat_pass_time_0705=2013-05-07T12:04:00Z
+#
+# 08/05/2013     01:35   01:37
+##KGsat_pass_time_0805_1=2013-05-08T01:36:00Z
+#
+# 08/05/2013     12:46   12:47
+##KGsat_pass_time_0805_2=2013-05-08T12:46:00Z
+#
+# 11/05/2013     02:05   02:07
+##KGsat_pass_time_1105=2013-05-11T02:06:00Z
+#
+#
+#
+#Dictionary file for output
+dict_file="dict.${EXPNAME}" 
+cat dict.icon.hdcp2  > ${dict_file}
+add_link_file ${basedir}/run/${dict_file}     ./
+#
+#add other required files
+DATADIR=${basedir}/data
+add_link_file ${DATADIR}/rrtmg_lw.nc           ./
+add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
+add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat ./   #for inwp_gscp==4
+#
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=3
+dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+iforcing=3        # 3 for inwp forcing; 0 for no forcing
+nlev=150
+#
+#-----------------------------------------------------------------------------
+# the grid and other files
+#
+# the grid parameters
+grids_folder="/work/bm0834/k203095/pool/GRIDS/HDCP_FINAL_4"
+#grids_folder="/work/bm0834/anurag/icon-GridGenerator-dev/grids/HDCP_FINAL_4"
+grid_1=hdcp2_cosmodom_R0625m
+grid_2=hdcp2_cosmodom_nest_R0312m
+atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
+dynamics_parent_grid_id="0,   1"
+out_dom=2
+#
+#
+# absolute path to directory with LAM data
+LAMDATA=/work/bm0834/k203095/pool/HDCP2_FINAL_INPUT_4
+#LAMDATA=/work/bm0834/anurag/dwd_icon_tools/HDCP2_FINAL_INPUT_4
+#
+#LATBC PATH
+LATBC_PATH=${LAMDATA}/
+#
+#EXT DATA
+ext_data_path=${LAMDATA}
+add_link_file $ext_data_path/extpar_${grid_1}.nc  extpar_${grid_1}.nc
+add_link_file $ext_data_path/extpar_${grid_2}.nc  extpar_${grid_2}.nc
+
+#INITIAL DATA
+init_data_path=$LAMDATA
+add_link_file $init_data_path/init_${grid_1}_${init_date}.nc ifs2icon_R2B12_DOM01.nc
+add_link_file $init_data_path/init_${grid_1}_${init_date}.nc dwdFG_R2B12_DOM01.nc
+add_link_file $init_data_path/init_${grid_2}_${init_date}.nc ifs2icon_R2B13_DOM02.nc
+add_link_file $init_data_path/init_${grid_2}_${init_date}.nc dwdFG_R2B13_DOM02.nc
+#
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+dynamics_parent_grid_id="${dynamics_parent_grid_id},"
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+ num_io_procs   = 6
+ io_proc_chunk_size = 26
+ num_prefetch_proc = 0
+ write_div_to_file = .TRUE.
+/
+&grid_nml
+ ! cell_type is not used = 3            ! triangular cells
+ dynamics_grid_filename = ${dynamics_grid_filename}
+ dynamics_parent_grid_id = ${dynamics_parent_grid_id}
+ lfeedback         = .false.
+ l_limited_area    = .true.
+/ 
+&initicon_nml
+ init_mode              =  4 !4=cosmo, 2=ifs, 3=combined
+ ana_varnames_map_file  = '$ICON_BASE_PATH/run/ana_varnames_map_file.txt'
+ nlevsoil_in            =  8
+ lread_ana              = .false.
+/
+&run_nml
+ num_lev     = ${nlev},${nlev},${nlev}  ! number of full levels of vertical grid
+ lvert_nest = .false.
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ldynamics   = .TRUE.       ! dynamics
+ ltestcase   = .FALSE.      ! testcase
+ ltransport  = .TRUE.       ! transport
+ iforcing    = ${iforcing}  !
+ ltimer      = .true.       ! 
+ timers_level = 10          !
+ profiling_output = 3       !
+ msg_level   = 12           ! detailed report during integration
+ output      = 'nml','totint'      
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .TRUE.
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&transport_nml
+ lclip_tracer = .FALSE.
+/
+&limarea_nml
+ itype_latbc     = 1
+ dtime_latbc     = 3600.
+ latbc_path      = '${LATBC_PATH}'
+ latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
+ latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
+/
+&diffusion_nml
+ hdiff_order      = 5
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ lhdiff_w         = .TRUE.
+/
+&nwp_phy_nml
+inwp_gscp       = 4,4,4 !4 for two moment
+inwp_convection = 0,0,0
+inwp_radiation  = 1,1,1
+inwp_cldcover   = 5,5,5
+inwp_turb       = 5,5,5
+inwp_satad      = 1,1,1
+inwp_surface    = 1,1,1
+latm_above_top  = .true.,.true.,.true.
+efdt_min_raylfric = 7200.
+itype_z0         = 2
+dt_rad           = 900.,900.,900.
+/
+&les_nml
+ isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ ldiag_les_out     = .FALSE.
+ les_metric        = .TRUE.
+/
+&lnd_nml
+ntiles   = 1
+nlev_snow = 2
+lmulti_snow = .true.
+idiag_snowfrac = 1
+lsnowtile = .false.
+frlnd_thrhld = 0.5
+frlake_thrhld = 0.5
+frsea_thrhld = 0.5
+lseaice   = .false.
+llake     = .false.
+itype_lndtbl   =  2
+/
+&radiation_nml
+ irad_o3 = 7
+ irad_aero = 6
+/
+&interpol_nml
+nudge_zone_width  = 20  !-1 create nudge zone in grid
+lsq_high_ord      = 2
+rbf_vec_scale_c   = 0.03, 0.01
+rbf_vec_scale_v   = 0.07, 0.025
+rbf_vec_scale_e   = 0.15, 0.05
+rbf_scale_mode_ll = 1 !2=default for automatic calculations
+/
+&gridref_nml
+ grf_intmethod_e  = 5  !6 default
+ grf_scalfbk      = 1
+ grf_tracfbk      = 1
+ denom_diffu_v    = 150.
+ l_mass_consvcorr = .true. 
+ l_density_nudging = .true.
+ !rbf_scale_grf_e = 0.4, 0.35, 0.25
+/
+&nonhydrostatic_nml
+ iadv_rhotheta    =  2
+ ivctype          =  2
+ itime_scheme     =  4
+ exner_expol      =  0.333
+ vwind_offctr     =  0.25
+ damp_height      =  15000.
+ rayleigh_coeff   =  0.25
+ lhdiff_rcf       = .true.
+ divdamp_fac      =  0.004
+ divdamp_order    =  4
+ l_open_ubc       = .true.
+ igradp_method    =  3
+ l_zdiffu_t       = .true.
+ thslp_zdiffu     =  0.02
+ thhgtd_zdiffu    =  125.
+ htop_moist_proc  =  22500.
+ hbot_qvsubstep   =  24000.
+/
+&sleve_nml
+ min_lay_thckn   = 20.
+ top_height      = 21000.
+ stretch_fac     = 0.9
+ decay_scale_1   = 4000.
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000. 
+/
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lkeep_in_sync    = .true.
+ restart_file_type = 5
+ output_nml_dict  = "${dict_file}"
+ netcdf_dict      = "${dict_file}"
+/
+&meteogram_output_nml
+ lmeteogram_enabled= .FALSE.,.TRUE.
+ n0_mtgrm          = 0           ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 1,3         ! meteogram output interval (steps)
+ max_time_stamps   = 1,400       !every 1 hour
+ ldistributed      = .false,.false.,.false.
+ stationlist_tot   =  50.909,   6.414, 'c1',             ! Lat,Lon
+                      50.897,   6.464, 'c2',
+                      50.880,   6.415, 'c3',
+                      52.210,  14.128, 'c4',
+                      51.854,   4.927, 'c5',
+                      52.810,   9.930, 'c6',
+                      52.100,   5.180, 'c7',
+                      51.400,   6.960, 'c8',
+                      54.100,  13.400, 'c9',
+                      49.700,   7.330, 'c10',
+                      49.430,  11.900, 'c11',
+                      52.210,  14.110, 'c12',
+                      50.560,  10.380, 'c13',
+                      48.250,  11.550, 'c14',
+                      53.710,   7.150, 'c15',
+                      54.530,   9.550, 'c16',
+                      48.830,   9.200, 'c17',
+                      49.979,  11.681, 'c18',
+                      53.778,   8.668, 'c19',
+                      53.311,  11.837, 'c20',
+                      50.933,   6.388, 'c21',
+                      50.908,   6.413, 'c22',
+                      50.899,   6.459, 'c23',
+                      50.880,   6.414, 'c24',
+                      50.897,   6.399, 'c25',
+                      50.864,   6.425, 'c26',
+                      50.894,   6.402, 'c27',
+                      50.873,   6.461, 'c28',
+                      50.925,   6.423, 'c29',
+                      50.884,   6.451, 'c30',  
+                      50.035,   8.555, 'c31', 
+                      48.354,  11.775, 'c32', 
+                      51.288,   6.769, 'c33', 
+                      53.633,   9.994, 'c34', 
+                      52.560,  13.288, 'c35',
+                      51.353,  12.435, 'c36'
+/
+&output_nml
+ output_start     = "${out_start_night}"
+ output_end       = "${out_end_night}"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = '3d_coarse_night_ll'
+ remap            = 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ reg_lon_def      = 4.5,0.017,14.5
+ reg_lat_def      = 47.5,0.011,54.5
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_day}"
+ output_end       = "${out_end_day}"
+ output_interval  = "PT30M"
+ file_interval    = "PT06H"
+ include_last     = .FALSE.
+ output_filename  = '3d_coarse_day_ll'
+ remap            = 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ reg_lon_def      = 4.5,0.017,14.5
+ reg_lat_def      = 47.5,0.011,54.5
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${sat_pass_in}"
+ output_end       = "${sat_pass_out}"
+ output_interval  = "${out_int}"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = '3d_fine_day'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_day}"
+ output_end       = "${out_end_day}"
+ output_interval  = "PT10S"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_cloud_day'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'tqv_dia','tqc_dia','tqi_dia','clct','z_pbl','rain_gsp_rate','ice_gsp_rate',
+                    'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
+                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_night}"
+ output_end       = "${out_end_night}"
+ output_interval  = "PT05M"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_cloud_night'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'tqv_dia','tqc_dia','tqi_dia','clct','z_pbl','rain_gsp_rate','ice_gsp_rate',
+                    'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
+                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_day}"
+ output_end       = "${out_end_day}"
+ output_interval  = "PT10S"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_rad_day'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'asob_s','asodird_s','asodifd_s','athb_s','athd_s','asob_t','asod_t','athb_t',
+                    'albdif','albvisdif','albvisdir','albnirdif','albnirdir'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_night}"
+ output_end       = "${out_end_night}"
+ output_interval  = "PT05M"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_rad_night'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'asob_s','asodird_s','asodifd_s','athb_s','athd_s','asob_t','asod_t','athb_t',
+                    'albdif','albvisdif','albvisdir','albnirdif','albnirdir'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_day}"
+ output_end       = "${out_end_day}"
+ output_interval  = "PT10S"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_surface_day'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'lhfl_s','shfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','t_2m','qv_2m',
+                    'rh_2m','u_10m','v_10m','w_so','t_so','runoff_s','t_s','t_seasfc'
+                    'tcm','tch'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_night}"
+ output_end       = "${out_end_night}"
+ output_interval  = "PT05M"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '2d_surface_night'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'lhfl_s','shfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','t_2m','qv_2m',
+                    'rh_2m','u_10m','v_10m','w_so','t_so','runoff_s','t_s','t_seasfc',
+                    'tcm','tch'
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_day}"
+ output_end       = "${out_end_day}"
+ output_interval  = "PT15M"
+ file_interval    = "PT01H"
+ include_last     = .TRUE.
+ output_filename  = '3d_fuzzy_hope_ll'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ remap            = 1
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ reg_lon_def      = 6.087,0.004,6.738
+ reg_lat_def      = 50.704,0.003,51.112
+ filetype         = 5
+ dom              = ${out_dom}
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_coarse_ll'
+ remap            = 1
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'z_ifc','z_mc'
+ reg_lon_def      = 4.5,0.017,14.5
+ reg_lat_def      = 47.5,0.011,54.5
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_fine'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'z_ifc','z_mc'
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${out_start_grid}"
+ output_end       = "${out_end_grid}"
+ output_interval  = "PT15M"
+ file_interval    = "PT01H"
+ include_last     = .FALSE.
+ output_filename  = 'GRID_3d_fuzzy_hope_ll'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ remap            = 1
+ ml_varlist       = 'z_ifc','z_mc'
+ reg_lon_def      = 6.087,0.004,6.738
+ reg_lat_def      = 50.704,0.003,51.112
+ filetype         = 5
+ dom              = ${out_dom}
+ output_grid      = .TRUE.
+/
+&extpar_nml
+ itopo          = 1
+ n_iter_smooth_topo = 1,3,3
+ heightdiff_threshold = 1000.,500.,200
+/
+EOF
+#----------------------------------------------------------------------------------------------------------
+
+

@@ -1930,6 +1930,9 @@ src/ocean/testbed/mo_ocean_testbed_vertical_diffusion.f90 -text
 src/parallel_infrastructure/mo_broker_communication.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
+src/parallel_infrastructure/mo_communication_orig.f90 -text
+src/parallel_infrastructure/mo_communication_types.f90 -text
+src/parallel_infrastructure/mo_communication_yaxt.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
 src/parallel_infrastructure/mo_decomposition_tools.f90 -text
 src/parallel_infrastructure/mo_dist_array.f90 -text

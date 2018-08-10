@@ -77,7 +77,10 @@ my %recombine_args = (
 my %replacements
     = (
       '-pthread' => '-Wc,-pthread',
-      '-shared' => '-Wl,-shared'
+      '-shared' => '-Wl,-shared',
+      '-mfma' => '-Wc,-mfma',
+      '-no-fma' => '-Wc,-mno-fma',
+      '-pipe' => '-Wc,-pipe'
      );
 
 arg_rewrite:

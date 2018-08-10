@@ -57,12 +57,12 @@ MODULE mo_nh_dtp_interface
   PUBLIC :: compute_airmass
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
 #if defined(__NH_DTP_DIFFUSSION_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -92,7 +92,7 @@ CONTAINS
     &                        p_w_traj, p_mass_flx_ic,                         &!inout
     &                        p_topflx_tra                                     )!out
 
-    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
 
     TYPE(t_nh_prog),INTENT(IN)    :: p_now, p_new
     TYPE(t_nh_metrics),INTENT(IN) :: p_metrics
@@ -505,54 +505,61 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+!$ACC DATA PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node .AND. acc_on )
+
+!TODO: add debugging mode
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
          &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
        IF (itlev == 1) THEN
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+         !$ACC LOOP GANG
          DO jk = 1, nlev
 !DIR$ IVDEP
+           !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
              p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
            ENDDO  ! jc
          ENDDO  ! jk
+!$ACC END PARALLEL
        ELSE !  itlev = 2
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+         !$ACC LOOP GANG
          DO jk = 1, nlev
 !DIR$ IVDEP
+           !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
              p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
            ENDDO  ! jc
          ENDDO  ! jk
+!$ACC END PARALLEL
          IF (is_iau_active) THEN ! Correct 'old' air mass for IAU density increments
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+           !$ACC LOOP GANG
            DO jk = 1, nlev
 !DIR$ IVDEP
+             !$ACC LOOP VECTOR
              DO jc= i_startidx, i_endidx
                p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_now(jc,jk,jb) + &
                  iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb)
              ENDDO  ! jc
            ENDDO  ! jk
+!$ACC END PARALLEL
          ENDIF
        ENDIF
 
     ENDDO ! jb
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP ENDDO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!TODO: add debugging mode
+
+!$ACC END DATA
 
   END SUBROUTINE compute_airmass
 
