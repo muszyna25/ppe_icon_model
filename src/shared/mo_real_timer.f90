@@ -918,10 +918,11 @@ CONTAINS
         !-- build list of global ranks within this work communicator
         CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
         CALL sort_and_compress_list(ranks(1:nranks), ranklist_str)
-        WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str)
+        WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str(1:MAX_CHAR_LENGTH-23))
       ELSE
         WRITE (message_text,'(a)') 'Timer report'
       END IF
+    
       CALL message ('',message_text,all_print=.TRUE.)
 
       max_threads = 1

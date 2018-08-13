@@ -30,7 +30,6 @@ MODULE mo_echam_phy_main
   USE mo_exception           ,ONLY: message
   USE mtime                  ,ONLY: datetime, isCurrentEventActive, &
        &                            OPERATOR(<=), OPERATOR(>)
-  USE mo_echam_diagnostics,            ONLY: echam_global_diagnostics
 
   USE mo_model_domain        ,ONLY: t_patch
 
@@ -43,6 +42,8 @@ MODULE mo_echam_phy_main
     &                               cpair_cvair_qconv, &
     &                               initialize,        &
     &                               finalize
+
+  USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
   USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
@@ -137,9 +138,9 @@ CONTAINS
             &                      is_in_sd_ed_interval, is_active )
        !
        ! radiative fluxes
-       CALL omp_loop_cell_tc(patch, interface_echam_rad      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL interface_echam_rad(is_in_sd_ed_interval, is_active, &
+            &                   patch,                           &
+            &                   datetime_old                     )
        !
        ! always compute radiative heating
        is_active = .TRUE.
@@ -315,9 +316,13 @@ CONTAINS
     END IF
 
 
-
-    ! global diagnostics
+    !-------------------------------------------------------------------
+    ! Global output diagnostics
+    !-------------------------------------------------------------------
+    !
     CALL echam_global_diagnostics(patch)
+
+
     !-------------------------------------------------------------------
     ! Finalize (diagnostic)
     !-------------------------------------------------------------------

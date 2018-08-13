@@ -45,15 +45,16 @@ CONTAINS
 !! Origianl Source by J.S.Rast, MPI-Met Hamburg, (2013-08-30)
 !!
 !!
-SUBROUTINE rad_aero_diag (                                  &
-      & kg              ,kb              ,kce             , &
+SUBROUTINE rad_aero_diag (                kg              , &
+      & kb              ,kcs             ,kce             , &
       & kbdim           ,klev            ,kpband          , &
       & kpsw            ,paer_tau_lw_vr  ,paer_tau_sw_vr  , &
       & paer_piz_sw_vr  ,paer_cg_sw_vr                      )
 
       INTEGER, INTENT(in)    :: kg      ! domain index
       INTEGER, INTENT(in)    :: kb      ! block index
-      INTEGER, INTENT(in)    :: kce     ! actual block length
+      INTEGER, INTENT(in)    :: kcs     ! actual block length (start index)
+      INTEGER, INTENT(in)    :: kce     ! actual block length (end index)
       INTEGER, INTENT(in)    :: kbdim   ! declaration block length
       INTEGER, INTENT(in)    :: klev    ! levels
       INTEGER, INTENT(in)    :: kpband  ! number of lw bands
@@ -63,20 +64,20 @@ SUBROUTINE rad_aero_diag (                                  &
       REAL(wp), INTENT(in)   :: paer_piz_sw_vr(kbdim,klev,kpsw)   ! ssa solar wavelengths
       REAL(wp), INTENT(in)   :: paer_cg_sw_vr(kbdim,klev,kpsw)    ! asy solar wavelengths
 
-      prm_field(kg)%aer_aod_9731(1:kce,1:klev,kb) = &
-                   paer_tau_lw_vr(1:kce,klev:1:-1,7)
-      prm_field(kg)%aer_aod_533 (1:kce,1:klev,kb) = &
-                   paer_tau_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_ssa_533 (1:kce,1:klev,kb) = &
-                   paer_piz_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_asy_533 (1:kce,1:klev,kb) = &
-                   paer_cg_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_aod_2325(1:kce,1:klev,kb) = &
-                   paer_tau_sw_vr(1:kce,klev:1:-1,3)
-      prm_field(kg)%aer_ssa_2325(1:kce,1:klev,kb) = &
-                   paer_piz_sw_vr(1:kce,klev:1:-1,3)
-      prm_field(kg)%aer_asy_2325(1:kce,1:klev,kb) = &
-                   paer_cg_sw_vr(1:kce,klev:1:-1,3)
+      prm_field(kg)%aer_aod_9731(kcs:kce,1:klev,kb) = &
+                   paer_tau_lw_vr(kcs:kce,klev:1:-1,7)
+      prm_field(kg)%aer_aod_533 (kcs:kce,1:klev,kb) = &
+                   paer_tau_sw_vr(kcs:kce,klev:1:-1,10)
+      prm_field(kg)%aer_ssa_533 (kcs:kce,1:klev,kb) = &
+                   paer_piz_sw_vr(kcs:kce,klev:1:-1,10)
+      prm_field(kg)%aer_asy_533 (kcs:kce,1:klev,kb) = &
+                   paer_cg_sw_vr(kcs:kce,klev:1:-1,10)
+      prm_field(kg)%aer_aod_2325(kcs:kce,1:klev,kb) = &
+                   paer_tau_sw_vr(kcs:kce,klev:1:-1,3)
+      prm_field(kg)%aer_ssa_2325(kcs:kce,1:klev,kb) = &
+                   paer_piz_sw_vr(kcs:kce,klev:1:-1,3)
+      prm_field(kg)%aer_asy_2325(kcs:kce,1:klev,kb) = &
+                   paer_cg_sw_vr(kcs:kce,klev:1:-1,3)
 END SUBROUTINE rad_aero_diag
 
 END MODULE mo_rad_diag

@@ -104,6 +104,10 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+AC_ARG_ENABLE([psrad],
+              AS_HELP_STRING([--enable-psrad],[Use psrad model component.]),
+              [],[enable_psrad=yes])
+
 dnl ######################################################################
 dnl Serialbox2 serialization setup
 
@@ -334,6 +338,9 @@ AS_IF([test "x$enable_ocean" = "xno"],
 
 AS_IF([test "x$enable_testbed" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
+AS_IF([test "x$enable_psrad" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"])
 
 dnl #####################################################################
 dnl add local flags
@@ -1124,7 +1131,7 @@ dnl Checks for header files.
 if test -z "$CROSS" ; then
 
    AC_HEADER_STDC
-   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h )
+   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h link.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
    AC_C_CONST

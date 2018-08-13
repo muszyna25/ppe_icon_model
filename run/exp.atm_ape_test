@@ -220,7 +220,7 @@ add_link_file $datadir/greenhouse_historical.nc                         ./bc_gre
 #
 # - ozone
 datadir=${icon_data_poolFolder}/ozone/ape/${resolution}
-add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozone.nc
 
 #--------------------------------------------------------------------------------------------------
 

@@ -281,7 +281,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_co2         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  echam_rad_config(1)%irad_ch4         = 2           ! 2: global constant; 4: from greenhouse gas scenario
  echam_rad_config(1)%irad_n2o         = 2           ! 2: global constant; 4: from greenhouse gas scenario
- echam_rad_config(1)%irad_o3          = 8           ! 8: horizontally and vertically variable
+ echam_rad_config(1)%irad_o3          = 2           ! 2: clim. annual cycle, horizontally and vertically variable
  echam_rad_config(1)%irad_o2          = 2           ! 2: horizontally and vertically constant
  echam_rad_config(1)%irad_cfc11       = 0           ! 0: no cfc
  echam_rad_config(1)%irad_cfc12       = 0           ! 0: no cfc

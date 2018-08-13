@@ -30,6 +30,8 @@ MODULE mo_exception
   USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
     & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
   USE mo_kind,     ONLY: wp
+  USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
+  
 
   IMPLICIT NONE
 
@@ -51,7 +53,7 @@ MODULE mo_exception
   INTEGER, PARAMETER :: em_param = 4   !< report parameter value
   INTEGER, PARAMETER :: em_debug = 5   !< debugging message
 
-  CHARACTER(len=1000) :: message_text = ''
+  CHARACTER(len=MAX_CHAR_LENGTH) :: message_text = ''
 
   LOGICAL :: l_debug     = .FALSE.
   LOGICAL :: l_log       = .FALSE.

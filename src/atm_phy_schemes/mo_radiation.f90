@@ -1255,7 +1255,8 @@ CONTAINS
         &                         aer_cg_sw_vr)
     CASE (13)
       CALL set_bc_aeropt_kinne( current_date                        ,&
-        & jce              ,kbdim                 ,klev             ,&
+        & jg                                                        ,&
+        & 1, jce           ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1267,7 +1268,7 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
+      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1276,13 +1277,14 @@ CONTAINS
         & aer_tau_lw_vr                                              )
     CASE (15)
       CALL set_bc_aeropt_kinne( current_date                        ,&
-        & jce              ,kbdim                 ,klev             ,&
+        & jg                                                        ,&
+        & 1,   jce         ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
+      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1294,9 +1296,10 @@ CONTAINS
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
+
     IF (lrad_aero_diag) THEN
-      CALL rad_aero_diag (                                  &
-      & jg              ,jb              ,jce             , &
+      CALL rad_aero_diag (                jg              , &
+      & jb              ,1               ,jce             , &
       & kbdim           ,klev            ,jpband          , &
       & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )

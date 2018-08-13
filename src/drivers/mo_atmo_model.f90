@@ -66,6 +66,7 @@ MODULE mo_atmo_model
   USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
   USE mo_jsb_model_final,         ONLY: jsbach_finalize
 #endif
+  USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -267,7 +268,8 @@ CONTAINS
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe)
+         &                          num_prefetch_proc, num_test_pe,      &
+         &                          opt_comp_id=atmo_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -371,6 +373,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
     IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
+
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.

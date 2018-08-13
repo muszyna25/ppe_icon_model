@@ -27,7 +27,7 @@ PROGRAM test_divide_cell_mpi
 
 
   CALL start_mpi('test_divide_cell_mpi')
-  CALL split_global_mpi_communicator(1)
+  CALL split_global_mpi_communicator(1, 1)
 
   comm = process_mpi_all_comm
   CALL mpi_comm_size(comm, comm_size, ierror)

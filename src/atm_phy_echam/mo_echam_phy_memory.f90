@@ -320,7 +320,9 @@ MODULE mo_echam_phy_memory
       & ts_rad     (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
       & ts_rad_rt  (:,  :),  &!< [K] radiative sfc. temperature at radiation time
       & csat       (:,  :),  &!<
-      & cair       (:,  :)    !<
+      & cair       (:,  :),  &!<
+      & q_snocpymlt(:,  :),  &!< [W/m2] heating used to melt snow on the canopy
+      & q_rlw_impl (:,  :)    !< [W/m2] heating correction due to implicit land surface coupling
 
     ! CO2
     REAL(wp),POINTER :: &
@@ -1513,6 +1515,7 @@ CONTAINS
          &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
+    !-----------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at radiation times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air_at_rad_time'    , &
@@ -1616,7 +1619,7 @@ CONTAINS
          &       lrestart = .TRUE.                           , &
          &       ldims=shape2d                               )
 
-
+    !-----------------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at all times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air', &
@@ -1719,7 +1722,7 @@ CONTAINS
          &       cf_desc, grib2_desc                   , &
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
-
+    !---------------------------------------------------------
 
 
     !
@@ -1895,6 +1898,17 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d )
 
+    cf_desc    = t_cf_var('q_snocpymlt', 'W/m2', 'heating for snow melt on canopy', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'q_snocpymlt', field%q_snocpymlt,    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
+
+    cf_desc    = t_cf_var('q_rlw_impl', 'W/m2', 'heating correction due to implicit land surface coupling', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'q_rlw_impl', field%q_rlw_impl,    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
     !
     !------------------
     !
