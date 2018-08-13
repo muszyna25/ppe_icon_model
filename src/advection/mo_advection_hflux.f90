@@ -768,30 +768,28 @@ CONTAINS
     iibc => p_patch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
-#ifdef _OPENACC
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, iilc, iibc, p_cc, p_mass_flx_e, p_upflux ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), &
+!$ACC       PRESENT( p_patch, iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=6
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 #endif
           !
@@ -808,16 +806,15 @@ CONTAINS
         END DO  ! end loop over edges
 
       END DO  ! end loop over levels
+!$ACC END PARALLEL
 
     END DO  ! end loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE upwind_hflux_up
 
@@ -938,7 +935,8 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
+!$ACC       PRESENT( p_patch, btraj%cell_idx, btraj%cell_blk), IF( i_am_accel_node .AND. acc_on)
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! number of vertical levels
@@ -1057,9 +1055,7 @@ CONTAINS
     !    linear approximation). Only the reconstruction for the local cell
     !    is taken into account.
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
 
     ! Before starting, preset halo edges that are not processed with zero's in order
     ! to avoid access of uninitialized array elements in subsequent routines
@@ -1070,9 +1066,7 @@ CONTAINS
       i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
       CALL init(p_out_e(:,:,i_startblk:i_endblk))
-#ifndef _OPENACC
 !$OMP BARRIER
-#endif
     ENDIF
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -1081,21 +1075,10 @@ CONTAINS
     ! initialize also nest boundary points with zero
     IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
       CALL init(p_out_e(:,:,1:i_startblk))
-#ifndef _OPENACC
 !$OMP BARRIER
-#endif
     ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, btraj%cell_idx, btraj%cell_blk, z_grad, btraj%distv_bary ), &
-!$ACC PRESENT( p_out_e ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1103,9 +1086,11 @@ CONTAINS
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1120,12 +1105,15 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ELSE IF (use_zlsq) THEN
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1141,12 +1129,15 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ELSE
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1162,20 +1153,14 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ENDIF
 
     ENDDO    ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
-
-! 2015_09_22 WS: This line might be needed because debugging is on in hflx_limiter_mo
-
-!!! !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !
     ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.

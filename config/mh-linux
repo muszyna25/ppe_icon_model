@@ -163,6 +163,26 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         WLFLAG      = -Wl        
         ;;
+    pgi_gpu)
+        config_target=daint_gpu
+        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
+        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda -D_LOC_TIMING
+        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
+        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
+        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
+        ;;
+    pgi_openacc_mc)
+        config_target=daint_gpu
+        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
+        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline -D_LOC_TIMING
+        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
+        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
+        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
+        ;;
     cray)
         config_compiler  = cray
         compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
@@ -187,7 +207,7 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
+        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
@@ -253,28 +273,52 @@ case "$ac_sitename" in
                         LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB    = -lsci_gnu
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/gnu
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
 			;;
                     intel)
                         config_target=daint_cpu
                         load_modules = PrgEnv-intel cray-netcdf
-                        CFLAGS      = -std=gnu99 -march=native -DgFortran -DHAVE_LIBNETCDF
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
                         F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
                         FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-			OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2
+			OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/INTEL/17.0.4.196
 			;;
                     pgi)
                         config_target=daint_cpu 
-                        load_modules = PrgEnv-pgi cray-netcdf
-                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
+                        load_modules = PrgEnv-pgi cray-netcdf daint-gpu
+                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -tp=haswell
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        LDFLAGS     = -tp=haswell -Mnorpath
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/pgi
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
+                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
 			;;
+                    pgi_gpu)
+                        config_target=daint_gpu
+                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
+                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
+                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
+                       ;;
+                    pgi_openacc_mc)
+                        config_target=daint_gpu
+                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
+                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
+                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
+                       ;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
                         LDFLAGS     = -Wl,--allow-multiple-definition
@@ -282,20 +326,20 @@ case "$ac_sitename" in
                         HDF5ROOT    = ${HDF5_DIR}
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
                         ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/16.11 cray-netcdf cray-hdf5 craype-accel-nvidia60
+                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 craype-accel-nvidia60
                         FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hadd_paren -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
                         NETCDFROOT  = ${NETCDF_DIR}
                         HDF5ROOT    = ${HDF5_DIR}
                         LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                         LAPACK_LIB  = -lsci_cray
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2_cce8.5.5
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
 			                  ;;
                     *)
                         echo
@@ -322,6 +366,7 @@ case "$ac_sitename" in
                         load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
                         CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
 			;;
                     intel)
                         config_target=tave_knl
@@ -332,12 +377,14 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
                         F77FLAGS    = $FFLAGS $STD_FLAGS
                         MODDIR      = -I
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/INTEL/17.0.4.196
 			;;
                     pgi)
                         config_target=tave_knl
                         load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
 			;;
                     cray)
                         config_target=tave_knl
@@ -347,6 +394,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/default/CRAY/8.3
                         OTHER_LIBS  =
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
 			;;
                     *)
                         echo
