@@ -25,24 +25,29 @@ MODULE mo_bc_sst_sic
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
+  USE mo_grid_config,        ONLY: n_dom
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid, streamClose, streamReadVarslice
+    &                              vlistInqVarGrid, streamClose, streamReadVarSlice
   USE mo_util_cdi,           ONLY: cdiGetStringError
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights
 
   IMPLICIT NONE
 
   PRIVATE
-  
-  REAL(dp), POINTER :: sst(:,:,:) => NULL()
-  REAL(dp), POINTER :: sic(:,:,:) => NULL()
-  
-  CHARACTER(len=*), PARAMETER :: sst_fn = 'bc_sst.nc'
-  CHARACTER(len=*), PARAMETER :: sic_fn = 'bc_sic.nc'
+
+  TYPE t_ext_sea
+    REAL(dp), POINTER :: sst(:,:,:) => NULL()
+    REAL(dp), POINTER :: sic(:,:,:) => NULL()
+  END TYPE t_ext_sea
+
+  TYPE(t_ext_sea), ALLOCATABLE, TARGET :: ext_sea(:)
+
+  CHARACTER(len=MAX_CHAR_LENGTH) :: sst_fn
+  CHARACTER(len=MAX_CHAR_LENGTH) :: sic_fn
 
   PUBLIC :: read_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
@@ -56,59 +61,79 @@ CONTAINS
 
     INTEGER(i8),   INTENT(in) :: year
     TYPE(t_patch), INTENT(in) :: p_patch
-   
+
+    INTEGER :: jg
+
     REAL(dp), POINTER :: zin(:,:) => NULL()
-    
+
     LOGICAL :: lexist
-    
-    ! global
+
+    jg = p_patch%id
+
+    ! allocate once only module memory for the external SST and SIC data
+    IF (.NOT. ALLOCATED (ext_sea        )) ALLOCATE (ext_sea(n_dom))
+    IF (.NOT. ASSOCIATED(ext_sea(jg)%sst)) ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, 0:13))
+    IF (.NOT. ASSOCIATED(ext_sea(jg)%sic)) ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, 0:13))
+
+    ! allocate temporary field for reading SST and SIC on the whole grid jg
     IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
 
     IF (my_process_is_mpi_workroot()) THEN
    
-      WRITE(message_text,'(a,a,a,i0)') &
-           'Read SST from ', sst_fn, ' for ', year
+      IF (jg > 1) THEN
+        WRITE(sst_fn,'(a,i2.2,a)') 'bc_sst_DOM', jg, '.nc'
+      ELSE
+        sst_fn = 'bc_sst.nc'
+      ENDIF
+
+      WRITE(message_text,'(a,a,a,i4)') &
+           'Read SST from ', TRIM(sst_fn), ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=sst_fn, exist=lexist)
+      INQUIRE (file=TRIM(sst_fn), exist=lexist)
       IF (lexist) THEN
-        CALL read_sst_sic_data(sst_fn, year, zin)
+        CALL read_sst_sic_data(TRIM(sst_fn), year, zin)
       ELSE
-        WRITE (message_text,*) 'Could not open file ',sst_fn
+        WRITE (message_text,*) 'Could not open file ',TRIM(sst_fn)
         CALL message('',message_text)
         CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
 
     ENDIF
 
-    ! local
-    IF (.NOT. ASSOCIATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_time_array(zin, sst, p_patch%cells%decomp_info%glb_index)
+    ! local (i.e. cut SST-data into slices of length nproma)
+    CALL scatter_time_array(zin, ext_sea(jg)%sst, p_patch%cells%decomp_info%glb_index)
 
+    ! and the same for SIC (don't allocate zin again)
     IF (my_process_is_mpi_workroot()) THEN
 
-      WRITE(message_text,'(a,a,a,i0)') &
-           'Read sea ice from ', sic_fn, ' for ', year
+      IF (jg > 1) THEN
+        WRITE(sic_fn,'(a,i2.2,a)') 'bc_sic_DOM', jg, '.nc'
+      ELSE
+        sic_fn = 'bc_sic.nc'
+      ENDIF
+
+      WRITE(message_text,'(a,a,a,i4)') &
+           'Read sea ice from ', TRIM(sic_fn), ' for ', year
       CALL message('',message_text)
       
-      INQUIRE (file=sic_fn, exist=lexist)
+      INQUIRE (file=TRIM(sic_fn), exist=lexist)
       IF (lexist) THEN
-        CALL read_sst_sic_data(sic_fn, year, zin)
+        CALL read_sst_sic_data(TRIM(sic_fn), year, zin)
       ELSE
-        WRITE (message_text,*) 'Could not open file ', sic_fn
+        WRITE (message_text,*) 'Could not open file ', TRIM(sic_fn)
         CALL message('',message_text)
         CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
       
     ENDIF
 
-    ! local
-    IF (.NOT. ASSOCIATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_time_array(zin, sic, p_patch%cells%decomp_info%glb_index)
+    ! local (i.e. cut SIC-data into slices of length nproma)
+    CALL scatter_time_array(zin, ext_sea(jg)%sic, p_patch%cells%decomp_info%glb_index)
     
-    IF (ASSOCIATED(zin)) DEALLOCATE(zin)
+    DEALLOCATE(zin)
     
-    current_year = year
+    IF (jg==n_dom) current_year = year
 
   END SUBROUTINE read_bc_sst_sic
   
@@ -116,7 +141,7 @@ CONTAINS
     
     CHARACTER(len=*), INTENT(in) :: fn
     INTEGER(i8), INTENT(in) :: y
-    REAL(dp), POINTER :: zin(:,:)
+    REAL(dp), POINTER       :: zin(:,:)
     
     INTEGER :: ngridsize
     INTEGER(i8) :: ym1, yp1
@@ -154,14 +179,15 @@ CONTAINS
       vdate = taxisInqVdate(taxisID)
       vyear = vdate/10000
       vmonth = (vdate/100)-vyear*100
+
       IF (INT(vyear,i8) == ym1 .AND. vmonth == 12) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
         zin(:,0) = buffer(:)
       ELSE IF (INT(vyear,i8) == y) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
         zin(:,vmonth) = buffer(:)
       ELSE IF (INT(vyear,i8) == yp1 .AND. vmonth == 1) THEN
-        CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
+        CALL streamReadVarSlice(streamID, varID, 0, buffer, nmiss)
         zin(:,13) = buffer(:)
         EXIT
       ENDIF
@@ -186,8 +212,12 @@ CONTAINS
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
 
-    zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
-    zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
+    INTEGER  :: jg
+
+    jg = p_patch%id
+
+    zts(:,:) = tiw%weight1 * ext_sea(jg)%sst(:,:,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sst(:,:,tiw%month2_index)
+    zic(:,:) = tiw%weight1 * ext_sea(jg)%sic(:,:,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sic(:,:,tiw%month2_index)
 
     !TODO: missing siced needs to be added
 

@@ -583,7 +583,7 @@ ac_hostname=`(hostname || uname -n) 2>/dev/null | sed 1q`
 #
 # Initializations.
 #
-ac_default_prefix=/usr/local
+ac_default_prefix=
 ac_clean_files=
 ac_config_libobj_dir=.
 LIBOBJS=
@@ -789,6 +789,7 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_psrad
 enable_serialization
 enable_mh_file
 with_fortran
@@ -1454,6 +1455,7 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-psrad          Use psrad model component.
   --enable-serialization  Enable Serialbox2 serialization. Three modes are
                           available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
@@ -1868,6 +1870,7 @@ ac_header_list="$ac_header_list sys/param.h"
 ac_header_list="$ac_header_list sys/time.h"
 ac_header_list="$ac_header_list sys/unistd.h"
 ac_header_list="$ac_header_list sys/utsname.h"
+ac_header_list="$ac_header_list link.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
 ac_cache_corrupted=false
@@ -2400,6 +2403,14 @@ else
 fi
 
 
+# Check whether --enable-psrad was given.
+if test "${enable_psrad+set}" = set; then :
+  enableval=$enable_psrad;
+else
+  enable_psrad=yes
+fi
+
+
 
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then
@@ -2482,7 +2493,6 @@ if test "x$with_yaxt" = "xno"; then
 else
   use_yaxt="yes"
 fi
-
 
 
 
@@ -2878,6 +2888,10 @@ fi
 
 if test "x$enable_testbed" = "xno"; then
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
+fi
+
+if test "x$enable_psrad" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"
 fi
 
 
@@ -5857,7 +5871,6 @@ done
 
 
 
-
    { $as_echo "$as_me:$LINENO: checking for an ANSI C-conforming const" >&5
 $as_echo_n "checking for an ANSI C-conforming const... " >&6; }
 if test "${ac_cv_c_const+set}" = set; then
@@ -7936,7 +7949,6 @@ fi
 else
   YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=
 fi
-
 
 
 

@@ -846,28 +846,28 @@ CONTAINS
     END DO
 
     ! Optional: Append the last event time step
-    IF (evd%l_output_last .AND. mtime_dates(n_event_steps) < sim_end .AND. mtime_end >= sim_end) THEN
-      ! check, that we do not duplicate the last time step:
-      l_append_step = .TRUE.
-      IF (n_event_steps > 0) THEN
+    IF (n_event_steps > 0) THEN
+      IF (evd%l_output_last .AND. mtime_dates(n_event_steps) < sim_end .AND. mtime_end >= sim_end) THEN
+        ! check, that we do not duplicate the last time step:
+        l_append_step = .TRUE.
         IF (mtime_dates(n_event_steps) == sim_end) l_append_step = .FALSE.
-      END IF
-      IF (l_append_step) THEN
-        n_event_steps = n_event_steps + 1
-        old_size = SIZE(mtime_dates)
-        IF (n_event_steps > old_size) THEN
-          ! resize buffer
-          new_size = old_size + INITIAL_NEVENT_STEPS
-          ALLOCATE(tmp_dates(new_size), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-          tmp_dates(1:old_size) = mtime_dates
-          CALL MOVE_ALLOC(tmp_dates, mtime_dates)
-        END IF
-        mtime_dates(n_event_steps) = sim_end
-        IF (ldebug) THEN
-          CALL datetimeToString(sim_end, dtime_string)
-          WRITE (0,*) get_my_global_mpi_id(), ": ", &
-               &      n_event_steps, ": output event '", dtime_string, "'"
+        IF (l_append_step) THEN
+          n_event_steps = n_event_steps + 1
+          old_size = SIZE(mtime_dates)
+          IF (n_event_steps > old_size) THEN
+            ! resize buffer
+            new_size = old_size + INITIAL_NEVENT_STEPS
+            ALLOCATE(tmp_dates(new_size), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+            tmp_dates(1:old_size) = mtime_dates
+            CALL MOVE_ALLOC(tmp_dates, mtime_dates)
+          END IF
+          mtime_dates(n_event_steps) = sim_end
+          IF (ldebug) THEN
+            CALL datetimeToString(sim_end, dtime_string)
+            WRITE (0,*) get_my_global_mpi_id(), ": ", &
+                 &      n_event_steps, ": output event '", dtime_string, "'"
+          END IF
         END IF
       END IF
     END IF
@@ -973,6 +973,8 @@ CONTAINS
       
       ALLOCATE(OutputArray(n))
       
+      i = 1
+      j = 1
 
       ! handle special case for k == 1 to be Fortran conforming in start-up step
 

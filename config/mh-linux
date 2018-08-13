@@ -221,7 +221,7 @@ case "$fortran_compiler" in
     intel*)
         config_compiler  = intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
-        # CC          = icc
+        CC          = icc
         # ccversion   = $(icc --version 2>&1 | awk 'NR==1')
         # CFLAGS      = -fpe0 -msse2 -pc64  -DgFortran -DHAVE_LIBNETCDF
         CFLAGS      = $CFLAGS -DgFortran
@@ -977,6 +977,7 @@ case "$ac_sitename" in
                         GRIBAPIROOT  = $software_tree/grib_api-1.14.3-static-${compiler_version}
                         SYS_LIBS     = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
                         SYS_LIBS     = -ljasper -ljpeg $SYS_LIBS
+                        OTHER_LIBS   = -ljasper -ljpeg -lm -ldl -lrt -lutil -lpthread -lpciaccess
                         XML2ROOT     = /usr
                         case "$fortran_compiler" in
                             default|gcc)
@@ -986,13 +987,14 @@ case "$ac_sitename" in
                                 ;;
                             nag)
                                 load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
+                                FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
                                 LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl
                                 MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS
                                 ;;
                             intel)
-                                load_modules=gcc/5.2.0 intel/16.0.2 ${load_modules}
+                                load_modules=intel/16.0.2 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g

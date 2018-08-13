@@ -23,7 +23,7 @@
 !!
 MODULE mo_psrad_radiation_forcing
   USE mo_kind,                ONLY: wp
-  USE mo_psrad_memory,        ONLY: psf=>prm_psrad_forcing
+  USE mo_psrad_forcing_memory, ONLY: psf=>prm_psrad_forcing
   USE mo_physical_constants,  ONLY: stbo
   USE mo_radiation_config,    ONLY: lradforcing
   USE mtime,                  ONLY: no_of_sec_in_a_day

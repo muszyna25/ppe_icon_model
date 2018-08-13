@@ -36,16 +36,17 @@ MODULE mo_master_control
 
   PUBLIC ::  init_master_control, master_namelist_filename,               &
     & get_my_namelist_filename, get_my_process_type, get_my_process_name, &
-    & atmo_process, ocean_process, radiation_process, testbed_process,    &
+    & atmo_process, ocean_process, ps_radiation_process, testbed_process, &
     & my_process_is_ocean, get_my_model_no,                               &
-    & are_multiple_models, use_restart_namelists, isRestart
+    & are_multiple_models, use_restart_namelists, isRestart,              &
+    & process_exists
    
 
   ! ------------------------------------------------------------------------
-  INTEGER, PARAMETER :: atmo_process      = 1
-  INTEGER, PARAMETER :: ocean_process     = 2
-  INTEGER, PARAMETER :: radiation_process = 3
-  INTEGER, PARAMETER :: testbed_process   = 99
+  INTEGER, PARAMETER :: atmo_process         = 1
+  INTEGER, PARAMETER :: ocean_process        = 2
+  INTEGER, PARAMETER :: ps_radiation_process = 3
+  INTEGER, PARAMETER :: testbed_process      = 99
   ! ------------------------------------------------------------------------
 
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
@@ -128,7 +129,7 @@ CONTAINS
         
       ENDDO COMPONENT_MODELS
 
-      CALL split_global_mpi_communicator ( my_model_no )
+      CALL split_global_mpi_communicator ( my_model_no, noOfModels() )
 
     ELSE ! only one component    
 
@@ -137,6 +138,8 @@ CONTAINS
            &                master_component_models(model_no)%model_name,  &
            &                master_component_models(model_no)%model_type,  &
            &                master_component_models(model_no)%model_namelist_filename)
+
+      CALL split_global_mpi_communicator ( model_no, 1 )
 
     ENDIF
 
@@ -187,7 +190,7 @@ CONTAINS
     SELECT CASE (my_process_model)
       CASE (atmo_process)
       CASE (ocean_process)
-      CASE (radiation_process)
+      CASE (ps_radiation_process)
       CASE (testbed_process)
       CASE default
         CALL finish("check_my_component","my_process_model is unkown")
@@ -250,6 +253,26 @@ CONTAINS
     are_multiple_models = multiple_models
 
   END FUNCTION are_multiple_models
+  !------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION process_exists(process_type)
+    INTEGER, INTENT(in) :: process_type
+
+    INTEGER :: model_no
+
+    process_exists = .false.
+    DO model_no = 1, noOfModels()
+
+      IF (process_type == master_component_models(model_no)%model_type) THEN
+        process_exists = .true.
+        RETURN
+      ENDIF
+
+    ENDDO
+    RETURN
+
+  END FUNCTION process_exists
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------

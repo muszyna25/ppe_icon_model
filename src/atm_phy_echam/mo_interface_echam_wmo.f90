@@ -65,7 +65,7 @@ CONTAINS
     !
     lresum=.FALSE.
     !
-    CALL WMO_tropopause( jce, nproma, nlev,         &! in
+    CALL WMO_tropopause( jcs, jce, nproma, nlev,   &! in
                        & ncctop, nccbot, lresum,   &! in
                        & field% ta(:,:,jb),        &! in
                        & field% presm_old(:,:,jb), &! in

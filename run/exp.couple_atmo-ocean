@@ -766,13 +766,13 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/lsdata.nc           ./
-add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
+add_required_file ${basedir}/data/lsdata.nc                             ./
+add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc                 ./
 #
 # namelist files
 # --------------
 #
-add_required_file ${thisdir}/${atmo_namelist} ./
+add_required_file ${thisdir}/${atmo_namelist}                           ./
 #
 # atmosphere initial conditions
 # -----------------------------
@@ -788,7 +788,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 #
 # - ozone
 datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
-add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozone.nc
 #
 # dictionary for variable names
 # -----------------------------

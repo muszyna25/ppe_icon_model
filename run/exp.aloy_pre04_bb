@@ -281,7 +281,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_co2   =  2
  echam_rad_config(1)%irad_ch4   =  2
  echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o3    =  2
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0

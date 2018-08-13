@@ -27,9 +27,8 @@ MODULE mo_echam_phy_bcs
        &                                   operator(<=),operator(>),                       &   
        &                                   getPTStringFromSeconds,                         &
        &                                   getTotalSecondsTimeDelta,                       &
-       &                                   isCurrentEventActive
+       &                                   isCurrentEventActive, deallocateDatetime
   USE mo_model_domain               ,ONLY: t_patch
-  USE mo_impl_constants             ,ONLY: io3_amip
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
@@ -49,6 +48,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
 
   IMPLICIT NONE
   PRIVATE
@@ -82,7 +82,7 @@ CONTAINS
 
     ! Local variables
 
-    TYPE(datetime) , POINTER, SAVE           :: radiation_time !< date and time for radiative transfer
+    TYPE(datetime) , POINTER, SAVE           :: radiation_time => NULL() !< date and time for radiative transfer
     TYPE(timedelta), POINTER                 :: td_radiation_offset
     CHARACTER(len=max_timedelta_str_len)     :: dstring
 
@@ -170,9 +170,11 @@ CONTAINS
       ! in the radiative transfer. All other input for the radiative transfer
       ! is for datetime, i.e. the start date and time of the current timestep.
       !
+      IF (ASSOCIATED(radiation_time)) &
+        & CALL deallocateDatetime(radiation_time) 
       radiation_time => newDatetime(mtime_old)
       dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(patch%id)%dt_rad,mtime_old) ! [s] local time step of radiation
-      dsec = 0.5_wp*(dtrad_loc - dtadv_loc)                                       ! [s] time increment for zenith angle
+      dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift                           ! [s] time increment for zenith angle
       CALL getPTStringFromSeconds(dsec, dstring)
       td_radiation_offset => newTimedelta(dstring)
       radiation_time = radiation_time + td_radiation_offset
@@ -197,7 +199,10 @@ CONTAINS
       END IF
       !
       ! ozone concentration
-      IF (irad_o3 == io3_amip .OR. irad_o3 == 10 ) THEN
+      IF   (      irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
+           & .OR. irad_o3 ==  4 &       ! constant in time
+           & .OR. irad_o3 ==  8 &       ! transient time series defined by monthly data
+           & .OR. irad_o3 == 10 ) THEN  ! coupled to ART
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !

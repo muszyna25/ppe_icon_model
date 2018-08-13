@@ -80,7 +80,8 @@ CONTAINS
           itype(:) = NINT(field%rtype(:,jb))
           !
           CALL cloud(jg,                           &! in
-               &     jce, nproma, nlev,            &! in
+               &     jb,                           &! in
+               &     jcs, jce, nproma, nlev,       &! in
                &     pdtime,                       &! in
                &     field% ictop    (:,  jb),     &! in (from "cucall")
                &     field% presm_old(:,:,jb),     &! in

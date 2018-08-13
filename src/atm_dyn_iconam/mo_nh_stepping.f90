@@ -215,6 +215,8 @@ MODULE mo_nh_stepping
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
 
+  USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -1064,6 +1066,11 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
+
+    IF (mtime_current >= time_config%tc_stopdate) THEN
+      ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
+      CALL finalize_atmo_radation()
+    ENDIF
 
     IF (lwrite_checkpoint) THEN
 

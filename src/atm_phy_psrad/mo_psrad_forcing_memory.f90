@@ -21,7 +21,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_psrad_memory
+MODULE mo_psrad_forcing_memory
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
@@ -138,7 +138,7 @@ CONTAINS
     TYPE(t_patch),INTENT(IN) :: patch_array(:)
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
     INTEGER :: ndomain, jg, ist, nblks, nlev
-    CHARACTER(len=*), PARAMETER :: thissubprog='construct_psrad_forcing_list of mo_psrad_memory'
+    CHARACTER(len=*), PARAMETER :: thissubprog='construct_psrad_forcing_list of mo_psrad_forcing_memory'
     
     !---
 
@@ -186,7 +186,7 @@ CONTAINS
     INTEGER :: ndomain  !< total # of grid levels/domains
     INTEGER :: jg       !< grid level/domain index
     INTEGER :: ist      !< system status code
-    CHARACTER(len=*), PARAMETER :: thissubprog='destruct_psrad_forcing_list of mo_psrad_memory'
+    CHARACTER(len=*), PARAMETER :: thissubprog='destruct_psrad_forcing_list of mo_psrad_forcing_memory'
     !---
     IF (.NOT.(lradforcing(1).OR.lradforcing(2))) RETURN
     CALL message(TRIM(thissubprog),'Destruction of psrad_forcing_list started.')
@@ -418,4 +418,4 @@ CONTAINS
   END SUBROUTINE new_psrad_forcing_list
 
 
-END MODULE mo_psrad_memory
+END MODULE mo_psrad_forcing_memory

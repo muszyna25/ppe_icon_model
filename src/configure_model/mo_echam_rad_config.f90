@@ -462,6 +462,8 @@ CONTAINS
                   &              'a valid choice because no O3  tracer is available '   // &
                   &              ' or lart = .TRUE.')
           END IF
+       CASE(2)
+          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
        CASE(4)
           CALL message('','O3    constant-in-time 3-dim. volume mixing ratio from file')
        CASE(8)
