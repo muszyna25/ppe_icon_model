@@ -246,7 +246,7 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
 #
 # - Kinne background aerosols are needed for the years 1849, 1850, 1851 
 #   accessing all the same data of 1865:
-datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution}
+datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${resolution}
 year=1849
 while [[ $year -le 1851 ]]
 do
@@ -279,12 +279,15 @@ add_link_file $datadir/sst_${resolution}.nc                             ./bc_sst
 datadir=${icon_data_poolFolder}/solar_radiation/3.2
 add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
+# - sso parameters
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${resolution}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+#
 # - land parameters
-datadir=${icon_data_poolFolder}/preliminary_land/${resolution}/land
-add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${resolution}/land
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
 # The following bc_land_hd-file is not yet available...
