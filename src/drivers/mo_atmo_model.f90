@@ -125,9 +125,7 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
-#ifndef NOMPI
   USE mo_restart,                 ONLY: detachRestartProcs
-#endif
   USE mo_name_list_output,        ONLY: name_list_io_main_proc, &
     &                                   write_ready_files_cdipio
   USE mo_name_list_output_init,   ONLY: init_cdipio_cb
