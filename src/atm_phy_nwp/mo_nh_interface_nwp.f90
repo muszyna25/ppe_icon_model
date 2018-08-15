@@ -421,13 +421,10 @@ CONTAINS
         ! "new" state. The corresponding update for the dynamics variables has 
         ! already happened in the dynamical core.
         !
-        CALL tracer_add_phytend( pt_prog      = pt_prog,              & !in density
-          &                      prm_nwp_tend = prm_nwp_tend,         & !in
+        CALL tracer_add_phytend( prm_nwp_tend = prm_nwp_tend,         & !in
           &                      pdtime       = dt_phy_jg(itfastphy), & !in
           &                      prm_diag     = prm_diag,             & !inout phyfields
           &                      pt_prog_rcf  = pt_prog_rcf,          & !inout tracer
-          &                      pt_diag      = pt_diag,              & !inout
-          &                      p_metrics    = p_metrics,            & !in
           &                      jg           = jg,                   & !in
           &                      jb           = jb,                   & !in
           &                      i_startidx   = i_startidx,           & !in

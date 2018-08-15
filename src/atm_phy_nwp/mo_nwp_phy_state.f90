@@ -369,7 +369,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
         &                   datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'graupel_gsp_rate', diag%graupel_gsp_rate,            &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d,                                             &
@@ -383,7 +383,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
         &                   datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 68, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'ice_gsp_rate', diag%ice_gsp_rate,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, isteptype=TSTEP_INSTANT )
@@ -391,7 +391,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
        ! &      diag%hail_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('hail_gsp_rate', 'kg m-2 s-1', 'gridscale hail rate', &
         &                   datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 73, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'hail_gsp_rate', diag%hail_gsp_rate,            &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, isteptype=TSTEP_INSTANT )
@@ -511,6 +511,55 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM )
 
 
+    !Surface precipitation variables for graupel scheme and two moment microphysics
+    IF (lhave_graupel) THEN
+       ! &      diag%graupel_gsp(nproma,nblks_c)
+      cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
+        &                   datatype_flt)
+      grib2_desc = grib2_var(0, 1, 75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d, in_group=groups("precip_vars"),             &
+                  & isteptype=TSTEP_ACCUM )
+    ENDIF
+
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (4,5,6)
+
+       ! &      diag%ice_gsp(nproma,nblks_c)
+      cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 68, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'ice_gsp', diag%ice_gsp,                        &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d, in_group=groups("precip_vars"),             &
+                  & isteptype=TSTEP_ACCUM )
+      
+
+       ! &      diag%hail_gsp(nproma,nblks_c)
+      cf_desc    = t_cf_var('hail_gsp', 'kg m-2', 'gridscale hail', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 73, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'hail_gsp', diag%hail_gsp,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d, in_group=groups("precip_vars"),             &
+                  & isteptype=TSTEP_ACCUM )
+
+    END SELECT
+
+    ! &      diag%prec_gsp(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_gsp', 'kg m-2', 'gridscale precip', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_gsp', diag%prec_gsp,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,                                              &
+                & in_group=groups("precip_vars"),                             &
+                & isteptype=TSTEP_ACCUM ,                                     &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
+                & ) )
+
+
+
     ! &      diag%rain_con(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con', 'kg m-2 ', 'convective rain', datatype_flt)
     grib2_desc = grib2_var(0, 1, 76, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -556,39 +605,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM )
 
 
-    !Surface precipitation variables for graupel scheme and two moment microphysics
-    IF (lhave_graupel) THEN
-       ! &      diag%graupel_gsp(nproma,nblks_c)
-      cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
-        &                   datatype_flt)
-      grib2_desc = grib2_var(0, 1, 75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
-    ENDIF
 
-    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6)
-
-       ! &      diag%ice_gsp(nproma,nblks_c)
-      cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, 'ice_gsp', diag%ice_gsp,                        &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
-      
-
-       ! &      diag%hail_gsp(nproma,nblks_c)
-      cf_desc    = t_cf_var('hail_gsp', 'kg m-2', 'gridscale hail', datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, 'hail_gsp', diag%hail_gsp,                      &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
-
-    END SELECT
+    ! &      diag%prec_con(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_con', 'kg m-2', 'convective precip', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 37, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_con', diag%prec_con,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,                                              &
+                & in_group=groups("precip_vars"),                             &
+                & isteptype=TSTEP_ACCUM ,                                     &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
+                & ) )
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
@@ -605,6 +634,27 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ) )
 
 
+
+    ! &      diag%prec_con_rate_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_con_rate_avg', 'kg m-2 s-1',                  &
+      &          'convective precip rate, time average', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 37, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_con_rate_avg', diag%prec_con_rate_avg,     &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,  lrestart=.FALSE.,                           &
+                & in_group=groups("additional_precip_vars"),                  &
+                & isteptype=TSTEP_AVG )
+
+    ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &
+      &          'gridscale precip rate, time average', datatype_flt)
+    grib2_desc = grib2_var(0, 1, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'prec_gsp_rate_avg', diag%prec_gsp_rate_avg,     &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d, lrestart=.FALSE.,                            &
+                & in_group=groups("additional_precip_vars"),                  &
+                & isteptype=TSTEP_AVG )
+
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
       &          'total precip rate, time average', datatype_flt)
@@ -615,25 +665,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG )
 
 
-    ! &      diag%con_prec_rate_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('con_prec_rate_avg', 'kg m-2 s-1',                  &
-      &          'convective precip rate, time average', datatype_flt)
-    grib2_desc = grib2_var(0, 1, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,     &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape2d,  lrestart=.FALSE.,                           &
-                & in_group=groups("additional_precip_vars"),                  &
-                & isteptype=TSTEP_AVG )
-
-    ! &      diag%gsp_prec_rate_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('gsp_prec_rate_avg', 'kg m-2 s-1',                  &
-      &          'gridscale precip rate, time average', datatype_flt)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'gsp_prec_rate_avg', diag%gsp_prec_rate_avg,     &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
-                & ldims=shape2d, lrestart=.FALSE.,                            &
-                & in_group=groups("additional_precip_vars"),                  &
-                & isteptype=TSTEP_AVG )
 
     ! &      diag%cape(nproma,nblks_c)
     cf_desc    = t_cf_var('cape', 'J kg-1 ', 'conv avail pot energy', datatype_flt)

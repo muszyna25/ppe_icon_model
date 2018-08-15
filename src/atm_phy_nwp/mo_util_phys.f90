@@ -1073,20 +1073,17 @@ CONTAINS
   !   occur, these are clipped. The moisture which is spuriously created by this 
   !   clipping is substracted from qv.
   ! - Diagnoses amount of convective rain and snow (rain_con, snow_con), 
-  !   as well as the total precipitation (tot_prec).
+  !   as well as the total convective precipitation (prec_con).
   ! - applies large-scale-forcing tendencies, if ICON is run in single-column-mode.
   ! 
-  SUBROUTINE tracer_add_phytend( pt_prog, prm_nwp_tend, pdtime, prm_diag, pt_prog_rcf, &
-    &                            pt_diag, p_metrics, jg, jb, i_startidx, i_endidx, kend)
+  SUBROUTINE tracer_add_phytend( prm_nwp_tend, pdtime, prm_diag, pt_prog_rcf, &
+    &                            jg, jb, i_startidx, i_endidx, kend)
 
-    TYPE(t_nh_prog),     INTENT(IN)   :: pt_prog      !< NH prog state at dynamic time step
     TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend !< atm tend vars
     REAL(wp),            INTENT(IN)   :: pdtime       !< time step
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !< the physics variables
     TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
                                                       !< reduced calling frequency
-    TYPE(t_nh_diag)     ,INTENT(INOUT):: pt_diag      !< the diagnostic variables
-    TYPE(t_nh_metrics),  INTENT(IN)   :: p_metrics    !< NH metrics variables
     INTEGER             ,INTENT(IN)   :: jg           !< domain ID
     INTEGER,             INTENT(IN)   :: jb           !< block index
     INTEGER,             INTENT(IN)   :: i_startidx, i_endidx
@@ -1167,25 +1164,18 @@ CONTAINS
     END IF
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
 
-!DIR$ IVDEP
-      prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
-        &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
-        &                                  + pdtime                                     &
-        &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
-!DIR$ IVDEP
-      prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
-        &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
-        &                                  + pdtime                                     &
-        &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
+        prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb)    &
+          &                      + pdtime * prm_diag%rain_con_rate(jc,jb)
 
-      !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
-!DIR$ IVDEP
-      prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
-        &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
-        &                              +  pdtime                                        &
-        &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
-        &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
+        prm_diag%snow_con(jc,jb) = prm_diag%snow_con(jc,jb)    &
+          &                      + pdtime * prm_diag%snow_con_rate(jc,jb)
+
+        prm_diag%prec_con(jc,jb) = prm_diag%rain_con(jc,jb) + prm_diag%snow_con(jc,jb)
+
+      ENDDO
 
     ENDIF
 

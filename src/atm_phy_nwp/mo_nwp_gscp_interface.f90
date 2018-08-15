@@ -574,22 +574,23 @@ CONTAINS
 
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
-              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)                         &
-                   &                   + tcall_gscp_jg * prm_diag%rain_gsp_rate (jc,jb)
-              prm_diag%ice_gsp(jc,jb)  = prm_diag%ice_gsp(jc,jb)                          & 
-                   &                   + tcall_gscp_jg * prm_diag%ice_gsp_rate (jc,jb)
-              prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)                         &
-                   &                   + tcall_gscp_jg * prm_diag%snow_gsp_rate (jc,jb)
-              prm_diag%hail_gsp(jc,jb) = prm_diag%hail_gsp(jc,jb)                         &
-                   &                   + tcall_gscp_jg * prm_diag%hail_gsp_rate (jc,jb)
-              prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)                   &
-                   &                   + tcall_gscp_jg * prm_diag%graupel_gsp_rate (jc,jb)
-              prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)                         &
-                   &                   + tcall_gscp_jg * ( prm_diag%rain_gsp_rate (jc,jb) &
-                   &                                     + prm_diag%ice_gsp_rate (jc,jb)  &
-                   &                                     + prm_diag%snow_gsp_rate (jc,jb) &
-                   &                                     + prm_diag%hail_gsp_rate (jc,jb) &
-                   &                                     + prm_diag%graupel_gsp_rate (jc,jb) )
+             prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)                         &
+                  &                   + tcall_gscp_jg * prm_diag%rain_gsp_rate (jc,jb)
+             prm_diag%ice_gsp(jc,jb)  = prm_diag%ice_gsp(jc,jb)                          & 
+                  &                   + tcall_gscp_jg * prm_diag%ice_gsp_rate (jc,jb)
+             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)                         &
+                  &                   + tcall_gscp_jg * prm_diag%snow_gsp_rate (jc,jb)
+             prm_diag%hail_gsp(jc,jb) = prm_diag%hail_gsp(jc,jb)                         &
+                  &                   + tcall_gscp_jg * prm_diag%hail_gsp_rate (jc,jb)
+             prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)                   &
+                  &                   + tcall_gscp_jg * prm_diag%graupel_gsp_rate (jc,jb)
+             !
+             prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
+               &                      + prm_diag%ice_gsp(jc,jb)   &
+               &                      + prm_diag%snow_gsp(jc,jb)  &
+               &                      + prm_diag%hail_gsp(jc,jb)  &
+               &                      + prm_diag%graupel_gsp(jc,jb)
+
            ENDDO
 
           CASE(2)
@@ -597,20 +598,20 @@ CONTAINS
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
 
-            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)           &
-   &                                 + tcall_gscp_jg                      &
-   &                                 * prm_diag%rain_gsp_rate (jc,jb)
-            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
-   &                                 + tcall_gscp_jg                      &
-   &                                 * prm_diag%snow_gsp_rate (jc,jb)
-            prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)     &
-   &                                 + tcall_gscp_jg                      &
-   &                                 * prm_diag%graupel_gsp_rate (jc,jb)
-            prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)           &
-   &                                 +  tcall_gscp_jg                     &
-   &                                 * ( prm_diag%rain_gsp_rate (jc,jb)   &
-   &                                 +   prm_diag%snow_gsp_rate (jc,jb)   &
-   &                                 +   prm_diag%graupel_gsp_rate (jc,jb) )
+             prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)           &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%rain_gsp_rate (jc,jb)
+             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%snow_gsp_rate (jc,jb)
+             prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)     &
+               &                      + tcall_gscp_jg                      &
+               &                      * prm_diag%graupel_gsp_rate (jc,jb)
+             !
+             prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
+               &                      + prm_diag%snow_gsp(jc,jb)  &
+               &                      + prm_diag%graupel_gsp(jc,jb)
+
            ENDDO
 
           CASE DEFAULT
@@ -618,16 +619,16 @@ CONTAINS
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
 
-            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
-   &                                 + tcall_gscp_jg                    &
-   &                                 * prm_diag%rain_gsp_rate (jc,jb)
-            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)         &
-   &                                 + tcall_gscp_jg                    &
-   &                                 * prm_diag%snow_gsp_rate (jc,jb)
-            prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)         &
-   &                                 +  tcall_gscp_jg                   &
-   &                                 * ( prm_diag%rain_gsp_rate (jc,jb) &
-   &                                 +   prm_diag%snow_gsp_rate (jc,jb) )
+             prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
+               &                      + tcall_gscp_jg                    &
+               &                      * prm_diag%rain_gsp_rate (jc,jb)
+             prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)         &
+               &                      + tcall_gscp_jg                    &
+               &                      * prm_diag%snow_gsp_rate (jc,jb)
+             !
+             prm_diag%prec_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)  &
+               &                      + prm_diag%snow_gsp(jc,jb)
+
            ENDDO
 
           END SELECT
