@@ -104,11 +104,11 @@ run_scripts_submit()
           slurm_user=`whoami`
           typeset -A job_submitted
       ;;
-	   msub*)
-		   batch_system=moab_kit
-		   slurm_user=`whoami`
-		   typeset -A job_submitted
-	;;
+      msub*)
+           batch_system=moab_kit
+           slurm_user=`whoami`
+           typeset -A job_submitted
+      ;;
       *)
           batch_system=other
       ;;
@@ -131,10 +131,10 @@ run_scripts_submit()
             echo "echo \$? > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
         fi
         chmod +x submit.$EXP_FILE        
-		if [[ "$batch_system" = "moab_kit" ]]
-		then
-			jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
-		fi	
+        if [[ "$batch_system" = "moab_kit" ]]
+        then
+        jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+        fi	
 
 
     fi
@@ -145,16 +145,16 @@ run_scripts_submit()
         job_submitted["$EXP_FILE"]=$jobid
     fi
 
-	if [[ "$batch_system" = "moab_kit" ]]
+    if [[ "$batch_system" = "moab_kit" ]]
     then
         sleep 2
-		echo $jobid
-		job_submitted["$EXP_FILE"]=$jobid
-		job_state="Running"
+        echo $jobid
+        job_submitted["$EXP_FILE"]=$jobid
+        job_state="Running"
         while [[ "${job_state}" = "Idle" || "${job_state}" = "Running" ]]
-		  do
-		  job_state=`checkjob $jobid  | awk 'NR==4{print $2}'`
-	     done
+          do
+           job_state=`checkjob $jobid  | awk 'NR==4{print $2}'`
+          done
 
     fi
   done
@@ -210,16 +210,16 @@ run_scripts_submit()
       if [[ "$batch_system" = "moab_kit" ]]
       then
           sleep 15
-		  job_state="Running"
+          job_state="Running"
           while [[ "${job_state}" = "Idle" || "${job_state}" = "Running" ]]
-		  do
-		  job_state=`checkjob $jobid  | awk 'NR==4{print $2}'`
-	  done
-		   case "$job_state" in
-			 Completed*)
+          do
+            job_state=`checkjob $jobid  | awk 'NR==4{print $2}'`
+          done
+          case "$job_state" in
+          Completed*)
                   echo 0 > ${EXP_FILE}.status
               ;;
-	  esac
+          esac
 
       fi 
 
