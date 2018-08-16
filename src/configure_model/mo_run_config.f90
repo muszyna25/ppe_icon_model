@@ -42,6 +42,7 @@ MODULE mo_run_config
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
+  PUBLIC :: ICON_grid_file_uri        ! non-namelist variables
   PUBLIC :: test_mode
   PUBLIC :: configure_run
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
@@ -95,9 +96,10 @@ MODULE mo_run_config
     ! Non-Namelist variables
     ! These are read from the grid file in mo_model_domimp_patches/read_basic_patch
     ! 
-    INTEGER :: grid_generatingCenter   (0:MAX_DOM)   !< patch generating center
-    INTEGER :: grid_generatingSubcenter(0:MAX_DOM)   !< patch generating subcenter
-    INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
+    INTEGER :: grid_generatingCenter   (0:MAX_DOM)      !< patch generating center
+    INTEGER :: grid_generatingSubcenter(0:MAX_DOM)      !< patch generating subcenter
+    INTEGER :: number_of_grid_used     (0:MAX_DOM)      !< Number of grid used (GRIB2 key)
+    CHARACTER(len=MAX_CHAR_LENGTH) :: ICON_grid_file_uri(0:MAX_DOM)
     
 
     ! Derived variables
@@ -166,8 +168,8 @@ CONTAINS
   !! Assign value to components of the run configuration state that have no
   !! corresponding namelist variable.
   !!
-  !! Exceptions: grid_generatingCenter, grid_generatingSubcenter and number_of_grid_used 
-  !!             are set in mo_model_domimp_patches/read_basic_patch 
+  !! Exceptions: grid_generatingCenter, grid_generatingSubcenter, number_of_grid_used 
+  !!             and ICON_grid_file_uri are set in mo_model_domimp_patches/read_basic_patch 
   !!
   SUBROUTINE configure_run( )
 
