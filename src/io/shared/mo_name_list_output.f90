@@ -1067,7 +1067,7 @@ CONTAINS
 #endif
         IF (.NOT.use_async_name_list_io .OR. is_mpi_test) THEN
           CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-            i_ptr, p_ri%n_glb, iv, last_bdry_index, &
+            i_ptr, ri_n_glb, iv, last_bdry_index, &
             nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
         ELSE
