@@ -1559,9 +1559,16 @@ set_run_target_fh2()
     set_default use_openmp_threads 2
   else
     set_default use_openmp_threads 1
-  fi
+fi
+output_script_name=$(basename "$output_script")
+#| sed -r "s/(.+)\/.+/\1/"
+stripped_output="LOG.$output_script_name.err"
+cat >> $output_script << EOF
+#MSUB -e $stripped_output 
+#MSUB -l walltime=00:00:05:00
+#MSUB -l nodes=4:ppn=20
+EOF
 
-  # create header
   start_header
 
 
