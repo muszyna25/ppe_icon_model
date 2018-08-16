@@ -2544,7 +2544,7 @@ CONTAINS
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-    TYPE(p_t_patch), INTENT(in) :: patches(0:n_lp)
+    TYPE(p_t_patch), INTENT(inout) :: patches(0:n_lp)
 
     INTEGER :: ip
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':calculate_cartesian_positions'
