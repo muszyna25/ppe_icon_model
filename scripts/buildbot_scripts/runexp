@@ -134,6 +134,9 @@ run_scripts_submit()
         if [[ "$batch_system" = "moab_kit" ]]
         then
         jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+        else
+        ./submit.$EXP_FILE &
+
         fi	
 
 
@@ -163,7 +166,6 @@ run_scripts_submit()
   wait
   sleep 30
 
-  echo "THIS IS EXPFLIES" $EXP_FILES
   echo ${pwd}
 
   
