@@ -113,7 +113,7 @@ icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
-atmo_grid_folder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}
 atmo_data_InputFolder==${icon_data_poolFolder}/${atmos_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
@@ -951,7 +951,7 @@ if [[ "$output_atm_debug" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'none'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atmTimeStep}"
@@ -977,7 +977,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"               ! output_start = output_end
  output_end       = "${start_date}"               ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"      !     the output interval and
@@ -998,7 +998,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1020,7 +1020,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1057,7 +1057,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1090,7 +1090,7 @@ if [[ "$output_lnd" == "min" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1118,7 +1118,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1138,7 +1138,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1160,7 +1160,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1175,7 +1175,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1192,7 +1192,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1215,7 +1215,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1236,7 +1236,7 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1265,7 +1265,7 @@ fi
 
 ocean_vertical_levels=40
 ocean_dyn_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
-ocean_grid_folder="${icon_data_poolFolder}/${ocean_gridID}"
+ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
  
 #-----------------------------------------------------------------------------
@@ -1333,7 +1333,7 @@ if [[ "$output_oce_2d" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'mld'  , 'condep',
@@ -1358,7 +1358,7 @@ if [[ "$output_oce_3d" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'to', 'so', 'u', 'v', 'w'  
@@ -1380,7 +1380,7 @@ if [[ "$output_oce_default" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'group:oce_default', 'group:oce_essentials', 'group:ice_default'
@@ -1394,7 +1394,7 @@ if [[ "$output_oce_monitor" == "yes" ]]; then
 &output_nml
   output_start               = "${start_date}"
   output_end                 = "${end_date}"
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   file_interval              = "${oce_file_interval}"
   output_interval            = "${oce_default_output_interval}"
   output_filename            = "${EXPNAME}_oceanMonitor"

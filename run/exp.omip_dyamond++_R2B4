@@ -25,10 +25,13 @@ init_relax=1
 nproma_oce=48
 mpi_oce_io_procs=0
 #-----------------------------------------------------------------------------
-ocean_data_InputFolder="/work/mh0287/users/rene/public/mpim/0014i/ocean"
-ocean_grids_folder="/work/mh0287/users/rene/public/mpim/0014"
+ocean_gridID="0014"
+ocean_refinement="R02B04"
+#
+ocean_data_InputFolder="/work/mh0287/users/rene/public/mpim/${ocean_gridID}/ocean"
+ocean_grids_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_vertical_levels=40
-ocean_grids="icon_grid_0014_R02B04_O.nc"
+ocean_grids="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
 #-----------------------------------------------------------------------------
 # Input files (initial conditions, OMIP forcing, HAMOCC forcing)
 ocean_init_file="ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0158km_rotatedZ37d_modified_srtm30_1min_L40.nc"
@@ -101,14 +104,14 @@ cat > ${oce_namelist} << EOF
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   ml_varlist                 = 'group:oce_essentials', 'group:ice_default'
 /
 ! &output_nml
 !  output_start               = "${start_date}"
 !  output_end                 = "${end_date}"
-!  output_grid                = .TRUE.
+!  output_grid                = .FALSE.
 !  output_interval            = "${output_interval}"
 !  file_interval              = "${file_interval}"
 !  output_filename            = "${EXPNAME}_oceanMonitor"
