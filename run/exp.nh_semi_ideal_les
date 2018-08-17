@@ -29,19 +29,24 @@
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
+DATADIR=${basedir}/data
+add_link_file ${DATADIR}/sound_in_20130424 sound_in
+add_link_file ${DATADIR}/nudging_20130424.dat nudging.dat
+add_link_file ${DATADIR}/ls_forcing_20130424.dat ls_forcing.dat
+add_link_file ${DATADIR}/sfc_forcing_20130424.dat sfc_forcing.dat
 #
 #-----------------------------------------------------------------------------
 # the namelist filename
-atmo_namelist = NAMELIST_${EXPNAME}
+atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date = "2013-04-24T00:00:00Z"
-end_date = "2013-04-26T00:00:00Z"
-init_date = `echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
+start_date="2013-04-24T00:00:00Z"
+end_date="2013-04-26T00:00:00Z"
+init_date=`echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
 
-dt_restart = `expr 12 \* 3600`
-restart_interval = "PT12H"
+dt_restart=`expr 12 \* 3600`
+restart_interval="PT12H"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -61,6 +66,7 @@ iforcing=3         # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
+grids_folder=/work/bm0834/m300338/ICON/icon-idealized-les/icon-lem/grids/
 atmo_dyn_grids='Torus_Triangles_96x96_50m.nc'
 #
 #-----------------------------------------------------------------------------
@@ -72,7 +78,7 @@ atmo_dyn_grids='Torus_Triangles_96x96_50m.nc'
 # ------------------------
 # for a complete list see namelist_overview and namelist_overview.pdf
 #
-cat >> ${atmo_namelist} << EOF
+cat > ${atmo_namelist} << EOF
 &parallel_nml
  nproma        = ${nproma}
  p_test_run    = .false.
@@ -173,9 +179,4 @@ EOF
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_hydrostatic_files
-DATADIR=${basedir}/data
-add_link_file ${DATADIR}/sound_in_20130424 sound_in
-add_link_file ${DATADIR}/nudging_20130424.dat nudging.dat
-add_link_file ${DATADIR}/ls_forcing_20130424.dat ls_forcing.dat
-add_link_file ${DATADIR}/sfc_forcing_20130424.dat sfc_forcing.dat
 #-----------------------------------------------------------------------------
