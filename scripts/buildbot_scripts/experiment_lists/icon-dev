@@ -1,3 +1,6 @@
+machine|fh2|
+builder|KIT_gcc|--with-fortran=intel --with-grib-api=no|Active
+experiment|checksuite.icon-kit/check.atm_amip|
 machine|mistral|
 builder|MISTRAL_gcc|--with-fortran=gcc --with-yaxt|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
