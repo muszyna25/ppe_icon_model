@@ -42,6 +42,8 @@ MODULE mo_ocean_state
   USE mo_run_config,          ONLY: test_mode
   USE mo_ocean_types,         ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux , t_oce_config ,t_ocean_tracer
+  USE mo_ocean_nudging_types, ONLY: t_ocean_nudge
+  USE mo_ocean_nudging,       ONLY: ocean_nudge  
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,     &
@@ -107,9 +109,12 @@ MODULE mo_ocean_state
   PRIVATE :: construct_hydro_ocean_diag
   PRIVATE :: construct_hydro_ocean_prog
   PRIVATE :: construct_hydro_ocean_aux
+  PUBLIC  :: construct_ocean_nudge
   !destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
+  PRIVATE :: destruct_ocean_nudge
+
   !----------------------------------------------------------------------------
 
   ! variables
@@ -1470,7 +1475,110 @@ CONTAINS
 !     END IF
 
   END SUBROUTINE destruct_hydro_ocean_diag
+ !-------------------------------------------------------------------------
+  !>
+  !!               Allocation of components for 3dim ocean nudging.
+  !!               Initialization of components with zero.
+  !
+  !! @par Revision History
+  !! Developed  by  Helmuth Haak, MPI-M (2018).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE construct_ocean_nudge(patch_2d, ocean_nudge)
+    
+    TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
+    TYPE(t_ocean_nudge), TARGET,INTENT(inout)   :: ocean_nudge
+    
+    ! local variables
+    
+    INTEGER ::  ist  !, jtrc
+    INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
+    INTEGER :: datatype_flt
+
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(routine), 'construct hydro ocean auxiliary state...')
+    
+    ! determine size of arrays
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    nblks_e = patch_2d%nblks_e
+    nblks_v = patch_2d%nblks_v
+    
+
+    
+    ! allocation of 3-dim tracer relaxation:
+    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
+      CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_nudge%data_3dimRelax_Temp,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Temp',ocean_nudge%forc_3dimRelax_Temp,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.TRUE.)
+      CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_nudge%relax_3dim_coefficient,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.TRUE.)
+!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp 
+    END IF
+    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
+      CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_nudge%data_3dimRelax_Salt,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Salt',ocean_nudge%forc_3dimRelax_Salt,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Salt','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+    END IF
+
+  END SUBROUTINE construct_ocean_nudge
+
   !-------------------------------------------------------------------------
+  !>
+  !!               Deallocation of auxilliary hydrostatic ocean state.
+  !
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE destruct_ocean_nudge(ocean_nudge)
+    
+    TYPE(t_ocean_nudge), INTENT(inout)      :: ocean_nudge
+    
+    ! local variables
+    
+    INTEGER :: ist
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_aux'
+    
+    DEALLOCATE(ocean_nudge%data_3dimRelax_Temp, stat=ist)
+    IF (ist/=success) THEN
+      CALL finish(TRIM(routine),'deallocation of data_3dimRelax_Temp failed')
+    END IF
+    
+  END SUBROUTINE destruct_ocean_nudge
+  !-------------------------------------------------------------------------
+    
+
+
+
+!-------------------------------------------------------------------------
   !>
   !!               Allocation of components of hydrostatic ocean auxiliary state.
   !!               Initialization of components with zero.
@@ -1575,37 +1683,6 @@ CONTAINS
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(2) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
 
-    ! allocation of 3-dim tracer relaxation:
-    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
-      CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_state_aux%data_3dimRelax_Temp,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'forc_3dimRelax_Temp',ocean_state_aux%forc_3dimRelax_Temp,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
-      CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_state_aux%relax_3dim_coefficient,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
-!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp
-    END IF
-    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
-      CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_state_aux%data_3dimRelax_Salt,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'forc_3dimRelax_Salt',ocean_state_aux%forc_3dimRelax_Salt,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Salt','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-    END IF
 
    !IF(GMRedi_configuration/=Cartesian_mixing)THEN
 

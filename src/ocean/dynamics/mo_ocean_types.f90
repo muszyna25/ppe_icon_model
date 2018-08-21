@@ -318,14 +318,6 @@ MODULE mo_ocean_types
     
     TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
-    
-    ! Variables for 3-dim tracer relaxation:
-    onCells :: &
-      & data_3dimRelax_Temp, & ! 3-dim temperature relaxation data (T*)
-      & forc_3dimRelax_Temp, & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
-      & data_3dimRelax_Salt, & ! 3-dim salinity relaxation data (T*)
-      & forc_3dimRelax_Salt, &    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
-      & relax_3dim_coefficient ! 3-dim relaxation coefficient when the relaxation varies
 
     onCells_Type(t_cartesian_coordinates) :: &
       & slopes              ! neutral slopes at cell center in cartesian coordinates

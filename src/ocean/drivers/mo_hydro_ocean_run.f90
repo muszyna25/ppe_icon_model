@@ -52,6 +52,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
+  USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
@@ -386,6 +387,12 @@ CONTAINS
           & operators_coefficients,&
           & jstep)
         stop_timer(timer_tracer_ab,1)
+      ENDIF
+
+      !------------------------------------------------------------------------
+      ! Optional : nudge temperature and salinity
+      IF (no_tracer>=1) THEN
+        CALL nudge_ocean_tracers( patch_3d, ocean_state(jg))
       ENDIF
 
       ! perform accumulation for special variables
