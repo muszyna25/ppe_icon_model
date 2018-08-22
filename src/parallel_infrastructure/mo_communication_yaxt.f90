@@ -1354,7 +1354,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE
