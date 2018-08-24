@@ -78,7 +78,7 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
-!  USE mo_grid_config
+  USE mo_grid_config,        ONLY: lredgrid_phys
 
   IMPLICIT NONE
 
