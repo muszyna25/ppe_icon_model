@@ -183,6 +183,7 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
+    CALL message (TRIM(routine), 'start')
     !-----------------------------------------------------------------------
     patch_2d => patch_3D%p_patch_2d(1)
     regions => patch_3D%regio_c
@@ -281,12 +282,6 @@ CONTAINS
         & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
     ENDIF
-
-    IF (diagnostics_level < 1) RETURN
-
-    CALL message (TRIM(routine), 'start')
-
-    ! CALL check_global_indexes(patch_2d)
 
     ! compute subsets for given sections path allong edges
     CALL get_oriented_edges_from_global_vertices(    &
@@ -631,7 +626,6 @@ CONTAINS
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
-    !CALL reset_ocean_monitor(monitor)
 
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
     SELECT CASE (iswm_oce)
@@ -769,51 +763,6 @@ CONTAINS
 
     CALL enable_sync_checks()
 
-    ! fluxes through given paths
-    IF (my_process_is_stdio() .AND. idbg_val > 0) &
-      & WRITE(0,*) "---------------  fluxes --------------------------------"
-    DO i=1,oce_section_count
-      sflux = section_flux(oce_sections(i), ocean_state%p_prog(nnew(1))%vn)
-      !
-      ! #slo# disabled since subset%block is not allocated (#3759, HPC_sun_debug)
-      ! #ifdef NOMPI
-      !     IF (my_process_is_stdio()) &
-      !       & write(0,*) oce_sections(i)%subset%name, ":", sflux, 'at edges:',oce_sections(i)%subset%block
-      ! #else
-      IF (my_process_is_stdio() .AND. idbg_val > 0) &
-        & WRITE(0,*) oce_sections(i)%subset%name, ":", sflux
-      ! #endif
-
-      SELECT CASE (i)
-      CASE (1)
-        monitor%gibraltar              = sflux*OceanReferenceDensity
-      CASE (2)
-        monitor%denmark_strait         = sflux*OceanReferenceDensity
-      CASE (3)
-        monitor%drake_passage          = sflux*OceanReferenceDensity
-      CASE (4)
-        monitor%indonesian_throughflow = sflux*OceanReferenceDensity
-      CASE (5)
-        monitor%scotland_iceland       = sflux*OceanReferenceDensity
-      CASE (6)
-        monitor%mozambique             = sflux*OceanReferenceDensity
-      CASE (7)
-        monitor%framStrait             = sflux*OceanReferenceDensity
-      CASE (8)
-        monitor%beringStrait           = sflux*OceanReferenceDensity
-      CASE (9)
-        monitor%barentsOpening         = sflux*OceanReferenceDensity
-      CASE (10)
-        monitor%agulhas                = sflux*OceanReferenceDensity
-      CASE (11)
-        monitor%agulhas_long           = sflux*OceanReferenceDensity
-      CASE (12)
-        monitor%agulhas_longer         = sflux*OceanReferenceDensity
-      CASE (13)
-        monitor%florida_strait         = sflux*OceanReferenceDensity
-      END SELECT
-    ENDDO
-
     IF (i_sea_ice >= 1) THEN
       IF (my_process_is_stdio() .AND. idbg_val > 0) &
         & WRITE(0,*) "--------------- ice fluxes -----------------------------"
@@ -833,7 +782,7 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, tracers, p_atm_f, p_oce_sfc, hamocc, ice, lhamocc)
+          &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, hamocc, ice, lhamocc)
     TYPE(t_patch ),TARGET :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)     :: patch_3d
     INTEGER,  POINTER                           :: dolic(:,:)
@@ -841,6 +790,7 @@ CONTAINS
     REAL(wp), INTENT(in)                        :: depths(:)
     TYPE(t_hydro_ocean_diag), TARGET            :: p_diag
     REAL(wp), POINTER                           :: sea_surface_height(:,:)
+    REAL(wp), POINTER                           :: normal_veloc(:,:,:)
     REAL(wp), POINTER                           :: tracers(:,:,:,:)
     TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
     TYPE(t_ocean_surface), INTENT(IN)           :: p_oce_sfc
@@ -849,13 +799,14 @@ CONTAINS
     LOGICAL, INTENT(IN)                         :: lhamocc
 
     !Local variables
-    INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
+    INTEGER :: start_cell_index, end_cell_index,i
     INTEGER :: jk,jc,blockNo!,je
     REAL(wp):: ssh_global_mean,total_runoff_flux,total_heat_flux, &
       &        total_fresh_water_flux,total_evaporation_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
       &        global_mean_potEnstrophy
+    REAL(wp) :: sflux
 
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -1027,10 +978,47 @@ CONTAINS
       IF (lhamocc) CALL get_monitoring( hamocc, sea_surface_height , tracers, patch_3d)
 
       ! square of ssh
-      IF ( isRegistered('zos_square') ) THEN
-        p_diag%zos_square = sea_surface_height*sea_surface_height
-      END IF
+      p_diag%zos_square = merge(sea_surface_height*sea_surface_height,0.0_wp,isRegistered('zos_square'))
 
+      monitor%gibraltar = merge( section_flux(oce_sections(1),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('gibraltar'))
+      monitor%denmark_strait = merge( section_flux(oce_sections(2),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('denmark_strait'))
+      monitor%drake_passage = merge( section_flux(oce_sections(3),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('drake_passage'))
+      monitor%indonesian_throughflow = merge( section_flux(oce_sections(4),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('indonesian_throughflow'))
+      monitor%scotland_iceland = merge( section_flux(oce_sections(5),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('scotland_iceland'))
+      monitor%mozambique = merge( section_flux(oce_sections(6),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('mozambique'))
+      monitor%framStrait = merge( section_flux(oce_sections(7),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('framStrait'))
+      monitor%beringStrait = merge( section_flux(oce_sections(8),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('beringStrait'))
+      monitor%barentsOpening = merge( section_flux(oce_sections(9),normal_veloc)*OceanReferenceDensity, &
+          &                      0.0_wp, &
+          &                      isRegistered('barentsOpening'))
+      monitor%ice_framStrait = merge(section_ice_flux(oce_sections(7), ice%hi*ice%conc, ice%vn_e), &
+          &                      0.0_wp, &
+          &                      isRegistered('ice_framStrait'))
+
+!TODO       CASE (10)
+!TODO         monitor%agulhas                = sflux*OceanReferenceDensity
+!TODO       CASE (11)
+!TODO         monitor%agulhas_long           = sflux*OceanReferenceDensity
+!TODO       CASE (12)
+!TODO         monitor%agulhas_longer         = sflux*OceanReferenceDensity
+!TODO       CASE (13)
+!TODO         monitor%florida_strait         = sflux*OceanReferenceDensity
     END SELECT
   END SUBROUTINE calc_fast_oce_diagnostics
   !-------------------------------------------------------------------------
@@ -1997,50 +1985,4 @@ CONTAINS
       END DO ! cell
     END DO !block
   END FUNCTION calc_salt_content
-
-  SUBROUTINE reset_ocean_monitor(monitor)
-    TYPE(t_ocean_monitor) :: monitor
-    monitor%volume(:)                     = 0.0_wp
-!   monitor%kin_energy(:)                 = 0.0_wp
-!   monitor%pot_energy(:)                 = 0.0_wp
-!   monitor%total_energy(:)               = 0.0_wp
-    monitor%total_salt(:)                 = 0.0_wp
-!   monitor%vorticity(:)                  = 0.0_wp
-!   monitor%enstrophy(:)                  = 0.0_wp
-!   monitor%potential_enstrophy(:)        = 0.0_wp
-    monitor%absolute_vertical_velocity(:) = 0.0_wp
-    monitor%HeatFlux_ShortWave(:)         = 0.0_wp
-    monitor%HeatFlux_LongWave(:)          = 0.0_wp
-    monitor%HeatFlux_Sensible(:)          = 0.0_wp
-    monitor%HeatFlux_Latent(:)            = 0.0_wp
-    monitor%FrshFlux_SnowFall(:)          = 0.0_wp
-    monitor%FrshFlux_TotalSalt(:)         = 0.0_wp
-    monitor%FrshFlux_TotalOcean(:)        = 0.0_wp
-    monitor%FrshFlux_TotalIce(:)          = 0.0_wp
-    monitor%FrshFlux_VolumeIce(:)         = 0.0_wp
-    monitor%FrshFlux_VolumeTotal(:)       = 0.0_wp
-    monitor%HeatFlux_Relax(:)             = 0.0_wp
-    monitor%FrshFlux_Relax(:)             = 0.0_wp
-    monitor%TempFlux_Relax(:)             = 0.0_wp
-    monitor%SaltFlux_Relax(:)             = 0.0_wp
-    monitor%ice_framStrait(:)             = 0.0_wp
-    monitor%florida_strait(:)             = 0.0_wp
-    monitor%gibraltar(:)                  = 0.0_wp
-    monitor%denmark_strait(:)             = 0.0_wp
-    monitor%drake_passage(:)              = 0.0_wp
-    monitor%indonesian_throughflow(:)     = 0.0_wp
-    monitor%scotland_iceland(:)           = 0.0_wp
-    monitor%mozambique(:)                 = 0.0_wp
-    monitor%framStrait(:)                 = 0.0_wp
-    monitor%beringStrait(:)               = 0.0_wp
-    monitor%barentsOpening(:)             = 0.0_wp
-    monitor%agulhas(:)                    = 0.0_wp
-    monitor%agulhas_long(:)               = 0.0_wp
-    monitor%agulhas_longer(:)             = 0.0_wp
-    monitor%t_mean_na_200m(:)             = 0.0_wp
-    monitor%t_mean_na_800m(:)             = 0.0_wp
-    monitor%ice_ocean_heat_budget(:)      = 0.0_wp
-    monitor%ice_ocean_salinity_budget(:)  = 0.0_wp
-    monitor%ice_ocean_volume_budget(:)    = 0.0_wp
-  END SUBROUTINE reset_ocean_monitor
 END MODULE mo_ocean_diagnostics
