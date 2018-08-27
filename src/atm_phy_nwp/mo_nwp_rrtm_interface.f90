@@ -559,7 +559,7 @@ CONTAINS
         & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
-        & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
+        & emis_rad   =prm_diag%lw_emiss(:,jb),&!< in longwave surface emissivity
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
@@ -813,7 +813,7 @@ CONTAINS
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
-        & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
+        & prm_diag%lw_emiss, prm_diag%cosmu0,                           &
         & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &

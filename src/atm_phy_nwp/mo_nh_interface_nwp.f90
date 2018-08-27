@@ -1150,7 +1150,7 @@ CONTAINS
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
-          & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
+          & pemiss=prm_diag%lw_emiss(:,jb)         ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
@@ -1218,7 +1218,7 @@ CONTAINS
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
-          & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
+          & pemiss=prm_diag%lw_emiss(:,jb)         ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]

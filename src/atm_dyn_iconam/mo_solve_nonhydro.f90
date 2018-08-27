@@ -2256,6 +2256,18 @@ __COLLAPSE_2_LOOPS
           ENDDO
         ENDDO
 
+        IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
+
+__COLLAPSE_2_LOOPS
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              z_rho_expl(jc,jk)   = z_rho_expl(jc,jk)   + iau_wgt_dyn*p_nh%diag%rho_incr(jc,jk,jb)
+              z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
         ! Solve tridiagonal matrix for w
 !DIR$ IVDEP
 !$ACC LOOP VECTOR
@@ -2333,18 +2345,6 @@ __COLLAPSE_2_LOOPS
                 &                         - dtime*p_nh%metrics%rayleigh_w(jk) &
                 &                         * ( p_nh%prog(nnew)%w(jc,jk,jb)     &
                 &                         - p_nh%ref%w_ref(jc,jk,jb) )
-            ENDDO
-          ENDDO
-        ENDIF
-
-        IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
-
-__COLLAPSE_2_LOOPS
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              z_rho_expl(jc,jk)   = z_rho_expl(jc,jk)   + iau_wgt_dyn*p_nh%diag%rho_incr(jc,jk,jb)
-              z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF

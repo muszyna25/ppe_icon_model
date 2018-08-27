@@ -1332,6 +1332,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       ENDDO
 
 
+      ! longwave surface emissivity
+      !
+      ! lw_emiss     diag%lw_emiss(nproma,nblks_c)
+      cf_desc    = t_cf_var('lw_emiss', '-', 'longwave surface emissivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'lw_emiss', diag%lw_emiss,         &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+        &           grib2_desc, ldims=shape2d, loutput=.TRUE.,    &
+        &           lrestart=.TRUE. )
+
+
       ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('sob_s_t', 'W m-2', 'tile-based shortwave net flux at surface', &
            &                datatype_flt)

@@ -43,6 +43,7 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_fortran_tools,       ONLY: copy
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqnc,  &
     &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
@@ -293,6 +294,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !
   CALL diagnose_ext_aggr (p_patch, ext_data)
 
+  IF (linit_mode) THEN ! initialize field for time-dependent LW emissivity
+!$OMP PARALLEL
+    CALL copy(ext_data%atm%emis_rad, prm_diag%lw_emiss)
+!$OMP END PARALLEL
+  ENDIF
 
   ! mask field to distinguish between tropics and extratropics (needed for some tuning measures)
   !

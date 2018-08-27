@@ -1235,6 +1235,9 @@ MODULE mo_vertical_grid
 
           p_nh(jg)%metrics%coeff_gradp(:,:,:,jb) = 0._vp
 
+          ! Workaround for MPI deadlock with cce 8.7.x
+          IF (msg_level > 300) CALL message (TRIM(routine),'igradp_method>=4')
+
           jk_start = nflatlev(jg) - 1
           DO jk = nflatlev(jg),nlev
             l_found(:) = .FALSE.
