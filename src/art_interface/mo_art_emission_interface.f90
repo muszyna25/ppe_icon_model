@@ -77,7 +77,10 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
-  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
+  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers,  &
+                                          &   art_init_emission_struct,     &
+                                          &   art_read_emissions
+  USE mo_art_prescribed_state,          ONLY: art_prescribe_tracers
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -166,11 +169,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
-      IF(p_art_data(jg)%emiss%is_init) THEN
+
+      CALL art_prescribe_tracers(tracer, p_art_data(jg)%prescr_list,     &
+               &                 p_patch, current_date, p_nh_state%diag, &
+               &                 p_nh_state%metrics%z_mc,                &
+               &                 i_startblk, i_endblk, i_rlstart, i_rlend)
+
+      IF (p_art_data(jg)%emiss%is_init) THEN
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  current_date,prm_diag%swflx_par_sfc)
+                                      &  current_date,prm_diag%swflx_par_sfc(:,:))
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &

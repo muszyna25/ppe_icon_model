@@ -3847,30 +3847,6 @@ CONTAINS
             CALL message('', 'Turbulent transport                         : no.')
           ENDIF
 
-          IF (this_list_element%field%info_dyn%tracer%ised_tracer > 0) THEN
-            CALL message('', 'Sedimentation                               : yes.')
-          ELSE
-            CALL message('', 'Sedimentation                               : no.')
-          ENDIF
-
-          IF (this_list_element%field%info_dyn%tracer%ldep_tracer) THEN
-            CALL message('', 'Dry deposition                              : yes.')
-          ELSE
-            CALL message('', 'Dry deposition                              : no.')
-          ENDIF
-
-          IF (this_list_element%field%info_dyn%tracer%lconv_tracer) THEN
-            CALL message('', 'Convection                                  : yes.')
-          ELSE
-            CALL message('', 'Convection                                  : no.')
-          ENDIF
-
-          IF (this_list_element%field%info_dyn%tracer%iwash_tracer > 0) THEN
-            CALL message('', 'Washout                                     : yes.')
-          ELSE
-            CALL message('', 'Washout                                     : no.')
-          ENDIF
-
         ELSE
           CALL message('', 'Tracer field                                : no.')
         ENDIF !lis_tracer

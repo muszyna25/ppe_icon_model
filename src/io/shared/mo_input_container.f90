@@ -11,7 +11,7 @@ MODULE mo_input_container
     USE mo_cdi, ONLY: t_CdiIterator, gridInqSize, cdiIterator_inqGridId, cdiIterator_readField, cdiIterator_readFieldF, &
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
-    USE mo_exception, ONLY: message, finish
+    USE mo_exception, ONLY: message, finish, message_text
     USE mo_fortran_tools, ONLY: assign_if_present, t_Destructible
     USE mo_hash_table, ONLY: t_HashTable, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
@@ -469,7 +469,9 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
         IF(ASSOCIATED(me%fields%getEntry(key))) THEN
-            CALL finish(routine, "double definition of variable '"//variableName//"' in an input file")
+            WRITE(message_text, '(a,g24.15e3,a,i2,a)') "double definition of level-tile tuple (", &
+              level,",",tile,") in variable '"//variableName//"' in an input file"
+            CALL finish(routine, message_text)
         END IF
 
         !Inquire buffer SIZE information AND broadcast it.

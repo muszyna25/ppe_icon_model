@@ -1168,6 +1168,16 @@ CONTAINS
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 
+#ifdef __INTEL_COMPILER
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+        prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb) + pdtime * prm_diag%rain_con_rate(jc,jb)
+        prm_diag%snow_con(jc,jb) = prm_diag%snow_con(jc,jb) + pdtime * prm_diag%snow_con_rate(jc,jb)
+        !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+        prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb) + pdtime * &
+          &                        (prm_diag%rain_con_rate(jc,jb)+ prm_diag%snow_con_rate(jc,jb))
+      ENDDO
+#else
 !DIR$ IVDEP
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
         &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
@@ -1187,6 +1197,7 @@ CONTAINS
         &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
         &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
+#endif
     ENDIF
 
 

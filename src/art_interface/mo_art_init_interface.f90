@@ -55,20 +55,21 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     &  defcase                      !< construction or destruction?
     
 #ifdef __ICON_ART
-  if (lart) then
+  IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art_initInt)
 
-    if (TRIM(defcase) == 'construct') then
+    IF (TRIM(defcase) == 'construct') THEN
+      CALL art_write_vcs_info
       CALL art_init_all_dom(n_dom)
-    end if
+    END IF
       
-    if (TRIM(defcase) == 'destruct') then
+    IF (TRIM(defcase) == 'destruct') THEN
       CALL art_clean_up(n_dom)
-    end if
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_art_initInt)
 
-  end if
+   END IF 
 #endif
 
 END SUBROUTINE art_init_interface
@@ -133,4 +134,51 @@ END SUBROUTINE art_calc_number_of_art_tracers_xml
 !!
 !!-------------------------------------------------------------------------
 !!
+SUBROUTINE art_write_vcs_info
+#ifdef __ICON_ART
+
+!<
+! SUBROUTINE art_write_vcs_info                   
+! This subroutine writes information about repository
+! branch etc. used in the .out file
+! Part of Module: mo_art_init_interface.f90
+! Author: Jennifer Schroeter, KIT
+! Initial Release: 2018-01-18                
+! Modifications:
+!>
+
+  USE mo_art_util_vcs,     ONLY: art_util_repository_url, art_util_branch_name, &
+                           & art_util_revision_key
+  USE mo_exception,    ONLY: message_text, message, finish
+  USE mo_mpi,          ONLY: my_process_is_global_root
+                       
+
+  CHARACTER(len=256) :: art_repository  = ''
+  CHARACTER(len=256) :: art_branch      = ''
+  CHARACTER(len=256) :: art_revision    = ''
+  
+
+  INTEGER :: nlen
+  nlen = 256
+  CALL art_util_repository_url(art_repository, nlen)
+  nlen = 256
+  CALL art_util_branch_name(art_branch, nlen)
+  nlen = 256
+  CALL art_util_revision_key(art_revision, nlen)
+
+  IF (my_process_is_global_root()) THEN
+
+    WRITE(message_text,'(a,a)') 'ART Repository: ', TRIM(art_repository)
+      CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'ART Branch    : ', TRIM(art_branch)
+      CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'ART Revision  : ', TRIM(art_revision)
+      CALL message('',message_text)
+
+  END IF
+#endif
+  
+END SUBROUTINE art_write_vcs_info
+
+
 END MODULE mo_art_init_interface

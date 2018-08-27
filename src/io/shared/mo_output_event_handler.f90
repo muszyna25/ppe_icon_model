@@ -118,8 +118,9 @@ MODULE mo_output_event_handler
 #endif
 
   USE mo_kind,                   ONLY: i8, wp
-  USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish
+  USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS, &
+    &                                  pio_type_cdipio
+  USE mo_exception,              ONLY: finish, message_text
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string
   USE mo_mpi,                    ONLY: p_int, p_real,                                       &
@@ -131,6 +132,8 @@ MODULE mo_output_event_handler
     &                                  my_process_is_mpi_workroot,                          &
     &                                  process_mpi_all_comm,                                &
     &                                  p_comm_rank, p_comm_size,                            &
+    &                                  p_work_pe0, p_io_pe0,                                &
+    &                                  p_send, p_recv,                                      &
     &                                  p_gather, p_gatherv, mpi_comm_null
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
     &                                  datetime, timedelta,  newTimedelta,                  &
@@ -148,7 +151,8 @@ MODULE mo_output_event_handler
   USE mo_name_list_output_types, ONLY: t_fname_metadata, t_event_data_local
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
-  USE mo_name_list_output_config,   ONLY: use_async_name_list_io
+  USE mo_name_list_output_config,ONLY: use_async_name_list_io
+  USE mo_parallel_config,        ONLY: pio_type
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -225,6 +229,15 @@ MODULE mo_output_event_handler
     MODULE PROCEDURE p_gatherv_event_data_1d1d
   END INTERFACE p_gatherv
 
+#ifndef NOMPI
+  INTERFACE p_send
+    MODULE PROCEDURE p_send_event_data_1d
+  END INTERFACE p_send
+
+  INTERFACE p_recv
+    MODULE PROCEDURE p_recv_event_data_1d
+  END INTERFACE p_recv
+#endif
 
   !---------------------------------------------------------------
   ! constants
@@ -244,9 +257,6 @@ MODULE mo_output_event_handler
 
   !> MPI message tag for output event handshake
   INTEGER, PARAMETER :: SENDRECV_TAG_OUTEVENT = 1001
-
-  !> MPI rank of root PE handling ready files
-  INTEGER, PARAMETER :: ROOT_OUTEVENT         = 0
 
   !> Internal switch for debugging output
   LOGICAL, PARAMETER :: ldebug                = .FALSE.
@@ -343,7 +353,7 @@ CONTAINS
     TYPE(t_output_event),          INTENT(IN) :: event           !< output event data structure
     INTEGER, OPTIONAL,             INTENT(IN) :: opt_dstfile     !< optional destination ASCII file unit
     ! local variables
-    INTEGER                     :: i, irow, dst
+    INTEGER                     :: i, irow, dst, n
     TYPE(t_table)               :: table
 
     dst = 0
@@ -370,11 +380,6 @@ CONTAINS
       RETURN
     END IF
 
-    ! classic output
-    !    DO i=1,event%n_event_steps
-    !      CALL print_event_step(event%event_step(i))
-    !    END DO
-
     ! table-based output
     CALL initialize_table(table)
     CALL add_table_column(table, "model step")
@@ -394,20 +399,23 @@ CONTAINS
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
     irow = 0
-    DO i=1,event%n_event_steps
-      CALL tabulate_event_step(table, irow, dst, event%event_step(i))
+    n = event%n_event_steps
+    DO i = 1, n
+      CALL tabulate_event_step(table, irow, dst, event%event_step(i), i, n)
     END DO
     CALL print_table(table, opt_delimiter='   ', opt_dstfile=dst)
     CALL finalize_table(table)
   END SUBROUTINE print_output_event
 
-  SUBROUTINE tabulate_event_step(table, irow, dst, event_step)
+  SUBROUTINE tabulate_event_step(table, irow, dst, event_step, &
+    &                            step_idx, num_steps)
     TYPE(t_table), INTENT(inout) :: table
     INTEGER, INTENT(inout) :: irow
-    INTEGER, INTENT(in) :: dst
+    INTEGER, INTENT(in) :: dst, step_idx, num_steps
     TYPE(t_event_step), INTENT(in) :: event_step
 
     INTEGER :: j, tlen
+    LOGICAL :: lclose, lopen
     DO j=1,event_step%n_pes
       irow = irow + 1
       IF (j==1) THEN
@@ -442,16 +450,12 @@ CONTAINS
       END IF
 #endif
       ! append "+ open" or "+ close" according to event step data:
-      IF (event_step%event_step_data(j)%l_open_file) THEN
-        CALL set_table_entry(table,irow,"open", "x")
-      ELSE
-        CALL set_table_entry(table,irow,"open", " ")
-      END IF
-      IF (event_step%event_step_data(j)%l_close_file) THEN
-        CALL set_table_entry(table,irow,"close","x")
-      ELSE
-        CALL set_table_entry(table,irow,"close"," ")
-      END IF
+      lopen = event_step%event_step_data(j)%l_open_file
+      CALL set_table_entry(table,irow,"open", MERGE("x", " ", lopen))
+      lclose = step_idx > 1 &
+        .AND. (     step_idx == num_steps &
+        &      .OR. event_step%event_step_data(j)%l_open_file)
+      CALL set_table_entry(table,irow,"close", MERGE("x", " ", lclose))
     END DO
   END SUBROUTINE tabulate_event_step
 
@@ -507,33 +511,6 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'CLOSE failed.')
     END IF
   END SUBROUTINE print_par_output_event
-
-
-  !> Screen print-out of a single output event step.
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE print_event_step(event_step)
-    TYPE(t_event_step), INTENT(IN) :: event_step
-    ! local variables
-    CHARACTER(LEN=7), PARAMETER :: SUFFIX_STR(3) = (/ "+ open ", "+ close", "       "/)
-    INTEGER :: i, suffix1, suffix2
-
-    WRITE (0,'(a,i0,a,a)') "   model step ", event_step%i_sim_step,      &
-      &                    ", exact date: ", TRIM(event_step%exact_date_string)
-    DO i=1,event_step%n_pes
-      suffix1 = 3
-      suffix2 = 3
-      ! append "+ open" or "+ close" according to event step data:
-      IF (event_step%event_step_data(i)%l_open_file)  suffix1 = 1
-      IF (event_step%event_step_data(i)%l_close_file) suffix2 = 2
-      WRITE (0,'(a,a,a,i0,a,a,a,a,a)') &
-        & "      output to '",                                       &
-        & TRIM(event_step%event_step_data(i)%filename_string),       &
-        & "' (I/O PE ", event_step%event_step_data(i)%i_pe,          &
-        & ", ", TRIM(event_step%event_step_data(i)%datetime_string), &
-        & ") ", SUFFIX_STR(suffix1), SUFFIX_STR(suffix2)
-    END DO
-  END SUBROUTINE print_event_step
 
 
   !---------------------------------------------------------------
@@ -911,7 +888,6 @@ CONTAINS
       step_data(1)%jfile           = filename_metadata(i)%jfile
       step_data(1)%jpart           = filename_metadata(i)%jpart
       step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
-      step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
       CALL MOVE_ALLOC(step_data, p_event%event_step(i)%event_step_data)
     END DO
     IF (ldebug) THEN
@@ -1202,7 +1178,7 @@ CONTAINS
 
     ! set the other MPI-related data fields:
     p_event%icomm         = icomm
-    p_event%iroot         = ROOT_OUTEVENT
+    p_event%iroot         = 0
     p_event%irecv_nreq    = 0
     p_event%isend_req     = 0
 #ifndef NOMPI
@@ -1220,14 +1196,15 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, icomm,&
+  FUNCTION union_of_all_events(fct_time2simstep, fct_generate_filenames, &
+    &                          icomm, root_outevent, &
     &                          event_list_local, ievent_list_local)
     TYPE(t_par_output_event), POINTER :: union_of_all_events
     !> MPI communicator for intra-I/O communication
-    INTEGER,                INTENT(IN)  :: icomm
+    INTEGER,                INTENT(IN)  :: icomm, root_outevent
     TYPE(t_event_data_local), INTENT(INOUT) :: event_list_local(:)
     !> length of local list of output events
-    INTEGER, INTENT(inout) :: ievent_list_local
+    INTEGER, INTENT(in) :: ievent_list_local
 #ifdef HAVE_FC_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
@@ -1285,24 +1262,44 @@ CONTAINS
       this_pe = p_comm_rank(icomm)
       nranks = p_comm_size(icomm)
       IF (ldebug) THEN
-         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", &
-              this_pe, "; icomm has size ", nranks
+        WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", &
+             this_pe, "; icomm has size ", nranks
       END IF
-      CALL p_gatherv(event_list_local(1:ievent_list_local), evd_all, &
-        &            root_outevent, counts=evd_counts, comm=icomm)
-      IF (this_pe == root_outevent) THEN
-        num_all_events = SIZE(evd_all)
-        ALLOCATE(evd_rank(num_all_events), STAT=ierror)
-        IF (ierror /= 0) CALL finish (routine, 'ALLOCATE failed.')
-        acc = 0
-        DO i = 1, nranks
-          cnt = evd_counts(i)
-          evd_rank(acc+1:acc+cnt) = i-1
-          acc = acc + cnt
-        END DO
+#ifndef NOMPI
+      IF (pio_type == pio_type_cdipio) THEN
+        IF (this_pe == root_outevent) THEN
+          CALL p_recv(num_all_events, 0, p_tag=156, comm=icomm)
+          ALLOCATE(evd_all(num_all_events), evd_rank(num_all_events), STAT=ierror)
+          IF (ierror /= 0) CALL finish (routine, 'ALLOCATE failed.')
+          CALL p_recv(evd_all, 0, p_tag=156, comm=icomm)
+          evd_rank = 0
+        ELSE IF (p_pe == p_work_pe0) THEN
+          CALL p_send(ievent_list_local, p_io_pe0, p_tag=156, comm=icomm)
+          CALL p_send(event_list_local, p_io_pe0, p_tag=156, comm=icomm)
+          num_all_events = 0
+        ELSE
+          num_all_events = 0
+        END IF
       ELSE
-        num_all_events = 0
+#endif
+        CALL p_gatherv(event_list_local(1:ievent_list_local), evd_all, &
+          &            root_outevent, counts=evd_counts, comm=icomm)
+        IF (this_pe == root_outevent) THEN
+          num_all_events = SIZE(evd_all)
+          ALLOCATE(evd_rank(num_all_events), STAT=ierror)
+          IF (ierror /= 0) CALL finish (routine, 'ALLOCATE failed.')
+          acc = 0
+          DO i = 1, nranks
+            cnt = evd_counts(i)
+            evd_rank(acc+1:acc+cnt) = i-1
+            acc = acc + cnt
+          END DO
+        ELSE
+          num_all_events = 0
+        END IF
+#ifndef NOMPI
       END IF
+#endif
 
       IF (num_all_events > 0) THEN
         ! create the event steps from the received meta-data:
@@ -1313,7 +1310,7 @@ CONTAINS
           &                    evd_all(1), evd_rank(1), &
           &                    fct_time2simstep, fct_generate_filenames)
         par_event%icomm         = icomm
-        par_event%iroot         = ROOT_OUTEVENT
+        par_event%iroot         = root_outevent
         par_event%irecv_nreq    = 0
         NULLIFY(par_event%next)
         IF (ldebug) THEN
@@ -1345,7 +1342,7 @@ CONTAINS
           par_event => last_node%next
           ! set the MPI-related data fields:
           par_event%icomm         = icomm
-          par_event%iroot         = ROOT_OUTEVENT
+          par_event%iroot         = root_outevent
           par_event%irecv_nreq    = 0
           NULLIFY(par_event%next)
           CALL MOVE_ALLOC(ev2, par_event%output_event)
@@ -1794,7 +1791,8 @@ CONTAINS
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
       CALL finish(routine, "Error! Multi-part event step!")
     END IF
-    check_close_file = event%output_event%event_step(istep)%event_step_data(1)%l_close_file
+    check_close_file = istep > 1 &
+      .AND. event%output_event%event_step(istep)%event_step_data(1)%l_open_file
   END FUNCTION check_close_file
 
 
@@ -1831,7 +1829,7 @@ CONTAINS
     IF (PRESENT(opt_event)) THEN
       is_event_root_pe = (this_pe == opt_event%iroot)
     ELSE
-      is_event_root_pe = (this_pe == ROOT_OUTEVENT)
+      is_event_root_pe = (this_pe == 0)
     END IF
 #else
     is_event_root_pe = .TRUE.
@@ -1920,6 +1918,67 @@ CONTAINS
   END SUBROUTINE p_gatherv_event_data_1d1d
 
 #ifndef NOMPI
+  SUBROUTINE p_send_event_data_1d(t_buffer, p_destination, p_tag, p_count, comm)
+    TYPE(t_event_data_local), INTENT(in) :: t_buffer(:)
+    INTEGER, INTENT(in) :: p_destination, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER :: p_comm, icount, ierror
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::p_send_event_data_1d'
+
+    IF (PRESENT(comm)) THEN
+      p_comm = comm
+    ELSE
+      p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+
+    IF (event_data_dt == mpi_datatype_null) CALL create_event_data_dt
+    CALL mpi_send(t_buffer, icount, event_data_dt, p_destination, p_tag, &
+            p_comm, ierror)
+    IF (ierror /= MPI_SUCCESS) THEN
+       WRITE (message_text,'(2(a,i4),a,i6,2a,i0)') 'mpi_send from ', p_pe, &
+         ' to ', p_destination, ' for tag ', p_tag, ' failed.', &
+         ' error code=', ierror
+       CALL finish(routine, message_text)
+    END IF
+  END SUBROUTINE p_send_event_data_1d
+
+  SUBROUTINE p_recv_event_data_1d(t_buffer, p_source, p_tag, p_count, comm)
+    TYPE(t_event_data_local), INTENT(out) :: t_buffer(:)
+    INTEGER, INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER :: p_comm, icount, ierror
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::p_recv_event_data_1d'
+
+    IF (PRESENT(comm)) THEN
+      p_comm = comm
+    ELSE
+      p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+      icount = p_count
+    ELSE
+      icount = SIZE(t_buffer)
+    END IF
+
+    IF (event_data_dt == mpi_datatype_null) CALL create_event_data_dt
+    CALL mpi_recv(t_buffer, icount, event_data_dt, p_source, p_tag, &
+            p_comm, mpi_status_ignore, ierror)
+    IF (ierror /= MPI_SUCCESS) THEN
+       WRITE (message_text,'(2(a,i4),a,i6,2a,i0)') 'mpi_recv from ', p_source, &
+         ' to ', p_pe, ' for tag ', p_tag, ' failed.', &
+         ' error code=', ierror
+       CALL finish(routine, message_text)
+    END IF
+  END SUBROUTINE p_recv_event_data_1d
+
+
   !> create mpi datatype for variables of type t_event_data_local
   SUBROUTINE create_event_data_dt
     USE iso_c_binding, ONLY: c_size_t

@@ -41,6 +41,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
+    &                                             pio_type_async, pio_type_cdipio,                  &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360,              &
     &                                             INWP
@@ -69,8 +70,7 @@ MODULE mo_name_list_output_init
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
-       use_dp_mpi2io, num_io_procs
-
+       use_dp_mpi2io, num_io_procs, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             ICON_grid_file_uri, number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
@@ -95,6 +95,8 @@ MODULE mo_name_list_output_init
     &                                             get_my_mpi_work_communicator,                   &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
+    &                                             mpi_comm_null, mpi_comm_self,                   &
+    &                                             p_send, p_recv,                                 &
     &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
@@ -102,7 +104,7 @@ MODULE mo_name_list_output_init
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_pe, &
+    &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
     &                                             p_allgather, p_allgatherv, MPI_COMM_NULL
   USE mo_communication,                     ONLY: idx_no, blk_no
@@ -184,11 +186,22 @@ MODULE mo_name_list_output_init
   USE mo_coupling_config,                   ONLY: is_coupled_run
   USE mo_master_control,                    ONLY: get_my_process_name
 #endif
-
+#ifdef HAVE_CDI_PIO
+  USE yaxt, ONLY: xt_idxlist
+  USE ppm_extents,                          ONLY: extent
+  USE mo_decomposition_tools,               ONLY: uniform_partition_start
+  USE mo_name_list_output_gridinfo,         ONLY: distribute_all_grid_info
+  USE yaxt,                                 ONLY: xt_idxlist, &
+       xt_idxvec_new, xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
+       xt_int_kind
+#endif
   IMPLICIT NONE
 
   PRIVATE
 
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
   ! variables and data types
   PUBLIC :: out_varnames_dict
   PUBLIC :: varnames_dict
@@ -204,6 +217,7 @@ MODULE mo_name_list_output_init
   PUBLIC :: create_vertical_axes
   PUBLIC :: isRegistered
 
+  PUBLIC :: init_cdipio_cb
 
   !------------------------------------------------------------------------------------------------
 
@@ -1314,6 +1328,15 @@ CONTAINS
       ! locations of cells, edges, and vertices
 
       ! Only needed if no async name list io is used
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        DO idom = 1, n_dom_out
+          ! logical domain ID
+          idom_log = patch_info(idom)%log_patch_id
+          CALL distribute_all_grid_info(p_patch(idom_log), patch_info(idom))
+        END DO
+      ELSE &
+#endif
       IF (.NOT. use_async_name_list_io) THEN
         ! Go over all output domains
         DO idom = 1, n_dom_out
@@ -1599,6 +1622,7 @@ CONTAINS
     !> length of local list of output events
     INTEGER :: ievent_list_local, local_i, i, nfiles, num_local_events
     INTEGER :: dom_sim_step_info_jstep0
+    INTEGER :: ev_tx_comm, ev_tx_root
     LOGICAL :: is_io, is_mpi_test
 
     !
@@ -1637,12 +1661,33 @@ CONTAINS
       END IF
     END DO
 
-    ! -----------------------------------------------------------
-    ! The root I/O MPI rank asks all participating I/O PEs for their
-    ! output event info and generates a unified output event,
-    ! indicating which PE performs a write process at which step.
+    IF (use_async_name_list_io) THEN
+      ! The root I/O MPI rank asks all participating I/O PEs for their
+      ! output event info and generates a unified output event,
+      ! indicating which PE performs a write process at which step.
+      ev_tx_comm = p_comm_io
+      ev_tx_root = 0
+    ELSE IF (pio_type == pio_type_cdipio) THEN
+      ! Every work rank has a full set, the root work rank transfers it to the
+      ! root I/O task
+      IF (.NOT. is_mpi_test .AND. p_pe_work == 0) THEN
+        IF (p_pe == p_work_pe0) &
+          CALL p_send(dom_sim_step_info_jstep0, p_io_pe0, p_tag=156, &
+          &           comm=p_comm_work_io)
+        ev_tx_comm = p_comm_work_io
+        ev_tx_root = process_work_io0
+      ELSE
+        ev_tx_comm = mpi_comm_null
+        ev_tx_root = -1
+      END IF
+    ELSE
+      ! work rank 0 creates the output events from its own list
+      ev_tx_comm = MERGE(mpi_comm_self, mpi_comm_null, p_pe_work == 0)
+      ev_tx_root = 0
+    END IF
     all_events => union_of_all_events(compute_matching_sim_steps, &
-      &                               generate_output_filenames, p_comm_io, &
+      &                               generate_output_filenames, &
+      &                               ev_tx_comm, ev_tx_root, &
       &                               event_list_local, ievent_list_local)
 
     IF (dom_sim_step_info_jstep0 > 0 .AND. p_comm_io /= MPI_COMM_NULL) &
@@ -1651,7 +1696,11 @@ CONTAINS
     ! print a table with all output events
     IF (.NOT. is_mpi_test) THEN
       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-        & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+        & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot() &
+#ifdef HAVE_CDI_PIO
+        &  .AND. pio_type /= pio_type_cdipio &
+#endif
+        &  )) THEN
         CALL print_output_event_table(dom_sim_step_info_jstep0)
       END IF
     END IF
@@ -1696,6 +1745,26 @@ CONTAINS
          ! ASCII file output:
          & opt_filename=TRIM(osched_fname))
   END SUBROUTINE print_output_event_table
+
+  ! called by all CDI-PIO async ranks after the initialization of
+  ! communication replicates the output events on CDI PIO rank 0, so
+  ! that output rank 0 can write the ready files later
+  SUBROUTINE init_cdipio_cb
+    INTEGER :: dom_sim_step_info_jstep0
+    TYPE(t_event_data_local) :: event_list_dummy(1)
+    IF (p_pe_work == 0) THEN
+      CALL p_recv(dom_sim_step_info_jstep0, p_source=0, p_tag=156, &
+        &         comm=p_comm_work_io)
+      all_events => union_of_all_events(compute_matching_sim_steps, &
+           &                               generate_output_filenames, &
+           &                               p_comm_work_io, p_io_pe0, &
+           &                               event_list_dummy, 0)
+      IF (dom_sim_step_info_jstep0 > 0) &
+        &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
+        &                            isRestart(), lrecover_open_file=.TRUE.)
+      CALL print_output_event_table(dom_sim_step_info_jstep0)
+    END IF
+  END SUBROUTINE init_cdipio_cb
 
   FUNCTION add_out_event(of, i, local_i, sim_step_info, &
     &                    dom_sim_step_info_jstep0, &
@@ -2325,6 +2394,10 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, n_own, n
+#ifdef HAVE_CDI_PIO
+    TYPE(xt_idxlist) :: idxvec
+    INTEGER(xt_int_kind), ALLOCATABLE :: reorder_index_own_pio(:)
+#endif
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -2362,6 +2435,19 @@ CONTAINS
       patch_info_ll%ri%reorder_index_own(i) = intp%global_idx(i)
     END DO
 
+#ifdef HAVE_CDI_PIO
+    ALLOCATE(reorder_index_own_pio(n_own),          &
+      &      patch_info_ll%ri%reorder_idxlst_xt(1), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! CDI-PIO acts C like...
+    reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
+    idxvec = xt_idxvec_new(reorder_index_own_pio)
+    patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+    CALL xt_idxlist_delete(idxvec)
+#endif
+
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
@@ -2389,9 +2475,15 @@ CONTAINS
     REAL(wp), PARAMETER               :: pi_180 = ATAN(1._wp)/45._wp
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
       &                                  cdiInstID
-    INTEGER                           :: i, cdi_grid_ids(3)
+    INTEGER                           :: i, cdi_grid_ids(3), nvert
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
+    CHARACTER(len=128)                :: comment
+#ifdef HAVE_CDI_PIO
+    TYPE(xt_idxlist)                  :: null_idxlist
+    INTEGER                           :: grid_deco_part(2)
+    TYPE(extent)                      :: grid_size_desc
+#endif
 
     gridtype = GRID_UNSTRUCTURED
 
@@ -2434,9 +2526,14 @@ CONTAINS
     tlen = LEN_TRIM(cf_global_info%references)
     iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
          &                tlen, cf_global_info%references(1:tlen))
-    tlen = LEN_TRIM(cf_global_info%comment)
+    comment = cf_global_info%comment
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) &
+         CALL p_bcast(comment, 0, comm=p_comm_work)
+#endif
+    tlen = LEN_TRIM(comment)
     iret = cdiDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
-         &                tlen, cf_global_info%comment(1:tlen))
+      &                 tlen, comment(1:tlen))
 
     ! 3. add horizontal grid descriptions
 
@@ -2499,9 +2596,26 @@ CONTAINS
     ELSE
 
       ! Cells
-
-      of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
-      CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(icell)%n_glb)
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
+        of%cdiCellGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb, &
+          &             -1, -1, max_cell_connectivity, grid_deco_part, &
+          &             patch_info(i_dom)%ri(icell)%reorder_idxlst_xt(1), &
+          &             null_idxlist, null_idxlist)
+      ELSE
+#endif
+        of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
+        CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
       CALL gridDefXlongname(of%cdiCellGridID, 'center longitude')
@@ -2539,13 +2653,28 @@ CONTAINS
       DEALLOCATE(p_lonlat)
 
       ! Verts
-
-      of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
-      IF (my_process_is_ocean()) THEN
-        CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      nvert = MERGE(max_vertex_connectivity, 9-max_cell_connectivity, &
+           my_process_is_ocean())
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(ivert)%n_glb)
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
+        of%cdiVertGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb, &
+          &             -1, -1, nvert, grid_deco_part, &
+          &             patch_info(i_dom)%ri(ivert)%reorder_idxlst_xt(1), &
+          &             null_idxlist, null_idxlist)
       ELSE
-        CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+#endif
+        of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
+        CALL gridDefNvertex(of%cdiVertGridID, nvert)
+#ifdef HAVE_CDI_PIO
       ENDIF
+#endif
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
@@ -2565,9 +2694,27 @@ CONTAINS
       CALL gridDefPosition(of%cdiVertGridID, GRID_VERTEX)
 
       ! Edges
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        grid_size_desc = extent(0, patch_info(i_dom)%ri(iedge)%n_glb)
+        grid_deco_part(1) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+1)
+        grid_deco_part(2) =   uniform_partition_start(grid_size_desc, &
+          &                                           p_n_work, p_pe_work+2) &
+          &                 - grid_deco_part(1)
+        of%cdiEdgeGridID = &
+          cdiPioDistGridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb, &
+          &             -1, -1, 4, grid_deco_part, &
+          &             patch_info(i_dom)%ri(iedge)%reorder_idxlst_xt(1), &
+          &             null_idxlist, null_idxlist)
+      ELSE
+#endif
 
-      of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb)
-      CALL gridDefNvertex(of%cdiEdgeGridID, 4)
+        of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb)
+        CALL gridDefNvertex(of%cdiEdgeGridID, 4)
+#ifdef HAVE_CDI_PIO
+      ENDIF
+#endif
       !
       CALL gridDefXname(of%cdiEdgeGridID, 'elon')
       CALL gridDefXlongname(of%cdiEdgeGridID, 'edge midpoint longitude')

@@ -22,6 +22,7 @@ MODULE mo_tracer_metadata
 
   USE mo_kind,                  ONLY: wp
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_aero_meta, &
+                                  &   t_passive_meta,             &
                                   &   t_chem_meta, t_hydro_meta
 
   IMPLICIT NONE
@@ -31,6 +32,7 @@ MODULE mo_tracer_metadata
   PUBLIC  :: create_tracer_metadata
   PUBLIC  :: create_tracer_metadata_aero
   PUBLIC  :: create_tracer_metadata_chem
+  PUBLIC  :: create_tracer_metadata_passive
   PUBLIC  :: create_tracer_metadata_hydro
 
   !------------------------------------------------------------------------------------------------
@@ -46,8 +48,7 @@ MODULE mo_tracer_metadata
 CONTAINS
 
   TYPE(t_tracer_meta) FUNCTION create_tracer_metadata(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
-                      &                               lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
-                      &                               iwash_tracer)
+                      &                               lturb_tracer, lconv_tracer)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
@@ -56,14 +57,10 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
-    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
-    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
-    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                        lturb_tracer, lconv_tracer, ised_tracer,       &
-      &                                        ldep_tracer, iwash_tracer)
+      &                                        lturb_tracer, lconv_tracer)
 
   END FUNCTION create_tracer_metadata
 
@@ -93,8 +90,7 @@ CONTAINS
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                             lturb_tracer, lconv_tracer, ised_tracer,       &
-      &                                             ldep_tracer, iwash_tracer)
+      &                                             lturb_tracer, lconv_tracer)
 
     ! Fill the meta of the extended type (t_aero_meta)
     IF(PRESENT(moment)) THEN
@@ -122,6 +118,34 @@ CONTAINS
       create_tracer_metadata_aero%mol_weight = -1._wp
     ENDIF
 
+    ! Fill the meta of the extended type (t_chem_meta)
+    IF(PRESENT(mol_weight)) THEN
+      create_tracer_metadata_aero%mol_weight = mol_weight
+    ELSE
+      create_tracer_metadata_aero%mol_weight = -1._wp
+    ENDIF
+
+    ! ised_tracer
+    IF ( PRESENT(ised_tracer) ) THEN
+      create_tracer_metadata_aero%ised_tracer = ised_tracer
+    ELSE
+      create_tracer_metadata_aero%ised_tracer = 0
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      create_tracer_metadata_aero%ldep_tracer = ldep_tracer
+    ELSE
+      create_tracer_metadata_aero%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! iwash_tracer
+    IF ( PRESENT(iwash_tracer) ) THEN
+      create_tracer_metadata_aero%iwash_tracer = iwash_tracer
+    ELSE
+      create_tracer_metadata_aero%iwash_tracer = 0
+    ENDIF
+
   END FUNCTION create_tracer_metadata_aero
 
 
@@ -141,12 +165,11 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
     INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
     ! Extended type (t_chem_meta) content
-    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
+    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [kg mol-1]
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_chem%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                             lturb_tracer, lconv_tracer, ised_tracer,       &
-      &                                             ldep_tracer, iwash_tracer)
+      &                                             lturb_tracer, lconv_tracer)
 
     ! Fill the meta of the extended type (t_chem_meta)
     IF(PRESENT(mol_weight)) THEN
@@ -155,13 +178,57 @@ CONTAINS
       create_tracer_metadata_chem%mol_weight = -1._wp
     ENDIF
 
+    ! ised_tracer
+    IF ( PRESENT(ised_tracer) ) THEN
+      create_tracer_metadata_chem%ised_tracer = ised_tracer
+    ELSE
+      create_tracer_metadata_chem%ised_tracer = 0
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      create_tracer_metadata_chem%ldep_tracer = ldep_tracer
+    ELSE
+      create_tracer_metadata_chem%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! iwash_tracer
+    IF ( PRESENT(iwash_tracer) ) THEN
+      create_tracer_metadata_chem%iwash_tracer = iwash_tracer
+    ELSE
+      create_tracer_metadata_chem%iwash_tracer = 0
+    ENDIF
+
+
   END FUNCTION create_tracer_metadata_chem
 
 
 
+  TYPE(t_passive_meta) FUNCTION create_tracer_metadata_passive(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
+                      &                                  lturb_tracer, lconv_tracer)
+    ! Base type (t_tracer_meta) content
+    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
+    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
+    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
+    ! Extended type (t_passive_meta) content
+    ! ...
+
+    ! Fill the metadata of the base type
+    CALL create_tracer_metadata_passive%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
+      &                                              lturb_tracer, lconv_tracer)
+
+    ! Fill the meta of the extended type (t_passive_meta)
+    ! ...
+
+  END FUNCTION create_tracer_metadata_passive
+
+
   TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
-                      &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
-                      &                                  iwash_tracer)
+                      &                                  lturb_tracer, lconv_tracer)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
@@ -170,16 +237,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
-    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
-    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
-    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
     ! Extended type (t_hydro_meta) content
     ! ...
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_hydro%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                              lturb_tracer, lconv_tracer, ised_tracer,       &
-      &                                              ldep_tracer, iwash_tracer)
+      &                                              lturb_tracer, lconv_tracer)
 
     ! Fill the meta of the extended type (t_hydro_meta)
     ! ...

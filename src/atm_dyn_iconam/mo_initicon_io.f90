@@ -1052,6 +1052,7 @@ MODULE mo_initicon_io
     TYPE(t_fetchParams)      :: params
     REAL(wp), ALLOCATABLE    :: z_ifc_in(:,:,:)
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1162,6 +1163,7 @@ MODULE mo_initicon_io
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
     LOGICAL :: lfound_thv, lfound_rho, lfound_vn
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1306,6 +1308,7 @@ MODULE mo_initicon_io
     TYPE(t_fetchParams) :: params
     LOGICAL :: lHaveFg
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1684,6 +1687,7 @@ MODULE mo_initicon_io
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_sfc'
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
