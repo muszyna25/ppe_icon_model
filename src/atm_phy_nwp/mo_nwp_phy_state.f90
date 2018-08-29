@@ -1258,6 +1258,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                        &
       &                 new_cf=new_cf_desc) )
 
+
+    ! longwave surface emissivity
+    !
+    ! lw_emiss     diag%lw_emiss(nproma,nblks_c)
+    cf_desc    = t_cf_var('lw_emiss', '-', 'longwave surface emissivity', datatype_flt)
+    grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lw_emiss', diag%lw_emiss,         &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
+      &           grib2_desc, ldims=shape2d, loutput=.TRUE.,    &
+      &           lrestart=.TRUE. )
+
+
     ! These variables only make sense if the land-surface scheme is switched on.
     IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
 
@@ -1330,17 +1342,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
            & grib2_var(0, 19, 223, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
            & ldims=shape2d, lrestart=.TRUE.                                )
       ENDDO
-
-
-      ! longwave surface emissivity
-      !
-      ! lw_emiss     diag%lw_emiss(nproma,nblks_c)
-      cf_desc    = t_cf_var('lw_emiss', '-', 'longwave surface emissivity', datatype_flt)
-      grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, 'lw_emiss', diag%lw_emiss,         &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape2d, loutput=.TRUE.,    &
-        &           lrestart=.TRUE. )
 
 
       ! &      diag%swflxsfc_t(nproma,nblks_c,ntiles_total+ntiles_water)
