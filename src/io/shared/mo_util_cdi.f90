@@ -24,6 +24,7 @@ MODULE mo_util_cdi
   USE mo_communication,      ONLY: t_scatterPattern
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_run_config,         ONLY: msg_level
+  USE mo_io_config,          ONLY: config_lmask_boundary => lmask_boundary
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, int2string
@@ -38,6 +39,7 @@ MODULE mo_util_cdi
     &                              cdiEncodeParam, FILETYPE_GRB2, vlistDefVarName, vlistDefVarLongname,        &
     &                              vlistDefVarStdname, vlistDefVarUnits, vlistDefVarParam, vlistDefVarMissval, &
     &                              vlistDefVarDatatype, vlistDefVarIntKey, vlistDefVarDblKey
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -1051,9 +1053,10 @@ CONTAINS
     IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
     IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
     IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
-
-    ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-    IF (info%lmiss) THEN
+    
+    IF (info%lmiss .OR.                                        &
+      &   (info%lmask_boundary .AND. config_lmask_boundary .AND. &
+      &   (info%hgrid == GRID_UNSTRUCTURED_CELL))) THEN
       CALL vlistDefVarMissval(vlistID, varID, missval)
     END IF
 

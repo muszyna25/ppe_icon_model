@@ -2677,9 +2677,13 @@ CONTAINS
       END IF
       zaxisID = zaxis%cdi_id
 
-      ! Currently only real valued variables are allowed, so we can always use info%missval%rval
+      IF (info%lmask_boundary .AND. config_lmask_boundary .AND. &
+        &      (info%hgrid == GRID_UNSTRUCTURED_CELL)) THEN
+        missval = BOUNDARY_MISSVAL
+      END IF
       IF (info%lmiss) THEN
-        ! set the missing value
+        ! Set the missing value. Currently only real valued variables
+        ! are allowed, so we can always use info%missval%rval
         IF ((.NOT.use_async_name_list_io .OR. is_mpi_test) .OR. use_dp_mpi2io) THEN
           missval = info%missval%rval
         ELSE
@@ -2690,10 +2694,8 @@ CONTAINS
           ! the masked data in the buffer might be different values.
           missval = REAL(REAL(info%missval%rval,sp),dp)
         END IF
-      ELSE IF (info%lmask_boundary .AND. config_lmask_boundary) THEN
-        missval = BOUNDARY_MISSVAL
       END IF
-
+      
       this_i_lctype = 0
 #ifndef __NO_ICON_ATMO__
       this_i_lctype = i_lctype(of%phys_patch_id)
