@@ -41,7 +41,7 @@ MODULE mo_ext_data_init
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -1439,7 +1439,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(num_lcc)
-    REAL(wp) :: tile_frac(num_lcc), sum_frac
+    REAL(wp) :: tile_frac(num_lcc), sum_frac, dtdz_clim, t2mclim_hc
     INTEGER  :: lu_subs, it_count(ntiles_total)
     INTEGER  :: npoints, npoints_sea, npoints_lake
     INTEGER  :: i_lc_water
@@ -1462,6 +1462,8 @@ CONTAINS
     WRITE(message_text,'(a,i4)')  'Total number of tiles: ', ntiles_total
     CALL message('', TRIM(message_text))
 
+    ! climatological temperature gradient used for height correction of T2M climatology
+    dtdz_clim = -5.e-3_wp  ! -5 K/km
 
     DO jg = 1, n_dom
 
@@ -1494,7 +1496,7 @@ CONTAINS
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in,t2mclim_hc ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1627,14 +1629,22 @@ CONTAINS
                    ext_data(jg)%atm%ndvi_max(jc,jb) = 0.8_wp
                  ENDIF
                ENDIF
-!!$               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
-!!$                 ! fix for non-dominant land points: reset soil type to sandy loam ...
-!!$                 ext_data(jg)%atm%soiltyp(jc,jb) = 4
-!!$                 ! ... and reset ndviratio to 0.5
-!!$                 ptr_ndviratio(jc,jb) = 0.5_wp
-!!$               ENDIF
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
+               ! Calculate height-corrected annual maximum of T2M climatology, including contribution from SSO standard 
+               ! deviation. This is used below to reset misclassified glacier points (e.g. salt lakes) to bare soil
+               !
+               ! This correction requires a monthly T2M climatology, which is available only if itype_vegetation_cycle > 1
+               !
+               IF (itype_vegetation_cycle > 1) THEN
+                 t2mclim_hc = MAXVAL(ext_data(jg)%atm_td%t2m_m(jc,jb,:)) + dtdz_clim *                &
+                   ( ext_data(jg)%atm%topography_c(jc,jb) + 1.5_wp*ext_data(jg)%atm%sso_stdh(jc,jb) - &
+                     ext_data(jg)%atm%topo_t2mclim(jc,jb) )
+               ELSE
+                 ! set t2mclim_hc to a value that leaves the landuse classification unchanged
+                 t2mclim_hc = tmelt
+               ENDIF
 
                DO i_lu = 1, ntiles_lnd
 
@@ -1689,11 +1699,22 @@ CONTAINS
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
 
-                 ! consistency corrections for partly glaciered points
-                 ! a) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
+                 ! consistency corrections for glaciered points
+                 !
+                 ! a) plausibility check for glacier points based on T2M climatology (if available):
+                 !    if the warmest month exceeds 10 deg C, then it is unlikely for glaciers to exist
+                 IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice .AND. &
+                     t2mclim_hc > tmelt + 10_wp) THEN
+                   ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_bare_soil
+                   ext_data(jg)%atm%fr_glac(jc,jb)     = 0._wp
+                   ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp
+                 ENDIF
+                 !
+                 ! b) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
                  IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) &
                    & ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 1
-                 ! b) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
+                 !
+                 ! c) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
                  IF (ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) == 1 .AND. &
                    & ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) /= ext_data(jg)%atm%i_lc_snow_ice) THEN
                    IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_bare_soil) THEN
