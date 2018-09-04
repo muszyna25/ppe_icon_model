@@ -560,6 +560,12 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
+    CALL add_var(ocean_default_list, 'global_heat_content', ocean_state_diag%monitor%global_heat_content , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_heat_content', 'J', 'global_heat_content', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'ssh_global', ocean_state_diag%monitor%ssh_global , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('ssh_global', 'm', 'ssh_global', datatype_flt),&
@@ -1149,6 +1155,34 @@ CONTAINS
       &          t_cf_var('mld', 'm', 'mixed layer depth', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+
+    ! heat content of liquid water
+      CALL add_var(ocean_default_list, 'heat_content_liquid_water', ocean_state_diag%heat_content_liquid_water,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('heat_content_liquid_water','J m-2','heat_content_liquid_water', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+    ! heat content of snow
+    CALL add_var(ocean_default_list, 'heat_content_snow', ocean_state_diag%heat_content_snow , grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_snow', 'J m-2', 'heat_conten_snow', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! heat content of seaice
+    CALL add_var(ocean_default_list, 'heat_content_seaice', ocean_state_diag%heat_content_seaice , grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_seaice', 'J m-2', 'heat_content_seaice', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! total heat content per column
+    CALL add_var(ocean_default_list, 'heat_content_total', ocean_state_diag%heat_content_total , grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_total', 'J m-2', 'heat_content_total', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+
     ! number of deepest convection layer
     CALL add_var(ocean_default_list, 'condep', ocean_state_diag%condep , grid_unstructured_cell, za_surface,&
       &         t_cf_var('condep', '', 'convection depth index', datatype_flt),&

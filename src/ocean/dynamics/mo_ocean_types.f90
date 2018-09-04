@@ -192,6 +192,7 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
+      & heat_content_liquid_water,    &
       & odensitytend
 
 
@@ -201,6 +202,9 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
+      & heat_content_snow ,&
+      & heat_content_seaice ,&
+      & heat_content_total ,&
       & zos_square     ,&
       & Rossby_Radius    ,&      
       & Wavespeed_baroclinic ,&

@@ -62,7 +62,7 @@ MODULE mo_ocean_diagnostics
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice
+  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice, rho_ref, rho_ref, clw, alf
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
@@ -805,7 +805,7 @@ CONTAINS
       &        total_fresh_water_flux,total_evaporation_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
-      &        global_mean_potEnstrophy
+      &        global_mean_potEnstrophy,global_heat_content
     REAL(wp) :: sflux
 
     TYPE(t_subset_range), POINTER :: owned_cells
@@ -971,6 +971,30 @@ CONTAINS
            & p_diag%pacific_moc)
         CALL timer_stop(timer_calc_moc)
       endif
+
+      IF ( isRegistered('heat_content_liquid_water') .OR. isRegistered('heat_content_seaice') &
+           .OR. isRegistered('heat_content_snow') .OR.  isRegistered('heat_content_total') &
+           .OR. isRegistered('global_heat_content') ) THEN
+
+        CALL calc_heat_content(patch_2d, prism_thickness, ice, tracers, &
+             p_diag%heat_content_liquid_water, &
+             p_diag%heat_content_seaice, &
+             p_diag%heat_content_snow,&
+             p_diag%heat_content_total )
+
+        ! global_heat_content for monitoring
+
+        IF (isRegistered('global_heat_content')) THEN
+          global_heat_content = 0.0_wp
+          global_heat_content = global_sum_array(patch_2d%cells%area(:,:) * p_diag%heat_content_total(:,:) )
+          monitor%global_heat_content = global_heat_content
+        END IF
+
+
+      ENDIF
+
+
+
 
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
       
@@ -1985,4 +2009,129 @@ CONTAINS
       END DO ! cell
     END DO !block
   END FUNCTION calc_salt_content
+
+
+  SUBROUTINE calc_heat_content(patch_2d, thickness, ice, tracers, &
+       heat_content_liquid_water, heat_content_seaice,            &
+       heat_content_snow, heat_content_total)
+
+    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2d
+
+    REAL(wp), INTENT(IN)   :: thickness(:,:,:)
+    REAL(wp), INTENT(IN)   :: tracers(:,:,:,:)
+    REAL(wp), INTENT(OUT)  :: heat_content_liquid_water(:,:,:)
+    REAL(wp), INTENT(OUT)  :: heat_content_seaice(:,:)
+    REAL(wp), INTENT(OUT)  :: heat_content_snow(:,:)
+    REAL(wp), INTENT(OUT)  :: heat_content_total(:,:)
+
+    TYPE(t_sea_ice), INTENT(IN)              :: ice
+    TYPE(t_subset_range), POINTER            :: subset
+
+    INTEGER  :: blk, cell, cellStart,cellEnd, level
+    REAL(wp) :: rhoicwa, rhosnic, rhosnwa, tfreeze, tmelt, &
+                  tref, entmel, rocp, sithk, snthk
+
+
+    rhoicwa = rhoi / rho_ref
+    rhosnwa = rhos / rho_ref
+    rhosnic = rhos / rhoi
+    rocp = rho_ref * clw
+    tfreeze = -1.9
+    tmelt = 273.15
+    tref = 273.15
+    entmel = rhoi * alf
+
+    subset => patch_2d%cells%owned
+    DO blk = subset%start_block, subset%end_block
+      CALL get_index_range(subset, blk, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+        IF (subset%vertical_levels(cell,blk) < 1) CYCLE
+
+        ! surface:
+
+        ! heat of ice : heat of water equivalent at tfreeze - latent heat of fusion
+
+        sithk = SUM(ice%hi(cell,:,blk)*ice%conc(cell,:,blk)) ! equivalent thickness of sea ice equally distributed over the cell area
+
+        heat_content_seaice(cell,blk) = ( rhoicwa * rocp * sithk  &
+             * ( tfreeze + tmelt - tref )  )                      &
+             - ( sithk * entmel )
+
+        ! heat of snow : heat of water equivalent at tmelt - latent heat of fusion
+
+        snthk = SUM(ice%hs(cell,:,blk)*ice%conc(cell,:,blk)) ! equivalent thickness of snow on sea ice equally distributed over the cell area
+
+        heat_content_snow(cell,blk) = ( rhosnwa * rocp * snthk  &
+             * ( tmelt - tref )  )                              &
+             - ( rhosnic * snthk * entmel )
+
+        ! liquid water heat
+        ! surface : tho * rho * cp * draft
+
+        heat_content_liquid_water(cell,1,blk) = (tmelt - tref &
+             + tracers(cell,1,blk,1) ) * rocp                 &
+             * ice%zUnderIce(cell,blk)
+
+        DO level=2,subset%vertical_levels(cell,blk)
+          heat_content_liquid_water(cell,level,blk) = (tmelt - tref &
+               + tracers(cell,level,blk,1) ) * rocp                 &
+               * thickness(cell,level,blk)
+        END DO
+
+        ! total heat per column
+        heat_content_total(cell,blk) = heat_content_snow(cell,blk) &
+             + heat_content_seaice(cell, blk)                      &
+             + SUM(heat_content_liquid_water(cell,1:subset%vertical_levels(cell,blk),blk))
+
+        ! rest of the underwater world
+      END DO ! cell
+    END DO !block
+  END SUBROUTINE calc_heat_content
+
+
+  SUBROUTINE reset_ocean_monitor(monitor)
+    TYPE(t_ocean_monitor) :: monitor
+    monitor%volume(:)                     = 0.0_wp
+!   monitor%kin_energy(:)                 = 0.0_wp
+!   monitor%pot_energy(:)                 = 0.0_wp
+!   monitor%total_energy(:)               = 0.0_wp
+    monitor%total_salt(:)                 = 0.0_wp
+!   monitor%vorticity(:)                  = 0.0_wp
+!   monitor%enstrophy(:)                  = 0.0_wp
+!   monitor%potential_enstrophy(:)        = 0.0_wp
+    monitor%absolute_vertical_velocity(:) = 0.0_wp
+    monitor%HeatFlux_ShortWave(:)         = 0.0_wp
+    monitor%HeatFlux_LongWave(:)          = 0.0_wp
+    monitor%HeatFlux_Sensible(:)          = 0.0_wp
+    monitor%HeatFlux_Latent(:)            = 0.0_wp
+    monitor%FrshFlux_SnowFall(:)          = 0.0_wp
+    monitor%FrshFlux_TotalSalt(:)         = 0.0_wp
+    monitor%FrshFlux_TotalOcean(:)        = 0.0_wp
+    monitor%FrshFlux_TotalIce(:)          = 0.0_wp
+    monitor%FrshFlux_VolumeIce(:)         = 0.0_wp
+    monitor%FrshFlux_VolumeTotal(:)       = 0.0_wp
+    monitor%HeatFlux_Relax(:)             = 0.0_wp
+    monitor%FrshFlux_Relax(:)             = 0.0_wp
+    monitor%TempFlux_Relax(:)             = 0.0_wp
+    monitor%SaltFlux_Relax(:)             = 0.0_wp
+    monitor%ice_framStrait(:)             = 0.0_wp
+    monitor%florida_strait(:)             = 0.0_wp
+    monitor%gibraltar(:)                  = 0.0_wp
+    monitor%denmark_strait(:)             = 0.0_wp
+    monitor%drake_passage(:)              = 0.0_wp
+    monitor%indonesian_throughflow(:)     = 0.0_wp
+    monitor%scotland_iceland(:)           = 0.0_wp
+    monitor%mozambique(:)                 = 0.0_wp
+    monitor%framStrait(:)                 = 0.0_wp
+    monitor%beringStrait(:)               = 0.0_wp
+    monitor%barentsOpening(:)             = 0.0_wp
+    monitor%agulhas(:)                    = 0.0_wp
+    monitor%agulhas_long(:)               = 0.0_wp
+    monitor%agulhas_longer(:)             = 0.0_wp
+    monitor%t_mean_na_200m(:)             = 0.0_wp
+    monitor%t_mean_na_800m(:)             = 0.0_wp
+    monitor%ice_ocean_heat_budget(:)      = 0.0_wp
+    monitor%ice_ocean_salinity_budget(:)  = 0.0_wp
+    monitor%ice_ocean_volume_budget(:)    = 0.0_wp
+  END SUBROUTINE reset_ocean_monitor
 END MODULE mo_ocean_diagnostics
