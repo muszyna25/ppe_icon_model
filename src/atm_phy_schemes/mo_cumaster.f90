@@ -724,7 +724,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
+  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -993,7 +993,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
+    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &

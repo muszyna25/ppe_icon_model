@@ -1563,6 +1563,17 @@ Variability range (relative change) of leaf area index (maximum of annual cycle)
 \tabularnewline
 
 
+\hline
+stdev\_sst\_pert&
+R&
+0.&
+K&
+Inserting the standard deviation of SST perturbations (present in the model input data) activates 
+a correction factor for the saturation vapor pressure over oceans,
+which compensates the systematic increase of evaporation due to the SST perturbations.
+&
+\tabularnewline
+
 \end{longtab}
 
 
@@ -4201,6 +4212,15 @@ R&
 1.85e-3&
 1/m&
 Entrainment parameter valid for dx=20 km (depends on model resolution)&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_rprcon&
+R&
+1.4e-3&
+&
+Coefficient for conversion of cloud water into precipitation&
 run\_nml:iforcing = inwp
 \tabularnewline
 

@@ -36,7 +36,7 @@ MODULE mo_cuparameters
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
     tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop, tune_gkdrag, &
-    tune_gkwake, tune_gfrcrit, tune_grcrit
+    tune_gkwake, tune_gfrcrit, tune_grcrit, tune_rprcon
 #endif
 
 #ifdef __GME__
@@ -343,7 +343,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmfcmax
   REAL(KIND=jprb) :: rmfcmin
   REAL(KIND=jprb) :: rmfdeps, rmfdeps_ocean
-  REAL(KIND=jprb) :: rprcon
+  ! REAL(KIND=jprb) :: rprcon -> moved into phy_params
   ! REAL(KIND=jprb) :: rtau -> moved into phy_params because it is resolution-dependent
   ! REAL(KIND=jprb) :: rtau0 -> moved into phy_params because it is resolution-dependent
   INTEGER         :: icapdcycl
@@ -479,7 +479,7 @@ MODULE mo_cuparameters
           & rcvd     ,rsigma
   !yoecumf
   PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
-          & rprcon   ,rmfcmax  ,rmfcmin   ,detrpen  ,&
+          & rmfcmax  ,rmfcmin   ,detrpen            ,&
           & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv ,rmflmax            ,&
@@ -1193,7 +1193,7 @@ ENDIF
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
 
-rprcon = 1.4E-3_JPRB
+phy_params%rprcon = tune_rprcon ! default value 1.4e-3
 
 !                COEFFICIENTS FOR RAIN EVAPORATION BELOW CLOUD
 !                AND MELTING

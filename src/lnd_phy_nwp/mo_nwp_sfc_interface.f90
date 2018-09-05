@@ -43,6 +43,7 @@ MODULE mo_nwp_sfc_interface
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
     &                               lprog_albsi, itype_trvg, itype_snowevap
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
+  USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -50,7 +51,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_data_flake,          ONLY: h_Ice_min_flk
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
-  USE mo_physical_constants,  ONLY: tmelt, grav
+  USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac
 
   
   IMPLICIT NONE 
@@ -318,8 +319,10 @@ CONTAINS
          !
          DO ic=1,ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
- 
-           lnd_diag%qv_s_t(jc,jb,isub_water) = 0.981_wp * & ! reduction of saturation pressure due to salt content
+
+           ! salinity_fac accounts for the average reduction of saturation pressure caused by the salt content of oceans
+           ! sst_pert_corrfac is a tuning factor to compensate the increased evaporation due to SST ensemble perturbations
+           lnd_diag%qv_s_t(jc,jb,isub_water) = salinity_fac * sst_pert_corrfac *      &
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO

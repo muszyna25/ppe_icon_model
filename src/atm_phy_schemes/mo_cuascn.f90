@@ -44,7 +44,7 @@ MODULE mo_cuascn
     &                        rtt   ,rd   , ralfdcp,&
     &                        rtber, rtbercu  ,rticecu   ,&
     &                        lphylin  ,rlptrc,           &
-    &                        entshalp ,rmfcmin,rprcon   ,&
+    &                        entshalp ,rmfcmin,          &
     &                        rmflic   ,rmflia ,rvdifts  ,&
     &                        rmfcmax, rlmin, detrpen    ,&
     &                        lhook,   dr_hook, lmfglac
@@ -65,7 +65,7 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, lmfmid, ptsphy,&
+    & entrorg, rprcon, lmfmid, ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
     & ptenq,             &
@@ -233,7 +233,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon
 LOGICAL           ,INTENT(in)    :: lmfmid
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
