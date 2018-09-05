@@ -1165,19 +1165,22 @@ CONTAINS
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
 
     ! heat content of snow
-    CALL add_var(ocean_default_list, 'heat_content_snow', ocean_state_diag%heat_content_snow , grid_unstructured_cell, za_surface,&
+    CALL add_var(ocean_default_list, 'heat_content_snow', ocean_state_diag%heat_content_snow , &
+      &         grid_unstructured_cell, za_surface,&
       &         t_cf_var('heat_content_snow', 'J m-2', 'heat_conten_snow', datatype_flt),&
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
    ! heat content of seaice
-    CALL add_var(ocean_default_list, 'heat_content_seaice', ocean_state_diag%heat_content_seaice , grid_unstructured_cell, za_surface,&
+    CALL add_var(ocean_default_list, 'heat_content_seaice', ocean_state_diag%heat_content_seaice , &
+      &         grid_unstructured_cell, za_surface,&
       &         t_cf_var('heat_content_seaice', 'J m-2', 'heat_content_seaice', datatype_flt),&
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
    ! total heat content per column
-    CALL add_var(ocean_default_list, 'heat_content_total', ocean_state_diag%heat_content_total , grid_unstructured_cell, za_surface,&
+    CALL add_var(ocean_default_list, 'heat_content_total', ocean_state_diag%heat_content_total , &
+      &         grid_unstructured_cell, za_surface,&
       &         t_cf_var('heat_content_total', 'J m-2', 'heat_content_total', datatype_flt),&
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
