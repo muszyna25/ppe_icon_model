@@ -2019,10 +2019,10 @@ CONTAINS
 
     REAL(wp), INTENT(IN)   :: thickness(:,:,:)
     REAL(wp), INTENT(IN)   :: tracers(:,:,:,:)
-    REAL(wp), INTENT(OUT)  :: heat_content_liquid_water(:,:,:)
-    REAL(wp), INTENT(OUT)  :: heat_content_seaice(:,:)
-    REAL(wp), INTENT(OUT)  :: heat_content_snow(:,:)
-    REAL(wp), INTENT(OUT)  :: heat_content_total(:,:)
+    REAL(wp), INTENT(INOUT)  :: heat_content_liquid_water(:,:,:)
+    REAL(wp), INTENT(INOUT)  :: heat_content_seaice(:,:)
+    REAL(wp), INTENT(INOUT)  :: heat_content_snow(:,:)
+    REAL(wp), INTENT(INOUT)  :: heat_content_total(:,:)
 
     TYPE(t_sea_ice), INTENT(IN)              :: ice
     TYPE(t_subset_range), POINTER            :: subset
@@ -2045,10 +2045,7 @@ CONTAINS
     DO blk = subset%start_block, subset%end_block
       CALL get_index_range(subset, blk, cellStart, cellEnd)
       DO cell = cellStart, cellEnd
-        IF (subset%vertical_levels(cell,blk) < 1) CYCLE
-
         ! surface:
-
         ! heat of ice : heat of water equivalent at tfreeze - latent heat of fusion
 
         sithk = SUM(ice%hi(cell,:,blk)*ice%conc(cell,:,blk)) ! equivalent thickness of sea ice equally distributed over the cell area
