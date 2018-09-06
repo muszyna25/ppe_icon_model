@@ -53,6 +53,7 @@ MODULE mo_assimilation_config
       lhn_filt         ,& ! vertical filtering of lhn t-increments
       lhn_relax        ,& ! horizontal filtering of lhn t-increments
       lhn_limit        ,& ! impose absolute limit on lhn t-increm. (abs_lhn_lim)
+      lhn_limitp       ,& ! impose absolute limit on lhn t-increm. (abs_lhn_lim), restricted to a Gaussian profile
       lhn_no_ttend     ,& ! do not apply the t increments (except for artif points), but only the q increments
       lhn_hum_adj      ,& ! apply a humidity adjustment along with t-increments
       lhn_satad        ,& ! apply saturation adjustment after LHN
@@ -79,7 +80,7 @@ MODULE mo_assimilation_config
     REAL (KIND=wp)                   ::           &
       lhn_coef          ,& ! factor for reduction of lhn t-increments
       lhn_dt_obs        ,& ! time step of input data in minutes
-      abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit)
+      abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit lhn_limitp)
       fac_lhn_artif     ,& ! factor when artificial profile will applied
       fac_lhn_up        ,& ! limiting factor for upscaling of model heating profile
       fac_lhn_down      ,& ! limiting factor for downscaling model heating profile
@@ -203,6 +204,9 @@ MODULE mo_assimilation_config
 
     if (assimilation_config(jg)%llhnverif) assimilation_config(jg)%lhn_diag=.true.
 
+    assimilation_config(jg)%nlhn_start      = INT(dt_ass)*NINT(REAL(assimilation_config(jg)%nlhn_start/dt_ass))
+    assimilation_config(jg)%nlhnverif_start = INT(dt_ass)*NINT(REAL(assimilation_config(jg)%nlhnverif_start/dt_ass))
+
     ! LHN event
 
     ! Events are triggered between [actual_trigger_time, actual_trigger_time + plus_slack]
@@ -215,7 +219,11 @@ MODULE mo_assimilation_config
       domStartDate = time_config%tc_exp_startdate + td_start
       CALL deallocateTimedelta(td_start)
     ELSE
-      domStartDate = time_config%tc_exp_startdate
+      CALL getPTStringFromMS(INT(assimilation_config(jg)%nlhn_start*1000._wp,i8), td_start_str)
+      td_start => newTimedelta(td_start_str)
+      domStartDate = time_config%tc_exp_startdate + td_start
+      CALL deallocateTimedelta(td_start)
+!      domStartDate = time_config%tc_exp_startdate
       ! take care of possibe IAU-Timeshift
       IF (timeshift%dt_shift < 0._wp) THEN
         domStartDate = domStartDate + timeshift%mtime_shift
@@ -230,11 +238,11 @@ MODULE mo_assimilation_config
    !
     eventStartDate = domStartDate + td_dt
 !    eventStartDate = domStartDate 
-    CALL deallocateTimedelta(td_dt)
+!    CALL deallocateTimedelta(td_dt)
 
     ! compute event end date
-    IF (jg > 1) THEN
-      IF (end_time(jg) /= DEFAULT_ENDTIME) THEN
+!    IF (jg > 1) THEN
+!      IF (end_time(jg) /= DEFAULT_ENDTIME) THEN
 !        CALL getPTStringFromMS(INT(end_time(jg)*1000._wp,i8), td_end_str)
         CALL getPTStringFromMS(INT(assimilation_config(jg)%nlhn_end*1000._wp,i8), td_end_str)
         td_end => newTimedelta(td_end_str)
@@ -243,13 +251,13 @@ MODULE mo_assimilation_config
         ! make sure that eventEndDate<=tc_exp_stopdate
         IF (domEndDate > time_config%tc_exp_stopdate) &
           &  domEndDate = time_config%tc_exp_stopdate
-      ELSE
-        domEndDate = time_config%tc_exp_stopdate
-      ENDIF
-    ELSE
-      domEndDate = time_config%tc_exp_stopdate
-    ENDIF
-    eventEndDate = domEndDate
+!      ELSE
+!        domEndDate = time_config%tc_exp_stopdate
+!      ENDIF
+!    ELSE
+!      domEndDate = time_config%tc_exp_stopdate
+!    ENDIF
+    eventEndDate = domEndDate + td_dt
 
     eventEndDate_proc = MERGE(eventEndDate, eventStartDate, assimilation_config(jg)%llhn)
     !
@@ -258,15 +266,16 @@ MODULE mo_assimilation_config
 
     CALL assimilation_config(jg)%dass_g%construct(grpName=TRIM("DASS_G"), pid=jg, grpSize=2)
     !
-    CALL assimilation_config(jg)%dass_lhn%initialize(                               &
-      &                     name        = 'dass_lhn',                           & !in
-      &                     id          = 1,                                    & !in
-      &                     is_enabled  = assimilation_config(jg)%llhn,             & !in
-      &                     startDate   = eventStartDate,                       & !in
-      &                     endDate     = eventEndDate_proc,                    & !in
-      &                     dt          = eventInterval,                        & !in
-      &                     plusSlack   = plusSlack,                            & !in
-      &                     optInclStart= .TRUE.                                ) !in
+    CALL assimilation_config(jg)%dass_lhn%initialize(                             &
+      &                     name          = 'dass_lhn',                           & !in
+      &                     id            = 1,                                    & !in
+      &                     is_enabled    = assimilation_config(jg)%llhn,         & !in
+!      &                     referenceDate = domStartDate,                         & !in
+      &                     startDate     = eventStartDate,                       & !in
+      &                     endDate       = eventEndDate_proc,                    & !in
+      &                     dt            = eventInterval,                        & !in
+      &                     plusSlack     = plusSlack,                            & !in
+      &                     optInclStart  = .TRUE.                                ) !in
     !
     CALL assimilation_config(jg)%dass_g%addToGroup(                          &
       &                     phyProc = assimilation_config(jg)%dass_lhn)
@@ -278,7 +287,11 @@ MODULE mo_assimilation_config
       domStartDate = time_config%tc_exp_startdate + td_start
       CALL deallocateTimedelta(td_start)
     ELSE
-      domStartDate = time_config%tc_exp_startdate
+      CALL getPTStringFromMS(INT(assimilation_config(jg)%nlhnverif_start*1000._wp,i8), td_start_str)
+      td_start => newTimedelta(td_start_str)
+      domStartDate = time_config%tc_exp_startdate + td_start
+      CALL deallocateTimedelta(td_start)
+!      domStartDate = time_config%tc_exp_startdate
       ! take care of possibe IAU-Timeshift
       IF (timeshift%dt_shift < 0._wp) THEN
         domStartDate = domStartDate + timeshift%mtime_shift
@@ -288,16 +301,16 @@ MODULE mo_assimilation_config
     !
     ! by adding td_dt we make sure, that all events are triggered 
     ! during the first integration step of the given patch.
-    CALL getPTStringFromMS(INT(dt_ass*1000._wp,i8), td_dt_str)
-    td_dt => newTimedelta(td_dt_str)
+!    CALL getPTStringFromMS(INT(dt_ass*1000._wp,i8), td_dt_str)
+!    td_dt => newTimedelta(td_dt_str)
    !
     eventStartDate = domStartDate + td_dt
 !    eventStartDate = domStartDate 
-    CALL deallocateTimedelta(td_dt)
+!    CALL deallocateTimedelta(td_dt)
 
     ! compute event end date
-    IF (jg > 1) THEN
-      IF (end_time(jg) /= DEFAULT_ENDTIME) THEN
+!    IF (jg > 1) THEN
+!      IF (end_time(jg) /= DEFAULT_ENDTIME) THEN
 !        CALL getPTStringFromMS(INT(end_time(jg)*1000._wp,i8), td_end_str)
         CALL getPTStringFromMS(INT(assimilation_config(jg)%nlhnverif_end*1000._wp,i8), td_end_str)
         td_end => newTimedelta(td_end_str)
@@ -306,25 +319,28 @@ MODULE mo_assimilation_config
         ! make sure that eventEndDate<=tc_exp_stopdate
         IF (domEndDate > time_config%tc_exp_stopdate) &
           &  domEndDate = time_config%tc_exp_stopdate
-      ELSE
-        domEndDate = time_config%tc_exp_stopdate
-      ENDIF
-    ELSE
-      domEndDate = time_config%tc_exp_stopdate
-    ENDIF
-    eventEndDate = domEndDate
+!      ELSE
+!        domEndDate = time_config%tc_exp_stopdate
+!      ENDIF
+!    ELSE
+!      domEndDate = time_config%tc_exp_stopdate
+!    ENDIF
+    eventEndDate = domEndDate + td_dt
+
+    CALL deallocateTimedelta(td_dt)
 
     eventEndDate_proc = MERGE(eventEndDate, eventStartDate, assimilation_config(jg)%llhnverif)
 
-    CALL assimilation_config(jg)%dass_lhn_verif%initialize(                         &
-      &                     name        = 'dass_lhn_verif',                     & !in
-      &                     id          = 2,                                    & !in
-      &                     is_enabled  = assimilation_config(jg)%llhnverif,        & !in
-      &                     startDate   = eventStartDate,                       & !in
-      &                     endDate     = eventEndDate_proc,                    & !in
-      &                     dt          = eventInterval,                        & !in
-      &                     plusSlack   = plusSlack,                            & !in
-      &                     optInclStart= .TRUE.                                ) !in
+    CALL assimilation_config(jg)%dass_lhn_verif%initialize(                       &
+      &                     name          = 'dass_lhn_verif',                     & !in
+      &                     id            = 2,                                    & !in
+      &                     is_enabled    = assimilation_config(jg)%llhnverif,    & !in
+!      &                     referenceDate = domStartDate,                         & !in
+      &                     startDate     = eventStartDate,                       & !in
+      &                     endDate       = eventEndDate_proc,                    & !in
+      &                     dt            = eventInterval,                        & !in
+      &                     plusSlack     = plusSlack,                            & !in
+      &                     optInclStart  = .TRUE.                                ) !in
 !    ! add to physics group
     CALL assimilation_config(jg)%dass_g%addToGroup(                          &
       &                     phyProc = assimilation_config(jg)%dass_lhn_verif)

@@ -1025,6 +1025,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
                   &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
                   & isteptype=TSTEP_INSTANT )
+      ! &      diag%lhn_diag(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('qvtend_lhn', 'g/g s-1',                &
+        &          'qv increment', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 255, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'qvtend_lhn', diag%qvtend_lhn,                       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3d,                                              &  
+                  & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+                  &                                       fallback_type=HINTP_TYPE_LONLAT_RBF), &
+                  & isteptype=TSTEP_INSTANT )
     ELSE
       ALLOCATE (diag%qrs_flux(1,1,kblks))
     ENDIF
