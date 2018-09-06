@@ -1,0 +1,2960 @@
+mo_advection_utils.o : ../../src/advection/mo_advection_utils.f90 \
+mo_kind.o
+
+mo_coupling_config.o : ../../src/configure_model/mo_coupling_config.f90
+
+mo_dynamics_config.o : ../../src/configure_model/mo_dynamics_config.f90 \
+mo_impl_constants.o \
+mo_kind.o \
+mo_restart_attributes.o \
+mo_util_string.o
+
+mo_gribout_config.o : ../../src/configure_model/mo_gribout_config.f90 \
+mo_impl_constants.o
+
+mo_grid_config.o : ../../src/configure_model/mo_grid_config.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_config.o \
+mo_mpi.o \
+mo_netcdf_parallel.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_util_string.o
+
+mo_interpol_config.o : ../../src/configure_model/mo_interpol_config.f90 \
+mo_exception.o \
+mo_grid_config.o \
+mo_grid_geometry_info.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o
+
+mo_io_config.o : ../../src/configure_model/mo_io_config.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_util_string.o
+
+mo_master_config.o : ../../src/configure_model/mo_master_config.f90 \
+mo_io_units.o
+
+mo_name_list_output_config.o : ../../src/configure_model/mo_name_list_output_config.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_name_list_output_types.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_parallel_config.o : ../../src/configure_model/mo_parallel_config.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_util_string.o
+
+mo_run_config.o : ../../src/configure_model/mo_run_config.f90 \
+mo_impl_constants.o \
+mo_kind.o
+
+mo_time_config.o : ../../src/configure_model/mo_time_config.f90 \
+mo_impl_constants.o \
+mo_kind.o \
+mo_util_string.o
+
+icon.o : ../../src/drivers/icon.f90 \
+mo_cf_convention.o \
+mo_exception.o \
+mo_io_units.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_ocean_model.o \
+mo_time_config.o \
+mo_util_signal.o \
+mo_util_sysinfo.o \
+mo_util_vcs.o
+
+mo_master_control.o : ../../src/drivers/mo_master_control.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_master_config.o \
+mo_master_nml.o \
+mo_mpi.o
+
+mo_bgc_constants.o : ../../src/hamocc/common/mo_bgc_constants.f90
+
+mo_control_bgc.o : ../../src/hamocc/common/mo_control_bgc.f90 \
+mo_kind.o
+
+mo_memory_bgc.o : ../../src/hamocc/common/mo_memory_bgc.f90 \
+mo_control_bgc.o \
+mo_hamocc_nml.o \
+mo_kind.o \
+mo_param1_bgc.o
+
+mo_param1_bgc.o : ../../src/hamocc/common/mo_param1_bgc.f90 \
+mo_kind.o
+
+mo_sedmnt.o : ../../src/hamocc/common/mo_sedmnt.f90 \
+mo_bgc_constants.o \
+mo_control_bgc.o \
+mo_hamocc_nml.o \
+mo_kind.o \
+mo_memory_bgc.o \
+mo_param1_bgc.o
+
+mo_bgc_bcond.o : ../../src/hamocc/icon_specific/mo_bgc_bcond.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_hamocc_nml.o \
+mo_hamocc_types.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_ext_data.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_util_string.o \
+mo_var_list.o \
+mo_zaxis_type.o
+
+mo_bgc_icon_comm.o : ../../src/hamocc/icon_specific/mo_bgc_icon_comm.f90 \
+mo_bgc_constants.o \
+mo_control_bgc.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_hamocc_nml.o \
+mo_hamocc_types.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_memory_bgc.o \
+mo_model_domain.o \
+mo_ocean_diagnostics_types.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_param1_bgc.o \
+mo_sedmnt.o
+
+mo_hamocc_diagnostics.o : ../../src/hamocc/icon_specific/mo_hamocc_diagnostics.f90 \
+mo_bgc_constants.o \
+mo_bgc_icon_comm.o \
+mo_control_bgc.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_hamocc_nml.o \
+mo_hamocc_types.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_memory_bgc.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_param1_bgc.o \
+mo_sedmnt.o \
+mo_sync.o
+
+mo_hamocc_nml.o : ../../src/hamocc/icon_specific/mo_hamocc_nml.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o
+
+mo_hamocc_output.o : ../../src/hamocc/icon_specific/mo_hamocc_output.f90 \
+mo_bgc_constants.o \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_control_bgc.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_hamocc_nml.o \
+mo_hamocc_types.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_sedmnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_var_metadata_types.o \
+mo_zaxis_type.o
+
+mo_hamocc_statistics.o : ../../src/hamocc/icon_specific/mo_hamocc_statistics.f90 \
+mo_hamocc_types.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_sedmnt.o \
+mo_statistics.o
+
+mo_hamocc_types.o : ../../src/hamocc/icon_specific/mo_hamocc_types.f90 \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_utilities.o
+
+mo_async_restart.o : ../../src/io/restart/mo_async_restart.f90 \
+mo_async_restart_comm_data.o \
+mo_cdi_constants.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o \
+mo_packed_message.o \
+mo_parallel_config.o \
+mo_restart_attributes.o \
+mo_restart_descriptor.o \
+mo_restart_file.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_run_config.o \
+mo_timer.o
+
+mo_async_restart_comm_data.o : ../../src/io/restart/mo_async_restart_comm_data.f90 \
+mo_async_restart_packer.o \
+mo_cdi_constants.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_util_string.o
+
+mo_async_restart_packer.o : ../../src/io/restart/mo_async_restart_packer.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o
+
+mo_c_restart_util.o : ../../src/io/restart/mo_c_restart_util.f90
+
+mo_load_multifile_restart.o : ../../src/io/restart/mo_load_multifile_restart.f90 \
+mo_broker_communication.o \
+mo_c_restart_util.o \
+mo_cdi_constants.o \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_multifile_restart_util.o \
+mo_parallel_config.o \
+mo_restart_attributes.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_util_cdi.o \
+mo_util_string.o
+
+mo_load_restart.o : ../../src/io/restart/mo_load_restart.f90 \
+mo_cdi_constants.o \
+mo_communication.o \
+mo_dictionary.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_load_multifile_restart.o \
+mo_load_singlefile_restart.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_multifile_restart_util.o \
+mo_restart_attributes.o \
+mo_restart_namelist.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_util_string.o \
+mo_var_list.o
+
+mo_load_singlefile_restart.o : ../../src/io/restart/mo_load_singlefile_restart.f90 \
+mo_cdi_constants.o \
+mo_communication.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_restart_attributes.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_multifile_restart.o : ../../src/io/restart/mo_multifile_restart.f90 \
+mo_async_restart_packer.o \
+mo_c_restart_util.o \
+mo_cdi_ids.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_mpi.o \
+mo_multifile_restart_patch_data.o \
+mo_multifile_restart_util.o \
+mo_packed_message.o \
+mo_restart_attributes.o \
+mo_restart_descriptor.o \
+mo_restart_namelist.o \
+mo_restart_util.o \
+mo_serialized_data.o \
+mo_timer.o \
+mo_util_cdi.o \
+mo_util_file.o \
+mo_util_string.o
+
+mo_multifile_restart_collector.o : ../../src/io/restart/mo_multifile_restart_collector.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_restart_util.o \
+mo_timer.o
+
+mo_multifile_restart_patch_data.o : ../../src/io/restart/mo_multifile_restart_patch_data.f90 \
+mo_cdi_constants.o \
+mo_cdi_ids.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_multifile_restart_collector.o \
+mo_multifile_restart_util.o \
+mo_restart_attributes.o \
+mo_restart_descriptor.o \
+mo_restart_patch_description.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_var_metadata_types.o \
+mo_zaxis_type.o
+
+mo_multifile_restart_util.o : ../../src/io/restart/mo_multifile_restart_util.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_std_c_lib.o \
+mo_util_file.o \
+mo_util_string.o
+
+mo_restart.o : ../../src/io/restart/mo_restart.f90 \
+mo_async_restart.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_mpi.o \
+mo_multifile_restart.o \
+mo_restart_descriptor.o \
+mo_restart_util.o \
+mo_sync_restart.o
+
+mo_restart_attributes.o : ../../src/io/restart/mo_restart_attributes.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_hash_table.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_config.o \
+mo_mpi.o \
+mo_util_string.o
+
+mo_restart_descriptor.o : ../../src/io/restart/mo_restart_descriptor.f90 \
+mo_async_restart_packer.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_packed_message.o \
+mo_restart_attributes.o \
+mo_restart_file.o \
+mo_restart_namelist.o \
+mo_restart_patch_description.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_var_list.o
+
+mo_restart_file.o : ../../src/io/restart/mo_restart_file.f90 \
+mo_cdi_ids.o \
+mo_exception.o \
+mo_io_units.o \
+mo_kind.o \
+mo_restart_attributes.o \
+mo_restart_namelist.o \
+mo_restart_patch_description.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_timer.o
+
+mo_restart_namelist.o : ../../src/io/restart/mo_restart_namelist.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_mpi.o \
+mo_packed_message.o \
+mo_util_file.o \
+mo_util_string.o
+
+mo_restart_patch_description.o : ../../src/io/restart/mo_restart_patch_description.f90 \
+mo_cdi_constants.o \
+mo_cdi_ids.o \
+mo_communication.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_packed_message.o \
+mo_restart_attributes.o \
+mo_restart_util.o \
+mo_sedmnt.o \
+mo_util_string.o \
+mo_zaxis_type.o
+
+mo_restart_util.o : ../../src/io/restart/mo_restart_util.f90 \
+mo_cf_convention.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_mpi.o \
+mo_packed_message.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_std_c_lib.o \
+mo_timer.o \
+mo_util_file.o \
+mo_util_string.o
+
+mo_restart_var_data.o : ../../src/io/restart/mo_restart_var_data.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_parallel_config.o \
+mo_util_string.o \
+mo_var_list.o \
+mo_var_metadata_types.o
+
+mo_sync_restart.o : ../../src/io/restart/mo_sync_restart.f90 \
+mo_communication.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_restart_attributes.o \
+mo_restart_descriptor.o \
+mo_restart_file.o \
+mo_restart_patch_description.o \
+mo_restart_util.o \
+mo_restart_var_data.o \
+mo_timer.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_cdi_constants.o : ../../src/io/shared/mo_cdi_constants.f90
+
+mo_cdi_ids.o : ../../src/io/shared/mo_cdi_ids.f90 \
+mo_cdi_constants.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_util_cdi.o \
+mo_var_metadata_types.o \
+mo_zaxis_type.o
+
+mo_cf_convention.o : ../../src/io/shared/mo_cf_convention.f90
+
+mo_grib2.o : ../../src/io/shared/mo_grib2.f90 \
+mo_kind.o
+
+mo_grib2_util.o : ../../src/io/shared/mo_grib2_util.f90 \
+mo_action.o \
+mo_exception.o \
+mo_gribout_config.o \
+mo_impl_constants.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_io_units.o : ../../src/io/shared/mo_io_units.f90
+
+mo_io_util.o : ../../src/io/shared/mo_io_util.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_read_interface.o \
+mo_util_string.o
+
+mo_level_selection.o : ../../src/io/shared/mo_level_selection.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_level_selection_types.o \
+mo_math_utilities.o \
+mo_name_list_output_types.o \
+mo_run_config.o \
+mo_util_string_parse.o \
+mo_var_list_element.o
+
+mo_level_selection_types.o : ../../src/io/shared/mo_level_selection_types.f90 \
+mo_exception.o \
+mo_impl_constants.o
+
+mo_name_list_output.o : ../../src/io/shared/mo_name_list_output.f90 \
+mo_cdi_constants.o \
+mo_communication.o \
+mo_dictionary.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2_util.o \
+mo_gribout_config.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_impl_constants_grf.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_level_selection.o \
+mo_loopindices.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output_config.o \
+mo_name_list_output_gridinfo.o \
+mo_name_list_output_init.o \
+mo_name_list_output_metadata.o \
+mo_name_list_output_stats.o \
+mo_name_list_output_types.o \
+mo_output_event_handler.o \
+mo_output_event_types.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_timer.o \
+mo_util_cdi.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_name_list_output_gridinfo.o : ../../src/io/shared/mo_name_list_output_gridinfo.f90 \
+mo_cdi_constants.o \
+mo_communication.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grib2_util.o \
+mo_gribout_config.o \
+mo_impl_constants.o \
+mo_intp_lonlat_types.o \
+mo_kind.o \
+mo_lonlat_grid.o \
+mo_loopindices.o \
+mo_master_control.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output_types.o \
+mo_name_list_output_zaxes_types.o \
+mo_parallel_config.o \
+mo_util_string.o \
+mo_var_list_element.o \
+mo_zaxis_type.o
+
+mo_name_list_output_init.o : ../../src/io/shared/mo_name_list_output_init.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_communication.o \
+mo_derived_variable_handling.o \
+mo_dictionary.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grib2_util.o \
+mo_gribout_config.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_intp_lonlat_types.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_io_util.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_lonlat_grid.o \
+mo_master_config.o \
+mo_master_control.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output_config.o \
+mo_name_list_output_gridinfo.o \
+mo_name_list_output_metadata.o \
+mo_name_list_output_types.o \
+mo_name_list_output_zaxes.o \
+mo_name_list_output_zaxes_types.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_output_event_control.o \
+mo_output_event_handler.o \
+mo_output_event_types.o \
+mo_parallel_config.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_time_config.o \
+mo_util_string.o \
+mo_util_vgrid_types.o \
+mo_var_list.o \
+mo_var_list_element.o \
+mo_var_metadata_types.o
+
+mo_name_list_output_metadata.o : ../../src/io/shared/mo_name_list_output_metadata.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_name_list_output_config.o \
+mo_name_list_output_types.o \
+mo_var_metadata_types.o
+
+mo_name_list_output_stats.o : ../../src/io/shared/mo_name_list_output_stats.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o
+
+mo_name_list_output_types.o : ../../src/io/shared/mo_name_list_output_types.f90 \
+mo_communication.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_level_selection_types.o \
+mo_name_list_output_zaxes_types.o \
+mo_output_event_types.o \
+mo_util_string.o \
+mo_util_uuid_types.o \
+mo_var_metadata_types.o
+
+mo_name_list_output_zaxes.o : ../../src/io/shared/mo_name_list_output_zaxes.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_level_selection_types.o \
+mo_math_utilities.o \
+mo_name_list_output_zaxes_types.o \
+mo_ocean_nml.o \
+mo_run_config.o \
+mo_sedmnt.o \
+mo_util_vgrid_types.o \
+mo_vertical_coord_table.o \
+mo_zaxis_type.o
+
+mo_name_list_output_zaxes_types.o : ../../src/io/shared/mo_name_list_output_zaxes_types.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_mpi.o \
+mo_packed_message.o \
+mo_zaxis_type.o
+
+mo_netcdf_parallel.o : ../../src/io/shared/mo_netcdf_parallel.f90 \
+mo_kind.o \
+mo_mpi.o
+
+mo_nml_annotate.o : ../../src/io/shared/mo_nml_annotate.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_util_file.o \
+mo_util_nml.o
+
+mo_output_event_control.o : ../../src/io/shared/mo_output_event_control.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_config.o \
+mo_mpi.o \
+mo_name_list_output_types.o \
+mo_output_event_types.o \
+mo_util_string.o \
+mo_var_list_element.o
+
+mo_output_event_handler.o : ../../src/io/shared/mo_output_event_handler.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o \
+mo_name_list_output_config.o \
+mo_name_list_output_types.o \
+mo_output_event_types.o \
+mo_util_string.o \
+mo_util_table.o
+
+mo_output_event_types.o : ../../src/io/shared/mo_output_event_types.f90 \
+mo_kind.o
+
+mo_read_interface.o : ../../src/io/shared/mo_read_interface.f90 \
+mo_communication.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_read_netcdf_broadcast_2.o \
+mo_read_netcdf_distributed.o
+
+mo_read_netcdf_broadcast_2.o : ../../src/io/shared/mo_read_netcdf_broadcast_2.f90 \
+mo_communication.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_read_netcdf_distributed.o \
+mo_scatter.o
+
+mo_read_netcdf_distributed.o : ../../src/io/shared/mo_read_netcdf_distributed.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_extents.o \
+mo_kind.o \
+mo_mpi.o \
+mo_parallel_config.o
+
+mo_serialized_data.o : ../../src/io/shared/mo_serialized_data.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_packed_message.o \
+mo_util_string.o
+
+mo_util_cdi.o : ../../src/io/shared/mo_util_cdi.f90 \
+mo_communication.o \
+mo_dictionary.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_run_config.o \
+mo_util_string.o
+
+mo_util_file.o : ../../src/io/shared/mo_util_file.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o
+
+mo_util_nml.o : ../../src/io/shared/mo_util_nml.f90
+
+mo_util_vgrid_types.o : ../../src/io/shared/mo_util_vgrid_types.f90 \
+mo_kind.o \
+mo_util_uuid_types.o
+
+mo_dbg_nml.o : ../../src/namelists/mo_dbg_nml.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o
+
+mo_dynamics_nml.o : ../../src/namelists/mo_dynamics_nml.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_physical_constants.o \
+mo_restart_namelist.o
+
+mo_gribout_nml.o : ../../src/namelists/mo_gribout_nml.f90 \
+mo_exception.o \
+mo_gribout_config.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o \
+mo_util_string.o
+
+mo_grid_nml.o : ../../src/namelists/mo_grid_nml.f90 \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_physical_constants.o
+
+mo_io_nml.o : ../../src/namelists/mo_io_nml.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o \
+mo_util_string.o
+
+mo_master_nml.o : ../../src/namelists/mo_master_nml.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_master_config.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_util_string.o
+
+mo_parallel_nml.o : ../../src/namelists/mo_parallel_nml.f90 \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_parallel_config.o \
+mo_restart_namelist.o
+
+mo_run_nml.o : ../../src/namelists/mo_run_nml.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o \
+mo_run_config.o \
+mo_util_string.o
+
+mo_sea_ice_nml.o : ../../src/namelists/mo_sea_ice_nml.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o
+
+mo_time_nml.o : ../../src/namelists/mo_time_nml.f90 \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_restart_namelist.o \
+mo_time_config.o
+
+mo_ocean_boundcond.o : ../../src/ocean/boundary/mo_ocean_boundcond.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_master_config.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_bulk_forcing.o : ../../src/ocean/boundary/mo_ocean_bulk_forcing.f90 \
+mo_dbg_nml.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_ext_data.o \
+mo_ocean_nml.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_read_interface.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_coupling.o : ../../src/ocean/boundary/mo_ocean_coupling.f90 \
+mo_coupling_config.o \
+mo_exception.o \
+mo_model_domain.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_sea_ice_types.o
+
+mo_ocean_ext_data.o : ../../src/ocean/boundary/mo_ocean_ext_data.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_master_config.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_sea_ice_nml.o \
+mo_sync.o \
+mo_util_string.o \
+mo_var_list.o \
+mo_zaxis_type.o
+
+mo_ocean_forcing.o : ../../src/ocean/boundary/mo_ocean_forcing.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_coupling_config.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_initial_conditions.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_initial_conditions.o : ../../src/ocean/boundary/mo_ocean_initial_conditions.f90 \
+mo_ape_params.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_read_interface.o \
+mo_scalar_product.o \
+mo_sea_ice_nml.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_surface_refactor.o : ../../src/ocean/boundary/mo_ocean_surface_refactor.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_ice_interface.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_ocean_bulk_forcing.o \
+mo_ocean_nml.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_surface_types.o : ../../src/ocean/boundary/mo_ocean_surface_types.f90 \
+mo_kind.o \
+mo_math_utilities.o
+
+mo_ocean_nml.o : ../../src/ocean/config/mo_ocean_nml.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_param1_bgc.o \
+mo_physical_constants.o
+
+mo_ocean_nml_crosscheck.o : ../../src/ocean/config/mo_ocean_nml_crosscheck.f90 \
+mo_exception.o \
+mo_grid_config.o \
+mo_io_config.o \
+mo_kind.o \
+mo_master_config.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_time_config.o \
+mo_time_management.o
+
+mo_ocean_read_namelists.o : ../../src/ocean/config/mo_ocean_read_namelists.f90 \
+mo_dbg_nml.o \
+mo_dynamics_nml.o \
+mo_gribout_nml.o \
+mo_grid_nml.o \
+mo_hamocc_nml.o \
+mo_io_nml.o \
+mo_mpi.o \
+mo_name_list_output_init.o \
+mo_namelist.o \
+mo_nml_annotate.o \
+mo_ocean_nml.o \
+mo_parallel_nml.o \
+mo_run_nml.o \
+mo_sea_ice_nml.o \
+mo_time_nml.o
+
+mo_ocean_check_tools.o : ../../src/ocean/diagnostics/mo_ocean_check_tools.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_diagnostics.o : ../../src/ocean/diagnostics/mo_ocean_diagnostics.f90 \
+mo_advection_utils.o \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_dbg_nml.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_fortran_tools.o \
+mo_grib2.o \
+mo_grid_subset.o \
+mo_grid_tools.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_diagnostics_types.o \
+mo_ocean_nml.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_util_file.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_diagnostics_types.o : ../../src/ocean/diagnostics/mo_ocean_diagnostics_types.f90 \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o
+
+mo_ocean_output.o : ../../src/ocean/diagnostics/mo_ocean_output.f90 \
+mo_bgc_icon_comm.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_hamocc_diagnostics.o \
+mo_hamocc_statistics.o \
+mo_hamocc_types.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output.o \
+mo_ocean_diagnostics.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_statistics.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_run_config.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o
+
+mo_ocean_postprocessing.o : ../../src/ocean/diagnostics/mo_ocean_postprocessing.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_thermodyn.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_timer.o
+
+mo_ocean_statistics.o : ../../src/ocean/diagnostics/mo_ocean_statistics.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_run_config.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o
+
+mo_hydro_ocean_run.o : ../../src/ocean/drivers/mo_hydro_ocean_run.f90 \
+mo_bgc_bcond.o \
+mo_dbg_nml.o \
+mo_derived_variable_handling.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_hamocc_diagnostics.o \
+mo_hamocc_nml.o \
+mo_hamocc_statistics.o \
+mo_hamocc_types.o \
+mo_ice_fem_interface.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_name_list_output.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_ab_timestepping_mimetic.o \
+mo_ocean_coupling.o \
+mo_ocean_diagnostics.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_output.o \
+mo_ocean_physics.o \
+mo_ocean_physics_types.o \
+mo_ocean_statistics.o \
+mo_ocean_surface_refactor.o \
+mo_ocean_surface_types.o \
+mo_ocean_thermodyn.o \
+mo_ocean_time_events.o \
+mo_ocean_tracer.o \
+mo_ocean_types.o \
+mo_restart.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_model.o : ../../src/ocean/drivers/mo_ocean_model.f90 \
+mo_alloc_patches.o \
+mo_bgc_bcond.o \
+mo_bgc_icon_comm.o \
+mo_build_decomposition.o \
+mo_complete_subdivision.o \
+mo_coupling_config.o \
+mo_derived_variable_handling.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_gribout_config.o \
+mo_grid_config.o \
+mo_grid_tools.o \
+mo_hamocc_output.o \
+mo_hydro_ocean_run.o \
+mo_ice_init_thermo.o \
+mo_icon_comm_interface.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_level_selection.o \
+mo_load_restart.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output.o \
+mo_name_list_output_config.o \
+mo_name_list_output_init.o \
+mo_ocean_check_tools.o \
+mo_ocean_coupling.o \
+mo_ocean_diagnostics.o \
+mo_ocean_ext_data.o \
+mo_ocean_forcing.o \
+mo_ocean_initial_conditions.o \
+mo_ocean_initialization.o \
+mo_ocean_nml.o \
+mo_ocean_nml_crosscheck.o \
+mo_ocean_patch_setup.o \
+mo_ocean_physics.o \
+mo_ocean_physics_types.o \
+mo_ocean_postprocessing.o \
+mo_ocean_read_namelists.o \
+mo_ocean_state.o \
+mo_ocean_surface_types.o \
+mo_ocean_testbed.o \
+mo_ocean_time_events.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_output_event_types.o \
+mo_parallel_config.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_time_config.o \
+mo_timer.o \
+mo_util_dbg_prnt.o \
+mo_zaxis_type.o
+
+mo_ocean_time_events.o : ../../src/ocean/drivers/mo_ocean_time_events.f90 \
+mo_event_manager.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_master_config.o \
+mo_run_config.o \
+mo_time_config.o
+
+mo_ocean_ab_timestepping.o : ../../src/ocean/dynamics/mo_ocean_ab_timestepping.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_model_domain.o \
+mo_ocean_ab_timestepping_mimetic.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o
+
+mo_ocean_ab_timestepping_mimetic.o : ../../src/ocean/dynamics/mo_ocean_ab_timestepping_mimetic.f90 \
+mo_dbg_nml.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_boundcond.o \
+mo_ocean_diffusion.o \
+mo_ocean_gmres.o \
+mo_ocean_initialization.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_pp_scheme.o \
+mo_ocean_surface_types.o \
+mo_ocean_thermodyn.o \
+mo_ocean_types.o \
+mo_ocean_veloc_advection.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_diffusion.o : ../../src/ocean/dynamics/mo_ocean_diffusion.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_initialization.o : ../../src/ocean/dynamics/mo_ocean_initialization.f90 \
+mo_cf_convention.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_master_config.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_check_tools.o \
+mo_ocean_diagnostics_types.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o
+
+mo_ocean_limiter.o : ../../src/ocean/dynamics/mo_ocean_limiter.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_patch_setup.o : ../../src/ocean/dynamics/mo_ocean_patch_setup.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_grid_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_master_control.o \
+mo_math_types.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_model_domimp_setup.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_sync.o
+
+mo_ocean_state.o : ../../src/ocean/dynamics/mo_ocean_state.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_tracer.o : ../../src/ocean/dynamics/mo_ocean_tracer.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_GM_Redi.o \
+mo_ocean_boundcond.o \
+mo_ocean_diffusion.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_pp_scheme.o \
+mo_ocean_surface_types.o \
+mo_ocean_thermodyn.o \
+mo_ocean_tracer_transport_horz.o \
+mo_ocean_tracer_transport_vert.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_tracer_transport_horz.o : ../../src/ocean/dynamics/mo_ocean_tracer_transport_horz.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_diffusion.o \
+mo_ocean_limiter.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics.o \
+mo_ocean_tracer_transport_vert.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_tracer_transport_vert.o : ../../src/ocean/dynamics/mo_ocean_tracer_transport_vert.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_ocean_limiter.o \
+mo_ocean_nml.o \
+mo_ocean_physics.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_types.o : ../../src/ocean/dynamics/mo_ocean_types.f90 \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_name_list_output_types.o \
+mo_ocean_diagnostics_types.o \
+mo_time_config.o
+
+mo_ocean_veloc_advection.o : ../../src/ocean/dynamics/mo_ocean_veloc_advection.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_scalar_product.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_gmres.o : ../../src/ocean/math/mo_ocean_gmres.f90 \
+mo_grid_subset.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_math_operators.o : ../../src/ocean/math/mo_ocean_math_operators.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_operator_ocean_coeff_3d.o : ../../src/ocean/math/mo_operator_ocean_coeff_3d.f90 \
+mo_cf_convention.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_config.o \
+mo_grid_geometry_info.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o
+
+mo_scalar_product.o : ../../src/ocean/math/mo_scalar_product.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_GM_Redi.o : ../../src/ocean/physics/mo_ocean_GM_Redi.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_boundcond.o \
+mo_ocean_diffusion.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_thermodyn.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_physics.o : ../../src/ocean/physics/mo_ocean_physics.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_ocean_diffusion.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_pp_scheme.o \
+mo_ocean_state.o \
+mo_ocean_thermodyn.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_physics_types.o : ../../src/ocean/physics/mo_ocean_physics_types.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sync.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_pp_scheme.o : ../../src/ocean/physics/mo_ocean_pp_scheme.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_state.o \
+mo_ocean_thermodyn.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ocean_thermodyn.o : ../../src/ocean/physics/mo_ocean_thermodyn.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_testbed.o : ../../src/ocean/testbed/mo_ocean_testbed.f90 \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_hamocc_types.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_output.o \
+mo_ocean_physics_types.o \
+mo_ocean_surface_types.o \
+mo_ocean_testbed_EOS.o \
+mo_ocean_testbed_modules.o \
+mo_ocean_testbed_operators.o \
+mo_ocean_testbed_performance.o \
+mo_ocean_testbed_quads.o \
+mo_ocean_testbed_read.o \
+mo_ocean_testbed_solverMatrix.o \
+mo_ocean_time_events.o \
+mo_ocean_types.o \
+mo_run_config.o \
+mo_sea_ice_types.o
+
+mo_ocean_testbed_EOS.o : ../../src/ocean/testbed/mo_ocean_testbed_EOS.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_ocean_nml.o \
+mo_ocean_thermodyn.o \
+mo_physical_constants.o \
+mo_timer.o
+
+mo_ocean_testbed_coriolis.o : ../../src/ocean/testbed/mo_ocean_testbed_coriolis.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_testbed_div.o : ../../src/ocean/testbed/mo_ocean_testbed_div.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_testbed_modules.o : ../../src/ocean/testbed/mo_ocean_testbed_modules.f90 \
+mo_dynamics_config.o \
+mo_event_manager.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_hamocc_types.o \
+mo_hydro_ocean_run.o \
+mo_ice_diagnostics.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_ocean_GM_Redi.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_diagnostics.o \
+mo_ocean_diffusion.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_output.o \
+mo_ocean_physics.o \
+mo_ocean_physics_types.o \
+mo_ocean_statistics.o \
+mo_ocean_surface_refactor.o \
+mo_ocean_surface_types.o \
+mo_ocean_testbed_vertical_diffusion.o \
+mo_ocean_thermodyn.o \
+mo_ocean_tracer.o \
+mo_ocean_tracer_transport_horz.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_random_util.o \
+mo_restart.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_time_config.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_testbed_operators.o : ../../src/ocean/testbed/mo_ocean_testbed_operators.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_surface_types.o \
+mo_ocean_testbed_coriolis.o \
+mo_ocean_testbed_div.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_sync.o \
+mo_timer.o
+
+mo_ocean_testbed_performance.o : ../../src/ocean/testbed/mo_ocean_testbed_performance.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_control.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_ocean_physics_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_timer.o
+
+mo_ocean_testbed_quads.o : ../../src/ocean/testbed/mo_ocean_testbed_quads.f90 \
+mo_communication.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_read_netcdf_distributed.o \
+mo_timer.o \
+mo_util_file.o
+
+mo_ocean_testbed_read.o : ../../src/ocean/testbed/mo_ocean_testbed_read.f90 \
+mo_communication.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_io_config.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_nml.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_read_netcdf_distributed.o \
+mo_timer.o \
+mo_util_file.o
+
+mo_ocean_testbed_solverMatrix.o : ../../src/ocean/testbed/mo_ocean_testbed_solverMatrix.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_ab_timestepping_mimetic.o \
+mo_ocean_nml.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o \
+mo_time_config.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ocean_testbed_vertical_diffusion.o : ../../src/ocean/testbed/mo_ocean_testbed_vertical_diffusion.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_math_utility_solvers.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_diffusion.o \
+mo_ocean_forcing.o \
+mo_ocean_nml.o \
+mo_ocean_output.o \
+mo_ocean_physics_types.o \
+mo_ocean_statistics.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o
+
+mo_broker_communication.o : ../../src/parallel_infrastructure/mo_broker_communication.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_mpi.o \
+mo_util_sort.o
+
+mo_build_decomposition.o : ../../src/parallel_infrastructure/mo_build_decomposition.f90 \
+mo_communication.o \
+mo_complete_subdivision.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_model_domain.o \
+mo_model_domimp_patches.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_reshuffle.o \
+mo_run_config.o \
+mo_setup_subdivision.o \
+mo_sync.o \
+mo_util_string.o
+
+mo_communication.o : ../../src/parallel_infrastructure/mo_communication.f90 \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_scatter_pattern_base.o \
+mo_scatter_pattern_scatter.o \
+mo_timer.o \
+mo_util_sort.o \
+mo_util_string.o
+
+mo_complete_subdivision.o : ../../src/parallel_infrastructure/mo_complete_subdivision.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_dist_dir.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_impl_constants_grf.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_util_string.o
+
+mo_decomposition_tools.o : ../../src/parallel_infrastructure/mo_decomposition_tools.f90 \
+mo_dist_dir.o \
+mo_exception.o \
+mo_extents.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_util_sort.o
+
+mo_dist_array.o : ../../src/parallel_infrastructure/mo_dist_array.f90 \
+mo_exception.o \
+mo_extents.o \
+mo_kind.o
+
+mo_dist_dir.o : ../../src/parallel_infrastructure/mo_dist_dir.f90 \
+mo_exception.o \
+mo_mpi.o
+
+mo_divide_cells_by_location_mpi.o : ../../src/parallel_infrastructure/mo_divide_cells_by_location_mpi.f90
+
+mo_extents.o : ../../src/parallel_infrastructure/mo_extents.f90 \
+mo_kind.o
+
+mo_icon_comm_interface.o : ../../src/parallel_infrastructure/mo_icon_comm_interface.f90 \
+mo_exception.o \
+mo_grid_config.o \
+mo_icon_comm_lib.o \
+mo_io_units.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o
+
+mo_icon_comm_lib.o : ../../src/parallel_infrastructure/mo_icon_comm_lib.f90 \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_control.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_timer.o
+
+mo_mpi.o : ../../src/parallel_infrastructure/mo_mpi.f90 \
+mo_io_units.o \
+mo_kind.o
+
+mo_packed_message.o : ../../src/parallel_infrastructure/mo_packed_message.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_util_string.o
+
+mo_reshuffle.o : ../../src/parallel_infrastructure/mo_reshuffle.f90 \
+mo_exception.o \
+mo_util_sort.o
+
+mo_scatter.o : ../../src/parallel_infrastructure/mo_scatter.f90 \
+mo_communication.o \
+mo_kind.o \
+mo_mpi.o
+
+mo_scatter_pattern_base.o : ../../src/parallel_infrastructure/mo_scatter_pattern_base.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_run_config.o
+
+mo_scatter_pattern_scatter.o : ../../src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_scatter_pattern_base.o
+
+mo_setup_subdivision.o : ../../src/parallel_infrastructure/mo_setup_subdivision.f90 \
+mo_alloc_patches.o \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_dist_array.o \
+mo_dist_dir.o \
+mo_divide_cells_by_location_mpi.o \
+mo_exception.o \
+mo_extents.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_master_control.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_read_netcdf_broadcast_2.o \
+mo_read_netcdf_distributed.o \
+mo_run_config.o \
+mo_util_sort.o \
+mo_util_string.o \
+mo_util_uuid.o \
+mo_util_uuid_types.o
+
+mo_sync.o : ../../src/parallel_infrastructure/mo_sync.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o \
+mo_impl_constants_grf.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_timer.o
+
+mo_ice_advection.o : ../../src/sea_ice/dynamics_fem/mo_ice_advection.f90 \
+mo_advection_utils.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_math_operators.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sea_ice_types.o \
+mo_sync.o \
+mo_util_dbg_prnt.o
+
+mo_ice_fem_advection.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_advection.f90 \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_mesh.o \
+mo_ice_fem_types.o \
+mo_kind.o \
+mo_run_config.o
+
+mo_ice_fem_evp.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_evp.f90 \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_mesh.o \
+mo_ice_fem_types.o \
+mo_kind.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o
+
+mo_ice_fem_evp_old.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_evp_old.f90 \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_mesh.o \
+mo_ice_fem_types.o \
+mo_kind.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o
+
+mo_ice_fem_icon_init.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_icon_init.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_ice_fem_mesh.o \
+mo_ice_fem_types.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_sync.o \
+mo_util_sort.o
+
+mo_ice_fem_init.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_init.f90 \
+mo_ice_fem_advection.o \
+mo_ice_fem_evp.o \
+mo_ice_fem_evp_old.o \
+mo_ice_fem_mesh.o \
+mo_ice_fem_types.o \
+mo_kind.o \
+mo_run_config.o \
+mo_sea_ice_nml.o
+
+mo_ice_fem_interface.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_interface.f90 \
+mo_dynamics_config.o \
+mo_grid_subset.o \
+mo_ice_fem_advection.o \
+mo_ice_fem_evp.o \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_interpolation.o \
+mo_ice_fem_types.o \
+mo_icon_interpolation_scalar.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_sync.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ice_fem_interpolation.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_interpolation.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_ice_fem_mesh.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_timer.o
+
+mo_ice_fem_mesh.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_mesh.f90 \
+mo_kind.o \
+mo_math_constants.o \
+mo_physical_constants.o
+
+mo_ice_fem_types.o : ../../src/sea_ice/dynamics_fem/mo_ice_fem_types.f90 \
+mo_kind.o
+
+mo_ice_diagnostics.o : ../../src/sea_ice/thermo/mo_ice_diagnostics.f90 \
+mo_dbg_nml.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_subset.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_state.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_util_dbg_prnt.o
+
+mo_ice_init_thermo.o : ../../src/sea_ice/thermo/mo_ice_init_thermo.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_coupling_config.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grib2.o \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_init.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_ice_interface.o : ../../src/sea_ice/thermo/mo_ice_interface.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_ice_advection.o \
+mo_ice_fem_interface.o \
+mo_ice_parameterizations.o \
+mo_ice_slow_thermo.o \
+mo_ice_winton.o \
+mo_ice_zerolayer.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ice_parameterizations.o : ../../src/sea_ice/thermo/mo_ice_parameterizations.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_types.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_util_dbg_prnt.o
+
+mo_ice_slow_thermo.o : ../../src/sea_ice/thermo/mo_ice_slow_thermo.f90 \
+mo_dynamics_config.o \
+mo_grid_subset.o \
+mo_ice_diagnostics.o \
+mo_ice_parameterizations.o \
+mo_ice_winton.o \
+mo_ice_zerolayer.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
+
+mo_ice_winton.o : ../../src/sea_ice/thermo/mo_ice_winton.f90 \
+mo_grid_subset.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_util_dbg_prnt.o
+
+mo_ice_zerolayer.o : ../../src/sea_ice/thermo/mo_ice_zerolayer.f90 \
+mo_grid_subset.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_util_dbg_prnt.o
+
+mo_sea_ice.o : ../../src/sea_ice/thermo/mo_sea_ice.f90 \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_coupling_config.o \
+mo_dbg_nml.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grib2.o \
+mo_grid_subset.o \
+mo_ice_advection.o \
+mo_ice_fem_icon_init.o \
+mo_ice_fem_init.o \
+mo_ice_fem_interface.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_ocean_nml.o \
+mo_ocean_state.o \
+mo_ocean_surface_types.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_run_config.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_timer.o \
+mo_util_dbg_prnt.o \
+mo_var_list.o \
+mo_var_metadata.o \
+mo_zaxis_type.o
+
+mo_sea_ice_types.o : ../../src/sea_ice/thermo/mo_sea_ice_types.f90 \
+mo_kind.o \
+mo_math_utilities.o
+
+mo_action.o : ../../src/shared/mo_action.f90 \
+mo_action_types.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_mpi.o \
+mo_run_config.o \
+mo_util_string.o \
+mo_util_table.o \
+mo_var_list.o \
+mo_var_list_element.o \
+mo_var_metadata_types.o
+
+mo_action_types.o : ../../src/shared/mo_action_types.f90
+
+mo_derived_variable_handling.o : ../../src/shared/mo_derived_variable_handling.f90 \
+mo_cdi_constants.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_name_list_output_metadata.o \
+mo_name_list_output_types.o \
+mo_output_event_types.o \
+mo_statistics.o \
+mo_time_config.o \
+mo_var_list.o \
+mo_var_list_element.o \
+mo_var_metadata_types.o
+
+mo_dictionary.o : ../../src/shared/mo_dictionary.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_util_string.o
+
+mo_event_manager.o : ../../src/shared/mo_event_manager.f90 \
+mo_exception.o
+
+mo_exception.o : ../../src/shared/mo_exception.f90 \
+mo_io_units.o \
+mo_kind.o \
+mo_mpi.o
+
+mo_fortran_tools.o : ../../src/shared/mo_fortran_tools.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o
+
+mo_grid_subset.o : ../../src/shared/mo_grid_subset.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o
+
+mo_hash_table.o : ../../src/shared/mo_hash_table.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_impl_constants.o
+
+mo_impl_constants.o : ../../src/shared/mo_impl_constants.f90 \
+mo_impl_constants_grf.o \
+mo_kind.o
+
+mo_impl_constants_grf.o : ../../src/shared/mo_impl_constants_grf.f90
+
+mo_kind.o : ../../src/shared/mo_kind.f90
+
+mo_linked_list.o : ../../src/shared/mo_linked_list.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_var_list_element.o
+
+mo_loopindices.o : ../../src/shared/mo_loopindices.f90 \
+mo_impl_constants.o \
+mo_model_domain.o \
+mo_parallel_config.o
+
+mo_math_constants.o : ../../src/shared/mo_math_constants.f90 \
+mo_kind.o
+
+mo_math_types.o : ../../src/shared/mo_math_types.f90 \
+mo_fortran_tools.o \
+mo_kind.o
+
+mo_math_utilities.o : ../../src/shared/mo_math_utilities.f90 \
+mo_exception.o \
+mo_grid_geometry_info.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_types.o \
+mo_util_sort.o
+
+mo_math_utility_solvers.o : ../../src/shared/mo_math_utility_solvers.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_parallel_config.o
+
+mo_namelist.o : ../../src/shared/mo_namelist.f90 \
+mo_exception.o \
+mo_io_units.o \
+mo_util_string.o
+
+mo_physical_constants.o : ../../src/shared/mo_physical_constants.f90 \
+mo_kind.o
+
+mo_random_util.o : ../../src/shared/mo_random_util.f90 \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o
+
+mo_real_timer.o : ../../src/shared/mo_real_timer.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_control.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_util_string.o \
+mo_util_table.o
+
+mo_statistics.o : ../../src/shared/mo_statistics.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_utilities.o \
+mo_mpi.o
+
+mo_std_c_lib.o : ../../src/shared/mo_std_c_lib.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_util_string.o
+
+mo_storage.o : ../../src/shared/mo_storage.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_hash_table.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_util_string.o
+
+mo_time_management.o : ../../src/shared/mo_time_management.f90 \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_master_config.o \
+mo_master_control.o \
+mo_parallel_config.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_time_config.o \
+mo_util_string.o
+
+mo_timer.o : ../../src/shared/mo_timer.f90 \
+mo_impl_constants.o \
+mo_real_timer.o \
+mo_run_config.o
+
+mo_tracer_metadata.o : ../../src/shared/mo_tracer_metadata.f90 \
+mo_kind.o \
+mo_tracer_metadata_types.o
+
+mo_tracer_metadata_types.o : ../../src/shared/mo_tracer_metadata_types.f90 \
+mo_kind.o \
+mo_storage.o
+
+mo_util_dbg_prnt.o : ../../src/shared/mo_util_dbg_prnt.f90 \
+mo_dbg_nml.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_icon_comm_interface.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_statistics.o \
+mo_sync.o \
+mo_timer.o
+
+mo_util_hash.o : ../../src/shared/mo_util_hash.f90
+
+mo_util_signal.o : ../../src/shared/mo_util_signal.f90
+
+mo_util_sort.o : ../../src/shared/mo_util_sort.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o
+
+mo_util_string.o : ../../src/shared/mo_util_string.f90 \
+mo_impl_constants.o \
+mo_util_sort.o
+
+mo_util_string_parse.o : ../../src/shared/mo_util_string_parse.f90
+
+mo_util_sysinfo.o : ../../src/shared/mo_util_sysinfo.f90
+
+mo_util_table.o : ../../src/shared/mo_util_table.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_util_string.o
+
+mo_util_uuid.o : ../../src/shared/mo_util_uuid.f90 \
+mo_util_uuid_types.o
+
+mo_util_uuid_types.o : ../../src/shared/mo_util_uuid_types.f90
+
+mo_util_vcs.o : ../../src/shared/mo_util_vcs.f90
+
+mo_var_list.o : ../../src/shared/mo_var_list.f90 \
+mo_action_types.o \
+mo_cdi_constants.o \
+mo_cf_convention.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grib2.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_linked_list.o \
+mo_packed_message.o \
+mo_tracer_metadata.o \
+mo_tracer_metadata_types.o \
+mo_util_hash.o \
+mo_util_string.o \
+mo_var_list_element.o \
+mo_var_metadata.o \
+mo_var_metadata_types.o
+
+mo_var_list_element.o : ../../src/shared/mo_var_list_element.f90 \
+mo_kind.o \
+mo_var_metadata_types.o
+
+mo_var_metadata.o : ../../src/shared/mo_var_metadata.f90 \
+mo_action_types.o \
+mo_cf_convention.o \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grib2.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_time_config.o \
+mo_util_string.o \
+mo_var_metadata_types.o
+
+mo_var_metadata_types.o : ../../src/shared/mo_var_metadata_types.f90 \
+mo_action_types.o \
+mo_cf_convention.o \
+mo_grib2.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_tracer_metadata_types.o
+
+mo_vertical_coord_table.o : ../../src/shared/mo_vertical_coord_table.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_physical_constants.o
+
+mo_zaxis_type.o : ../../src/shared/mo_zaxis_type.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_hash_table.o
+
+mo_alloc_patches.o : ../../src/shr_horizontal/mo_alloc_patches.f90 \
+mo_decomposition_tools.o \
+mo_dist_array.o \
+mo_exception.o \
+mo_extents.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o \
+mo_read_netcdf_distributed.o
+
+mo_ext_data_types.o : ../../src/shr_horizontal/mo_ext_data_types.f90 \
+mo_fortran_tools.o \
+mo_kind.o \
+mo_linked_list.o
+
+mo_grid_geometry_info.o : ../../src/shr_horizontal/mo_grid_geometry_info.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_math_types.o \
+mo_netcdf_parallel.o \
+mo_physical_constants.o
+
+mo_grid_tools.o : ../../src/shr_horizontal/mo_grid_tools.f90 \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_types.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_mpi.o \
+mo_parallel_config.o
+
+mo_icon_interpolation_scalar.o : ../../src/shr_horizontal/mo_icon_interpolation_scalar.f90 \
+mo_exception.o \
+mo_grid_config.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_timer.o
+
+mo_intp_lonlat_types.o : ../../src/shr_horizontal/mo_intp_lonlat_types.f90 \
+mo_communication.o \
+mo_exception.o \
+mo_impl_constants.o \
+mo_interpol_config.o \
+mo_kind.o \
+mo_lonlat_grid.o \
+mo_math_utilities.o \
+mo_model_domain.o
+
+mo_lonlat_grid.o : ../../src/shr_horizontal/mo_lonlat_grid.f90 \
+mo_exception.o \
+mo_kind.o \
+mo_mpi.o
+
+mo_model_domain.o : ../../src/shr_horizontal/mo_model_domain.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_dist_array.o \
+mo_extents.o \
+mo_grid_geometry_info.o \
+mo_impl_constants.o \
+mo_io_units.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_read_netcdf_distributed.o \
+mo_util_uuid_types.o
+
+mo_model_domimp_patches.o : ../../src/shr_horizontal/mo_model_domimp_patches.f90 \
+mo_alloc_patches.o \
+mo_communication.o \
+mo_complete_subdivision.o \
+mo_decomposition_tools.o \
+mo_dist_array.o \
+mo_dynamics_config.o \
+mo_exception.o \
+mo_grid_config.o \
+mo_grid_geometry_info.o \
+mo_grid_tools.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_master_control.o \
+mo_math_constants.o \
+mo_model_domain.o \
+mo_model_domimp_setup.o \
+mo_mpi.o \
+mo_name_list_output_config.o \
+mo_netcdf_parallel.o \
+mo_parallel_config.o \
+mo_read_interface.o \
+mo_read_netcdf_distributed.o \
+mo_reorder_patches.o \
+mo_reshuffle.o \
+mo_run_config.o \
+mo_sync.o \
+mo_util_string.o \
+mo_util_uuid.o \
+mo_util_uuid_types.o
+
+mo_model_domimp_setup.o : ../../src/shr_horizontal/mo_model_domimp_setup.f90 \
+mo_exception.o \
+mo_fortran_tools.o \
+mo_grid_config.o \
+mo_grid_geometry_info.o \
+mo_grid_subset.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_loopindices.o \
+mo_master_control.o \
+mo_math_types.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_run_config.o \
+mo_sync.o
+
+mo_reorder_patches.o : ../../src/shr_horizontal/mo_reorder_patches.f90 \
+mo_communication.o \
+mo_decomposition_tools.o \
+mo_exception.o \
+mo_kind.o \
+mo_math_utilities.o \
+mo_model_domain.o \
+mo_parallel_config.o \
+mo_util_sort.o
+
+mo_ape_params.o : ../../src/testcases/mo_ape_params.f90 \
+mo_exception.o \
+mo_impl_constants.o \
+mo_kind.o \
+mo_math_constants.o \
+mo_physical_constants.o
+

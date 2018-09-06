@@ -41,7 +41,8 @@ MODULE mo_ocean_state
     &                               REDI_INDIVIDUAL_DIAGNOSTIC
   USE mo_run_config,          ONLY: test_mode
   USE mo_ocean_types,         ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
-    &                               t_hydro_ocean_aux , t_oce_config ,t_ocean_tracer
+    &                               t_hydro_ocean_aux , t_oce_config ,t_ocean_tracer,  &
+    &                               t_ocean_checkpoint, t_ocean_adjoint
   USE mo_ocean_nudging_types, ONLY: t_ocean_nudge
   USE mo_ocean_nudging,       ONLY: ocean_nudge  
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
@@ -169,10 +170,11 @@ CONTAINS
   !
   !
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_state( patch_3d, ocean_state )
+  SUBROUTINE construct_hydro_ocean_state( patch_3d, ocean_state, ncheckpoints )
 
     TYPE(t_patch_3D), TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state(n_dom)
+    INTEGER, INTENT(IN) :: ncheckpoints
 
     ! local variables
     TYPE(t_patch), POINTER :: patch_2d
@@ -215,9 +217,221 @@ CONTAINS
     CALL construct_hydro_ocean_diag(patch_2d, ocean_state(1)%p_diag)
     CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux)
 
+    CALL construct_checkpoints(patch_2d, ocean_state(1)%p_check,ncheckpoints)
+    CALL construct_adjoints(patch_2d, ocean_state(1)%p_adjoint)
+    
     CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
   END SUBROUTINE construct_hydro_ocean_state
+
+  SUBROUTINE construct_checkpoints(patch_2d,checkpoint,ncheckpoints)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_ocean_checkpoint), POINTER :: checkpoint(:)
+    INTEGER, INTENT(IN)               :: ncheckpoints
+
+    INTEGER :: status,i, alloc_cell_blocks, nblks_e,nblks_v
+    CHARACTER(LEN=max_char_length) :: var_suffix
+
+ 
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    nblks_e = patch_2d%nblks_e
+    nblks_v = patch_2d%nblks_v
+
+
+    ALLOCATE(checkpoint(0:ncheckpoints),stat=status)
+    IF (status/=success) THEN
+      CALL finish('allocation of checkpoint failed!')
+    END IF
+    DO i=0,ncheckpoints
+        WRITE(var_suffix,'(a,i2.2)') '_',i
+        ALLOCATE(checkpoint(i)%h(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "h"!')
+        ALLOCATE(checkpoint(i)%vn(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "vn"!')
+        ALLOCATE(checkpoint(i)%t(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "t"!')
+        ALLOCATE(checkpoint(i)%s(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "s"!')
+
+        checkpoint(i)%h = 0.0_wp
+        checkpoint(i)%vn = 0.0_wp
+        checkpoint(i)%t = 0.0_wp
+        checkpoint(i)%s = 0.0_wp
+
+        ALLOCATE(checkpoint(i)%h0(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "h0"!')
+        ALLOCATE(checkpoint(i)%vn0(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "vn0"!')
+        ALLOCATE(checkpoint(i)%t0(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "t0"!')
+        ALLOCATE(checkpoint(i)%s0(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "s0"!')
+
+        checkpoint(i)%h0 = 0.0_wp
+        checkpoint(i)%vn0 = 0.0_wp
+        checkpoint(i)%t0 = 0.0_wp
+        checkpoint(i)%s0 = 0.0_wp
+
+     
+        ALLOCATE(checkpoint(i)%w(nproma,n_zlev+1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "w"!')
+        ALLOCATE(checkpoint(i)%zgrad_rho(nproma,n_zlev,alloc_cell_blocks),stat=status)
+
+        checkpoint(i)%w = 0.0_wp
+        checkpoint(i)%zgrad_rho = 0.0_wp
+
+
+        ALLOCATE(checkpoint(i)%g_nm1(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "gnm1"!')
+
+        checkpoint(i)%g_nm1 = 0.0_wp
+        
+        ALLOCATE(checkpoint(i)%hi(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "hi"!')
+        ALLOCATE(checkpoint(i)%hs(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "hs"!')
+        ALLOCATE(checkpoint(i)%conc(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "conc"!')
+        ALLOCATE(checkpoint(i)%zUnderIce(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "zUnderIce"!')
+        ALLOCATE(checkpoint(i)%Tsurf(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "Tsurf"!')
+        ALLOCATE(checkpoint(i)%T1(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "T1"!')
+        ALLOCATE(checkpoint(i)%T2(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "T2"!')
+! 
+
+        ALLOCATE(checkpoint(i)%hiold(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%hsold(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%zHeatOceI(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatOceI(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatOceW(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%newice(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%alb(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Qtop(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Qbot(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%E1(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%E2(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Tfw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%vol(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%vols(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%concSum(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%draft(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%draftave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%concSum(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdirw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdifw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdirw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdifw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdir(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdif(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdir(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdif(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Wind_Speed_10m(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Total(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Shortwave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_LongWave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Sensible(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Latent(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Precipitation(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Evaporation(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_SnowFall(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Runoff(nproma,alloc_cell_blocks),stat=status)
+
+        ALLOCATE(checkpoint(i)%SaltFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%TempFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+
+        ALLOCATE(checkpoint(i)%SWnet (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%lat  (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%sens (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%LWnet(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dlatdT(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dsensdT(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dLWdT(nproma,1,alloc_cell_blocks),stat=status)
+
+
+!       ALLOCATE(checkpoint(i)%u_prog(nproma,nblks_v),stat=status)
+!       ALLOCATE(checkpoint(i)%v_prog(nproma,nblks_v),stat=status)
+!       ALLOCATE(checkpoint(i)%u    (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%v    (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%vn_e (nproma,nblks_e),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_x (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_y (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_xw(nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_yw(nproma,alloc_cell_blocks),stat=status)
+    END DO
+  END SUBROUTINE construct_checkpoints
+  SUBROUTINE construct_adjoints(patch_2d, adjoints)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_ocean_adjoint) :: adjoints
+
+    INTEGER :: i
+
+    i = patch_2d%alloc_cell_blocks
+
+    CALL add_var(ocean_restart_list, 'h_adjoint', adjoints%h , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('h_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,i/))
+    
+    !! normal velocity component
+    CALL add_var(ocean_restart_list,'vn_adjoint',adjoints%vn,grid_unstructured_edge, &
+      & za_depth_below_sea, &
+      & t_cf_var('vn_adjoint', 'm/s', 'adjoint normal velocity on edge', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,patch_2d%nblks_e/))
+    
+    !! Tracers
+    CALL add_var(ocean_restart_list, 't_adjoint', adjoints%t , &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('t_adjoint', '', 'adjoint temperature', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/))
+    CALL add_var(ocean_restart_list, 's_adjoint', adjoints%s , &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('s_adjoint', '', 'adjoint salinity', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/))
+
+    ! stuff the the sea ice model since icon-ocean does not run without it
+    ! TODO
+#ifndef  __NO_SEAICE_ADJOINTS__
+    CALL add_var(ocean_restart_list, 'hi_adjoint', adjoints%hi , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('hs_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'hs_adjoint', adjoints%hs , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('hs_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'zUnderIce_adjoint', adjoints%zUnderIce , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('zUnderIce_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,i/))
+    CALL add_var(ocean_restart_list, 'Tsurf_adjoint', adjoints%Tsurf , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('Tsurf_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'T1_adjoint', adjoints%T1 , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('T1_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'T2_adjoint', adjoints%T2 , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('T2_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+#endif /* __NO_SEAICE_ADJOINTS__ */
+  END SUBROUTINE construct_adjoints
 
   !-------------------------------------------------------------------------
   !>
@@ -445,6 +659,8 @@ CONTAINS
 
       !! Tracers
       IF ( no_tracer > 0 ) THEN
+#ifdef __NO_HAMOCC__
+#endif
         CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
           & grid_unstructured_cell, za_depth_below_sea, &
           & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &

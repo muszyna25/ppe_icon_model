@@ -303,6 +303,13 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
   LOGICAL  :: createSolverMatrix  = .FALSE.
 
+  ! adjoint run setup
+  ! number of checkpoints
+  INTEGER :: ncheckpoints           = -1
+  INTEGER, PARAMETER :: RUN_FORWARD            = 0
+  INTEGER, PARAMETER :: RUN_ADJOINT            = 1
+  INTEGER :: run_mode               = 0
+
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
     &                 ab_const                     , &
@@ -349,7 +356,9 @@ MODULE mo_ocean_nml
     &                 KineticEnergy_type           , &
     &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
-    &                 use_smooth_ocean_boundary,     &
+    &                 use_smooth_ocean_boundary    , &
+    &                 run_mode                     , &
+    &                 ncheckpoints                 , &
     &                 createSolverMatrix
 
 
@@ -1198,8 +1207,8 @@ MODULE mo_ocean_nml
     tracer_threshold_max(1) = threshold_max_T
     tracer_threshold_min(2) = threshold_min_S
     tracer_threshold_max(2) = threshold_max_S
-    namelist_tracer_name(1)          = "Temperature"
-    namelist_tracer_name(2)          = "Salinity"
+    namelist_tracer_name(1) = "Temperature"
+    namelist_tracer_name(2) = "Salinity"
      
     use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )
