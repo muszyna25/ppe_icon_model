@@ -99,9 +99,11 @@ CONTAINS
   TYPE(t_ompthread) FUNCTION new_ompthread()
 
     INTEGER :: thread_id
+#ifdef _OPENMP
 !$ IF (omp_in_parallel()) THEN
 !$   CALL finish("new_ompthread","cannot be called from an omp parallel region")
 !$  ENDIF
+#endif
     DO thread_id=1, max_ompthreads
       IF (ompthread_of(thread_id)%status == ompthread_notused) THEN
         ompthread_of(thread_id)%status           = ompthread_ready

@@ -110,7 +110,7 @@ MODULE mo_name_list_output
 #endif
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
-       num_io_procs, io_proc_chunk_size, nproma
+       num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
@@ -160,6 +160,14 @@ MODULE mo_name_list_output
   ! model domain
   USE mo_model_domain,              ONLY: t_patch, p_patch
   USE mo_loopindices,               ONLY: get_indices_c
+#ifdef HAVE_CDI_PIO
+  USE mo_cdi,                       ONLY: namespaceGetActive, namespaceSetActive
+  USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
+  USE mo_parallel_config,           ONLY: pio_type
+  USE mo_impl_constants,            ONLY: pio_type_cdipio
+  USE yaxt,                         ONLY: xt_idxlist, xt_stripe, xt_is_null, &
+    xt_idxlist_get_index_stripes, xt_idxstripes_new
+#endif
   ! post-ops
 
 #ifndef __NO_ICON_ATMO__
@@ -174,11 +182,15 @@ MODULE mo_name_list_output
   IMPLICIT NONE
 
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: write_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
+  PUBLIC :: write_ready_files_cdipio
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
@@ -211,9 +223,10 @@ CONTAINS
   !  all_print=.TRUE. argument so that the messages really appear in
   !  the log.
   !
-  SUBROUTINE open_output_file(of)
+  SUBROUTINE open_output_file(of, all_print)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
+    LOGICAL, INTENT(in)                :: all_print
     ! local variables:
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
     CHARACTER(LEN=filename_max)    :: filename
@@ -281,9 +294,9 @@ CONTAINS
       CALL finish (routine, 'open failed on '//filename(1:name_len))
     ELSE IF (msg_level >= 8) THEN
       IF (lappend) THEN
-        CALL message (routine, 'to add more data, reopened '//filename(1:name_len),all_print=.TRUE.)
+        CALL message (routine, 'to add more data, reopened '//filename(1:name_len),all_print=all_print)
       ELSE
-        CALL message (routine, 'opened '//filename(1:name_len),all_print=.TRUE.)
+        CALL message (routine, 'opened '//filename(1:name_len),all_print=all_print)
       END IF
     ENDIF
 
@@ -302,7 +315,7 @@ CONTAINS
   !
   SUBROUTINE close_name_list_output()
     ! local variables
-    INTEGER :: i, ierror
+    INTEGER :: i, ierror, prev_cdi_namespace
 
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -314,6 +327,12 @@ CONTAINS
     ELSE IF (.NOT. my_process_is_mpi_test()) THEN
 
 #endif
+#endif
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        prev_cdi_namespace = namespaceGetActive()
+        CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+      END IF
 #endif
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
@@ -343,6 +362,10 @@ CONTAINS
         ! destroy vertical axes meta-data:
         CALL output_file(i)%verticalAxisList%finalize()
       ENDDO
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) &
+        CALL namespaceSetActive(prev_cdi_namespace)
+#endif
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
     ENDIF
@@ -370,10 +393,13 @@ CONTAINS
 
     ! GRB2 format: define geographical longitude, latitude as special
     ! variables "RLON", "RLAT"
-    is_output_process = (my_process_is_io() .OR. &
-      &                  ((.NOT. use_async_name_list_io) &
+    is_output_process = ((use_async_name_list_io .and. my_process_is_io()) &
+#ifdef HAVE_CDI_PIO
+      &            .OR. (pio_type == pio_type_cdipio) &
+#endif
+      &            .OR. ((.NOT. use_async_name_list_io) &
       &                   .AND. my_process_is_mpi_workroot())) &
-      &                 .AND. .NOT. my_process_is_mpi_test()
+      &      .AND. .NOT. my_process_is_mpi_test()
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
 #ifndef __NO_ICON_ATMO__
@@ -439,11 +465,23 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, io_proc_id
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
-    LOGICAL :: is_io, is_test, ofile_is_assigned_here
+    INTEGER :: prev_cdi_namespace
+    LOGICAL :: is_io, is_test
+    LOGICAL :: lhas_output, all_print
+    LOGICAL :: ofile_is_active(SIZE(output_file)), &
+         ofile_has_first_write(SIZE(output_file)), &
+         ofile_is_assigned_here(SIZE(output_file))
+
+    IF (ltimer) CALL timer_start(timer_write_output)
 
     is_io = my_process_is_io()
     is_test = my_process_is_mpi_test()
-    IF (ltimer) CALL timer_start(timer_write_output)
+#ifdef HAVE_CDI_PIO
+    all_print = pio_type /= pio_type_cdipio
+#else
+    all_print = .TRUE.
+#endif
+
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
     IF  (use_async_name_list_io .AND. .NOT. is_io .AND. .NOT. is_test) THEN
@@ -458,47 +496,91 @@ CONTAINS
     ENDIF
 #endif
 #endif
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      prev_cdi_namespace = namespaceGetActive()
+      CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+    END IF
+#endif
 
-    IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
+    lhas_output = .FALSE.
 
     ! during the following loop, we collect a list of all I/O PEs for
     ! which output is performed:
     output_pe_list(:) = -1
     noutput_pe_list   =  0
 
+    OUTFILE_OPEN_CLOSE_LOOP : DO i=1,SIZE(output_file)
+      ofile_is_active(i) = is_output_step(output_file(i)%out_event, jstep)
+      IF (ofile_is_active(i)) THEN
+        io_proc_id = output_file(i)%io_proc_id
+        ofile_is_assigned_here(i) = &
+          &      (is_io .AND. io_proc_id == p_pe_work) &
+#ifdef HAVE_CDI_PIO
+          & .OR. (pio_type == pio_type_cdipio .AND. .NOT. is_test) &
+#endif
+          & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
+          &       .AND. p_pe_work == 0)
+        ofile_has_first_write(i) = check_open_file(output_file(i)%out_event)
+        IF (ofile_is_assigned_here(i)) THEN
+          ! -------------------------------------------------
+          ! Check if files have to be closed
+          ! -------------------------------------------------
+          IF (check_close_file(output_file(i)%out_event)) THEN
+            CALL close_output_file(output_file(i))
+            IF (msg_level >= 8) THEN
+              CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=all_print)
+            END IF
+          END IF
+          ! -------------------------------------------------
+          ! Check if files have to be (re)opened
+          ! -------------------------------------------------
+          IF (ofile_has_first_write(i)) THEN
+            IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
+                 &  CALL setup_output_vlist(output_file(i))
+            CALL open_output_file(output_file(i), all_print)
+          END IF
+        END IF
+      ELSE
+        ofile_is_assigned_here(i) = .FALSE.
+        ofile_has_first_write(i) = .FALSE.
+      END IF
+    END DO OUTFILE_OPEN_CLOSE_LOOP
+
     ! Go over all output files
-    OUTFILE_LOOP : DO i=1,SIZE(output_file)
+    OUTFILE_WRITE_LOOP : DO i=1,SIZE(output_file)
 
       ! Skip this output file if it is not due for output!
-      IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
+      IF (.NOT. ofile_is_active(i)) CYCLE OUTFILE_WRITE_LOOP
       io_proc_id = output_file(i)%io_proc_id
-      ofile_is_assigned_here = &
-        &      (is_io .AND. io_proc_id == p_pe_work) &
-        & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
-        &       .AND. p_pe_work == 0)
-      ! -------------------------------------------------
-      ! Check if files have to be (re)opened
-      ! -------------------------------------------------
+      lhas_output = lhas_output .OR. ofile_is_assigned_here(i)
 
-      IF (check_open_file(output_file(i)%out_event) &
-        & .AND. ofile_is_assigned_here) THEN
-        IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
-          &  CALL setup_output_vlist(output_file(i))
-        CALL open_output_file(output_file(i))
-      END IF
+      IF (ofile_is_assigned_here(i)) THEN
+        ! -------------------------------------------------
+        ! Do the output
+        ! -------------------------------------------------
 
-      ! -------------------------------------------------
-      ! Do the output
-      ! -------------------------------------------------
-
-      ! Notify user
-      IF (ofile_is_assigned_here) THEN
+        ! Notify user
         IF (msg_level >= 8) THEN
-          WRITE(text,'(a,a,a,a,a,i0)') &
-            & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
-            & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
-            & ' by PE ', p_pe
-          CALL message(routine, text,all_print=.TRUE.)
+#ifdef HAVE_CDI_PIO
+          IF (pio_type == pio_type_cdipio) THEN
+            WRITE(text,'(4a)')                                               &
+              & 'Collective asynchronous output to ',                        &
+              & TRIM(get_current_filename(output_file(i)%out_event)),        &
+              & ' at simulation time ',                                      &
+              & TRIM(get_current_date(output_file(i)%out_event))
+          ELSE
+#endif
+            WRITE(text,'(5a,i0)')                                            &
+              & 'Output to ',                                                &
+              & TRIM(get_current_filename(output_file(i)%out_event)),        &
+              & ' at simulation time ',                                      &
+              & TRIM(get_current_date(output_file(i)%out_event)), &
+              & ' by PE ', p_pe
+#ifdef HAVE_CDI_PIO
+          END IF
+#endif
+          CALL message(routine, text,all_print=all_print)
         END IF
 
         ! convert time stamp string into
@@ -520,26 +602,12 @@ CONTAINS
 
       IF(is_io) THEN
 #ifndef NOMPI
-        IF (ofile_is_assigned_here) THEN
-          CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
-          IF (PRESENT(opt_lhas_output))  opt_lhas_output = .TRUE.
-        ENDIF
+        IF (ofile_is_assigned_here(i)) &
+          CALL io_proc_write_name_list(output_file(i), ofile_has_first_write(i))
 #endif
       ELSE
-        CALL write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
+        CALL write_name_list(output_file(i), ofile_has_first_write(i))
       ENDIF
-
-      ! -------------------------------------------------
-      ! Check if files have to be closed
-      ! -------------------------------------------------
-
-      IF (check_close_file(output_file(i)%out_event) .AND. &
-        & ofile_is_assigned_here) THEN
-        CALL close_output_file(output_file(i))
-        IF (msg_level >= 8) THEN
-          CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
-        END IF
-      END IF
 
       ! -------------------------------------------------
       ! add I/O PE of output file to the "output_list"
@@ -553,14 +621,13 @@ CONTAINS
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
       CALL pass_output_step(output_file(i)%out_event)
-    ENDDO OUTFILE_LOOP
+    ENDDO OUTFILE_WRITE_LOOP
 
     ! If asynchronous I/O is enabled, the compute PEs can now start
     ! the I/O PEs
 #ifndef NOMPI
-    IF (use_async_name_list_io  .AND. .NOT. is_io .AND. .NOT. is_test) THEN
+    IF (use_async_name_list_io  .AND. .NOT. is_io .AND. .NOT. is_test) &
       CALL compute_start_async_io(jstep, output_pe_list, noutput_pe_list)
-    END IF
 #endif
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
@@ -573,6 +640,9 @@ CONTAINS
             IF (is_output_step_complete(ev) .AND.  &
               & .NOT. is_output_event_finished(ev)) THEN
               !--- write ready file
+              !
+              ! FIXME: for CDI-PIO this needs to be moved to the I/O
+              ! processes which are aware what has been written when
               IF (check_write_readyfile(ev%output_event)) CALL write_ready_file(ev)
               ! launch a non-blocking request to all participating PEs to
               ! acknowledge the completion of the next output event
@@ -593,9 +663,34 @@ CONTAINS
           END DO HANDLE_COMPLETE_STEPS
        END IF
     END IF
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      IF (lhas_output) CALL pioWriteTimestep
+      CALL namespaceSetActive(prev_cdi_namespace)
+    END IF
+#endif
+    IF (PRESENT(opt_lhas_output)) opt_lhas_output = lhas_output
     IF (ltimer) CALL timer_stop(timer_write_output)
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": write_name_list_output done."
   END SUBROUTINE write_name_list_output
+
+  SUBROUTINE write_ready_files_cdipio
+    TYPE(t_par_output_event), POINTER :: ev
+    IF (p_pe_work == 0) THEN
+      ev => all_events
+      DO WHILE (ASSOCIATED(ev))
+        IF (.NOT. is_output_event_finished(ev)) THEN
+          !--- write ready file
+          !
+          IF (check_write_readyfile(ev%output_event)) CALL write_ready_file(ev)
+          ! launch a non-blocking request to all participating PEs to
+          ! acknowledge the completion of the next output event
+          ev%output_event%i_event_step = ev%output_event%i_event_step + 1
+        END IF
+        ev => ev%next
+      END DO
+    END IF
+  END SUBROUTINE write_ready_files_cdipio
 
 
   !------------------------------------------------------------------------------------------------
@@ -649,6 +744,9 @@ CONTAINS
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     tlen = LEN_TRIM(rdy_filename)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+#ifdef HAVE_CDI_PIO
+      & (      pio_type == pio_type_cdipio ) .OR.                             &
+#endif
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
       WRITE (0,*) 'Write ready file "', rdy_filename(1:tlen), '"'
     END IF
@@ -664,7 +762,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Write an output name list. Called by non-IO PEs.
   !
-  SUBROUTINE write_name_list(of, l_first_write)
+  SUBROUTINE write_name_list(of, is_first_write)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
@@ -675,7 +773,7 @@ CONTAINS
 #endif
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
-    LOGICAL,              INTENT(IN)            :: l_first_write
+    LOGICAL,              INTENT(IN)            :: is_first_write
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
     INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
@@ -786,7 +884,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -961,19 +1059,25 @@ CONTAINS
         CALL finish(routine,'unknown grid type')
       END SELECT
 
-      IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
-        CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-             i_ptr, ri_n_glb, iv, last_bdry_index, &
-             nlevs, var_ignore_level_selection, p_pat, info)
-#ifndef NOMPI
-
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio .AND. .NOT. is_mpi_test) THEN
+        CALL data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
+             nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
       ELSE
-        CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
-          nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
-
 #endif
-
+        IF (.NOT.use_async_name_list_io .OR. is_mpi_test) THEN
+          CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
+            i_ptr, ri_n_glb, iv, last_bdry_index, &
+            nlevs, var_ignore_level_selection, p_pat, info)
+#ifndef NOMPI
+        ELSE
+          CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
+            &  nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+#endif
+        END IF
+#ifdef HAVE_CDI_PIO
       END IF
+#endif
 
     ENDDO
 
@@ -1609,6 +1713,170 @@ CONTAINS
       &                i_startidx, i_endidx, rl_start, rl_end)
   END SUBROUTINE get_bdry_blk_idx
 
+#ifdef HAVE_CDI_PIO
+  SUBROUTINE data_write_cdipio(of, idata_type, r_ptr, s_ptr, i_ptr, iv, &
+       nlevs, var_ignore_level_selection, ri, info, i_log_dom)
+    TYPE (t_output_file), INTENT(IN) :: of
+    INTEGER, INTENT(in) :: idata_type, iv, nlevs
+    LOGICAL, INTENT(in) :: var_ignore_level_selection
+    REAL(dp), INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, INTENT(in) :: i_ptr(:,:,:)
+    TYPE(t_reorder_info), INTENT(inout) :: ri
+    TYPE(t_var_metadata), INTENT(in) :: info
+    INTEGER, INTENT(in) :: i_log_dom
+
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, n_own, ioff, &
+         nmiss, i, jk, lev_idx
+    LOGICAL :: apply_missval, make_level_selection
+    REAL(dp) :: missval
+    REAL(dp), ALLOCATABLE :: temp_buf_dp(:)
+    REAL(sp), ALLOCATABLE :: temp_buf_sp(:)
+    TYPE(xt_idxlist) :: partdesc
+
+    ! set missval if needed
+    apply_missval =       info%lmask_boundary                  &
+      &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
+      &             .AND. config_lmask_boundary
+    IF (apply_missval) THEN
+      missval = get_bdry_missval(info, idata_type)
+      CALL get_bdry_blk_idx(i_log_dom, &
+        &                   i_startidx, i_endidx, i_startblk, i_endblk)
+    END IF
+
+    n_own = ri%n_own
+
+    IF (use_dp_mpi2io) THEN
+      ALLOCATE(temp_buf_dp(nlevs*n_own))
+    ELSE
+      ALLOCATE(temp_buf_sp(nlevs*n_own))
+    END IF
+
+    make_level_selection = ASSOCIATED(of%level_selection) &
+      &              .AND. (.NOT. var_ignore_level_selection) &
+      &              .AND. (info%ndims > 2)
+
+    CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
+
+    IF (of%output_type == FILETYPE_GRB &
+      & .OR. of%output_type == FILETYPE_GRB2) THEN
+      nmiss = MERGE(1, 0, ( info%lmiss .OR.  &
+           &  ( info%lmask_boundary    .AND. &
+           &    config_lmask_boundary  .AND. &
+           &    ((i_log_dom > 1) .OR. l_limited_area) ) ))
+    ELSE
+      nmiss = 0
+    END IF
+
+    ioff = 0
+    partdesc = get_partdesc(ri%reorder_idxlst_xt, nlevs, ri%n_glb)
+    IF (use_dp_mpi2io) THEN
+      DO jk = 1, nlevs
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (make_level_selection) THEN
+          lev_idx = of%level_selection%global_idx(jk)
+        ELSE
+          lev_idx = jk
+        END IF
+        IF (idata_type == iREAL) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        ELSE IF (idata_type == iREAL_sp) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        ELSE IF (idata_type == iINTEGER) THEN
+          DO i = 1, n_own
+            temp_buf_dp(ioff+i) = &
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
+          ENDDO
+        END IF
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF (apply_missval) &
+          CALL set_boundary_mask(temp_buf_dp(ioff+1:ioff+n_own), &
+          &                      missval, i_endblk, i_endidx, ri)
+        ioff = ioff + ri%n_own
+      END DO
+      CALL streamWriteVarPart(of%cdiFileID, info%cdiVarID, &
+           &                  temp_buf_dp, nmiss, partdesc)
+    ELSE
+      DO jk = 1, nlevs
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (make_level_selection) THEN
+          lev_idx = of%level_selection%global_idx(jk)
+        ELSE
+          lev_idx = jk
+        END IF
+        IF (idata_type == iREAL) THEN
+          DO i = 1, ri%n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        ELSE IF (idata_type == iREAL_sp) THEN
+          DO i = 1, n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        ELSE IF (idata_type == iINTEGER) THEN
+          DO i = 1, ri%n_own
+            temp_buf_sp(ioff+i) = &
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
+          ENDDO
+        END IF
+
+        ! If required, set lateral boundary points to missing
+        ! value. Note that this modifies only the output buffer!
+        IF (apply_missval) &
+          CALL set_boundary_mask(temp_buf_sp(ioff+1:ioff+ri%n_own), &
+          &                      REAL(missval, sp), i_endblk, i_endidx, ri)
+        ioff = ioff + ri%n_own
+      END DO ! nlevs
+      CALL streamWriteVarPartF(of%cdiFileID, info%cdiVarID, &
+           &                   temp_buf_sp, nmiss, partdesc)
+    END IF
+
+  END SUBROUTINE data_write_cdipio
+
+  FUNCTION get_partdesc(reorder_idxlst_xt, nlevs, n_glb) RESULT(partdesc)
+    TYPE(xt_idxlist) :: partdesc
+    TYPE(xt_idxlist), ALLOCATABLE, INTENT(inout) :: reorder_idxlst_xt(:)
+    INTEGER, INTENT(in) :: nlevs, n_glb
+    INTEGER :: nlevs_max, nstripes, j, k
+    TYPE(xt_idxlist), ALLOCATABLE :: lists_realloc(:)
+    TYPE(xt_stripe), ALLOCATABLE :: stripes(:), stripes_project(:,:)
+    nlevs_max = SIZE(reorder_idxlst_xt)
+    IF (nlevs > nlevs_max) THEN
+      ALLOCATE(lists_realloc(nlevs))
+      lists_realloc(1:nlevs_max) = reorder_idxlst_xt
+      CALL MOVE_ALLOC(lists_realloc, reorder_idxlst_xt)
+    END IF
+    IF (xt_is_null(reorder_idxlst_xt(nlevs))) THEN
+      CALL xt_idxlist_get_index_stripes(reorder_idxlst_xt(1), stripes)
+      nstripes = SIZE(stripes)
+      ALLOCATE(stripes_project(nstripes, nlevs))
+      DO j = 1, nstripes
+        stripes_project(j, 1) = stripes(j)
+      END DO
+      DO k = 2, nlevs
+        DO j = 1, nstripes
+          stripes_project(j, k) &
+            &     = xt_stripe(stripes(j)%start + (k-1) * n_glb, &
+            &                 stripes(j)%stride, stripes(j)%nstrides)
+        END DO
+      END DO
+      reorder_idxlst_xt(nlevs) = xt_idxstripes_new(stripes_project)
+    END IF
+    partdesc = reorder_idxlst_xt(nlevs)
+  END FUNCTION get_partdesc
+
+#endif
+
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
   !  Please note:
@@ -1833,16 +2101,22 @@ CONTAINS
   !  @note This subroutine is called by asynchronous I/O PEs only.
   !
 #ifndef NOMPI
-  SUBROUTINE io_proc_write_name_list(of, l_first_write)
+#ifdef __INTEL_COMPILER
+#define __MPI3_OSC
+#endif
+  SUBROUTINE io_proc_write_name_list(of, is_first_write)
 
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
+#ifdef __MPI3_OSC
+    USE mpi, ONLY: MPI_STATUS_IGNORE, MPI_STATUSES_IGNORE, MPI_REQUEST_NULL
+#endif
 #endif
 
     TYPE (t_output_file), TARGET, INTENT(IN) :: of
-    LOGICAL                     , INTENT(IN) :: l_first_write
+    LOGICAL                     , INTENT(IN) :: is_first_write
 
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
@@ -1861,6 +2135,12 @@ CONTAINS
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
       &                               this_chunk_nlevs, ilev
+#ifdef __MPI3_OSC
+    INTEGER, PARAMETER             :: req_pool_size = 16
+    INTEGER                        :: mver_mpi, sver_mpi, &
+      &                               req_pool(req_pool_size), req_next, req_rampup
+    LOGICAL                        :: have_LOCKALL
+#endif
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
@@ -1873,6 +2153,14 @@ CONTAINS
       WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
     END IF
     CALL interval_start(TRIM(get_current_filename(of%out_event)))
+#ifdef __MPI3_OSC
+    CALL MPI_Get_version(mver_mpi, sver_mpi, mpierr)
+    IF ( mver_mpi .GT. 3) THEN
+      have_LOCKALL = .true.
+    ELSE
+      have_LOCKALL = .false.
+    ENDIF
+#endif
 
     t_get   = 0.d0
     t_write = 0.d0
@@ -1933,6 +2221,13 @@ CONTAINS
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
+
+#ifdef __MPI3_OSC
+    IF (have_LOCKALL) THEN
+      CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
+    ENDIF
+#endif
+
     DO iv = 1, of%num_vars
       ! POINTER to this variable's meta-info
       info => of%var_desc(iv)%info
@@ -1964,7 +2259,7 @@ CONTAINS
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
-      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. l_first_write) CYCLE
+      IF ((info%isteptype == TSTEP_CONSTANT) .AND. .NOT. is_first_write) CYCLE
 
       IF(info%ndims == 2) THEN
         nlevs = 1
@@ -2035,6 +2330,13 @@ CONTAINS
 
         ! Retrieve part of variable from every worker PE using MPI_Get
         nv_off  = 0
+#ifdef __MPI3_OSC
+        IF (have_LOCKALL) THEN
+          t_0 = p_mpi_wtime()
+          req_next = 0
+          req_rampup = 1
+        ENDIF
+#endif
         DO np = 0, num_work_procs-1
 
           IF(p_ri%pe_own(np) == 0) CYCLE
@@ -2042,20 +2344,48 @@ CONTAINS
           ! Number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
 
-          t_0 = p_mpi_wtime()
-          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
-            &               of%mem_win%mpi_win, mpierr)
+#ifdef __MPI3_OSC
+          IF (.NOT.have_LOCKALL) THEN
+#endif
+            t_0 = p_mpi_wtime()
+            CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
+              &               of%mem_win%mpi_win, mpierr)
 
-          IF (use_dp_mpi2io) THEN
-            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
+            IF (use_dp_mpi2io) THEN
+              CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+                &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
+            ELSE
+              CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+                &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+            ENDIF
+
+            CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+            t_get  = t_get  + p_mpi_wtime() - t_0
+#ifdef __MPI3_OSC
           ELSE
-            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+            !handle request pool
+            IF (req_rampup .eq. 1) THEN
+              req_next = req_next + 1
+              IF (req_next .GT. req_pool_size) THEN
+                req_rampup = 0
+              ELSE
+                req_pool(req_next) = MPI_REQUEST_NULL
+              ENDIF
+            ENDIF
+            IF (req_rampup .eq. 0) THEN
+              CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
+              req_pool(req_next) = MPI_REQUEST_NULL
+            ENDIF
+            !issue get
+            IF (use_dp_mpi2io) THEN
+              CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+                &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+            ELSE
+              CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+                &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+            ENDIF
           ENDIF
-
-          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-          t_get  = t_get  + p_mpi_wtime() - t_0
+#endif
           mb_get = mb_get + nval
 
           ! Update the offset in var1
@@ -2065,6 +2395,12 @@ CONTAINS
           ioff(np) = ioff(np) + INT(nval,i8)
 
         ENDDO
+#ifdef __MPI3_OSC
+        IF (have_LOCKALL) THEN
+          CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
+          t_get  = t_get  + p_mpi_wtime() - t_0
+        ENDIF
+#endif
 
         ! compute the total offset for each PE
         nv_off       = 0
@@ -2158,6 +2494,11 @@ CONTAINS
 
     ENDDO ! Loop over output variables
 
+#ifdef __MPI3_OSC
+    IF (have_LOCKALL) THEN
+      CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
+    ENDIF
+#endif
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)
     ELSE

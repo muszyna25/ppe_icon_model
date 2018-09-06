@@ -645,6 +645,9 @@ CONTAINS
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
+#ifdef __INTEL_COMPILER
+    INTEGER  :: jec
+#endif
     INTEGER  :: proc_id(2), keyval(2)
 
     !-----------------------------------------------------------------------
@@ -671,7 +674,11 @@ CONTAINS
 !$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP PARALLEL
+#ifdef __INTEL_COMPILER
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
 #endif
     DO jb = istartblk_e, iendblk_e
 
@@ -680,7 +687,14 @@ CONTAINS
 
 !$ACC LOOP VECTOR
       DO jk = 1, patch%nlev
+#ifdef __INTEL_COMPILER
+        vn_aux(jb,jk) = 0._wp
+        DO jec = i_startidx,i_endidx
+          vn_aux(jb,jk) = MAX(vn_aux(jb,jk), -vn(jec,jk,jb), vn(jec,jk,jb))
+        ENDDO
+#else
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
+#endif
       ENDDO
     END DO
 #ifdef _OPENACC
@@ -689,7 +703,11 @@ CONTAINS
 !$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
 #else
 !$OMP END DO
+#ifdef __INTEL_COMPILER
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
 #endif
     DO jb = istartblk_c, iendblk_c
 
@@ -697,7 +715,14 @@ CONTAINS
                          grf_bdywidth_c+1, min_rlcell_int)
 
       DO jk = 1, patch%nlevp1
+#ifdef __INTEL_COMPILER
+        w_aux(jb,jk) = 0._wp
+        DO jec = i_startidx,i_endidx
+          w_aux(jb,jk) = MAX(w_aux(jb,jk), -w(jec,jk,jb), w(jec,jk,jb))
+        ENDDO
+#else
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
+#endif
       ENDDO
     END DO
 #ifdef _OPENACC

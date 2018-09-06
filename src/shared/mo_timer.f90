@@ -186,6 +186,7 @@ MODULE mo_timer
   PUBLIC :: timer_write_restart
   PUBLIC :: timer_write_restart_io
   PUBLIC :: timer_write_restart_communication
+  PUBLIC :: timer_write_restart_wait
   PUBLIC :: timer_write_restart_setup
   PUBLIC :: timer_restart_collector_setup
   PUBLIC :: timer_restart_indices_setup
@@ -365,6 +366,7 @@ MODULE mo_timer
   INTEGER :: timer_write_restart
   INTEGER :: timer_write_restart_io
   INTEGER :: timer_write_restart_communication
+  INTEGER :: timer_write_restart_wait
   INTEGER :: timer_write_restart_setup
   INTEGER :: timer_restart_collector_setup
   INTEGER :: timer_restart_indices_setup
@@ -736,6 +738,7 @@ CONTAINS
     timer_write_restart = new_timer("write_restart")
     timer_write_restart_io = new_timer("write_restart_io")
     timer_write_restart_communication = new_timer("write_restart_communication")
+    timer_write_restart_wait = new_timer("write_restart_wait")
     timer_write_restart_setup = new_timer("write_restart_setup")
     timer_restart_indices_setup = new_timer("write_restart_indices")
     timer_restart_collector_setup = new_timer("write_restart_collectors")

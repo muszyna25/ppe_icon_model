@@ -344,6 +344,21 @@ CONTAINS
     INTEGER :: icld_ind(kproma,nlayers)
     INTEGER :: icld, iclear, n_cloudpoints(nlayers)
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: atot,atrans,bbugas,bbutot,clrurad,clrdrad,urad
+!DIR$ ATTRIBUTES ALIGN : 64 :: drad,secdiff,dplankup,dplankdn,a0,a1,a2
+!DIR$ ATTRIBUTES ALIGN : 64 :: radld,radclrd,bbd,radlu,radclru,d_urad_dt
+!DIR$ ATTRIBUTES ALIGN : 64 :: d_clrurad_dt,d_radlu_dt,d_radclru_dt
+!DIR$ ATTRIBUTES ALIGN : 64 :: lcldlyr,iclddn,ipat,ibv
+!DIR$ ATTRIBUTES ALIGN : 64 :: faccld1,faccld2,facclr1,facclr2,faccmb1,faccmb2
+!DIR$ ATTRIBUTES ALIGN : 64 :: faccld1d,faccld2d,facclr1d,facclr2d,faccmb1d,faccmb2d
+!DIR$ ATTRIBUTES ALIGN : 64 :: clrradd,cldradd,clrradu,cldradu,rad
+!DIR$ ATTRIBUTES ALIGN : 64 :: icld_ind,n_cloudpoints
+#ifndef LRTM_FULL_VECTORIZATION
+!DIR$ ATTRIBUTES ALIGN : 64 :: gassrc,cldsrc,bbdtot,oldcld,oldclr,odepth,odtot,radmod
+!DIR$ ATTRIBUTES ALIGN : 64 :: ilist1,ilist2,ilist3
+#endif
+#endif
 
     ! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
     ! and 1.80) as a function of total column water vapor.  The function
@@ -352,6 +367,7 @@ CONTAINS
 
     DO ibnd = 1,nbndlw
       IF (ibnd.EQ.1 .OR. ibnd.EQ.4 .OR. ibnd.GE.10) THEN
+!$OMP SIMD
         DO jl = 1, kproma  ! loop over columns
           secdiff(jl,ibnd) = 1.66_wp
         ENDDO
@@ -646,6 +662,7 @@ CONTAINS
 
         ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
 
+!DIR$ IVDEP
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
             plfrac = fracs(jl,lev,igc)
@@ -677,6 +694,7 @@ CONTAINS
 
           ! Cloudy layer
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
 
@@ -718,6 +736,7 @@ CONTAINS
           ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO icld1 = 1, npoints2
             jl = ilist2(icld1)
 
@@ -739,6 +758,7 @@ CONTAINS
           ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO icld1 = 1, npoints3
             jl = ilist3(icld1)
 
@@ -763,6 +783,7 @@ CONTAINS
           ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
 
@@ -797,6 +818,7 @@ CONTAINS
 
           ! Clear layer
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO iclear = 0, kproma - n_cloudpoints(lev) - 1
             jl = icld_ind(kproma - iclear,lev)
 
@@ -826,6 +848,7 @@ CONTAINS
         !  Set clear sky stream to total sky stream as long as layers
         !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
         !  and clear sky stream must be computed separately from that point.
+!DIR$ IVDEP
         DO jl = 1, kproma
           IF (iclddn(jl)) THEN
             radclrd(jl) = radclrd(jl) + (bbd(jl)-radclrd(jl)) * atrans(jl,lev)
@@ -945,6 +968,7 @@ CONTAINS
 
         ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
 
+!DIR$ IVDEP
           DO jl = 1, kproma ! thus, direct addressing can be used
             radlu(jl) = radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev)
             urad(jl,lev) = urad(jl,lev) + radlu(jl)
@@ -960,6 +984,7 @@ CONTAINS
 
           ! Cloudy layer
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
 
@@ -992,6 +1017,7 @@ CONTAINS
 
           ! Clear layer
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
           DO iclear = 0, kproma - n_cloudpoints(lev) - 1
             jl = icld_ind(kproma - iclear,lev)
 

@@ -126,7 +126,7 @@ case "$fortran_compiler" in
         STD_FLAGS   = $DEBUG_FLAGS
         HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native
         FASTDEBUG_FLAGS = $HIOPT_FLAGS -float-store -nan $FDEBUG
-        MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,xt_slice_c_loc,util_stride_1d,util_stride_2d -w=uep
+        MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_rget,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,xt_slice_c_loc,util_stride_1d,util_stride_2d -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
         F77FLAGS    = $GEN_FLAGS -w=obs -O -dcfuns -mismatch_all
@@ -709,9 +709,9 @@ case "$ac_sitename" in
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /sw/rhel6-x64/intel/impi/2017.0.098/compilers_and_libraries/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
-                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
-                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-impi-intel14
-                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.4.0-parallel-impi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.16-parallel-impi-intel14
                                 ;;
                             "${software_tree}/intel/impi/2017.2.174")
                                 load_modules = ${load_modules} intelmpi/2017.2.174
@@ -747,9 +747,9 @@ case "$ac_sitename" in
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.9.2
                                 SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 -lmpi $SYS_LIBS
-                                NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
-                                NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
-                                HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
+                                NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.3-parallel-bullxmpi-intel14
+                                NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.4.0-parallel-bullxmpi-intel14
+                                HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.16-parallel-bullxmpi-intel14
                                 ;;
                             no)
                                 ;;

@@ -1075,7 +1075,7 @@ ENDIF
 
   END SUBROUTINE grad_green_gauss_cell_adv
 
-  SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,       &
+SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,       &
     &                                     opt_slev, opt_elev, opt_rlstart, opt_rlend)
   !
   !
@@ -1120,7 +1120,11 @@ ENDIF
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
+#ifdef __SWAPDIM
+    elev = UBOUND(p_ccpr,2)
+#else
     elev = UBOUND(p_ccpr,3)
+#endif
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -1171,7 +1175,32 @@ ENDIF
         !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
-
+#ifdef __SWAPDIM
+          ! zonal(u)-component of Green-Gauss gradient, field 1
+          p_grad(jc,jk,jb,1) = &
+            ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(jc,jk,jb,1) + &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(iidx(jc,jb,1),jk,iblk(jc,jb,1),1) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(iidx(jc,jb,2),jk,iblk(jc,jb,2),1) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(iidx(jc,jb,3),jk,iblk(jc,jb,3),1)
+          ! meridional(v)-component of Green-Gauss gradient, field 1
+          p_grad(jc,jk,jb,2) = &
+            ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(jc,jk,jb,1) + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(iidx(jc,jb,1),jk,iblk(jc,jb,1),1) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(iidx(jc,jb,2),jk,iblk(jc,jb,2),1) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(iidx(jc,jb,3),jk,iblk(jc,jb,3),1)
+          ! zonal(u)-component of Green-Gauss gradient, field 2
+          p_grad(jc,jk,jb,3) = &
+            ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(jc,jk,jb,2) + &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(iidx(jc,jb,1),jk,iblk(jc,jb,1),2) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(iidx(jc,jb,2),jk,iblk(jc,jb,2),2) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(iidx(jc,jb,3),jk,iblk(jc,jb,3),2)
+          ! meridional(v)-component of Green-Gauss gradient, field 2
+          p_grad(jc,jk,jb,4) = &
+            ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(jc,jk,jb,2) + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(iidx(jc,jb,1),jk,iblk(jc,jb,1),2) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(iidx(jc,jb,2),jk,iblk(jc,jb,2),2) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(iidx(jc,jb,3),jk,iblk(jc,jb,3),2)
+#else
           ! zonal(u)-component of Green-Gauss gradient, field 1
           p_grad(1,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(1,jc,jk,jb)+     &
             ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(1,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
@@ -1195,7 +1224,7 @@ ENDIF
             ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(2,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
             ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(2,iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
             ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(2,iidx(jc,jb,3),jk,iblk(jc,jb,3))
-
+#endif
         END DO ! end loop over cells
       END DO ! end loop over vertical levels
       !$ACC END PARALLEL
@@ -1209,6 +1238,5 @@ ENDIF
 !$ACC END DATA
 
   END SUBROUTINE grad_green_gauss_cell_dycore
-
 
 END MODULE mo_math_gradients

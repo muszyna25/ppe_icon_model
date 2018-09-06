@@ -57,7 +57,7 @@ MODULE mo_cdi_ids
 
     ! TYPE t_CdiIds IS just a simple container for all the different CDI IDs connected to a single restart file.
     TYPE t_CdiIds
-        INTEGER :: file, vlist, taxis, hgrids(3)
+        INTEGER :: fHndl, vlist, taxis, hgrids(3)
         INTEGER, ALLOCATABLE :: vgrids(:)
     CONTAINS
         PROCEDURE :: init => restartCdiIds_init
@@ -135,7 +135,7 @@ CONTAINS
     SUBROUTINE restartCdiIds_init(me)
         CLASS(t_CdiIds), INTENT(INOUT) :: me
 
-        me%file = CDI_UNDEFID
+        me%fHndl = CDI_UNDEFID
         me%vlist = CDI_UNDEFID
         me%taxis = CDI_UNDEFID
         me%hgrids(:) = CDI_UNDEFID
@@ -209,10 +209,10 @@ CONTAINS
         END SELECT
 
         ! open the file
-        me%file = streamOpenWrite(filename, restartType)
+        me%fHndl = streamOpenWrite(filename, restartType)
 
-        IF(me%file < 0) THEN
-            CALL cdiGetStringError(me%file, cdiErrorText)
+        IF(me%fHndl < 0) THEN
+            CALL cdiGetStringError(me%fHndl, cdiErrorText)
             CALL message('', TRIM(cdiErrorText))
             CALL finish(routine, 'open failed on '//filename)
         END IF
@@ -249,21 +249,21 @@ CONTAINS
         INTEGER :: trash
 
         ! define the vlist, so that we are allowed to define the timestep
-        CALL streamDefVlist(me%file, me%vlist)
+        CALL streamDefVlist(me%fHndl, me%vlist)
 
         ! define the timestep
         CALL taxisDefVdate(me%taxis, &
              &             cdiEncodeDate(INT(this_datetime%date%year), this_datetime%date%month, this_datetime%date%day))
         CALL taxisDefVtime(me%taxis, &
              &             cdiEncodeTime(this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second))
-        trash = streamDefTimestep(me%file, 0)
+        trash = streamDefTimestep(me%fHndl, 0)
     END SUBROUTINE restartCdiIds_finalizeVlist
 
     ! Encapsulates the CDI calls to define a variable.
-    INTEGER FUNCTION restartCdiIds_defineVariableSimple(me, hgrid, vgrid, datatype, NAME) RESULT(varId)
+    INTEGER FUNCTION restartCdiIds_defineVariableSimple(me, hgrid, vgrid, datatype, vName) RESULT(varId)
         CLASS(t_CdiIds), INTENT(IN) :: me
         INTEGER, VALUE :: hgrid, vgrid, datatype
-        CHARACTER(*), INTENT(IN) :: NAME
+        CHARACTER(*), INTENT(IN) :: vName
 
         INTEGER :: gridId, zaxisId
         CHARACTER(*), PARAMETER :: routine = modname//":restartCdiIds_defineVariableSimple"
@@ -276,7 +276,7 @@ CONTAINS
 
         varId = vlistDefVar(me%vlist, gridId, zaxisId, TIME_VARIABLE)
         CALL vlistDefVarDatatype(me%vlist, varId, datatype)
-        CALL vlistDefVarName(me%vlist, varId, NAME)
+        CALL vlistDefVarName(me%vlist, varId, vName)
     END FUNCTION restartCdiIds_defineVariableSimple
 
     ! Encapsulates the CDI calls to define a variable.
@@ -328,7 +328,7 @@ CONTAINS
         INTEGER :: i
 
         ! close/destroy all open CDI IDs
-        IF(me%file /= CDI_UNDEFID) CALL streamClose(me%file)
+        IF(me%fHndl /= CDI_UNDEFID) CALL streamClose(me%fHndl)
         IF(me%vlist /= CDI_UNDEFID) CALL vlistDestroy(me%vlist)
         IF(me%taxis /= CDI_UNDEFID) CALL taxisDestroy(me%taxis)
         DO i = 1, SIZE(me%hgrids, 1)

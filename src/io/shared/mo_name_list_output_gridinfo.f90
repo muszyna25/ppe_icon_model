@@ -37,7 +37,7 @@ MODULE mo_name_list_output_gridinfo
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_specs,     &
     &                                             rotate_latlon_grid
   USE mo_intp_lonlat_types,                 ONLY: lonlat_grids
-  USE mo_math_constants,                    ONLY: pi_180, pi
+  USE mo_math_constants,                    ONLY: pi, rad2deg
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
     &                                             min_rlvert, vname_len
   USE mo_cdi_constants,                     ONLY: GRID_CELL
@@ -55,6 +55,18 @@ MODULE mo_name_list_output_gridinfo
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl, &
     &                                             level_type_il
+  USE mo_reorder_info,                      ONLY: t_reorder_info
+#ifdef HAVE_CDI_PIO
+  USE mo_reorder_info,                      ONLY: ri_cpy_blk2part
+  USE mo_parallel_config,                   ONLY: pio_type
+  USE mo_impl_constants,                    ONLY: pio_type_cdipio
+  USE yaxt,                                 ONLY: xt_idxlist, xt_stripe, &
+    &                                             xt_idxstripes_new
+  USE ppm_extents,                          ONLY: extent
+  USE mo_decomposition_tools,               ONLY: uniform_partition_start, uniform_partition
+  USE mo_mpi,                               ONLY: p_n_work, p_pe_work
+  USE iso_c_binding,                        ONLY: c_int
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -70,6 +82,9 @@ MODULE mo_name_list_output_gridinfo
   ! subroutines
   PUBLIC :: deallocate_all_grid_info
   PUBLIC :: collect_all_grid_info
+#ifdef HAVE_CDI_PIO
+  PUBLIC :: distribute_all_grid_info
+#endif
   PUBLIC :: set_grid_info_netcdf
   PUBLIC :: set_grid_info_grb2
   PUBLIC :: copy_grid_info
@@ -191,6 +206,113 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE collect_all_grid_info
 
+#ifdef HAVE_CDI_PIO
+  SUBROUTINE distribute_all_grid_info(p_patch, patch_info)
+    TYPE(t_patch), TARGET, INTENT(in)   :: p_patch
+    TYPE(t_patch_info),   INTENT(inout) :: patch_info
+
+    CHARACTER(LEN=*), PARAMETER :: &
+      routine = modname//"::distributed_all_grid_info"
+    INTEGER :: ierrstat, max_a_size, igeom
+    REAL(wp), ALLOCATABLE :: lonv(:), latv(:)
+    TYPE cf_1_1_grid_ptr
+      PROCEDURE(cf_1_1_grid_verts), NOPASS, POINTER :: p
+    END TYPE cf_1_1_grid_ptr
+    TYPE(cf_1_1_grid_ptr) :: cf_1_1(3)
+    TYPE p_geographical_coordinates
+      TYPE(t_geographical_coordinates), POINTER :: p(:,:)
+    END TYPE p_geographical_coordinates
+    TYPE(p_geographical_coordinates) :: p_coords(3)
+    INTEGER :: max_conn(3), nblks(3)
+
+    cf_1_1(icell)%p => cf_1_1_grid_cells
+    cf_1_1(iedge)%p => cf_1_1_grid_edges
+    IF (my_process_is_ocean()) THEN
+      cf_1_1(ivert)%p => cf_1_1_grid_verts_ocean
+    ELSE
+      cf_1_1(ivert)%p => cf_1_1_grid_verts
+    ENDIF
+
+    p_coords(icell)%p => p_patch%cells%center
+    p_coords(iedge)%p => p_patch%edges%center
+    p_coords(ivert)%p => p_patch%verts%vertex
+
+    max_conn(icell) = p_patch%cells%max_connectivity
+    max_conn(iedge) = 4
+    max_conn(ivert) = p_patch%verts%max_connectivity
+
+    nblks(icell) = p_patch%nblks_c
+    nblks(iedge) = p_patch%nblks_e
+    nblks(ivert) = p_patch%nblks_v
+
+    DO igeom = icell, ivert
+      CALL alloc_distributed_grid_info(patch_info%grid_info(igeom), &
+        patch_info%ri(igeom)%n_own, max_conn(igeom))
+    END DO
+
+    max_a_size = nproma * MAXVAL(nblks * max_conn)
+    ALLOCATE(lonv(max_a_size), latv(max_a_size))
+!$omp parallel private(igeom)
+    DO igeom = icell, ivert
+      CALL create_distributed_grid_info(p_patch, patch_info%ri(igeom), &
+        &                               lonv, latv, p_coords(igeom)%p, &
+        &                               patch_info%grid_info(igeom), &
+        &                               max_conn(igeom), nblks(igeom), &
+        &                               cf_1_1(igeom)%p)
+    END DO
+!$omp end parallel
+  END SUBROUTINE distribute_all_grid_info
+
+  SUBROUTINE alloc_distributed_grid_info(grid_info, n_own, nconn)
+    TYPE(t_grid_info), INTENT(inout) :: grid_info
+    INTEGER, INTENT(in) :: n_own, nconn
+
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'::alloc_distributed_grid_info'
+    INTEGER :: ierrstat
+
+    ALLOCATE(grid_info%lon(n_own), grid_info%lat(n_own), &
+      &      grid_info%lonv(nconn, n_own), grid_info%latv(nconn, n_own), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+  END SUBROUTINE alloc_distributed_grid_info
+
+  SUBROUTINE create_distributed_grid_info(p_patch, ri, lonv, latv, coordinates,&
+    &                                     grid_info, nconn, nblks, cf_1_1_grid)
+    TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_reorder_info), INTENT(in) :: ri
+    REAL(wp), TARGET, INTENT(inout) :: lonv(:), latv(:)
+    TYPE(t_geographical_coordinates), INTENT(IN) :: coordinates(:,:)
+    TYPE(t_grid_info), INTENT(inout) :: grid_info
+    INTEGER, INTENT(in) :: nconn, nblks
+    INTERFACE
+      SUBROUTINE cf_1_1_grid(p_patch, lonv, latv)
+        USE mo_model_domain, ONLY: t_patch
+        USE mo_kind,         ONLY: wp
+        TYPE(t_patch),      INTENT(IN)    :: p_patch
+        REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
+      END SUBROUTINE cf_1_1_grid
+    END INTERFACE
+
+    CHARACTER(len=*), PARAMETER :: &
+      routine = modname//'::create_distributed_grid_info'
+    INTEGER :: ierrstat, j, n_own, ofs
+    REAL(wp), POINTER :: plonv(:,:,:), platv(:,:,:)
+
+    n_own = ri%n_own
+    plonv(1:nproma, 1:nblks, 1:nconn) => lonv
+    platv(1:nproma, 1:nblks, 1:nconn) => latv
+    CALL cf_1_1_grid(p_patch, plonv, platv)
+!$omp barrier
+    ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lon, grid_info%lon, ofs)
+    ofs = 0 ; CALL ri_cpy_blk2part(ri, coordinates%lat, grid_info%lat, ofs)
+    DO j = 1, nconn
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, plonv(:,:,j), grid_info%lonv(j,:), ofs)
+      ofs = 0 ; CALL ri_cpy_blk2part(ri, platv(:,:,j), grid_info%latv(j,:), ofs)
+    END DO
+!$omp barrier
+  END SUBROUTINE create_distributed_grid_info
+#endif
 
   !------------------------------------------------------------------------------------------------
   !> SUBROUTINE collect_grid_info
@@ -578,7 +700,7 @@ CONTAINS
   !
   SUBROUTINE set_grid_info_grb2(of)
     TYPE (t_output_file), INTENT(INOUT) :: of
-    ! local variables:
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
@@ -1061,7 +1183,7 @@ CONTAINS
   SUBROUTINE write_grid_info_grb2(of, patch_info)
     TYPE (t_output_file), INTENT(INOUT)           :: of
     TYPE(t_patch_info),   INTENT(IN),   TARGET    :: patch_info (:)
-    ! local variables:
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
 
     INTEGER                        :: errstat, idom, igrid, n, idom_log
@@ -1076,19 +1198,31 @@ CONTAINS
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
       DO igrid=1,3
-        n = patch_info(idom_log)%ri(igrid)%n_glb
+#ifdef HAVE_CDI_PIO
+        IF (pio_type == pio_type_cdipio) THEN
+          n = SIZE(patch_info(idom_log)%grid_info(igrid)%lon)
+        ELSE
+#endif
+          n = patch_info(idom_log)%ri(igrid)%n_glb
+#ifdef HAVE_CDI_PIO
+        END IF
+#endif
         ! allocate data buffer:
         ALLOCATE(r_out_dp_1D(n), stat=errstat)
         IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
 
         ! write RLON, RLAT
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) / pi_180
-          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) * rad2deg
+          CALL write_unstruct_grid2var(of%cdiFileID, &
+            of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, &
+            patch_info(idom_log)%ri(igrid))
         END IF
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLAT), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) / pi_180
-          CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) * rad2deg
+          CALL write_unstruct_grid2var(of%cdiFileID, &
+            of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, &
+            patch_info(idom_log)%ri(igrid))
         END IF
 
         ! clean up
@@ -1109,12 +1243,14 @@ CONTAINS
 
       ! write RLON, RLAT
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLON), p_varlist) /= -1) THEN
-        r_out_dp(:,:) = rotated_pts(:,:,1) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), r_out_dp, 0)
+        r_out_dp(:,:) = rotated_pts(:,:,1) * rad2deg
+        CALL write_remap_grid2var(of%cdiFileID, of%cdi_grb2(ILATLON,IRLON), &
+          r_out_dp)
       END IF
       IF (one_of(GRB2_GRID_INFO_NAME(0,IRLAT), p_varlist) /= -1) THEN
-        r_out_dp(:,:) = rotated_pts(:,:,2) / pi_180
-        CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), r_out_dp, 0)
+        r_out_dp(:,:) = rotated_pts(:,:,2) * rad2deg
+        CALL write_remap_grid2var(of%cdiFileID, of%cdi_grb2(ILATLON,IRLAT), &
+          r_out_dp)
       END IF
 
       ! clean up
@@ -1124,6 +1260,76 @@ CONTAINS
     CASE DEFAULT
       CALL finish(routine, "Unsupported grid type.")
     END SELECT
+
+  CONTAINS
+    SUBROUTINE write_unstruct_grid2var(fileid, varid, r_out_dp_1D, ri)
+      INTEGER, INTENT(in) :: fileid, varid
+      REAL(wp), INTENT(in) :: r_out_dp_1d(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: r_out_dp_1d
+#endif
+      TYPE(t_reorder_info), INTENT(in) :: ri
+#ifdef HAVE_CDI_PIO
+      TYPE(extent) :: grid_size_desc, grid_part_desc
+      INTEGER(c_int) :: grid_chunk(2, 3)
+      INTEGER :: i,j
+#endif
+
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        CALL streamWriteVarPart(fileid, varid, r_out_dp_1D(i:j), 0, &
+          &                     ri%reorder_idxlst_xt(1))
+      ELSE
+#endif
+        CALL streamWriteVar(fileid, varid, r_out_dp_1D, 0)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
+    END SUBROUTINE write_unstruct_grid2var
+
+    SUBROUTINE write_remap_grid2var(fileid, varid, r_out_dp)
+      INTEGER, INTENT(in) :: fileid, varid
+      REAL(wp), TARGET, INTENT(in) :: r_out_dp(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: r_out_dp
+#endif
+#ifdef HAVE_CDI_PIO
+      TYPE(extent) :: grid_size_desc(2), grid_part_desc(2)
+      INTEGER(c_int) :: grid_chunk(2, 3)
+      INTEGER :: p(2), q(2), div(2), div2, partx, party, i
+#endif
+
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        div2 = FLOOR(SQRT(REAL(p_n_work)))
+        DO WHILE (div2 > 2)
+          IF (MOD(p_n_work, div2) == 0) EXIT
+          div2 = div2 - 1
+        END DO
+        div(1) = p_n_work / div2
+        div(2) = div2
+        p(1) = MOD(p_pe_work, div(1)) + 1
+        p(2) = p_pe_work / div(1) + 1
+        DO i = 1, 2
+          grid_size_desc(i)%first = 1
+          grid_size_desc(i)%size = SIZE(r_out_dp, i)
+          grid_part_desc(i) = uniform_partition(grid_size_desc(i), div(i), p(i))
+          p(i) = grid_part_desc(i)%first
+          grid_chunk(i,1) = INT(p(i), c_int)
+          q(i) = p(i) + grid_part_desc(i)%size - 1
+          grid_chunk(i,2) = INT(q(i), c_int)
+        END DO
+        grid_chunk(1,3) = 1
+        grid_chunk(2,3) = 1
+        CALL streamWriteVarChunk(fileid, varid, grid_chunk, &
+          &                      r_out_dp(p(1):q(1),p(2):q(2)), 0)
+      ELSE
+#endif
+        CALL streamWriteVar(fileid, varid, r_out_dp, 0)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
+    END SUBROUTINE write_remap_grid2var
 
   END SUBROUTINE write_grid_info_grb2
 ! #endif
