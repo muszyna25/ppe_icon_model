@@ -212,7 +212,7 @@ MODULE mo_initicon_types
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, snow_age,    &
                                              t_mnw_lk, t_wml_lk, h_ml_lk, t_bot_lk, c_t_lk, t_b1_lk, h_b1_lk
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn,                                  &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn, gz0_t,                           &
                                                t_g_t, qv_s_t, freshsnow_t, snowfrac_t, snowfrac_lc_t, w_snow_t,  &
                                                w_i_t, h_snow_t, t_snow_t, rho_snow_t, aerosol, frac_t, plantevap_t
 
@@ -398,6 +398,7 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%w)
     CALL DO_DEALLOCATE(saveinit_data%tke)
     CALL DO_DEALLOCATE(saveinit_data%vn)
+    CALL DO_DEALLOCATE(saveinit_data%gz0_t)
     CALL DO_DEALLOCATE(saveinit_data%t_g_t)
     CALL DO_DEALLOCATE(saveinit_data%qv_s_t)
     CALL DO_DEALLOCATE(saveinit_data%freshsnow_t)

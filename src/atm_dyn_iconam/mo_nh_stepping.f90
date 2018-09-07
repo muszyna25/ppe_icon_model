@@ -1113,7 +1113,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
+    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. .NOT.(jstep == 0 .AND. iau_iter == 1)) THEN
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
         &                  p_patch             = p_patch(1),         &

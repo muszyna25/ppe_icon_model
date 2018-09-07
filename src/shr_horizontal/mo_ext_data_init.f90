@@ -1443,6 +1443,7 @@ CONTAINS
     INTEGER  :: lu_subs, it_count(ntiles_total)
     INTEGER  :: npoints, npoints_sea, npoints_lake
     INTEGER  :: i_lc_water
+    INTEGER, ALLOCATABLE :: icount_falseglac(:)
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
@@ -1485,6 +1486,8 @@ CONTAINS
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
 
+       ALLOCATE(icount_falseglac(p_patch(jg)%nblks_c))
+       icount_falseglac(:) = 0
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
        !
@@ -1708,6 +1711,7 @@ CONTAINS
                    ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_bare_soil
                    ext_data(jg)%atm%fr_glac(jc,jb)     = 0._wp
                    ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp
+                   icount_falseglac(jb) = icount_falseglac(jb) + 1
                  ENDIF
                  !
                  ! b) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
@@ -1944,6 +1948,11 @@ CONTAINS
          WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
          CALL message('', TRIM(message_text))
        ENDDO
+
+       npoints = SUM(icount_falseglac(i_startblk:i_endblk))
+       npoints = global_sum_array(npoints)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of corrected false glacier points in domain',jg,':', npoints
+       CALL message('', TRIM(message_text))
 !$OMP END SINGLE NOWAIT
 
 
@@ -1978,6 +1987,8 @@ CONTAINS
        ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      DEALLOCATE(icount_falseglac)
 
     END DO  !jg
 

@@ -901,6 +901,7 @@ CONTAINS
                 saveinit(jg)%w(nproma,nlevp1,nblks_c),     &
                 saveinit(jg)%tke(nproma,nlevp1,nblks_c),   &
                 saveinit(jg)%vn(nproma,nlev,nblks_e),      &
+                saveinit(jg)%gz0_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%t_g_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%qv_s_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%freshsnow_t(nproma,nblks_c,ntl), &
@@ -957,6 +958,7 @@ CONTAINS
       CALL copy(p_nh(jg)%prog(nnow(jg))%vn, saveinit(jg)%vn)
       CALL copy(p_nh(jg)%prog(nnow_rcf(jg))%tracer, saveinit(jg)%tracer)
 
+      CALL copy(prm_diag(jg)%gz0_t, saveinit(jg)%gz0_t)
       CALL copy(lnd_prog%t_g_t, saveinit(jg)%t_g_t)
       CALL copy(lnd_diag%qv_s_t, saveinit(jg)%qv_s_t)
       CALL copy(lnd_diag%freshsnow_t, saveinit(jg)%freshsnow_t)
@@ -1018,7 +1020,7 @@ CONTAINS
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, ic, je, jb
 
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1055,6 +1057,7 @@ CONTAINS
       CALL copy(saveinit(jg)%vn, p_nh(jg)%prog(nnow(jg))%vn)
       CALL copy(saveinit(jg)%tracer, p_nh(jg)%prog(nnow_rcf(jg))%tracer)
 
+      CALL copy(saveinit(jg)%gz0_t, prm_diag(jg)%gz0_t)
       CALL copy(saveinit(jg)%t_g_t, lnd_prog%t_g_t)
       CALL copy(saveinit(jg)%qv_s_t, lnd_diag%qv_s_t)
       CALL copy(saveinit(jg)%freshsnow_t, lnd_diag%freshsnow_t)
@@ -1119,10 +1122,11 @@ CONTAINS
                   saveinit(jg)%c_t_lk, saveinit(jg)%t_b1_lk, saveinit(jg)%h_b1_lk )
 
       DEALLOCATE (saveinit(jg)%theta_v, saveinit(jg)%rho,saveinit(jg)%exner, saveinit(jg)%w, saveinit(jg)%tke,      &
-                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,               &
-                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                       &
-                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,        &
-                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t)
+                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,                   &
+                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                         &
+                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,          &
+                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t, &
+                  saveinit(jg)%gz0_t)
 
       DEALLOCATE (saveinit(jg)%tracer, saveinit(jg)%w_so_t, saveinit(jg)%w_so_ice_t, saveinit(jg)%t_so_t)
 
@@ -1137,6 +1141,15 @@ CONTAINS
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
       IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
       IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%snow_age)
+
+      ! For the limited-area mode and one-way nesting, we also need to reset grf_tend_vn on the nudging points
+
+      DO ic = 1, p_nh(jg)%metrics%nudge_e_dim
+        je = p_nh(jg)%metrics%nudge_e_idx(ic)
+        jb = p_nh(jg)%metrics%nudge_e_blk(ic)
+        p_nh(jg)%diag%grf_tend_vn(je,:,jb) = 0._wp
+      ENDDO
+
     ENDDO
 
     DEALLOCATE(saveinit)
