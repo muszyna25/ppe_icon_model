@@ -737,6 +737,19 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_remin_of_det_by_S', hamocc_state_moni%remins , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('remin_of_det_by_S', &
+      &          'GtC s-1', &
+      &          'remineralization_of_detritus_by_S', &
+      &          datatype_flt, &
+      &          'remin_of_det_by_S'), &
+      & grib2_var(255, 255, 545, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('remin_of_det_by_S','GtC yr-1','remin_of_det_by_S', &
+      &  datatype_flt)))
+
   END SUBROUTINE 
 
 
@@ -1023,7 +1036,7 @@
       & t_cf_var('co2mr','ppm','co2 mixing ratio', datatype_flt), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.FALSE.)
+      & loutput=.TRUE., lrestart=.FALSE.)
 
 
     CALL add_var(hamocc_tendency_list, 'HAMOCC_co2flux',hamocc_state_tend%cflux,    &
