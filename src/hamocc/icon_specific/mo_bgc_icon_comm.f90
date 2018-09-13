@@ -367,9 +367,9 @@
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
 
              ! tendencies
-             p_tend%sedro2(jc,ks,jb) = sedtend(jc,jk,isremino) 
-             p_tend%sedrn(jc,ks,jb)  = sedtend(jc,jk,isreminn) 
-             p_tend%sedrs(jc,ks,jb)  = sedtend(jc,jk,isremins) 
+             p_tend%sedro2(jc,jk,jb) = sedtend(jc,jk,isremino) 
+             p_tend%sedrn(jc,jk,jb)  = sedtend(jc,jk,isreminn) 
+             p_tend%sedrs(jc,jk,jb)  = sedtend(jc,jk,isremins) 
              
         ENDDO
       ENDIF

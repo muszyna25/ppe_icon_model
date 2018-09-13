@@ -45,6 +45,8 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)
     REAL(wp), POINTER :: ssh_global(:)
+    REAL(wp), POINTER :: sst_global(:)
+    REAL(wp), POINTER :: sss_global(:)
     REAL(wp), POINTER :: potential_enstrophy(:)
     REAL(wp), POINTER :: absolute_vertical_velocity(:)
     REAL(wp), POINTER :: HeatFlux_ShortWave(:)
@@ -65,6 +67,7 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: FrshFlux_Relax(:)
     REAL(wp), POINTER :: TempFlux_Relax(:)
     REAL(wp), POINTER :: SaltFlux_Relax(:)
+    REAL(wp), POINTER :: totalsnowfall(:)
 
     REAL(wp), POINTER :: ice_volume_nh(:)!                                                           [km3]
     REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]

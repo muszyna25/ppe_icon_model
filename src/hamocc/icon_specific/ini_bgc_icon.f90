@@ -3,7 +3,7 @@
 SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
   USE mo_kind, ONLY           : wp, dp
-  USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc
+  USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc, l_init_bgc
   USE mo_exception, ONLY      : message
   USE mo_control_bgc, ONLY    : dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
        &                        ndtrunbgc, ldtrunbgc, bgc_zlevs, bgc_nproma, &
@@ -180,22 +180,19 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
         levels(start_index:end_index) = p_patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
 
+        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
-        IF(l_is_restart)then
+        IF(l_is_restart.and..not.l_init_bgc)then
 
           CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-             &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
+             &jb, p_os%p_prog(nnew(1))%tracer(:,:,jb,:)&
              &,p_as%co2(:,jb)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
-
-          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
          ELSE
 
           CALL ini_aquatic_tracers(start_index,end_index,levels,regions(:,jb))
-
-          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
           CALL ini_pore_water_tracers(start_index,end_index)
 

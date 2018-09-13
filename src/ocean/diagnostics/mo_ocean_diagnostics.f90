@@ -801,12 +801,13 @@ CONTAINS
     !Local variables
     INTEGER :: start_cell_index, end_cell_index,i
     INTEGER :: jk,jc,blockNo!,je
-    REAL(wp):: ssh_global_mean,total_runoff_flux,total_heat_flux, &
-      &        total_fresh_water_flux,total_evaporation_flux, &
+    REAL(wp):: ssh_global_mean,sst_global,sss_global,total_runoff_flux,total_heat_flux, &
+      &        total_fresh_water_flux,total_evaporation_flux, atmos_snowfall_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
-      &        global_mean_potEnstrophy,global_heat_content
-    REAL(wp) :: sflux
+      &        global_mean_potEnstrophy,global_heat_content, &
+      &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
+!   REAL(wp) :: sflux
 
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -855,6 +856,28 @@ CONTAINS
       END IF
       monitor%ssh_global = ssh_global_mean
 
+      ! sea surface temperature
+      sst_global = 0.0_wp
+      IF (isRegistered('sst_global')) THEN
+!       CALL levels_horizontal_mean( p_oce_sfc%sst, &
+        CALL levels_horizontal_mean( tracers(:,1,:,1), &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & sst_global)
+      END IF
+      monitor%sst_global = sst_global
+
+      ! sea surface height
+      sss_global = 0.0_wp
+      IF (isRegistered('sss_global')) THEN
+!       CALL levels_horizontal_mean( p_oce_sfc%sss, &
+        CALL levels_horizontal_mean( tracers(:,1,:,2), &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & sss_global)
+      END IF
+      monitor%sss_global = sss_global
+
       ! total heat flux
       total_heat_flux = 0.0_wp
       IF (isRegistered('HeatFlux_Total_global')) THEN
@@ -894,6 +917,66 @@ CONTAINS
           & total_runoff_flux)
       END IF
       monitor%FrshFlux_Runoff = total_runoff_flux
+
+      ! total (atmospheric) snowfall
+      atmos_snowfall_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_SnowFall_Global')) THEN
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Snowfall, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & atmos_snowfall_flux)
+      END IF
+      monitor%FrshFlux_SnowFall = atmos_snowfall_flux
+
+      ! VolumeIce   
+      VolumeIce_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_VolumeIce_Global')) THEN
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeIce, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & VolumeIce_flux)
+      END IF
+      monitor%FrshFlux_VolumeIce = VolumeIce_flux
+
+      ! TotalOcean   
+      TotalOcean_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_TotalOcean_Global')) THEN
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalOcean, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & TotalOcean_flux)
+      END IF
+      monitor%FrshFlux_TotalOcean = TotalOcean_flux
+
+      ! TotalIce   
+      TotalIce_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_TotalIce_Global')) THEN
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalIce, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & TotalIce_flux)
+      END IF
+      monitor%FrshFlux_TotalIce = TotalIce_flux
+
+      ! VolumeTotal   
+      VolumeTotal_flux = 0.0_wp
+      IF (isRegistered('FrshFlux_VolumeTotal_Global')) THEN
+      call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeTotal, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & VolumeTotal_flux)
+      END IF
+      monitor%FrshFlux_VolumeTotal = VolumeTotal_flux
+
+      ! totalsnowfall   
+      totalsnowfall_flux = 0.0_wp
+      IF (isRegistered('totalsnowfall_Global')) THEN
+      call levels_horizontal_mean( ice%totalsnowfall, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & totalsnowfall_flux)
+      END IF
+      monitor%totalsnowfall = totalsnowfall_flux
 
       ! ice volume and extend
       ice_volume_nh = 0.0_wp
