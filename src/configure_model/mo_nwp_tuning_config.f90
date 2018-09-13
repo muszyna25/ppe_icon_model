@@ -20,6 +20,7 @@
 MODULE mo_nwp_tuning_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: max_dom
 
 
   IMPLICIT NONE
@@ -33,8 +34,12 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zceff_min
   PUBLIC :: tune_v0snow
   PUBLIC :: tune_zvz0i
+  PUBLIC :: tune_icesedi_exp
   PUBLIC :: tune_entrorg
   PUBLIC :: tune_capdcfac_et
+  PUBLIC :: tune_capdcfac_tr
+  PUBLIC :: tune_lowcapefac
+  PUBLIC :: limit_negpblcape
   PUBLIC :: tune_rhebc_land
   PUBLIC :: tune_rhebc_ocean
   PUBLIC :: tune_rcucov
@@ -45,8 +50,10 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_qexc
   PUBLIC :: tune_minsnowfrac
   PUBLIC :: tune_box_liq
+  PUBLIC :: tune_box_liq_asy
   PUBLIC :: tune_dust_abs
   PUBLIC :: itune_albedo
+  PUBLIC :: lcalib_clcov
   PUBLIC :: max_freshsnow_inc
 
 
@@ -58,16 +65,16 @@ MODULE mo_nwp_tuning_config
 
     ! namelist variables
   REAL(wp) :: &                    !< low level wake drag constant
-    &  tune_gkwake
+    &  tune_gkwake(max_dom)
 
   REAL(wp) :: &                    !< gravity wave drag constant
-    &  tune_gkdrag
+    &  tune_gkdrag(max_dom)
 
   REAL(wp) :: &                    !< critical Froude number in SSO scheme
-    &  tune_gfrcrit
+    &  tune_gfrcrit(max_dom)
 
   REAL(wp) :: &                    !< critical Richardson number in SSO scheme
-    &  tune_grcrit
+    &  tune_grcrit(max_dom)
 
   REAL(wp) :: &                    !< total launch momentum flux in each azimuth (rho_o x F_o)
     &  tune_gfluxlaun
@@ -81,11 +88,23 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Terminal fall velocity of ice 
     &  tune_zvz0i
 
+  REAL(wp) :: &                    !< Exponent for density correction of cloud ice sedimentation
+    &  tune_icesedi_exp
+
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  tune_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    &  tune_lowcapefac = 1._wp     ! (relevant only if icapdcycl = 3; not a namelist variable)
+
+  REAL(wp) :: &                    !< Minimum allowed negative PBL cape in diurnal cycle correction
+    &  limit_negpblcape = 0._wp    ! (relevant only if icapdcycl = 3; not a namelist variable)
 
   REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
     &  tune_rhebc_land
@@ -117,6 +136,9 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
+    &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
+
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
 
@@ -124,6 +146,8 @@ MODULE mo_nwp_tuning_config
     &  itune_albedo                ! 1: dimmed Sahara
                                    ! 2: dimmed Sahara and brighter Antarctica
 
+  LOGICAL :: &                     ! cloud cover calibration over land points
+    &  lcalib_clcov
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc

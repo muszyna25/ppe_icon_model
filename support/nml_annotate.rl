@@ -41,38 +41,42 @@ char* terminate_string(struct t_nmldata *data) {
 
 /* traverse val list data structure and print out its contents; compare with defaults */
 void print_val(FILE *out, struct t_val *val, struct t_val *dflt, int* lchanged) {
-  if (val == NULL) return;
-  fprintf(out, "%.*s%s%s%s%s", TRUNCATE_LEN, val->name,
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? " [...]"                        : "",
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? (val->name+strlen(val->name)-1) : "",
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? " (truncated)"                  : "",
-	  (val->next != NULL) ? ", " : "\n"); 
-  struct t_val *dflt_next = dflt;			  
-  if (dflt != NULL) {
-    (*lchanged) = (*lchanged) || (strcmp(val->name, dflt->name) != 0);
-    dflt_next = dflt->next;
+  int lchanged_ = *lchanged;
+  while (val) {
+    fprintf(out, "%.*s%s%s%s%s", TRUNCATE_LEN, val->name,
+            (strlen(val->name) >= TRUNCATE_LEN)  ? " [...]"                        : "",
+            (strlen(val->name) >= TRUNCATE_LEN)  ? (val->name+strlen(val->name)-1) : "",
+            (strlen(val->name) >= TRUNCATE_LEN)  ? " (truncated)"                  : "",
+            (val->next != NULL) ? ", " : "\n");
+    if (dflt != NULL) {
+      lchanged_ |= (strcmp(val->name, dflt->name) != 0);
+      dflt = dflt->next;
+    }
+    val = val->next;
   }
-  print_val(out, val->next, dflt_next, lchanged);
+  *lchanged = lchanged_;
 }
 /* traverse key list and print out key-value pairs (and defaults). */
 void print_key(FILE *out, struct t_key* key) {
-  if (key == NULL) return;
-  fprintf(out, "    %-*s    ", TRUNCATE_LEN, key->name); 
-  int lchanged = 0;
-  print_val(out, key->value, key->dflt, &lchanged);
-  if (lchanged != 0) {
-    lchanged = 0;
-    fprintf(out,"        %*s>> DEFAULT: ", TRUNCATE_LEN, " ");
-    print_val(out, key->dflt, key->dflt, &lchanged);
+  while (key) {
+    fprintf(out, "    %-*s    ", TRUNCATE_LEN, key->name); 
+    int lchanged = 0;
+    print_val(out, key->value, key->dflt, &lchanged);
+    if (lchanged != 0) {
+      lchanged = 0;
+      fprintf(out,"        %*s>> DEFAULT: ", TRUNCATE_LEN, " ");
+      print_val(out, key->dflt, key->dflt, &lchanged);
+    }
+    key = key->next;
   }
-  print_key(out, key->next);
 }
 /* traverse namelist data structure and print out its contents. */
 void print_nml(FILE *out, struct t_nml* nml) {
-  if (nml == NULL) return;
-  fprintf(out, "\nNAMELIST %s\n", nml->name); 
-  print_key(out, nml->key_list);
-  print_nml(out, nml->next);
+  while (nml) {
+    fprintf(out, "\nNAMELIST %s\n", nml->name);
+    print_key(out, nml->key_list);
+    nml = nml->next;
+  }
 }
 
 /* --------------------------------------------------------------------- *

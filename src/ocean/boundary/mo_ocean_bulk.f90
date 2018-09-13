@@ -68,7 +68,7 @@ USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_ocean_types,         ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: als, alv, tmelt, tf, mu, clw, albedoW_sim, rhos, stbo, zemiss_def
+USE mo_physical_constants,  ONLY: als, alv, tmelt, tf, mu, clw, rhos, stbo, zemiss_def
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -76,7 +76,7 @@ USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
 USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
 USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce
-USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
+USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo, albedoW_sim
 USE mo_time_config,         ONLY: time_config
 
   USE mtime,                ONLY: datetime, &

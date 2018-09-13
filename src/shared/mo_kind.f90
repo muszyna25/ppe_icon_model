@@ -51,6 +51,7 @@ MODULE mo_kind
   INTEGER, PARAMETER :: sp = SELECTED_REAL_KIND(ps,rs) !< single precision
   INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(pd,rd) !< double precision
   !
+  INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(32)
   INTEGER, PARAMETER :: wp = dp                        !< selected working precision
   !
 #ifdef __MIXED_PRECISION

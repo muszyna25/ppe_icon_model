@@ -106,7 +106,6 @@ IF (LHOOK) CALL DR_HOOK('VDFTHERMO',0,ZHOOK_HANDLE)
 LLKNMI = .FALSE.
 !LLKNMI = .TRUE.
 
-!write(0,*) RETV
 
 !-- KNMI LES constants ---
 tmelt  = 273.16_JPRB   !RTT   = 273.16
@@ -150,7 +149,7 @@ DO l=1,liter
     qs  = qsl*(1._JPRB+b1*qttemp)/(1._JPRB+b1*qsl)
   
   ELSE
-  
+
     !-- using ECMWF constants --  
     es  = R2ES*exp(R3LES*(tl-RTT)/(tl-R4LES))
     qsl = es/(pf-RETV*es)

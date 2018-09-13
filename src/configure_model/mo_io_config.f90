@@ -62,6 +62,8 @@ MODULE mo_io_config
     &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.
     &        netcdf_dict                !< maps internal variable names onto names in output file (NetCDF only).
 
+  LOGICAL :: linvert_dict               !< inverts columns in output_nml_dict (allows using the same dictionary file as for input)
+
   LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
                                         !  is written in 64-bit instead of 32-bit accuracy
 

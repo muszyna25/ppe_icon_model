@@ -38,7 +38,7 @@ MODULE mo_nwp_conv_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_run_config,           ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy
-  USE mo_physical_constants,   ONLY: grav, alf, cvd
+  USE mo_physical_constants,   ONLY: grav, alf, cvd, cpd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -85,7 +85,6 @@ CONTAINS
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
 
     REAL(wp) :: z_omega_p(nproma,p_patch%nlev) !< vertical velocity in p-system
     REAL(wp) :: z_plitot (nproma,p_patch%nlev) !< cloud water + cloud ice
@@ -102,11 +101,10 @@ CONTAINS
     INTEGER  :: jk,jc,jb,jg                !< block indeces
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
-    REAL(wp) :: ticeini, lfocvd, wfac
+    REAL(wp) :: ticeini, lfocvd, wfac, cpdocvd
     INTEGER  :: iqrd, iqsd
 
     ! local variables related to the blocking
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
     ! number of vertical levels
@@ -117,10 +115,11 @@ CONTAINS
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     lfocvd  = alf/cvd
+    cpdocvd = cpd/cvd
     ticeini = 258.15_wp
 
     ! IDs for optional arguments for detrainment of rain and snow
@@ -217,12 +216,11 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
-        IF ( atm_phy_nwp_config(jg)%inwp_turb /= iedmf ) THEN ! DUALM is allow to turn of shallow convection
-          DO jc = i_startidx,i_endidx
-            prm_diag%ldshcv(jc,jb) = .TRUE.
+        IF ( atm_phy_nwp_config(jg)%inwp_turb /= iedmf ) THEN ! DUALM is allowed to turn off shallow convection
+          DO jc = i_startidx,i_endidx                         ! ldshcv is set in mo_nwp_turb_sfc_interface.f90
+            prm_diag%ldshcv(jc,jb) = .TRUE.                   ! here: option to overwrite DUALM choice
           ENDDO
         ENDIF
-
 
         IF(art_config(jg)%nconv_tracer > 0) THEN
           CALL cumastrn &
@@ -230,7 +228,7 @@ CONTAINS
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
-&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
+&            phy_params = phy_params(jg),trop_mask=prm_diag%tropics_mask(:,jb),& !! IN
 &            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
@@ -279,7 +277,7 @@ CONTAINS
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
-&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
+&            phy_params = phy_params(jg),trop_mask=prm_diag%tropics_mask(:,jb),& !! IN
 &            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
@@ -323,10 +321,10 @@ CONTAINS
 
         ! Postprocessing on some fields
 
-
+        ! Conversion from temperature tendencies at constant pressure to constant volume is now done here
         prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =  &
-          &    z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
-          &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):)
+          &  ( z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
+          &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):) ) * cpdocvd
 
         prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
           &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
@@ -347,6 +345,7 @@ CONTAINS
             ENDIF
           ENDDO
         ENDDO
+
 
         ! convective contribution to wind gust
         ! (based on simple parameterization by Peter Bechthold)

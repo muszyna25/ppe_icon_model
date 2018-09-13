@@ -40,14 +40,12 @@ MODULE mo_ocean_output
     & t_hydro_ocean_prog
   USE mo_ocean_state,              ONLY: ocean_restart_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
+    & destruct_oce_diagnostics, calc_moc, calc_psi
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -57,11 +55,6 @@ MODULE mo_ocean_output
   USE mo_ocean_statistics
   USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
-  USE mo_hamocc_statistics
-  USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_acc, t_hamocc_tend
-  USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
-  USE mo_hamocc_diagnostics,     ONLY: get_monitoring 
- 
   IMPLICIT NONE
 
   PRIVATE
@@ -86,7 +79,6 @@ CONTAINS
     & this_datetime,   &
     & surface_fluxes,  &
     & sea_ice,         &
-    & hamocc,          &
     & jstep, jstep0,   &
     & force_output)
 
@@ -96,7 +88,6 @@ CONTAINS
     TYPE(t_ocean_surface)                            :: surface_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
-    TYPE(t_hamocc_state), TARGET, INTENT(inout)      :: hamocc
     LOGICAL, OPTIONAL                                :: force_output
    
     ! local variables
@@ -135,90 +126,28 @@ CONTAINS
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-    CALL calc_slow_oce_diagnostics( patch_3d       , &
-      &                             ocean_state(jg), &
-      &                             surface_fluxes      , &
-      &                             sea_ice          , &
-      &                             jstep-jstep0   , &
-      &                             this_datetime) ! , &
+   !CALL calc_slow_oce_diagnostics( patch_3d       , &
+   !  &                             ocean_state(jg), &
+   !  &                             surface_fluxes      , &
+   !  &                             sea_ice          , &
+   !  &                             jstep-jstep0   , &
+   !  &                             this_datetime) ! , &
           ! &                             oce_ts)
-    ! compute mean values for output interval
-    !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
-    !TODO [ram] nsteps_since_last_output =
-    !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
   
-    CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,surface_fluxes,nsteps_since_last_output)
-    CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
-  
-    IF(lhamocc)THEN
-      CALL compute_mean_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
-      CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
-    ENDIF
+!   IF (diagnostics_level > 0 ) THEN
+!     IF (no_tracer>=2) THEN
+!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
+!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
+!     ENDIF
+!   ENDIF
 
-    IF (diagnostics_level > 0 ) THEN
-      IF (no_tracer>=2) THEN
-!         CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
-        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
-      ENDIF
-    ENDIF
-
-   ! set the output variable pointer to the correct timelevel
-    CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-    IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
- 
     IF (output_mode%l_nml) CALL write_name_list_output(out_step)
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
     CALL message (TRIM(routine),message_text)
-  
-    ! reset accumulation vars
-    CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,surface_fluxes,nsteps_since_last_output)
-    IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
-
-    IF(lhamocc)CALL reset_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
-        
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
-    INTEGER, INTENT(in) :: timelevel
-    TYPE(t_hydro_ocean_diag) :: p_diag
-    TYPE(t_hydro_ocean_prog) :: p_prog
-
-    TYPE(t_list_element), POINTER :: output_var => NULL()
-    TYPE(t_list_element), POINTER :: prog_var   => NULL()
-    CHARACTER(LEN=max_char_length) :: timelevel_str
-    !-------------------------------------------------------------------------
-    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
-    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
-
-    !CALL print_var_list(ocean_restart_list)
-    !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
-    !output_var             => find_list_element(ocean_restart_list,'h')
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
-    p_diag%h               =  p_prog%h
-
-    !output_var             => find_list_element(ocean_restart_list,'vn')
-    !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
-!     p_diag%vn(:,:,:)       =  p_prog%vn
-
-    !output_var             => find_list_element(ocean_restart_list,'t')
-    !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
-    IF(no_tracer>0)p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
-
-    !output_var             => find_list_element(ocean_restart_list,'s')
-    !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
-     IF(no_tracer>1)p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
-  END SUBROUTINE set_output_pointers
 
 END MODULE mo_ocean_output

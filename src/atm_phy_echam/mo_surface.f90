@@ -206,8 +206,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(IN)    :: rsus     (kbdim)           ! IN upward surface shortwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: rsns_tile(kbdim,ksfc_type) ! shortwave net flux at surface on tiles
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: rlns_tile(kbdim,ksfc_type) ! longwave net flux at surface on tiles
     REAL(wp),OPTIONAL,INTENT(OUT)   :: lake_ice_frc(kbdim)        ! fraction of ice on lakes
     !! Sea ice
     INTEGER,          INTENT(IN)    :: kice ! Number of ice thickness classes
@@ -250,7 +250,8 @@ CONTAINS
       & rvds(kbdim), rnds(kbdim), rpds(kbdim),                     &
       & rsns(kbdim), rlns(kbdim), fract_par_diffuse(kbdim),        &
       & zalbvis(kbdim), zalbnir(kbdim),                            &
-      & zalbedo_lwtr(kbdim), zalbedo_lice(kbdim)
+      & zalbedo_lwtr(kbdim), zalbedo_lice(kbdim),                  &
+      & zwindspeed_lnd(kbdim), zwindspeed10m_lnd(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type)
 
@@ -335,6 +336,11 @@ CONTAINS
     zcs(1:kproma,:) = 1._wp
 
     !===========================================================================
+    ! all surfaces
+    !===========================================================================
+    rlns_tile(:,:) = 0._wp
+    rsns_tile(:,:) = 0._wp
+    !===========================================================================
     ! Land surface
     !===========================================================================
     
@@ -366,6 +372,10 @@ CONTAINS
       ztsfc_lice(:)        = 0._wp
       z0m_tile(:,idx_lnd)  = 0._wp
 
+      zwindspeed_lnd(:)        = 0._wp
+      zwindspeed_lnd(1:kproma) = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2)
+      zwindspeed10m_lnd(:)     = 0.8_wp * zwindspeed_lnd(:)
+
       WHERE (rpds(1:kproma) > 0._wp)
         fract_par_diffuse(1:kproma) = rpds_dif(1:kproma) / rpds(1:kproma)
       ELSE WHERE
@@ -378,9 +388,8 @@ CONTAINS
           & q_air             = pq(1:kproma),                                              & ! in
           & rain              = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
           & snow              = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
-          & wind_air          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
-          ! @todo: use real 10m wind
-          & wind_10m          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
+          & wind_air          = zwindspeed_lnd(1:kproma),                                  & ! in
+          & wind_10m          = zwindspeed10m_lnd(1:kproma),                               & ! in
           & lw_srf_down       = rlds(1:kproma),                                            & ! in
           & swvis_srf_down    = rvds(1:kproma),                                            & ! in
           & swnir_srf_down    = rnds(1:kproma),                                            & ! in
@@ -447,9 +456,8 @@ CONTAINS
           & q_air             = pq(1:kproma),                                              & ! in
           & rain              = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
           & snow              = pssfl(1:kproma) + pssfc(1:kproma),                         & ! in
-          & wind_air          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in
-          ! @todo: use real 10m wind
-          & wind_10m          = SQRT(pu(1:kproma)**2 + pv(1:kproma)**2),                   & ! in, temporary
+          & wind_air          = zwindspeed_lnd(1:kproma),                                  & ! in
+          & wind_10m          = zwindspeed10m_lnd(1:kproma),                               & ! in
           & lw_srf_down       = rlds(1:kproma),                                            & ! in
           & swvis_srf_down    = rvds(1:kproma),                                            & ! in
           & swnir_srf_down    = rnds(1:kproma),                                            & ! in

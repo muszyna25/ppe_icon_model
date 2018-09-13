@@ -1,0 +1,44 @@
+machine|mistral|
+builder|MISTRAL_gcc|--with-fortran=gcc|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_intel|--with-fortran=intel|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp|Active
+builder|MISTRAL_intel17|--with-fortran=intel17|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_intel17_hybrid|--with-fortran=intel17 --with-openmp|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_intel17_openmp|--with-fortran=intel17 --without-mpi --with-openmp|Active
+builder|MISTRAL_nag|--with-fortran=nag|Inactive
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|Inactive
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+builder|MISTRAL_ocean_intel17|--with-fortran=intel17 --with-openmp --with-flags=ocean|Active
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.atm_memLog_MPIENV|cpu_time=00:10:00 no_of_nodes=8
+experiment|checksuite.infrastructure/memLog/exp.oce_memLog|cpu_time=00:10:00 no_of_nodes=8
+machine|breeze|
+builder|BREEZE_gcc|--with-fortran=gcc|Inactive
+builder|BREEZE_gcc_openmp|--with-fortran=gcc --with-openmp|Inactive
+builder|BREEZE_intel|--with-fortran=intel|Inactive
+builder|BREEZE_intel_openmp|--with-fortran=intel --with-openmp|Inactive
+builder|BREEZE_nag|--with-fortran=nag|Inactive
+machine|daint|
+builder|DAINT_CPU_cce|--with-fortran=cray --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Inactive
+builder|DAINT_GPU_cce|--with-fortran=cray_gpu --without-grib_api --disable-jsbach --disable-ocean --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|Inactive
+machine|dwd_cray|
+builder|DWD_cray|--with-fortran=cray|Inactive

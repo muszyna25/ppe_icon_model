@@ -68,7 +68,7 @@ CONTAINS
     &                             p_metrics, p_diag, p_dtime, k_step,      &
     &                             lcoupled_rho )
 
-    TYPE(t_patch),      INTENT(IN)   :: p_patch
+    TYPE(t_patch),      INTENT(INOUT):: p_patch
     TYPE(t_int_state),  INTENT(IN)   :: p_int
     TYPE(t_nh_prog),    INTENT(IN)   :: p_prog_now
     TYPE(t_nh_prog),    INTENT(INOUT):: p_prog_new

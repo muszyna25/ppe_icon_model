@@ -84,7 +84,7 @@ MODULE mo_cumaster
   !KF
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
-    & lmfdd    ,lmfdudv, rdepths   ,lmfit                       ,&
+    & lmfdd    ,lmfdudv            ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
@@ -99,7 +99,7 @@ MODULE mo_cumaster
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
   USE mo_nwp_parameters,  ONLY: t_phy_params
-  USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et
+  USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et, tune_capdcfac_tr, tune_lowcapefac, limit_negpblcape
   USE mo_fortran_tools,   ONLY: t_ptr_tracer
 
   IMPLICIT NONE
@@ -115,7 +115,7 @@ CONTAINS
 SUBROUTINE cumastrn &
  & (  kidia,    kfdia,    klon,   ktdia,   klev, &
  & ldland, ldlake, ptsphy, phy_params, k950,     &
- & capdcfac, mtnmask,  paer_ss,                  &
+ & trop_mask, mtnmask,  paer_ss,                 &
  & pten,     pqen,     puen,     pven, plitot,   &
  & pvervel,  pqhfl,    pahfs,                    &
  & pap,      paph,     pgeo,     pgeoh,          &
@@ -320,7 +320,7 @@ LOGICAL           ,INTENT(in)    :: ldland(klon)
 LOGICAL           ,INTENT(in)    :: ldlake(klon)
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
 TYPE(t_phy_params),INTENT(in)    :: phy_params
-REAL(KIND=jprb)   ,INTENT(in)    :: capdcfac(klon)
+REAL(KIND=jprb)   ,INTENT(in)    :: trop_mask(klon)
 REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 !KF
 REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
@@ -569,7 +569,7 @@ CALL cuinin &
 
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
-  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, phy_params%rdepths, &
   & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
@@ -605,7 +605,7 @@ DO jk=MAX(ktdia,phy_params%kcon2),klev
     IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
       ZDZ=(PAPH(JL,JK+1)-PAPH(JL,JK))
       zdhpbl(jl)=zdhpbl(jl)+(rlvtt*ptenq(jl,jk)+rcpd*ptent(jl,jk))*zdz
-      zcappbl(jl)=zcappbl(jl)+(ptent(jl,jk)+retv*ptenq(jl,jk))*zdz
+      zcappbl(jl)=zcappbl(jl)+(ptent(jl,jk)+retv*pten(jl,jk)*ptenq(jl,jk))*zdz
     ENDIF
   ENDDO
 ENDDO
@@ -629,7 +629,7 @@ DO jl=kidia,kfdia
     ikb=kcbot(jl)
     itopm2=ictop0(jl)
     zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-    IF (zpbmpt >= rdepths) THEN
+    IF (zpbmpt >= phy_params%rdepths) THEN
       ktype(jl)=1
     ELSE
       ktype(jl)=2
@@ -749,8 +749,8 @@ DO jl=kidia,kfdia
     ikb=kcbot(jl)
     itopm2=kctop(jl)
     zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-    IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
-    IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+    IF(ktype(jl) == 1.AND.zpbmpt < phy_params%rdepths) ktype(jl)=2
+    IF(ktype(jl) == 2.AND.zpbmpt >= phy_params%rdepths) ktype(jl)=1
     ! Reset to deep convection for extreme CAPE values
     IF(pcape(jl) > zcapethresh) ktype(jl) = 1
     ictop0(jl)=kctop(jl)
@@ -799,7 +799,7 @@ IF(lmfdd) THEN
     & zmfub,    zrfl,&
     & ztd,      zqd,&
     & pmfd,     zmfds,    zmfdq,    zdmfdp,&
-    & idtop,    llddraf )
+    & idtop,    llddraf, ldland,   ldlake )
 
 !*            (B)  DETERMINE DOWNDRAFT T,Q AND FLUXES IN 'CUDDRAF'
 !                  -----------------------------------------------
@@ -860,11 +860,11 @@ DO jl = kidia, kfdia
     ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
     llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
     IF (llo1 .AND. ldland(jl)) THEN
-      ! Use PBL CAPE for diurnal cycle correction in the tropics and a fraction of it 
-      ! to reduce excessive precipitation maxima over small-scale mountain peaks
-      zcapefac = tune_capdcfac_et*MIN(1._jprb,MAX(0._jprb,(pcape(jl)-100._jprb)/300._jprb))
-      zcapdcycl(jl) = (capdcfac(jl)*zcappbl(jl) + MAX(0._jprb,zcapefac+mtnmask(jl)-capdcfac(jl)) * &
-        MAX(0._jprb,zcappbl(jl)) ) * ztau(jl)*phy_params%tau0
+      ! Use PBL CAPE for diurnal cycle correction, including a reduction term for low-CAPE situations
+      ! and an increased correction over small-scale mountain peaks to reduce excessive precipitation maxima
+      zcapefac = (tune_capdcfac_et*(1._jprb-trop_mask(jl)) + tune_capdcfac_tr*trop_mask(jl)) *      &
+                 MIN(1._jprb,MAX(0._jprb,(tune_lowcapefac*pcape(jl)-100._jprb)/300._jprb))
+      zcapdcycl(jl) = (zcapefac+mtnmask(jl))*MAX(limit_negpblcape,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
@@ -1014,8 +1014,8 @@ IF(lmfit) THEN
       ikb=kcbot(jl)
       itopm2=kctop(jl)
       zpbmpt=paph(jl,ikb)-paph(jl,itopm2)
-      IF(ktype(jl) == 1.AND.zpbmpt < rdepths) ktype(jl)=2
-      IF(ktype(jl) == 2.AND.zpbmpt >= rdepths) ktype(jl)=1
+      IF(ktype(jl) == 1.AND.zpbmpt < phy_params%rdepths) ktype(jl)=2
+      IF(ktype(jl) == 2.AND.zpbmpt >= phy_params%rdepths) ktype(jl)=1
       ! Reset to deep convection for extreme CAPE values
       IF(pcape(jl) > zcapethresh) ktype(jl) = 1
     ENDIF
@@ -1130,7 +1130,7 @@ CALL cuflxn &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
   & phy_params%rhebc_land, phy_params%rhebc_ocean, phy_params%rcucov, &
   & phy_params%rhebc_land_trop, phy_params%rhebc_ocean_trop, &
-  & phy_params%rcucov_trop, phy_params%lmfdsnow, capdcfac,   &
+  & phy_params%rcucov_trop, phy_params%lmfdsnow, trop_mask,   &
   & ptsphy,  pten,     pqen,     pqsen,    ztenh,    zqenh,&
   & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
   & kcbot,    kctop,    idtop,    itopm2,&

@@ -94,9 +94,6 @@ MODULE mo_timer
   PUBLIC :: timer_car , timer_mox
   PUBLIC :: timer_wmo
   !
-  ! jsbach
-  PUBLIC :: timer_jsbach
-  !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
   PUBLIC :: timer_lrtm, timer_srtm
@@ -139,7 +136,7 @@ MODULE mo_timer
   PUBLIC :: timer_model_init, timer_init_latbc
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
-  PUBLIC :: timer_upd_phys, timer_upd_flx
+  PUBLIC :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
@@ -151,7 +148,6 @@ MODULE mo_timer
   PUBLIC :: timer_intrp_diagn
   PUBLIC :: timer_step_2tl_si
   PUBLIC :: timer_prep_echam_phy
-  PUBLIC :: timer_prep_jsbach
   PUBLIC :: timer_prep_phy
   PUBLIC :: timer_prep_tracer_leapfrog
   PUBLIC :: timer_prep_tracer
@@ -193,6 +189,9 @@ MODULE mo_timer
   PUBLIC :: timer_write_restart_setup
   PUBLIC :: timer_restart_collector_setup
   PUBLIC :: timer_restart_indices_setup
+
+  ! Timer for data assimilation
+  PUBLIC :: timer_datass, timer_lhn
 
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
@@ -302,9 +301,6 @@ MODULE mo_timer
   INTEGER :: timer_car , timer_mox
   INTEGER :: timer_wmo
   !
-  ! jsbach
-  INTEGER :: timer_jsbach
-  !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
@@ -319,7 +315,7 @@ MODULE mo_timer
   INTEGER :: timer_model_init, timer_init_latbc
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
-  INTEGER :: timer_upd_phys, timer_upd_flx
+  INTEGER :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
   INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
@@ -331,7 +327,6 @@ MODULE mo_timer
   INTEGER :: timer_intrp_diagn
   INTEGER :: timer_step_2tl_si
   INTEGER :: timer_prep_echam_phy
-  INTEGER :: timer_prep_jsbach
   INTEGER :: timer_prep_phy
   INTEGER :: timer_prep_tracer_leapfrog
   INTEGER :: timer_prep_tracer
@@ -373,6 +368,9 @@ MODULE mo_timer
   INTEGER :: timer_write_restart_setup
   INTEGER :: timer_restart_collector_setup
   INTEGER :: timer_restart_indices_setup
+
+  ! Data assimilation
+  INTEGER :: timer_datass, timer_lhn
 
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
@@ -604,9 +602,6 @@ CONTAINS
        !
     END IF
     !
-    ! jsbach
-    timer_jsbach = new_timer("jsbach")
-    !
     ! radiation
     timer_rrtm_prep = new_timer("rrtm_prep")
     timer_rrtm_post = new_timer("rrtm_post")
@@ -641,7 +636,6 @@ CONTAINS
     timer_phys_sync_ddt_u  = new_timer("phys_sync_ddt_u")
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
-    timer_prep_jsbach = new_timer("prep_jsbach")
     timer_prep_phy = new_timer("prep_phy")
 
     timer_update_prog_phy = new_timer("update_prog_phy")
@@ -672,6 +666,7 @@ CONTAINS
     timer_solve_ab      = new_timer("solve_ab")
     timer_upd_phys      = new_timer("upd_phys_param")
     timer_upd_flx       = new_timer("upd_flx")
+    timer_calc_moc      = new_timer("calc_moc")
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_tracer_ab     = new_timer("tracer_ab")
@@ -745,6 +740,10 @@ CONTAINS
     timer_restart_indices_setup = new_timer("write_restart_indices")
     timer_restart_collector_setup = new_timer("write_restart_collectors")
 
+
+    ! Timer for data assimilation
+    timer_datass  = new_timer("datass")
+    timer_lhn     = new_timer("lhn")
 
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")

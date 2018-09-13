@@ -130,7 +130,7 @@ MODULE mo_meteogram_output
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag
-  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
@@ -144,7 +144,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
-  USE mo_lnd_nwp_config,        ONLY: tiles
+  USE mo_lnd_nwp_config,        ONLY: tile_list, ntiles_total, ntiles_water
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs,               &
     &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
@@ -196,7 +196,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
 
-  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water) 
+  INTEGER :: ntiles_mtgrm          ! total number of tiles (ntiles_total + ntiles_water) 
                                    ! if NWP tiles are set up
                                    ! 1 otherwise
 
@@ -401,7 +401,7 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
   SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, p_nh_state, &
-    &                                  prm_diag, p_lnd_state, jg)
+    &                                  prm_diag, p_lnd_state, prm_nwp_tend, jg)
     ! station data from namelist
     TYPE(t_meteogram_output_config),     INTENT(IN) :: meteogram_config
     ! atmosphere external data
@@ -412,6 +412,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag), INTENT(IN), OPTIONAL      :: prm_diag
     ! model state for the NWP land physics
     TYPE(t_lnd_state), TARGET,           INTENT(IN) :: p_lnd_state
+    ! model state of physics tendencies
+    TYPE(t_nwp_phy_tend),                INTENT(IN) :: prm_nwp_tend 
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
 
@@ -443,6 +445,17 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "U", "m/s", "zonal wind", jg, diag%u(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "W", "m/s", "orthogonal vertical wind", jg, prog%w(:,:,:))
+
+    ! add some output for turbulence diagnostic
+    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKE", "m^2/s^2", "turbulent kinetic energy", &
+      & jg, prog%tke(:,:,:) )
+
+    IF ( .NOT. atm_phy_nwp_config(jg)%is_les_phy ) THEN
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_hsh", "m^2/s^3", &
+        &     "TKE tendency horizonzal shear production", jg, prm_nwp_tend%ddt_tke_hsh )
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "ddt_tke_pconv", "m^2/s^3",&
+        &     "TKE tendency due to subgrid-scale convection", jg, prm_nwp_tend%ddt_tke_pconv )
+    END IF
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
@@ -574,6 +587,12 @@ CONTAINS
       &              jg, prm_diag%v_10m(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VBMAX10M", "m/s", "gust in 10m", &
       &              jg, prm_diag%gust10(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "dyn_gust", "m/s", "dynamical gust", &
+      &              jg, prm_diag%dyn_gust(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "con_gust", "m/s", "convective gust", &
+      &              jg, prm_diag%con_gust(:,:))
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "cape_ml", "J/kg", "cape of mean surface layer parcel", &
+      &              jg, prm_diag%cape_ml(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
@@ -603,6 +622,12 @@ CONTAINS
       &              jg, prm_diag%clcm(:,:))
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
       &              jg, prm_diag%clch(:,:))
+
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "hbas_con", "m", "height of convective cloud base",&
+      &              jg, prm_diag%hbas_con(:,:))
+
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "htop_con", "m", "height of convective cloud top",&
+      &              jg, prm_diag%htop_con(:,:))
 
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "UMFL_S", "N m-2", "u-momentum flux at the surface", &
       &              jg, prm_diag%umfl_s(:,:))
@@ -639,6 +664,8 @@ CONTAINS
         &              jg, prm_diag%lwflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "FRAC_T", "-", "tile fractions (time dependent)", &
         &              jg, ext_data%atm%frac_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "snowfrac_t", "%", &
+        &   "local tile-based snow-cover fraction",  jg, p_lnd_diag%snowfrac_t(:,:,:))
     ENDIF
 
     ! -- vertical integrals
@@ -765,7 +792,7 @@ CONTAINS
   !!
   SUBROUTINE meteogram_init(meteogram_output_config, jg,     &
     &                       ptr_patch, ext_data, p_nh_state, &
-    &                       prm_diag, p_lnd_state, iforcing, &
+    &                       prm_diag, p_lnd_state, prm_nwp_tend, iforcing, &
     &                       grid_uuid, number_of_grid_used)
     ! station data from namelist
     TYPE(t_meteogram_output_config), INTENT(INOUT) :: meteogram_output_config
@@ -781,6 +808,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag),      INTENT(IN), OPTIONAL  :: prm_diag
     ! model state for the NWP land physics
     TYPE(t_lnd_state), TARGET, INTENT(IN), OPTIONAL  :: p_lnd_state
+    ! model state for physics tendencies
+    TYPE(t_nwp_phy_tend),      INTENT(IN), OPTIONAL :: prm_nwp_tend 
     ! parameterized forcing (right hand side) of dynamics, affects
     ! topography specification, see "mo_extpar_config"
     INTEGER,                   INTENT(IN), OPTIONAL :: iforcing
@@ -811,30 +840,33 @@ CONTAINS
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
-    LOGICAL                            :: l_my_process_is_mpi_workroot
+    LOGICAL                            :: is_io, is_mpi_workroot, is_mpi_test
+    INTEGER                            :: world_rank
 
-    l_my_process_is_mpi_workroot = my_process_is_mpi_workroot()
+    is_io = my_process_is_io()
+    is_mpi_workroot = my_process_is_mpi_workroot()
+    is_mpi_test = my_process_is_mpi_test()
+    world_rank = get_my_mpi_all_id()
     !-- define the different roles in the MPI communication inside
     !-- this module
+
 
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
     mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
       &                   my_process_is_work() .AND. &
-      &                   l_my_process_is_mpi_workroot .AND.  &
-      &             .NOT. my_process_is_mpi_test()
+      &                   is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
-    mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &
-      &                   my_process_is_io()
+    mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND. is_io
 
     io_collector_rank = -1
     IF (process_mpi_io_size > 0) THEN
 
       ! determine rank of last I/O PE
-      IF (my_process_is_io()) THEN
+      IF (is_io) THEN
         IF (p_comm_rank(p_comm_io) == p_comm_size(p_comm_io) - 1) THEN
-          io_collector_rank = get_my_mpi_all_id()
+          io_collector_rank = world_rank
         END IF
       END IF
 
@@ -844,12 +876,14 @@ CONTAINS
     meteogram_output_config%io_proc_id = io_collector_rank
 
     ! Flag. True, if this PE collects data from (other) working PEs
-    mtgrm(jg)%l_is_collecting_pe  = (.NOT. meteogram_output_config%ldistributed)   &
-      &            .AND.  ( ((process_mpi_io_size == 0)  .AND.           &
-      &                      l_my_process_is_mpi_workroot .AND.          &
-      &                      (p_n_work > 1) )                            &
-      &               .OR.  (mtgrm(jg)%l_pure_io_pe .AND.                &
-      &                     (get_my_mpi_all_id() == io_collector_rank)) )
+    mtgrm(jg)%l_is_collecting_pe                                             &
+      &    =       (.NOT. meteogram_output_config%ldistributed)              &
+      &      .AND. (.NOT. is_mpi_test)                          &
+      &      .AND. (     ((process_mpi_io_size == 0)                         &
+      &                   .AND. is_mpi_workroot                              &
+      &                   .AND. (p_n_work > 1) )                             &
+      &             .OR. (mtgrm(jg)%l_pure_io_pe                             &
+      &                   .AND. (world_rank == io_collector_rank)))
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (process_mpi_io_size == 0) THEN
@@ -864,7 +898,8 @@ CONTAINS
     IF (.NOT. mtgrm(jg)%l_pure_io_pe .AND. &
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
       &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
-      &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing)) )) THEN
+      &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing))   .OR.  &    
+      &  (.NOT. PRESENT(prm_nwp_tend))   )   )                THEN
       CALL finish (routine, 'Missing argument(s)!')
     END IF
 
@@ -876,11 +911,13 @@ CONTAINS
       CALL finish (routine, 'I/O PE Missing argument(s)!')
     ENDIF
 
-    IF (ALLOCATED(tiles)) THEN
-      ntiles_mtgrm = SIZE(tiles)
+
+    IF (ALLOCATED(tile_list%tile)) THEN
+      ntiles_mtgrm = ntiles_total + ntiles_water
     ELSE
       ntiles_mtgrm = 1
     ENDIF
+
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
 
@@ -966,7 +1003,7 @@ CONTAINS
 
         DO jc=i_startidx,i_endidx
           istation = istation + 1
-          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = get_my_mpi_all_id()
+          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = world_rank
         END DO
       END DO
 
@@ -1017,7 +1054,8 @@ CONTAINS
 
     ! set up list of variables:
     IF (.NOT. mtgrm(jg)%l_pure_io_pe) THEN
-      CALL meteogram_setup_variables(meteogram_output_config, ext_data, p_nh_state, prm_diag, p_lnd_state, jg)
+      CALL meteogram_setup_variables(meteogram_output_config, ext_data, p_nh_state, prm_diag,&
+           &  p_lnd_state, prm_nwp_tend, jg)
 
       IF (mtgrm(jg)%l_is_varlist_sender) THEN
         CALL p_pack_int(FLAG_VARLIST_END, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
@@ -1064,7 +1102,7 @@ CONTAINS
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
       ENDIF
 
-      my_id = get_my_mpi_all_id()
+      my_id = world_rank
       istation = 0
       DO jb=1,nblks
         i_startidx = 1
@@ -1253,14 +1291,15 @@ CONTAINS
     ! ------------------------------------------------------------
 
     ! Flag. True, if this PE sends data to a collector via MPI
-    mtgrm(jg)%l_is_sender   = (.NOT. meteogram_output_config%ldistributed) .AND.  &
-      &              .NOT. mtgrm(jg)%l_is_collecting_pe                    .AND.  &
-      &              .NOT. my_process_is_mpi_test()
+    mtgrm(jg)%l_is_sender   = .NOT. meteogram_output_config%ldistributed &
+      &                 .AND. .NOT. mtgrm(jg)%l_is_collecting_pe         &
+      &                 .AND. .NOT. is_mpi_test
 
     ! Flag. True, if this PE writes data to file
-    mtgrm(jg)%l_is_writer         = (meteogram_output_config%ldistributed .AND.       &
-      &                    (mtgrm(jg)%meteogram_local_data%nstations > 0))  .OR.  &
-      &                   mtgrm(jg)%l_is_collecting_pe
+    mtgrm(jg)%l_is_writer &
+      & =      (      meteogram_output_config%ldistributed &
+      &         .AND. mtgrm(jg)%meteogram_local_data%nstations > 0) &
+      &   .OR. mtgrm(jg)%l_is_collecting_pe
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
@@ -1324,7 +1363,7 @@ CONTAINS
   FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
+    TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
 
     meteogram_is_sample_step = &
@@ -1392,7 +1431,8 @@ CONTAINS
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
       i_startidx = 1
-      i_endidx   = MERGE(nproma, meteogram_data%npromz, jb /= meteogram_data%nblks)
+      i_endidx   = MERGE(nproma, meteogram_data%npromz, &
+           jb /= meteogram_data%nblks)
 
       DO jc=i_startidx,i_endidx
         iidx  = meteogram_data%station(jc,jb)%tri_idx_local(1)
@@ -1410,7 +1450,8 @@ CONTAINS
                 &       iidx, meteogram_data%var_info(ivar)%levels(ilev), iblk )
             END DO
           ELSE
-            CALL finish (routine, 'Source array not associated!')
+            CALL finish (routine, "Source array not associated: "//&
+              &TRIM(meteogram_data%var_info(ivar)%cf%standard_name)//"!")
           END IF
         END DO VAR_LOOP
         ! sample surface variables:
@@ -1594,6 +1635,7 @@ CONTAINS
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
+    INTEGER :: world_rank
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
 
@@ -1603,12 +1645,13 @@ CONTAINS
     ! Note: We assume that this value is identical for all PEs
     icurrent = meteogram_data%icurrent
 
+    world_rank = get_my_mpi_all_id()
     ! -- RECEIVER CODE --
     RECEIVER : IF (mtgrm(jg)%l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
-        IF ((iowner /= get_my_mpi_all_id()) .AND. (iowner > 0)) THEN
+        IF ((iowner /= world_rank) .AND. (iowner > 0)) THEN
           CALL p_irecv_packed(mtgrm(jg)%msg_buffer(:,istation), MPI_ANY_SOURCE, &
             &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
         END IF
@@ -1633,7 +1676,7 @@ CONTAINS
           CYCLE
         END IF
 
-        IF ((iowner /= get_my_mpi_all_id()) .OR. mtgrm(jg)%l_pure_io_pe) THEN
+        IF ((iowner /= world_rank) .OR. mtgrm(jg)%l_pure_io_pe) THEN
           position = 0
 
           !-- unpack global time stamp index

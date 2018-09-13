@@ -40,6 +40,8 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rcucov, rcucov_trop
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    ! maximum allowed depth of shallow convection (hPa)
+    REAL(wp) :: rdepths
     ! switches for activation of shallow, midlevel and deep convection
     LOGICAL :: lmfscv, lmfmid, lmfpen
     ! switch for detrainment of rain and snow to gridscale scheme
@@ -53,6 +55,7 @@ MODULE mo_nwp_parameters
     ! Parameters which are only computed if Sub-grid Scale Orography (SSO) scheme is switched on
     !
     INTEGER  :: ngwdlim, ngwdtop, nktopg
+    REAL(wp) :: gkwake, gkdrag, gfrcrit, grcrit
     !
     ! Parameters which are always computed
     !

@@ -551,22 +551,24 @@ set_run_target_bullx()
   use_OMP_SCHEDULE="dynamic,1"
   use_omp_stacksize=200M
 
+  # set to 1 to use smt feature
+  smt_adjust=2
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 4
-      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2 / OMP_NUM_THREADS))"'
+        set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
+      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '$smt_adjust' / OMP_NUM_THREADS))"'
     else
-      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))"'
+      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
     fi
   else
     # on mistral, srun is still needed for running processes at
     # full frequency
     start="srun --cpu-freq=HighM1 -n 1"
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))"'
+      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
       #      set_default use_mpi_procs_pernode 1
-      start+=" --cpus-per-task=\$((2 * OMP_NUM_THREADS))"
+      start+=" --cpus-per-task=\$(($smt_adjust * OMP_NUM_THREADS))"
     else
       is_serial_run="yes"
     fi
@@ -578,12 +580,13 @@ set_run_target_bullx()
       ;;
   esac
 
-  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
-  case $use_flags_group in
-    debug)
-      use_mpi_startrun="${use_mpi_startrun},CORE"
-      ;;
-  esac
+  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+# TODO: disabled because other core files are generated
+# case $use_flags_group in
+#   debug)
+#     use_mpi_startrun="${use_mpi_startrun},CORE"
+#     ;;
+# esac
 
   case _$use_compiler in
     "_intel" )
@@ -595,6 +598,9 @@ set_run_target_bullx()
   esac
   case $use_mpi_root in
     *bullxmpi*)
+      # this does currently not work on mistral but is most probably needed
+      # for other SLURM installations
+      #use_mpi_startrun+=" --mpi=openmpi"
       add_free_var OMPI_MCA_pml cm
       add_free_var OMPI_MCA_mtl mxm
       add_free_var OMPI_MCA_coll '^ghc'
@@ -636,12 +642,12 @@ set_run_target_bullx()
 
   add_free_var MALLOC_TRIM_THRESHOLD_ -1
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="compute"}
+    queue=${queue:="compute2,compute"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
  else
-    queue=${queue:="compute"}
+    queue=${queue:="compute2,compute"}
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
   fi
@@ -673,6 +679,9 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
+# the following is needed to work around a bug that otherwise leads to
+# a too low number of ranks when using compute,compute2 as queue
+#SBATCH --mem=0
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --exclusive
@@ -692,6 +701,7 @@ use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
   start_header
   cat >>$output_script <<EOF
 ulimit -s 2097152
+ulimit -c 0
 $(case $use_flags_group in
     (debug)
       printf 'ulimit -c unlimited'

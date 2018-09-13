@@ -80,7 +80,7 @@ CONTAINS
     ALLOCATE(p_patch             (n_dom_start  :n_dom), &
       & p_patch_local_parent(n_dom_start+1:n_dom), &
       & stat=error_status)
-    IF (error_status/=success) CALL finish(TRIM(routine), 'allocation of p_patch failed')
+    IF (error_status/=success) CALL finish(routine, 'allocation of p_patch failed')
     
     ! --------------------------
     ! Work PEs subdivide patches

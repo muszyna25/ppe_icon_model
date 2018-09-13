@@ -44,9 +44,8 @@
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
-    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v,                         &
-      &                               t_cartesian_coordinates,                                &
-      &                               t_geographical_coordinates
+    USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+    USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
     USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -63,7 +62,7 @@
       &                               gnat_merge_distributed_queries, gk, SKIP_NODE,          &
       &                               INVALID_NODE, gnat_recursive_proximity_query
     USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                     &
-      &                               p_min, p_comm_work,                                     &
+      &                               p_min, p_bcast, p_comm_work, p_io, p_pe_work,              &
       &                               my_process_is_mpi_test, p_max, p_send,                  &
       &                               p_recv, process_mpi_all_test_id,                        &
       &                               process_mpi_all_workroot_id, my_process_is_stdio
@@ -93,7 +92,7 @@
     !> Setup of lon-lat interpolation
     !
     SUBROUTINE compute_lonlat_intp_coeffs(p_patch, p_int_state)
-      TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
+      TYPE(t_patch),        INTENT(INOUT) :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
       CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_intp_coeffs"
@@ -285,7 +284,7 @@
     SUBROUTINE rbf_c2l_index( ptr_patch, tri_idx, ptr_int, ptr_int_lonlat )
 
       ! patch on which computation is performed
-      TYPE(t_patch),        INTENT(in)     :: ptr_patch
+      TYPE(t_patch),        INTENT(INOUT)  :: ptr_patch
       INTEGER,              INTENT(IN)     :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
       TYPE (t_int_state),   INTENT(IN)     :: ptr_int
       TYPE(t_lon_lat_intp), INTENT(inout)  :: ptr_int_lonlat
@@ -1101,7 +1100,7 @@
       TYPE (t_lon_lat_grid), INTENT(INOUT)         :: grid
       TYPE (t_gnat_tree),    INTENT(INOUT)         :: gnat
       ! data structure containing grid info:
-      TYPE(t_patch),         INTENT(IN)            :: ptr_patch
+      TYPE(t_patch),         INTENT(INOUT)         :: ptr_patch
       INTEGER,               INTENT(INOUT)         :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
       ! Indices of source points and interpolation coefficients
       TYPE (t_lon_lat_intp), INTENT(INOUT)         :: ptr_int_lonlat
@@ -1126,7 +1125,8 @@
       REAL(wp)                         :: point(2),                               &
         &                                 max_dist, start_radius
 !$    REAL                             :: time1
-      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
+      LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles, &
+           l_my_process_is_mpi_test
 
 
       !-----------------------------------------------------------------------
@@ -1165,13 +1165,19 @@
         & REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/grid_sphere_radius, gk)
       ! for MPI-independent behaviour: determine global max.
       max_dist = p_max(max_dist, comm=p_comm_work)
-      IF(p_test_run) THEN
-        IF(.NOT. my_process_is_mpi_test()) THEN
-          ! Send to test PE
-          CALL p_send(max_dist, process_mpi_all_test_id, 1)
-        ELSE
-          ! Receive result from parallel worker PEs
-          CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+      IF (p_test_run) THEN
+        l_my_process_is_mpi_test = my_process_is_mpi_test()
+        IF (p_pe_work == p_io) THEN
+          IF(.NOT. l_my_process_is_mpi_test) THEN
+            ! Send to test PE
+            CALL p_send(max_dist, process_mpi_all_test_id, 1)
+          ELSE
+            ! Receive result from parallel worker PEs
+            CALL p_recv(max_dist, process_mpi_all_workroot_id, 1)
+          END IF
+        END IF
+        IF(l_my_process_is_mpi_test) THEN
+          CALL p_bcast(max_dist, p_io, comm=p_comm_work)
         END IF
       END IF
 
@@ -1345,7 +1351,7 @@
     !
     SUBROUTINE rbf_setup_interpol_lonlat_grid(ptr_patch, ptr_int_lonlat, tri_idx, ptr_int)
 
-      TYPE(t_patch),         INTENT(IN)    :: ptr_patch       !< data structure containing grid info
+      TYPE(t_patch),         INTENT(INOUT) :: ptr_patch       !< data structure containing grid info
       TYPE (t_lon_lat_intp), INTENT(INOUT) :: ptr_int_lonlat  !< Indices of source points and interpolation coefficients
       INTEGER,               INTENT(IN)    :: tri_idx(:,:,:)  !< 2, nproma, nblks_lonlat
       TYPE (t_int_state),    INTENT(IN)    :: ptr_int

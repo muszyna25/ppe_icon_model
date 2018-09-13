@@ -34,6 +34,10 @@ unset OMPI_MCA_coll_fca_priority
 
 icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 
+# set nproma default for production
+#
+nproma=48
+
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
@@ -43,13 +47,11 @@ grid_name=icon_grid_0005_R02B04_G
 grids_folder=${icon_data_poolFolder}/grids
 atmo_dyn_grids=${grid_name}.nc
 
-resolution_a=$(awk -F'_' '{print $4}' <<< $grid_name)
-resolution_b=${resolution_a/0/}
-resolution_c=${resolution_a//0/}
+resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2014-01-01T00:00:00Z"}
+    end_date=${end_date:="2015-01-01T00:00:00Z"}
 
 # restart intervals
 checkpoint_interval="P1Y"
@@ -92,7 +94,6 @@ llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 if [[ $jsbach_usecase == *pfts* ]]
 then
-  nproma=48
   pft_file_tag="11pfts_"
   [[ ${output_lnd} == "full" ]] && \
     output_tiles="${output_tiles}, 'pft01','pft02','pft03','pft04','pft05','pft06','pft07','pft08','pft09','pft10','pft11'"
@@ -106,6 +107,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
+ num_io_procs     = 3           ! for default setup
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -129,6 +131,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon_1979010100_${resolution}_G.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 5           ! dtime/dt_dyn
@@ -221,7 +224,6 @@ cat > ${lnd_namelist} << EOF
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
   fract_filename  = "bc_land_frac.nc"
-  l_compat401     = .TRUE.              ! TRUE: overwrites some of the settings below
   output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
@@ -240,16 +242,17 @@ cat > ${lnd_namelist} << EOF
 &jsb_sse_nml
   l_heat_cap_map  = .FALSE.
   l_heat_cond_map = .FALSE.
-  l_heat_cap_dyn  = .TRUE.
-  l_heat_cond_dyn = .TRUE.
+  l_heat_cap_dyn  = .FALSE.
+  l_heat_cond_dyn = .FALSE.
   l_snow          = .TRUE.
   l_dynsnow       = .TRUE.
-  l_freeze        = .FALSE.
-  l_supercool     = .FALSE.
+  l_freeze        = .TRUE.
+  l_supercool     = .TRUE.
   bc_filename     = 'bc_land_soil.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
 &jsb_hydro_nml
+  l_organic       = .FALSE.
   bc_filename     = 'bc_land_soil.nc'
   ic_filename     = 'ic_land_soil.nc'
   bc_sso_filename = 'bc_land_sso.nc'
@@ -309,7 +312,7 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
@@ -327,11 +330,13 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${resolution_b}_DOM01.nc
+add_link_file $datadir/ifs2icon_1979010100_${resolution}_G.nc           ./
 #
 # - land: source?, date+time?
-datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${resolution}/land
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+# added in namelist, but not active and not yet available (2017-Dec-07)
+#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
 
 # boundary conditions
 #
@@ -346,7 +351,7 @@ add_link_file $datadir/greenhouse_historical.nc                         ./bc_gre
 #
 # - ozone
 # -- for irad_o3=8
-datadir=${icon_data_poolFolder}/ozone/cmip6/${resolution_a}
+datadir=${icon_data_poolFolder}/ozone/cmip6/${resolution}
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -366,7 +371,7 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 #   accessing all the same data of 1865:
-datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
+datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution}
 year=1849
 while [[ $year -le 1851 ]]
 do
@@ -392,19 +397,21 @@ done
 #
 # - sst and sic
 datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
-add_link_file $datadir/sic_${resolution_a}.nc                           ./bc_sic.nc
-add_link_file $datadir/sst_${resolution_a}.nc                           ./bc_sst.nc
+add_link_file $datadir/sic_${resolution}.nc                             ./bc_sic.nc
+add_link_file $datadir/sst_${resolution}.nc                             ./bc_sst.nc
 #
 # - ssi and tsi
 datadir=${icon_data_poolFolder}/solar_radiation/3.2
 add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${resolution}/land
 add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+# added in namelist, but not active and not yet available (2017-Dec-07)
+#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
 # The following bc_land_hd-file is not yet available...
 if [[ ${jsbach_with_hd} = yes ]]; then
   add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
@@ -424,6 +431,7 @@ cat >> ${atmo_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
  restart_file_type= 5
+ !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
 /
 EOF
 
@@ -475,13 +483,12 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'zg'      ,
-                    'ps'      , 'pfull'   ,
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
                     'rho'     , 'ta'      ,
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-!                    'qo3_phy' ,
+                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -527,7 +534,7 @@ EOF
 fi
 
 
-output_phy_3d=yes # "yes" increases the output volume significantly!
+output_phy_3d=no
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -544,7 +551,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'           , 'pfull'        ,
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
@@ -557,10 +564,38 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
+                    !'tend_qhus_mox'
 /
 EOF
 fi
 
+output_trc_3d=no
+#
+if [[ "$output_trc_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+EOF
+fi
 
 #
 # Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 

@@ -81,7 +81,7 @@ CONTAINS
   IMPLICIT NONE
 
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_prog       !< the prognostic variables
-  TYPE(t_patch),TARGET,    INTENT(IN)    :: pt_patch      !< grid/patch info.
+  TYPE(t_patch),TARGET,    INTENT(INOUT) :: pt_patch      !< grid/patch info.
   TYPE(t_int_state),TARGET,INTENT(IN)    :: pt_int_state  !< horizontal interpolation coeff.
   TYPE(t_external_data),   INTENT(INOUT)    :: pt_ext_data   !< external data
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag       !< diagnostic variables
@@ -125,7 +125,7 @@ CONTAINS
     REAL(wp),INTENT(in) :: p_delp_e (:,:,:)
     REAL(wp),INTENT(in) :: p_pres_mc(:,:,:)
 
-    TYPE(t_patch),TARGET,INTENT(in) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(inout) :: p_patch
     TYPE(t_int_state),INTENT(in) :: p_int_state
 
     REAL(wp),INTENT(inout) :: p_omega(:,:,:) ! (nproma,nlev,nblks_c)
@@ -325,7 +325,7 @@ CONTAINS
   SUBROUTINE update_delp_e( p_patch, p_int_state, p_delp_c, &! in
                             p_delp_e                        )! inout
 
-    TYPE(t_patch),TARGET,INTENT(in) :: p_patch      !< grid info
+    TYPE(t_patch),TARGET,INTENT(inout) :: p_patch      !< grid info
     TYPE(t_int_state),INTENT(in) :: p_int_state  !< horizontal interpolation coeff.
 
     REAL(wp),INTENT(inout) :: p_delp_c (:,:,:) !< layer thickness at cell centers
@@ -410,7 +410,7 @@ CONTAINS
                           p_diag )                       ! inout
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog      !< carrying pres_sfc
-    TYPE(t_patch),TARGET,    INTENT(in)    :: p_patch     !< grid info
+    TYPE(t_patch),TARGET,    INTENT(inout) :: p_patch     !< grid info
     TYPE(t_int_state),       INTENT(in)    :: p_int_state !< horizontal interpol. coeff
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag      !< carrying the output
 
@@ -672,7 +672,7 @@ CONTAINS
   &                             p_prog,                &! in
   &                             p_diag               )  ! inout
 
-    TYPE(t_patch),TARGET,INTENT(in) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(inout) :: p_patch
     TYPE(t_int_state),TARGET,INTENT(in) :: p_int_state
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog

@@ -32,9 +32,8 @@ MODULE mo_nh_testcases
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_math_constants,       ONLY: pi
-  USE mo_math_utilities,       ONLY: gc2cc, t_cartesian_coordinates, &
-                                   & t_geographical_coordinates,     &
-                                   & arc_length
+  USE mo_math_types,           ONLY: t_cartesian_coordinates, t_geographical_coordinates 
+  USE mo_math_utilities,       ONLY: gc2cc, arc_length
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: ltransport, iforcing, iqv
   USE mo_extpar_config,        ONLY: itopo

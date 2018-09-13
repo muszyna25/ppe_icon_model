@@ -22,7 +22,7 @@ MODULE mo_output_event_control
 
   USE mo_mpi,                ONLY: my_process_is_mpi_test, my_process_is_mpi_workroot
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, message_text
   USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
@@ -40,6 +40,7 @@ MODULE mo_output_event_control
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDHHMMSS, FMT_DDDHHMMSS
   USE mo_name_list_output_types, ONLY: t_fname_metadata
 
 
@@ -75,25 +76,24 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE compute_matching_sim_steps(nstrings, date_string, sim_step_info, &
+  SUBROUTINE compute_matching_sim_steps(num_dates, dates, sim_step_info, &
     &                                   result_steps, result_exactdate)
 
-    INTEGER,              INTENT(IN)    :: nstrings                             !< no. of string to convert
-    CHARACTER(len=*),     INTENT(IN)    :: date_string(:)                       !< array of ISO 8601 time stamp strings
+    INTEGER,              INTENT(IN)    :: num_dates                             !< no. of string to convert
+    !> array of mtime datetime objects
+    TYPE(datetime),       INTENT(IN)    :: dates(:)
     TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info                        !< definitions: time step size, etc.
-    INTEGER,              INTENT(INOUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
-    CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)                  !< resulting (exact) time step strings  (+last sim step)
+    INTEGER,              INTENT(OUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
+    !> resulting (exact) time step strings  (+last sim step)
+    CHARACTER(LEN=*),     INTENT(OUT) :: result_exactdate(:)
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
     INTEGER                  :: idtime_ms, ilist
-    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, mtime_date1, &
+    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, &
          &                      mtime_dom_start, mtime_dom_end
     TYPE(timedelta), POINTER :: delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
-
-    ! debugging output
-    IF (ldebug)  WRITE (0,*) "date_string: ", date_string(1:nstrings)
 
     ! build an ISO 8601 duration string from the given "dtime" value:
     idtime_ms = NINT(sim_step_info%dtime*1000._wp)
@@ -110,25 +110,25 @@ CONTAINS
     mtime_begin     => newDatetime(TRIM(sim_step_info%run_start))
     mtime_end       => newDatetime(TRIM(sim_step_info%sim_end  ))
 
-    result_steps(:)     = -1
-    result_exactdate(:) = ""
-
-    DO ilist = 1,nstrings
-      mtime_date1 => newDatetime(TRIM(date_string(ilist)))
-
+    DO ilist = 1,num_dates
       ! check if domain is inactive:
-      IF (((mtime_date1 >= mtime_dom_start) .AND. (mtime_date1 >= mtime_begin)) .OR.  &
-        & ((mtime_date1 <= mtime_end) .AND. (mtime_date1 <= mtime_dom_end))) THEN 
-        CALL compute_step(mtime_date1, mtime_begin, mtime_end,                &
+      IF (((dates(ilist) >= mtime_dom_start) .AND. (dates(ilist) >= mtime_begin)) .OR.  &
+        & ((dates(ilist) <= mtime_end) .AND. (dates(ilist) <= mtime_dom_end))) THEN 
+        CALL compute_step(dates(ilist), mtime_begin, mtime_end,                &
           &               sim_step_info%dtime, delta,                         &
           &               sim_step_info%jstep0,                               &
           &               result_steps(ilist), result_exactdate(ilist))
         IF (ldebug) THEN
           WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
         END IF
+      ELSE
+        result_steps(ilist)     = -1
+        result_exactdate(ilist) = ""
       END IF
-      CALL deallocateDatetime(mtime_date1)
     END DO
+    result_steps(num_dates+1:)     = -1
+    result_exactdate(num_dates+1:) = ""
+
     ! clean up
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_dom_end)
@@ -146,7 +146,7 @@ CONTAINS
   ! --------------------------------------------------------------------------------------------------
   SUBROUTINE compute_step(mtime_current, mtime_begin, mtime_end, dtime,  &
     &                     delta, step_offset, step, exact_date)
-    TYPE(datetime),  POINTER                         :: mtime_current       !< input date to translated into step
+    TYPE(datetime),  INTENT(in)                      :: mtime_current       !< input date to translated into step
     TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
     TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
@@ -166,7 +166,7 @@ CONTAINS
     ! intvlsec    = REAL(dtime)
     ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
-    intvlmillisec = NINT(dtime*1000._wp)
+    intvlmillisec = ANINT(dtime*1000._wp)
     CALL getPTStringFromMS(INT(intvlmillisec,i8), td_string)
     !CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
@@ -197,24 +197,26 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   ! --------------------------------------------------------------------------------------------------
-  FUNCTION generate_output_filenames(nstrings, date_string, sim_steps, &
-    &                                sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
-    INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
-    CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+  SUBROUTINE generate_output_filenames(num_dates, dates, sim_steps, &
+    &                                  sim_step_info, fname_metadata, &
+    &                                  skipped_dates, result_fnames)
+    !> no. of dates to convert
+    INTEGER,                INTENT(IN)    :: num_dates
+    TYPE(datetime), TARGET, INTENT(IN)    :: dates(:)     !< array of ISO 8601 time stamp strings
     INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
     TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
     TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
     INTEGER,                INTENT(IN)    :: skipped_dates
-    TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
+    TYPE(t_event_step_data), INTENT(out)  :: result_fnames(SIZE(dates))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
-    INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile
-    CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
-    TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
-    CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
-    INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date, run_start, sim_start, &
+    INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename
+    TYPE (t_keyword_list), POINTER      :: keywords
+    TYPE(datetime),  POINTER            :: run_start, sim_start, &
+      &                                    step_date, mtime_begin, &
       &                                    mtime_first, mtime_date
+    TYPE(datetime) :: file_end
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
@@ -226,9 +228,9 @@ CONTAINS
     ! ---------------------------------------------------
     ! a) user has specified "steps_per_file"
     ! b) user has specified "file_interval"
-    IF (TRIM(fname_metadata%file_interval) == "") THEN
+    IF (LEN_TRIM(fname_metadata%file_interval) == 0) THEN
       ! case a): steps_per_file
-      mtime_first  => newDatetime(TRIM(date_string(1)))
+      mtime_first  => dates(1)
       ! special treatment for the initial time step written at the
       ! begin of the simulation: The first file gets one extra entry
       IF ( (run_start == mtime_first)              .AND.  &
@@ -236,31 +238,30 @@ CONTAINS
         &  (fname_metadata%jfile_offset == 0) ) THEN
         result_fnames(1)%jfile = 1
         result_fnames(1)%jpart = 1
-        DO i=2,nstrings
+        DO i=2,num_dates
           result_fnames(i)%jfile = (i-2)/fname_metadata%steps_per_file + 1 ! INTEGER division!
           result_fnames(i)%jpart = i - 1 - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
           IF (result_fnames(i)%jfile == 1)  result_fnames(i)%jpart = result_fnames(i)%jpart + 1
         END DO
       ELSE
-        DO i=1,nstrings
+        DO i=1,num_dates
           result_fnames(i)%jfile = (i-1)/fname_metadata%steps_per_file + 1 ! INTEGER division!
           result_fnames(i)%jpart = i - (result_fnames(i)%jfile-1)*fname_metadata%steps_per_file
         END DO
       END IF
-      CALL deallocateDatetime(mtime_first)
     ELSE
       ! case b): file_interval
       ifile      =  1
       ipart      =  0
-      delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
-      file_end  =>  newDatetime(date_string(1))
+      delta     =>  newTimedelta(TRIM(fname_metadata%file_interval),errno)
+      IF (errno /= SUCCESS) CALL finish(routine,"Wrong file_interval")
+      file_end   =  dates(1) + delta
 
-      file_end   =  file_end + delta
-      OUTSTEP_LOOP : DO i=1,nstrings
-        step_date => newDatetime(date_string(i))
+      OUTSTEP_LOOP : DO i=1,num_dates
+        step_date => dates(i)
         IF (ldebug) THEN
           CALL datetimeToString(file_end, dtime_string)
-          WRITE (0,*) "step_date = ", date_string(i), "; file_end = ", dtime_string
+          WRITE (0,'(a,i0,2a)') "i=", i, "file_end = ", dtime_string
         END IF
         IF (step_date >= file_end) THEN
           ifile = ifile + 1
@@ -273,39 +274,37 @@ CONTAINS
         ipart = ipart + 1
         result_fnames(i)%jfile = ifile
         result_fnames(i)%jpart = ipart
-        CALL deallocateDatetime(step_date)
       END DO OUTSTEP_LOOP
-      CALL deallocateDatetime(file_end)
       CALL deallocateTimedelta(delta)
     END IF
     ! add offset to file numbers:
     IF (fname_metadata%jfile_offset /= 0) THEN
-      result_fnames(1:nstrings)%jfile = result_fnames(1:nstrings)%jfile + fname_metadata%jfile_offset - 1
+      result_fnames(1:num_dates)%jfile = result_fnames(1:num_dates)%jfile + fname_metadata%jfile_offset - 1
     END IF
 
     ! --------------------------------------------------------------
     ! prescribe, in which steps the output file is opened or closed:
     ! --------------------------------------------------------------
 
-    DO i=1,nstrings
+    DO i=1,num_dates
       IF (i == 1) THEN
         result_fnames(i)%l_open_file = .TRUE.
       ELSE
         result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
       END IF
-      IF (i==nstrings) THEN
+      IF (i==num_dates) THEN
         result_fnames(i)%l_close_file = .TRUE.
       ELSE
         result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
       END IF
     END DO
 
+    NULLIFY(keywords)
     ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
     forecast_delta => newTimedelta("P01D")
-    ifname = 0
-    DO i=1,nstrings
+    DO i=1,num_dates
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
         result_fnames(i)%filename_string = result_fnames(i-1)%filename_string
@@ -321,13 +320,18 @@ CONTAINS
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<npartitions>",     TRIM(int2string(fname_metadata%npartitions)),             keywords)
       CALL associate_keyword("<ifile_partition>", TRIM(int2string(fname_metadata%ifile_partition)),         keywords)
-      CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
+      CALL datetimeToString(dates(i), dtime_string)
+      CALL associate_keyword("<datetime>",        TRIM(dtime_string),                                       keywords)
       ! keywords: compute current forecast time (delta):
-      mtime_date => newDatetime(TRIM(date_string(i)))
-      forecast_delta = mtime_date - sim_start
-      WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
-        &                                    forecast_delta%minute, forecast_delta%second 
-      CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      mtime_date => dates(i)
+      CALL associate_keyword("<ddhhmmss>",                                                     &
+        &                    TRIM(mtime_utils%ddhhmmss(sim_start, mtime_date, FMT_DDHHMMSS)),  &
+        &                    keywords)
+      CALL associate_keyword("<dddhhmmss>",                                                    &
+        &                    TRIM(mtime_utils%ddhhmmss(sim_start, mtime_date, FMT_DDDHHMMSS)), &
+        &                    keywords)
+
+      forecast_delta     = mtime_date - sim_start
       forecast_delta_str = ""
       WRITE (forecast_delta_str,'(i3.3,2(i2.2))') forecast_delta%day*24 + forecast_delta%hour, &
         &                                         forecast_delta%minute, forecast_delta%second 
@@ -337,9 +341,9 @@ CONTAINS
       !
       ! "YYYYMMDDThhmmssZ"     for the basic format of ISO8601 without the
       !                        separators "-" and ":" of the extended date-time format
-      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
-        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
-        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                            &
+        & mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+        & mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
       CALL associate_keyword("<datetime2>",       TRIM(dtime_string),                                       keywords)
 
       ! "YYYYMMDDThhmmss.sssZ" for the basic format of ISO8601 with 3-digit 
@@ -349,7 +353,6 @@ CONTAINS
         &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, '.',      &
         &                      mtime_date%time%ms, 'Z'
       CALL associate_keyword("<datetime3>",       TRIM(dtime_string),                                       keywords)
-      CALL deallocateDatetime(mtime_date)
 
       ! "total_index": If we have split one namelist into concurrent,
       !                alternating files, compute the file index,
@@ -366,26 +369,29 @@ CONTAINS
       CALL associate_keyword("<total_index>", TRIM(int2string(total_index,"(i4.4)")),  keywords)
       CALL associate_keyword("<jfile>",       TRIM(int2string(this_jfile, "(i4.4)")), keywords)
 
-      cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
+      cfilename = with_keywords(keywords, fname_metadata%filename_format)
       IF(my_process_is_mpi_test()) THEN
          ! (a) use filename with extension "_TEST" (then any post-processing needs to be adapted)
          WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
 !        ! (b) use standard filename
 !        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ELSE
-        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
+        WRITE(result_fnames(i)%filename_string,'(2a)') TRIM(cfilename),TRIM(fname_metadata%extn)
       ENDIF
 
       ! consistency check: test if the user has accidentally chosen a
       ! file name syntax which yields duplicate file names:
-      DO j=1,ifname
-        IF (result_fnames(i)%filename_string == fname(j)) THEN
+      DO j=1,i-1
+        IF (result_fnames(j)%l_open_file &
+          & .AND.    result_fnames(i)%filename_string &
+          &       == result_fnames(j)%filename_string) THEN
           ! found a duplicate filename:
-          CALL finish(routine, "Ambiguous output file name: '"//TRIM(fname(j))//"'")
+          WRITE (message_text, '(3a)') &
+               "Ambiguous output file name: '", &
+               result_fnames(j)%filename_string, "'"
+          CALL finish(routine, message_text)
         END IF
       END DO
-      ifname = ifname + 1
-      fname(ifname) = result_fnames(i)%filename_string
     END DO
     CALL deallocateTimedelta(forecast_delta)
 
@@ -393,6 +399,6 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateDatetime(sim_start)
 
-  END FUNCTION generate_output_filenames
+  END SUBROUTINE generate_output_filenames
 
 END MODULE mo_output_event_control

@@ -48,9 +48,8 @@ MODULE mo_ocean_initialization
     & use_dummy_cell_closure
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nold
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
-    & t_geographical_coordinates, &!vector_product, &
-    & arc_length, set_zlev
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,      ONLY: gc2cc, arc_length, set_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v,sync_patch_array, global_sum_array, sync_idx, &
     & enable_sync_checks, disable_sync_checks
@@ -61,18 +60,11 @@ MODULE mo_ocean_initialization
     & delete_var_list,          &
     & default_var_list_settings,&
     & add_ref
-  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
   ! USE mo_ocean_config,        ONLY: ignore_land_points
-  USE mo_ocean_types, ONLY: t_hydro_ocean_state, &
-    & t_hydro_ocean_base, &
-    & t_hydro_ocean_prog, &
-    & t_hydro_ocean_diag, &
-    & t_hydro_ocean_aux, &
-    & t_oce_config, &
-    & t_ocean_tracer
+  USE mo_ocean_types, ONLY: t_hydro_ocean_base
   USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
@@ -80,8 +72,7 @@ MODULE mo_ocean_initialization
     & t_ocean_basins
   USE mo_ocean_state, ONLY:  ocean_restart_list, &
     & ocean_default_list, &
-    & v_base, &
-    & oce_config
+    & v_base
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   
   USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
@@ -98,8 +89,6 @@ MODULE mo_ocean_initialization
   PUBLIC :: init_ho_basins
   PUBLIC :: init_coriolis_oce
   PUBLIC :: is_initial_timestep
-  PUBLIC :: init_oce_config
-  PUBLIC :: construct_ocean_var_lists
   PUBLIC :: check_ocean_subsets
   
   PUBLIC :: init_patch_3d
@@ -107,26 +96,6 @@ MODULE mo_ocean_initialization
   
 CONTAINS
   
-  !-------------------------------------------------------------------------
-  !
-  !
-!<Optimize:inUse>
-  SUBROUTINE construct_ocean_var_lists(patch_2d)
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
-    
-    CHARACTER(LEN=max_char_length) :: listname
-    
-    WRITE(listname,'(a)')  'ocean_restart_list'
-    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
-    WRITE(listname,'(a)')  'ocean_default_list'
-    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
-  END SUBROUTINE construct_ocean_var_lists
-  !-------------------------------------------------------------------------
   
 
   
@@ -922,8 +891,8 @@ CONTAINS
   !!  no-mpi parallelized
 !<Optimize:inUse>
   SUBROUTINE init_ho_basins( patch_2d, v_base )
-    
-    TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
+
+    TYPE(t_patch), TARGET, INTENT(inout)       :: patch_2d
     TYPE(t_hydro_ocean_base), INTENT(inout)    :: v_base
     
     REAL(wp) :: z_sync_c(nproma,patch_2d%alloc_cell_blocks)
@@ -1946,21 +1915,6 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   
-  !------------------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE init_oce_config()
-    oce_config%tracer_names(1)     = 'T'
-    oce_config%tracer_longnames(1) = 'potential temperature'
-    oce_config%tracer_units(1)     = 'deg C'
-    oce_config%tracer_codes(1)     = 200
-    oce_config%tracer_tags(1)      = '_'//TRIM(oce_config%tracer_names(1))
-    
-    oce_config%tracer_names(2)     = 'S'
-    oce_config%tracer_longnames(2) = 'salinity'
-    oce_config%tracer_units(2)     = 'psu'
-    oce_config%tracer_codes(2)     = 201
-    oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
-  END SUBROUTINE
 !<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

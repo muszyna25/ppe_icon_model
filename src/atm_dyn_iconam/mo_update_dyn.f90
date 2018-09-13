@@ -55,7 +55,7 @@ CONTAINS
   SUBROUTINE add_slowphys(p_nh, p_patch, nnow, nnew, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
-    TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch
 
     ! Time levels
     INTEGER,                   INTENT(IN)    :: nnow, nnew

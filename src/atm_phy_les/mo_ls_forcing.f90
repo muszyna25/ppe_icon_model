@@ -84,7 +84,7 @@ MODULE mo_ls_forcing
           form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
     IF(ist/=success)THEN
-      CALL finish (TRIM(routine), 'open ls_forcing.dat failed')
+      CALL finish (routine, 'open ls_forcing.dat failed')
     ENDIF
 
     !Read the input file till end. The order of file assumed is:
@@ -92,10 +92,10 @@ MODULE mo_ls_forcing
 
     !Read first line
     READ(iunit,*,IOSTAT=ist)
-    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
+    IF(ist/=success)CALL finish(routine, 'problem reading first line in ls_forcing.dat')
 
     READ(iunit,*,IOSTAT=ist)nk
-    IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
+    IF(ist/=success)CALL finish(routine, 'problem reading second line in ls_forcing.dat')
 
     ALLOCATE( zz(nk), zw(nk), zu(nk), zv(nk), z_dt_temp_adv(nk), &
               z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
@@ -104,12 +104,12 @@ MODULE mo_ls_forcing
       READ(iunit,*,IOSTAT=ist)zz(jk),zw(jk),zu(jk),zv(jk),z_dt_temp_adv(jk), &
                               z_dt_temp_rad(jk),z_dt_qv_adv(jk)
       IF(ist/=success)THEN
-          CALL finish (TRIM(routine), 'something wrong in forcing.dat')
+          CALL finish (routine, 'something wrong in forcing.dat')
       END IF
     END DO
 
     !Check if the file is written in descending order
-    IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Write LS forcing data in descending order!')
+    IF(zz(1) < zz(nk))CALL finish (routine, 'Write LS forcing data in descending order!')
 
     CLOSE(iunit)
 

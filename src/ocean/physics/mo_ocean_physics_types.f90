@@ -79,7 +79,7 @@ MODULE mo_ocean_physics_types
     & delete_var_list,          &
     & default_var_list_settings,&
     & add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
@@ -291,20 +291,20 @@ CONTAINS
       ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
       DO jtrc = 1,no_tracer
         CALL add_ref( ocean_params_list, 'TracerDiffusion_coeff',&
-          & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
+          & 'K_tracer_h_'//TRIM(oce_config%tracer_shortnames(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_edge, za_depth_below_sea,               &
-          & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)), &
+          & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_shortnames(jtrc)), &
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
           & datatype_flt), &
           & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
-          & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
+          & 'A_tracer_v_'//TRIM(oce_config%tracer_shortnames(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_cell, za_depth_below_sea_half,            &
-          & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)), &
+          & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_shortnames(jtrc)), &
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
           & datatype_flt), &
