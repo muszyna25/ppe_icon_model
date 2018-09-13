@@ -427,7 +427,7 @@ case "$ac_sitename" in
                         FFLAGS        = $FLANG $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
                         CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/gnu
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.1/gnu
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         case "${config_tuning}" in
                             default)
@@ -455,18 +455,34 @@ case "$ac_sitename" in
                         DEFCOPT     = -D
                         MODOPT      = -I
                         MODDIR      = -module 
-                        config_target = kesch_cpu
                         FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
                         CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/pgi
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.1/pgi
                         config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = kesch_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=tesla,cc35,cuda8.0 -Minfo=accel,inline
+                                LDFLAGS       = -ta=tesla,cc35,cuda8.0
+                                ;;
+                            *)
+                                config_target = kesch_cpu
+                                FFLAGS        = ${FFLAGS}
+                                ;;
+                        esac
+                        # Setup of specific version
                         case "${config_tuning}" in
                             default)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
+                                load_modules  = git/2.14.1 PrgEnv-pgi pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                NETCDFROOT    = ${NETCDF_ROOT}
+                                HDF5ROOT      = ${NETCDF_ROOT}
+                                ;;
+                            gpu)
+                                load_modules  = git/2.14.1 PrgEnv-pgi pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                NETCDFROOT    = ${NETCDF_ROOT}
+                                HDF5ROOT      = ${NETCDF_ROOT}
                                 ;;
                             *)
                                 (>&6 echo "")
@@ -491,7 +507,7 @@ case "$ac_sitename" in
                         CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
                         LDFLAGS       = -Wl,--allow-multiple-definition
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/cray
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.1/cray
                         config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
