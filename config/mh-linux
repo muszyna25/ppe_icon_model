@@ -245,7 +245,7 @@ case "$ac_sitename" in
 
                 case "$fortran_compiler" in
                     gcc*)
-                        CFLAGS      = -DgFortran -O2 -cpp -std=c99 -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        CFLAGS      = -DgFortran -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
