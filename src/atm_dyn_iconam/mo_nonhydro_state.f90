@@ -3122,11 +3122,11 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf )
 
 
-    ! geopotential at cell center
+    ! difference of geopotential between the half levels
     ! dgeopot_mc   p_metrics%dgeopot_mc(nproma,nlev,nblks_c)
     !
-    cf_desc    = t_cf_var('geopotential', 'm2 s-2',                             &
-      &                   'geopotential at cell center', datatype_flt)
+    cf_desc    = t_cf_var('dgeopot_mc', 'm2 s-2',                             &
+      &                   'geopotential difference between half levels', datatype_flt)
     grib2_desc = grib2_var( 0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_metrics_list, 'dgeopot_mc', p_metrics%dgeopot_mc,           &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &

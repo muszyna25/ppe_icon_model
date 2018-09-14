@@ -57,8 +57,7 @@ MODULE mo_nwp_turbdiff_interface
 
   USE mo_edmf_param,             ONLY: ntiles_edmf
   USE mo_vdfouter,               ONLY: vdfouter
-  USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
-                                     & isub_water, isub_lake, isub_seaice
+  USE mo_lnd_nwp_config,         ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water
 
   IMPLICIT NONE
 

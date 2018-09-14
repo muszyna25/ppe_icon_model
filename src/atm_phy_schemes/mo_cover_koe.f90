@@ -97,7 +97,7 @@ SUBROUTINE cover_koe( &
   & ldcum, kcbot, kctop, ktype      , & ! in:    convection: on/off, bottom, top, type
   & pmfude_rate                     , & ! in:    convection: updraft detrainment rate
   & plu                             , & ! in:    convection: updraft condensate
-  & qc_tend                         , & ! in:    convective qc tendency
+  & rhoc_tend                       , & ! in:    convective rhoc tendency
   & qv, qc, qi, qs, qtvar           , & ! inout: prognostic cloud variables
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
@@ -148,7 +148,7 @@ INTEGER(KIND=i4), DIMENSION(klon), INTENT(IN) ::  &
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pmfude_rate      , & ! convective updraft detrainment rate           (kg/(m3*s))
   & plu              , & ! updraft condensate                            (kg/kg)
-  & qc_tend              ! convective qc tendency
+  & rhoc_tend            ! convective rho_c tendency                     (kg/(m3*s))
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
   & cc_tot           , & ! cloud cover diagnostic
@@ -346,8 +346,8 @@ CASE( 1 )
       qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*       foealfcu(tt(jl,jk)) ! ql up  foealfa = liquid/(liquid+ice)
       qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
       IF (ktype(jl) == 2) THEN ! shallow convection
-        ! additional source term for convective clouds depending on detrained cloud water (qc_tend) and RH
-        qcc = MAX(0._wp, MIN(0.075_wp*tune_box_liq*zqlsat(jl,jk), qc_tend(jl,jk)*2._wp*taudecay* &
+        ! additional source term for convective clouds depending on detrained cloud water (rhoc_tend) and RH
+        qcc = MAX(0._wp, MIN(0.075_wp*tune_box_liq*zqlsat(jl,jk), (rhoc_tend(jl,jk)/rho(jl,jk))*2._wp*taudecay* &
           (1._wp - 6000._wp/taudecay*(1._wp-qv(jl,jk)/zqlsat(jl,jk))) ))
         cc_conv(jl,jk) = MAX(cc_conv(jl,jk),SQRT(qcc/(tune_box_liq*zqlsat(jl,jk))) )
         qc_conv(jl,jk) = MAX(qcc,qc_conv(jl,jk))

@@ -3281,12 +3281,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     ! --- Convection moist tracer tendencies
 
     IF ( .NOT. atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
-      cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
+      cf_desc    = t_cf_var('ddt_tracer_pconv', 'kg m-3 s-1', &
            &                            'convective tendency of tracers', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( phy_tend_list, 'ddt_tracer_pconv', phy_tend%ddt_tracer_pconv,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape4d_conv,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+                  & initval=0._wp, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       IF (lart) THEN
        ktracer=nqtendphy+nart_tendphy 
@@ -3298,45 +3298,45 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
 
       !qv
-      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
-                  & 'ddt_qv_conv', phy_tend%tracer_conv_ptr(1)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                  & t_cf_var('ddt_qv_conv', 'kg kg**-1 s**-1',                     &
-                  & 'convective tendency of specific humidity', datatype_flt),   &
-                  & grib2_var(0, 1, 197, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                            &
+                  & 'ddt_qv_conv', phy_tend%tracer_conv_ptr(1)%p_3d,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
+                  & t_cf_var('ddt_qv_conv', 'kg m-3 s-1',                         &
+                  & 'convective tendency of absolute humidity', datatype_flt),    &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
                   & ldims=shape3d)
       !qc
-      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
-                  & 'ddt_qc_conv', phy_tend%tracer_conv_ptr(2)%p_3d,               &
+      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                                &
+                  & 'ddt_qc_conv', phy_tend%tracer_conv_ptr(2)%p_3d,                  &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                  & t_cf_var('ddt_qc_conv', 'kg kg**-1 s**-1',                     &
-                  & 'convective tendency of specific cloud water', datatype_flt),&
-                  & grib2_var(0, 1, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                  & t_cf_var('ddt_qc_conv', 'kg m-3 s-1',                             &
+                  & 'convective tendency of cloud water mass density', datatype_flt), &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ldims=shape3d)
       !qi
-      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
-                  & 'ddt_qi_conv', phy_tend%tracer_conv_ptr(3)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                  & t_cf_var('ddt_qi_conv', 'kg kg**-1 s**-1',                     &
-                  & 'convective tendency of specific cloud ice', datatype_flt),  &
-                  & grib2_var(0, 1, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                              &
+                  & 'ddt_qi_conv', phy_tend%tracer_conv_ptr(3)%p_3d,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                  & t_cf_var('ddt_qi_conv', 'kg m-3 s-1',                           &
+                  & 'convective tendency of cloud ice mass density', datatype_flt), &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
                   & ldims=shape3d)
 
       IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) THEN
         !qr
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                           &
                   & 'ddt_qr_conv', phy_tend%tracer_conv_ptr(4)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                  & t_cf_var('ddt_qr_conv', 'kg kg**-1 s**-1',                     &
-                  & 'convective tendency of rain', datatype_flt),                  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                  & t_cf_var('ddt_qr_conv', 'kg m-3 s-1',                          &
+                  & 'convective tendency of rain mass density', datatype_flt),     &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                   & ldims=shape3d)
         !qs
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                           &
                   & 'ddt_qs_conv', phy_tend%tracer_conv_ptr(5)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                  & t_cf_var('ddt_qs_conv', 'kg kg**-1 s**-1',                     &
-                  & 'convective tendency of snow', datatype_flt),                  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                  & t_cf_var('ddt_qs_conv', 'kg m-3 s-1',                          &
+                  & 'convective tendency of snow mass density', datatype_flt),     &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                   & ldims=shape3d)
       ENDIF

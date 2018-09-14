@@ -141,9 +141,9 @@ CONTAINS
 !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS           PA
 !!    *PTENQ*        MOISTURE TENDENCY                            KG/(KG S)
 !!    *PVERVEL*      VERTICAL VELOCITY                            PA/S
-!!    *zdgeoh*       geopot thickness on half levels               m2/s2
+!!    *zdgeoh*       geopot thickness on full levels              M2/S2
 !!    *zdgeo*        geopot thickness on full levels               m2/s2
-!!    *zdph*         pressure thickness on half levels              Pa
+!!    *zdph*         pressure thickness on full levels             PA
 !!    *pcape*        CAPE                                          J/kg
 !!    *pcapethresh*  CAPE threshold beyond which entrainment parameter is reduced
 
@@ -1210,7 +1210,7 @@ END SUBROUTINE cuascn
 
     !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS          PA
     !!    *PGEOH*        PROVISIONAL GEOPOTENTIAL ON HALF LEVELS      m2/s2
-    !!    *zdgeoh*       geopot thickness on half levels               m2/s2
+    !!    *zdgeoh*       geopot thickness on full levels              M2/S2
     !!    *PMFU*         MASSFLUX IN UPDRAFTS                        KG/(M2*S)
 
     !    OUTPUT PARAMETERS (REAL):

@@ -421,7 +421,8 @@ CONTAINS
         ! "new" state. The corresponding update for the dynamics variables has 
         ! already happened in the dynamical core.
         !
-        CALL tracer_add_phytend( prm_nwp_tend = prm_nwp_tend,         & !in
+        CALL tracer_add_phytend( p_rho_now    = pt_prog%rho(:,:,jb),  & !in
+          &                      prm_nwp_tend = prm_nwp_tend,         & !in
           &                      pdtime       = dt_phy_jg(itfastphy), & !in
           &                      prm_diag     = prm_diag,             & !inout phyfields
           &                      pt_prog_rcf  = pt_prog_rcf,          & !inout tracer
@@ -1019,7 +1020,7 @@ CONTAINS
 &              ktype  = prm_diag%ktype       (:,jb)       ,       & !! in:  convection type
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
 &              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
-&              qc_tend= prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc),& !! in:  convective qc tendency
+&              rhoc_tend= prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc),& !! in:  convective rho_c tendency
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
@@ -1427,9 +1428,11 @@ CONTAINS
             z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
             ! tendency of virtual increment
-            z_ddt_alpha(jc,jk) = vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) &
-             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)          &
-             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+            ! tendencies of iqr,iqs are neglected (nonzero only for ldetrain_conv_prec=.TRUE.)
+            z_ddt_alpha(jc,jk) = ( vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)            &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) )          &
+             &                 / pt_prog%rho(jc,jk,jb)
           ENDDO
         ENDDO
 
@@ -1444,6 +1447,7 @@ CONTAINS
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
               &                             - z_qsum(jc,jk))                                 &
               &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk))
+
           ENDDO
         ENDDO
 
@@ -1495,7 +1499,6 @@ CONTAINS
                 &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
                 &                             - z_qsum(jc,jk))                                 &
                 &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk) )
-
 
               ! add u/v forcing tendency here
               z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb) &

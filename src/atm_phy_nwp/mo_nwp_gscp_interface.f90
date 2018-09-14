@@ -132,8 +132,7 @@ CONTAINS
     LOGICAL  :: l_nest_other_micro
     LOGICAL  :: ltwomoment, ldiag_ttend, ldiag_qtend
 
-    ! local variables
-    !
+
 
     ! number of vertical levels
     nlev   = p_patch%nlev

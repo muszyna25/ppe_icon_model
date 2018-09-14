@@ -410,8 +410,8 @@ CONTAINS
     !!    *PGEO*         GEOPOTENTIAL                                  M2/S2
     !!    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                  M2/S2
     !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS           PA
-    !!    *zdgeoh*       geopot thickness on half levels               m2/s2
-    !!    *zdph*         pressure thickness on half levels              Pa
+    !!    *zdgeoh*       geopot thickness on full levels               m2/s2
+    !!    *zdph*         pressure thickness on full levels              PA
     !!    *PMFU*         MASSFLUX UPDRAFTS                           KG/(M2*S)
 
     !!    UPDATED PARAMETERS (REAL):
