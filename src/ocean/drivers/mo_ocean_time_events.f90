@@ -44,6 +44,11 @@ MODULE mo_ocean_time_events
   PUBLIC :: newNullDatetime
 
   PUBLIC :: get_OceanCurrentTime_Pointer ! this will be removed, do not use  !
+
+  !! COMPAD-DCO  BEGIN  JR2018
+  !!  for AD checkpointing
+  PUBLIC :: set_OceanCurrentTime, get_OceanCurrentTime
+  !! COMPAD-DCO  END    JR2018
   
   CHARACTER(LEN=20)  :: str_module = 'mo_ocean_time_events'  ! Output of module for 1 line debug
   !-------------------------------------------------------------------------
@@ -227,5 +232,27 @@ CONTAINS
 
   END FUNCTION get_OceanCurrentTime_Pointer
   !-------------------------------------------------------------------------
+
+  !! COMPAD-DCO  BEGIN  JR2018
+  !!  for AD checkpointing
+  !-------------------------------------------------------------------------
+  SUBROUTINE set_OceanCurrentTime( current_time )
+    TYPE(datetime), INTENT(IN) :: current_time
+
+    ocean_current_time = current_time
+
+  END SUBROUTINE set_OceanCurrentTime
+  !-------------------------------------------------------------------------
+
+    !-------------------------------------------------------------------------
+  ! this will be removed, do not use !
+  FUNCTION get_OceanCurrentTime()
+    TYPE(datetime)         :: get_OceanCurrentTime
+
+    get_OceanCurrentTime = ocean_current_time
+
+  END FUNCTION get_OceanCurrentTime
+  !-------------------------------------------------------------------------
+  !! COMPAD-DCO  END    JR2018
 
 END MODULE mo_ocean_time_events

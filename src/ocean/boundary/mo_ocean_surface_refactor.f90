@@ -440,6 +440,7 @@ CONTAINS
     CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: ice%totalsnowf', p_ice%totalsnowfall,            str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
@@ -626,6 +627,9 @@ CONTAINS
       p_oce_sfc%FrshFlux_SnowFall     (:,:) = 0.0_wp
       p_oce_sfc%FrshFlux_Evaporation  (:,:) = 0.0_wp
       p_oce_sfc%FrshFlux_Runoff       (:,:) = 0.0_wp
+      p_oce_sfc%FrshFlux_TotalOcean   (:,:) = 0.0_wp
+      atmos_fluxes%rpreci(:,:)              = 0.0_wp
+      atmos_fluxes%rprecw(:,:)              = 0.0_wp
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------

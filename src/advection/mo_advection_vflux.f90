@@ -52,6 +52,13 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
+#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+
+#ifdef __INTEL_COMPILER
+#define USE_LAXFR_MACROS
+#define laxfr_upflux_v LAXFR_UPFLUX_V_MACRO
+#endif
 MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
@@ -67,7 +74,9 @@ MODULE mo_advection_vflux
   USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList 
+#ifndef USE_LAXFR_MACROS
   USE mo_advection_utils,     ONLY: laxfr_upflux_v
+#endif
   USE mo_advection_limiter,   ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
@@ -215,6 +224,9 @@ CONTAINS
     INTEGER :: iadv_min_slev           !< scheme specific minimum slev
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_mflx_contra_v
+#endif
     !-----------------------------------------------------------------------
 
     IF (timers_level > 2) CALL timer_start(timer_adv_vert)
@@ -451,8 +463,12 @@ CONTAINS
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
 !$ACC PRESENT( advection_config ),  IF( i_am_accel_node .AND. acc_on )
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: zparent_topflx
+#endif
+#ifdef _OPENACC
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
+#endif
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -514,9 +530,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           ! calculate vertical tracer flux
           p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-            &                p_cc(jc,jk-1,jb), p_cc(jc,jk,jb),  &
-            &                advection_config(jg)%coeff_grid )
+            &  laxfr_upflux_v(p_mflx_contra_v(jc,jk,jb),p_cc(jc,jk-1,jb),p_cc(jc,jk,jb),advection_config(jg)%coeff_grid)
 
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
@@ -674,6 +688,10 @@ CONTAINS
                                         !< based coordinate system (coeff_grid=-1)
 
     !-----------------------------------------------------------------------
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_face,z_face_up,z_face_low,z_cfl_m,z_cfl_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_slope,zparent_topflx
+#endif
 
 !$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_cfl_m, z_cfl_p, z_slope ), &
 !$ACC      PCOPYIN( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), &
@@ -1010,9 +1028,7 @@ CONTAINS
             ! calculate 'edge value' of advected quantity
             !
             p_upflux(jc,jk,jb) =                                         &
-              &  laxfr_upflux_v( SIGN(1._wp, p_mflx_contra_v(jc,jk,jb)), &
-              &                  z_lext_1, z_lext_2,                     &
-              &                  -1.0_wp )  ! for test purposes only in nh model
+              &  laxfr_upflux_v( SIGN(1._wp, p_mflx_contra_v(jc,jk,jb)),z_lext_1, z_lext_2,-1.0_wp)  ! for test purposes only in nh model
 
             ! sign of the edge value
             p_upflux(jc,jk,jb) =  p_upflux(jc,jk,jb)*SIGN(1._wp, p_mflx_contra_v(jc,jk,jb))
@@ -1077,9 +1093,7 @@ CONTAINS
             ! calculate vertical tracer flux
             !
             p_upflux(jc,jk,jb) =                                  &
-              &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-              &                z_lext_1, z_lext_2,                &
-              &                coeff_grid )
+              &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2,coeff_grid)
 
           END DO ! end loop over cells
 
@@ -1331,6 +1345,16 @@ CONTAINS
 
     REAL(wp) :: rdtime                  !< 1/dt
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_face,z_face_up,z_face_low,z_iflx_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_iflx_m,z_slope
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_cflfrac_m,max_cfl_blk,i_indlist_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_levlist_p,i_levlist_m,i_listdim_p
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_listdim_m,jk_int_p,jk_int_m
+!DIR$ ATTRIBUTES ALIGN : 64 :: max_cfl,zparent_topflx,max_cfl_lay
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_aux_p,max_cfl_lay_tot,z_aux_m
+!DIR$ ATTRIBUTES ALIGN : 64 :: zfac_n
+#endif
     !-----------------------------------------------------------------------
 
     ! inverse of time step for computational efficiency
@@ -1816,6 +1840,11 @@ CONTAINS
         ! index of top half level
         ikm1 = jk -1
 
+#ifdef __INTEL_COMPILER
+! HB: for some strange reason this loop introduces a decomposition dependency if
+! vectorized... threfore inhibit vectorization here
+!DIR$ NOVECTOR
+#endif
         DO jc = i_startidx, i_endidx
 
           ! if w < 0 , weta > 0 (physical downwelling)
@@ -1851,9 +1880,7 @@ CONTAINS
           ! full flux
           !
           p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-            &                z_lext_1, z_lext_2,                &
-            &                coeff_grid )
+            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2,coeff_grid)
 
         END DO ! end loop over cells
 

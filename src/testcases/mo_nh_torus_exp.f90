@@ -655,14 +655,15 @@ MODULE mo_nh_torus_exp
   
     INTEGER :: ist, iunit
     INTEGER :: jk, klev 
-  
+    
     !-------------------------------------------------------------------------
   
     CALL message(TRIM(routine), 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
-    OPEN (unit=iunit,file='sound_in', action='READ', status='OLD', IOSTAT=ist) 
+    OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
+            form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open verticaling sound file failed')
     ENDIF
@@ -677,7 +678,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading souding file failed')
+        CALL finish (TRIM(routine), 'reading sounding file failed')
       ENDIF
     END DO
 

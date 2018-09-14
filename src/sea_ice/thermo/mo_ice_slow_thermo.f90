@@ -119,6 +119,9 @@ CONTAINS
     ! totalsnowfall is applied in ice_growth_*
     ice%totalsnowfall(:,:) =  atmos_fluxes%rpreci(:,:) * dtime
     ! thick ice growth/melt (K-classes): calculates ice%hs, ice%hi, ice%heatOceI
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: befZero: totalSnF', ice%totalsnowfall, str_module, 4, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
     SELECT CASE (i_ice_therm)
     CASE (1,3)
         CALL ice_growth_zerolayer (p_patch, ice)
@@ -128,6 +131,9 @@ CONTAINS
     ! for historical reasons, ice%totalsnowfall represents cell-average, when applied in mo_ocean_surface*
     ! ToDo: should not be done this way
     ice%totalsnowfall(:,:) =  ice%totalsnowfall(:,:) * ice%concSum(:,:)
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: aftZero: totalSnF', ice%totalsnowfall, str_module, 3, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
 
     ! Flooding (snow to ice conversion)
     ! Calculates ice%snow_to_ice and updates ice%draft, ice%draftave

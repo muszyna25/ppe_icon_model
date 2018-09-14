@@ -257,7 +257,9 @@ CONTAINS
     ktype(:) = 0
 
 !DIR$ IVDEP
+#ifdef _CRAYFTN
 !DIR$ CONCURRENT
+#endif
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
     DO jl=jcs,kproma

@@ -28,6 +28,7 @@ MODULE mo_psrad_interface_namelist
   USE mo_nml_annotate   ,ONLY: log_nml_settings
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
+  USE mo_initicon_nml    ,ONLY: read_initicon_namelist
  
 !   USE mo_radiation_nml,  ONLY: read_radiation_namelist
   USE mo_echam_cld_nml  ,ONLY: process_echam_cld_nml
@@ -143,6 +144,8 @@ CONTAINS
 
     ! Grid
     CALL read_grid_namelist           (TRIM(ps_rad_namelist_filename))
+ 
+    CALL read_initicon_namelist       (TRIM(ps_rad_namelist_filename))
 
     !    
     CALL process_echam_phy_nml        (TRIM(ps_rad_namelist_filename)) 

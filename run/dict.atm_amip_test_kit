@@ -1,0 +1,39 @@
+# The following table defines the dictionary for the mapping  between
+# user defined short names and short names defined in the "add_var"
+# calls in ICON. The "add_var" names are used by default, if either no
+# translation is used or the name does not occur in the dictionary.
+#
+# This file contains a dictionary for the mapping between "add_var"
+# names and names used at MPI-M for postprocessing.
+#
+# ======================================================================
+#
+# Available translations for output of constant fields
+# ----------------------------------------------------
+#
+# use name          "add_var" name
+# --------------------------------
+#
+  zg                 z_mc
+  zghalf             z_ifc
+  gpfull             geopot
+#
+# Available translations for instantaneous output of variable fields
+# ------------------------------------------------------------------
+#
+# use name          "add_var" name
+# --------------------------------
+#
+  ua                 u
+  va                 v
+  wa                 w
+# rho                rho          <-- no translation needed
+  wap                omega
+  ta                 temp
+  ps                 pres_sfc
+  psl                pres_msl
+  hus                qv
+  clw                qc
+  cli                qi
+  pfull              pres
+  phalf              pres_ifc

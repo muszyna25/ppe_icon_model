@@ -54,6 +54,8 @@ MODULE mo_interface_echam_vdf
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface             ,ONLY: update_surface
   USE mo_surface_diag        ,ONLY: nsurf_diag
+  USE mo_run_config          ,ONLY: lart
+  
 
   IMPLICIT NONE
   PRIVATE
@@ -147,7 +149,7 @@ CONTAINS
 
     ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
 
-    IF (ntrac>=2) THEN
+    IF (ntrac>=2 .and. .not. lart) THEN
       IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
         zxt_emis(jcs:jce,2) = field%fco2nat(jcs:jce,jb)
       ELSE

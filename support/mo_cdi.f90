@@ -18,7 +18,7 @@ module mo_cdi
 
     subroutine lib_free(pointer) bind(c, name = "free")
       import c_ptr
-      TYPE(c_ptr), INTENT(in), VALUE :: POINTER
+      type(c_ptr), value, intent(in) :: POINTER
     end subroutine lib_free
   end interface
 

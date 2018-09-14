@@ -105,6 +105,7 @@ CONTAINS
 
     ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    ALLOCATE(CHARACTER(LEN=LEN(val)) :: resultVar%text)
     resultVar%text = val
   END FUNCTION text_create
 
@@ -345,6 +346,8 @@ CONTAINS
         TYPE IS(t_Text)
             IF(.NOT.PRESENT(opt_text)) CALL finish(routine, "type mismatch while reading restart attribute '"//key// &
                                                             "', which is of type TEXT")
+
+            ALLOCATE(CHARACTER(LEN=LEN(valueObject%text)) :: opt_text)
             opt_text = valueObject%text
         TYPE IS(t_Real)
             IF(.NOT.PRESENT(opt_real)) CALL finish(routine, "type mismatch while reading restart attribute '"//key// &

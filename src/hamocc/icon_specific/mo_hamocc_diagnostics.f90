@@ -192,6 +192,12 @@ END SUBROUTINE get_omz
         &                   hamocc_state%p_tend%remina(:,:,:), &
         &                   hamocc_state%p_tend%monitor%remina(1))
     ENDIF
+    IF (isRegistered('remin_of_det_by_S')) THEN
+      CALL calc_inventory3d(p_patch_3d, &
+        &                   ssh, &
+        &                   hamocc_state%p_tend%remins(:,:,:), &
+        &                   hamocc_state%p_tend%monitor%remins(1))
+    ENDIF
     IF (l_cyadyn) THEN
       IF (isRegistered('N2_fixation')) THEN
       CALL calc_inventory3d(p_patch_3d, &
@@ -329,6 +335,7 @@ END SUBROUTINE get_omz
     hamocc_state%p_tend%monitor%phosy_cya(1)    = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
     hamocc_state%p_tend%monitor%grazing(1)      = hamocc_state%p_tend%monitor%grazing(1) * p2gtc
     hamocc_state%p_tend%monitor%remina(1)       = hamocc_state%p_tend%monitor%remina(1) * p2gtc
+    hamocc_state%p_tend%monitor%remins(1)       = hamocc_state%p_tend%monitor%remins(1) * p2gtc
     hamocc_state%p_tend%monitor%exud(1)         = hamocc_state%p_tend%monitor%exud(1) * p2gtc
     hamocc_state%p_tend%monitor%exudz(1)        = hamocc_state%p_tend%monitor%exudz(1) * p2gtc
     hamocc_state%p_tend%monitor%zoomor(1)       = hamocc_state%p_tend%monitor%zoomor(1) * p2gtc

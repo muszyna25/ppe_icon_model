@@ -286,17 +286,10 @@ CONTAINS
     ! prescribe, in which steps the output file is opened or closed:
     ! --------------------------------------------------------------
 
-    DO i=1,num_dates
-      IF (i == 1) THEN
-        result_fnames(i)%l_open_file = .TRUE.
-      ELSE
-        result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
-      END IF
-      IF (i==num_dates) THEN
-        result_fnames(i)%l_close_file = .TRUE.
-      ELSE
-        result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
-      END IF
+    IF (num_dates > 0) result_fnames(1)%l_open_file = .TRUE.
+    DO i=2,num_dates
+      result_fnames(i)%l_open_file &
+        = result_fnames(i-1)%jfile /= result_fnames(i)%jfile
     END DO
 
     NULLIFY(keywords)
