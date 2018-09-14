@@ -64,13 +64,14 @@ CONTAINS
     ! Local variables
     INTEGER  :: jg
 
+    jg  = patch%id
+
     ! associate pointers
 !!$    lparamcpl => echam_phy_config(jg)%lparamcpl
 !!$    fc_art    => echam_phy_config(jg)%fc_art
     field     => prm_field(jg)
     tend      => prm_tend (jg)  
 
-    jg  = patch%id
 
     IF ( is_in_sd_ed_interval ) THEN
        !

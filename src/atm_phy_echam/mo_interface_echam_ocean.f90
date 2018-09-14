@@ -68,9 +68,8 @@ MODULE mo_interface_echam_ocean
     &                               COUPLING, OUT_OF_BOUND
 
   USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
-#ifdef DEBUG_YAC_coupling
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
-#endif
+  USE mo_dbg_nml             ,ONLY: idbg_mxmn, idbg_val
   USE mo_physical_constants  ,ONLY: amd, amco2
 
   IMPLICIT NONE
@@ -89,9 +88,7 @@ MODULE mo_interface_echam_ocean
   INTEGER, SAVE         :: nbr_inner_cells
   LOGICAL, SAVE         :: lyac_very_1st_get
 
-#ifdef DEBUG_YAC_coupling
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
-#endif
 
 CONTAINS
 
@@ -490,11 +487,10 @@ CONTAINS
     INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
-    REAL(wp)              :: frac_oce, fwf_fac
 
-#ifdef DEBUG_YAC_coupling
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
-#endif
+    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)        !  allocatable?
+    REAL(wp)              :: fwf_fac !,frac_oce
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -631,7 +627,9 @@ CONTAINS
     !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
+    buffer(:,:)   = 0.0_wp  ! temporarily
+    frac_oce(:,:) = 0.0_wp  ! for dbg
+    scr(:,:)      = 0.0_wp
     !
     ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
     ! Precipitation is reduced by Factor fwf_fac
@@ -660,7 +658,6 @@ CONTAINS
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
      
           ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
-          frac_oce = prm_field(jg)%frac_tile(n,i_blk,iwtr) + prm_field(jg)%frac_tile(n,i_blk,iice) ! 1.0?
           buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
             &              prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice)
         ENDDO
@@ -687,17 +684,25 @@ CONTAINS
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
           ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
-          frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-          IF (frac_oce <= 0.0_wp) THEN
+          !frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+          frac_oce(n,i_blk)=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+          ! test: not yet fully tested
+          !frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+
+          !IF (frac_oce <= 0.0_wp) THEN
+          IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
             ! land part is zero
             buffer(nn+n,3) = 0.0_wp
           ELSE
             buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
-              &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+              &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce(n,i_blk)
           ENDIF
+          IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) scr(n,i_blk) = buffer(nn+n,3)
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
+        &  CALL dbg_print('EchOce: evapo-cpl',scr,str_module,3,in_subset=p_patch%cells%owned)
     ELSE
       CALL finish('interface_echam_ocean: coupling only for nsfc_type equals 2 or 3. Check your code/configuration!')
     ENDIF  !  nsfc_type
@@ -1110,64 +1115,72 @@ CONTAINS
 
     END IF
 
-#ifdef DEBUG_YAC_coupling
-
 !---------DEBUG DIAGNOSTICS-------------------------------------------
 
-    ! u/v-stress on ice and water sent
-    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
-    CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
-    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
+    ! calculations for debug print output for namelist debug-values >0 only
+    IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
 
-    ! rain, snow, evaporation
-    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
-    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
-    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
+      ! u/v-stress on ice and water sent
+      scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
+      CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
+      CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! short wave, long wave, sensible, latent heat flux sent
-    scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+      ! rain, snow, evaporation
+      scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
+      CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
+      CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! Qtop and Qbot, windspeed sent
-    !scr(:,:) = prm_field(jg)%Qtop(:,1,:)
-    !CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop   ,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot   ,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
+      ! total: short wave, long wave, sensible, latent heat flux sent
+      scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr) + &
+        &        prm_field(jg)%lwflxsfc_tile(:,:,iwtr) + &
+        &        prm_field(jg)%shflx_tile(:,:,iwtr)    + &
+        &        prm_field(jg)%lhflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: totalhfx.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! SST, sea ice, ocean velocity received
-    scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: ts_tile.iwtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ocu(:,:)
-    CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+      ! Qtop and Qbot, windspeed sent
+      CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop        ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot        ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind     ,str_module,3,in_subset=p_patch%cells%owned)
 
-    ! Fraction of tiles:
-    scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: frac_tile.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
-    CALL dbg_print('EchOce: frac_tile.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
-    if (nsfc_type == 3) THEN
+      ! SST, sea ice, ocean velocity received
+      scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: ts_tile.iwtr',scr                       ,str_module,2,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: hi(1)       ',prm_field(jg)%hi(:,1,:)   ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: hs(1)       ',prm_field(jg)%hs(:,1,:)   ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: conc(1)     ',prm_field(jg)%conc(:,1,:) ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced       ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice      ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu         ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv         ,str_module,4,in_subset=p_patch%cells%owned)
+
+      !error?
+      !CALL dbg_print('EchOce: ts_tile.iwtr:iwtr',prm_field(jg)%ts_tile(:,:,iwtr:iwtr),str_module,2,in_subset=p_patch%cells%owned)
+
+      ! Fraction of tiles:
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: frac_tile.wtr',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
+      CALL dbg_print('EchOce: frac_tile.ice',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
       scr(:,:) = prm_field(jg)%frac_tile(:,:,ilnd)
-      CALL dbg_print('EchOce: frac_tile.lnd',scr,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_tile.lnd',scr                      ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_oce     ',frac_oce                 ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_alake   ',prm_field(jg)%alake      ,str_module,4,in_subset=p_patch%cells%owned)
     ENDIF
-
-#endif
 
     !---------------------------------------------------------------------
 

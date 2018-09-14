@@ -251,6 +251,67 @@ CONTAINS
            CALL closeFile(stream_id)
            !
            ext_ozone(jg)% o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+        CASE(10)
+                       !
+           ! 1. Read December of the previous year
+           !
+           WRITE(cyear,'(i4)') year-1
+           IF (jg > 1) THEN
+             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           ELSE
+             fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
+           END IF
+           !
+           WRITE(message_text,'(2a)') 'Read ozone for month      0 from file: ',TRIM(fname)
+           CALL message('read_bc_ozone', message_text)
+           stream_id = openInputFile(fname, p_patch, default_read_method)
+           CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
+                &               variable_name='O3', return_pointer=zo3_plev, &
+                &               start_timestep=12,end_timestep=12)
+           CALL closeFile(stream_id)
+           !
+           ! Now the spatial dimensions are known --> allocate memory for months 0:13
+           ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
+           !
+           ext_ozone(jg)% o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
+           !
+           ! 2. Read January-December of this year
+           !
+           WRITE(cyear,'(i4)') year
+           IF (jg > 1) THEN
+             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           ELSE
+             fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
+           END IF
+           !
+           WRITE(message_text,'(2a)') 'Read ozone for months  1:12 from file: ',TRIM(fname)
+           CALL message('read_bc_ozone', message_text)
+           stream_id = openInputFile(fname, p_patch, default_read_method)
+           CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
+                &               variable_name='O3', return_pointer=zo3_plev, &
+                &               start_timestep=1,end_timestep=12)
+           CALL closeFile(stream_id)
+           !
+           ext_ozone(jg)% o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:12)
+           !
+           ! 3. Read January of the next year
+           !
+           WRITE(cyear,'(i4)') year+1
+           IF (jg > 1) THEN
+             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           ELSE
+             fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
+           END IF
+           !
+           WRITE(message_text,'(2a)') 'Read ozone for month     13 from file: ',TRIM(fname)
+           CALL message('read_bc_ozone', message_text)
+           stream_id = openInputFile(fname, p_patch, default_read_method)
+           CALL read_3D_time(stream_id=stream_id, location=on_cells,         &
+                &               variable_name='O3', return_pointer=zo3_plev, &
+                &               start_timestep=1,end_timestep=1)
+           CALL closeFile(stream_id)
+           !
+           ext_ozone(jg)% o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
            !
         END SELECT
 
