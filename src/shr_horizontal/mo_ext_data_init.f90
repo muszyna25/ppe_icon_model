@@ -709,7 +709,7 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':read_ext_data_atm'
     ! input file for topography_c for mpi-physics
-    CHARACTER(len=max_char_length), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
+    CHARACTER(len=max_char_length) :: land_sso_fn
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
     CHARACTER(filename_max) :: sst_td_file !< file name for reading in
@@ -897,8 +897,14 @@ CONTAINS
 
         ! Read topography
 
+        IF (n_dom > 1) THEN
+          WRITE(land_sso_fn , '(a,i2.2,a)') 'bc_land_sso_DOM' , jg, '.nc'
+        ELSE
+          land_sso_fn  = 'bc_land_sso.nc'
+        ENDIF
+
         stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
-        CALL read_2D(stream_id, on_cells, 'elevation', &
+        CALL read_2D(stream_id, on_cells, 'oromea', &
           &          ext_data(jg)%atm%topography_c)
 
         CALL closeFile(stream_id)

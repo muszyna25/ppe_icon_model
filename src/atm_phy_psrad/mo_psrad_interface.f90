@@ -10,7 +10,7 @@ MODULE mo_psrad_interface
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, &
                                            amn2o, amo3, amo2, amc11, amc12, &
                                            zemiss_def
-  USE mo_exception,                  ONLY: finish, message, warning, message_text
+  USE mo_exception,                  ONLY: finish, warning
   USE mo_model_domain,               ONLY: t_patch
   USE mo_parallel_config,            ONLY: nproma
   USE mo_impl_constants,             ONLY: min_rlcell_int, grf_bdywidth_c
@@ -32,11 +32,8 @@ MODULE mo_psrad_interface
 
   USE mo_radiation_config,           ONLY: lrad_aero_diag
 
-  USE mo_psrad_setup,                ONLY : psrad_basic_setup
   USE mo_namelist,                   ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,                   ONLY: nnml, nnml_output
-  USE mo_echam_cld_config,           ONLY: echam_cld_config
-  USE mo_run_config,                 ONLY: nlev
   USE mo_mpi,                        ONLY: my_process_is_stdio
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
 
@@ -61,11 +58,11 @@ MODULE mo_psrad_interface
                          droplet_scale = 1.0e2
 
   PUBLIC :: psrad_interface, pressure_scale, inverse_pressure_scale, &
-            droplet_scale, setup_psrad_radiation
+            droplet_scale, read_psrad_nml
   
 CONTAINS
   !-------------------------------------------------------------------
-  SUBROUTINE setup_psrad_radiation(file_name)
+  SUBROUTINE read_psrad_nml(file_name)
 
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
@@ -91,15 +88,12 @@ CONTAINS
     IF (my_process_is_stdio()) THEN
       WRITE(nnml_output,nml=psrad_nml)
     END IF
-    CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale, &
-     & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-     & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
 
     finish_cb  => finish
     message_cb => warning
     warning_cb => warning
 
-  END SUBROUTINE setup_psrad_radiation
+  END SUBROUTINE read_psrad_nml
   !-------------------------------------------------------------------
 
   !>

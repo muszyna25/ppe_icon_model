@@ -80,7 +80,7 @@ CONTAINS
 
     IF (my_process_is_mpi_workroot()) THEN
    
-      IF (jg > 1) THEN
+      IF (n_dom > 1) THEN
         WRITE(sst_fn,'(a,i2.2,a)') 'bc_sst_DOM', jg, '.nc'
       ELSE
         sst_fn = 'bc_sst.nc'
@@ -107,7 +107,7 @@ CONTAINS
     ! and the same for SIC (don't allocate zin again)
     IF (my_process_is_mpi_workroot()) THEN
 
-      IF (jg > 1) THEN
+      IF (n_dom > 1) THEN
         WRITE(sic_fn,'(a,i2.2,a)') 'bc_sic_DOM', jg, '.nc'
       ELSE
         sic_fn = 'bc_sic.nc'

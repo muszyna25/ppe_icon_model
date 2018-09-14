@@ -16,24 +16,23 @@ MODULE mo_atmo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_exception,                  ONLY: finish, message
   USE mo_model_domain,               ONLY: t_patch, p_patch
-  USE mo_parallel_config,            ONLY: nproma
   USE mtime,                         ONLY: datetime
   USE mo_master_control,             ONLY: isRestart
   USE mo_psrad_interface,            ONLY: psrad_interface
   USE mo_psrad_interface_memory,     ONLY: t_psrad_interface, construct_psrad_interface_memory, &
-    & destruct_psrad_interface_memory, psrad_interface_memory
-  USE mo_mpi,                        ONLY: global_mpi_barrier
+    & psrad_interface_memory
+!  USE mo_mpi,                        ONLY: global_mpi_barrier
 
-  USE mo_psrad_general,              ONLY: ncfc, ngas, nbndsw, nbndlw, nmixture
+  USE mo_psrad_general,              ONLY: nbndsw
   USE mo_io_units,                   ONLY: filename_max
   USE mo_master_control,             ONLY: get_my_namelist_filename, process_exists, ps_radiation_process
   USE mo_psrad_interface_namelist,   ONLY: configure_ps_radiation_test
   USE mo_echam_phy_config,           ONLY: echam_phy_tc
   USE mo_psrad_communication,        ONLY: setup_atmo_2_psrad_communication, &
                                            exchange_data_atmo_2_psrad,       &
-                                           exchange_data_psrad_2_atmo,       &
-                                           free_atmo_psrad_communication 
-  USE mo_master_control,             ONLY: process_exists, atmo_process,     &
+                                           exchange_data_psrad_2_atmo 
+!  USE mo_psrad_communication,        ONLY: free_atmo_psrad_communication 
+  USE mo_master_control,             ONLY: process_exists, &
                                         ps_radiation_process
 
   USE mo_echam_phy_memory,           ONLY: t_echam_phy_field, prm_field
@@ -54,7 +53,8 @@ MODULE mo_atmo_psrad_interface
 
   LOGICAL :: is_first_timestep = .true.
 
-  LOGICAL :: is_sequential_test = .false.  ! deactivates the concurrent radation, even if activated in the script, allows to compare the results to the is_concurrent_test
+  LOGICAL :: is_sequential_test = .false.  ! deactivates the concurrent radation, even if activated in the script,
+                                           ! allows to compare the results to the is_concurrent_test
   LOGICAL :: is_concurrent_test = .false.  ! .false. ! runs the concurrent radation in sequential mode
   
 CONTAINS
@@ -266,11 +266,7 @@ CONTAINS
          par_up_sfc    (:,:)       , & !< Upward  flux surface PAR
          nir_up_sfc    (:,:)           !< Upward  flux surface near-infrared radiation
  
-    CHARACTER(len=filename_max) :: my_namelist_filename
-    CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
-    TYPE(t_psrad_interface),POINTER :: this_memory  !< shape: (n_dom)
- 
-    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_interface"
+!    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_interface"
 
 !     CALL message(method_name, " starts...")
     !---------------------------------------------------------
@@ -432,7 +428,7 @@ CONTAINS
     INTEGER, TARGET ::  irad_aero_target(1), klev_target(1)
     REAL(wp), TARGET ::  psctm_target(1)
 
-    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_concurrent_interface"
+!    CHARACTER(len=*), PARAMETER :: method_name="atmo_psrad_concurrent_interface"
 
 
 !     CALL message (method_name, " starts...")
@@ -558,7 +554,7 @@ CONTAINS
     TYPE(t_patch),   POINTER  :: patch    ! Patch
 
     TYPE(t_psrad_interface),POINTER :: this_memory
-    CHARACTER(len=*), PARAMETER :: method_name="psrad_concurrent_interface"
+!    CHARACTER(len=*), PARAMETER :: method_name="psrad_concurrent_interface"
 
     IF (is_sequential_test) RETURN ! nothing to do here
 

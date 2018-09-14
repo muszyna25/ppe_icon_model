@@ -41,7 +41,6 @@ MODULE mo_echam_phy_init
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
 
   ! vertical grid
@@ -88,7 +87,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
   ! cloud microphysics
-  USE mo_echam_cld_config,     ONLY: print_echam_cld_config
+  USE mo_echam_cld_config,     ONLY: print_echam_cld_config, echam_cld_config
 
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
@@ -112,6 +111,8 @@ MODULE mo_echam_phy_init
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
   ! psrad
+  USE mo_psrad_setup,          ONLY: psrad_basic_setup
+  USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
 
   IMPLICIT NONE
@@ -148,6 +149,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
     !-------------------------------------------------------------------
+
+    nlev = p_patch(1)%nlev
 
     ! Diagnostics (all time steps)
     ! ----------------------------
@@ -190,6 +193,15 @@ CONTAINS
       CALL  eval_echam_rad_config
       CALL print_echam_rad_config
       !
+      ! Radiation constants for gas and cloud optics
+      CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
+        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+      !
+      ! If there are concurrent psrad processes, set up communication 
+      ! between the atmo and psrad processes
+      CALL setup_atmo_2_psrad()
+      !
     END IF
 
     ! vertical turbulent mixing and surface
@@ -205,8 +217,6 @@ CONTAINS
       !
       ! Allocate memory for the tri-diagonal solver needed by the implicit
       ! time stepping scheme; Compute time-independent parameters.
-      !
-      nlev = p_patch(1)%nlev
       !
       CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
       !
@@ -317,12 +327,6 @@ CONTAINS
       CALL init_methox
     END IF
 
-    !-------------------------------------------------------------------
-    ! If there are concurrent psrad processes, set up communication between the
-    ! atmo and psrad processes
-    !-------------------------------------------------------------------
-    CALL setup_atmo_2_psrad()
-   
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy_params
@@ -334,6 +338,7 @@ CONTAINS
     TYPE(datetime),  INTENT(in), POINTER    :: mtime_current !< Date and time information
 
     INTEGER :: jg
+    LOGICAL :: lany
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=max_char_length) :: land_frac_fn
@@ -351,13 +356,14 @@ CONTAINS
     
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
-
+    ! external data on ICON grids:
+    
     DO jg= 1,n_dom
 
-      IF (jg > 1) THEN
+      IF (n_dom > 1) THEN
         WRITE(land_frac_fn, '(a,i2.2,a)') 'bc_land_frac_DOM', jg, '.nc'
         WRITE(land_phys_fn, '(a,i2.2,a)') 'bc_land_phys_DOM', jg, '.nc'
-        WRITE(land_sso_fn, '(a,i2.2,a)') 'bc_land_sso_DOM', jg, '.nc'
+        WRITE(land_sso_fn , '(a,i2.2,a)') 'bc_land_sso_DOM' , jg, '.nc'
       ELSE
         land_frac_fn = 'bc_land_frac.nc'
         land_phys_fn = 'bc_land_phys.nc'
@@ -392,24 +398,35 @@ CONTAINS
 
         ! roughness length and background albedo
         !
-        WRITE(message_text,'(2a)') 'Read roughness_length and albedo from file: ', TRIM(land_phys_fn)
-        CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
-        !
-        stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
-
-        IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
-          CALL read_2D(stream_id=stream_id, location=on_cells, &
-                &       variable_name='roughness_length',      &
-                &       fill_array=prm_field(jg)% z0m(:,:))
+        IF (echam_phy_tc(jg)%dt_vdf > dt_zero .OR. echam_phy_tc(jg)%dt_rad > dt_zero) THEN
+          !
+          stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
+          !
+          IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
+            !
+            WRITE(message_text,'(2a)') 'Read roughness_length from file: ', TRIM(land_phys_fn)
+            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            !
+            CALL read_2D(stream_id=stream_id, location=on_cells, &
+                  &       variable_name='roughness_length',      &
+                  &       fill_array=prm_field(jg)% z0m(:,:))
+            !
+          END IF
+          !
+          IF (echam_phy_tc(jg)%dt_rad > dt_zero) THEN
+            !
+            WRITE(message_text,'(2a)') 'Read albedo           from file: ', TRIM(land_phys_fn)
+            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            !
+            CALL read_2D(stream_id=stream_id, location=on_cells, &
+                 &       variable_name='albedo',                &
+                 &       fill_array=prm_field(jg)% alb(:,:))
+            !
+          END IF
+          !
+          CALL closeFile(stream_id)
+          !
         END IF
-
-        IF (echam_phy_tc(jg)%dt_rad > dt_zero) THEN
-          CALL read_2D(stream_id=stream_id, location=on_cells, &
-               &       variable_name='albedo',                &
-               &       fill_array=prm_field(jg)% alb(:,:))
-        END IF
-     
-        CALL closeFile(stream_id)
 
         ! orography
         IF (echam_phy_tc(jg)%dt_sso > dt_zero) THEN
@@ -446,49 +463,70 @@ CONTAINS
 
     END DO ! jg
 
-    ! read time-dependent boundary conditions from file
+    ! external data independent of ICON grids:
 
-    ! well mixed greenhouse gases, horizontally constant
-    IF (ANY(ighg(:) > 0)) THEN
-      ! read annual means
-      IF (.NOT. bc_greenhouse_gases_file_read) THEN
-        CALL read_bc_greenhouse_gases
-      END IF
-      ! interpolate to the current date and time, placing the annual means at
-      ! the mid points of the current and preceding or following year, if the
-      ! current date is in the 1st or 2nd half of the year, respectively.
-      CALL bc_greenhouse_gases_time_interpolation(mtime_current)
+    ! for radiation
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_rad > dt_zero)
+    END DO
+    IF (lany) THEN
       !
-    ENDIF
-
-    ! read data for simple plumes of aerosols
-
-    IF (ANY(irad_aero(:) == 18)) THEN
-      CALL setup_bc_aeropt_splumes
+      ! well mixed greenhouse gases, horizontally constant
+      !
+      IF (ANY(ighg(:) > 0)) THEN
+        ! read annual means
+        IF (.NOT. bc_greenhouse_gases_file_read) THEN
+          CALL read_bc_greenhouse_gases
+        END IF
+        ! interpolate to the current date and time, placing the annual means at
+        ! the mid points of the current and preceding or following year, if the
+        ! current date is in the 1st or 2nd half of the year, respectively.
+        CALL bc_greenhouse_gases_time_interpolation(mtime_current)
+        !
+      ENDIF
+      !
+      ! parameterized simple plumes of tropospheric aerosols
+      !
+      IF (ANY(irad_aero(:) == 18)) THEN
+        CALL setup_bc_aeropt_splumes
+      END IF
+      !
     END IF
 
     
+    ! for radiation and vertical diffusion
+    !
     ! Read sea surface temperature, sea ice concentration and depth
     ! Note: For coupled runs, this is only used for initialization of surface temperatures
     !
-    IF (.NOT. isrestart()) THEN
+    IF (iwtr <= nsfc_type .AND. iice <= nsfc_type) THEN
       !
-      ! interpolation weights for linear interpolation of monthly means to the current time
-      current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
-      !
-      DO jg= 1,n_dom
+      IF (.NOT. isrestart()) THEN
         !
-        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
+        ! interpolation weights for linear interpolation of monthly means to the current time
+        current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
         !
-        CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
-             &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)  &
-             &                             > 1._wp - 10._wp*EPSILON(1._wp)                      ,&
-             &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
-             &                             prm_field(jg)%seaice (:,:)                           ,&
-             &                             prm_field(jg)%siced  (:,:)                           ,&
-             &                             p_patch(jg)                                          )
+        DO jg= 1,n_dom
+          !
+          IF (echam_phy_tc(jg)%dt_rad > dt_zero .OR. echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
+            !
+            CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
+            !
+            CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
+                 &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)  &
+                 &                             > 1._wp - 10._wp*EPSILON(1._wp)                      ,&
+                 &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
+                 &                             prm_field(jg)%seaice (:,:)                           ,&
+                 &                             prm_field(jg)%siced  (:,:)                           ,&
+                 &                             p_patch(jg)                                          )
+            !
+          END IF
+          !
+        END DO
         !
-      END DO
+      END IF
       !
     END IF
 

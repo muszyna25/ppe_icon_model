@@ -14,7 +14,7 @@
 MODULE mo_psrad_interface_namelist
 
   USE mo_impl_constants, ONLY: max_dom
-  USE mo_exception,      ONLY: finish, message, warning, message_text
+  USE mo_exception,      ONLY: message
   USE mo_mpi,            ONLY: my_process_is_stdio
   USE mo_run_nml,        ONLY: read_run_namelist
   USE mo_io_nml         ,ONLY: read_io_namelist
@@ -23,21 +23,17 @@ MODULE mo_psrad_interface_namelist
   USE mo_name_list_output_init,ONLY: read_name_list_output_namelists
   USE mo_parallel_nml   ,ONLY: read_parallel_namelist
   USE mo_time_nml       ,ONLY: read_time_namelist
-  USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml, &
-    & open_nml_output, close_nml_output, POSITIONED
+  USE mo_namelist,       ONLY: open_nml_output, close_nml_output
   USE mo_nml_annotate   ,ONLY: log_nml_settings
-  USE mo_io_units,       ONLY: nnml, nnml_output
-  USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
-  USE mo_initicon_nml    ,ONLY: read_initicon_namelist
+  USE mo_initicon_nml   ,ONLY: read_initicon_namelist
  
-!   USE mo_radiation_nml,  ONLY: read_radiation_namelist
+  USE mo_echam_phy_nml,  ONLY: process_echam_phy_nml
   USE mo_echam_cld_nml  ,ONLY: process_echam_cld_nml
   USE mo_echam_rad_nml  ,ONLY: process_echam_rad_nml
-  USE mo_echam_phy_nml,  ONLY: process_echam_phy_nml
 
-!   USE mo_psrad_radiation_parameters, ONLY : rad_perm ! read by namelist here
-
-  USE mo_echam_phy_config, ONLY: eval_echam_phy_config, eval_echam_phy_tc
+  USE mtime,               ONLY: OPERATOR(>)
+  USE mo_echam_phy_config, ONLY: eval_echam_phy_config, eval_echam_phy_tc, echam_phy_tc, dt_zero
+  USE mo_echam_cld_config, ONLY: echam_cld_config
   USE mo_time_config,    ONLY: time_config, dt_restart
   USE mo_run_config,     ONLY: nlev, num_lev, configure_run
   USE mo_grid_config,    ONLY: init_grid_configuration, n_dom
@@ -46,7 +42,8 @@ MODULE mo_psrad_interface_namelist
     &                          compute_date_settings
   USE mo_event_manager,   ONLY: initEventManager
 
-  USE mo_psrad_interface, ONLY: setup_psrad_radiation
+  USE mo_psrad_setup,     ONLY: psrad_basic_setup
+  USE mo_psrad_interface, ONLY: read_psrad_nml, pressure_scale, droplet_scale
   USE mo_load_restart,    ONLY: read_restart_header
   USE mo_master_config,   ONLY: isRestart
 
@@ -68,6 +65,9 @@ CONTAINS
   SUBROUTINE configure_ps_radiation(ps_rad_namelist_filename,shr_namelist_filename)
     CHARACTER(LEN=*), INTENT(in) :: ps_rad_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    LOGICAL :: lany
+    INTEGER :: jg
 
     IF (isRestart()) THEN
       CALL message('configure_ps_radiation','Read restart file meta data ...')
@@ -100,6 +100,19 @@ CONTAINS
 
     CALL  eval_echam_phy_config
     CALL  eval_echam_phy_tc
+
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_rad > dt_zero)
+    END DO
+    IF (lany) THEN
+      !
+      ! Radiation constants for gas and cloud optics
+      CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
+        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+      !
+    END IF
 
     number_of_levels = num_lev
     
@@ -152,8 +165,7 @@ CONTAINS
     CALL process_echam_cld_nml        (TRIM(ps_rad_namelist_filename))
     CALL process_echam_rad_nml        (TRIM(ps_rad_namelist_filename))
 
-    ! needs to be done after process_echam_cld_nml
-    CALL setup_psrad_radiation(TRIM(ps_rad_namelist_filename))
+    CALL read_psrad_nml               (TRIM(ps_rad_namelist_filename))
    !-------------------------------------------------------------------
 
 

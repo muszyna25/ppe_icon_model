@@ -14,13 +14,12 @@ MODULE mo_psrad_interface_test
   USE mo_kind,                       ONLY: wp
   USE mo_exception,                  ONLY: finish
   USE mo_model_domain,               ONLY: t_patch, p_patch
-  USE mo_parallel_config            ,ONLY: nproma
   USE mtime,                         ONLY: datetime
-  USE mo_psrad_general,              ONLY: ncfc, ngas, nbndsw, nbndlw  ! constants
+  USE mo_psrad_general,              ONLY: nbndsw  ! constants
   USE mo_psrad_interface,            ONLY: psrad_interface
-  USE mo_psrad_interface_namelist,   ONLY: configure_ps_radiation_test, number_of_levels
+  USE mo_psrad_interface_namelist,   ONLY: configure_ps_radiation_test
   USE mo_psrad_interface_memory,     ONLY: t_psrad_interface, construct_psrad_interface_memory, &
-    & destruct_psrad_interface_memory, psrad_interface_memory
+    & psrad_interface_memory
   USE mo_master_control,             ONLY: get_my_namelist_filename
   USE mo_io_units,                   ONLY: filename_max
 

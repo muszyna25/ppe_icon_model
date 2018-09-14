@@ -89,7 +89,9 @@ MODULE mo_interface_echam_ocean
   INTEGER, SAVE         :: nbr_inner_cells
   LOGICAL, SAVE         :: lyac_very_1st_get
 
+#ifdef DEBUG_YAC_coupling
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
+#endif
 
 CONTAINS
 
@@ -488,8 +490,11 @@ CONTAINS
     INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
-    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
     REAL(wp)              :: frac_oce, fwf_fac
+
+#ifdef DEBUG_YAC_coupling
+    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
+#endif
 
     IF ( .NOT. is_coupled_run() ) RETURN
 

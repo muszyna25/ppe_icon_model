@@ -1935,9 +1935,15 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
-                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
-                & p_grf_state(n_dom_start:n_dom), prm_diag, jgc, jg, dt_loc)
+              IF (iforcing==inwp) THEN
+                CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                  & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                  & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc, prm_diag)
+              ELSE
+                CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                  & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                  & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
+              END IF
             ENDIF
             IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
               CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &

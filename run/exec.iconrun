@@ -116,9 +116,19 @@ fi
 # add grids to required files
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids} ${ocean_grids}"
 for gridfile in ${all_grids}; do
+  #
+  gridfile=${gridfile//\'/} # strip all ' in case ' is used to delimit the grid names
+  gridfile=${gridfile//\"/} # strip all " in case " is used to delimit the grid names
+  gridfile=${gridfile//\,/} # strip all , in case , is used to separate the grid names
+  #
+  grfinfofile=${gridfile%.nc}-grfinfo.nc
+  #
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
-  add_required_file ${HGRIDDIR}/$gridfile ./
+  add_required_file ${HGRIDDIR}/${gridfile} ./
+  if [ -f ${HGRIDDIR}/${grfinfofile} ]; then    
+    add_required_file ${HGRIDDIR}/${grfinfofile} ./
+  fi
 done
 #-----------------------------------------------------------------------------
 # print_required_files

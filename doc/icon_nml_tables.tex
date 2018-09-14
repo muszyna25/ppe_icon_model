@@ -1125,6 +1125,10 @@ echam\_rad\_config(jg)\% \newline cobld & R & 23.44100 & deg &
 obliquity of the Earth rotation axis on the Kepler orbit &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .FALSE. \tabularnewline
 %
+echam\_rad\_config(jg)\% \newline clonp & R & 282.7000 & deg &
+longitude of perihelion with respect to vernal equinox on the Kepler orbit &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .FALSE. \tabularnewline
+%
 echam\_rad\_config(jg)\% \newline lyr\_perp & L & .FALSE. & &
 .FALSE. for transient VSOP87 Earth orbit \\ .TRUE.: VSOP87 Earth orbit of year yr\_perp is perpertuated &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .TRUE. \tabularnewline
@@ -1178,9 +1182,9 @@ echam\_rad\_config(jg)\% \newline irad\_o3 & I & 0 & &
 Selects source for concentration of O3 \\
 0: set to zero (or epsilon) \\
 1: from tracer \\
-2: 3-dim concentration of month 9 from file \\
-4: 3-dim concentration of month 1 from file \\
-8: 3-dim concentration, time dependent from file &
+2: 3-dim concentration, climatological annual cycle, monthly means from an annual file \\
+4: 3-dim concentration, constant in time, 1st time slice file \\
+8: 3-dim concentration, time dependent, monthly means from yearly files &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% \newline irad\_o2 & I & 2 & &
@@ -2316,7 +2320,7 @@ C &
 Filename of IFS2ICON input file, default
 ''\texttt{<path>ifs2icon\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=2
 \tabularnewline
 
@@ -2328,7 +2332,7 @@ C &
 Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
@@ -2341,7 +2345,7 @@ Filename of DWD analysis input file, default
 ''\texttt{<path>dwdana\_R<nroot>B<jlev>\_DOM
 <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 

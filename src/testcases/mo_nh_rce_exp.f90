@@ -110,10 +110,10 @@ MODULE mo_nh_rce_exp
         ptr_nh_prog%rho(1:nlen,jk,jb)     = ptr_nh_diag%pres(1:nlen,jk,jb)/rd/tpe_temp
         ptr_nh_prog%exner(1:nlen,jk,jb)   = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
         ptr_nh_prog%theta_v(1:nlen,jk,jb) = tpe_temp/ptr_nh_prog%exner(1:nlen,jk,jb)
-!++jsr
-        write(0,*) 'ptr_nh_prog%exner(1,jk,jb)=',ptr_nh_prog%exner(1,jk,jb), &
-                   'ptr_nh_prog%rho(1,jk,jb)=',ptr_nh_prog%rho(1,jk,jb), 'tpe_psfc=',tpe_psfc      
-!--jsr
+!!$!++jsr
+!!$        write(0,*) 'ptr_nh_prog%exner(1,jk,jb)=',ptr_nh_prog%exner(1,jk,jb), &
+!!$                   'ptr_nh_prog%rho(1,jk,jb)=',ptr_nh_prog%rho(1,jk,jb), 'tpe_psfc=',tpe_psfc      
+!!$!--jsr
      END DO
 
 

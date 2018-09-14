@@ -29,14 +29,14 @@ MODULE mo_bc_ozone
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
+  USE mo_impl_constants,           ONLY: max_dom
   USE mo_grid_config,              ONLY: n_dom
   USE mo_echam_rad_config,         ONLY: echam_rad_config
-  USE mo_master_config,            ONLY: experimentStartDate, isRestart
 
   IMPLICIT NONE
   PRIVATE
   REAL(wp), PARAMETER               :: vmr2mmr_o3=amo3/amd  ! Volume mixing ratio to mass mixing ratio
-  INTEGER(i8), SAVE                 :: pre_year=-999999     ! Variable to check if it is time to read
+  INTEGER(i8), SAVE                 :: pre_year(max_dom)=-999999 ! Variable to check if it is time to read
 
   PUBLIC                            :: ext_ozone
   PUBLIC                            :: read_bc_ozone
@@ -65,7 +65,7 @@ CONTAINS
     CHARACTER(len=2)                  :: cjg
     CHARACTER(len=*), PARAMETER       :: subprog_name &
          = 'mo_bc_ozone:read_bc_ozone'
-    INTEGER                           :: ncid, varid, mpi_comm, jg, jk
+    INTEGER                           :: ncid, varid, mpi_comm, jg
     INTEGER                           :: nplev_o3
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)           ! (nproma, levels, blocks, time)
 
@@ -75,7 +75,7 @@ CONTAINS
     ! allocate once only structure for all grids
     IF (.NOT. ALLOCATED(ext_ozone)) ALLOCATE(ext_ozone(n_dom))
 
-    IF (year > pre_year) THEN
+    IF (year > pre_year(jg)) THEN
       !
       ! If year = pre_year, then the external monthly ozone data are already stored.
       ! Nothing needs to be done.
@@ -99,8 +99,8 @@ CONTAINS
           ext_ozone(jg)% o3_plev(:,:,:,0:1) = ext_ozone(jg)% o3_plev(:,:,:,12:13)
 
           WRITE(cyear,'(i4)') year
-          IF (jg > 1) THEN
-            fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+          IF (n_dom > 1) THEN
+            fname = 'bc_ozone_DOM'//TRIM(cjg)//'_'//TRIM(cyear)//'.nc'
           ELSE
             fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
           END IF
@@ -115,8 +115,8 @@ CONTAINS
           ext_ozone(jg)% o3_plev(:,:,:,2:12) = vmr2mmr_o3*zo3_plev(:,:,:,1:11)
 
           WRITE(cyear,'(i4)') year+1
-          IF (jg > 1) THEN
-            fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+          IF (n_dom > 1) THEN
+            fname = 'bc_ozone_DOM'//TRIM(cjg)//'_'//TRIM(cyear)//'.nc'
           ELSE
             fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
           END IF
@@ -144,7 +144,7 @@ CONTAINS
           !
         CASE (2) ! Ozone has a climatological annual cycle defined by monthly data in an annual file
           !
-          IF (jg > 1) THEN
+          IF (n_dom > 1) THEN
             fname = 'bc_ozone_DOM'//TRIM(cjg)//'.nc'
           ELSE
             fname = 'bc_ozone'//'.nc'
@@ -169,7 +169,7 @@ CONTAINS
           !
         CASE (4) ! Ozone is constant in time
           !
-          IF (jg > 1) THEN
+          IF (n_dom > 1) THEN
             fname = 'bc_ozone_DOM'//TRIM(cjg)//'.nc'
           ELSE
             fname = 'bc_ozone'//'.nc'
@@ -195,8 +195,8 @@ CONTAINS
            ! 1. Read December of the previous year
            !
            WRITE(cyear,'(i4)') year-1
-           IF (jg > 1) THEN
-             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           IF (n_dom > 1) THEN
+             fname = 'bc_ozone_DOM'//TRIM(cjg)//'_'//TRIM(cyear)//'.nc'
            ELSE
              fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
            END IF
@@ -217,8 +217,8 @@ CONTAINS
            ! 2. Read January-December of this year
            !
            WRITE(cyear,'(i4)') year
-           IF (jg > 1) THEN
-             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           IF (n_dom > 1) THEN
+             fname = 'bc_ozone_DOM'//TRIM(cjg)//'_'//TRIM(cyear)//'.nc'
            ELSE
              fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
            END IF
@@ -236,8 +236,8 @@ CONTAINS
            ! 3. Read January of the next year
            !
            WRITE(cyear,'(i4)') year+1
-           IF (jg > 1) THEN
-             fname = 'bc_ozone_'//TRIM(cyear)//'_DOM'//TRIM(cjg)//'.nc'
+           IF (n_dom > 1) THEN
+             fname = 'bc_ozone_DOM'//TRIM(cjg)//'_'//TRIM(cyear)//'.nc'
            ELSE
              fname = 'bc_ozone_'//TRIM(cyear)//'.nc'
            END IF
@@ -286,7 +286,7 @@ CONTAINS
 
       END IF
 
-      IF (jg==n_dom .OR. echam_rad_config(jg+1)% irad_o3/=8) pre_year = year
+      pre_year(jg) = year
 
     END IF
 
