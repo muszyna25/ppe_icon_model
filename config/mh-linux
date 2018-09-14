@@ -163,26 +163,6 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         WLFLAG      = -Wl        
         ;;
-    pgi_gpu)
-        config_target=daint_gpu
-        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda -D_LOC_TIMING
-        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
-        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
-        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-        ;;
-    pgi_openacc_mc)
-        config_target=daint_gpu
-        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline -D_LOC_TIMING
-        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
-        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
-        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-        ;;
     cray_gpu)
         config_compiler  = cray_gpu
         compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
@@ -264,83 +244,210 @@ case "$ac_sitename" in
                 ZLIBROOT    = /usr
 
                 case "$fortran_compiler" in
-                    gcc)
-                        config_target=daint_cpu
-                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5
-                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB    = -lsci_gnu
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                    gcc*)
+                        CFLAGS      = -DgFortran -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
-			;;
-                    intel)
-                        config_target=daint_cpu
-                        load_modules = PrgEnv-intel cray-netcdf
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
-                        F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
-                        FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-			OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/INTEL/17.0.4.196
-			;;
-                    pgi)
-                        config_target=daint_cpu 
-                        load_modules = PrgEnv-pgi cray-netcdf daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -tp=haswell
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -tp=haswell -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-			;;
-                    pgi_gpu)
-                        config_target=daint_gpu
-                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-                       ;;
-                    pgi_openacc_mc)
-                        config_target=daint_gpu
-                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-                       ;;
-                    cray)
-                        config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
-                        LDFLAGS     = -Wl,--allow-multiple-definition
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB  = -lsci_cray
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                ;;
+                            ftg)
+                                config_target = daint_cpu
+                                STD_FLAGS   = -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -D__LOOP_EXCHANGE
+                                FFLAGS        = ${FLANG/ffree-line-length-132/ffree-line-length-none} $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DgFortran -cpp -save-temps -O -g -DFORCE_FTG_SERIALIZATION
+                                config_tuning = "standalone"
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS        = ${FFLAGS}
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT   = ${NETCDF_DIR}
+                                HDF5ROOT     = ${HDF5_DIR}
+                                LAPACKROOT   = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB   = -lsci_gnu
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
                         ;;
-                    cray_gpu)
-                        config_target=daint_gpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 craype-accel-nvidia60
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hadd_paren -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
+                    intel*)
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/INTEL/17.0.4.196
+			                  OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
+                                F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
+                                FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
+                        ;;
+                    pgi*)
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
+                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = daint_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda
+                                LDFLAGS       = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
+                                ;;
+                            openacc_mc*)
+                                config_target = daint_gpu
+                                FFLAGS        = ${FFLAGS} -ta=multicore -tp=haswell -Minfo=accel,inline
+                                LDFLAGS       = -ta=multicore -tp=haswell -Mnorpath
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS        = ${FFLAGS} -tp=haswell
+                                LDFLAGS       = -tp=haswell -Mnorpath
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = daint-gpu PrgEnv-pgi cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            gpu*)
+                                load_modules = daint-gpu PrgEnv-pgi cray-netcdf cray-hdf5 cudatoolkit
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            openacc_mc*)
+                                load_modules = daint-gpu PrgEnv-pgi cray-netcdf cray-hdf5 cudatoolkit
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
+                        ;;
+                    cray*)
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB  = -lsci_cray
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
-			                  ;;
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
+                        config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = daint_gpu
+                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS      = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
+                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            gpu*)
+                                load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 craype-accel-nvidia60
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
+                        ;;
                     *)
                         echo
                         echo
