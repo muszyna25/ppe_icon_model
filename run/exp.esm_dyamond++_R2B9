@@ -863,7 +863,7 @@ add_link_file ${datadir}/bc_ozone_cariolle.nc                           ./cariol
 add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 #
 datadir=${icon_data_poolFolder}/${atmos_gridID}/aerosol_kinne/r0002
 year=1849
@@ -871,13 +871,13 @@ while [[ $year -le 1851 ]]
 do
   add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
   add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc           ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc           ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #
 add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
-add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
 # - stratospheric aerosol
 #
@@ -931,7 +931,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD mask for interpolation of runoff
 #
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     hd_mask.nc
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./hd_mask.nc
 #
 # - the atmosphere grid itself (the gid copy section below from $HGRIDDIR is ignored)
 #

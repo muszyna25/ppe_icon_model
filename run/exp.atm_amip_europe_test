@@ -519,7 +519,7 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
 #
 # - Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 year=1849
 while [[ $year -le 1851 ]]
 do
