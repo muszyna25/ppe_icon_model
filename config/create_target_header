@@ -574,11 +574,7 @@ set_run_target_bullx()
     fi
   fi
 
-  case x$use_queue in
-    "xdevelop" )
-      queue="compute"
-      ;;
-  esac
+  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
   use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
 # TODO: disabled because other core files are generated
