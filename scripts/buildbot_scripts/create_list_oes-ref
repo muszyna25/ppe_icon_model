@@ -1,0 +1,47 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+list=oes-ref
+./rmlist $list
+# ./mklist $list
+machine=mistral
+./addmachine $machine --list $list
+./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc --with-yaxt"                  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel --with-yaxt"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel_openmp   --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17 --with-yaxt"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_ocean          --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
+./addbuilder MISTRAL_ocean_intel17  --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
+
+#-----------------------------------------------------------
+# OES
+# add omip binary-identical test on mistral
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days \
+ --machines mistral --machines mistral --runflags "cpu_time=00:30:00 queue=compute" --list $list
+
+# add ocean tests to the restricted builder MISTRAL_ocean incl. its intel17 version
+./set_builder_flags Active             --builders MISTRAL_ocean  --list $list
+./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $list
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days --builders MISTRAL_ocean MISTRAL_ocean_intel17 --runflags "cpu_time=00:30:00 queue=compute" --list $list
+./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $list
+./set_builder_flags Ocean             --builders MISTRAL_ocean_intel17  --list $list
+
+
+#-----------------------------------------------------------
+#lets see the list
+./lslist $list
+#-----------------------------------------------------------
+
