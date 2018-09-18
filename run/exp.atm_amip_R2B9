@@ -129,6 +129,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 5           ! dtime/dt_dyn
@@ -329,7 +330,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${resolution_b}_DOM01.nc
+add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc         ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
@@ -370,14 +371,14 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
 year=1849
 while [[ $year -le 1851 ]]
 do
   add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #

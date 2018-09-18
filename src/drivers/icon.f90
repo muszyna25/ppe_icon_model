@@ -32,8 +32,10 @@ PROGRAM icon
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               atmo_process, ocean_process, testbed_process,       &
-    &                               ps_radiation_process
+    &                               atmo_process, ocean_process, ps_radiation_process
+#ifndef __NO_ICON_TESTBED__
+  USE mo_master_control,      ONLY: testbed_process
+#endif
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: OPERATOR(>)
   USE mo_util_signal

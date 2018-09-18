@@ -26,14 +26,12 @@ MODULE mo_ocean_coupling
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
   USE mo_run_config,          ONLY: ltimer
-  USE mo_dynamics_config,     ONLY: nold
+  USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
        &                            timer_coupling_put, timer_coupling_get,  &
        &                            timer_coupling_1stget, timer_coupling_init
   USE mo_sync,                ONLY: sync_c, sync_patch_array
-#ifdef DEBUG_YAC_coupling
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-#endif
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
@@ -469,7 +467,7 @@ CONTAINS
     INTEGER                             :: info, ierror   !< return values from cpl_put/get calls
     REAL(wp), PARAMETER                 :: dummy = 0.0_wp
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
-    REAL(wp) :: total_rain
+    REAL(wp)                            :: total_rain
 
     IF (.NOT. is_coupled_run() ) RETURN
 
@@ -526,7 +524,9 @@ CONTAINS
         nlen = patch_horz%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = ocean_state%p_prog(nold(1))%tracer(n,1,i_blk,1) + tmelt
+        ! use SST updated by ocean dynamics - coupling is done at end of timestep
+        buffer(nn+n,1) = ocean_state%p_prog(nnew(1))%tracer(n,1,i_blk,1) + tmelt
+        !buffer(nn+n,1) = ocean_state%p_prog(nold(1))%tracer(n,1,i_blk,1) + tmelt
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -980,7 +980,6 @@ CONTAINS
       ENDDO
 !!ICON_OMP_END_PARALLEL_DO
       !
-      !atmos_forcing%fu10(:,:) = MAX(atmos_forcing%fu10(:,:),0.0_wp) 
       CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
     END IF
 
@@ -1025,8 +1024,7 @@ CONTAINS
       ENDDO
 !!ICON_OMP_END_PARALLEL_DO
       !
-      !atmos_forcing%fu10(:,:) = MAX(atmos_forcing%fu10(:,:),0.0_wp) 
-      CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
+      CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%co2(:,:))
     END IF
     END IF !l_cpl_co2
 
@@ -1075,12 +1073,12 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_Runoff(:,:))
     END IF
 
-#ifdef DEBUG_YAC_coupling
     !---------DEBUG DIAGNOSTICS-------------------------------------------
+
     CALL dbg_print('toatmo: AtmFluxStress_x  ',atmos_fluxes%stress_x              ,str_module,3,in_subset=patch_horz%cells%owned)
-    CALL dbg_print('toatmo: AtmFluxStress_xw ',atmos_fluxes%stress_xw             ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: AtmFluxStress_xw ',atmos_fluxes%stress_xw             ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: AtmFluxStress_y  ',atmos_fluxes%stress_y              ,str_module,4,in_subset=patch_horz%cells%owned)
-    CALL dbg_print('toatmo: AtmFluxStress_yw ',atmos_fluxes%stress_yw             ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: AtmFluxStress_yw ',atmos_fluxes%stress_yw             ,str_module,4,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: FrshFluxPrecip   ',atmos_fluxes%FrshFlux_Precipitation,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: FrshFluxEvapo    ',atmos_fluxes%FrshFlux_Evaporation  ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: FrshFluxSnowFall ',atmos_fluxes%FrshFlux_SnowFall     ,str_module,3,in_subset=patch_horz%cells%owned)
@@ -1088,11 +1086,19 @@ CONTAINS
     CALL dbg_print('toatmo: HeatFluxShortwave',atmos_fluxes%HeatFlux_ShortWave    ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: HeatFluxLongwave ',atmos_fluxes%HeatFlux_Longwave     ,str_module,4,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: HeatFluxSensible ',atmos_fluxes%HeatFlux_Sensible     ,str_module,4,in_subset=patch_horz%cells%owned)
-    CALL dbg_print('toatmo: HeatFluxLatent   ',atmos_fluxes%HeatFlux_Latent       ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxLatent   ',atmos_fluxes%HeatFlux_Latent       ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: ice%Qtop         ',ice%qtop                           ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: ice%Qbot         ',ice%qbot                           ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: FrshFluxRunoff   ',atmos_fluxes%FrshFlux_Runoff       ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: 10m_wind_speed   ',atmos_forcing%fu10                 ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: tracer(1): SST   ', ocean_state%p_prog(nold(1))%tracer(:,1,:,1) + tmelt &
+      &                                                                           ,str_module,2,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: p_diag%u         ',ocean_state%p_diag%u(:,1,:)        ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: p_diag%v         ',ocean_state%p_diag%v(:,1,:)        ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: ice%hi           ',ice%hi(:,1,:)                      ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: ice%hs           ',ice%hs(:,1,:)                      ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: ice%conc         ',ice%conc(:,1,:)                    ,str_module,4,in_subset=patch_horz%cells%owned)
     !---------------------------------------------------------------------
-#endif
 
     IF (ltimer) CALL timer_stop(timer_coupling)
 

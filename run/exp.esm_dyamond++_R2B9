@@ -67,25 +67,38 @@ author_list="Monika Esch, Thorsten Mauritsen, Rene Redler"
 
 #--------------------------------------------------------------------------------------------------
 
-# (1) Basic model configuration
+# (0) Basic model configuration
+# -----------------------------
 
 initialiseOcean="fromRestart"
 #initialiseOcean="FALSE"
 
 atmos_gridID="0015"
 atmos_refinement="R02B09"
-ifs2icon_refinement="R2B09"
 
 ocean_gridID="0016"
 ocean_refinement="R02B09"
 
-mpi_oce_nodes=120                   # nodes for the ocean model
-((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
-
 nproma_atm=96
 nproma_oce=48
 
-read_restart_namelists=".FALSE."   # used in master_nml to overwrite default
+mpi_oce_nodes=120                   # nodes for the ocean model
+((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
+
+#--------------------------------------------------------------------------------------------------
+
+# (1) Define the model time stepping
+# ----------------------------------
+
+radTimeStep="PT15M"              # radiation time step:    96 time steps per day
+atmTimeStep="PT30S"              # atmosphere time step: 2880 time steps per day
+                                 #                         30 time steps per radTimeStep
+                                 #                         30 time steps per couplingTimeStep
+oceTimeStep="PT3M"               # ocean time step:       480 time steps per day
+                                 #                          5 time steps per couplingTimeStep
+couplingTimeStep="PT15M"         # coupling time step:      1 time step  per radTimeStep 
+
+#--------------------------------------------------------------------------------------------------
 
 # (2) unset some setting of create_target_header for mistral
 
@@ -95,6 +108,12 @@ unset OMPI_MCA_coll_fca_priority
 #--------------------------------------------------------------------------------------------------
 
 # (3) icon_data_poolFolder
+
+# Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 
 # overwrite the default setting with the new path and handle daint (CSCS)
 
@@ -110,12 +129,13 @@ icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 #--------------------------------------------------------------------------------------------------
 
 # (4) Set variables needed for the script, namelists and xml file
+# ---------------------------------------------------------------
 
 # horizontal grid(s)
 
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
-atmo_grid_folder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}
 atmo_data_InputFolder==${icon_data_poolFolder}/${atmos_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
@@ -126,6 +146,17 @@ start_date=${start_date:="2013-01-01T00:00:00Z"}
 # restart intervals
 checkpoint_interval="P600D"
 restart_interval="P3D"
+
+# output intervals
+# ----------------
+
+atm_file_interval="P1D"
+atm_output_interval="PT6H"
+
+oce_file_interval="P1D"
+oce_default_output_interval="P1D"
+oce_2d_output_interval="PT6H"
+oce_3d_output_interval="PT6H"
 
 # file types
 #
@@ -140,6 +171,11 @@ atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
+#--------------------------------------------------------------------------------------------------
+
+# (3) Define the model configuration
+#-----------------------------------
+
 # JSBACH settings
 run_jsbach=yes
 jsbach_usecase=jsbach_lite       # jsbach_lite or jsbach_pfts
@@ -148,34 +184,24 @@ jsbach_with_hd=yes               # hydrological discharge: yes/no
 jsbach_with_carbon=no            # yes needs jsbach_pfts usecase
 jsbach_check_wbal=no             # check water balance
 
+# Some further processing for land configuration
+# ----------------------------------------------
+
+ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
+lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  pft_file_tag="11pfts_"
+else
+  pft_file_tag=""
+fi
+
 #--------------------------------------------------------------------------------------------------
 
-# (5) Define the model time stepping
-# ----------------------------------
-
-radTimeStep="PT15M"              # radiation time step:    96 time steps per day
-atmTimeStep="PT30S"              # atmosphere time step: 2880 time steps per day
-                                 #                         30 time steps per radTimeStep
-                                 #                         30 time steps per couplingTimeStep
-oceTimeStep="PT3M"               # ocean time step:       480 time steps per day
-                                 #                          5 time steps per couplingTimeStep
-couplingTimeStep="PT15M"         # coupling time step:      1 time step  per radTimeStep 
-
-#--------------------------------------------------------------------------------------------------
-
-# (6) Output control
+# (4) Output control
 # ------------------
-
-# output intervals
-# ----------------
-
-atm_file_interval="P1D"
-atm_output_interval="PT6H"
-
-oce_file_interval="P1D"
-oce_default_output_interval="P1D"
-oce_2d_output_interval="PT6H"
-oce_3d_output_interval="PT6H"
 
 # asynchronous diagnostic output processes
 # ----------------------------------------
@@ -545,19 +571,6 @@ add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
 #-----------------------------------------------------------------------------
 #
 
-# Some further processing for land configuration
-# --------------------------------
-ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
-lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
-
-if [[ $jsbach_usecase == *pfts* ]]
-then
-  pft_file_tag="11pfts_"
-else
-  pft_file_tag=""
-fi
-
 # atmospheric dynamics and physics
 # --------------------------------
 cat > ${atm_namelist} << EOF
@@ -592,6 +605,7 @@ cat > ${atm_namelist} << EOF
 /
 &initicon_nml
  init_mode         = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps     = 5           ! dtime/dt_dyn
@@ -795,11 +809,11 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/${atmos_gridID}
-add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon_${ifs2icon_refinement}_DOM01.nc
+datadir=${icon_data_poolFolder}/${atmos_gridID}/initial_condition/r0002
+add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${icon_data_poolFolder}/${atmos_gridID}/land
+datadir=${icon_data_poolFolder}/${atmos_gridID}/land/r0002
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
 #add_link_file ${datadir}/ic_land_carbon_1976.nc                        ./ic_land_carbon.nc
@@ -816,14 +830,14 @@ end_year=$(( ${end_date%%-*} + 1 ))
 # - well mixed greenhouse gases
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical.nc                          ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical.nc                       ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=2
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}/ozone
+datadir=${icon_data_poolFolder}/${atmos_gridID}/ozone/r0002
 #
-add_link_file ${datadir}/bc_ozone_picontrol.nc                             ./bc_ozone.nc
+add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
 # The following is required for AMIP
 #
@@ -832,9 +846,9 @@ while [[ $year -le $end_year ]]
 do
   if [[ $year -le 2014 ]]
   then
-    add_link_file ${datadir}/bc_ozone_historical_${year}.nc                ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_${year}.nc             ./bc_ozone_${year}.nc
   else
-    add_link_file ${datadir}/bc_ozone_historical_2014.nc                   ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_2014.nc                ./bc_ozone_${year}.nc
   fi
   (( year = year+1 ))
 done
@@ -842,28 +856,28 @@ done
 # -- for irad_o3=1 with Cariolle ozone chemistry
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/bc_ozone_cariolle.nc                              ./cariolle_coeff.nc
+add_link_file ${datadir}/bc_ozone_cariolle.nc                           ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
 #
 add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}/aerosol_kinne
+datadir=${icon_data_poolFolder}/${atmos_gridID}/aerosol_kinne/r0002
 year=1849
 while [[ $year -le 1851 ]]
 do
-  add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                   ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                   ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc              ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc           ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #
-add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                     ./
-add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                     ./
-add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1865.nc                ./bc_aeropt_kinne_sw_b14_fin.nc
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
 # - stratospheric aerosol
 #
@@ -884,7 +898,7 @@ add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc        ./bc_
 #
 # - sst and sic
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}
+datadir=${icon_data_poolFolder}/${atmos_gridID}/sst_and_seaice/r0002
 add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
 add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
 #
@@ -895,7 +909,7 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${icon_data_poolFolder}/${atmos_gridID}/land
+datadir=${icon_data_poolFolder}/${atmos_gridID}/land/r0002
 add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1976.nc               ./bc_land_frac.nc
 add_link_file ${datadir}/bc_land_phys_1976.nc                              ./bc_land_phys.nc
 add_link_file ${datadir}/bc_land_soil_1976.nc                              ./bc_land_soil.nc
@@ -917,7 +931,7 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD mask for interpolation of runoff
 #
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     hd_mask.nc
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./hd_mask.nc
 #
 # - the atmosphere grid itself (the gid copy section below from $HGRIDDIR is ignored)
 #
@@ -954,7 +968,7 @@ if [[ "$output_atm_debug" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'none'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atmTimeStep}"
@@ -980,7 +994,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"               ! output_start = output_end
  output_end       = "${start_date}"               ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"      !     the output interval and
@@ -1001,7 +1015,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1023,7 +1037,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1060,7 +1074,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1093,7 +1107,7 @@ if [[ "$output_lnd" == "min" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1121,7 +1135,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1141,7 +1155,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1163,7 +1177,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1178,7 +1192,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1195,7 +1209,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1218,7 +1232,7 @@ if [[ "$output_lnd" == "full" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1239,7 +1253,7 @@ if [[ "$jsbach_check_wbal" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  operation        = 'mean'
- output_grid      = .TRUE.
+ output_grid      = .FALSE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval}"
@@ -1267,25 +1281,10 @@ fi
 #-----------------------------------------------------------------------------
 
 ocean_vertical_levels=128
-ocean_dyn_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
-ocean_grid_folder="${icon_data_poolFolder}/${ocean_gridID}"
+ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
- 
-#-----------------------------------------------------------------------------
-#
-# Note:
-#
-#   Restarts for the ocean from an OMIP Spinup and initial conditions for the ocean are located in
-#
-#   /work/mh0033/m211054/projects/icon/sapphire/icon-oes/experiments/ocean_omip_long_r2b9_18096-WKM
-#
-#   ocean_omip_long_r2b9_18096-WKM_restart_oce_20??0101T000000Z.nc
-#
-#   with EXPNAM = ocean_omip_long_r2b9_18096-WKM
-#   and rsttime = 20??0101T000000Z
-#
-#   -> ${EXPNAME}_restart_oce_<rsttime>.nc
-#
+
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -1303,7 +1302,7 @@ cat > ${oce_namelist} << EOF
  l_fast_sum                  = .TRUE.
 /
 &grid_nml
- dynamics_grid_filename      = "${ocean_dyn_grid}"
+ dynamics_grid_filename      = "${ocean_grid}"
  use_dummy_cell_closure      = .TRUE.
  use_duplicated_connectivity = .FALSE.
 /
@@ -1336,7 +1335,7 @@ if [[ "$output_oce_2d" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'mld'  , 'condep',
@@ -1361,7 +1360,7 @@ if [[ "$output_oce_3d" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'to', 'so', 'u', 'v', 'w'  
@@ -1383,7 +1382,7 @@ if [[ "$output_oce_default" == "yes" ]]; then
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'group:oce_default', 'group:oce_essentials', 'group:ice_default'
@@ -1397,7 +1396,7 @@ if [[ "$output_oce_monitor" == "yes" ]]; then
 &output_nml
   output_start               = "${start_date}"
   output_end                 = "${end_date}"
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   file_interval              = "${oce_file_interval}"
   output_interval            = "${oce_default_output_interval}"
   output_filename            = "${EXPNAME}_oceanMonitor"
@@ -1593,12 +1592,12 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # and the restart file. No other files are required.
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/ocean_omip_long_r2b9_18096-WKM_restart_oce_20050101T000000Z_new.nc restart_oce_DOM01.nc 
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/ocean_omip_long_r2b9_18096-WKM_restart_oce_20050101T000000Z_new.nc restart_oce_DOM01.nc 
 fi
 #
 # The ocean grid
 #
-add_required_file ${ocean_grid_folder}/${ocean_dyn_grid} ./
+add_required_file ${ocean_grid_folder}/${ocean_rid} ./
 #
 #-----------------------------------------------------------------------------
 

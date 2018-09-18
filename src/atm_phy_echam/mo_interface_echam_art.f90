@@ -56,8 +56,8 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
-    INTEGER                 ,POINTER    :: fc_art
+!!$    LOGICAL                 ,POINTER    :: lparamcpl
+!!$    INTEGER                 ,POINTER    :: fc_art
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
@@ -67,8 +67,8 @@ CONTAINS
     jg  = patch%id
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    fc_art    => echam_phy_config(jg)%fc_art
+!!$    lparamcpl => echam_phy_config(jg)%lparamcpl
+!!$    fc_art    => echam_phy_config(jg)%fc_art
     field     => prm_field(jg)
     tend      => prm_tend (jg)  
 
@@ -115,8 +115,8 @@ CONTAINS
     END IF
 
     ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(fc_art)
+!!$    NULLIFY(lparamcpl)
+!!$    NULLIFY(fc_art)
     NULLIFY(field)
     NULLIFY(tend)
 

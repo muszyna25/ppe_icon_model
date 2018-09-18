@@ -33,15 +33,12 @@ MODULE mo_psrad_interface_memory
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
+  USE mo_cdi,                 ONLY: DATATYPE_PACK16,                   &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
-    &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
-    &                               TSTEP_MIN, TSTEP_MAX,              &
-    &                               cdiInqMissval
+    &                               TSTEP_CONSTANT
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
-  USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,   &
-    &                               ZA_REFERENCE_HALF_HHL, ZA_SURFACE
+  USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_SURFACE
 
   USE mo_psrad_interface_namelist, ONLY: number_of_levels
  ! USE mo_radiation_config        , ONLY: isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero

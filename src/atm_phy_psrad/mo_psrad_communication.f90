@@ -14,10 +14,12 @@ MODULE mo_psrad_communication
 
 
   USE iso_c_binding,               ONLY: c_ptr
-  USE mo_exception,                ONLY: finish, message
 
+#ifndef USE_PSRAD_COMMUNICATION
+  USE mo_exception,                ONLY: finish
+#endif
 
-  USE mo_kind,                     ONLY: wp
+!  USE mo_kind,                     ONLY: wp
   USE mo_master_control,           ONLY: atmo_process, ps_radiation_process
   USE mo_parallel_config,          ONLY: nproma
   USE mo_model_domain,             ONLY: t_patch, p_patch
@@ -41,8 +43,8 @@ MODULE mo_psrad_communication
 
   PRIVATE
 
-  INTEGER :: psrad_atm_intercomm
 #ifdef USE_PSRAD_COMMUNICATION
+  INTEGER :: psrad_atm_intercomm
   TYPE(xt_redist), ALLOCATABLE :: exchange_redist_atmo_2_psrad(:)
   TYPE(xt_redist), ALLOCATABLE :: exchange_redist_psrad_2_atmo(:)
 #endif
@@ -294,11 +296,11 @@ CONTAINS
   END SUBROUTINE generate_redists
 #endif
 
+#ifdef USE_PSRAD_COMMUNICATION
   SUBROUTINE setup_communication(is_psrad)
 
     LOGICAL, INTENT(IN) :: is_psrad
 
-#ifdef USE_PSRAD_COMMUNICATION
     INTEGER :: i
 
     IF (.NOT. xt_initialized()) &
@@ -313,9 +315,9 @@ CONTAINS
                             exchange_redist_atmo_2_psrad(i), &
                             exchange_redist_psrad_2_atmo(i))
     END DO
-#endif
 
   END SUBROUTINE setup_communication
+#endif
 
   SUBROUTINE setup_atmo_2_psrad_communication()
 
@@ -339,9 +341,8 @@ CONTAINS
 
   SUBROUTINE free_atmo_psrad_communication
  
-   INTEGER :: ierr
-
 #ifdef USE_PSRAD_COMMUNICATION
+   INTEGER :: ierr
    INTEGER :: i
 
     DO i = n_dom_start, n_dom

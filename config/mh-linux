@@ -1192,21 +1192,42 @@ case "$ac_sitename" in
     *)
     case "$(hostname)" in
       melian)
-        FC=gfortran-6
-        CC=gcc-6
-        AR=gcc-ar-6
-        NM=gcc-nm-6
-        MPIROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/openmpi-3.0.0-cmrvnxasc5cybkp3e3zsrmaajtaftq7z
-        MPI_LIB=-L/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib    -Wl,-rpath -Wl,/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lhwloc -ldl -lz -lrt -lutil -lm
-        ZLIBROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/zlib-1.2.11-ixmeez7b3hhvgyakwl5zyx37hr7jn6ao
-        HDF5ROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hdf5-1.10.1-pq4dgtuiu2i2icyybg3dtem6av5o3ol2
-        NETCDFROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/netcdf-4.4.1.1-eni4v5h6r5tdcyjftuytckg3ze7ze7ab
-        SZIPROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/libszip-2.1.1-u34densnuyujh6plxi5o4g53exhjnthc
-        XML2ROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/libxml2-2.9.4-nwxoyi5iqhykepvxsunhgqqfzdxlq6qw
+        FC=gfortran
+        CC=gcc
+        AR=gcc-ar
+        NM=gcc-nm
+        FFLAGS = $FFLAGS -D__NO_HAMMOC__
+#       MPIROOT=/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/openmpi-3.0.0-cmrvnxasc5cybkp3e3zsrmaajtaftq7z
+#       MPI_LIB=-L/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib    -Wl,-rpath -Wl,/home/ram/src/tools/spack/opt/spack/linux-arch-x86_64/gcc-6.4.1/hwloc-1.11.8-zsfqzvq5ynit7xbdr3lshbktqkdnmcvx/lib -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lhwloc -ldl -lz -lrt -lutil -lm
+        MPIROOT=/usr
+        MPI_LIB=-L/usr/lib/openmpi -Wl,-rpath -Wl,/usr/lib/openmpi -Wl,--enable-new-dtags -lmpi
+        ZLIBROOT=/usr
+        HDF5ROOT=/usr
+        NETCDFROOT=/usr
+        NETCDFROOT=/usr
+        SZIPROOT=/usr
+        XML2ROOT=/usr
       ;;
+      jrpc*)
+        FC=gfortran
+        CC=gcc
+        AR=gcc-ar
+        NM=gcc-nm
+        FFLAGS = $FFLAGS -D__NO_HAMMOC__
+        MPIROOT=/home/riehme/local/OpenMPI/gcc/openmpi-3.1.0-gf
+        MPI_LIB=-L${MPIROOT}/lib -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lhwloc -ldl -lz -lrt -lutil -lm
+	MPI_LIB=-pthread -I${MPIROOT}/lib -Wl,-rpath -Wl,${MPIROOT}/lib -Wl,--enable-new-dtags -L${MPIROOT}/lib -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+	#
+	ZLIBROOT=/usr
+        HDF5ROOT=/usr
+        NETCDFROOT=/usr
+#        SZIPROOT=/usr/local/szlib
+        SZIPROOT=${HOME}/local/szlib
+        XML2ROOT=/usr
+	#
+	;;
     esac
     ;;
-
 #===============================================
 esac
 #===============================================

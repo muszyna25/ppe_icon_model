@@ -19,6 +19,7 @@
 MODULE mo_bc_aeropt_stenchikov
 
   USE mo_kind,                   ONLY: wp, i8
+  USE mo_model_domain,           ONLY: t_patch
   USE mo_psrad_general,          ONLY: nbndlw, nbndsw
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
@@ -102,9 +103,9 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch_id)
+SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
   TYPE(datetime), POINTER, INTENT(in) :: current_date
-  INTEGER, INTENT(in)                 :: p_patch_id
+  TYPE(t_patch)          , INTENT(in) :: p_patch
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
@@ -144,7 +145,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch_id)
   ENDIF
   inm2_time_interpolation=tiw%month2_index
   DO imonths=1,nmonths
-  CALL read_months_bc_aeropt_stenchikov (p_patch_id,                  &
+  CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
                      'longitude',       'latitude',         'levels', &
                      imonth(imonths),    iyear(imonths),    imonths   )
   END DO
@@ -439,11 +440,11 @@ END SUBROUTINE pressure_index
 !!   asymm: asymmetry fractor corresp. to tautl: asymm(time, levels, latitude, longitude)
 !!   levels: non-equidistant pressure levels corresp. to exts, omega, asymm: levels(levels).
 !!     Only the mid-point pressures are given.
-  SUBROUTINE read_months_bc_aeropt_stenchikov (p_patch_id,  &
+  SUBROUTINE read_months_bc_aeropt_stenchikov (p_patch, &
     cwave_dim,        clat_dim,           clev_dim,  &
     kmonth,           kyear,            ktime_step   )
   !
-  INTEGER, INTENT(in)            :: p_patch_id   ! id number of the patch
+  TYPE(t_patch)   , INTENT(in)   :: p_patch
   CHARACTER(len=*), INTENT(in)   :: cwave_dim,  &! name of wavelength dimension
                                     clat_dim,   &! name of latitude dimension
                                     clev_dim     ! name of level dimension
@@ -457,12 +458,15 @@ END SUBROUTINE pressure_index
 
 !!$  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
 
+  INTEGER                        :: jg
   INTEGER                        :: ifile_id
   REAL(wp), POINTER              :: zvar2d(:,:,:), zvar3d(:,:,:,:)
   REAL(wp), POINTER              :: zpmid(:), zlat(:)
 !!$  REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
 !!$  CHARACTER(LEN=32)              :: cimnthb, cimnthe
 !!$  CHARACTER(LEN=512)             :: cfnameyear,cyear
+
+  jg = p_patch%id
 
   IF (kmonth < 1 .OR. kmonth > 12 ) THEN
     WRITE(ckmonth,*) kmonth
@@ -472,7 +476,7 @@ END SUBROUTINE pressure_index
   END IF
   WRITE(ckyear,*) kyear
 
-  IF ( echam_phy_config(p_patch_id)%lamip ) THEN
+  IF ( echam_phy_config(jg)%lamip ) THEN
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
   ELSE
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14.nc'

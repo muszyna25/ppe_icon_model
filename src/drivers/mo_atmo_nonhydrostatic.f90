@@ -15,11 +15,9 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
-USE mtime,                   ONLY: datetimeToString, timeDelta, newTimeDelta,               &
-  &                                getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
-  &                                deallocateTimedelta, OPERATOR(>)
+USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, VARNAME_LEN
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
@@ -106,7 +104,6 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
   USE mo_jsb_model_init,    ONLY: jsbach_init_after_restart
 #endif
 
-USE mtime,                  ONLY: datetimeToString
 USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
@@ -690,7 +687,11 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
 
-    INTEGER :: jg, ist, prev_cdi_namespace
+    INTEGER :: jg, ist
+    
+#ifdef HAVE_CDI_PIO
+    INTEGER :: prev_cdi_namespace
+#endif
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.

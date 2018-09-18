@@ -29,7 +29,7 @@ MODULE mo_exception
   USE mo_io_units, ONLY: nerr, nlog, filename_max
   USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
     & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
-  USE mo_kind,     ONLY: wp
+  USE mo_kind,     ONLY: wp, i8
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
   
 
@@ -69,6 +69,7 @@ MODULE mo_exception
   INTERFACE print_value            !< report on a parameter value
     MODULE PROCEDURE print_lvalue  !< logical
     MODULE PROCEDURE print_ivalue  !< integer
+    MODULE PROCEDURE print_i8value !< integer(i8)
     MODULE PROCEDURE print_rvalue  !< real
   END INTERFACE
 
@@ -362,6 +363,18 @@ CONTAINS
     CALL message('', message_text, level=em_param)
 
   END SUBROUTINE print_ivalue
+  !-------------
+  !>
+  !!
+  SUBROUTINE print_i8value (mstring, i8value)
+
+    CHARACTER(len=*), intent(in)   :: mstring
+    INTEGER(i8), intent(in)        :: i8value
+
+    WRITE(message_text,'(a60,1x,":",i10)') mstring, i8value
+    CALL message('', message_text, level=em_param)
+
+  END SUBROUTINE print_i8value
   !-------------
   !>
   !!

@@ -16,20 +16,20 @@
 
 MODULE mo_ps_radiation_model
 
-  USE mo_kind                    ,ONLY: wp, i8
+  USE mo_kind                    ,ONLY: i8
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_psrad_interface_namelist,ONLY: configure_ps_radiation, number_of_levels
-  USE mo_time_config,             ONLY: time_config, dt_restart
-  USE mo_grid_config,             ONLY: n_dom
+  USE mo_time_config,             ONLY: time_config
+!  USE mo_grid_config,             ONLY: n_dom
 
-  USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
+  USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_run_config,              ONLY: ltimer, nshift
   USE mo_build_decomposition,     ONLY: build_decomposition
-  USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
-    &                                   destruct_icon_communication
+!  USE mo_icon_comm_interface,     ONLY: construct_icon_communication
+  USE mo_icon_comm_interface,     ONLY: destruct_icon_communication
 
   
-  USE mo_psrad_interface_memory,  ONLY: construct_psrad_interface_memory, destruct_psrad_interface_memory, psrad_interface_memory
+  USE mo_psrad_interface_memory,  ONLY: construct_psrad_interface_memory, destruct_psrad_interface_memory
  
   USE mo_echam_phy_config,        ONLY: echam_phy_tc
   USE mo_echam_rad_config       , ONLY: echam_rad_config
@@ -40,23 +40,12 @@ MODULE mo_ps_radiation_model
   USE mtime,                      ONLY: datetime, timedelta, datetimeToString,      &
     &   OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*), OPERATOR(<),            &
     &   ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=)
-!    , newDatetime, timedelta, newTimedelta, &
-!        &                             getPTStringFromMS, OPERATOR(+),                 &
-!        &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
-!        &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
-!        &                             deallocateTimedelta, deallocateDatetime,        &
-!        &                             NO_OF_MS_IN_A_SECOND, NO_OF_SEC_IN_A_DAY
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-    &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_restart, process_mpi_restart_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size  
+  USE mo_mpi,                     ONLY: set_mpi_work_communicators  
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_restart_procs, use_async_restart_output,          &
-    &                                   num_prefetch_proc
+    &                                   num_restart_procs
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
-    &                                   timers_level, timer_model_init,                       &
-    &                                   timer_domain_decomp, timer_compute_coeffs,            &
-    &                                   timer_ext_data, print_timer
+    &                                   print_timer
+!  USE mo_timer,                   ONLY: timer_model_init
 
   USE mo_atmo_psrad_interface,    ONLY: psrad_concurrent_interface, finalize_psrad_concurrent
 
@@ -77,9 +66,6 @@ MODULE mo_ps_radiation_model
     SUBROUTINE ps_radiation_model(ps_rad_namelist_filename,shr_namelist_filename)
 
       CHARACTER(LEN=*), INTENT(in) :: ps_rad_namelist_filename,shr_namelist_filename
-
-      CHARACTER(*), PARAMETER :: method_name = "mo_ps_radiation_model:ps_radiation_model"
-
 
       !-------------------------------------------------------------------
       CALL construct_ps_radiation_model(ps_rad_namelist_filename,shr_namelist_filename)
@@ -208,20 +194,20 @@ MODULE mo_ps_radiation_model
       !
       ! stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current,patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_current,patch)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 18) THEN
         CALL read_bc_aeropt_kinne     (1850_i8, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
       END IF
 
 !     write(0,*) method_name, " done."
@@ -234,8 +220,6 @@ MODULE mo_ps_radiation_model
   SUBROUTINE destruct_ps_radiation_model()
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ps_radiation_model:destruct_ps_radiation_model"
-
-    INTEGER :: error_status
 
     !------------------------------------------------------------------
     !  cleaning up process
@@ -257,8 +241,6 @@ MODULE mo_ps_radiation_model
     CHARACTER(LEN=*), INTENT(in) :: ps_rad_namelist_filename,shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ps_radiation_model:construct_ps_radiation_model"
-    INTEGER                             :: ist
-    INTEGER                             :: error_status
 !    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
     !-------------------------------------------------------------------
