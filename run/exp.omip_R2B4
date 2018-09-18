@@ -1,5 +1,3 @@
-#!/bin/bash
-#=============================================================================
 #-----------------------------------------------------------------------------
 # the namelist filename
 oce_namelist=NAMELIST_${EXPNAME}
@@ -14,9 +12,9 @@ restart_interval="P10Y"
 checkpoint_interval="P1Y"
 #
 #-----------------------------------------------------------------------------
-output_interval="P1M"                              # ocean model output interval in days
-file_interval="P1Y"
-modelTimeStep="PT1H"
+oce_output_interval="P1M"                              # ocean model output interval in days
+oce_file_interval="P1Y"
+oceTimeStep="PT60M"
 autoPostProcessing="FALSE"                         # submit postprocessing job
 #-----------------------------------------------------------------------------
 iforc=12                                           # OMIP forcing
@@ -25,15 +23,39 @@ init_relax=1
 nproma_oce=48
 mpi_oce_io_procs=0
 #-----------------------------------------------------------------------------
-ocean_data_InputFolder="/work/mh0287/users/rene/public/mpim/0014i/ocean"
-ocean_grids_folder="/work/mh0287/users/rene/public/mpim/0014"
+ocean_gridID="0014"
+ocean_refinement="R02B04"
+#
+# icon_data_poolFolder
+
+# Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
+
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix=/users/icontest
+else
+    poolFolder_prefix=
+fi
+
+icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+
+icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+
 ocean_vertical_levels=40
-ocean_grids="icon_grid_0014_R02B04_O.nc"
+ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 #-----------------------------------------------------------------------------
 # Input files (initial conditions, OMIP forcing, HAMOCC forcing)
-ocean_init_file="ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0158km_rotatedZ37d_modified_srtm30_1min_L40.nc"
-ocean_flux_file="omip_icon_OceanOnly_Global_IcosSymmetric_0158km_rotatedZ37d_modified_srtm30_1min_forcing-daily.nc"
-ocean_relax_file="ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0158km_rotatedZ37d_modified_srtm30_1min_surf.nc"
+ocean_init_file="ts_phc3.0_annual_icon_grid_${ocean_gridID}_${ocean_refinement}_O_L40.nc"
+ocean_flux_file="omip_icon_grid_${ocean_gridID}_${ocean_refinement}_O_forcing-daily.nc"
+ocean_relax_file="ts_phc3.0_annual_icon_grid_${ocean_gridID}_${ocean_refinement}_O_surf.nc"
 ocean_dust_file=""
 ocean_nitro_file=""
 #-----------------------------------------------------------------------------
@@ -73,7 +95,7 @@ cat > ${oce_namelist} << EOF
  l_fast_sum                  = .TRUE.
 /
 &grid_nml
- dynamics_grid_filename      = "${ocean_grids}",
+ dynamics_grid_filename      = "${ocean_grid}"
  use_dummy_cell_closure      = .TRUE.
  use_duplicated_connectivity = .FALSE.
 /
@@ -81,7 +103,7 @@ cat > ${oce_namelist} << EOF
  iequations                  = -1                               ! -1: hydrost. ocean model
 /
 &run_nml
- modelTimeStep               = "${modelTimeStep}"
+ modelTimeStep               = "${oceTimeStep}"
  output                      = 'nml'                            ! namelist controlled output scheme
  activate_sync_timers        = .TRUE.
  profiling_output            = 2
@@ -96,25 +118,16 @@ cat > ${oce_namelist} << EOF
   filename_format            = "<output_filename>_<datetime2>"
   output_start               = "${start_date}"                  ! start in ISO-format
   output_end                 = "${end_date}"                    ! end in ISO-format
-  output_interval            = "${output_interval}"
-  file_interval              = "${file_interval}"
+  output_interval            = "${oce_output_interval}"
+  file_interval              = "${oce_file_interval}"
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
                                                                 ! 2: climate mode (absolute t-axis)
   include_last               = .FALSE.
-  output_grid                = .TRUE.
+  output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
-  ml_varlist                 = 'group:oce_essentials', 'group:ice_default'
+  operation                  = "mean"
+  ml_varlist                 = 'group:oce_default', 'group:oce_essentials', 'group:ice_default'
 /
-! &output_nml
-!  output_start               = "${start_date}"
-!  output_end                 = "${end_date}"
-!  output_grid                = .TRUE.
-!  output_interval            = "${output_interval}"
-!  file_interval              = "${file_interval}"
-!  output_filename            = "${EXPNAME}_oceanMonitor"
-!  filename_format            = "<output_filename>_<datetime2>"
-!  ml_varlist                 = 'group:ocean_monitor'
-! /
 EOF
 
 cat >> ${oce_namelist} << EOF
@@ -168,7 +181,7 @@ cat >> ${oce_namelist} << EOF
   VelocityDiffusion_order                    = 1                ! 21=biharmonic+laplacian (for the laplacian leith)
                                                                 !
   BiharmonicViscosity_scaling                = 1
-  BiharmonicViscosity_reference              = 3.0E8            ! [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_reference              = 1.0E15           ! [m2/s] constant horizontal viscosity coefficient for velocity
   BiharmonicViscosity_background             = 0.0              ! [m2/s] constant horizontal viscosity coefficient for velocity
 
   HarmonicViscosity_scaling                  = 1
@@ -199,14 +212,14 @@ cat >> ${oce_namelist} << EOF
   salinity_ConvectionRestrict                = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration                       = 0                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration                       = 1                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
   S_max                                      = 1.0e-3           ! 1.0
-  S_d                                        = 0.0001           ! 5e-3 to 5e-4
+  S_d                                        = 1.0e-4           ! 5e-3 to 5e-4
                                                                 !
-  k_tracer_GM_kappa_parameter                = 0.0              !
-  k_tracer_isoneutral_parameter              = 0.0              ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter                =1000.0            !
+  k_tracer_isoneutral_parameter              =1000.0            ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter              = 0.0              ! 1.0E-5  !
                                                                 !
   switch_off_diagonal_vert_expl              = .TRUE.
@@ -267,6 +280,7 @@ cat >> ${oce_namelist} << EOF
   restart_file_type                          = 5
   write_last_restart                         = .TRUE.
 ! restart_write_mode                         = "joint procs multifile"
+! lkeep_in_sync                              = .TRUE.           ! sync after each timestep
 /
 EOF
 
@@ -274,7 +288,7 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 
 #-----------------------------------------------------------------------------
 # Grid
-add_link_file ${ocean_grids_folder}/${ocean_grids} ./
+add_link_file ${ocean_grid_folder}/${ocean_grid} ./
 #
 # Initial conditions
 #
@@ -283,10 +297,10 @@ add_link_file ${ocean_grids_folder}/${ocean_grids} ./
 # above can be set to zero and the following line can be
 # commented out
 #
-add_link_file ${ocean_data_InputFolder}/${ocean_init_file}   initial_state.nc
+add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/${ocean_init_file}  initial_state.nc
 # OMIP Forcing
-add_link_file ${ocean_data_InputFolder}/${ocean_flux_file}   ocean-flux.nc
-add_link_file ${ocean_data_InputFolder}/${ocean_relax_file}  ocean-relax.nc
+add_link_file ${ocean_data_InputFolder}/surface_boundary/r0001/${ocean_flux_file}   ocean-flux.nc
+add_link_file ${ocean_data_InputFolder}/surface_boundary/r0001/${ocean_relax_file}  ocean-relax.nc
 # HAMOCC Forcing
 # add_link_file ${ocean_data_InputFolder}/${ocean_dust_file}   dust.nc
 # add_link_file ${ocean_data_InputFolder}/${ocean_nitro_file}  nitrogen.nc

@@ -19,8 +19,10 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size, &
-    &                                   mpi_comm_null, p_comm_work_io
+    &                                   my_process_is_pref, process_mpi_pref_size
+#ifdef HAVE_CDI_PIO
+  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
+#endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
@@ -39,7 +41,6 @@ MODULE mo_atmo_model
     &                                   nml_io_cdi_pio_client_comm, &
     &                                   nml_io_cdi_pio_conf_handle
 #endif
-  USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -126,9 +127,10 @@ MODULE mo_atmo_model
 
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
-  USE mo_name_list_output,        ONLY: name_list_io_main_proc, &
-    &                                   write_ready_files_cdipio
-  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
+  USE mo_name_list_output,        ONLY: name_list_io_main_proc
+#ifdef HAVE_CDI_PIO
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb, write_ready_files_cdipio
+#endif
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info

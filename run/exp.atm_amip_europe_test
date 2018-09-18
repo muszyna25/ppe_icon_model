@@ -1,11 +1,6 @@
 #--------------------------------------------------------------------------------------------------
 #
-# AMIP experiment
-#
-#
-#MSUB -l nodes=4:ppn=20
-#MSUB -e LOG.check.atm_amip.run.err
-#MSUB -o LOG.check.atm_amip.run.out
+# AMIP experiment, globe + nest over Europe
 #
 author_list="Marco Giorgetta, MPIM"
 #
@@ -21,7 +16,7 @@ author_list="Marco Giorgetta, MPIM"
 # - tropospheric aerosol optical properties
 # - stratospheric volcanic aerosol optical properties
 #
-# _bb_table_Description_  AMIP experiment
+# _bb_table_Description_  AMIP experiment, globe + nest over Europe
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -49,8 +44,7 @@ else
     poolFolder_prefix=
 fi
 
-#icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
-icon_data_poolFolder="$icon_data_poolFolder/icon_preprocessing/source"
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -60,13 +54,19 @@ icon_data_poolFolder="$icon_data_poolFolder/icon_preprocessing/source"
 #
 grids_folder=${icon_data_poolFolder}/grids
 #
-# domain globe
-grid_id=0005
-grid_refinement=R02B04
-grid_label=G
-grid_name=icon_grid_${grid_id}_${grid_refinement}_${grid_label}
+# domain 1
+d1_grid_id=0005
+d1_grid_refinement=R02B04
+d1_grid_label=G
+d1_grid_name=icon_grid_${d1_grid_id}_${d1_grid_refinement}_${d1_grid_label}
 #
-atmo_dyn_grids="'${grid_name}.nc',"
+# domain 2
+d2_grid_id=0053
+d2_grid_refinement=R02B05
+d2_grid_label=Europe
+d2_grid_name=icon_grid_${d2_grid_id}_${d2_grid_refinement}_${d2_grid_label}
+#
+atmo_dyn_grids="'${d1_grid_name}.nc', '${d2_grid_name}.nc',"
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
@@ -119,6 +119,7 @@ cat > ${atmo_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = ${atmo_dyn_grids}
+ dynamics_parent_grid_id = 0,1
 /
 &run_nml
  num_lev          = 47          ! number of full levels
@@ -130,7 +131,7 @@ cat > ${atmo_namelist} << EOF
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
- restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ restart_filename = "${EXPNAME}_restart_atm_DOM<idom>_<rsttime>.nc"
  activate_sync_timers = .TRUE.
 /
 &extpar_nml
@@ -139,7 +140,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
- ifs2icon_filename= "ifs2icon.nc"
+ ifs2icon_filename= "ifs2icon_DOM<idom>.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
@@ -193,6 +194,28 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = ${llake}
 !
+! domain 2
+! --------
+!
+! atmospheric phyiscs (""=never)
+ echam_phy_config(2)%dt_rad = "PT4M"
+ echam_phy_config(2)%dt_vdf = "PT2M"
+ echam_phy_config(2)%dt_cnv = "PT2M"
+ echam_phy_config(2)%dt_cld = "PT2M"
+ echam_phy_config(2)%dt_gwd = "PT2M"
+ echam_phy_config(2)%dt_sso = "PT2M"
+!
+! atmospheric chemistry (""=never)
+ echam_phy_config(2)%dt_mox = "PT2M"
+ echam_phy_config(2)%dt_car = ""
+ echam_phy_config(2)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ echam_phy_config(2)%ljsb   = ${ljsbach}
+ echam_phy_config(2)%lamip  = .TRUE.
+ echam_phy_config(2)%lice   = .TRUE.
+ echam_phy_config(2)%lmlo   = .FALSE.
+ echam_phy_config(2)%llake  = ${llake}
 /
 &echam_rad_nml
 !
@@ -210,6 +233,21 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
  echam_rad_config(1)%ighg       =  1
+!
+! domain 2
+! --------
+!
+ echam_rad_config(2)%isolrad    =  1
+ echam_rad_config(2)%irad_h2o   =  1
+ echam_rad_config(2)%irad_co2   =  4
+ echam_rad_config(2)%irad_ch4   =  4
+ echam_rad_config(2)%irad_n2o   =  4
+ echam_rad_config(2)%irad_o3    =  8
+ echam_rad_config(2)%irad_o2    =  2
+ echam_rad_config(2)%irad_cfc11 =  4
+ echam_rad_config(2)%irad_cfc12 =  4
+ echam_rad_config(2)%irad_aero  = 18
+ echam_rad_config(2)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -227,25 +265,27 @@ EOF
 
 # land surface and soil
 # ---------------------
-cat > ${lnd_namelist} << EOF
+#
+# domain 1
+cat > ${lnd_namelist}_d1 << EOF
 &jsb_model_nml
   usecase         = "${jsbach_usecase}"
   use_lakes       = ${llake}
-  fract_filename  = "bc_land_frac.nc"
+  fract_filename  = "bc_land_frac_DOM01.nc"
   output_tiles    = ${output_tiles}     ! List of tiles to output
 /
 &jsb_seb_nml
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename     = 'bc_land_phys_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
 /
 &jsb_rad_nml
   use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename     = 'bc_land_phys_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
 /
 &jsb_turb_nml
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename     = 'bc_land_phys_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
 /
 &jsb_sse_nml
   l_heat_cap_map  = .FALSE.
@@ -256,27 +296,27 @@ cat > ${lnd_namelist} << EOF
   l_dynsnow       = .TRUE.
   l_freeze        = .TRUE.
   l_supercool     = .TRUE.
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename     = 'bc_land_soil_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
 /
 &jsb_hydro_nml
   l_organic       = .FALSE.
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
-  bc_sso_filename = 'bc_land_sso.nc'
+  bc_filename     = 'bc_land_soil_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
+  bc_sso_filename = 'bc_land_sso_DOM01.nc'
 /
 &jsb_assimi_nml
   active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
   scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
+  bc_filename     = 'bc_land_phys_DOM01.nc'
+  ic_filename     = 'ic_land_soil_DOM01.nc'
 /
 &jsb_carbon_nml
   active                 = ${lcarbon}
-  bc_filename            = 'bc_land_carbon.nc'
-  ic_filename            = 'ic_land_carbon.nc'
+  bc_filename            = 'bc_land_carbon_DOM01.nc'
+  ic_filename            = 'ic_land_carbon_DOM01.nc'
   read_cpools            = .FALSE.
   !fire_frac_wood_2_atmos = 0.2
 /
@@ -286,8 +326,8 @@ cat > ${lnd_namelist} << EOF
 /
 &jsb_disturb_nml
   active                  = .FALSE.
-  ic_filename             = 'ic_land_soil.nc'
-  bc_filename             = 'bc_land_phys.nc'
+  ic_filename             = 'ic_land_soil_DOM01.nc'
+  bc_filename             = 'bc_land_phys_DOM01.nc'
   fire_algorithm          = 1
   windbreak_algorithm     = 1
   lburn_pasture           = .FALSE.
@@ -302,11 +342,99 @@ cat > ${lnd_namelist} << EOF
 /
 EOF
 if [[ ${jsbach_with_hd} = yes ]]; then
-  cat >> ${lnd_namelist} << EOF
+  cat >> ${lnd_namelist}_d1 << EOF
 &jsb_hd_nml
   active               = .TRUE.
   routing_scheme       = 'full'
-  bc_filename          = 'bc_land_hd.nc'
+  bc_filename          = 'bc_land_hd_DOM01.nc'
+  diag_water_budget    = .TRUE.
+  debug_hd             = .FALSE.
+  enforce_water_budget = .TRUE.         ! True: stop in case of water conservation problem
+/
+EOF
+fi
+#
+# domain 2:
+cat > ${lnd_namelist}_d2 <<EOF
+&jsb_model_nml
+  usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
+  fract_filename  = 'bc_land_frac_DOM02.nc'
+  output_tiles    = ${output_tiles}     ! List of tiles to output
+/
+&jsb_seb_nml
+  bc_filename     = 'bc_land_phys_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+/
+&jsb_rad_nml
+  use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  bc_filename     = 'bc_land_phys_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+/
+&jsb_turb_nml
+  bc_filename     = 'bc_land_phys_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+/
+&jsb_sse_nml
+  l_heat_cap_map  = .FALSE.
+  l_heat_cond_map = .FALSE.
+  l_heat_cap_dyn  = .FALSE.
+  l_heat_cond_dyn = .FALSE.
+  l_snow          = .TRUE.
+  l_dynsnow       = .TRUE.
+  l_freeze        = .TRUE.
+  l_supercool     = .TRUE.
+  bc_filename     = 'bc_land_soil_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+/
+&jsb_hydro_nml
+  l_organic       = .FALSE.
+  bc_filename     = 'bc_land_soil_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+  bc_sso_filename = 'bc_land_sso_DOM02.nc'
+/
+&jsb_assimi_nml
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+/
+&jsb_pheno_nml
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
+  bc_filename     = 'bc_land_phys_DOM02.nc'
+  ic_filename     = 'ic_land_soil_DOM02.nc'
+/
+&jsb_carbon_nml
+  active                 = ${lcarbon}
+  bc_filename            = 'bc_land_carbon_DOM02.nc'
+  ic_filename            = 'ic_land_carbon_DOM02.nc'
+  read_cpools            = .FALSE.
+  !fire_frac_wood_2_atmos = 0.2
+/
+&jsb_fuel_nml
+  active                 = ${lcarbon}
+  fuel_algorithm         = 1
+/
+&jsb_disturb_nml
+  active                  = .FALSE.!
+  ic_filename             = 'ic_land_soil_DOM02.nc'
+  bc_filename             = 'bc_land_phys_DOM02.nc'
+  fire_algorithm          = 1
+  windbreak_algorithm     = 1
+  lburn_pasture           = .FALSE.
+  !fire_litter_threshold  = 16.67
+  !fire_rel_hum_threshold = 70.0
+  !fire_minimum_woody     = 0.002
+  !fire_minimum_grass     = 0.006
+  !fire_tau_woody         = 6.0
+  !fire_tau_grass         = 2.0
+  !wnd_threshold          = 2.25
+  !wnd_damage_scale       = 5.e-03
+/
+EOF
+if [[ ${jsbach_with_hd} = yes ]]; then
+  cat >> ${lnd_namelist}_d2 << EOF
+&jsb_hd_nml
+  active               = .TRUE.
+  routing_scheme       = 'full'
+  bc_filename          = 'bc_land_hd_DOM02.nc'
   diag_water_budget    = .TRUE.
   debug_hd             = .FALSE.
   enforce_water_budget = .TRUE.         ! True: stop in case of water conservation problem
@@ -326,7 +454,8 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${basedir}/run/${lnd_namelist}_d1                     ./
+add_required_file ${basedir}/run/${lnd_namelist}_d2                     ./
 
 # dictionary file for output variable names
 #
@@ -338,13 +467,19 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_G.nc      ./ifs2icon.nc
+add_link_file $datadir/ifs2icon_1979010100_${d1_grid_refinement}_${d1_grid_label}.nc ./ifs2icon_DOM01.nc
+datadir=${icon_data_poolFolder}/initial_condition
+add_link_file $datadir/ifs2icon_1979010100_${d2_grid_refinement}_${d2_grid_label}.nc ./ifs2icon_DOM02.nc
 #
 # - land: source?, date+time?
-datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}/land
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d1_grid_refinement}_${d1_grid_label}/land
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil_DOM01.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
-#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
+#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon_DOM01.nc
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d2_grid_refinement}_${d2_grid_label}/land
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil_DOM02.nc
+# added in namelist, but not active and not yet available (2017-Dec-07)
+#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon_DOM02.nc
 
 # boundary conditions
 #
@@ -364,11 +499,15 @@ while [[ $year -le $end_year ]]
 do
   if [[ $year -le 2014 ]]
   then
-    datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}
-    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+    datadir=${icon_data_poolFolder}/ozone/cmip6/${d1_grid_refinement}_${d1_grid_label}
+    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_DOM01_${year}.nc
+    datadir=${icon_data_poolFolder}/ozone/cmip6/${d2_grid_refinement}_${d2_grid_label}
+    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_DOM02_${year}.nc
   else
-    datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}
-    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+    datadir=${icon_data_poolFolder}/ozone/cmip6/${d1_grid_refinement}_${d1_grid_label}
+    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_DOM01_${year}.nc
+    datadir=${icon_data_poolFolder}/ozone/cmip6/${d2_grid_refinement}_${d2_grid_label}
+    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_DOM02_${year}.nc
   fi
   (( year = year+1 ))
 done
@@ -380,14 +519,18 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
 #
 # - Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 year=1849
 while [[ $year -le 1851 ]]
 do
-  datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${d1_grid_refinement}_${d1_grid_label}
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_DOM01_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_DOM01_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_DOM01_${year}.nc
+  datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${d2_grid_refinement}_${d2_grid_label}
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_DOM02_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_DOM02_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_DOM02_${year}.nc
   (( year = year+1 ))
 done
 #
@@ -408,27 +551,42 @@ done
 #
 # - sst and sic
 datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
-add_link_file $datadir/sic_${grid_refinement}.nc                        ./bc_sic.nc
-add_link_file $datadir/sst_${grid_refinement}.nc                        ./bc_sst.nc
+add_link_file $datadir/sic_${d1_grid_refinement}_${d1_grid_label}.nc    ./bc_sic_DOM01.nc
+add_link_file $datadir/sst_${d1_grid_refinement}_${d1_grid_label}.nc    ./bc_sst_DOM01.nc
+datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
+add_link_file $datadir/sic_${d2_grid_refinement}_${d2_grid_label}.nc    ./bc_sic_DOM02.nc
+add_link_file $datadir/sst_${d2_grid_refinement}_${d2_grid_label}.nc    ./bc_sst_DOM02.nc
 #
 # - ssi and tsi
 datadir=${icon_data_poolFolder}/solar_radiation/3.2
 add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
 #
 # - topography and sso parameters
-datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${grid_refinement}/land
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${d1_grid_refinement}_${d1_grid_label}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM01.nc
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${d2_grid_refinement}_${d2_grid_label}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM02.nc
 #
 # - land parameters
-datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}/land
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d1_grid_refinement}_${d1_grid_label}/land
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac_DOM01.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys_DOM01.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil_DOM01.nc
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d2_grid_refinement}_${d2_grid_label}/land
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac_DOM02.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys_DOM02.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil_DOM02.nc
 # added in namelist, but not active and not yet available (2017-Dec-07)
-#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
+#datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d1_grid_refinement}_${d1_grid_label}/land
+#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon_DOM01.nc
+#datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d2_grid_refinement}_${d2_grid_label}/land
+#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon_DOM02.nc
 # The following bc_land_hd-file is not yet available...
 if [[ ${jsbach_with_hd} = yes ]]; then
-  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
+  datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d1_grid_refinement}_${d1_grid_label}/land
+  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd_DOM01.nc
+  datadir=${icon_data_poolFolder}/preliminary_land/r0002/${d2_grid_refinement}_${d2_grid_label}/land
+  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd_DOM02.nc
 fi
 #
 # - lctlib file for JSBACH
@@ -466,7 +624,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_cgrid"
- filename_format  = "<output_filename>_<levtype_l>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -488,7 +646,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -515,7 +673,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -554,7 +712,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -589,7 +747,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -618,7 +776,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_aer_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -645,7 +803,7 @@ if [[ "$output_lnd" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_lnd"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
@@ -662,10 +820,3 @@ EOF
 fi
 
 #--------------------------------------------------------------------------------------------------
-#MSUB -l nodes=4:ppn=20
-#MSUB -e LOG.check.atm_amip.run.err
-#MSUB -o LOG.check.atm_amip.run.out
-#
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}":/software/all/mpi/openmpi/3.0_intel_17.0/lib:/opt/netcdf/4.4_serial/lib/:/opt/netcdf-fortran/4.4_serial/lib:/opt/hdf5/1.8_serial/lib:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/pfs/imk/ICON/LIBRARIES_IFORT16/grib-api/lib
-
-export HDF5_DISABLE_VERSION_CHECK=1

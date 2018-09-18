@@ -28,9 +28,9 @@ MODULE mo_name_list_output_init
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
                                                 & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
                                                 & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
-                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
-                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
-                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,  &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,      &
+                                                & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,  &
                                                 & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL
@@ -72,7 +72,7 @@ MODULE mo_name_list_output_init
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
        use_dp_mpi2io, num_io_procs, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
-    &                                             number_of_grid_used, iforcing
+    &                                             ICON_grid_file_uri, number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, linvert_dict,     &
@@ -2223,6 +2223,7 @@ CONTAINS
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
         ! Set information about numberOfGridUsed on work and test PE
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
+        patch_info(jp)%ICON_grid_file_uri  = ICON_grid_file_uri(jl)
 
         patch_info(jp)%max_cell_connectivity = p_patch(jl)%cells%max_connectivity
         patch_info(jp)%max_vertex_connectivity = p_patch(jl)%verts%max_connectivity
@@ -2240,6 +2241,7 @@ CONTAINS
         CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
           &          bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%number_of_grid_used, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(jp)%ICON_grid_file_uri, bcast_root, p_comm_work_2_io)
       ENDIF
 #endif
 ! NOMPI
@@ -2624,6 +2626,7 @@ CONTAINS
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%DATA)
+      CALL gridDefReference(of%cdiCellGridID,TRIM(patch_info(i_dom)%ICON_grid_file_uri))
       !
       CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2682,6 +2685,7 @@ CONTAINS
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%DATA)
+      CALL gridDefReference(of%cdiCellGridID,TRIM(patch_info(i_dom)%ICON_grid_file_uri))
       !
       CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2721,6 +2725,7 @@ CONTAINS
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
       CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%DATA)
+      CALL gridDefReference(of%cdiCellGridID,TRIM(patch_info(i_dom)%ICON_grid_file_uri))
       !
       CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
 

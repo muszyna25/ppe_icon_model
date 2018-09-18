@@ -487,7 +487,8 @@ CONTAINS
     INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
-    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)             !  allocatable?
+
+    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
     REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)        !  allocatable?
     REAL(wp)              :: fwf_fac !,frac_oce
 

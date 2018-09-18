@@ -850,7 +850,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 !          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
 
         IF ( nh_test_name == 'RCE' ) THEN
-          CALL o3_pl2ml (jcs=i_startidx, kproma= i_endidx, &
+          CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
             & kbdim=nproma,                                &
             & nlev_pres = nlev_o3,klev= nlev ,             &
             & pfoz = ext_data%atm_td%pfoz(:),              &
@@ -860,7 +860,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
             & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT
         ELSE ! default behaviour
-          CALL o3_pl2ml (jcs=i_startidx, kproma= i_endidx, &
+          CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
             & kbdim=nproma,                                &
             & nlev_pres = nlev_o3,klev= nlev ,             &
             & pfoz = ext_data%atm_td%pfoz(:),              &
@@ -987,7 +987,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &  i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL o3_pl2ml (jcs=i_startidx, kproma= i_endidx, &
+        CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
           & kbdim=nproma,                                &
           & nlev_pres = nlev_o3,klev= nlev ,             &
           & pfoz = ext_data%atm_td%pfoz(:),              &

@@ -19,6 +19,7 @@ MODULE mo_bc_aeropt_kinne
 
   USE mo_kind,                 ONLY: wp, i8
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_impl_constants,       ONLY: max_dom
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
   USE mo_psrad_general,        ONLY: nbndlw, nbndsw
@@ -57,7 +58,7 @@ MODULE mo_bc_aeropt_kinne
 
   TYPE(t_ext_aeropt_kinne), ALLOCATABLE, TARGET :: ext_aeropt_kinne(:)
 
-  INTEGER(i8), SAVE                :: pre_year=-999999
+  INTEGER(i8), SAVE                :: pre_year(max_dom)=-999999
   INTEGER, PARAMETER               :: lev_clim=40, nmonths=12
   REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
@@ -74,9 +75,6 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
   INTEGER                         :: nblks_len, nblks
 
   jg = p_patch%id
-
-  ! allocate once only structure for all grids
-  IF (.NOT. ALLOCATED(ext_aeropt_kinne)) ALLOCATE(ext_aeropt_kinne(n_dom))
 
   nblks=p_patch%nblks_c
   nblks_len=nproma
@@ -143,8 +141,11 @@ SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
 
   jg = p_patch%id
 
-  IF (year > pre_year) THEN
-    IF (ALLOCATED(ext_aeropt_kinne)) THEN
+  ! allocate once only structure for all grids
+  IF (.NOT. ALLOCATED(ext_aeropt_kinne)) ALLOCATE(ext_aeropt_kinne(n_dom))
+
+  IF (year > pre_year(jg)) THEN
+    IF (ALLOCATED(ext_aeropt_kinne(jg)%aod_c_s)) THEN
       CALL shift_months_bc_aeropt_kinne(p_patch)
       imonthb=2
       imonthe=13
@@ -166,7 +167,7 @@ SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch             )
     rdz_clim=1._wp/dz_clim
-    pre_year=year
+    pre_year(jg)=year
   END IF    
 END SUBROUTINE read_bc_aeropt_kinne
 !-------------------------------------------------------------------------
@@ -412,7 +413,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   END IF
 
   ! Add domain index if more than 1 grid is used
-  IF (jg > 1) THEN
+  IF (n_dom > 1) THEN
      WRITE(cfname2,'(a,a,i2.2)') cfname,'_DOM',jg
   ELSE
      cfname2=cfname

@@ -114,7 +114,8 @@ MODULE mo_model_domimp_patches
     & use_duplicated_connectivity, set_patches_grid_filename
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
-    &                              number_of_grid_used, msg_level, check_uuid_gracefully
+    &                              number_of_grid_used, ICON_grid_file_uri,         &
+    &                              msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_reshuffle,          ONLY: reshuffle
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
@@ -1135,6 +1136,7 @@ CONTAINS
     ! grid_generatingCenter
     ! grid_generatingSubcenter
     ! number_of_grid_used
+    ! ICON_grid_file_uri
     netcd_status = nf_get_att_int(ncid, nf_global, 'centre', &
       &                           grid_generatingCenter(ig)  )
     IF (netcd_status == nf_noerr) THEN
@@ -1170,11 +1172,25 @@ CONTAINS
         & 'number_of_grid_used of patch ', ig, ': ',number_of_grid_used(ig)
       CALL message  (routine, TRIM(message_text))
     ELSE
-      WRITE(message_text,'(a,i4,a,i4)') &
+      WRITE(message_text,'(a,i4,a)') &
         & 'WARNING: number_of_grid_used of patch ', ig, ' not found'
       CALL message  (routine, TRIM(message_text))
       ! set default value
       number_of_grid_used(ig) = 42
+    ENDIF
+
+    netcd_status = nf_get_att_text(ncid, nf_global, 'ICON_grid_file_uri', &
+      &                                              ICON_grid_file_uri(ig))
+    IF (netcd_status == nf_noerr) THEN
+      WRITE(message_text,'(a,i4,a,a)') &
+        & 'URI of patch ', ig, ': ',TRIM(ICON_grid_file_uri(ig))
+      CALL message  (routine, TRIM(message_text))
+    ELSE
+      WRITE(message_text,'(a,i4,a)') &
+        & 'WARNING: URI of patch ', ig, ' not found'
+      CALL message  (routine, TRIM(message_text))
+      ! set default value
+      ICON_grid_file_uri(ig) = ""
     ENDIF
 
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_metadata%grid_root))
