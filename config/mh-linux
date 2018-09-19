@@ -163,31 +163,14 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         WLFLAG      = -Wl        
         ;;
-    cray_gpu)
-        config_compiler  = cray_gpu
-        compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
-        CC          = cc
-        FC          = ftn
-        F77         = $FC
-        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
-        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3
-        F77FLAGS    = $FFLAGS
-        FCLIBS      = 
-        GEN_FLAGS   =
-        FDEBUG      = -g -R abc
-        DEFOPT      = -D
-        DEFCOPT     = -D
-        MODOPT      = -I
-        MODDIR      = -J
-        ;;
     cray*)
         config_compiler  = cray
         compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2              -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3 -Df2cFortran
         F77FLAGS    = $FFLAGS
         LDFLAGS     = -hflex_mp=conservative  -Ktrap=divz,ovf,inv
         FCLIBS      = 
