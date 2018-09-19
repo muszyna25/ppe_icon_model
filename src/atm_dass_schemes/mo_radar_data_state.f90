@@ -32,7 +32,7 @@ MODULE mo_radar_data_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_linked_list,        ONLY: t_var_list
@@ -45,7 +45,7 @@ MODULE mo_radar_data_state
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &
-    &                              TSTEP_CONSTANT, TSTEP_INSTANT, &
+    &                              TSTEP_CONSTANT, TSTEP_INSTANT, cdi_undefid, &
     &                              streamClose, gridInqUUID, GRID_UNSTRUCTURED,    &
     &                              FILETYPE_GRB2, streamOpenRead,   &
     &                              streamInqFileType, streamInqVlist, vlistNtsteps,&
@@ -119,7 +119,10 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_radar_data',     &
       radar_varnames_map_file = 'radar_dict_file.dat'
+    LOGICAL :: lread_process
 
+    ! flag. if true, then this PE reads data from file and broadcasts
+    lread_process = my_process_is_mpi_workroot()
 
     !-------------------------------------------------------------------------
     IF (ANY (assimilation_config(:)%luse_rad)) THEN
@@ -137,7 +140,7 @@ CONTAINS
     ! Allocate and open CDI stream (files):
     ALLOCATE (cdi_radar_id(n_dom), cdi_filetype(n_dom), stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
-    CALL inquire_radar_files(p_patch, cdi_radar_id, cdi_filetype)
+    CALL inquire_radar_files(p_patch, cdi_radar_id, cdi_filetype, lread_process)
 
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
@@ -167,13 +170,14 @@ CONTAINS
       CALL read_radar_data (p_patch, radar_data, cdi_radar_id, &
         &                     radar_varnames_dict)
 
-      CALL message( TRIM(routine),'Finished reading radar data' )
+    CALL message( TRIM(routine),'Finished reading radar data' )
 
     ! close CDI stream (file):
-    DO jg=1,n_dom
-      IF (cdi_radar_id(jg) == -1) CYCLE
-      IF (my_process_is_stdio())  CALL streamClose(cdi_radar_id(jg))
-    END DO
+    IF (lread_process) THEN
+      DO jg=1,n_dom
+        IF (cdi_radar_id(jg) /= cdi_undefid) CALL streamClose(cdi_radar_id(jg))
+      END DO
+    END IF
     DEALLOCATE (cdi_radar_id, cdi_filetype, stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
 
@@ -446,16 +450,18 @@ CONTAINS
   !
   ! @author F. Prill, DWD (2014-01-07)
   !-------------------------------------------------------------------------
-  SUBROUTINE inquire_radar_file(p_patch, jg, cdi_radar_id, cdi_filetype)
+  SUBROUTINE inquire_radar_file(p_patch, jg, cdi_radar_id, cdi_filetype, &
+       lread_process)
 
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
     INTEGER,       INTENT(IN)      :: jg
     INTEGER,       INTENT(INOUT)   :: cdi_radar_id     !< CDI stream ID
     INTEGER,       INTENT(INOUT)   :: cdi_filetype     !< CDI filetype
+    LOGICAL,       INTENT(in)      :: lread_process
 
     ! local variables
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::inquire_radar_file'
-    INTEGER                 :: mpi_comm, vlist_id, radarobs_id
+    INTEGER                 :: vlist_id, radarobs_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: radar_file !< file name for reading in
 
@@ -478,7 +484,8 @@ CONTAINS
     !---------------------------------------------!
 
 
-    IF (my_process_is_stdio()) THEN
+    ! flag. if true, then this PE reads data from file and broadcasts
+    IF (lread_process) THEN
       ! generate file name
 
       radar_file = TRIM(assimilation_config(jg)%radar_in)//TRIM(assimilation_config(jg)%radardata_file)
@@ -546,17 +553,11 @@ CONTAINS
         END IF
       ENDIF      
 
-    ENDIF ! my_process_is_stdio()
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
+    ENDIF ! lread_process
 
     ! broadcast ntvars from I-Pe to WORK Pes
     CALL p_bcast(assimilation_config(jg)%nobs_times, p_io, mpi_comm)
-    IF (.NOT.my_process_is_stdio()) THEN
+    IF (.NOT. lread_process) THEN
       ALLOCATE (rdate(assimilation_config(jg)%nobs_times),rtime(assimilation_config(jg)%nobs_times))
     ENDIF
 
@@ -588,7 +589,8 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE inquire_radar_files(p_patch, cdi_radar_id, cdi_filetype)
+  SUBROUTINE inquire_radar_files(p_patch, cdi_radar_id, cdi_filetype, &
+       lread_process)
 
     !-------------------------------------------------------
     !
@@ -600,8 +602,8 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
     INTEGER,       INTENT(INOUT)   :: cdi_radar_id(:)  !< CDI stream ID
     INTEGER,       INTENT(INOUT)   :: cdi_filetype(:)   !< CDI filetype
-
-    INTEGER :: jg, mpi_comm
+    LOGICAL,       INTENT(in)      :: lread_process
+    INTEGER :: jg
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':inquire_radar_files'
@@ -609,15 +611,9 @@ CONTAINS
 !--------------------------------------------------------------------------
 
     ! set stream IDs to "uninitialized":
-    IF( my_process_is_stdio()) THEN
-      cdi_radar_id(:) = -1
+    IF (lread_process) THEN
+      cdi_radar_id(:) = cdi_undefid
     END IF
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
     DO jg= 1,n_dom
 
@@ -627,7 +623,8 @@ CONTAINS
       ! 1. Check validity of radar files               !
       !------------------------------------------------!
       ! 1.1. radar observations                        !
-        CALL inquire_radar_file(p_patch, jg, cdi_radar_id(jg), cdi_filetype(jg))
+        CALL inquire_radar_file(p_patch, jg, cdi_radar_id(jg), &
+             &                  cdi_filetype(jg), lread_process)
 !      ! 1.2. radar blacklist
 !        CALL inquire_radar_file(p_patch, jg, cdi_radar_id(jg), cdi_filetype(jg), &
 !          &                     nobs_times)
