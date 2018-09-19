@@ -398,7 +398,7 @@ case "$ac_sitename" in
                         esac
                         ;;
                     cray*)
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
+                        FFLAGS      = -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma
@@ -407,11 +407,11 @@ case "$ac_sitename" in
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
-                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90
+                                FFLAGS      = ${FFLAGS} -D__OPENACC_BUG_TYPES_1 -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
                                 ;;
                             *)
                                 config_target = daint_cpu
-                                FFLAGS      = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
+                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=conservative -hfp1 -hnoacc -O1,cache0
                                 LDFLAGS     = -Wl,--allow-multiple-definition
                                 ;;
                         esac
