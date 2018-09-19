@@ -99,7 +99,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: lev_ifs(:)
     INTEGER,  ALLOCATABLE :: lev_hyi(:)
     REAL(wp), ALLOCATABLE :: hyab(:)
-    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
+    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, &
       &         var_dimids(NF_MAX_VAR_DIMS), i
     LOGICAL  :: lread_process  !< .TRUE. on the reading PE
 
@@ -110,10 +110,7 @@ CONTAINS
       ! retrieve number of levels
       CALL nf(nf_inq_varndims(ncid, varid, var_ndims), routine)
       CALL nf(nf_inq_vardimid(ncid, varid, var_dimids), routine)
-      DO i = 1, var_ndims
-        CALL nf(nf_inq_dimlen (ncid, var_dimids(i), var_dimlen(i)), routine)
-      END DO
-      nlev_in = var_dimlen(1)
+      CALL nf(nf_inq_dimlen (ncid, var_dimids(1), nlev_in), routine)
     END IF
 
     CALL p_bcast(nlev_in, p_io, mpi_comm)
