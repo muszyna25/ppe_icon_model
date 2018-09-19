@@ -134,7 +134,7 @@ CONTAINS
       lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
       IF ( nlev_in+1 /= nhyi) THEN
         WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-        CALL message(TRIM(routine), TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
       END IF
 
       CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
