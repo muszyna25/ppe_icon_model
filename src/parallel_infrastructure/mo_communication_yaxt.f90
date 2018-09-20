@@ -470,7 +470,7 @@ END SUBROUTINE setup_comm_pattern
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: recv_msg, send_msg
 #endif
-    INTEGER :: i, j, np_recv, np_send, nlocal
+    INTEGER :: i, np_recv, np_send, nlocal
     TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
     TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
     CHARACTER(len=*), PARAMETER :: routine &
@@ -516,7 +516,7 @@ END SUBROUTINE setup_comm_pattern
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: com, msg
 #endif
-      INTEGER :: np, nidx, i, j, jl, glbidx, start_local, end_local
+      INTEGER :: np, nidx, i, j, jl, glbidx
       indices = -1_xt_int_kind
       np = SIZE(msg)
       DO i = 1, np
