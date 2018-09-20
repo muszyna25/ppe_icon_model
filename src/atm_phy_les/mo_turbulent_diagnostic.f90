@@ -123,7 +123,7 @@ CONTAINS
     REAL(wp):: ri_no
     REAL(wp):: ztp(nproma), zqp(nproma)
 
-    INTEGER :: found_cltop, found_clbas
+    LOGICAL :: found_cltop, found_clbas
     INTEGER :: nlev, nlevp1
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
@@ -145,8 +145,6 @@ CONTAINS
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
 
-   
-    prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,found_cltop,found_clbas,ri_no,&
@@ -159,37 +157,43 @@ CONTAINS
        DO jc = i_startidx, i_endidx
 
          !cloud top
-         found_cltop = -1
-         DO jk = kstart_moist, nlev-1
-           IF(jk.EQ.kstart_moist.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
-             prm_diag%mtop_con(jc,jb) = jk
-             found_cltop = 1
-           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
-             prm_diag%mtop_con(jc,jb) = jk
-             found_cltop = 1
-           END IF
-         END DO
+         IF (p_prog_rcf%tracer(jc,kstart_moist,jb,iqc) > qc_min) THEN
+           prm_diag%mtop_con(jc,jb) = kstart_moist
+           found_cltop = .TRUE.
+         ELSE
+           found_cltop = .FALSE.
+           DO jk = kstart_moist+1, nlev-1
+             IF (p_prog_rcf%tracer(jc,jk,jb,iqc)   < qc_min &
+                  .AND. p_prog_rcf%tracer(jc,jk+1,jb,iqc) > qc_min) THEN
+               prm_diag%mtop_con(jc,jb) = jk
+               found_cltop = .TRUE.
+               EXIT
+             END IF
+           END DO
+         END IF
 
          !cloud base
-         found_clbas = -1
-         DO jk = nlev, kstart_moist+1, -1
-           IF(jk.EQ.nlev.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !Fog
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1
-           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !otherwise
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1
-           END IF
-         END DO
+         IF (p_prog_rcf%tracer(jc,nlev,jb,iqc)>qc_min) THEN !Fog
+           prm_diag%mbas_con(jc,jb) = nlev
+           found_clbas = .TRUE.
+         ELSE
+           found_clbas = .FALSE.
+           DO jk = nlev-1, kstart_moist+1, -1
+             IF (p_prog_rcf%tracer(jc,jk,jb,iqc) < qc_min &
+                 .AND. p_prog_rcf%tracer(jc,jk-1,jb,iqc) > qc_min) THEN !otherwise
+               prm_diag%mbas_con(jc,jb) = jk
+               found_clbas = .TRUE.
+               EXIT
+             END IF
+           END DO
+         END IF
 
          !Accept only when both top and bottom exist and height of bottom is 
          !lower than that of top
-         IF(found_clbas==1.AND.found_cltop==1)THEN
-           IF(prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)) &
-              prm_diag%locum(jc,jb) = .TRUE.
+         IF (found_clbas .AND. found_cltop)THEN
+           prm_diag%locum(jc,jb) = prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)
          ELSE
+           prm_diag%locum(jc,jb) = .FALSE.
            prm_diag%mbas_con(jc,jb) = -1
            prm_diag%mtop_con(jc,jb) = -1
          END IF
