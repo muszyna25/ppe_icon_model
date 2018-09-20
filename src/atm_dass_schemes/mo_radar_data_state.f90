@@ -473,7 +473,7 @@ CONTAINS
     LOGICAL                 :: lmatch                         ! for comparing UUIDs
 
     INTEGER                 :: cdiGridID, taxisID, nt,ntvars,is
-    INTEGER, ALLOCATABLE    :: rdate(:),rtime(:)
+    INTEGER, ALLOCATABLE    :: rdatetime(:,:)
     CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
 
     CHARACTER(len=8) cobsdate
@@ -517,14 +517,14 @@ CONTAINS
         ntvars=assimilation_config(jg)%nobs_times
       ENDIF
 
-      ALLOCATE (rdate(ntvars),rtime(ntvars))
+      ALLOCATE (rdatetime(ntvars, 2))
 
       ! get time dimension from radar data file
       taxisID   = vlistInqTaxis(vlist_id)
       do nt = 0, ntvars-1
          is=streamInqTimestep(cdi_radar_id,nt)
-         rdate(nt+1)=taxisInqVdate(taxisID)
-         rtime(nt+1)=taxisInqVtime(taxisID)
+         rdatetime(nt+1,1)=taxisInqVdate(taxisID)
+         rdatetime(nt+1,2)=taxisInqVtime(taxisID)
 !       CALL print_cdi_summary (vlist_id)
       enddo
 
@@ -556,22 +556,21 @@ CONTAINS
     ENDIF ! lread_process
 
     ! broadcast ntvars from I-Pe to WORK Pes
-    CALL p_bcast(assimilation_config(jg)%nobs_times, p_io, mpi_comm)
+    CALL p_bcast(assimilation_config(jg)%nobs_times, p_io, p_comm_work)
     IF (.NOT. lread_process) THEN
-      ALLOCATE (rdate(assimilation_config(jg)%nobs_times),rtime(assimilation_config(jg)%nobs_times))
+      ALLOCATE (rdatetime(assimilation_config(jg)%nobs_times,2))
     ENDIF
 
     ! broadcast time and date of obs from I-Pe to WORK Pes
-    CALL p_bcast(rdate, p_io, mpi_comm)
-    CALL p_bcast(rtime, p_io, mpi_comm)
+    CALL p_bcast(rdatetime, p_io, p_comm_work)
 
     ALLOCATE (radar_data(jg)%radar_td%obs_date(assimilation_config(jg)%nobs_times))
 !    ALLOCATE (radar_data(jg)%radar_td%obs_time(assimilation_config(jg)%nobs_times))
 
     DO nt = 1, assimilation_config(jg)%nobs_times
 
-      WRITE(cobsdate,'(I8.8)') rdate(nt)
-      WRITE(cobstime,'(I6.6)') rtime(nt)
+      WRITE(cobsdate,'(I8.8)') rdatetime(nt,1)
+      WRITE(cobstime,'(I6.6)') rdatetime(nt,2)
       READ (cobsdate(1:4),'(I4.4)') radar_data(jg)%radar_td%obs_date(nt)%date%year
       READ (cobsdate(5:6),'(I2.2)') radar_data(jg)%radar_td%obs_date(nt)%date%month
       READ (cobsdate(7:8),'(I2.2)') radar_data(jg)%radar_td%obs_date(nt)%date%day
