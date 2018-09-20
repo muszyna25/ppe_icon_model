@@ -313,9 +313,6 @@ MODULE mo_solve_nonhydro
 !$ACC              z_vn_avg, z_rho_e, z_theta_v_e, z_dwdz_dd, z_thermal_exp, &
 !$ACC              z_mflx_top, &
 !$ACC              z_rho_v, z_theta_v_v, z_graddiv_vn, z_hydro_corr, z_graddiv2_vn, &
-#ifndef __LOOP_EXCHANGE
-!$ACC              btraj%cell_idx, btraj%cell_blk, btraj%distv_bary, &
-#endif
 !$ACC              scal_divdamp, enh_divdamp_fac, bdy_divdamp ), &
 !$ACC      COPYIN( nflatlev, nflat_gradp, vct_a, kstart_dd3d, kstart_moist, nrdmax, z_raylfac, ndyn_substeps_var ), &
 !$ACC      PRESENT( p_patch, p_nh, prep_adv ), &
