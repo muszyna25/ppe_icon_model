@@ -46,7 +46,7 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new, &
   &             xt_mpi_comm_mark_exclusive, xt_int_kind
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
-USE iso_c_binding, ONLY: c_int, c_loc, c_ptr, c_null_ptr
+USE iso_c_binding, ONLY: c_int, c_loc, c_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
   & t_comm_pattern_collection, xfer_list
 
