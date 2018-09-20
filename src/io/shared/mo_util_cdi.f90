@@ -422,9 +422,9 @@ CONTAINS
     mapped_name = TRIM(name)
     IF (PRESENT(opt_dict)) THEN
       ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(opt_dict, name, DEFAULT=name))
+      mapped_name = dict_get(opt_dict, name, DEFAULT=name)
     END IF
-    mapped_name = tolower(TRIM(mapped_name))
+    mapped_name = tolower(mapped_name)
 
     zname   = ""
     vlistID = streamInqVlist(streamID)
@@ -436,7 +436,7 @@ CONTAINS
     LOOP : DO varID=0,(nvars-1)
 
       CALL vlistInqVarName(vlistID, varID, zname)
-      IF (TRIM(tolower(TRIM(zname))) == TRIM(mapped_name)) THEN
+      IF (tolower(zname) == mapped_name) THEN
 
         result_varID = varID
         EXIT LOOP
