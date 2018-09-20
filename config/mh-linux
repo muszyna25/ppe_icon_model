@@ -277,9 +277,9 @@ case "$ac_sitename" in
                         ;;
                     intel*)
                         CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.1/INTEL/17.0.4.196
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.1/INTEL/17.0.4
 			                  OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
-                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        config_tuning = $(tmp=${fortran_compiler#'intel'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
@@ -302,7 +302,7 @@ case "$ac_sitename" in
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB  = -lsci_cray
+                                LAPACK_LIB  = -lsci_intel
                                 ;;
                             *)
                                 (>&6 echo "")
@@ -530,7 +530,7 @@ case "$ac_sitename" in
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
                                 HDF5ROOT      = ${EBROOTHDF5}
                                 LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB    = -lsci_cray
+                                LAPACK_LIB    = -lsci_gnu
                                 OTHER_LIBS    = -lpthread
                                 ;;
                             *)
