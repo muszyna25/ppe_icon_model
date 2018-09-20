@@ -294,6 +294,8 @@ CONTAINS
     INTEGER, ALLOCATABLE :: varids(:)
     INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
     LOGICAL, SAVE        :: isCommReady = .FALSE.
+    INTEGER              :: nferr
+    LOGICAL              :: exists
 #endif
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
@@ -315,8 +317,19 @@ CONTAINS
 
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
 #ifdef HAVE_PARALLEL_NETCDF
-      CALL nf(nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
-        & MPI_INFO_NULL, distrib_nf_open))
+      nferr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
+        & MPI_INFO_NULL, distrib_nf_open)
+
+      ! We do our own error handling here to give the filename to the user if
+      ! a file does not exist.
+      IF (nferr /= nf_noerr) THEN
+        INQUIRE(file=path, exist=exists)
+        IF (.NOT. exists) THEN
+          CALL finish("mo_read_netcdf_distributed", "File "//TRIM(path)//" does not exist.")
+        ENDIF
+        ! If file exists just do the usual thing.
+        CALL nf(nferr)
+      ENDIF
 
       ! Switch all vars to collective. Hopefully this is sufficient.
       CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
