@@ -559,6 +559,7 @@ MODULE mo_async_latbc
       TYPE (t_dictionary)           :: latbc_varnames_dict
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
       INTEGER                       :: ierrstat, ic, idx_c, blk_c
+      INTEGER                       :: tlen
       LOGICAL                       :: is_pref
 
       ! bcast_root is not used in this case
@@ -579,10 +580,9 @@ MODULE mo_async_latbc
 
       ! read the map file into dictionary data structure
       CALL dict_init(latbc_varnames_dict, lcase_sensitive=.FALSE.)
-
-      IF(LEN_TRIM(latbc_config%latbc_varnames_map_file) > 0) THEN
-         CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_config%latbc_varnames_map_file))
-      END IF
+      tlen = LEN_TRIM(latbc_config%latbc_varnames_map_file)
+      IF(tlen > 0) &
+         CALL dict_loadfile(latbc_varnames_dict, latbc_config%latbc_varnames_map_file(1:tlen))
 
       ! create and transfer patch data
       CALL set_patch_data(latbc, bcast_root, latbc_varnames_dict)
@@ -713,7 +713,7 @@ MODULE mo_async_latbc
         &                                        nlev_in, ncid
       INTEGER(KIND=i8)                        :: flen_latbc
       LOGICAL                                 :: l_exist
-      CHARACTER(LEN=filename_max)             :: latbc_filename, latbc_file
+      CHARACTER(LEN=:), ALLOCATABLE           :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH)          :: name, cdiErrorText
 
       ! allocating buffers containing name of variables
@@ -748,23 +748,24 @@ MODULE mo_async_latbc
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       ! generate file name
-      latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
-      latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+      latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level, &
+           &                                  time_config%tc_exp_startdate,  &
+           &                                  time_config%tc_exp_startdate))
+      latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
 
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
 
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
-            CALL finish(routine,'LATBC file not found: '//TRIM(latbc_file))
+            CALL finish(routine,'LATBC file not found: '//latbc_file)
          ENDIF
 
          ! open file
          !
-         fileID_latbc = streamOpenRead(TRIM(latbc_file))
+         fileID_latbc = streamOpenRead(latbc_file)
          IF (fileID_latbc < 0) THEN
            CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-           CALL finish(routine, "File "//TRIM(latbc_file)//" cannot be opened: "//TRIM(cdiErrorText))
+           CALL finish(routine, "File "//latbc_file//" cannot be opened: "//TRIM(cdiErrorText))
          ENDIF
 
          filetype = streamInqFiletype(fileID_latbc)
@@ -784,9 +785,9 @@ MODULE mo_async_latbc
          ENDIF
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
-         flen_latbc = util_filesize(TRIM(latbc_file))
+         flen_latbc = util_filesize(latbc_file)
          IF (flen_latbc <= 0 ) THEN
-            CALL message(routine, "File "//TRIM(latbc_file)//" is empty")
+            CALL message(routine, "File "//latbc_file//" is empty")
             CALL finish(routine, "STOP: Empty input file")
          ENDIF
 
@@ -882,7 +883,7 @@ MODULE mo_async_latbc
       IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
 
         IF (latbc%buffer%lcompute_hhl_pres) THEN
-          CALL nf(nf_open(TRIM(latbc_file), NF_NOWRITE, ncid), routine)
+          CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
           CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
           CALL nf(nf_close(ncid), routine)
         END IF
@@ -908,26 +909,27 @@ MODULE mo_async_latbc
       LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
-      CHARACTER(LEN=filename_max)    :: latbc_filename, latbc_file
+      CHARACTER(LEN=:), ALLOCATABLE  :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! prefetch processor opens the file and checks if variables are present
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          ! generate file name
-         latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-           &                                time_config%tc_exp_startdate, time_config%tc_exp_startdate)
-         latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+         latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level,&
+              &                                  time_config%tc_exp_startdate, &
+              &                                  time_config%tc_exp_startdate))
+         latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
-            CALL finish(routine,'LATBC file not found: '//TRIM(latbc_file))
+            CALL finish(routine,'LATBC file not found: '//latbc_file)
          ENDIF
 
          ! open file
          !
-         fileID_latbc = streamOpenRead(TRIM(latbc_file))
+         fileID_latbc = streamOpenRead(latbc_file)
          IF (fileID_latbc < 0) THEN
            CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-           CALL finish(routine, "File "//TRIM(latbc_file)//" cannot be opened: "//TRIM(cdiErrorText))
+           CALL finish(routine, "File "//latbc_file//" cannot be opened: "//TRIM(cdiErrorText))
          ENDIF
 
          ! Check if rain water (QR) is provided as input
