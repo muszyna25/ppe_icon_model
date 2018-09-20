@@ -185,6 +185,9 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     TYPE(t_restart_args) :: restartArgs
     CHARACTER(*), PARAMETER :: routine = modname//":syncRestartDescriptor_writeRestart"
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
 
@@ -197,7 +200,7 @@ CONTAINS
     CALL me%defineRestartAttributes(restartAttributes, restartArgs)
 
     DO jg = 1, n_dom
-        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs, my_process_is_mpi_workroot())
+        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs, is_mpi_workroot)
     END DO
 
     CALL restartArgs%destruct()
@@ -238,6 +241,9 @@ CONTAINS
     TYPE(t_ptr_2d_sp), ALLOCATABLE       :: levelPointers_sp(:)
     TYPE(t_ptr_2d_int), ALLOCATABLE      :: levelPointers_int(:)
     CHARACTER(*), PARAMETER              :: routine = modname//":syncPatchData_writeData"
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     IF(my_process_is_mpi_test()) RETURN
 
@@ -247,7 +253,7 @@ CONTAINS
         IF(.NOT.has_valid_time_level(info, domain, nnew(domain), nnew_rcf(domain))) CYCLE
 
         ! we are committed to writing now
-        IF(my_process_is_mpi_workroot()) write (0,*)' ... write '//TRIM(info%name)
+        IF(is_mpi_workroot) write (0,*)' ... write '//TRIM(info%name)
 
         ! ALLOCATE the global array to gather the DATA on the master process
         gridSize = me%description%getGlobalGridSize(info%hgrid)
@@ -257,7 +263,7 @@ CONTAINS
         SELECT CASE(info%data_type)
         CASE(REAL_T)
           !
-          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
           CALL getLevelPointers(info, me%varData(i)%r_ptr, levelPointers_dp)
@@ -268,7 +274,7 @@ CONTAINS
             CALL exchange_data(in_array = levelPointers_dp(level)%p, out_array = gatherBuffer_dp, &
               &                gather_pattern = gatherPattern)
             IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            IF(my_process_is_mpi_workroot()) THEN
+            IF(is_mpi_workroot) THEN
               CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_dp)
             END IF
           END DO
@@ -277,7 +283,7 @@ CONTAINS
           !
         CASE(SINGLE_T)
           !
-          ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
           CALL getLevelPointers(info, me%varData(i)%s_ptr, levelPointers_sp)
@@ -288,7 +294,7 @@ CONTAINS
             CALL exchange_data(in_array = levelPointers_sp(level)%p, out_array = gatherBuffer_sp, &
               &                gather_pattern = gatherPattern)
             IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            IF(my_process_is_mpi_workroot()) THEN
+            IF(is_mpi_workroot) THEN
               CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_sp)
             END IF
           END DO
@@ -297,7 +303,7 @@ CONTAINS
           !
         CASE(INT_T)
           !
-          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, is_mpi_workroot)), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
           ALLOCATE(gatherBuffer_int(SIZE(gatherBuffer_dp)), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
@@ -308,7 +314,7 @@ CONTAINS
           DO level = 1, SIZE(levelPointers_int)
             CALL exchange_data(in_array = levelPointers_int(level)%p, out_array = gatherBuffer_int, &
               &                gather_pattern = gatherPattern)
-            IF(my_process_is_mpi_workroot()) THEN
+            IF(is_mpi_workroot) THEN
               gatherBuffer_dp(:) = REAL(gatherBuffer_int(:), dp)
               CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_dp)
             END IF
