@@ -391,7 +391,7 @@ case "$ac_sitename" in
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
-                                FFLAGS      = ${FFLAGS} -D__OPENACC_BUG_TYPES_1 -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
+                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
                                 ;;
                             *)
                                 config_target = daint_cpu
