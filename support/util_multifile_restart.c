@@ -58,7 +58,6 @@ bool isPrefix(const char* prefix, const char* string) {
 typedef enum {
 	kStdFile,	//this is used for the . and .. entries in the directory
 	kAttributesFile,
-	kMetadataFile,
 	kPayloadFile,
 	kUnknownFile
 } FileClass;
@@ -84,7 +83,6 @@ FileClass classifyFileName(const char* name, int* out_patchId, int* out_procId) 
 	*out_patchId = (int)patchId;
 	name = endPtr;	//skip the patch ID
 
-	if(!strcmp("_metadata", name)) return kMetadataFile;
 	if(!isPrefix("_", name)) return kUnknownFile;
 	name += strlen("_");	//skip the constant prefix
 
@@ -115,44 +113,11 @@ int compareFileParams(const void* aArg, const void* bArg) {
 //this may reorder the contents of the given arrays as a side effect
 //
 //if the expected domain or file count is unknown, just pass 0 in the respective argument
-bool isFileListConsistent(size_t numof_metadataFiles, FileParams* metadataFiles, size_t numof_payloadFiles, FileParams* payloadFiles, int expectedDomainCount, int expectedFileCount) {
+bool isFileListConsistent(size_t numof_payloadFiles, FileParams* payloadFiles, int expectedDomainCount, int expectedFileCount) {
 	//sort the two arrays, so we can easily compare them element by element
-	qsort(metadataFiles, numof_metadataFiles, sizeof(*metadataFiles), compareFileParams);
 	qsort(payloadFiles, numof_payloadFiles, sizeof(*payloadFiles), compareFileParams);
 
-	//if we expect a certain domain count, check that the metadata files are consistent with it
-	if(expectedDomainCount) {
-		int expectedDomain = 1;
-		for(int metadataIndex = 0; metadataIndex < numof_metadataFiles; metadataIndex++, expectedDomain++) {
-			assert(metadataFiles[metadataIndex].patchId >= expectedDomain);	//we sorted the array, so this should be true
-			if(metadataFiles[metadataIndex].patchId > expectedDomain) {
-				fprintf(stderr, "warning: domain %d missing from restart multifile\n", expectedDomain);
-				metadataIndex--;	//recheck this entry with the next expected domain
-			}
-		}
-		int lastDomain = expectedDomain - 1;
-		if(lastDomain < expectedDomainCount) fprintf(stderr, "warning: domains %d through %d missing from restart multifile\n", lastDomain + 1, expectedDomainCount);
-		if(lastDomain > expectedDomainCount) {
-			fprintf(stderr, "error: restart multifile contains unexpected domain (found metadata file for domain %d, but expected only %d domains)\n", lastDomain, expectedDomainCount);
-			return false;
-		}
-	}
-
-	//if we expect a certain file count, check that the total count of payload files is as expected
-	if(expectedFileCount) {
-		if(numof_metadataFiles*expectedFileCount != numof_payloadFiles) {
-			fprintf(stderr, "error: unexpected number of payload files in restart multifile (expected %d files, %d files per patch, but found %d payload files)\n", numof_metadataFiles*expectedFileCount, expectedFileCount, numof_payloadFiles);
-			return false;
-		}
-	}
-
-	//walk through the payload files and check that they have a corresponding metadata file
-	for(int metadataIndex = 0, payloadIndex = 0; payloadIndex < numof_payloadFiles; payloadIndex++) {
-		//advance the metadataIndex so that it points to the respective metadata file
-		while(metadataIndex < numof_metadataFiles && metadataFiles[metadataIndex].patchId < payloadFiles[payloadIndex].patchId) metadataIndex++;
-		if(metadataIndex == numof_metadataFiles) return false;	//the list of metadata files was exhausted before the patch ID of the payload file was reached
-
-		if(metadataFiles[metadataIndex].patchId != payloadFiles[payloadIndex].patchId) return false;	//there is no matching metadata file for the payload file
+	for(int payloadIndex = 0; payloadIndex < numof_payloadFiles; payloadIndex++) {
 
 		//check the expected range of the procId
 		if(payloadFiles[payloadIndex].procId < 0) return false;	//we never expect files with a negative procId
@@ -164,12 +129,10 @@ bool isFileListConsistent(size_t numof_metadataFiles, FileParams* metadataFiles,
 //if the expected domain or file count is unknown, just pass 0 in the respective argument
 int checkDirContents(DIR* directory, const char* dirPath, int expectedDomainCount, int expectedFileCount) {
 	bool haveAttributesFile = false;
-	size_t numof_metadataFiles = 0, sizeof_metadataFiles = 8;
-	FileParams* metadataFiles = malloc(sizeof_metadataFiles*sizeof(*metadataFiles));
 	size_t numof_payloadFiles = 0, sizeof_payloadFiles = 8;
 	FileParams* payloadFiles = malloc(sizeof_payloadFiles*sizeof(*payloadFiles));
 
-	if(!metadataFiles || !payloadFiles) fprintf(stderr, "memory allocation failure\n"), abort();
+	if(!payloadFiles) fprintf(stderr, "memory allocation failure\n"), abort();
 
 	//get the underlying file descriptor of the directory, we need this so we can use fstatat() rather than lstat(), which should provide a significant performance benefit
 	int dirFileDescriptor = dirfd(directory);
@@ -185,17 +148,6 @@ int checkDirContents(DIR* directory, const char* dirPath, int expectedDomainCoun
 			case kAttributesFile:
 				assert(!haveAttributesFile);
 				haveAttributesFile = true;
-				break;
-
-			case kMetadataFile:
-				if(numof_metadataFiles == sizeof_metadataFiles) {
-					metadataFiles = realloc(metadataFiles, (sizeof_metadataFiles *= 2)*sizeof(*metadataFiles));
-					if(!metadataFiles) fprintf(stderr, "memory allocation failure\n"), abort();
-				}
-				metadataFiles[numof_metadataFiles++] = (FileParams){
-					.patchId = patchId,
-					.procId = -1
-				};
 				break;
 
 			case kPayloadFile:
@@ -230,7 +182,7 @@ int checkDirContents(DIR* directory, const char* dirPath, int expectedDomainCoun
 		fprintf(stderr, "error: directory at \"%s\" is not a valid multifile: no \"attributes.nc\" found\n", dirPath);
 		return -1;
 	}
-	if(!isFileListConsistent(numof_metadataFiles, metadataFiles, numof_payloadFiles, payloadFiles, expectedDomainCount, expectedFileCount)) {
+	if(!isFileListConsistent(numof_payloadFiles, payloadFiles, expectedDomainCount, expectedFileCount)) {
 		//XXX: I'm not sure what to do in this case: There are no unknown files present, but the directory is also not a valid multifile.
 		//     It could be a corrupted one (likely), or it could be a directory that just happens to contain a file `attributes.nc` and one or more `patchN_M.nc` files (unlikely).
 		//     In the former case, the right course of action would be to throw a warning that we are overwriting a corrupted multifile, and proceed normally,
@@ -242,7 +194,6 @@ int checkDirContents(DIR* directory, const char* dirPath, int expectedDomainCoun
 	}
 
 	//cleanup
-	free(metadataFiles);
 	free(payloadFiles);
 	return 0;
 }
@@ -271,7 +222,6 @@ int cleanDirContents(DIR* directory, const char* dirPath) {
 			case kStdFile: break;	//ignore the . and .. entries
 
 			case kAttributesFile:	//fallthrough
-			case kMetadataFile:	//fallthrough
 			case kPayloadFile:
 				if(unlinkat(dirFileDescriptor, curEntry->d_name, 0)) {
 					fprintf(stderr, "fatal error: could not unlink file \"%s\" from directory \"%s\" (%s)\n", curEntry->d_name, dirPath, strerror(errno));
