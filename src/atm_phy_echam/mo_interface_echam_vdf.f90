@@ -54,6 +54,8 @@ MODULE mo_interface_echam_vdf
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface             ,ONLY: update_surface
   USE mo_surface_diag        ,ONLY: nsurf_diag
+  USE mo_run_config          ,ONLY: lart
+  
 
   IMPLICIT NONE
   PRIVATE
@@ -121,12 +123,6 @@ CONTAINS
     REAL(wp) :: zbm_tile (nproma,nsfc_type)  !< for "nsurf_diag"
     REAL(wp) :: zbh_tile (nproma,nsfc_type)  !< for "nsurf_diag"
 
-    REAL(wp) :: zq_snocpymlt(nproma)         !< heating by melting of snow on the canopy [W/m2]
-    !                                        !  which warms the lowermost atmospheric layer (JSBACH)
-    
-    REAL(wp) :: zq_rlw_impl (nproma)         !< additional heating by LW rad. due to implicit coupling
-    !                                        !  in surface energy balance [W/m2]
-
     REAL(wp) :: mmr_co2
 
     IF (ltimer) CALL timer_start(timer_vdf)
@@ -153,7 +149,7 @@ CONTAINS
 
     ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
 
-    IF (ntrac>=2) THEN
+    IF (ntrac>=2 .and. .not. lart) THEN
       IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
         zxt_emis(jcs:jce,2) = field%fco2nat(jcs:jce,jb)
       ELSE
@@ -204,7 +200,9 @@ CONTAINS
           !$ser verbatim   zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
           !
           CALL vdiff_down(jg,                              &! in
-               &          jce, nproma, nlev, nlevm1,nlevp1,&! in
+               &          jb,                              &! in  used for debugging only
+               &          jcs, jce, nproma,                &! in
+               &          nlev, nlevm1, nlevp1,            &! in
                &          ntrac, nsfc_type,                &! in
                &          iwtr, iice, ilnd,                &! in, indices of different surface types
                &          pdtime,                          &! in, time step
@@ -297,7 +295,7 @@ CONTAINS
           !$ser verbatim   pdtime, field, zfactor_sfc, zaa, zaa_btm, zbb, zbb_btm,&
           !$ser verbatim   zcpt_sfc_tile, zco2, zch_tile)
           !
-          CALL update_surface(jg, jce, nproma, field%kice,                    &! in
+          CALL update_surface(jg, jcs, jce, nproma, field%kice,               &! in
                &              nlev, nsfc_type,                                &! in
                &              iwtr, iice, ilnd,                               &! in, indices of surface types
                &              pdtime,                                         &! in, time step
@@ -351,7 +349,7 @@ CONTAINS
                &              pch_tile = zch_tile(:,:),                       &! in, from "vdiff_down" for JSBACH
                &              pcsat = field%csat(:,jb),                       &! inout, area fraction with wet land surface
                &              pcair = field%cair(:,jb),                       &! inout, area fraction with wet land surface (air)
-               &              q_snocpymlt = zq_snocpymlt(:),                  &! out, heating  by melting snow on the canopy [W/m2]
+               &              q_snocpymlt = field% q_snocpymlt(:,jb),         &! out, heating  by melting snow on the canopy [W/m2]
                &              z0m_tile = field% z0m_tile(:,jb,:),             &! inout, roughness length for momentum over tiles
                &              z0h_lnd  = field% z0h_lnd (:,jb),               &! out, roughness length for heat over land
                &              albvisdir      = field% albvisdir     (:,jb)  , &! inout
@@ -388,7 +386,7 @@ CONTAINS
           !$ser verbatim call serialize_update_surface_output(jb, jg, jce, nproma,&
           !$ser verbatim   nlev, nsfc_type, iwtr, iice, ilnd,&
           !$ser verbatim   pdtime, field, zaa, zaa_btm, zbb, zbb_btm,&
-          !$ser verbatim   zcpt_sfc_tile, zq_snocpymlt)
+          !$ser verbatim   zcpt_sfc_tile, field%q_snocpymlt(:,jb))
           !
           IF (ltimer) CALL timer_stop(timer_vdf_sf)
           !
@@ -408,7 +406,7 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field, zaa,&
           !$ser verbatim   zcptgz, ztottevn, zbb, zthvvar, dummyx)
           !
-          CALL vdiff_up(jce, nproma, nlev, nlevm1,       &! in
+          CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
                &        pdtime,                          &! in, time steps
@@ -461,12 +459,12 @@ CONTAINS
        IF (echam_phy_config(jg)%ljsb) THEN
           !
           ! convert    heating
-          ! zq_snocpymlt = heating for melting of snow on canopy
-          !              = cooling of atmosphere --> negative sign
-          tend% ta_sfc(jcs:jce,jb)      = -zq_snocpymlt(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
+          ! q_snocpymlt = heating for melting of snow on canopy
+          !             = cooling of atmosphere --> negative sign
+          tend% ta_sfc(jcs:jce,jb)      = -field% q_snocpymlt(jcs:jce,jb) * field% qconv(jcs:jce,nlev,jb)
           !
           ! accumulate heating
-          field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) - zq_snocpymlt(jcs:jce)
+          field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) - field% q_snocpymlt(jcs:jce,jb)
           !
           ! accumulate tendencies for later updating the model state
           SELECT CASE(fc_vdf)
@@ -488,7 +486,7 @@ CONTAINS
        END IF
        !
        !
-       ! Vertical diffusion efect on the atmospheric column
+       ! Vertical diffusion effect on the atmospheric column
        !
        ! convert    heating
        tend% ta_vdf(jcs:jce,:,jb) = field% q_vdf(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
@@ -525,19 +523,20 @@ CONTAINS
           field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_vdf(jcs:jce,:,jb,iqt:)*pdtime
        END IF
        !
+       !
        ! Correction related to implicitness, due to the fact that surface model only used
        ! part of longwave radiation to compute new surface temperature
        ! 
-       zq_rlw_impl(jcs:jce) =                                                   &
+       field%q_rlw_impl(jcs:jce,jb) =                                           &
             &  ( (field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb))  & ! ( rln  from "radiation", at top of layer nlev
             &   -(field%rlds  (jcs:jce,jb)     -field%rlus  (jcs:jce,jb)     )) & !  -rlns from "radheating" and "update_surface")
             & -field%q_rlw(jcs:jce,nlev,jb)                                       ! -old heating in layer nlev from "radheating"
        !
        ! convert    heating
-       tend%ta_rlw_impl(jcs:jce,jb) = zq_rlw_impl(jcs:jce) * field% qconv(jcs:jce,nlev,jb)
+       tend%ta_rlw_impl(jcs:jce,jb) = field% q_rlw_impl(jcs:jce,jb) * field% qconv(jcs:jce,nlev,jb)
        !
        ! accumulate heating
-       field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) + zq_rlw_impl(jcs:jce)
+       field% q_phy(jcs:jce,nlev,jb) = field% q_phy(jcs:jce,nlev,jb) + field% q_rlw_impl(jcs:jce,jb)
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_vdf)
@@ -568,7 +567,7 @@ CONTAINS
        !$ser verbatim   ilnd, field, zqx(:,nlev), zcptgz(:,nlev), zcpt_sfc_tile, zbn_tile,&
        !$ser verbatim   zbhn_tile, zbh_tile, zbm_tile, zri_tile)
        !
-       CALL nsurf_diag(jce, nproma, nsfc_type,          &! in
+       CALL nsurf_diag(jcs, jce, nproma, nsfc_type,     &! in
             &          ilnd,                            &! in
             &          field%frac_tile(:,jb,:),         &! in
             &          field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
@@ -664,6 +663,8 @@ CONTAINS
        field% ts_rad         (jcs:jce,  jb  ) = 0.0_wp
        field% lwflxsfc_tile  (jcs:jce,  jb,:) = 0.0_wp
        field% swflxsfc_tile  (jcs:jce,  jb,:) = 0.0_wp
+       field% q_snocpymlt    (jcs:jce,  jb  ) = 0.0_wp
+       field% q_rlw_impl     (jcs:jce,  jb  ) = 0.0_wp
        !
        field% Tsurf          (jcs:jce,:,jb  ) = 0.0_wp
        field% T1             (jcs:jce,:,jb  ) = 0.0_wp

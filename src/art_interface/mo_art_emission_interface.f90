@@ -51,10 +51,9 @@ MODULE mo_art_emission_interface
   USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
-  USE mtime,                            ONLY: datetime, timedelta, newTimedelta, &
-                                          &   getTimeDeltaFromDateTime,          &
-                                          &   getTotalMillisecondsTimedelta,     &
-                                          &   deallocateTimedelta
+  USE mo_echam_phy_memory,              ONLY: prm_field
+  USE mtime,                            ONLY: datetime
+  USE mo_util_mtime,                    ONLY: getElapsedSimTimeInSeconds
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_emissInt
 #ifdef __ICON_ART
@@ -79,7 +78,10 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
-  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
+  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers,  &
+                                          &   art_init_emission_struct,     &
+                                          &   art_read_emissions
+  USE mo_art_prescribed_state,          ONLY: art_prescribe_tracers
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -131,22 +133,22 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  nlev                    !< Number of levels (equals index of lowest full level)
   REAL(wp),ALLOCATABLE    :: &
     &  emiss_rate(:,:),      & !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
+    &  dz_3d(:,:,:),         & !< Height of model layer (3dimensional)
     &  dz(:,:)                 !< Height of model layer
+  REAL(wp), POINTER :: &
+    &  land_sea(:,:),  &
+    &  u_10m(:,:),     &
+    &  v_10m(:,:)
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-  TYPE(timedelta),POINTER :: &
-    &  time_diff               !< mtime object: Elapsed time since experiment start
   REAL(wp)                :: &
     &  p_sim_time              !< elapsed simulation time on this grid level
   
   ! calculate elapsed simulation time in seconds (local time for
   ! this domain!)
+  p_sim_time = getElapsedSimTimeInSeconds(current_date) 
 
-  time_diff  => newTimedelta("PT0S")
-  time_diff  =  getTimeDeltaFromDateTime(current_date, time_config%tc_exp_startdate)
-  p_sim_time =  getTotalMillisecondsTimedelta(time_diff, current_date)*1.e-3_wp
-  CALL deallocateTimedelta(time_diff)
 
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -170,14 +172,21 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
+    ALLOCATE(dz_3d(nproma,nlev,p_patch%nblks_c))
 
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
-      IF(p_art_data(jg)%emiss%is_init) THEN
+
+      CALL art_prescribe_tracers(tracer, p_art_data(jg)%prescr_list,     &
+               &                 p_patch, current_date, p_nh_state%diag, &
+               &                 p_nh_state%metrics%z_mc,                &
+               &                 i_startblk, i_endblk, i_rlstart, i_rlend)
+
+      IF (p_art_data(jg)%emiss%is_init) THEN
         IF (iforcing == inwp) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  current_date,prm_diag%swflx_par_sfc)
+                                      &  current_date,prm_diag%swflx_par_sfc(:,:))
         ELSE IF (iforcing == iecham) THEN
           CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
                                       &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
@@ -378,7 +387,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         ENDDO !while(associated)
 
       DEALLOCATE(emiss_rate)
-      DEALLOCATE(dz)
 
       ! volcano emissions
       IF (art_config(jg)%iart_volcano == 1) THEN
@@ -394,6 +402,28 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ! ----------------------------------
   
     IF (art_config(jg)%lart_chem) THEN
+      ! Get model layer heights
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+        DO jk = 1, nlev
+          DO jc = istart, iend
+            dz_3d(jc,jk,jb) = p_nh_state%metrics%z_ifc(jc,jk,jb) - p_nh_state%metrics%z_ifc(jc,jk+1,jb)
+          ENDDO
+        ENDDO
+      END DO
+
+      IF (iforcing == iecham) THEN
+        land_sea => prm_field(jg)%lsmask
+        u_10m => prm_field(jg)%uas
+        v_10m => prm_field(jg)%vas
+      ELSE IF (iforcing == inwp) THEN
+        land_sea => ext_data%atm%fr_land
+        u_10m => prm_diag%u_10m
+        v_10m => prm_diag%v_10m
+      ENDIF
+
+        
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
           DO jb = i_startblk, i_endblk
@@ -404,11 +434,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       ext_data%atm%llsm_atm_c,        &
-              &                       ext_data%atm%fr_land,           &
+              &                       land_sea,                       &
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
-              &                       jb,istart,iend,nlev,nproma)
+              &                       jb,istart,iend,nlev,nproma,     &
+              &                       u_10m, v_10m, dz_3d(:,:,jb))
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
@@ -419,11 +449,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       ext_data%atm%llsm_atm_c,        &
-              &                       ext_data%atm%fr_land,           &
+              &                       land_sea,                       &
               &                       p_patch,                        &
               &                       p_art_data(jg)%dict_tracer,     &
-              &                       jb,istart,iend,nlev,nproma)
+              &                       jb,istart,iend,nlev,nproma,     &
+              &                       u_10m, v_10m, dz_3d(:,:,jb))
           ENDDO
         CASE(2)
           DO jb = i_startblk, i_endblk
@@ -434,9 +464,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     tracer,                         &
               &                     p_nh_state%diag%pres,           &
               &                     p_nh_state%diag%temp,           &
-              &                     ext_data%atm%llsm_atm_c,        &
+              &                     land_sea,                       &
               &                     p_patch,                        &
-              &                     jb,istart,iend,nlev,nproma)
+              &                     jb,istart,iend,nlev,nproma,     &
+              &                     u_10m, v_10m, dz_3d(:,:,jb))
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
@@ -444,6 +475,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
       END SELECT !iart_chem_mechanism
     ENDIF !lart_chem
     
+    DEALLOCATE(dz)
+    DEALLOCATE(dz_3d)
+
     CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
 
     IF (timers_level > 3) CALL timer_stop(timer_art_emissInt)

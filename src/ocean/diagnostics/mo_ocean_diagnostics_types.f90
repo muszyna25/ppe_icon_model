@@ -23,7 +23,7 @@ MODULE mo_ocean_diagnostics_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
+  USE mo_math_types,          ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   
   PUBLIC :: t_ocean_monitor
@@ -40,10 +40,13 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: kin_energy(:)
     REAL(wp), POINTER :: pot_energy(:)
     REAL(wp), POINTER :: total_energy(:)
+    REAL(wp), POINTER :: global_heat_content(:)
     REAL(wp), POINTER :: total_salt(:)
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)
     REAL(wp), POINTER :: ssh_global(:)
+    REAL(wp), POINTER :: sst_global(:)
+    REAL(wp), POINTER :: sss_global(:)
     REAL(wp), POINTER :: potential_enstrophy(:)
     REAL(wp), POINTER :: absolute_vertical_velocity(:)
     REAL(wp), POINTER :: HeatFlux_ShortWave(:)
@@ -64,6 +67,7 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: FrshFlux_Relax(:)
     REAL(wp), POINTER :: TempFlux_Relax(:)
     REAL(wp), POINTER :: SaltFlux_Relax(:)
+    REAL(wp), POINTER :: totalsnowfall(:)
 
     REAL(wp), POINTER :: ice_volume_nh(:)!                                                           [km3]
     REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]

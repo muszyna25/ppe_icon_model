@@ -1,9 +1,13 @@
+#define _GNU_SOURCE
+#ifdef HAVE_LINK_H
+#include <link.h>
+#include <mcheck.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <pwd.h>
-
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -156,3 +160,69 @@ void util_compiler_release(char *release_str, int *rstr_len)
   *rstr_len = strlen(release_str);
   return;
 }
+
+#ifdef HAVE_LINK_H
+static int dump_dl(struct dl_phdr_info *info, size_t size, void *data)
+{
+	FILE *f = (FILE *)data;
+
+	fprintf(f, "%s: dlpi_addr = 0x%016lx\n", info->dlpi_name,
+		(unsigned long)info->dlpi_addr);
+
+	for (ElfW(Half)i = 0; i < info->dlpi_phnum; ++i) {
+		const ElfW(Phdr) *phdr = info->dlpi_phdr + i;
+		if (phdr->p_type != PT_LOAD)
+			continue;
+
+		fprintf(f, "\tLOAD: 0x%016lx 0x%016lx 0x%lx\n",
+			(unsigned long)phdr->p_vaddr,
+			(unsigned long)phdr->p_paddr,
+			(unsigned long)phdr->p_memsz);
+	}
+
+	return 0;
+}
+
+static void dump_dls(void)
+{
+	char fname[256];
+	FILE *f;
+
+	snprintf(fname, sizeof(fname), "dl.map.%lu", (unsigned long)getpid());
+
+	f = fopen(fname, "w");
+
+	if (f == NULL)
+		return;
+
+	dl_iterate_phdr(dump_dl, f);
+
+	fclose(f);
+
+	return;
+}
+
+
+void util_set_mtrace(void)
+{
+  char malloc_trace[256];
+
+  snprintf(malloc_trace, sizeof(malloc_trace), "m.trace.%lld",
+	   (long long)getpid());
+
+  setenv("MALLOC_TRACE", malloc_trace, 1);
+
+  printf("MALLOC_TRACE:%s\n", getenv("MALLOC_TRACE"));
+
+
+  dump_dls();
+
+  mtrace();
+}
+
+
+void util_unset_mtrace(void)
+{
+  muntrace();
+}
+#endif

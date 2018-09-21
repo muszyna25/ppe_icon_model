@@ -28,11 +28,14 @@ MODULE mo_read_netcdf_distributed
     & deallocate_glb2loc_index_lookup, &
     & uniform_partition, partidx_of_elem_uniform_deco
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
-    & setup_comm_pattern, delete_comm_pattern, &
-    & exchange_data
+    & delete_comm_pattern, exchange_data
   USE mo_parallel_config, ONLY: nproma, &
        config_io_process_stride => io_process_stride, &
        config_io_process_rotate => io_process_rotate
+  USE mo_communication_factory, ONLY: setup_comm_pattern
+#ifndef NOMPI
+  USE mpi, ONLY: MPI_INFO_NULL, MPI_UNDEFINED, MPI_Comm_split, MPI_COMM_NULL
+#endif
 
   IMPLICIT NONE
 
@@ -87,7 +90,7 @@ MODULE mo_read_netcdf_distributed
   TYPE t_distrib_read_data
 
     INTEGER :: basic_data_index
-    TYPE(t_comm_pattern) :: redistrib_pattern
+    CLASS(t_comm_pattern), POINTER :: redistrib_pattern
 
   END TYPE t_distrib_read_data
 
@@ -286,9 +289,45 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
+#ifdef HAVE_PARALLEL_NETCDF
+    INTEGER              :: myColor, ierr, nvars, i
+    INTEGER, ALLOCATABLE :: varids(:)
+    INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
+    LOGICAL, SAVE        :: isCommReady = .FALSE.
+#endif
+
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+#ifdef HAVE_PARALLEL_NETCDF
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      myColor = 1
+    ELSE
+      myColor = MPI_UNDEFINED
+    ENDIF
+    IF (.NOT. isCommReady) THEN
+      ! This communicator is "lost" and is to be cleaned up eventually
+      ! by MPI_Finalize. Things were better if distrib_nf_open returned some
+      ! kind of object.
+      CALL MPI_Comm_split(p_comm_work, myColor, 0, comm_dist_nfpar, ierr)
+      isCommReady = .TRUE.
+    ENDIF
+#endif
+
+
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+#ifdef HAVE_PARALLEL_NETCDF
+      CALL nf(nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
+        & MPI_INFO_NULL, distrib_nf_open))
+
+      ! Switch all vars to collective. Hopefully this is sufficient.
+      CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
+      ALLOCATE(varids(nvars))
+      CALL nf(nf_inq_varids(distrib_nf_open, nvars, varids))
+      DO i = 1,nvars
+        CALL nf(nf_var_par_access(distrib_nf_open, varids(i), NF_COLLECTIVE))
+      ENDDO
+#else
       CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+#endif
     ELSE
       distrib_nf_open = -1
     END IF
@@ -319,7 +358,7 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     TYPE(t_distrib_read_data), INTENT(inout) :: io_data
 
-    INTEGER :: n
+    INTEGER :: n, n_inner, i
     INTEGER, ALLOCATABLE :: owner(:)
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
@@ -328,13 +367,17 @@ CONTAINS
 
     n = SIZE(decomp_info%glb_index)
 
-    ALLOCATE(owner(n))
+    ALLOCATE(owner(MAX(1,n)))
 
-    CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
-      & owner(:), basic_io_data)
+    IF (n .GT. 0) THEN
+      CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
+        & owner(:), basic_io_data)
+    END IF
+    n_inner = SIZE(basic_io_data%glb2loc_index%inner_glb_index, 1)
     CALL setup_comm_pattern(n, owner(:), decomp_info%glb_index(:), &
-      & basic_io_data%glb2loc_index, &
-      & io_data%redistrib_pattern)
+      & basic_io_data%glb2loc_index, n_inner, &
+      & (/(p_pe_work, i = 1, n_inner)/), &
+      & basic_io_data%glb2loc_index%inner_glb_index, io_data%redistrib_pattern)
 
     DEALLOCATE(owner)
 
@@ -371,7 +414,6 @@ CONTAINS
     TYPE(t_distrib_read_data), INTENT(inout) :: io_data
 
     CALL delete_comm_pattern(io_data%redistrib_pattern)
-
     CALL delete_basic_distrib_read(io_data%basic_data_index)
 
   END SUBROUTINE delete_distrib_read

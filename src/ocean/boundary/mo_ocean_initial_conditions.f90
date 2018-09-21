@@ -38,6 +38,7 @@ MODULE mo_ocean_initial_conditions
     & initial_temperature_north, initial_temperature_south,                           &
     & initial_temperature_scale_depth, initial_temperature_VerticalGradient,         &
     & use_file_initialConditions,                                                     &
+    & type_3dimrelax_temp, type_3dimrelax_salt,                                      &
     & initial_salinity_top, initial_salinity_bottom, &
     & topography_type, topography_height_reference,  &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
@@ -55,7 +56,8 @@ MODULE mo_ocean_initial_conditions
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc, gvec2cvec
+  USE mo_math_types,         ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,     ONLY: cc2gc, gvec2cvec
   USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
@@ -67,6 +69,8 @@ MODULE mo_ocean_initial_conditions
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+
+  USE mo_ocean_nudging,       ONLY: ocean_nudge
   
   USE mo_sync,              ONLY: sync_c, sync_e, sync_patch_array
   USE mo_fortran_tools,     ONLY: assign_if_present
@@ -330,7 +334,10 @@ CONTAINS
       CALL message(TRIM(method_name), ': init from file')
       CALL init_cell_3D_variable_fromFile(patch_3d, variable=ocean_salinity, name="S", &
         & has_missValue=has_missValue, missValue=missValue)
-    
+
+    ! copy the initial ocean salinity also to the nudging  salinity
+      IF (no_tracer>1 .AND. type_3dimrelax_salt >0) &
+         ocean_nudge%data_3dimRelax_Salt(:,:,:) = ocean_salinity(:,:,:)
     !------------------------------
     CASE (200)
       ! uniform salinity or vertically linarly increasing
@@ -468,6 +475,10 @@ CONTAINS
       CALL init_cell_3D_variable_fromFile(patch_3d, variable=ocean_temperature, name="T", &
         & has_missValue=has_missValue, missValue=missValue)
       use_IceInitialization_fromTemperature = .true. ! this should be set in the namelist, here only for safety
+
+      IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) &
+         ocean_nudge%data_3dimRelax_temp(:,:,:) = ocean_temperature(:,:,:)
+
 
     !------------------------------
     CASE (200)

@@ -129,6 +129,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 5           ! dtime/dt_dyn
@@ -158,7 +159,7 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
 !                   hus,clw,cli, o3
  ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  4
+ itype_hlimit     =   3,  4,  4,  3
  ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
@@ -167,7 +168,7 @@ cat > ${atmo_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT30M"
+ echam_phy_config(1)%dt_rad = "PT15M"
  echam_phy_config(1)%dt_vdf = "PT40S"
  echam_phy_config(1)%dt_cnv = ""
  echam_phy_config(1)%dt_cld = "PT40S"
@@ -175,7 +176,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_sso = ""
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = "PT40S"
+ echam_phy_config(1)%dt_mox = ""
  echam_phy_config(1)%dt_car = ""
  echam_phy_config(1)%dt_art = ""
 !
@@ -214,6 +215,7 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
+ echam_cld_config(1)%jks        = 1
  echam_cld_config(1)%crs        = 1.0
  echam_cld_config(1)%crt        = 1.0
  echam_cld_config(1)%cinhomi    = 1.0
@@ -277,7 +279,10 @@ cat > ${lnd_namelist} << EOF
   bc_filename            = 'bc_land_carbon.nc'
   ic_filename            = 'ic_land_carbon.nc'
   read_cpools            = .FALSE.
-  fuel_algorithm         = 0
+/
+&jsb_fuel_nml
+  active                 = .FALSE.
+  fuel_algorithm         = 1
 /
 &jsb_disturb_nml
   active                  = .FALSE.
@@ -325,7 +330,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc ./ifs2icon_${resolution_b}_DOM01.nc
+add_link_file $datadir/ifs2icon_1979010100_${resolution_a}_G.nc         ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=${icon_data_poolFolder}/preliminary_land/${resolution_c}/land
@@ -366,14 +371,14 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1865:
+#   accessing all the same data of 1850:
 datadir=${icon_data_poolFolder}/aerosol/kinne/${resolution_a}
 year=1849
 while [[ $year -le 1851 ]]
 do
   add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
 #
@@ -517,11 +522,10 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'sic'     , 'sit'     ,
                     'albedo'  ,
                     'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'prlr'    , 'prls'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
 /

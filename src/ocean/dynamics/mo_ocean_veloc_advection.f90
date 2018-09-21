@@ -39,7 +39,8 @@ MODULE mo_ocean_veloc_advection
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d_onBlock, &
     & rot_vertex_ocean_3d, verticalDeriv_vec_midlevel_on_block,  &
     & verticalDiv_vector_onFullLevels_on_block
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,      ONLY: vector_product
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block, &
     & map_scalar_prismtop2center_onBlock, map_vector_center2prismtop_onBlock
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff

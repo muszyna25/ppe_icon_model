@@ -107,11 +107,10 @@ SUBROUTINE CUADJTQ2 &
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
-                & RETV     ,RLVTT    ,RLSTT    ,RTT      ,&           !yomcst
+                & RETV     ,RTT      ,&                               !yomcst
                 & R2ES     ,R3LES    ,R3IES    ,R4LES    ,&           !yoethf
-                & R4IES    ,R5LES    ,R5IES    ,R5ALVCP  ,R5ALSCP  ,& ! -
-                & RALVDCP  ,RALSDCP  ,RTWAT    ,RTICE    ,RTICECU  ,& ! -
-                & RTWAT_RTICE_R      ,RTWAT_RTICECU_R    ,&           ! -
+                & R4IES    ,R5ALVCP  ,R5ALSCP  ,&                     ! -
+                & RALVDCP  ,RALSDCP  ,&                               ! -
                 & LPHYLIN  ,RLPTRC   ,RLPAL1   ,RLPAL2   ,&           !yoephli
                 & vdiv     ,vexp     ,vrec
 USE mo_edmf_param   ,ONLY : &
@@ -158,11 +157,10 @@ REAL(KIND=JPRB) :: ZPT, ZPQ
 !     STATEMENT FUNCTIONS
 !REAL_B :: FOEALFAJ,FOEDEMJ,FOELDCPMJ,FOEEWMJ
 
-REAL(KIND=JPRB) :: MINJ, MAXJ, X, Y
+REAL(KIND=JPRB) :: MINJ, X, Y
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 MINJ(X,Y) = Y - 0.5_JPRB*(ABS(X-Y)-(X-Y))
-MAXJ(X,Y) = Y + 0.5_JPRB*(ABS(X-Y)+(X-Y))
 
 !----------------------------------------------------------------------
 
@@ -187,7 +185,6 @@ IF (.NOT.LPHYLIN) THEN
 
   IF (KCALL == 1 ) THEN
 
-!DIR$    IVDEP
 !OCL NOVREC
     JJJ=0
     DO JL=KIDIA,KFDIA
@@ -199,6 +196,7 @@ IF (.NOT.LPHYLIN) THEN
 
     IF(N_VMASS <= 0)  THEN  ! Don't use Vector MASS
 
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         IF(LDFLAG(JL)) THEN
           ZQP    =1.0_JPRB/PSP(JL)
@@ -244,6 +242,7 @@ IF (.NOT.LPHYLIN) THEN
 
     ELSE ! Use Vector Mass
 
+!DIR$    IVDEP
       DO JJ=1,JJJ
         JL = JINDEX(JJ)
         ZL=1.0_JPRB/(PT(JL,KK)-R4LES)
@@ -253,6 +252,7 @@ IF (.NOT.LPHYLIN) THEN
         ZTEMP2(2*JJ-1) = ZI
         ZTEMP2(2*JJ  ) = ZL
       ENDDO
+!DIR$    IVDEP
       DO JJ=1,2*JJJ
         ZTEMP1 (JJ)= EXP(ZTEMP1(JJ))
       ENDDO
@@ -286,6 +286,7 @@ IF (.NOT.LPHYLIN) THEN
           ZTEMP6(2*IKK  ) = ZQP
         ENDIF
       ENDDO
+!DIR$    IVDEP
       DO JJ=1,2*IKK
         ZTEMP3(JJ) = EXP(ZTEMP3(JJ))
       ENDDO
@@ -392,9 +393,9 @@ IF (.NOT.LPHYLIN) THEN
 
   IF(KCALL == 5) THEN  ! Same as 4 but with LDFLAG all true
 
-!DIR$    IVDEP
 !OCL NOVREC
     IF(N_VMASS <= 0)  THEN ! Not using Vector MASS
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP    =1.0_JPRB/PSP(JL)
         ZQSAT=FOEEWM(PT(JL,KK))*ZQP    
@@ -413,6 +414,7 @@ IF (.NOT.LPHYLIN) THEN
         PQ(JL,KK)=PQ(JL,KK)-ZCOND1
       ENDDO
     ELSE ! Using Vector VMASS
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
 !       ZTMP1(JL-KIDIA+1)=R3LES*(PT(JL,KK)-RTT)
 !       ZTMP2(JL-KIDIA+1)=R3IES*(PT(JL,KK)-RTT)
@@ -432,6 +434,7 @@ IF (.NOT.LPHYLIN) THEN
 !     CALL VREC(ZTMP5,ZTMP3,JLEN)
       CALL VREC(ZTMP5,ZTMP3,2*JLEN)
 !     CALL VREC(ZTMP6,ZTMP4,JLEN)
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP    =1.0_JPRB/PSP(JL)
 !       ZQSAT=R2ES*(FOEALFA(PT(JL,KK))*ZTMP1(JL-KIDIA+1)+&
@@ -469,6 +472,7 @@ IF (.NOT.LPHYLIN) THEN
 !     CALL VREC(ZTMP5,ZTMP3,JLEN)
       CALL VREC(ZTMP5,ZTMP3,2*JLEN)
 !     CALL VREC(ZTMP6,ZTMP4,JLEN)
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP  = ZTMP0(JL-KIDIA+1)
 !       ZQSAT=R2ES*(FOEALFA(PT(JL,KK))*ZTMP1(JL-KIDIA+1)+&
@@ -492,8 +496,9 @@ IF (.NOT.LPHYLIN) THEN
   ENDIF 
 
   IF(KCALL == 3) THEN 
-!DIR$    IVDEP !OCL NOVREC 
+!OCL NOVREC 
     IF(N_VMASS <=  0)  THEN ! Not using Vector MASS
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP    =1.0_JPRB/PSP(JL)
         ZQSAT=FOEEWMCU(PT(JL,KK))*ZQP
@@ -512,6 +517,7 @@ IF (.NOT.LPHYLIN) THEN
         PQ(JL,KK)=PQ(JL,KK)-ZCOND1
       ENDDO
     ELSE
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA 
 !       ZTMP1(JL-KIDIA+1)=R3LES*(PT(JL,KK)-RTT) 
 !       ZTMP2(JL-KIDIA+1)=R3IES*(PT(JL,KK)-RTT) 
@@ -528,6 +534,7 @@ IF (.NOT.LPHYLIN) THEN
 !     CALL VEXP(ZTMP2,ZTMP6,JLEN)
       CALL VDIV(ZTMP5,ZTMP1,ZTMP3,2*JLEN)
       CALL VEXP(ZTMP1,ZTMP5,2*JLEN)
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP    =1.0_JPRB/PSP(JL)
         ZQSAT=R2ES*(FOEALFCU(PT(JL,KK))*ZTMP1(2*(JL-KIDIA)+1)+&
@@ -553,6 +560,7 @@ IF (.NOT.LPHYLIN) THEN
 !     CALL VEXP(ZTMP2,ZTMP6,JLEN)
       CALL VDIV(ZTMP5,ZTMP1,ZTMP3,2*JLEN)
       CALL VEXP(ZTMP1,ZTMP5,2*JLEN)
+!DIR$    IVDEP
       DO JL=KIDIA,KFDIA
         ZQP  = ZTMP0(JL-KIDIA+1)
         ZQSAT=R2ES*(FOEALFCU(PT(JL,KK))*ZTMP1(2*(JL-KIDIA)+1)+&

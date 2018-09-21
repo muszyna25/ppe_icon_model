@@ -21,13 +21,11 @@
 MODULE mo_ocean_tracer
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea, min_dolic
   USE mo_math_constants,            ONLY: pi
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,              &
     & threshold_min_t, threshold_max_t, threshold_min_s, threshold_max_s, &
-    & type_3dimrelax_temp, para_3dimrelax_temp,                           &
-    & type_3dimrelax_salt, para_3dimrelax_salt,                           &
     & iswm_oce,                 use_none,                                 &
     & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
@@ -58,7 +56,7 @@ MODULE mo_ocean_tracer
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
   USE mo_physical_constants,        ONLY: clw, rho_ref,sitodbar
-  USE  mo_ocean_thermodyn,          ONLY: calculate_density, calc_potential_density
+  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_potential_density
   USE mo_ocean_pp_scheme,           ONLY: calculate_rho4GMRedi
   IMPLICIT NONE
 
@@ -91,11 +89,6 @@ CONTAINS
     !Local variables
     INTEGER :: tracer_index, TracerDiffusion_coeff_index
     INTEGER :: start_cell_index, end_cell_index, jc, jb, level
-    REAL(wp) :: z_relax!, delta_z
-    INTEGER :: iloc(2)
-    REAL(wp) :: zlat, zlon
-    REAL(wp) :: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: minmaxmean(3)
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
@@ -153,83 +146,9 @@ CONTAINS
 
     END DO
 
-    ! Final step: 3-dim temperature relaxation
-    !  - strict time constant, i.e. independent of layer thickness
-    !  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
-    !    when using the sign convention
-    !      dT/dt = Operators + F_T
-    !    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data)
-    !  - discretized:
-    !    tracer = tracer - 1/(para_3dimRelax_Temp[months]) * (tracer(1)-data_3dimRelax_Temp)
-    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
-
-      ! calculate relaxation term
-      z_relax = 1.0_wp/(para_3dimrelax_temp*2.592e6_wp)
-      p_os%p_aux%forc_3dimrelax_temp(:,:,:) = -z_relax * p_os%p_aux%relax_3dim_coefficient(:,:,:) &
-        & * ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%data_3dimrelax_temp(:,:,:))
-
-      ! add relaxation term to new temperature
-      p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &
-        &                                    p_os%p_aux%forc_3dimRelax_Temp(:,:,:) * dtime
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('3d_relax: AdvTracT forc', p_os%p_aux%forc_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('3d_relax: AdvTracT data', p_os%p_aux%data_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
-      idt_src=2  ! output print level (1-5, fix)
-      z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
-      CALL dbg_print('3d_relax: AdvTracT trac', z_c, str_module,idt_src, in_subset=cells_in_domain)
-      !---------------------------------------------------------------------
-
-    END IF
-
-    ! Final step: 3-dim salinity relaxation
-    !  - additional forcing Term F_S = -1/tau(S-S*) [ psu/s ]
-    !    when using the sign convention
-    !      dS/dt = Operators + F_S
-    !    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
-    !  - discretized:
-    !    tracer = tracer - 1/(para_3dimRelax_Temp[months]) * (tracer(1)-data_3dimRelax_Temp)
-    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
-
-      ! calculate relaxation term
-      z_relax = 1.0_wp/(para_3dimrelax_salt*2.592e6_wp)
-      p_os%p_aux%forc_3dimrelax_salt(1:nproma,:,1:patch_2D%nblks_c) = -z_relax* &
-        & ( p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:patch_2D%nblks_c,2) -       &
-        & p_os%p_aux%forc_3dimrelax_salt(1:nproma,:,1:patch_2D%nblks_c))
-
-      ! add relaxation term to new salinity
-      p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:patch_2D%nblks_c,2) = &
-        & p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:patch_2D%nblks_c,2) + &
-        & p_os%p_aux%forc_3dimrelax_salt(1:nproma,:,1:patch_2D%nblks_c) * dtime
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('3d_relax: AdvTracS forc'  ,p_os%p_aux%forc_3dimrelax_salt,str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('3d_relax: AdvTracS data'  ,p_os%p_aux%data_3dimrelax_salt,str_module,idt_src, in_subset=cells_in_domain)
-      idt_src=2  ! output print level (1-5, fix)
-      z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
-      CALL dbg_print('3d_relax: AdvTracS trac'  ,z_c                           ,str_module,idt_src, in_subset=cells_in_domain)
-      !---------------------------------------------------------------------
-
-    END IF
-    !!Commented out because of NAG-compiler, PK
-    !TODO review IF statements concerning tracer transport
-
-
-    !! apply additional volume flux to surface endLevelation - add to h_new after tracer advection
-    !IF (l_forc_freshw) THEN
-    !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    !    CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-    !    DO jc = start_cell_index, end_cell_index
-    !      p_os%p_prog(nnew(1))%h(jc,jb) = p_os%p_prog(nnew(1))%h(jc,jb) + p_oce_sfc%forc_fwfx(jc,jb)*dtime
-    !    END DO
-    !  END DO
-    !END IF
-    !CALL dbg_print('aft. AdvTracer: h-new (fwf)',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
-
   END SUBROUTINE advect_ocean_tracers
-  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   !>

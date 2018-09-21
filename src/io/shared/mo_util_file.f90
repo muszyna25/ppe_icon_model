@@ -146,7 +146,6 @@ MODULE mo_util_file
   PUBLIC :: util_tmpnam
   PUBLIC :: util_filesize
   PUBLIC :: util_file_is_writable
-  PUBLIC :: putFile
   PUBLIC :: createSymlink
 
   CHARACTER(*), PARAMETER :: modname = "mo_util_file"
@@ -249,65 +248,25 @@ CONTAINS
     lwritable = (private_file_is_writable(TRIM(filename)//C_NULL_CHAR) == 1)
   END FUNCTION util_file_is_writable
 
-  INTEGER FUNCTION putFile(path, string, fileMode) RESULT(resultVar)
-    CHARACTER(LEN = *), INTENT(IN) :: path, string
-    INTEGER(C_INT), VALUE :: fileMode
-
-    INTEGER :: error, i, pathLen, stringLen
-    CHARACTER(KIND = C_CHAR) :: pathCopy(LEN(path) + 1) ! path IS passed zero terminated
-    CHARACTER(KIND = C_CHAR), ALLOCATABLE :: stringCopy(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":putFile"
-
-    INTERFACE
-        INTEGER(C_INT) FUNCTION c_putFile(c_path, c_dataSize, c_data, c_fileMode) BIND(C, NAME = "putFile")
-            IMPORT C_INT, C_CHAR, C_SIZE_T
-            CHARACTER(KIND = C_CHAR) :: c_path(*), c_data(*)
-            INTEGER(C_SIZE_T), VALUE :: c_dataSize
-            INTEGER(C_INT), VALUE :: c_fileMode
-        END FUNCTION c_putFile
-    END INTERFACE
-
-    pathLen = LEN(path)
-    stringLen = LEN(string)
-
-    ALLOCATE(stringCopy(stringLen), STAT = error) ! string IS passed with an explicit SIZE argument, so no need for a termination CHARACTER
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-
-    DO i = 1, pathLen
-        pathCopy(i) = path(i:i)
-    END DO
-    pathCopy(pathLen + 1) = C_NULL_CHAR
-
-    DO i = 1, stringLen
-        stringCopy(i) = string(i:i)
-    END DO
-
-    resultVar = c_putFile(pathCopy, INT(stringLen, C_SIZE_T), stringCopy, fileMode)
-  END FUNCTION putFile
-
   INTEGER FUNCTION createSymlink(targetPath, linkName) RESULT(error)
     CHARACTER(*), INTENT(IN) :: targetPath, linkName
-
     INTEGER :: i
     CHARACTER(KIND = C_CHAR) :: linkNameCopy(LEN(linkName) + 1), targetPathCopy(LEN(targetPath) + 1)
-
     INTERFACE
-        INTEGER(C_INT) FUNCTION c_createSymlink(c_targetPath, c_linkName) BIND(C, NAME = "createSymlink")
-            IMPORT C_INT, C_CHAR
-            CHARACTER(KIND = C_CHAR) :: c_targetPath(*), c_linkName(*)
-        END FUNCTION c_createSymlink
+     INTEGER(C_INT) FUNCTION c_createSymlink(c_targetPath, c_linkName) BIND(C, NAME = "createSymlink")
+       IMPORT C_INT, C_CHAR
+       CHARACTER(KIND = C_CHAR) :: c_targetPath(*), c_linkName(*)
+     END FUNCTION c_createSymlink
     END INTERFACE
 
     DO i = 1, LEN(targetPath)
-        targetPathCopy(i) = targetPath(i:i)
+      targetPathCopy(i) = targetPath(i:i)
     END DO
     targetPathCopy(i) = C_NULL_CHAR
-
     DO i = 1, LEN(linkName)
-        linkNameCopy(i) = linkName(i:i)
+      linkNameCopy(i) = linkName(i:i)
     END DO
     linkNameCopy(i) = C_NULL_CHAR
-
     error = c_createSymlink(targetPathCopy, linkNameCopy)
   END FUNCTION createSymlink
 

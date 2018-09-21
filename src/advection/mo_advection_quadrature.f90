@@ -148,10 +148,13 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_x,z_y
+#endif
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_x, z_y ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), CREATE( z_x, z_y ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
@@ -186,27 +189,19 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                       &
-!$ACC PRESENT( p_patch, p_coords_dreg_v),            &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),     &
-!$ACC PRIVATE( z_x, z_y ),                           &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y &
 !$OMP ) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG PRIVATE( z_x, z_y )
       DO jk = slev, elev
 
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -239,14 +234,12 @@ CONTAINS
         ENDDO ! loop over edges
 
       ENDDO  ! loop over levels
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -323,6 +316,9 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_x,z_y
+#endif
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
@@ -362,18 +358,11 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                       &
-!$ACC PRESENT( p_patch, falist, p_coords_dreg_v), &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),     &
-!$ACC PRIVATE( z_x, z_y ),                           &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG PRIVATE( z_x, z_y ) 
 
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
 !$ACC LOOP VECTOR
@@ -412,12 +401,11 @@ CONTAINS
       ENDDO ! ie: loop over index list
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC END PARALLEL
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -492,6 +480,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -541,27 +533,19 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                      &
-!$ACC PRESENT( p_patch, p_coords_dreg_v),                           &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),                    &
-!$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
+!$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac, &
 !$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
       DO jk = slev, elev
 
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -616,14 +600,12 @@ CONTAINS
         ENDDO ! loop over edges
 
       ENDDO  ! loop over levels
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -706,6 +688,10 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
@@ -754,22 +740,13 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                      &
-!$ACC PRESENT( p_patch, falist, p_coords_dreg_v),                   &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),                    &
-!$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac, &
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
-!$ACC LOOP WORKER
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR
       DO ie = 1, falist%len(jb)
 
         z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
@@ -800,7 +777,6 @@ CONTAINS
 
         ! Get quadrature vector for each integration point and multiply by
         ! corresponding wgt_t_detjac
-!$ACC LOOP VECTOR
         DO jg=1, 4
           z_quad_vector(ie,jg,1) = wgt_t_detjac(ie,jg)
           z_quad_vector(ie,jg,2) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,1)
@@ -820,8 +796,11 @@ CONTAINS
         p_quad_vector_sum(ie,6,jb) = SUM(z_quad_vector(ie,:,6))
 
       ENDDO ! ie: loop over index list
+!$ACC END PARALLEL
 
-!$ACC LOOP VECTOR
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR
 !CDIR NODEP,VOVERTAKE,VOB
       DO ie = 1, falist%len(jb)
 
@@ -832,14 +811,12 @@ CONTAINS
         p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(ie,1:4))
 
       ENDDO ! ie: loop over index list
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -916,6 +893,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -966,27 +947,19 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                      &
-!$ACC PRESENT( p_patch, p_coords_dreg_v),                   &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),                    &
-!$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR, COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
       DO jk = slev, elev
 
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -1046,14 +1019,12 @@ CONTAINS
         ENDDO ! loop over edges
 
       ENDDO  ! loop over levels
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF (acc_validate .AND.  i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -1111,6 +1082,15 @@ CONTAINS
       &  opt_elev
 
    ! local variables
+#ifdef __INTEL_COMPILER
+    REAL(wp) ::                &    !< coordinates of gaussian quadrature points
+      &  z_gauss_pts(4,2)    !< in physical space
+    REAL(wp) ::                &    !< weights times determinant of Jacobian for
+      &  wgt_t_detjac(4)      !< each gaussian quadrature point.
+    REAL(wp) ::                &    !< quadrature vector for single integration point
+      &  z_quad_vector(4,10)
+    REAL(wp) :: z_x(4), z_y(4) !< storage for local coordinates
+#else
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
       &  z_gauss_pts(nproma,4,2)    !< in physical space
 
@@ -1121,6 +1101,7 @@ CONTAINS
       &  z_quad_vector(nproma,4,10)
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
+#endif
     REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
     REAL(wp) :: z_area                       !< auxiliary for dreg area
 
@@ -1129,6 +1110,10 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -1174,34 +1159,56 @@ CONTAINS
     z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
     z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
 
+#ifdef __INTEL_COMPILER
+    z_eta(1:4,1) = 1._wp - eta(1:4)
+    z_eta(1:4,2) = 1._wp + eta(1:4)
+    z_eta(1:4,3) = 1._wp - zeta(1:4)
+    z_eta(1:4,4) = 1._wp + zeta(1:4)
+#else
     z_eta(1,1:4) = 1._wp - eta(1:4)
     z_eta(2,1:4) = 1._wp + eta(1:4)
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
+#endif
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                      &
-!$ACC PRESENT( p_patch, p_coords_dreg_v),                   &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),                    &
-!$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
       DO jk = slev, elev
 
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
+#ifdef __INTEL_COMPILER
+          z_x(1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
+          z_y(1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
+          ! get Jacobian determinant for each quadrature point and multiply with
+          ! corresponding weights
+          ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
+          ! (better: area-average) even when the integration-area tends to zero.
+          wgt_t_detjac(1:4) = dbl_eps + z_wgt(1:4) * ( &
+            &   (z_eta(1:4,1)*(z_x(2)-z_x(1)) + z_eta(1:4,2)*(z_x(3)-z_x(4))) &
+            & * (z_eta(1:4,3)*(z_y(4)-z_y(1)) - z_eta(1:4,4)*(z_y(2)-z_y(3))) &
+            & - (z_eta(1:4,1)*(z_y(2)-z_y(1)) + z_eta(1:4,2)*(z_y(3)-z_y(4))) &
+            & * (z_eta(1:4,3)*(z_x(4)-z_x(1)) - z_eta(1:4,4)*(z_x(2)-z_x(3))) )
+          ! get coordinates of the quadrature points in physical space (mapping)
+          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(1:4))
+          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(1:4))
+          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(1:4))
+          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(1:4))
+          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(1:4))
+          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(1:4))
+          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(1:4))
+          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(1:4))
+
+#else
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
@@ -1226,10 +1233,23 @@ CONTAINS
           z_gauss_pts(je,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
           z_gauss_pts(je,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
+#endif
 
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
+#ifdef __INTEL_COMPILER
+            z_quad_vector(jg,1) = wgt_t_detjac(jg)
+            z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
+            z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
+            z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,1))
+            z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2) * z_gauss_pts(jg,2))
+            z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
+            z_quad_vector(jg,7) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,1) * z_gauss_pts(jg,1))
+            z_quad_vector(jg,8) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2) * z_gauss_pts(jg,2) * z_gauss_pts(jg,2))
+            z_quad_vector(jg,9) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
+            z_quad_vector(jg,10)= wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2) * z_gauss_pts(jg,2))
+#else
             z_quad_vector(je,jg,1) = wgt_t_detjac(je,jg)
             z_quad_vector(je,jg,2) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,1)
             z_quad_vector(je,jg,3) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,2)
@@ -1240,10 +1260,23 @@ CONTAINS
             z_quad_vector(je,jg,8) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**3)
             z_quad_vector(je,jg,9) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**2 * z_gauss_pts(je,jg,2))
             z_quad_vector(je,jg,10)= wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1) * z_gauss_pts(je,jg,2)**2)
+#endif
           ENDDO
 
 
           ! Sum quadrature vectors over all integration points
+#ifdef __INTEL_COMPILER
+          p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(:,1))
+          p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(:,2))
+          p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(:,3))
+          p_quad_vector_sum(je, 4,jk,jb) = SUM(z_quad_vector(:,4))
+          p_quad_vector_sum(je, 5,jk,jb) = SUM(z_quad_vector(:,5))
+          p_quad_vector_sum(je, 6,jk,jb) = SUM(z_quad_vector(:,6))
+          p_quad_vector_sum(je, 7,jk,jb) = SUM(z_quad_vector(:,7))
+          p_quad_vector_sum(je, 8,jk,jb) = SUM(z_quad_vector(:,8))
+          p_quad_vector_sum(je, 9,jk,jb) = SUM(z_quad_vector(:,9))
+          p_quad_vector_sum(je,10,jk,jb) = SUM(z_quad_vector(:,10))
+#else
           p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(je,:,1))
           p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(je,:,2))
           p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(je,:,3))
@@ -1255,9 +1288,14 @@ CONTAINS
           p_quad_vector_sum(je, 9,jk,jb) = SUM(z_quad_vector(je,:,9))
           p_quad_vector_sum(je,10,jk,jb) = SUM(z_quad_vector(je,:,10))
 
+#endif
 
           ! area of departure region
+#ifdef __INTEL_COMPILER
+          z_area = SUM(wgt_t_detjac(1:4))
+#else
           z_area = SUM(wgt_t_detjac(je,1:4))
+#endif
           p_dreg_area(je,jk,jb) = SIGN(MAX(eps,ABS(z_area)),z_area)
 
 !!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
@@ -1269,14 +1307,12 @@ CONTAINS
         ENDDO ! loop over edges
 
       ENDDO  ! loop over levels
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -1359,6 +1395,10 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
+!DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
+#endif
 
   !-----------------------------------------------------------------------
 
@@ -1407,22 +1447,13 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                      &
-!$ACC PRESENT( p_patch, falist, p_coords_dreg_v),                   &
-!$ACC PRESENT( p_quad_vector_sum, p_dreg_area ),                    &
-!$ACC PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ),&
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
-!$ACC LOOP WORKER
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR
       DO ie = 1, falist%len(jb)
 
         z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
@@ -1453,7 +1484,6 @@ CONTAINS
 
         ! Get quadrature vector for each integration point and multiply by
         ! corresponding wgt_t_detjac
-!$ACC LOOP VECTOR
         DO jg=1, 4
           z_quad_vector(ie,jg,1) = wgt_t_detjac(ie,jg)
           z_quad_vector(ie,jg,2) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,1)
@@ -1481,8 +1511,10 @@ CONTAINS
         p_quad_vector_sum(ie,10,jb) = SUM(z_quad_vector(ie,:,10))
 
       ENDDO ! ie: loop over index list
+!$ACC END PARALLEL
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR
 !CDIR NODEP,VOVERTAKE,VOB
       DO ie = 1, falist%len(jb)
 
@@ -1493,14 +1525,12 @@ CONTAINS
         p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(ie,1:4))
 
       ENDDO ! ie: loop over index list
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -1521,7 +1551,7 @@ CONTAINS
   !!
   !!
   FUNCTION jac(x, y, zeta, eta)  RESULT(det_jac)
-
+!$ACC ROUTINE SEQ
     IMPLICIT NONE
 
     REAL(wp), INTENT(IN) :: x(1:4), y(1:4)  !< coordinates of vertices in x-y-system
@@ -1531,6 +1561,9 @@ CONTAINS
     REAL(wp) :: det_jac
 
     REAL(wp), DIMENSION(2,2) :: jacob
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: jacob
+#endif
 
   !-----------------------------------------------------------------------
 

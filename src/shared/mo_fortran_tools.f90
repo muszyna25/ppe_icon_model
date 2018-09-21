@@ -27,6 +27,7 @@ MODULE mo_fortran_tools
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
 #endif
+  USE iso_c_binding, ONLY: c_ptr, c_f_pointer, c_loc
 
   IMPLICIT NONE
 
@@ -46,9 +47,13 @@ MODULE mo_fortran_tools
   PUBLIC :: copy, init, swap, negative2zero
   PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
+  PUBLIC :: init_contiguous_dp, init_contiguous_sp
+  PUBLIC :: init_contiguous_i4, init_contiguous_l
   PUBLIC :: resize_arr_c1d
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
+  PUBLIC :: insert_dimension
+  LOGICAL, PARAMETER, PUBLIC :: no_copy = .false.
 
   PRIVATE
 
@@ -143,6 +148,8 @@ MODULE mo_fortran_tools
   ! The association status of the POINTER that IS passed IN must be defined.
   INTERFACE ensureSize
     MODULE PROCEDURE ensureSize_dp_1d
+    MODULE PROCEDURE ensureSize_sp_1d
+    MODULE PROCEDURE ensureSize_int_1d
   END INTERFACE ensureSize
 
   !> this is meant to make it easier for compilers to circumvent
@@ -214,6 +221,9 @@ MODULE mo_fortran_tools
   INTERFACE DO_PTR_DEALLOCATE
     MODULE PROCEDURE DO_PTR_DEALLOCATE_r3D
     MODULE PROCEDURE DO_PTR_DEALLOCATE_r2D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_dp1D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_sp1D
+    MODULE PROCEDURE DO_PTR_DEALLOCATE_int1D
   END INTERFACE DO_PTR_DEALLOCATE
 
 
@@ -228,6 +238,14 @@ MODULE mo_fortran_tools
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! Only activate for validation phase
 #endif
 
+
+  INTERFACE insert_dimension
+    MODULE PROCEDURE insert_dimension_r_wp_3_2, insert_dimension_r_wp_3_2_s
+    MODULE PROCEDURE insert_dimension_i4_3_2, insert_dimension_i4_3_2_s
+    MODULE PROCEDURE insert_dimension_r_wp_6_5, insert_dimension_r_wp_6_5_s
+    MODULE PROCEDURE insert_dimension_r_sp_6_5, insert_dimension_r_sp_6_5_s
+    MODULE PROCEDURE insert_dimension_i4_6_5, insert_dimension_i4_6_5_s
+  END INTERFACE insert_dimension
 
 CONTAINS
 
@@ -423,36 +441,113 @@ CONTAINS
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
   END SUBROUTINE alloc_single_1d
 
-  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
-    REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
+  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize, do_copy_in)
+    REAL(dp), POINTER, INTENT(INOUT) :: buffer(:)
     INTEGER, VALUE ::requiredSize
-
-    REAL(wp), POINTER :: newBuffer(:)
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
+    REAL(dp), POINTER :: newBuffer(:)
     INTEGER :: oldSize, error
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
 
-    IF(ASSOCIATED(buffer)) THEN
-        oldSize = SIZE(buffer, 1)
-        IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
-        requiredSize = MAX(requiredSize, 2*oldSize) ! avoid quadratic complexity
-
-        ALLOCATE(newBuffer(requiredSize), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-
-        newBuffer(1:oldSize) = buffer(1:oldSize)
-        newBuffer(oldSize + 1:requiredSize) = 0.0
-
-        DEALLOCATE(buffer)
-        buffer => newBuffer
-        newBuffer => NULL()
+    IF (PRESENT(do_copy_in)) THEN
+      do_copy = do_copy_in
     ELSE
-        ALLOCATE(buffer(requiredSize), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-
-        buffer(1:requiredSize) = 0.0
+      do_copy = .true.
+    END IF
+    IF(ASSOCIATED(buffer)) THEN
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp)) ! avoid quadratic complexity
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0._dp
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
+    ELSE
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        buffer(1:requiredSize) = 0._dp
+      END IF
     END IF
   END SUBROUTINE ensureSize_dp_1d
 
+  SUBROUTINE ensureSize_sp_1d(buffer, requiredSize, do_copy_in)
+    REAL(sp), POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
+    REAL(sp), POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
+
+    IF (PRESENT(do_copy_in)) THEN
+      do_copy = do_copy_in
+    ELSE
+      do_copy = .true.
+    END IF
+    IF(ASSOCIATED(buffer)) THEN
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0._sp
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
+    ELSE
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+          buffer(1:requiredSize) = 0._sp
+      END IF
+    END IF
+  END SUBROUTINE ensureSize_sp_1d
+
+  SUBROUTINE ensureSize_int_1d(buffer, requiredSize, do_copy_in)
+    INTEGER, POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
+    INTEGER, POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+    LOGICAL :: do_copy
+
+    IF (PRESENT(do_copy_in)) THEN
+      do_copy = do_copy_in
+    ELSE
+      do_copy = .true.
+    END IF
+    IF(ASSOCIATED(buffer)) THEN
+      oldSize = SIZE(buffer, 1)
+      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
+      ALLOCATE(newBuffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0
+      END IF
+      DEALLOCATE(buffer)
+      buffer => newBuffer
+      newBuffer => NULL()
+    ELSE
+      ALLOCATE(buffer(requiredSize), STAT = error)
+      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+      IF (do_copy) THEN
+        buffer(1:requiredSize) = 0
+      END IF
+    END IF
+  END SUBROUTINE ensureSize_int_1d
 
   !>
   !! Swap content of two Integers
@@ -473,8 +568,6 @@ CONTAINS
     a    = b
     b    = temp
   END SUBROUTINE swap_int
-
-
 
   !>
   !! Expand array by given size
@@ -536,7 +629,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#ifdef __INTEL_COMPILER
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -567,8 +664,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+!$omp do private(i1,i2,i3)
 #else
 !$omp do collapse(3)
 #endif
@@ -604,8 +701,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(_CRAYFTN) || defined(__INTEL_COMPILER))
+!$omp do private(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -644,7 +741,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -682,7 +783,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -720,7 +825,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -755,7 +864,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -788,7 +901,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -824,7 +941,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -855,8 +976,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3)
 #else
 !$omp do collapse(3)
 #endif
@@ -890,8 +1011,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -927,8 +1048,8 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
-#ifdef _CRAYFTN
-!$omp do
+#if (defined(__INTEL_COMPILER) || defined(_CRAYFTN))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
 #else
 !$omp do collapse(4)
 #endif
@@ -963,7 +1084,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -994,7 +1119,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -1022,7 +1151,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1053,7 +1186,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
+#else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -1108,7 +1245,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(2)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2)
+#else
 !$omp do collapse(2)
+#endif
 #endif
     DO i2 = 1, m2
       DO i1 = 1, m1
@@ -1138,7 +1279,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1170,7 +1315,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1204,7 +1353,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -1242,7 +1395,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(5)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4,i5)
+#else
 !$omp do collapse(5)
+#endif
 #endif
     DO i5 = 1, m5
       DO i4 = 1, m4
@@ -1281,7 +1438,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(3)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -1310,7 +1471,11 @@ CONTAINS
     m1 = SIZE(var, 1)
     m2 = SIZE(var, 2)
     m3 = SIZE(var, 3)
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -1339,7 +1504,11 @@ CONTAINS
 !$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
+#if (defined(__INTEL_COMPILER))
+!$OMP DO PRIVATE(i1,i2,i3,i4)
+#else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -1360,9 +1529,10 @@ CONTAINS
 #endif
   END SUBROUTINE negative2zero_4d_dp
 
-  SUBROUTINE init_zero_contiguous_dp(var, n)
+  SUBROUTINE init_contiguous_dp(var, n, v)
     INTEGER, INTENT(in) :: n
     REAL(dp), INTENT(out) :: var(n)
+    REAL(dp), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1373,7 +1543,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_dp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1382,11 +1552,49 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
+  END SUBROUTINE init_contiguous_dp
+
+  SUBROUTINE init_zero_contiguous_dp(var, n)
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(out) :: var(n)
+    CALL init_contiguous_dp(var, n, 0.0_dp)
   END SUBROUTINE init_zero_contiguous_dp
+
+  SUBROUTINE init_contiguous_sp(var, n, v)
+    INTEGER, INTENT(in) :: n
+    REAL(sp), INTENT(out) :: var(n)
+    REAL(sp), INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_sp
 
   SUBROUTINE init_zero_contiguous_sp(var, n)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
+    CALL init_contiguous_sp(var, n, 0.0_sp)
+  END SUBROUTINE init_zero_contiguous_sp
+
+  SUBROUTINE init_contiguous_i4(var, n, v)
+    INTEGER, INTENT(in) :: n
+    INTEGER(ik4), INTENT(out) :: var(n)
+    INTEGER(ik4), INTENT(in) :: v
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1397,7 +1605,7 @@ CONTAINS
 !$omp do
 #endif
     DO i = 1, n
-      var(i) = 0.0_sp
+      var(i) = v
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
@@ -1406,8 +1614,244 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
-  END SUBROUTINE init_zero_contiguous_sp
+  END SUBROUTINE init_contiguous_i4
 
+  SUBROUTINE init_contiguous_l(var, n, v)
+    INTEGER, INTENT(in) :: n
+    LOGICAL, INTENT(out) :: var(n)
+    LOGICAL, INTENT(in) :: v
+
+    INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i = 1, n
+      var(i) = v
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_contiguous_l
+
+  SUBROUTINE insert_dimension_r_wp_3_2_s(ptr_out, ptr_in, in_shape, &
+       new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in
+    INTEGER :: out_shape(out_rank), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:out_rank-1) = in_shape
+    cptr = C_LOC(ptr_in)
+    DO i = out_rank, new_dim_rank+1, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_wp_3_2_s
+
+  SUBROUTINE insert_dimension_r_wp_3_2(ptr_out, ptr_in, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    ! note: must have target attribute in caller!
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: base_shape(out_rank-1), &
+         in_shape(out_rank-1), in_stride(out_rank-1), &
+         out_shape(out_rank), out_stride(out_rank), i
+    INTEGER, PARAMETER :: elem_byte_size=8
+    ! reconstruct underlying array shape and corresponding stride
+    in_shape = SHAPE(ptr_in)
+    in_stride(1) = 1
+    in_stride(2) = in_shape(1)
+    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+      CALL util_stride_2d(in_stride, elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    ELSE IF (in_shape(1) > 1) THEN
+      CALL util_stride_1d(in_stride(1), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1))
+      base_shape(1) = in_stride(1) * in_shape(1)
+    ELSE IF (in_shape(2) > 1) THEN
+      CALL util_stride_1d(in_stride(2), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    END IF
+    base_shape(2) = in_shape(2)
+    CALL insert_dimension_r_wp_3_2_s(ptr_out, ptr_in(1,1), &
+         base_shape, new_dim_rank)
+    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+         .OR. base_shape(1) /= in_shape(1)) THEN
+      out_stride(1) = in_stride(1)
+      out_stride(2) = 1
+      out_shape(1:out_rank-1) = in_shape
+      DO i = out_rank, new_dim_rank+1, -1
+        out_shape(i) = out_shape(i - 1)
+        out_stride(i) = out_stride(i - 1)
+      END DO
+      out_stride(new_dim_rank) = 1
+      out_shape(new_dim_rank) = 1
+      out_shape = (out_shape - 1) * out_stride + 1
+      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+           &             :out_shape(2):out_stride(2), &
+           &             :out_shape(3):out_stride(3))
+    END IF
+  END SUBROUTINE insert_dimension_r_wp_3_2
+
+  SUBROUTINE insert_dimension_i4_3_2_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in
+    INTEGER :: out_shape(out_rank), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:out_rank-1) = in_shape
+    cptr = C_LOC(ptr_in)
+    DO i = out_rank, new_dim_rank+1, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_i4_3_2_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_i4_3_2(ptr_out, ptr_in, new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: base_shape(out_rank-1), &
+         in_shape(out_rank-1), in_stride(out_rank-1), &
+         out_shape(out_rank), out_stride(out_rank), i
+    INTEGER, PARAMETER :: elem_byte_size=4
+    ! reconstruct underlying array shape and corresponding stride
+    in_shape = SHAPE(ptr_in)
+    in_stride(1) = 1
+    in_stride(2) = in_shape(1)
+    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+      CALL util_stride_2d(in_stride, elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    ELSE IF (in_shape(1) > 1) THEN
+      CALL util_stride_1d(in_stride(1), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(2, 1))
+      base_shape(1) = in_stride(1) * in_shape(1)
+    ELSE IF (in_shape(2) > 1) THEN
+      CALL util_stride_1d(in_stride(2), elem_byte_size, &
+           ptr_in(1, 1), ptr_in(1, 2))
+      base_shape(1) = in_stride(2)
+    END IF
+    base_shape(2) = in_shape(2)
+    CALL insert_dimension_i4_3_2_s(ptr_out, ptr_in(1,1), base_shape, &
+         new_dim_rank)
+    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+         .OR. base_shape(1) /= in_shape(1)) THEN
+      out_stride(1) = in_stride(1)
+      out_stride(2) = 1
+      out_shape(1:out_rank-1) = in_shape
+      DO i = out_rank, new_dim_rank+1, -1
+        out_shape(i) = out_shape(i - 1)
+        out_stride(i) = out_stride(i - 1)
+      END DO
+      out_stride(new_dim_rank) = 1
+      out_shape(new_dim_rank) = 1
+      out_shape = (out_shape - 1) * out_stride + 1
+      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+           &             :out_shape(2):out_stride(2), &
+           &             :out_shape(3):out_stride(3))
+    END IF
+  END SUBROUTINE insert_dimension_i4_3_2
+
+  SUBROUTINE insert_dimension_r_wp_6_5_s(ptr_out, ptr_in, in_shape, &
+       new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_wp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_wp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_wp_6_5
+
+  SUBROUTINE insert_dimension_r_sp_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_sp_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_r_sp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_r_sp_6_5
+
+  SUBROUTINE insert_dimension_i4_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
+    INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+         in_shape(3),in_shape(4),in_shape(5))
+    INTEGER :: out_shape(6), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:5) = SHAPE(ptr_in)
+    cptr = C_LOC(ptr_in)
+    DO i = 6, new_dim_rank, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_i4_6_5_s
+
+  ! insert dimension of size 1 (so that total array size remains the
+  ! same but an extra dimension is inserted into the shape)
+  SUBROUTINE insert_dimension_i4_6_5(ptr_out, ptr_in, new_dim_rank)
+    INTEGER(ik4), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    INTEGER(ik4), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+    INTEGER, INTENT(in) :: new_dim_rank
+    INTEGER :: in_shape(5)
+    in_shape = SHAPE(ptr_in)
+    CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
+  END SUBROUTINE insert_dimension_i4_6_5
 
 
   ! AUXILIARY ROUTINES FOR DEALLOCATION
@@ -1473,6 +1917,7 @@ CONTAINS
       DEALLOCATE(object, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r3D", "DEALLOCATE failed!")
     END IF
+    NULLIFY(object)
   END SUBROUTINE DO_PTR_DEALLOCATE_R3D
 
   SUBROUTINE DO_PTR_DEALLOCATE_r2D(object)
@@ -1482,8 +1927,40 @@ CONTAINS
       DEALLOCATE(object, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_r2D", "DEALLOCATE failed!")
     END IF
+    NULLIFY(object)
   END SUBROUTINE DO_PTR_DEALLOCATE_R2D
 
+  SUBROUTINE DO_PTR_DEALLOCATE_dp1D(object)
+    REAL(KIND=dp), POINTER, INTENT(INOUT) :: object(:)
+    INTEGER :: ierr
 
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierr)
+      IF (ierr /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_dp1D", "DEALLOCATE failed!")
+    END IF
+    NULLIFY(object)
+  END SUBROUTINE DO_PTR_DEALLOCATE_dp1D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_sp1D(object)
+    REAL(KIND=sp), POINTER, INTENT(INOUT) :: object(:)
+    INTEGER :: ierr
+
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierr)
+      IF (ierr /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_sp1D", "DEALLOCATE failed!")
+    END IF
+    NULLIFY(object)
+  END SUBROUTINE DO_PTR_DEALLOCATE_sp1D
+
+  SUBROUTINE DO_PTR_DEALLOCATE_int1D(object)
+    INTEGER, POINTER, INTENT(INOUT) :: object(:)
+    INTEGER :: ierr
+
+    IF (ASSOCIATED(object)) THEN
+      DEALLOCATE(object, STAT=ierr)
+      IF (ierr /= SUCCESS) CALL finish("DO_PTR_DEALLOCATE_dp1D", "DEALLOCATE failed!")
+    END IF
+    NULLIFY(object)
+  END SUBROUTINE DO_PTR_DEALLOCATE_int1D
 
 END MODULE mo_fortran_tools

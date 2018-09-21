@@ -31,7 +31,8 @@ MODULE mo_opt_diagnostics
   USE mo_parallel_config,      ONLY: nproma
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
-  USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog
+  USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
+                                     t_nh_state_lists
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
@@ -52,7 +53,6 @@ MODULE mo_opt_diagnostics
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_nonhydro_state,       ONLY: p_nh_state_lists
   USE mo_var_list,             ONLY: default_var_list_settings,                        &
     &                                new_var_list, delete_var_list, add_var, add_ref
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
@@ -62,9 +62,10 @@ MODULE mo_opt_diagnostics
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
+  USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
     &                                create_hor_interp_metadata,                       &
-    &                                groups, vintp_types
+    &                                vintp_types
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print
@@ -486,7 +487,7 @@ CONTAINS
                   &              vert_intp_type=vintp_types("P","Z","I"),           &
                   &              vert_intp_method=VINTP_METHOD_QV,                  &
                   &              l_satlimit=.FALSE.,                                &
-                  &              lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
+                  &              lower_limit=2.5e-7_wp, l_restore_pbldev=.FALSE. ), &
                   &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
                   &                  "tracer_timemean","atmo_timemean"))
 
@@ -905,8 +906,9 @@ CONTAINS
   !
   !  @note This new variable is time-constant!
   !
-  SUBROUTINE compute_lonlat_area_weights(lonlat_data)
+  SUBROUTINE compute_lonlat_area_weights(lonlat_data, p_nh_state_lists)
     TYPE (t_lon_lat_list), TARGET, INTENT(IN) :: lonlat_data
+    TYPE (t_nh_state_lists), INTENT(INOUT) :: p_nh_state_lists(:)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_area_weights"
     TYPE(t_cf_var)       :: cf_desc

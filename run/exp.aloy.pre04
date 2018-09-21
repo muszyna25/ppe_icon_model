@@ -77,7 +77,7 @@ ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1980-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="1979-01-03T00:00:00Z"        # ISO-format date+time
 
 # time step length
 # ----------------
@@ -157,7 +157,7 @@ run_jsbach=yes
 jsbach_usecase=jsbach_lite                # jsbach_lite/jsbach_pfts
 jsbach_with_hd=yes
 jsbach_with_lakes=yes
-jsbach_check_wbal=yes          # check water balance
+jsbach_check_wbal=yes                     # check water balance
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -174,7 +174,6 @@ llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 if [[ $jsbach_usecase == *pfts* ]]
 then
   pft_file_tag="11pfts_"
-  #nproma=64
 else
   pft_file_tag=""
 fi
@@ -213,6 +212,7 @@ cat > ${atm_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &dynamics_nml
  iequations       = 3           ! 3: ICONAM dynamics
@@ -280,7 +280,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_co2   =  2
  echam_rad_config(1)%irad_ch4   =  2
  echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o3    =  2
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
@@ -289,6 +289,8 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
+ echam_rad_config(1)%lyr_perp   =  .TRUE.
+ echam_rad_config(1)%yr_perp    =  1850
 /
 &echam_gwd_nml
 /
@@ -343,7 +345,7 @@ cat > ${lnd_namelist} <<EOF
   active          = .FALSE.             ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
 /
 &jsb_pheno_nml
-  scheme          = 'climatology'       ! scheme = logrop / climatology; use climatology for jsbach_lite
+  scheme          = 'climatology'       ! scheme = climatology for jsbach_lite / scheme = logrop for jsbach_pfts
   bc_filename     = 'bc_land_phys.nc'
   ic_filename     = 'ic_land_soil.nc'
 /
@@ -375,7 +377,7 @@ fi
 # II.2.1 Model files
 # ------------------
 
-add_link_file ${basedir}/data/lsdata.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # II.2.2 Namelist files
@@ -398,7 +400,7 @@ INDATA=${icon_data_poolFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc    ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=$grids_folder/Land
@@ -478,6 +480,23 @@ EOF
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
+# output atmospheric monitoring
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_mon"
+ filename_format  = "<output_filename>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'tas_gmean'
+/
+EOF
+
 if [[ "$output_atm_min" == "yes" ]]; then
   cat >> ${atm_namelist} <<EOF
 &output_nml
@@ -510,7 +529,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs',
                     'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs',
-                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'rsus'    , 'rsuscs'  , 'rlus'    , 'rsdt'  ,
                     'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
@@ -540,7 +559,6 @@ fi
 #  'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
 #  'tauu_sso', 'tauv_sso', 'diss_sso', 
 #  'sh_vdiff', 'qv_vdiff',
-#  'ch_concloud',
 #  'con_dtrl', 'con_dtri', 'con_iteqv',
 #  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
 #  'dew2'
@@ -718,6 +736,7 @@ cat > ${oce_namelist} << EOF
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  operation        = 'mean'                           ! mean over output interval
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -868,20 +887,32 @@ if [[ "$output_oce_min" == "yes" ]]; then
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
-  mode             =  2                               ! 1: forecast mode (relative t-axis),
-                                                      ! 2: climate mode (absolute t-axis)
+  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  operation        = 'mean'                           ! mean over output interval
   include_last     = .false.
   m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
-                      'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
-                      'Qtop_acc', 'Qbot_acc','CondHeat_acc','zHeatOceI_acc','heatOceI_acc','heatOceW_acc',
-                      'draftave_acc','zUnderIce_acc',
-                      'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc','t_acc','s_acc','u_acc',
-                      'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
-                      'HeatFlux_ShortWave_acc','HeatFlux_LongWave_acc','HeatFlux_Sensible_acc','HeatFlux_Latent_acc',
-                      'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
-                      'FrshFlux_TotalOcean_acc', 'Wind_Speed_10m'
+  operation        = "mean"
+  ml_varlist       =  'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
+                      'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
+                      'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
+                      'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
+                      'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
+                      'FrshFlux_TotalOcean', 'Wind_Speed_10m'
+/
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_oce_fx"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  output_grid      = .TRUE.
+  include_last     = .false.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
 EOF
 fi
@@ -901,13 +932,32 @@ if [[ "$output_oce_def" == "yes" ]]; then
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
-  mode             =  2                               ! 1: forecast mode (relative t-axis),
-                                                      ! 2: climate mode (absolute t-axis)
+  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  operation        = 'mean'                           ! mean over output interval
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','group:oce_essentials'
   !ml_varlist       =  'group:oce_default','group:ice_diag'
   !ml_varlist       =  'group:oce_diag','group:ice_diag','group:oce_geometry'
+/
+
+#  output MOC
+  cat >> ${oce_namelist} <<EOF
+
+&output_nml
+  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_oce_moc"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  output_grid      = .TRUE.
+  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  operation        = 'mean'                           ! mean over output interval
+  include_last     = .false.
+  operation        = "mean"
+  ml_varlist       = 'group:ocean_moc'
 /
 EOF
 fi

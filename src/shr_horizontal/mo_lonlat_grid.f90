@@ -295,11 +295,13 @@ CONTAINS
     ! compute the non-rotated lon/lat values
     DO k=1,lon_lat_grid%lon_dim
       rlon(k)         = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
-      sincos_lon(k,:) = (/ SIN(rlon(k)), COS(rlon(k)) /)
+      sincos_lon(k,1) = SIN(rlon(k))
+      sincos_lon(k,2) = COS(rlon(k))
     END DO
     DO k=1,lon_lat_grid%lat_dim
       rlat(k)         = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
-      sincos_lat(k,:) = (/ SIN(rlat(k)), COS(rlat(k)) /)
+      sincos_lat(k,1) = SIN(rlat(k))
+      sincos_lat(k,2) = SIN(rlat(k))
     END DO
 
     ! special treatment for "trivial rotation" (no.pole at +90,0):

@@ -39,8 +39,10 @@
    
       USE mo_zaxis_type
 
-      USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, &
-   &                                    DATATYPE_PACK16, DATATYPE_INT8, &
+      USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+        &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+        &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+        &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
    &                                    GRID_LONLAT, GRID_UNSTRUCTURED
 
       USE mo_cf_convention
@@ -55,7 +57,9 @@
 
       USE mo_hamocc_nml,         ONLY: io_stdo_bgc
 
-      USE mo_var_metadata,       ONLY: groups, post_op
+      USE mo_var_metadata,       ONLY: post_op
+
+      USE mo_var_groups, ONLY: groups
 
       USE mo_var_metadata_types, ONLY: POST_OP_SCALE
 
@@ -733,6 +737,19 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_remin_of_det_by_S', hamocc_state_moni%remins , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('remin_of_det_by_S', &
+      &          'GtC s-1', &
+      &          'remineralization_of_detritus_by_S', &
+      &          datatype_flt, &
+      &          'remin_of_det_by_S'), &
+      & grib2_var(255, 255, 545, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('remin_of_det_by_S','GtC yr-1','remin_of_det_by_S', &
+      &  datatype_flt)))
+
   END SUBROUTINE 
 
 
@@ -1019,7 +1036,7 @@
       & t_cf_var('co2mr','ppm','co2 mixing ratio', datatype_flt), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.FALSE.)
+      & loutput=.TRUE., lrestart=.FALSE.)
 
 
     CALL add_var(hamocc_tendency_list, 'HAMOCC_co2flux',hamocc_state_tend%cflux,    &

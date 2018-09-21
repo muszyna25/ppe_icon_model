@@ -113,7 +113,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), TARGET, INTENT(IN) :: patch_2D
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: patch_2D
   ! interpolation state (needed for divergence averaging)
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! index defining the "active" region of the arrays
@@ -143,7 +143,7 @@ CONTAINS
       USE mo_model_domain, ONLY: t_patch
       USE mo_intp_data_strc,ONLY: t_int_state
       REAL(wp),    INTENT(in) :: x(:,:,:)
-      TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+      TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
       TYPE(t_int_state), INTENT(in) :: p_int
       REAL(wp),    INTENT(in) :: coeff
       REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) , SIZE(x,3) ) ! same as x
@@ -487,7 +487,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), TARGET,INTENT(IN) :: patch_2D
+  TYPE(t_patch), TARGET,INTENT(INOUT) :: patch_2D
   ! interpolation state
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! metrics needed for NH-version
@@ -520,7 +520,7 @@ CONTAINS
       USE mo_intp_data_strc,ONLY: t_int_state
       USE mo_nonhydro_types,ONLY: t_nh_metrics
       REAL(wp),    INTENT(in) :: x(:,:)
-      TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+      TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
       TYPE(t_int_state), INTENT(in) :: p_int
       TYPE(t_nh_metrics), INTENT(in) :: p_metrics
       REAL(wp),    INTENT(in) :: coeff
@@ -882,7 +882,7 @@ SUBROUTINE gmres_e2e( x,lhs,h_e, patch_2D, lev, subset_range, coeff,b,  &
 !  can be of any TYPE for which the following operations are defined:
 !   +, -, dot_product
 !
-TYPE(t_patch), INTENT(IN) :: patch_2D
+TYPE(t_patch), INTENT(INOUT) :: patch_2D
 REAL(wp), INTENT(INOUT) :: x(:,:)
 REAL(wp), INTENT(IN)    :: h_e(:,:)
  INTEGER,     INTENT(IN) :: lev
@@ -913,7 +913,7 @@ INTERFACE   ! left-hand-side: A*x
   FUNCTION lhs(x, patch_2D, lev,coeff, h_e) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
-    TYPE(t_patch),TARGET, INTENT(in):: patch_2D
+    TYPE(t_patch),TARGET, INTENT(inout):: patch_2D
     REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,patch_2D%nblks_e)
     INTEGER,     INTENT(IN) :: lev
     REAL(wp),    INTENT(in) :: coeff
@@ -1274,7 +1274,7 @@ SUBROUTINE gmres_arg1( x,lhs,patch_2D,nblks,npromz,coeff,b,  &
 !
 REAL(wp), INTENT(INOUT) :: x(:,:)
 ! patch info needed for calculating lhs
-TYPE(t_patch), INTENT(IN) :: patch_2D
+TYPE(t_patch), INTENT(INOUT) :: patch_2D
 ! index defining the "active" region of the arrays
 INTEGER, INTENT(IN) :: nblks, npromz
 ! parameter used in calculating the lhs
@@ -1302,7 +1302,7 @@ INTERFACE   ! left-hand-side: A*x
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     REAL(wp),    INTENT(in) :: x(:,:)
-    TYPE(t_patch), INTENT(in) :: patch_2D
+    TYPE(t_patch), INTENT(inout) :: patch_2D
     REAL(wp),    INTENT(in) :: coeff
 !    INTEGER, INTENT(IN) :: lev
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x

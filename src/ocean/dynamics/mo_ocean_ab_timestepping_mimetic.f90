@@ -21,12 +21,13 @@
 #include "iconfor_dsl_definitions.inc"
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
+#include "crayftn_ptr_fail.inc"
 !----------------------------
 MODULE mo_ocean_ab_timestepping_mimetic
 
   USE mo_kind,                      ONLY: wp, sp
   USE mo_parallel_config,           ONLY: nproma, l_fast_sum
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array, sync_patch_array_mult
   USE mo_impl_constants,            ONLY: sea_boundary, &  !  sea,                          &
     & max_char_length, min_dolic
@@ -544,8 +545,9 @@ CONTAINS
       !---------------------------------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, idt_src,in_subset=owned_edges)
-      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
+      CALL dbg_print('aft ocean_gmres: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src,in_subset=owned_cells)
 
+      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
 !          CALL finish(method_name, "height below min_top_height")
@@ -1953,7 +1955,7 @@ CONTAINS
     INTEGER :: start_index, end_index
     REAL(wp) :: z_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_abort
-    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells, cells_owned
     REAL(wp) ::  minmaxmean(3)
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp),  POINTER  :: vertical_velocity(:,:,:)
@@ -1961,6 +1963,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain  => patch_2D%cells%in_domain
+    cells_owned      => patch_2D%cells%owned
     all_cells        => patch_2D%cells%all
     edges_in_domain  => patch_2D%edges%in_domain
     vertical_velocity=> ocean_state%p_diag%w
@@ -2090,14 +2093,13 @@ CONTAINS
 
       !---------------------------------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('Vert veloc: w', &
-        & vertical_velocity, str_module,idt_src, in_subset=cells_in_domain)
-      
+      ! slo - cells_owned for correct global mean
+      CALL dbg_print('Vert veloc: w', vertical_velocity, str_module,idt_src, in_subset=cells_owned)
       CALL dbg_print('after cont-correct: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, &
-        & in_subset=cells_in_domain)
+        & in_subset=cells_owned)
       CALL dbg_print('after cont-correct: vol_h', &
         & patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:), &
-        & str_module,idt_src, in_subset=cells_in_domain)
+        & str_module,idt_src, in_subset=cells_owned)
 !      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=cells_in_domain)
 !      IF (my_process_is_stdio()) THEN
 !        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
@@ -2314,7 +2316,7 @@ CONTAINS
   !!  results is valid only in in_domain edges
   FUNCTION lhs_primal_flip_flop( x, patch_3d, op_coeffs,jk) result(llhs)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_patch_3d ),TARGET, PTR_INTENT(in) :: patch_3d
     REAL(wp),INTENT(inout)               :: x(:,:)
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     INTEGER                              :: jk

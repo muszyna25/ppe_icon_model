@@ -75,7 +75,7 @@ MODULE mo_nh_torus_exp
   SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
     &                           ptr_int, ptr_metrics)
 
-    TYPE(t_patch),TARGET,  INTENT(IN)   ::  ptr_patch
+    TYPE(t_patch),TARGET,  INTENT(INOUT)::  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
@@ -230,7 +230,7 @@ MODULE mo_nh_torus_exp
   SUBROUTINE init_torus_with_sounding ( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
                                         ptr_int, ptr_metrics)
 
-    TYPE(t_patch),TARGET,  INTENT(IN)   ::  ptr_patch
+    TYPE(t_patch),TARGET,  INTENT(INOUT)::  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
@@ -369,7 +369,7 @@ MODULE mo_nh_torus_exp
     &                           ptr_int, ptr_metrics)
 
     ! INPUT PARAMETERS:
-    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
+    TYPE(t_patch),TARGET,  INTENT(INOUT):: &  !< patch on which computation is performed
       &  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   :: &
       &  ptr_int
@@ -655,14 +655,15 @@ MODULE mo_nh_torus_exp
   
     INTEGER :: ist, iunit
     INTEGER :: jk, klev 
-  
+    
     !-------------------------------------------------------------------------
   
     CALL message(TRIM(routine), 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
-    OPEN (unit=iunit,file='sound_in', action='READ', status='OLD', IOSTAT=ist) 
+    OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
+            form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open verticaling sound file failed')
     ENDIF
@@ -677,7 +678,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading souding file failed')
+        CALL finish (TRIM(routine), 'reading sounding file failed')
       ENDIF
     END DO
 

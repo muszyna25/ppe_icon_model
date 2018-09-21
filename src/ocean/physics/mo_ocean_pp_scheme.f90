@@ -93,7 +93,6 @@ MODULE mo_ocean_pp_scheme
     & delete_var_list,          &
     & default_var_list_settings,&
     & add_ref
-  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
@@ -108,7 +107,7 @@ MODULE mo_ocean_pp_scheme
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
 
   IMPLICIT NONE
   PRIVATE

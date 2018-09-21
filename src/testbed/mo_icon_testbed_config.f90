@@ -24,7 +24,7 @@ MODULE mo_icon_testbed_config
   ! Exported parameters
   PUBLIC :: null_model, test_coupler_model, test_jitter_model, test_halo_communication, &
     & test_radiation_communication, test_netcdf_read_model, testbed_ocean_model, &
-    & test_gather_communication
+    & test_gather_communication, test_exchange_communication
     
   ! Exported variables
   PUBLIC :: testbed_model
@@ -43,6 +43,7 @@ MODULE mo_icon_testbed_config
   INTEGER, PARAMETER :: test_netcdf_read_model       = 6
   INTEGER, PARAMETER :: testbed_ocean_model          = 7
   INTEGER, PARAMETER :: test_gather_communication = 8
+  INTEGER, PARAMETER :: test_exchange_communication = 9
   
 
   INTEGER  :: testbed_model

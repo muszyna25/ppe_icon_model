@@ -24,15 +24,17 @@
 MODULE mo_surface_les
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_impl_constants    ,  ONLY: min_rlcell_int
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array, global_sum_array
+  USE mo_impl_constants    ,  ONLY: min_rlcell_int, success
+  USE mo_sync,                ONLY: sync_c, &
+       sync_patch_array, sync_patch_array_mult, &
+       global_sum_array
   USE mo_physical_constants,  ONLY: cpd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
@@ -42,6 +44,8 @@ MODULE mo_surface_les
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_turbdiff,       ONLY: akt, alpha0
   USE mo_turbdiff_config,     ONLY: turbdiff_config
+  USE mo_fortran_tools,       ONLY: insert_dimension
+  USE mo_io_units,            ONLY: find_next_free_unit
 
   IMPLICIT NONE
 
@@ -70,6 +74,9 @@ MODULE mo_surface_les
   CHARACTER(len=12)  :: str_module = 'surface_les'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
 
+  REAL(wp), SAVE, ALLOCATABLE ::  ts(:), qvs(:)
+  REAL(wp), SAVE :: dt_interval = 0._wp
+
   CONTAINS
 
 
@@ -84,10 +91,10 @@ MODULE mo_surface_les
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
-                                 prm_diag, theta, qv)
+                                 prm_diag, theta, qv, p_sim_time)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
+    TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
@@ -96,18 +103,20 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
+    REAL(wp),          INTENT(in)        :: p_sim_time    !current sim time
 
-    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, mwind
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, t_sfc, ex_sfc, inv_bus_mom
-    REAL(wp) :: ustar_mean
+    REAL(wp) :: ustar_mean, stime, etime, int_weight
     REAL(wp) :: pres_sfc(nproma,p_patch%nblks_c)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
-    INTEGER :: nlev, jg, itr, jkp1
-    
+    INTEGER :: nlev, jg, itr, jkp1, n_curr, n_next
+    INTEGER :: iunit, ist, nt, n
+     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
 
     IF (msg_level >= 15) &
@@ -226,7 +235,7 @@ MODULE mo_surface_les
 
          END DO  
       END DO
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)
@@ -452,6 +461,125 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ! Added by Christopher Moseley:
+    ! Time varying SST and qv_s case with prescribed roughness length: semi-idealized setups
+    CASE(6)
+
+
+    IF(dt_interval==0._wp)THEN
+
+      prm_diag%tcm(:,:) = 0._wp
+
+      !Open formatted file to read BC data
+      iunit = find_next_free_unit(10,20)
+      OPEN (unit=iunit,file='sfc_forcing.dat',access='SEQUENTIAL', &
+            form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
+  
+      IF(ist/=success)THEN
+        CALL finish (TRIM(routine), 'open sfc_forcing.dat failed')
+      ENDIF  
+  
+      !Read the input file til end. The order of file assumed is:
+      !Ts(K) - qvs(kg/kg)
+      
+      !Skip the first line
+      READ(iunit,*,IOSTAT=ist)			      !skip
+ 
+      !Read the second line with information about time levels 
+      READ(iunit,*,IOSTAT=ist)stime,dt_interval,etime
+      
+      IF(ist/=success)CALL finish (TRIM(routine), 'Must provide time level info in the bc file')
+
+      nt = INT(etime/dt_interval)+1
+
+      ALLOCATE( ts(nt), qvs(nt) )
+      DO n = 1 , nt
+        READ(iunit,*,IOSTAT=ist)ts(n),qvs(n)
+        IF(ist/=success) CALL finish (TRIM(routine), 'something wrong in sfc_forcing.dat')
+      END DO
+
+      CLOSE(iunit)
+      
+      WRITE(message_text,*)dt_interval
+      CALL message('Time varying surface forcing read in:',message_text)
+
+    END IF
+
+    !Find where in the array of sfc bc current time stands
+    !and do linear interpolation in time
+    n_curr = FLOOR(p_sim_time/dt_interval)+1
+    n_next = n_curr+1
+    int_weight = p_sim_time/dt_interval-n_curr+1
+    
+    ! Christopher: temporary catch
+    IF (int_weight.LT.0 .OR.int_weight.GT.1) THEN
+      WRITE(message_text,*)n_curr,n_next,int_weight,dt_interval,p_sim_time
+      CALL message('INTERPOLATION ERROR in surface:',message_text)
+    END IF
+
+    p_prog_lnd_new%t_g(:,:) = ts(n_curr)*(1.-int_weight)+ts(n_next)*int_weight
+    p_diag_lnd%qv_s(:,:)    = qvs(n_curr)*(1.-int_weight)+qvs(n_next)*int_weight
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,         &
+!$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jc = i_startidx, i_endidx
+
+           !Roughness length
+           zrough = prm_diag%gz0(jc,jb) * rgrav
+
+           theta_sfc = p_prog_lnd_new%t_g(jc,jb) / EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
+
+           !rho at surface: no qc at suface
+           rhos   =  pres_sfc(jc,jb)/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
+           mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) ) 
+
+           !Z height to be used as a reference height in surface layer
+           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+
+           !IF(linit)THEN
+             !First guess for ustar and th star using bulk approach
+             RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
+
+             tcn_mom             = (akt/LOG(z_mc/zrough))**2
+             prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
+
+             !Heat transfer coefficient
+             tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
+             prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
+           !END IF
+
+           DO itr = 1,10
+              shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
+              lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+              bflx1= shfl + vtmpc1 * theta_sfc * lhfl
+              ustar= SQRT(prm_diag%tcm(jc,jb))*mwind
+             
+              obukhov_length = -ustar**3 * theta_sfc * rgrav / (akt * bflx1)
+
+              inv_bus_mom = 1._wp / businger_mom(zrough,z_mc,obukhov_length)
+              prm_diag%tch(jc,jb) = inv_bus_mom / businger_heat(zrough,z_mc,obukhov_length)
+
+              prm_diag%tcm(jc,jb) = inv_bus_mom * inv_bus_mom
+           END DO
+
+           !Get surface fluxes
+           prm_diag%shfl_s(jc,jb) = rhos*cpd*prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
+           prm_diag%lhfl_s(jc,jb) = rhos*alv*prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+           prm_diag%umfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
+           prm_diag%vmfl_s(jc,jb) = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
+           
+         END DO
+      END DO   
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
     !No fluxes
     CASE(0)
 
@@ -462,12 +590,17 @@ MODULE mo_surface_les
 
   END SELECT 
 
-
-  !Sync is required for mom fluxes 
-  CALL sync_patch_array(SYNC_C, p_patch, prm_diag%umfl_s)
-  CALL sync_patch_array(SYNC_C, p_patch, prm_diag%vmfl_s)
-
-
+  
+  !Sync is required for mom fluxes
+  CALL sync_uvml_s(prm_diag%umfl_s, prm_diag%vmfl_s)
+  CONTAINS
+    SUBROUTINE sync_uvml_s(u, v)
+      REAL(wp), TARGET, INTENT(inout) :: u(:,:), v(:,:)
+      REAL(wp), POINTER :: pu(:,:,:), pv(:,:,:)
+      CALL insert_dimension(pu, u, 2)
+      CALL insert_dimension(pv, v, 2)
+      CALL sync_patch_array_mult(sync_c, p_patch, 2, pu, pv)
+    END SUBROUTINE sync_uvml_s
   END SUBROUTINE surface_conditions
 
   !>

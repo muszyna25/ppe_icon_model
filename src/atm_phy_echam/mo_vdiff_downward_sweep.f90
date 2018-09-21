@@ -35,7 +35,9 @@ CONTAINS
   !!
   !!
   SUBROUTINE vdiff_down( jg,                                            &! in
-                       & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
+                       & jb,                                            &! in, used for debugging only 
+                       & jcs, kproma, kbdim,                            &! in
+                       & klev, klevm1, klevp1, ktrac,                   &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pdtime,  pcoriol,                              &! in
                        & pzf, pzh,                                      &! in
@@ -66,7 +68,8 @@ CONTAINS
 
 
     INTEGER, INTENT(IN) :: jg
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
+    INTEGER, INTENT(IN) :: jb
+    INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime
 
@@ -196,9 +199,9 @@ CONTAINS
     zghh (:,1:klevp1)      = pzh(:,1:klevp1)-SPREAD(pzh(:,klevp1),2,klevp1)
 
     ! reciprocal layer mass
-    zrmairm(1:kproma,:) = 1._wp/ pmair(1:kproma,:)
-    zrmairh(1:kproma,:) = 2._wp/(pmair(1:kproma,1:klevm1)+pmair(1:kproma,2:klev))
-    zrmrefm(1:kproma,:) = 1._wp/ pmref(1:kproma,:)
+    zrmairm(jcs:kproma,:) = 1._wp/ pmair(jcs:kproma,:)
+    zrmairh(jcs:kproma,:) = 2._wp/(pmair(jcs:kproma,1:klevm1)+pmair(jcs:kproma,2:klev))
+    zrmrefm(jcs:kproma,:) = 1._wp/ pmref(jcs:kproma,:)
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
@@ -207,7 +210,8 @@ CONTAINS
     !----------------------------------------------------------------------
 
     CALL atm_exchange_coeff( jg,                                      &! in
-                           & kproma, kbdim, klev, klevm1, klevp1,     &! in
+                           & jb,                                      &! in, for debugging only
+                           & jcs, kproma, kbdim, klev, klevm1, klevp1,&! in
                            & pdtime, pcoriol,                         &! in
                            & zghf, zghh,                              &! in
                            & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -233,7 +237,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     CALL sfc_exchange_coeff( jg,                                    &! in
-                           & kproma, kbdim, ksfc_type,              &! in
+                           & jcs, kproma, kbdim, ksfc_type,         &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
                            & pfrc(:,:),       phdtcbl(:),           &! in
@@ -279,10 +283,10 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     zconst = tpfac1*pdtime
-    zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
-    zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
+    zfactor(jcs:kproma,1:klevm1) = zfactor(jcs:kproma,1:klevm1)*zconst
+    zfactor(jcs:kproma,  klev)   = zfactor(jcs:kproma,  klev)  *zconst
 
-    CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
+    CALL matrix_setup_elim( jcs, kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftotte (:,:),   pcfthv(:,:),                &! in
@@ -291,7 +295,7 @@ CONTAINS
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
-    pfactor_sfc(1:kproma) = zfactor(1:kproma,klev)
+    pfactor_sfc(jcs:kproma) = zfactor(jcs:kproma,klev)
 
     !-----------------------------------------------------------------------
     ! 4. Set up right-hand side of the tri-diagonal system and perform
@@ -301,14 +305,14 @@ CONTAINS
     !      solved together with vertical diffusion.
     !-----------------------------------------------------------------------
 
-    CALL rhs_setup( kproma, kbdim, itop, klev, klevm1,    &! in
+    CALL rhs_setup( jcs, kproma, kbdim, itop, klev, klevm1,&! in
                   & ksfc_type, ktrac, pdtime,             &! in
                   & pum1, pvm1, pcptgz, pqm1,             &! in
                   & pxlm1, pxim1, pxvar, pxtm1, pxt_emis, &! in
                   & zrmrefm, pztottevn, pzthvvar, aa,     &! in
                   & bb, bb_btm                            )! out
 
-    CALL rhs_elim ( kproma, kbdim, itop, klev, klevm1, &! in
+    CALL rhs_elim ( jcs, kproma, kbdim, itop, klev, klevm1, &! in
                   & aa, bb                             )! in, inout
 
   END SUBROUTINE vdiff_down

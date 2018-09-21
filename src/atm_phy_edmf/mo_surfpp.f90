@@ -40,8 +40,6 @@ SUBROUTINE SURFPP( KIDIA,KFDIA,KLON,KTILES, KDHVTLS, KDHFTLS &
  & , PDIFTSLEV, PDIFTQLEV, PUSTRTI, PVSTRTI, PTSKTI, PAHFLEV, PAHFLSB, PFWSB  &
  & , PU10M, PV10M, PT2M, PD2M, PQ2M &
  & , PGUST &
-! output DDH
- & , PDHTLS &
  & )
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
@@ -144,8 +142,8 @@ USE mo_surfpp_ctl       ,ONLY : surfpp_ctl
 !      PD2M      :  DEW POINT TEMPERATURE AT 2M                      K
 !      PQ2M      :  SPECIFIC HUMIDITY AT 2M                          kg/kg
 !      PGUST     :  GUST AT 10 M                                     m/s
-!      PDHTLS    :  Diagnostic array for tiles (see module yomcdh)
-!                      (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
+!!!    PDHTLS    :  Diagnostic array for tiles (see module yomcdh)
+!!!                    (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
 
 !     EXTERNALS.
 !     ----------
@@ -217,7 +215,6 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PT2M(:)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PD2M(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PQ2M(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PGUST(:) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTLS(:,:,:) 
 
 !ifndef INTERFACE
 
@@ -451,17 +448,6 @@ IF(UBOUND(PGUST,1) < KLON) THEN
   CALL ABORT_SURF('SURFPP: PGUST TOO SHORT!')
 ENDIF
 
-IF(UBOUND(PDHTLS,1) < KLON) THEN
-  CALL ABORT_SURF('SURFPP:: FIRST DIMENSION OF PDHTLS TOO SHORT!')
-ENDIF
-
-IF(UBOUND(PDHTLS,2) < KTILES) THEN
-  CALL ABORT_SURF('SURFPP:: SECOND DIMENSION OF PDHTLS TOO SHORT!')
-ENDIF
-
-IF(UBOUND(PDHTLS,3) < KDHVTLS+KDHFTLS) THEN
-  CALL ABORT_SURF('SURFPP:: THIRD DIMENSION OF PDHTLS TOO SHORT!')
-ENDIF
 
 CALL SURFPP_CTL( KIDIA,KFDIA,KLON,KTILES, KDHVTLS, KDHFTLS &
  & , PTSTEP &
@@ -477,8 +463,6 @@ CALL SURFPP_CTL( KIDIA,KFDIA,KLON,KTILES, KDHVTLS, KDHFTLS &
  & , PDIFTSLEV, PDIFTQLEV, PUSTRTI, PVSTRTI, PTSKTI, PAHFLEV, PAHFLSB, PFWSB  &
  & , PU10M, PV10M, PT2M, PD2M, PQ2M &
  & , PGUST &
-! output DDH
- & , PDHTLS &
  & )
 
 IF (LHOOK) CALL DR_HOOK('SURFPP',1,ZHOOK_HANDLE)

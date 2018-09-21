@@ -48,9 +48,7 @@ SUBROUTINE VSURF(KIDIA,KFDIA,KLON,KLEVS,KTILE,&
 !ICON definitions:
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
-      & RCPD     ,RETV     ,RLVTT    ,RLSTT    ,RTT    ,&     !yomcst (& yos_cst)
-      & R2ES     ,R3LES    ,R3IES    ,R4LES    ,R4IES  ,&     !yoethf (& yos_thf)
-      & R5LES    ,R5IES    ,RVTMP2                            ! -
+      & RCPD     ,RETV     ,RVTMP2                            !yomcst (& yos_cst)
 USE mo_edmf_param   ,ONLY : &
 !dmk  & RWCAP    ,RWPWP    ,RQWEVAP  ,&                       ! (& yos_soil)
       & RWCAPM   ,RWPWPM   ,RQWEVAPM ,RWRESTM  ,&             ! (&  ---    )
@@ -172,7 +170,7 @@ REAL(KIND=JPRB) ::   &
  & ZF3H, ZF3L, ZHSTRH, ZHSTRL, ZLAIH, ZLAIL, &
  & ZQSAIR, ZROOT1H, ZROOT1L, ZROOT2H, ZROOT2L, &
  & ZROOT3H, ZROOT3L, ZROOT4H, ZROOT4L, ZRSMINH, &
- & ZRSMINL, ZRSMINB, ZRVA, ZRVB, ZSRFL, ZWROOTH, ZWROOTL, &
+ & ZRSMINL, ZRSMINB, ZSRFL, ZWROOTH, ZWROOTL, &
  & ZQWEVAP, ZWPWP,&
  & ZSALIN
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
@@ -188,8 +186,6 @@ REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 IF (LHOOK) CALL DR_HOOK('VSURF_MOD:VSURF',0,ZHOOK_HANDLE)
 
-ZRVA=5000._JPRB
-ZRVB=10._JPRB
 ZEPSF3=0.00001_JPRB ! security value for exponential sat-deficit dependence
 ZRSMINB=50._JPRB  ! bare soil minimum resistance
 

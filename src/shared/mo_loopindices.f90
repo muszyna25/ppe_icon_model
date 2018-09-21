@@ -129,18 +129,11 @@ SUBROUTINE get_indices_e(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
     irl_end = min_rledge
   ENDIF
 
-
-  IF (i_blk == i_startblk) THEN
-    i_startidx = MAX(1,p_patch%edges%start_index(irl_start))
-    i_endidx   = nproma
-    IF (i_blk == i_endblk) i_endidx = p_patch%edges%end_index(irl_end)
-  ELSE IF (i_blk == i_endblk) THEN
-    i_startidx = 1
-    i_endidx   = p_patch%edges%end_index(irl_end)
-  ELSE
-    i_startidx = 1
-   i_endidx = nproma
-  ENDIF
+  i_startidx = MERGE(1, &
+    &                MAX(1,p_patch%edges%start_index(irl_start)), &
+    &                i_blk /= i_startblk)
+  i_endidx   = MERGE(nproma,           p_patch%edges%end_index(irl_end), &
+    &                i_blk /= i_endblk)
 
 END SUBROUTINE get_indices_e
 

@@ -26,4 +26,5 @@ MODULE mo_cdi_constants
 
   INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 45
 
+
 END MODULE mo_cdi_constants

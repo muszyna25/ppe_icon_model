@@ -80,7 +80,7 @@ CONTAINS
                                 p_delp_mc_now,                 &! out
                                 p_pres_mc_now, p_pres_ic_now   )! out
 
-    TYPE(t_patch),TARGET,INTENT(in) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(inout) :: p_patch
     TYPE(t_int_state),INTENT(in) :: p_int_state
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_now, p_new
@@ -164,7 +164,7 @@ CONTAINS
                              p_delp_mc_now,                 &! out
                              p_pres_mc_now, p_pres_ic_now   )! out
 
-    TYPE(t_patch),TARGET,INTENT(in) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(inout) :: p_patch
     TYPE(t_int_state),INTENT(in) :: p_int_state
 
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_now, p_new
@@ -391,7 +391,7 @@ CONTAINS
 
     LOGICAL,INTENT(IN) :: ltheta_dyn
 
-    TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
+    TYPE(t_patch),TARGET,  INTENT(inout) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state
     TYPE(t_external_data), INTENT(INOUT) :: p_ext_data !< external data
 
@@ -464,7 +464,7 @@ CONTAINS
 
     LOGICAL,INTENT(IN) :: ltheta_dyn
 
-    TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state
     TYPE(t_external_data), INTENT(INOUT) :: p_ext_data !< external data
 

@@ -292,6 +292,9 @@ CONTAINS
 
 
 CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocean_surface, operators_coefficients,jstep)
+
+! shall we call the nudging ?
+
 !IF(GMRedi_configuration/=Cartesian_Mixing)THEN 
 !      CALL prepare_ocean_physics(patch_3d, &
 !        & ocean_state(n_dom),    &
@@ -503,7 +506,8 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
-    
+
+    jg = 1    
     patch_2D      => patch_3d%p_patch_2d(1)
     CALL datetimeToString(this_datetime, datestring)
 
@@ -533,6 +537,9 @@ CALL advect_ocean_tracers(patch_3d, ocean_state(n_dom), physics_parameters, ocea
           & physics_parameters,ocean_surface,&
           & operators_coefficients,&
           & jstep)
+
+! shall we call the nudging ?
+
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
         model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)

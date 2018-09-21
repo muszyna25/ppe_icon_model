@@ -1,5 +1,5 @@
 
-#line 1 "support/nml_annotate.rl"
+#line 1 "nml_annotate.rl"
 /* --------------------------------------------------------------------- *
  * Fortran namelist scanner based on a Finite State Machine (FSM).       *
  * This file must be processed with Ragel to produce the final C code.   *
@@ -43,38 +43,42 @@ char* terminate_string(struct t_nmldata *data) {
 
 /* traverse val list data structure and print out its contents; compare with defaults */
 void print_val(FILE *out, struct t_val *val, struct t_val *dflt, int* lchanged) {
-  if (val == NULL) return;
-  fprintf(out, "%.*s%s%s%s%s", TRUNCATE_LEN, val->name,
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? " [...]"                        : "",
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? (val->name+strlen(val->name)-1) : "",
-	  (strlen(val->name) >= TRUNCATE_LEN)  ? " (truncated)"                  : "",
-	  (val->next != NULL) ? ", " : "\n"); 
-  struct t_val *dflt_next = dflt;			  
-  if (dflt != NULL) {
-    (*lchanged) = (*lchanged) || (strcmp(val->name, dflt->name) != 0);
-    dflt_next = dflt->next;
+  int lchanged_ = *lchanged;
+  while (val) {
+    fprintf(out, "%.*s%s%s%s%s", TRUNCATE_LEN, val->name,
+            (strlen(val->name) >= TRUNCATE_LEN)  ? " [...]"                        : "",
+            (strlen(val->name) >= TRUNCATE_LEN)  ? (val->name+strlen(val->name)-1) : "",
+            (strlen(val->name) >= TRUNCATE_LEN)  ? " (truncated)"                  : "",
+            (val->next != NULL) ? ", " : "\n");
+    if (dflt != NULL) {
+      lchanged_ |= (strcmp(val->name, dflt->name) != 0);
+      dflt = dflt->next;
+    }
+    val = val->next;
   }
-  print_val(out, val->next, dflt_next, lchanged);
+  *lchanged = lchanged_;
 }
 /* traverse key list and print out key-value pairs (and defaults). */
 void print_key(FILE *out, struct t_key* key) {
-  if (key == NULL) return;
-  fprintf(out, "    %-*s    ", TRUNCATE_LEN, key->name); 
-  int lchanged = 0;
-  print_val(out, key->value, key->dflt, &lchanged);
-  if (lchanged != 0) {
-    lchanged = 0;
-    fprintf(out,"        %*s>> DEFAULT: ", TRUNCATE_LEN, " ");
-    print_val(out, key->dflt, key->dflt, &lchanged);
+  while (key) {
+    fprintf(out, "    %-*s    ", TRUNCATE_LEN, key->name); 
+    int lchanged = 0;
+    print_val(out, key->value, key->dflt, &lchanged);
+    if (lchanged != 0) {
+      lchanged = 0;
+      fprintf(out,"        %*s>> DEFAULT: ", TRUNCATE_LEN, " ");
+      print_val(out, key->dflt, key->dflt, &lchanged);
+    }
+    key = key->next;
   }
-  print_key(out, key->next);
 }
 /* traverse namelist data structure and print out its contents. */
 void print_nml(FILE *out, struct t_nml* nml) {
-  if (nml == NULL) return;
-  fprintf(out, "\nNAMELIST %s\n", nml->name); 
-  print_key(out, nml->key_list);
-  print_nml(out, nml->next);
+  while (nml) {
+    fprintf(out, "\nNAMELIST %s\n", nml->name);
+    print_key(out, nml->key_list);
+    nml = nml->next;
+  }
 }
 
 /* --------------------------------------------------------------------- *
@@ -165,11 +169,11 @@ int define_odd_namelists_as_defaults(struct t_nml **nml) {
  * --------------------------------------------------------------------- */
 
 
-#line 224 "support/nml_annotate.rl"
+#line 228 "nml_annotate.rl"
 
 
 
-#line 173 "support/nml_annotate.c"
+#line 177 "nml_annotate.c"
 static const char _nml_actions[] = {
 	0, 1, 0, 1, 2, 1, 3, 1, 
 	4, 1, 5, 1, 6, 1, 7, 1, 
@@ -283,7 +287,7 @@ static const int nml_error = 0;
 static const int nml_en_main = 14;
 
 
-#line 227 "support/nml_annotate.rl"
+#line 231 "nml_annotate.rl"
 
 
 /* --------------------------------------------------------------------- *
@@ -313,7 +317,7 @@ int util_annotate_nml(char* in_filename, char* out_filename)
  }
 
  
-#line 317 "support/nml_annotate.c"
+#line 321 "nml_annotate.c"
 	{
 	 data->cs = nml_start;
 	 data->ts = 0;
@@ -321,14 +325,14 @@ int util_annotate_nml(char* in_filename, char* out_filename)
 	 data->act = 0;
 	}
 
-#line 257 "support/nml_annotate.rl"
+#line 261 "nml_annotate.rl"
  /* process file line-by-line */
  int  have = 0;
  while ( fgets( p, MAX_BUF_LEN - have, nmlfile ) != NULL ) {
    char *pe  = buf + strlen(buf);   /* pointer to input end. */
   
    
-#line 332 "support/nml_annotate.c"
+#line 336 "nml_annotate.c"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -349,7 +353,7 @@ _resume:
 #line 1 "NONE"
 	{ data->ts = p;}
 	break;
-#line 353 "support/nml_annotate.c"
+#line 357 "nml_annotate.c"
 		}
 	}
 
@@ -416,12 +420,12 @@ _eof_trans:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 170 "support/nml_annotate.rl"
+#line 174 "nml_annotate.rl"
 	{ if ((data->buflen < MAX_BUF_LEN) && ((*p)!='\n')) 
                    data->buffer[data->buflen++] = (*p); }
 	break;
 	case 1:
-#line 173 "support/nml_annotate.rl"
+#line 177 "nml_annotate.rl"
 	{ data->buflen = 0; }
 	break;
 	case 4:
@@ -429,7 +433,7 @@ _eof_trans:
 	{ data->te = p+1;}
 	break;
 	case 5:
-#line 196 "support/nml_annotate.rl"
+#line 200 "nml_annotate.rl"
 	{ data->te = p+1;{ 
   struct t_val *new_val = (struct t_val*) calloc(1, sizeof(struct t_val));
   *new_val = (struct t_val) { .name = strdup(terminate_string(data)), 
@@ -439,7 +443,7 @@ _eof_trans:
  }}
 	break;
 	case 6:
-#line 176 "support/nml_annotate.rl"
+#line 180 "nml_annotate.rl"
 	{ data->te = p;p--;{ 
   struct t_nml *new_nml = (struct t_nml*) calloc(1, sizeof(struct t_nml));
   *new_nml = (struct t_nml) { .name = strdup(terminate_string(data)), 
@@ -450,7 +454,7 @@ _eof_trans:
  }}
 	break;
 	case 7:
-#line 186 "support/nml_annotate.rl"
+#line 190 "nml_annotate.rl"
 	{ data->te = p;p--;{
   struct t_key *new_key = (struct t_key*) calloc(1, sizeof(struct t_key));
   *new_key = (struct t_key) { .name = strdup(terminate_string(data)), 
@@ -461,7 +465,7 @@ _eof_trans:
  }}
 	break;
 	case 8:
-#line 196 "support/nml_annotate.rl"
+#line 200 "nml_annotate.rl"
 	{ data->te = p;p--;{ 
   struct t_val *new_val = (struct t_val*) calloc(1, sizeof(struct t_val));
   *new_val = (struct t_val) { .name = strdup(terminate_string(data)), 
@@ -471,7 +475,7 @@ _eof_trans:
  }}
 	break;
 	case 9:
-#line 196 "support/nml_annotate.rl"
+#line 200 "nml_annotate.rl"
 	{{p = (( data->te))-1;}{ 
   struct t_val *new_val = (struct t_val*) calloc(1, sizeof(struct t_val));
   *new_val = (struct t_val) { .name = strdup(terminate_string(data)), 
@@ -480,7 +484,7 @@ _eof_trans:
   else                       data->cur_val = data->cur_val->next  = new_val;
  }}
 	break;
-#line 484 "support/nml_annotate.c"
+#line 488 "nml_annotate.c"
 		}
 	}
 
@@ -493,7 +497,7 @@ _again:
 #line 1 "NONE"
 	{ data->ts = 0;}
 	break;
-#line 497 "support/nml_annotate.c"
+#line 501 "nml_annotate.c"
 		}
 	}
 
@@ -513,7 +517,7 @@ _again:
 	_out: {}
 	}
 
-#line 264 "support/nml_annotate.rl"
+#line 268 "nml_annotate.rl"
    if ( data->cs == nml_error ) { 
      fprintf(stderr, "nml_annotate: could not translate the collected namelist data into a table!\n" ); break; }
 

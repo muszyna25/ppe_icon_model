@@ -39,8 +39,6 @@ SUBROUTINE SURFPP_CTL( KIDIA,KFDIA,KLON,KTILES, KDHVTLS, KDHFTLS &
  & , PDIFTSLEV, PDIFTQLEV, PUSTRTI, PVSTRTI, PTSKTI, PAHFLEV, PAHFLSB, PFWSB  &
  & , PU10M, PV10M, PT2M, PD2M, PQ2M &
  & , PGUST &
-! output DDH
- & , PDHTLS &
  & )
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
@@ -62,7 +60,8 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
 USE mo_edmf_param   ,ONLY : &
       & LEOCWA   ,LEOCCO   ,&                               !yoephy  (& yos_exc)
       & REPUST   ,&                                         !yos_exc
-      & LEFLAKE                                             !yoephy  (& yos_flake)
+      & LEFLAKE  ,&                                         !yoephy  (& yos_flake)
+      & EDMF_CONF
 
 USE mo_sppcfl       ,ONLY : sppcfl
 USE mo_sppgust      ,ONLY : sppgust
@@ -156,8 +155,8 @@ USE mo_voskin       ,ONLY : voskin
 !      PD2M      :  DEW POINT TEMPERATURE AT 2M                      K
 !      PQ2M      :  SPECIFIC HUMIDITY AT 2M                          kg/kg
 !      PGUST     :  GUST AT 10 M                                     m/s
-!      PDHTLS    :  Diagnostic array for tiles (see module yomcdh)
-!                      (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
+!!!    PDHTLS    :  Diagnostic array for tiles (see module yomcdh)
+!!!                    (Wm-2 for energy fluxes, kg/(m2s) for water fluxes)
 
 !     EXTERNALS.
 !     ----------
@@ -230,7 +229,6 @@ REAL(KIND=JPRB)   ,INTENT(OUT)   :: PT2M(:)
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PD2M(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PQ2M(:) 
 REAL(KIND=JPRB)   ,INTENT(OUT)   :: PGUST(:) 
-REAL(KIND=JPRB)   ,INTENT(OUT)   :: PDHTLS(:,:,:) 
 
 ! Local variables
 
@@ -312,11 +310,15 @@ ENDDO
 !      2. Post-processing of weather parameters
 !         -------------------------------------
 
-CALL SPPCFL(KIDIA,KFDIA,KLON &
- & , PUMLEV, PVMLEV, PQMLEV, PGEOMLEV, PCPTSPP, PCPTGZLEV &
- & , PAPHMS, PZ0MW, PZ0HW, PZ0QW, PZDL, PQSAPP &
- & , PBLEND, PFBLEND, PUCURR, PVCURR &
- & , PU10M, PV10M, PT2M, PD2M, PQ2M )
+IF ( edmf_conf == 1 ) THEN
+
+  CALL SPPCFL(KIDIA,KFDIA,KLON &
+   & , PUMLEV, PVMLEV, PQMLEV, PGEOMLEV, PCPTSPP, PCPTGZLEV &
+   & , PAPHMS, PZ0MW, PZ0HW, PZ0QW, PZDL, PQSAPP &
+   & , PBLEND, PFBLEND, PUCURR, PVCURR &
+   & , PU10M, PV10M, PT2M, PD2M, PQ2M )
+
+ENDIF
 
 !      3. Post-processing of wind gusts
 !         -----------------------------
@@ -345,9 +347,10 @@ ZTSK(KIDIA:KFDIA)=0.0_JPRB
 DO JTILE=1,KTILES
   DO JL=KIDIA,KFDIA
 
- if ( ( PTSKTIP1(JL,JTILE) > 400.0 .or. PTSKTIP1(JL,JTILE) < 100.0 ) .and. &
+ if ( ( PTSKTIP1(JL,JTILE) > 400.0 .or. PTSKTIP1(JL,JTILE) < 150.0 ) .and. &
   ( PFRTI(JL,JTILE) > 0.0 )) then
-  write(*,*) 'surfpp3: ', JL, JTILE, PFRTI(JL,JTILE), PTSKTIP1(JL,JTILE)
+  write(*,*) 'surfpp3: ', JL, JTILE, PFRTI(JL,JTILE), PTSKTIP1(JL,JTILE), PTSKTI(JL,JTILE), &
+    PSST(JL), PAHFSTI(JL,JTILE), PAHFLTI(JL,JTILE)
  endif
 
     ZTSK(JL)=ZTSK(JL)+PFRTI(JL,JTILE)*PTSKTIP1(JL,JTILE)
@@ -379,21 +382,6 @@ SUBROUTINE COMPUTE_DDH
 REAL(KIND=JPRB) :: ZHOOK_HANDLE
 
 IF (LHOOK) CALL DR_HOOK('SURFPP_CTL:COMPUTE_DDH',0,ZHOOK_HANDLE)
-
-DO JTILE=1,KTILES
-  DO JL=KIDIA,KFDIA
-
-    PDHTLS(JL,JTILE,8)=PFRTI(JL,JTILE)*PAHFSTI(JL,JTILE)
-    PDHTLS(JL,JTILE,9)=PFRTI(JL,JTILE)*PAHFLTI(JL,JTILE)
-    IF (JTILE == 1) THEN
-      PDHTLS(JL,JTILE,10)=0.0_JPRB
-    ELSE
-      PDHTLS(JL,JTILE,10)=PFRTI(JL,JTILE)*PG0TI(JL,JTILE)
-    ENDIF
-
-    PDHTLS(JL,JTILE,11)=PFRTI(JL,JTILE)*PEVAPTI(JL,JTILE)
-  ENDDO
-ENDDO
 
 IF (LHOOK) CALL DR_HOOK('SURFPP_CTL:COMPUTE_DDH',1,ZHOOK_HANDLE)
 

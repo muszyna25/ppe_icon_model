@@ -65,7 +65,6 @@ CONTAINS
     ! Local variables
     !
     REAL(wp) :: zdis_sso(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
-    INTEGER  :: nc
     REAL(wp) :: zscale(nproma)         !< area scaling factor
 
     IF (ltimer) call timer_start(timer_sso)
@@ -81,9 +80,6 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
-          ! number of cells/columns from index jcs to jce
-          nc = jce-jcs+1
-          !
           ! area scaling factor                     ! <-- provisional
           IF (lsftlf) THEN                          ! <-- provisional
              zscale(:) = field% sftlf (:,jb)
@@ -92,7 +88,7 @@ CONTAINS
           END IF                                    ! <-- provisional
           !
           CALL ssodrag(jg                           ,& ! in,  grid index
-               &       nc                           ,& ! in,  number of cells/columns in loop (jce-jcs+1)
+               &       jcs, jce                     ,& ! in,  start and end index
                &       nproma                       ,& ! in,  dimension of block of cells/columns
                &       nlev                         ,& ! in,  number of levels
                !

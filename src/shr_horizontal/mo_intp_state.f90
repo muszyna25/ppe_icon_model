@@ -169,7 +169,8 @@ USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               scalar_int_coeff, bln_int_coeff_e2c
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
-  &                               setup_comm_pattern, delete_comm_pattern, exchange_data
+  &                               delete_comm_pattern, exchange_data
+  USE mo_communication_factory, ONLY: setup_comm_pattern
 ! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 USE mo_dist_dir,            ONLY: dist_dir_get_owners
@@ -197,7 +198,9 @@ INTERFACE xfer_idx
   MODULE PROCEDURE xfer_idx_3
 END INTERFACE
 
-TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c, comm_pat_glb_to_loc_e, comm_pat_glb_to_loc_v
+CLASS(t_comm_pattern), POINTER :: comm_pat_glb_to_loc_c, &
+  &                               comm_pat_glb_to_loc_e, &
+  &                               comm_pat_glb_to_loc_v
 
 
 CONTAINS
@@ -1826,6 +1829,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_cells, owner(1:p_lp%n_patch_cells), &
     &                     p_lp%cells%decomp_info%glb_index,  &
     &                     p_p%cells%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_cells, &
+    &                     p_p%cells%decomp_info%owner_local, &
+    &                     p_p%cells%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_c)
 
   owner(1:p_lp%n_patch_edges) = &
@@ -1834,6 +1840,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_edges, owner(1:p_lp%n_patch_edges), &
     &                     p_lp%edges%decomp_info%glb_index,  &
     &                     p_p%edges%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_edges, &
+    &                     p_p%edges%decomp_info%owner_local, &
+    &                     p_p%edges%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_e)
 
   owner(1:p_lp%n_patch_verts) = &
@@ -1842,6 +1851,9 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL setup_comm_pattern(p_lp%n_patch_verts, owner(1:p_lp%n_patch_verts), &
     &                     p_lp%verts%decomp_info%glb_index,  &
     &                     p_p%verts%decomp_info%glb2loc_index, &
+    &                     p_p%n_patch_verts, &
+    &                     p_p%verts%decomp_info%owner_local, &
+    &                     p_p%verts%decomp_info%glb_index, &
     &                     comm_pat_glb_to_loc_v)
 
   DEALLOCATE(owner)

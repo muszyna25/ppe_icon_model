@@ -34,8 +34,8 @@
     USE mo_exception,           ONLY: message, finish
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rlcell
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,                &
-      &                               t_geographical_coordinates, cc_dot_product,           &
+    USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
+    USE mo_math_utilities,      ONLY: gc2cc, cc2gc, cc_dot_product,           &
       &                               project_point_to_plane
     USE mo_math_constants,      ONLY: pi, pi_2
     USE mo_io_units,            ONLY: filename_max 

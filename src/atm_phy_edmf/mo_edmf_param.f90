@@ -35,6 +35,9 @@ MODULE mo_edmf_param
 
   INTEGER(KIND=JPIM) :: NTILES_EDMF=8
   
+! Type of EDMF setup: surface layer and TERRA calling
+  INTEGER(KIND=JPIM) :: EDMF_CONF=2  ! 1: EDMF surface layer and TERRA called within EDMF
+                                     ! 2: TURBTRAN surface layer and TERRA called from NWP interface
 
 
 !------------------------------------------------------------------------------
@@ -310,7 +313,7 @@ ELEMENTAL FUNCTION foeew(ptare)
 END FUNCTION foeew
 
 ELEMENTAL FUNCTION foedesu(ptare)
-  USE mo_cuparameters ,ONLY   :  r3les, rtt, r4les, r4ies, r5les, r5ies
+  USE mo_cuparameters ,ONLY   :  r4les, r4ies, r5les, r5ies
   REAL(KIND=jprb)             :: FOEDESU
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOEDESU = &

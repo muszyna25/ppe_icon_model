@@ -64,6 +64,7 @@ MODULE mo_echam_rad_config
      LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, .FALSE. for Kepler orbit
      REAL(wp) :: cecc           !< Eccentricity  of  orbit
      REAL(wp) :: cobld          !< Obliquity of Earth axis [Deg]
+     REAL(wp) :: clonp          !< Long. of the perihelion (from v.eqin) [Deg]
      !
      ! -- Orbit motion
      !
@@ -158,6 +159,7 @@ CONTAINS
     echam_rad_config(:)% l_orbvsop87    = .TRUE.
     echam_rad_config(:)% cecc           =  0.016715_wp
     echam_rad_config(:)% cobld          =  23.44100_wp
+    echam_rad_config(:)% clonp          =  282.7000_wp
     !
     echam_rad_config(:)% lyr_perp       = .FALSE.
     echam_rad_config(:)% yr_perp        = -99999
@@ -213,7 +215,7 @@ CONTAINS
     !
     LOGICAL , POINTER :: l_orbvsop87, l_sph_symm_irr, ldiur, lyr_perp
     INTEGER , POINTER :: isolrad, nmonth, yr_perp
-    REAL(wp), POINTER :: fsolrad, cecc, cobld
+    REAL(wp), POINTER :: fsolrad, cecc, cobld, clonp
     INTEGER , POINTER :: irad_h2o, irad_co2, irad_ch4, irad_n2o, irad_o3, irad_o2, irad_cfc11, irad_cfc12, irad_aero
     REAL(wp), POINTER ::            vmr_co2,  vmr_ch4,  vmr_n2o,           vmr_o2,  vmr_cfc11,  vmr_cfc12
     REAL(wp), POINTER :: frad_h2o, frad_co2, frad_ch4, frad_n2o, frad_o3, frad_o2, frad_cfc
@@ -233,6 +235,7 @@ CONTAINS
        l_orbvsop87=> echam_rad_config(jg)% l_orbvsop87
        cecc       => echam_rad_config(jg)% cecc
        cobld      => echam_rad_config(jg)% cobld
+       clonp      => echam_rad_config(jg)% clonp
        !
        lyr_perp   => echam_rad_config(jg)% lyr_perp
        yr_perp    => echam_rad_config(jg)% yr_perp
@@ -315,6 +318,7 @@ CONTAINS
           CALL message('','The Kepler orbit is used')
           CALL print_value('Eccentricity of Earth orbit   =',cecc)
           CALL print_value('Obliquity of Earth axis [Deg] =',cobld)
+          CALL print_value('Longitude of perihelion [Deg] =',clonp)
        END IF
        !
        SELECT CASE (nmonth)
@@ -462,6 +466,8 @@ CONTAINS
                   &              'a valid choice because no O3  tracer is available '   // &
                   &              ' or lart = .TRUE.')
           END IF
+       CASE(2)
+          CALL message('','O3    clim. annual cycle 3-dim. volume mixing ratio from file')
        CASE(4)
           CALL message('','O3    constant-in-time 3-dim. volume mixing ratio from file')
        CASE(8)
@@ -573,6 +579,7 @@ CONTAINS
        CALL message    ('','-----------------------------------------------------------------------------------')
        CALL message    ('','!! WARNING: The current radiation uses the the setup of domain 1 for all domains !!')
        CALL message    ('','-----------------------------------------------------------------------------------')
+       CALL message    ('','')
     END IF
     
     DO jg = 1,n_dom
@@ -588,6 +595,7 @@ CONTAINS
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% l_orbvsop87   ',echam_rad_config(jg)% l_orbvsop87   )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% cecc          ',echam_rad_config(jg)% cecc          )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% cobld         ',echam_rad_config(jg)% cobld         )
+       CALL print_value('    echam_rad_config('//TRIM(cg)//')% clonp         ',echam_rad_config(jg)% clonp         )
        CALL message    ('','')
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% lyr_perp      ',echam_rad_config(jg)% lyr_perp      )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% yr_perp       ',echam_rad_config(jg)% yr_perp       )

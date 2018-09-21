@@ -27,9 +27,8 @@ MODULE mo_echam_phy_bcs
        &                                   operator(<=),operator(>),                       &   
        &                                   getPTStringFromSeconds,                         &
        &                                   getTotalSecondsTimeDelta,                       &
-       &                                   isCurrentEventActive
+       &                                   isCurrentEventActive, deallocateDatetime
   USE mo_model_domain               ,ONLY: t_patch
-  USE mo_impl_constants             ,ONLY: io3_amip
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
@@ -49,6 +48,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
 
   IMPLICIT NONE
   PRIVATE
@@ -82,7 +82,7 @@ CONTAINS
 
     ! Local variables
 
-    TYPE(datetime) , POINTER, SAVE           :: radiation_time !< date and time for radiative transfer
+    TYPE(datetime) , POINTER, SAVE           :: radiation_time => NULL() !< date and time for radiative transfer
     TYPE(timedelta), POINTER                 :: td_radiation_offset
     CHARACTER(len=max_timedelta_str_len)     :: dstring
 
@@ -119,27 +119,30 @@ CONTAINS
     ! Read and interpolate in time monthly mean SST for AMIP simulations
     ! SST is needed for turbulent vertical fluxes and for radiation.
     !
-    IF (echam_phy_config(patch%id)%lamip) THEN
-      IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
-        IF (mtime_old%date%year /= get_current_bc_sst_sic_year()) THEN
-          CALL read_bc_sst_sic(mtime_old%date%year, patch)
-        END IF
-        CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights    , &
-          &                                prm_field(patch%id)%sftlf  (:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
-          &                                prm_field(patch%id)%ts_tile(:,:,iwtr) , &
-          &                                prm_field(patch%id)%seaice (:,:)      , &
-          &                                prm_field(patch%id)%siced  (:,:)      , &
-          &                                patch                                  )
+    IF (echam_phy_tc(jg)%dt_rad > dt_zero .OR. echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
+      !
+      IF (echam_phy_config(patch%id)%lamip) THEN
+        IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
+          IF (mtime_old%date%year /= get_current_bc_sst_sic_year()) THEN
+            CALL read_bc_sst_sic(mtime_old%date%year, patch)
+          END IF
+          CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights    , &
+            &                                prm_field(patch%id)%sftlf  (:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
+            &                                prm_field(patch%id)%ts_tile(:,:,iwtr) , &
+            &                                prm_field(patch%id)%seaice (:,:)      , &
+            &                                prm_field(patch%id)%siced  (:,:)      , &
+            &                                patch                                  )
 
-        ! The ice model should be able to handle different thickness classes, 
-        ! but for AMIP we only use one ice class.
-        IF (iice <= nsfc_type) THEN
-          prm_field(patch%id)%conc(:,1,:) = prm_field(patch%id)%seaice(:,:)
-          prm_field(patch%id)%hi  (:,1,:) = prm_field(patch%id)%siced (:,:)
+          ! The ice model should be able to handle different thickness classes, 
+          ! but for AMIP we only use one ice class.
+          IF (iice <= nsfc_type) THEN
+            prm_field(patch%id)%conc(:,1,:) = prm_field(patch%id)%seaice(:,:)
+            prm_field(patch%id)%hi  (:,1,:) = prm_field(patch%id)%siced (:,:)
+          END IF
         END IF
       END IF
+      !
     END IF
-
 
     ! IF radiation is used in this experiment (dt_rad>0):
     ! - luse_rad : Check whether radiative heating is used in this timestep
@@ -170,9 +173,11 @@ CONTAINS
       ! in the radiative transfer. All other input for the radiative transfer
       ! is for datetime, i.e. the start date and time of the current timestep.
       !
+      IF (ASSOCIATED(radiation_time)) &
+        & CALL deallocateDatetime(radiation_time) 
       radiation_time => newDatetime(mtime_old)
       dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(patch%id)%dt_rad,mtime_old) ! [s] local time step of radiation
-      dsec = 0.5_wp*(dtrad_loc - dtadv_loc)                                       ! [s] time increment for zenith angle
+      dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift                           ! [s] time increment for zenith angle
       CALL getPTStringFromSeconds(dsec, dstring)
       td_radiation_offset => newTimedelta(dstring)
       radiation_time = radiation_time + td_radiation_offset
@@ -197,7 +202,9 @@ CONTAINS
       END IF
       !
       ! ozone concentration
-      IF (irad_o3 == io3_amip .OR. irad_o3 == 10 ) THEN
+      IF   (      irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
+           & .OR. irad_o3 ==  4 &       ! constant in time
+           & .OR. irad_o3 ==  8 ) THEN  ! coupled to ART
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !
@@ -208,20 +215,20 @@ CONTAINS
       !
       ! stratospheric aerosol optical properties
       IF (irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_old%date%year, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (irad_aero == 18) THEN
         CALL read_bc_aeropt_kinne     (1850_i8, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch%id)
+        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
       END IF
       !
 

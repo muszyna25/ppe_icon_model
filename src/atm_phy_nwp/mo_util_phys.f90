@@ -44,7 +44,7 @@ MODULE mo_util_phys
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
+  USE mo_initicon_config,       ONLY: iau_wgt_adv
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
@@ -78,7 +78,8 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_omega
   PUBLIC :: compute_field_pv
   PUBLIC :: compute_field_smi
-  PUBLIC :: nh_update_tracer_phy
+  PUBLIC :: iau_update_tracer
+  PUBLIC :: tracer_add_phytend
   PUBLIC :: cal_cape_cin
 
 CONTAINS
@@ -807,8 +808,8 @@ CONTAINS
   !! Implemented by Tobias Selz, LMU
   
   SUBROUTINE compute_field_pv(p_patch, p_int_state, p_metrics, p_prog, p_diag, out_var )
-    
-    TYPE(t_patch)        , INTENT(IN)    :: p_patch              !< patch on which computation is performed
+
+    TYPE(t_patch)        , INTENT(INOUT) :: p_patch              !< patch on which computation is performed
     TYPE(t_int_state)    , INTENT(IN)    :: p_int_state
     TYPE(t_nh_metrics)   , INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog)      , INTENT(IN)    :: p_prog                 !< nonhydrostatic state
@@ -1001,78 +1002,106 @@ CONTAINS
 
 
 
+
   !
-  ! - Adds convective increments to qv, qc, qi
-  ! - Adds IAU increment to qv during IAU phase
-  ! - makes sure that increments from advection and/or convection 
-  !   do not result in negative mass fractions. If negative values in qc and/or qi 
-  !   occur, these are clipped. The moisture which is spuriously created by this 
-  !   clipping is substracted from qv.
-  ! - Diagnosis of rain_con, snow_con, tot_prec
+  ! Add IAU increment to qv during IAU phase
+  !
+  ! Add analysis increments from data assimilation to qv
+  !
+  ! Initial revision by Daniel Reinert, DWD (2018-05-18)
+  ! Previously, this code snippet was part of nh_update_tracer_phy
   ! 
-  SUBROUTINE nh_update_tracer_phy( pt_patch, pdtime, pt_diag, p_metrics, prm_nwp_tend, &
-    &                            prm_diag, pt_prog_rcf, pt_prog, jb, i_startidx, i_endidx  )
+  SUBROUTINE iau_update_tracer( pt_prog, p_metrics, pt_diag, pt_prog_rcf, &
+    &                     jg, jb, i_startidx, i_endidx, kend )
 
-    TYPE(t_patch),       INTENT(IN)   :: pt_patch     !< grid/patch info.
-    TYPE(t_nh_diag)     ,INTENT(INOUT):: pt_diag      !<the diagnostic variables
-    TYPE(t_nh_metrics),  INTENT(IN)   :: p_metrics    !< NH metrics variables
-    TYPE(t_nwp_phy_tend),TARGET, INTENT(IN):: prm_nwp_tend   !< atm tend vars
-    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !< the physics variables
-    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
+    TYPE(t_nh_prog)    ,INTENT(IN)   :: pt_prog      !< NH prog state at dynamic time step
+    TYPE(t_nh_metrics) ,INTENT(IN)   :: p_metrics    !< NH metrics variables
+    TYPE(t_nh_diag)    ,INTENT(INOUT):: pt_diag      !< the diagnostic variables
+    TYPE(t_nh_prog)    ,INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
                                                       !< reduced calling frequency
-    TYPE(t_nh_prog),     INTENT(IN)   :: pt_prog      !< NH prog state at dynamic time step
-    REAL(wp),            INTENT(IN)   :: pdtime       !< time step
-    INTEGER,             INTENT(IN)   :: jb           !< block index
-    INTEGER,             INTENT(IN)   :: i_startidx, i_endidx                             
+    INTEGER            ,INTENT(IN)   :: jg           !< domain ID
+    INTEGER            ,INTENT(IN)   :: jb           !< block index
+    INTEGER            ,INTENT(IN)   :: i_startidx   !< hor. start idx
+    INTEGER            ,INTENT(IN)   :: i_endidx     !< hor. end idx
+    INTEGER            ,INTENT(IN)   :: kend         !< vert. end idx
 
-
-    ! Local scalars:
-    INTEGER  :: nlev        !< number of full levels
-    INTEGER  :: jt          !tracers
-    INTEGER  :: jk,jc,jg
-    REAL(wp) :: zqc, zqi, zqcn, zqin
-
-    REAL(wp) :: zrhw(nproma, pt_patch%nlev) ! relative humidity w.r.t. water
-
-    jg = pt_patch%id
-
-    ! number of vertical levels
-    nlev = pt_patch%nlev
+    ! Local variables
+    INTEGER  :: jk,jc
+    REAL(wp) :: zqin
+    REAL(wp) :: zrhw(nproma, kend) ! relative humidity w.r.t. water
 
 
     ! add analysis increments from data assimilation to qv
     !
-    IF (is_iau_active) THEN
+    ! Diagnose pressure and temperature for subsequent calculations
+    CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
+                    jb, i_startidx, i_endidx, 1, kstart_moist(jg), kend)
+    CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, kend)
 
-      ! Diagnose pressure and temperature for subsequent calculations
-      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
-                      jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
-      CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
-
-      ! Compute relative humidity w.r.t. water
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          zrhw(jc,jk) = pt_prog_rcf%tracer(jc,jk,jb,iqv)/qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
-        ENDDO
+    ! Compute relative humidity w.r.t. water
+    DO jk = 1, kend
+      DO jc = i_startidx, i_endidx
+        zrhw(jc,jk) = pt_prog_rcf%tracer(jc,jk,jb,iqv)/qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
       ENDDO
+    ENDDO
 
-      ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
-              pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
-            zqin = MAX(0._vp, pt_diag%qv_incr(jc,jk,jb))
-          ELSE
-            zqin = pt_diag%qv_incr(jc,jk,jb)
-          ENDIF
-          pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv * zqin
-        ENDDO
+    ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
+    DO jk = 1, kend
+      DO jc = i_startidx, i_endidx
+        IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
+          zqin = MAX(0._vp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ELSE
+          zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+        ENDIF
+        pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv * zqin
       ENDDO
-    ENDIF  ! is_iau_active
+    ENDDO
+
+  END SUBROUTINE iau_update_tracer
+
+
+  !
+  ! Add slow-physics tendencies to tracer fields
+  !
+  ! Add slow-physics tendencies to tracer fields. Currently, 
+  ! convection is the only slow-physics routine which provides tracer 
+  ! tendencies.
+  ! In addition, this routine
+  ! - makes sure that increments from advection and/or convection 
+  !   do not result in negative mass fractions. If negative values in qc and/or qi 
+  !   occur, these are clipped. The moisture which is spuriously created by this 
+  !   clipping is substracted from qv.
+  ! - Diagnoses amount of convective rain and snow (rain_con, snow_con), 
+  !   as well as the total precipitation (tot_prec).
+  ! - applies large-scale-forcing tendencies, if ICON is run in single-column-mode.
+  ! 
+  SUBROUTINE tracer_add_phytend( pt_prog, prm_nwp_tend, pdtime, prm_diag, pt_prog_rcf, &
+    &                            pt_diag, p_metrics, jg, jb, i_startidx, i_endidx, kend)
+
+    TYPE(t_nh_prog),     INTENT(IN)   :: pt_prog      !< NH prog state at dynamic time step
+    TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend !< atm tend vars
+    REAL(wp),            INTENT(IN)   :: pdtime       !< time step
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !< the physics variables
+    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
+                                                      !< reduced calling frequency
+    TYPE(t_nh_diag)     ,INTENT(INOUT):: pt_diag      !< the diagnostic variables
+    TYPE(t_nh_metrics),  INTENT(IN)   :: p_metrics    !< NH metrics variables
+    INTEGER             ,INTENT(IN)   :: jg           !< domain ID
+    INTEGER,             INTENT(IN)   :: jb           !< block index
+    INTEGER,             INTENT(IN)   :: i_startidx, i_endidx
+    INTEGER             ,INTENT(IN)   :: kend         !< vertical end index                             
+
+
+    ! Local variables
+    INTEGER  :: jt          !tracers
+    INTEGER  :: jk,jc
+    REAL(wp) :: zqc, zqi, zqcn, zqin
+
 
 
     ! add convective tendency and fix to positive values
-    DO jk = kstart_moist(jg), nlev
+    DO jk = kstart_moist(jg), kend
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
         zqc = pt_prog_rcf%tracer(jc,jk,jb,iqc)+pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)
@@ -1092,7 +1121,7 @@ CONTAINS
 
     ! add convective detrainment tendencies for rain and snow if activated
     IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      DO jk = kstart_moist(jg), nlev
+      DO jk = kstart_moist(jg), kend
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,iqr) = pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
@@ -1106,7 +1135,7 @@ CONTAINS
     IF(lart .AND. art_config(jg)%lart_conv) THEN
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
-        DO jk = 1, nlev
+        DO jk = 1, kend
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
@@ -1119,7 +1148,7 @@ CONTAINS
     ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15)) 
     DO jt=iqr, iqm_max  ! qr,qs,etc. 
-      DO jk = kstart_moist(jg), nlev
+      DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
         ENDDO
@@ -1129,7 +1158,7 @@ CONTAINS
     ! clipping for number concentrations
     IF(ANY((/4,5,6/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
       DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
-        DO jk = kstart_moist(jg), nlev
+        DO jk = kstart_moist(jg), kend
           DO jc = i_startidx, i_endidx
             pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
           ENDDO          
@@ -1139,6 +1168,16 @@ CONTAINS
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 
+#ifdef __INTEL_COMPILER
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+        prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb) + pdtime * prm_diag%rain_con_rate(jc,jb)
+        prm_diag%snow_con(jc,jb) = prm_diag%snow_con(jc,jb) + pdtime * prm_diag%snow_con_rate(jc,jb)
+        !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+        prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb) + pdtime * &
+          &                        (prm_diag%rain_con_rate(jc,jb)+ prm_diag%snow_con_rate(jc,jb))
+      ENDDO
+#else
 !DIR$ IVDEP
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
         &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
@@ -1158,12 +1197,13 @@ CONTAINS
         &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
         &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
+#endif
     ENDIF
 
 
     IF(is_ls_forcing)THEN
       DO jt=1, nqtendphy  ! qv,qc,qi
-        DO jk = kstart_moist(jg), nlev
+        DO jk = kstart_moist(jg), kend
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)    &
@@ -1173,7 +1213,7 @@ CONTAINS
       END DO
     ENDIF  ! is_ls_forcing
 
-  END SUBROUTINE nh_update_tracer_phy
+  END SUBROUTINE tracer_add_phytend
 
 
 

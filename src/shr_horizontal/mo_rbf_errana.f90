@@ -27,9 +27,9 @@ MODULE mo_rbf_errana
   USE mo_parallel_config,      ONLY: nproma
   USE mo_model_domain,         ONLY: t_patch
   USE mo_communication,        ONLY: idx_1d
-  USE mo_math_utilities,       ONLY: t_geographical_coordinates,                 &
-    &                                t_cartesian_coordinates,                    &
-    &                                gc2cc
+  USE mo_math_types,           ONLY: t_geographical_coordinates,                 &
+    &                                t_cartesian_coordinates
+  USE mo_math_utilities,       ONLY: gc2cc
   USE mo_math_utility_solvers, ONLY: solve_chol_v, solve_chol, choldec, choldec_v
 
   IMPLICIT NONE

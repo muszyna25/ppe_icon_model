@@ -26,8 +26,9 @@ MODULE mo_sso_ifs
   USE mo_cuparameters , ONLY :                                     &
     & rg       ,rd      ,rcpd                                     ,&
     & lhook,   dr_hook  ,lphylin, rlpdrag                         ,&
-    & GRFPLM, GKDRAG, GKWAKE, GTENLIM, GRCRIT, GFRCRIT            ,&
-    & GSSEC, GTSEC, GVSEC
+    & GRFPLM, GTENLIM, GSSEC, GTSEC, GVSEC
+
+  USE mo_nwp_parameters,  ONLY: t_phy_params
 
 
   IMPLICIT NONE
@@ -36,10 +37,18 @@ MODULE mo_sso_ifs
 
   PUBLIC :: gwdrag
 
+! Tunable parameters
+! ------------------
+REAL (KIND = JPRB) ::       &
+  Gkdrag                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
+  Gkwake                  , &   ! gw drag constant (set in mo_nwp_tuning_nml)
+  Grcrit                  , &   ! critical Richardson number (set in mo_nwp_tuning_nml)
+  Gfrcrit                       ! critical Froude number (determines depth of blocking layer; set in mo_nwp_tuning_nml)
+
+
 CONTAINS
 
-SUBROUTINE GWDRAG(KIDIA,KFDIA,KLON,KLEV,&
- & NGWDLIM,NGWDTOP,NKTOPG,&
+SUBROUTINE GWDRAG(KIDIA,KFDIA,KLON,KLEV,PARAMS,&
  & PAPHM1,PAPM1,PGEOM1,&
  & PTM1,PUM1,PVM1,&
  & PHSTD,PGAMMA,PTHETA,PSIG,&
@@ -151,9 +160,7 @@ INTEGER(KIND=JPIM),INTENT(IN)    :: KLON
 INTEGER(KIND=JPIM),INTENT(IN)    :: KLEV 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KIDIA 
 INTEGER(KIND=JPIM),INTENT(IN)    :: KFDIA 
-INTEGER(KIND=JPIM),INTENT(IN)    :: NGWDLIM
-INTEGER(KIND=JPIM),INTENT(IN)    :: NGWDTOP
-INTEGER(KIND=JPIM),INTENT(IN)    :: NKTOPG
+TYPE(t_phy_params),INTENT(in)    :: params
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPHM1(KLON,0:KLEV) !note callpar indexing convention 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PAPM1(KLON,KLEV) 
 REAL(KIND=JPRB)   ,INTENT(IN)    :: PGEOM1(KLON,KLEV) 
@@ -235,6 +242,12 @@ DO JL=KIDIA,KFDIA
   ENDIF
 ENDDO
 
+! Set tuning parameters
+  Gkdrag  = params%Gkdrag
+  Gkwake  = params%Gkwake
+  Grcrit  = params%Grcrit
+  Gfrcrit = params%Gfrcrit
+
 !       Constant for surface stress
 
 IF (LPHYLIN) THEN
@@ -252,7 +265,7 @@ CALL GWSETUP &
  & ( KIDIA , KFDIA , KLON  , KLEV , LLGWD,&
  & IKCRITH, ICRIT,&
  & IKENVH,IKNU,IKNU2,&
- & NKTOPG,&
+ & params%NKTOPG,&
  & PAPHM1, PAPM1 , PUM1   , PVM1 , PTM1 , PGEOM1, PHSTD,&
  & ZRHO  , ZRI   , ZSTAB  , ZTAU , ZVPH , ZPSI , ZZDEP,&
  & ZULOW , ZVLOW,&
@@ -305,7 +318,7 @@ ENDDO
 
 ILEVP1=KLEV+1
 
-IKTOP=NGWDTOP
+IKTOP=params%NGWDTOP
 
 DO JK=1,KLEV
 !OCL  VCT(CEX)
@@ -328,7 +341,7 @@ DO JK=1,KLEV
       PSOBETA(JL,JK)=0.0_JPRB
       
 !      LIMIT THE WIND TENDENCIES IN THE STRATOSPHERE (probably not necessary now ?)
-       IF(JK < NGWDLIM) THEN
+       IF(JK < params%NGWDLIM) THEN
         PSOTEU(JL,JK)=SIGN(MIN(ABS(PSOTEU(JL,JK)),REAL(GTENLIM,vp2)),PSOTEU(JL,JK))
         PSOTEV(JL,JK)=SIGN(MIN(ABS(PSOTEV(JL,JK)),REAL(GTENLIM,vp2)),PSOTEV(JL,JK))
        ENDIF

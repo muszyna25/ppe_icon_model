@@ -29,7 +29,9 @@ MODULE mo_exception
   USE mo_io_units, ONLY: nerr, nlog, filename_max
   USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
     & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
-  USE mo_kind,     ONLY: wp
+  USE mo_kind,     ONLY: wp, i8
+  USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
+  
 
   IMPLICIT NONE
 
@@ -51,7 +53,7 @@ MODULE mo_exception
   INTEGER, PARAMETER :: em_param = 4   !< report parameter value
   INTEGER, PARAMETER :: em_debug = 5   !< debugging message
 
-  CHARACTER(len=1000) :: message_text = ''
+  CHARACTER(len=MAX_CHAR_LENGTH) :: message_text = ''
 
   LOGICAL :: l_debug     = .FALSE.
   LOGICAL :: l_log       = .FALSE.
@@ -67,6 +69,7 @@ MODULE mo_exception
   INTERFACE print_value            !< report on a parameter value
     MODULE PROCEDURE print_lvalue  !< logical
     MODULE PROCEDURE print_ivalue  !< integer
+    MODULE PROCEDURE print_i8value !< integer(i8)
     MODULE PROCEDURE print_rvalue  !< real
   END INTERFACE
 
@@ -159,18 +162,12 @@ CONTAINS
 
 #ifdef __INTEL_COMPILER
     CALL tracebackqq
-#else
-#ifdef __xlC__
+#elif defined __xlC__
     CALL xl__trbk
-#else
-#ifdef __SX__
+#elif defined __SX__
     CALL mesput('Traceback: ', 11, 1)
-#else
-#ifndef __STANDALONE
+#elif !defined __STANDALONE
     CALL util_backtrace
-#endif
-#endif
-#endif
 #endif
 
     WRITE (nerr,'(/,80("="),/)')
@@ -222,7 +219,7 @@ CONTAINS
     LOGICAL :: ladjust
     LOGICAL :: lactive
 
-    CHARACTER(len=32) :: prefix
+    CHARACTER(len=8) :: prefix
 
     CHARACTER(len=LEN(message_text)) :: write_text
 
@@ -271,7 +268,7 @@ CONTAINS
       message_text = TRIM(name) // ': ' // TRIM(message_text)
     ENDIF
     IF (ilevel > em_none) THEN
-      message_text = TRIM(prefix) // ' ' // TRIM(message_text)
+      message_text = prefix // ' ' // TRIM(message_text)
     ENDIF
 
     IF (run_is_global_mpi_parallel() .AND. &
@@ -366,6 +363,18 @@ CONTAINS
     CALL message('', message_text, level=em_param)
 
   END SUBROUTINE print_ivalue
+  !-------------
+  !>
+  !!
+  SUBROUTINE print_i8value (mstring, i8value)
+
+    CHARACTER(len=*), intent(in)   :: mstring
+    INTEGER(i8), intent(in)        :: i8value
+
+    WRITE(message_text,'(a60,1x,":",i10)') mstring, i8value
+    CALL message('', message_text, level=em_param)
+
+  END SUBROUTINE print_i8value
   !-------------
   !>
   !!

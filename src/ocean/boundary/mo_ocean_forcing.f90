@@ -54,12 +54,13 @@ MODULE mo_ocean_forcing
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_nudging,       ONLY: ocean_nudge
   USE mo_dynamics_config,     ONLY: nold
 
   USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_var_list,            ONLY: add_var, add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_cf_convention
   USE mo_grib2
@@ -813,13 +814,13 @@ CONTAINS
     END IF
 
     IF (type_3dimRelax_Temp >= 3) THEN
-      ocean_state%p_aux%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+      ocean_nudge%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
       SELECT CASE (type_3dimRelax_Temp)
       CASE (4)
         ! 3D-relax the north and south boundary
         CALL init_3Drelax_coefficient_NS_boundaries( &
           & patch_3D = patch_3d, &
-          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & relax_coefficient=ocean_nudge%relax_3dim_coefficient, &
           & SouthBoundary=basin_SouthBoundary, &
           & NorthBoundary=basin_NorthBoundary, &
           & relaxWidth=relax_width * deg2rad)
@@ -828,7 +829,7 @@ CONTAINS
         ! 3D-relax the north boundary (Abernathey)
         CALL init_3Drelax_coefficient_NS_boundaries( &
           & patch_3D = patch_3d, &
-          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & relax_coefficient=ocean_nudge%relax_3dim_coefficient, &
           & NorthBoundary=basin_NorthBoundary, &
           & relaxWidth=relax_width * deg2rad)
 
@@ -837,15 +838,15 @@ CONTAINS
         ! but with explicit relaxation temperature (Abernathey)
         CALL init_3Drelax_coefficient_NS_boundaries( &
           & patch_3D = patch_3d, &
-          & relax_coefficient=ocean_state%p_aux%relax_3dim_coefficient, &
+          & relax_coefficient=ocean_nudge%relax_3dim_coefficient, &
           & NorthBoundary=basin_NorthBoundary, &
           & relaxWidth=relax_width * deg2rad)
 
-        CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_state%p_aux%data_3dimRelax_Temp, &
+        CALL tracer_ConstantSurface(patch_3d=patch_3d, ocean_tracer=ocean_nudge%data_3dimRelax_Temp, &
           & top_value=initial_temperature_north)
 
         CALL varyTracerVerticallyExponentially(patch_3d=patch_3d, &
-          & ocean_tracer=ocean_state%p_aux%data_3dimRelax_Temp,   &
+          & ocean_tracer=ocean_nudge%data_3dimRelax_Temp,   &
           & bottom_value=initial_temperature_bottom,              &
           & scale_depth=1000.0_wp)
 
@@ -854,7 +855,7 @@ CONTAINS
     END IF
     IF (type_3dimRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
-        ocean_state%p_aux%data_3dimRelax_Salt(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+        ocean_nudge%data_3dimRelax_Salt(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
       ELSE
         CALL finish(TRIM(routine),' type_3dimRelax_Salt=3 and no_tracer<2 - ABORT')
       END IF

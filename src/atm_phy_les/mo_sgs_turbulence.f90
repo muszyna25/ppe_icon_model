@@ -88,7 +88,7 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion(p_sim_time, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
@@ -96,7 +96,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state
     TYPE(t_nh_diag),   INTENT(inout)     :: p_nh_diag     !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
-    TYPE(t_patch),     INTENT(in),TARGET :: p_patch       !< single patch
+    TYPE(t_patch),  INTENT(inout),TARGET :: p_patch       !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int         !< single interpolation state
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state
     TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_new!<land prog state
@@ -104,6 +104,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
+    REAL(wp),          INTENT(in)        :: p_sim_time    !current sim time
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
@@ -181,7 +182,7 @@ MODULE mo_sgs_turbulence
 
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
-                            p_nh_prog%tracer(:,:,:,iqv))
+                            p_nh_prog%tracer(:,:,:,iqv), p_sim_time)
 
     !Calculate Brunt Vaisala Frequency
     CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
@@ -248,7 +249,7 @@ MODULE mo_sgs_turbulence
   SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
                                prm_diag)
 
-    TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
+    TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog  !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
@@ -663,7 +664,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog    !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_patch), TARGET, INTENT(in)    :: p_patch      !< single patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
     TYPE(t_nwp_phy_diag),INTENT(inout)   :: prm_diag     !< atm phys vars
     REAL(wp),   TARGET, INTENT(inout)    :: ddt_u(:,:,:) !< u tendency
@@ -1213,7 +1214,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog    !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
-    TYPE(t_patch), TARGET, INTENT(in)    :: p_patch      !< single patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
     REAL(wp),          INTENT(in)        :: visc_smag_ic(:,:,:)
     REAL(wp),   TARGET, INTENT(inout)    :: ddt_w(:,:,:) !< w tendency

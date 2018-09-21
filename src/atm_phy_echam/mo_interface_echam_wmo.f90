@@ -20,8 +20,6 @@
 
 MODULE mo_interface_echam_wmo
 
-  USE mo_kind                ,ONLY: wp
-
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field
 
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_wmo
@@ -65,7 +63,7 @@ CONTAINS
     !
     lresum=.FALSE.
     !
-    CALL WMO_tropopause( jce, nproma, nlev,         &! in
+    CALL WMO_tropopause( jcs, jce, nproma, nlev,   &! in
                        & ncctop, nccbot, lresum,   &! in
                        & field% ta(:,:,jb),        &! in
                        & field% presm_old(:,:,jb), &! in

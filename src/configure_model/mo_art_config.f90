@@ -72,9 +72,8 @@ MODULE mo_art_config
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    INTEGER :: iart_psc                !< integer which indicates how to compute PSCs (0: no PSCs, 1: climatology, 2: online)
-    CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
+    INTEGER :: iart_psc                !< integer which indicates how to compute PSCs 
+                                       !  (0: no PSCs, >0: compute PSCs (for the moment)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -96,6 +95,11 @@ MODULE mo_art_config
       &  cart_pntSrc_xml              !< Path to XML file for point sources
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_diagnostics_xml         !< Path to XML file for aerosol diagnostics (GRIB2 meta data)
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_ext_data_xml            !< Path to XML file with metadata of
+                                      !  datasets which can prescribe tracers
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
