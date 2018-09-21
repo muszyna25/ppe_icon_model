@@ -774,11 +774,10 @@ CONTAINS
     ! Loop over the output namelists and create a union set of
     ! all requested vertical levels (per domain):
     p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      n_dom_out = n_dom
-      IF(l_output_phys_patch)  n_dom_out = n_phys_dom
+    n_dom_out = MERGE(n_phys_dom, n_dom, l_output_phys_patch)
+
+    DO WHILE (ASSOCIATED(p_onl))
 
       DO jp = 1, n_dom_out
         ! append the chosen p-levels, z-levels, i-levels
