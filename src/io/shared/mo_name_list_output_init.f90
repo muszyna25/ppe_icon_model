@@ -3064,26 +3064,23 @@ CONTAINS
 
         ! Insert elements into var list
 
-        p_var_list%p%first_list_element => NULL()
-        element => NULL() ! Safety only
-
+        IF (nelems >= 1) THEN
+          ALLOCATE(p_var_list%p%first_list_element)
+          element => p_var_list%p%first_list_element
+        ELSE
+          NULLIFY(p_var_list%p%first_list_element)
+        END IF
         DO n = 1, nelems
-          IF(.NOT.ASSOCIATED(p_var_list%p%first_list_element)) THEN
-            ALLOCATE(p_var_list%p%first_list_element)
-            element => p_var_list%p%first_list_element
-          ELSE
+          IF(n > 1) THEN
             ALLOCATE(element%next_list_element)
             element => element%next_list_element
           ENDIF
 
-          element%next_list_element => NULL()
+          NULLIFY(element%next_list_element)
 
           ! Nullify all pointers in element%field, they don't make sense on the I/O PEs
-
-          element%field%r_ptr => NULL()
-          element%field%s_ptr => NULL()
-          element%field%i_ptr => NULL()
-          element%field%l_ptr => NULL()
+          NULLIFY(element%field%r_ptr, element%field%s_ptr, &
+               element%field%i_ptr, element%field%l_ptr)
           element%field%var_base_size = 0 ! Unknown here
 
           ! Set info structure from binary representation in info_storage
