@@ -2769,10 +2769,9 @@ CONTAINS
 
     ! generate the CDI IDs for the vertical axes in the list
     it => of%verticalAxisList
-    DO
+    DO WHILE (ASSOCIATED(it))
       IF (.NOT. ASSOCIATED(it%axis)) CALL finish(routine, "Internal error!")
       CALL it%axis%cdiZaxisCreate()
-      IF (.NOT. ASSOCIATED(it%next))  EXIT
       it => it%next
     END DO
 
