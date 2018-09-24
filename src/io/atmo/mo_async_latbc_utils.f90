@@ -1616,15 +1616,18 @@
       CHARACTER (LEN=*),   INTENT(IN) :: name !< variable name
       ! local variables
       LOGICAL, PARAMETER :: ldebug = .FALSE.
-      INTEGER :: result_varID, varID
+      INTEGER :: result_varID, varID, nvars
+      CHARACTER(len=len(name)) :: name_lc
 
       IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
 
       result_varID = -1
+      nvars = latbc%buffer%ngrp_vars
+      if (nvars >= 1) name_lc = tolower(name)
       ! looping over variable list in internal name
-      LOOP : DO varID=1, latbc%buffer%ngrp_vars
+      LOOP : DO varID=1, nvars
         IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-        IF (tolower(name) == tolower(latbc%buffer%internal_name(varID))) THEN
+        IF (name_lc == tolower(latbc%buffer%internal_name(varID))) THEN
           result_varID = varID
           EXIT LOOP
         END IF
