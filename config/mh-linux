@@ -530,7 +530,7 @@ case "$ac_sitename" in
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
                                 HDF5ROOT      = ${EBROOTHDF5}
                                 LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB    = -lsci_gnu
+                                LAPACK_LIB    = -lsci_cray
                                 OTHER_LIBS    = -lpthread
                                 ;;
                             *)
