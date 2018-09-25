@@ -591,7 +591,6 @@ END SUBROUTINE pressure_index
 
     REAL(wp), POINTER             :: var_solar(:,:,:), var_thermal(:,:,:)
 
-    ALLOCATE(var_solar(1:nbndsw,1:lev_clim,1:lat_clim+2), var_thermal(1:nbndlw,1:lev_clim,1:lat_clim+2))
     SELECT CASE (TRIM(cvar))
     CASE ('ext')
       var_solar => ext_v_s(:,:,:,time_step)
