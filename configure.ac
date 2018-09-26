@@ -110,7 +110,7 @@ AC_ARG_ENABLE([psrad],
 
 AC_ARG_ENABLE([mixed],
               AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
-              [],[enable_mixed=yes])
+              [],[enable_mixed=no])
 
 dnl ######################################################################
 dnl Serialbox2 serialization setup
