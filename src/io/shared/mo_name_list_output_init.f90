@@ -457,11 +457,12 @@ CONTAINS
         ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
         SELECT CASE(output_time_unit)
         CASE(1); output_bounds(:) = output_bounds(:)
-        CASE(2); output_bounds(:) = output_bounds(:)*60._wp
-        CASE(3); output_bounds(:) = output_bounds(:)*3600._wp
-        CASE(4); output_bounds(:) = output_bounds(:)*86400._wp
-        CASE(5); output_bounds(:) = output_bounds(:)*86400._wp*30._wp  ! Not a real calender month
-        CASE(6); output_bounds(:) = output_bounds(:)*86400._wp*365._wp ! Not a real calender year
+        ! Note: output_bounds == -1 is used later on to check for valid entries
+        CASE(2); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*60._wp
+        CASE(3); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*3600._wp
+        CASE(4); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp
+        CASE(5); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp*365._wp ! Not a real calender year
         CASE DEFAULT
           CALL finish(routine,'Illegal output_time_unit')
         END SELECT
