@@ -572,12 +572,12 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules  = git/2.14.1 PrgEnv-pgi pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                load_modules  = git/2.14.1 PrgEnv-pgi/17.10 pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
                                 NETCDFROOT    = ${NETCDF_ROOT}
                                 HDF5ROOT      = ${NETCDF_ROOT}
                                 ;;
                             gpu*)
-                                load_modules  = git/2.14.1 PrgEnv-pgi pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                load_modules  = git/2.14.1 PrgEnv-pgi/17.10 pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
                                 NETCDFROOT    = ${NETCDF_ROOT}
                                 HDF5ROOT      = ${NETCDF_ROOT}
                                 ;;
