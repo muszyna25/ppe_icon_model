@@ -530,8 +530,6 @@ END SUBROUTINE pressure_index
     &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov(zvar3d(:,:,:,1), asy_v_s(:,:,:,ktime_step))
   CALL read_1D(file_id=ifile_id, variable_name=clev_dim, return_pointer=zpmid)
-! convert pressure into Pa from hPa
-  zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
   CALL read_1D(file_id=ifile_id, variable_name=clat_dim, return_pointer=zlat)
   IF (SIZE(zlat)/=lat_clim) THEN
@@ -637,12 +635,15 @@ END SUBROUTINE pressure_index
     REAL(wp), INTENT(inout)        :: p_pmid(lev_clim)
 
     INTEGER                        :: jk
+    REAL(wp) :: accum
 
-    p_pmid(1:lev_clim)=p_pmid(lev_clim:1:-1)
-    p_lim_clim(1)=0.0_wp
-    DO jk=2,lev_clim+1
-      p_lim_clim(jk)=2.0_wp*p_pmid(jk-1)-p_lim_clim(jk-1)
+    accum = 0.0_wp
+    DO jk=1,lev_clim
+      p_lim_clim(jk) = accum
+      ! convert pressure into Pa from hPa
+      accum = 2.0_wp*100._wp*p_pmid(lev_clim+1-jk) - accum
     END DO
+    p_lim_clim(lev_clim+1) = accum
 
   END SUBROUTINE p_lim_stenchikov
     
