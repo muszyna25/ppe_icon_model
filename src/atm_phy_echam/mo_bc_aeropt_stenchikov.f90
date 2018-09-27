@@ -513,6 +513,7 @@ END SUBROUTINE pressure_index
          &                 start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov(zvar2d(:,:,1), &
        &                  aod_v_s(:,:,ktime_step), aod_v_t(:,:,ktime_step))
+  DEALLOCATE(zvar2d)
   cdim_names(4)=cdim_names(3)
   cdim_names(3)=clev_dim
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='exts', &
@@ -521,16 +522,18 @@ END SUBROUTINE pressure_index
   CALL reorder_stenchikov(zvar3d(:,:,:,1), &
        &                  ext_v_s(:,:,:,ktime_step), ext_v_t(:,:,:,ktime_step))
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='omega', &
-    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             fill_array=zvar3d, dim_names=cdim_names, &
     &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov(zvar3d(:,:,:,1), &
        &                  ssa_v_s(:,:,:,ktime_step), ssa_v_t(:,:,:,ktime_step))
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='asymm', &
-    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             fill_array=zvar3d, dim_names=cdim_names, &
     &                             start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov(zvar3d(:,:,:,1), asy_v_s(:,:,:,ktime_step))
+  DEALLOCATE(zvar3d)
   CALL read_1D(file_id=ifile_id, variable_name=clev_dim, return_pointer=zpmid)
   CALL p_lim_stenchikov(zpmid)
+  DEALLOCATE(zpmid)
   CALL read_1D(file_id=ifile_id, variable_name=clat_dim, return_pointer=zlat)
   IF (SIZE(zlat)/=lat_clim) THEN
     WRITE(ci_length,*) SIZE(zlat)
@@ -544,7 +547,7 @@ END SUBROUTINE pressure_index
   r_lat_clim(lat_clim+1)=-pi_2
   r_lat_shift=r_lat_clim(1)                      ! this is the value at the N-pole (so +89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
-  DEALLOCATE(zpmid,zlat,zvar2d,zvar3d)
+  DEALLOCATE(zlat)
   CALL closeFile(ifile_id)
   END SUBROUTINE read_months_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
