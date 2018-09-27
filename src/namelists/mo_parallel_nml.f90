@@ -63,6 +63,7 @@ MODULE mo_parallel_nml
     & config_num_dist_array_replicas => num_dist_array_replicas, &
     & config_io_process_stride => io_process_stride,          &
     & config_io_process_rotate => io_process_rotate,          &
+    & comm_pattern_type_orig,                                 &
     & config_default_comm_pattern_type => default_comm_pattern_type
 
   IMPLICIT NONE
@@ -287,7 +288,7 @@ MODULE mo_parallel_nml
 
     io_process_stride = -1
     io_process_rotate = 0
-    default_comm_pattern_type = 1
+    default_comm_pattern_type = comm_pattern_type_orig
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
