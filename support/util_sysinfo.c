@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
+#ifdef HAVE_LINK_H
 #include <link.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,6 +166,7 @@ static int dump_dl(struct dl_phdr_info *info, size_t size, void *data)
 {
 	FILE *f = (FILE *)data;
 
+#ifdef HAVE_LINK_H
 	fprintf(f, "%s: dlpi_addr = 0x%016lx\n", info->dlpi_name,
 		(unsigned long)info->dlpi_addr);
 
@@ -177,6 +180,7 @@ static int dump_dl(struct dl_phdr_info *info, size_t size, void *data)
 			(unsigned long)phdr->p_paddr,
 			(unsigned long)phdr->p_memsz);
 	}
+#endif
 
 	return 0;
 }
