@@ -582,22 +582,49 @@ END SUBROUTINE pressure_index
     REAL(wp), INTENT(out)           :: var_solar(:,:,:)
     REAL(wp), OPTIONAL, INTENT(out) :: var_thermal(:,:,:)
 
+    INTEGER :: ibnd, ilev, ilat, nbnd
     ! attention: the indices of var_solar and var_thermal are (1:nbnd{sw,lw},1:lev_clim,1:lat_clim+2)
-    var_solar(1:nbndsw-1,1:lev_clim,2:lat_clim+1)= &
-      RESHAPE(pvar(nbndsw-1:1:-1,lat_clim:1:-1,lev_clim:1:-1), &
-              (/nbndsw-1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-    var_solar(nbndsw:nbndsw,1:lev_clim,2:lat_clim+1)= &
-      RESHAPE(pvar(nbndsw,lat_clim:1:-1,lev_clim:1:-1),(/1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-    var_solar(1:nbndsw,1:lev_clim,1)=var_solar(1:nbndsw,1:lev_clim,1)
-    var_solar(1:nbndsw,1:lev_clim,lat_clim+2)=var_solar(1:nbndsw,1:lev_clim,lat_clim)
+    DO ilat = 2, lat_clim+1
+      DO ilev = 1, lev_clim
+        DO ibnd = 1, nbndsw-1
+          var_solar(ibnd, ilev, ilat) = &
+               pvar(nbndsw-ibnd, lat_clim+2-ilat, lev_clim+1-ilev)
+        END DO
+        var_solar(nbndsw, ilev, ilat) = &
+             pvar(nbndsw, lat_clim+2-ilat, lev_clim+1-ilev)
+      END DO
+    END DO
+    DO ilev = 1, lev_clim
+      DO ibnd = 1, nbndsw
+        ! this assignment probably is in error and should use 3rd index = 2 on the rhs
+        ! var_solar(ibnd, ilev,          1) = var_solar(ibnd, ilev,        1)
+!        var_solar(ibnd, ilev,          1) = 0.0_wp
+        var_solar(ibnd, ilev, lat_clim+2) = var_solar(ibnd, ilev, lat_clim)
+      END DO
+    END DO
+
     IF (PRESENT(var_thermal)) THEN
-      var_thermal(1:nbndlw-1,1:lev_clim,2:lat_clim+1)= &
-        RESHAPE(pvar(nbndsw+nbndlw:nbndsw+2:-1,lat_clim:1:-1,lev_clim:1:-1), &
-                (/nbndlw-1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-      var_thermal(nbndlw:nbndlw,1:lev_clim,2:lat_clim+1)= &
-        RESHAPE(pvar(nbndsw-1,lat_clim:1:-1,lev_clim:1:-1),(/1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-      var_thermal(1:nbndlw,1:lev_clim,1)=var_thermal(1:nbndlw,1:lev_clim,1)
-      var_thermal(1:nbndlw,1:lev_clim,lat_clim+2)=var_thermal(1:nbndlw,1:lev_clim,lat_clim)
+      nbnd = nbndsw+nbndlw
+      DO ilat = 2, lat_clim+1
+        DO ilev = 1, lev_clim
+          DO ibnd = 1, nbndlw-1
+            var_thermal(ibnd, ilev, ilat) = &
+                 pvar(nbnd+1-ibnd, lat_clim+2-ilat, lev_clim+1-ilev)
+          END DO
+          ! this should probably be nbndsw+1 as first index of the rhs
+          var_thermal(nbndlw, ilev, ilat) = &
+               pvar(nbndsw-1, lat_clim+2-ilat, lev_clim+1-ilev)
+        END DO
+      END DO
+      DO ilev = 1, lev_clim
+        DO ibnd = 1, nbndlw
+          ! this assignment probably is in error and should use 3rd index = 2 on the rhs
+          !var_thermal(ibnd, ilev,          1) = var_thermal(ibnd, ilev,        1)
+!          var_thermal(ibnd, ilev,          1) = 0.0_wp
+          var_thermal(ibnd, ilev, lat_clim+2) = var_thermal(ibnd, ilev, lat_clim)
+        END DO
+      END DO
+
     END IF
   END SUBROUTINE reorder_stenchikov_3d
 
