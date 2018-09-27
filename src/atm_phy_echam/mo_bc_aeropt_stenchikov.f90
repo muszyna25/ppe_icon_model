@@ -21,7 +21,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_kind,                   ONLY: wp, i8
   USE mo_model_domain,           ONLY: t_patch
   USE mo_psrad_general,          ONLY: nbndlw, nbndsw
-  USE mo_exception,              ONLY: finish
+  USE mo_exception,              ONLY: finish, message_text
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
@@ -475,7 +475,7 @@ END SUBROUTINE pressure_index
   INTEGER, INTENT(in)            :: ktime_step   ! month that has to be set by new data
 
   CHARACTER(len=256)             :: cfname   ! file name containing variables
-  CHARACTER(len=32)              :: ckmonth,ckyear,ci_length,cj_length
+  CHARACTER(len=32)              :: ckmonth,ckyear
   CHARACTER(len=256)             :: cdim_names(4)
 
 !!$  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
@@ -536,11 +536,10 @@ END SUBROUTINE pressure_index
   DEALLOCATE(zpmid)
   CALL read_1D(file_id=ifile_id, variable_name=clat_dim, return_pointer=zlat)
   IF (SIZE(zlat)/=lat_clim) THEN
-    WRITE(ci_length,*) SIZE(zlat)
-    WRITE(cj_length,*) lat_clim
-    CALL finish ('read_months_bc_aeropt_stenchikov of mo_bc_aeropt_stenchikov','lat_clim= '// &
-                 TRIM(ADJUSTL(cj_length))//' expected but found '//TRIM(ADJUSTL(ci_length))// &
-                 ' elements.')
+    WRITE(message_text, '(a,i0,a,i0,a)') 'lat_clim= ', lat_clim, &
+         ' expected but found ', SIZE(zlat), ' elements.'
+    CALL finish('read_months_bc_aeropt_stenchikov of mo_bc_aeropt_stenchikov', &
+         message_text)
   END IF
   r_lat_clim(1:lat_clim)=zlat(lat_clim:1:-1)*deg2rad
   r_lat_clim(0)=0.0_wp
