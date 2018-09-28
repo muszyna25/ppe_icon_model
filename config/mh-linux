@@ -339,18 +339,18 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu PrgEnv-pgi cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = daint-gpu PrgEnv-pgi eniac/pgi-18.7 cray-netcdf cray-hdf5
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
-                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB  = -lsci_cray
+                                LAPACKROOT  = /apps/common/UES/pgi/18.7/linux86-64/18.7
+                                LAPACK_LIB  = -llapack
                                 ;;
                             gpu*)
-                                load_modules = daint-gpu PrgEnv-pgi cray-netcdf cray-hdf5 cudatoolkit
+                                load_modules = daint-gpu PrgEnv-pgi eniac/pgi-18.7 cray-netcdf cray-hdf5 cudatoolkit
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
-                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB  = -lsci_cray
+                                LAPACKROOT  = /apps/common/UES/pgi/18.7/linux86-64/18.7
+                                LAPACK_LIB  = -llapack
                                 ;;
                             *)
                                 (>&6 echo "")
