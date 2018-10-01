@@ -103,7 +103,7 @@ cat > ${ocean_namelist} << EOF
   output_filename  = "${EXPNAME}_fx"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${start_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  output_interval  = "${monthly}"         ! interval in ISO-format
   filename_format  = "<output_filename>"
   file_interval    = "P100Y"
   output_grid      = .TRUE.
