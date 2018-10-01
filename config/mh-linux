@@ -864,7 +864,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de|fz-juelich.de|*jureca*)
+    kfa-juelich.de|fz-juelich.de|*jureca*|*juwels*)
         case "$(hostname)" in
             jrl*)
                 NETCDFROOT    = $EBROOTNETCDF
@@ -899,6 +899,21 @@ case "$ac_sitename" in
                 make_command=make -j8
                 submit=llsubmit
                 mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
+                ;;
+            juwels*)
+				XML2ROOT    = /gpfs/homea/hka21/hka211/xml2
+                NETCDFROOT    = $EBROOTNETCDF
+                NETCDFLIBPATH = $NETCDFROOT/lib64
+                NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN
+                HDF5ROOT      = $EBROOTHDF5
+                SZIPROOT      = $EBROOTSZIP
+                ZLIBROOT      = $EBROOTZLIB
+                MPIROOT       = $EBROOTPSMPI
+                MPI_LIB       = -L$MPIROOT/lib -lmpi -lmpifort
+                config_target = jureca
+                make_command  = make -j8
+                submit        = sbatch
+                mpi_startrun  = srun
                 ;;
         esac
         ;;
