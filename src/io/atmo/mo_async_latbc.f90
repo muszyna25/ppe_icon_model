@@ -560,7 +560,7 @@ MODULE mo_async_latbc
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
       INTEGER                       :: ierrstat, ic, idx_c, blk_c
       INTEGER                       :: tlen
-      LOGICAL                       :: is_pref
+      LOGICAL                       :: is_pref, is_work
 
       ! bcast_root is not used in this case
       bcast_root = 0
@@ -568,6 +568,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
 
       is_pref = my_process_is_pref()
+      is_work = my_process_is_work()
       ! Set broadcast root for intercommunicator broadcasts
       IF (is_pref) THEN
          ! Root is proc 0 on the prefetch PE
@@ -589,7 +590,7 @@ MODULE mo_async_latbc
 
       ! open and read file containing information of prefetch variables
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
-      IF( my_process_is_work() ) THEN
+      IF (is_work) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
       ELSE IF ( my_process_is_pref() ) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
@@ -650,16 +651,14 @@ MODULE mo_async_latbc
           &                    latbc%global_index%n_patch_edges_g, GRID_UNSTRUCTURED_EDGE)
 
         ! status output
-        IF (my_process_is_pref()) THEN
+        IF (is_pref) THEN
           WRITE (0,'(3a,i0,a,i0,a)') &
             &   " ", routine, ": prefetching PE reads ", latbc%global_index%n_patch_cells_g, &
             &   " cells and ", latbc%global_index%n_patch_edges_g, " edges."
           WRITE (0,'(3a,i0,a,i0,a)')      &
             &   " ", routine, ": ", COUNT(.NOT. latbc%patch_data%edges%pe_skip), " of ", num_work_procs, &
             &   " worker PEs are involved in the LATBC read-in."
-        END IF
-
-        IF (.NOT. my_process_is_pref()) THEN
+        ELSE
           ! consistency check: test if all nudging points are filled by
           ! the LATBC read-in
           DO ic=1,p_nh_state(1)%metrics%nudge_c_dim
@@ -679,7 +678,7 @@ MODULE mo_async_latbc
       END IF ! lsparse_latbc
 
       ! allocate input data for lateral boundary nudging
-      IF( my_process_is_work()) THEN
+      IF (is_work) THEN
         CALL compute_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
           &                          latbc%new_latbc_tlev)
       ELSE IF (is_pref) THEN
