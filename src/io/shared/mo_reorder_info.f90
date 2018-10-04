@@ -112,13 +112,11 @@ CONTAINS
          retained_occupation_mask(:)
 
     INTEGER :: n_points, i, il, n, group_comm_size
-    INTEGER :: nocc, ierror
-    INTEGER(i8) :: pos, apos, bpos
+    INTEGER :: ierror
     INTEGER, ALLOCATABLE :: glbidx_own(:), permutation(:), occ_pfxsum(:), &
          buf(:)
     INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
-    INTEGER(i8) :: occ_temp, occ_accum
-    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occ_temp)
+    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occupation_mask)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_data"
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist) :: idxvec
@@ -172,46 +170,25 @@ CONTAINS
     ! todo: occupation_mask is still a global size array but only uses one bit
     ! per grid cell, i.e. decomposition makes sense but takes additional coding
     ! effort
-    nocc = (INT(n_points_g, i8) + nbits_i8 - 1_i8) / nbits_i8
-    ALLOCATE(occupation_mask(0:INT(nocc-1_i8)))
-    occupation_mask = 0_i8
-    DO i = 1, ri%n_own
-      pos = INT(glbidx_own(i), i8)
-      apos = (pos - 1_i8)/nbits_i8
-      bpos = MOD(pos - 1_i8, nbits_i8)
-      occupation_mask(apos) = IBSET(occupation_mask(apos), bpos)
-    END DO
+    CALL indices2occmask(occupation_mask, n_points_g, ri%n_own, glbidx_own)
 #ifndef NOMPI
-    CALL mpi_allreduce(mpi_in_place, occupation_mask, INT(nocc), p_int_i8, &
-      &                mpi_bor, group_comm, ierror)
+    ! 2. reduce occupation over all ranks in group_comm
+    CALL mpi_allreduce(mpi_in_place, occupation_mask, SIZE(occupation_mask), &
+      &                p_int_i8, mpi_bor, group_comm, ierror)
     IF (ierror /= MPI_SUCCESS) CALL finish(routine, 'mpi_allreduce failed')
 #endif
 
-    ! now compute number of bits set in preceding entries of occupation_mask.
+    ! 3. now compute number of bits set in preceding entries of occupation_mask.
     ! After the following loop, occ_pfxsum(i) equals the number of set bits
     ! (i.e. number of global indices used in output) contained in
     ! occupation_mask(0:i-1)
-    ALLOCATE(occ_pfxsum(0:INT(nocc-1)))
-    occ_accum = 0
-    DO i = 0, INT(nocc-1)
-      occ_pfxsum(i) = INT(occ_accum)
-      occ_temp = POPCNT(occupation_mask(i))
-      occ_accum = occ_accum + occ_temp
-    END DO
-    IF (occ_accum /= ri%n_glb) THEN
-      WRITE (message_text, '(2(a,i0))') 'Bit-counting failed: n=', occ_accum, &
-           & ' /= ri%n_glb=', ri%n_glb
-      CALL finish(routine,TRIM(message_text))
-    ENDIF
-    ! given the above two arrays, one can now compute for each global index its
-    ! position in the output array in O(1)
-    DO i = 1, ri%n_own
-      pos = INT(glbidx_own(i), i8)
-      apos = (pos - 1_i8)/nbits_i8
-      bpos = MOD(pos - 1_i8, nbits_i8)
-      occ_accum = IAND(ISHFT(1_i8, bpos) - 1_i8, occupation_mask(apos))
-      ri%reorder_index_own(i) = occ_pfxsum(apos) + POPCNT(occ_accum)
-    END DO
+    CALL occmask_pfxsum(occ_pfxsum, occupation_mask, ri%n_glb)
+    ! 4. given the above two arrays, one can now compute for each
+    ! global index its position in the output array in O(1) note: this
+    ! routine produces 0-based indices because that's what's needed
+    ! for CDI-PIO
+    CALL glb_idx2reorder_idx(ri%reorder_index_own, glbidx_own(1:ri%n_own), &
+         occ_pfxsum, occupation_mask)
 #ifdef HAVE_CDI_PIO
     ALLOCATE(ri%reorder_idxlst_xt(1))
     idxvec = xt_idxvec_new(int(ri%reorder_index_own, xt_int_kind))
@@ -228,6 +205,77 @@ CONTAINS
       DEALLOCATE(occupation_mask)
     END IF
   END SUBROUTINE mask2reorder_info
+
+  !> create bmask(0:nocc-1) such that bits 0..n_points_g-1 can be
+  !! represented and given an array of indices, for each pos in indices,
+  !! set the corresponding bit pos-1 in bmask while all other bits are unset
+  SUBROUTINE indices2occmask(bmask, n_points_g, nidx, indices)
+    INTEGER(i8), ALLOCATABLE, INTENT(out) :: bmask(:)
+    INTEGER, INTENT(in) :: n_points_g, nidx, indices(nidx)
+    INTEGER(i8) :: pos, apos, bpos
+    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(pos)
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::indices2occmask"
+    INTEGER :: i, n, nocc
+    n = nidx
+    nocc = INT((INT(n_points_g, i8) + nbits_i8 - 1_i8) / nbits_i8)
+    ALLOCATE(bmask(0:nocc-1))
+    bmask = 0_i8
+    DO i = 1, n
+      pos = INT(indices(i), i8)
+      apos = (pos - 1_i8)/nbits_i8
+      bpos = MOD(pos - 1_i8, nbits_i8)
+      bmask(apos) = IBSET(bmask(apos), bpos)
+    END DO
+  END SUBROUTINE indices2occmask
+
+  !> given a bit-mask bmask(0:nocc-1), compute for each entry i the sum over the
+  !! number of bits set in bmask(0:i-1) and store in pfxsum(i)
+  SUBROUTINE occmask_pfxsum(pfxsum, bmask, n_glb)
+    INTEGER, ALLOCATABLE, INTENT(out) :: pfxsum(:)
+    INTEGER(i8), INTENT(in) :: bmask(0:)
+    INTEGER, INTENT(in) :: n_glb ! number of bits set in total
+#ifdef USE_CONTIGUOUS
+    CONTIGUOUS :: bmask
+#endif
+    INTEGER(i8) :: occ_temp, occ_accum
+    INTEGER :: i, nocc, ub
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::occmask_pfxsum'
+
+    nocc = SIZE(bmask)
+    ub = nocc-1
+    ALLOCATE(pfxsum(0:ub))
+    occ_accum = 0_i8
+    DO i = 0, ub
+      pfxsum(i) = INT(occ_accum)
+      occ_temp = POPCNT(bmask(i))
+      occ_accum = occ_accum + occ_temp
+    END DO
+    IF (occ_accum /= INT(n_glb, i8)) THEN
+      WRITE (message_text, '(2(a,i0))') 'Bit-counting failed: n=', occ_accum, &
+           & ' /= n_glb=', n_glb
+      CALL finish(routine,TRIM(message_text))
+    ENDIF
+  END SUBROUTINE occmask_pfxsum
+
+  SUBROUTINE glb_idx2reorder_idx(reorder_index, glbidx, pfxsum, bmask)
+    INTEGER, INTENT(out) :: reorder_index(:)
+    INTEGER, INTENT(in) :: glbidx(:), pfxsum(0:)
+    INTEGER(i8), INTENT(in) :: bmask(0:)
+#ifdef USE_CONTIGUOUS
+    CONTIGUOUS :: reorder_index, glbidx, pfxsum, bmask
+#endif
+    INTEGER(i8) :: pos, apos, bpos, occ_accum
+    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(pos)
+    INTEGER :: i, n
+    n = SIZE(glbidx)
+    DO i = 1, n
+      pos = INT(glbidx(i), i8)
+      apos = (pos - 1_i8)/nbits_i8
+      bpos = MOD(pos - 1_i8, nbits_i8)
+      occ_accum = IAND(ISHFT(1_i8, bpos) - 1_i8, bmask(apos))
+      reorder_index(i) = pfxsum(apos) + POPCNT(occ_accum)
+    END DO
+  END SUBROUTINE glb_idx2reorder_idx
 
   SUBROUTINE permute(a, permutation, a_perm)
     INTEGER, ALLOCATABLE, INTENT(inout) :: a(:)
