@@ -186,7 +186,7 @@
            IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
          ENDIF
 
-        ! initialize validity dates with dymmy values
+        ! initialize validity dates with dummy values
         latbc%latbc_data(tlev)%vDateTime = dummyDateTime()
 
         ! initialize with zero to simplify implementation of sparse lateral boundary condition mode
@@ -853,6 +853,9 @@
 
       ! Reading the next time step
       IF (my_process_is_work()) CALL compute_start_async_pref()
+
+      ! get validity DateTime of current boundary data timeslice
+      latbc%latbc_data(tlev)%vDateTime = latbc%buffer%vDateTime
 
       !
       ! get prognostic 3d fields
