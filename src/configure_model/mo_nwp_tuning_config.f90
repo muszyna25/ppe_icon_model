@@ -36,6 +36,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zvz0i
   PUBLIC :: tune_icesedi_exp
   PUBLIC :: tune_entrorg
+  PUBLIC :: tune_rprcon
   PUBLIC :: tune_capdcfac_et
   PUBLIC :: tune_capdcfac_tr
   PUBLIC :: tune_lowcapefac
@@ -93,6 +94,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
+
+  REAL(wp) :: &                    !< Coefficient for conversion of cloud water into precipitation in convection scheme 
+    &  tune_rprcon
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)

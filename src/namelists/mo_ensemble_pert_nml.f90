@@ -55,6 +55,7 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_rootdp    => range_rootdp,    &
     &                               config_range_rsmin     => range_rsmin,     &
     &                               config_range_laimax    => range_laimax,    &
+    &                               config_stdev_sst_pert  => stdev_sst_pert,  &
     &                               config_use_ensemble_pert => use_ensemble_pert
 
   
@@ -143,6 +144,9 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Maximum leaf area index related to land-cover class
     &  range_laimax
 
+  REAL(wp) :: &                    !< Standard deviation of SST perturbations specified in SST analysis (K)
+    &  stdev_sst_pert              !  this switch controls a correction term compensating the systematic
+                                   !  increase of evaporation related to the SST perturbations
 
   LOGICAL :: use_ensemble_pert     !< main switch
 
@@ -151,7 +155,7 @@ MODULE mo_ensemble_pert_nml
     &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
     &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
     &                         range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,             &
-    &                         range_lowcapefac, range_negpblcape
+    &                         range_lowcapefac, range_negpblcape, stdev_sst_pert
 
 CONTAINS
 
@@ -239,6 +243,8 @@ CONTAINS
 
     use_ensemble_pert = .FALSE.     ! Usage of ensemble perturbations must be turned on explicitly
 
+    stdev_sst_pert    = 0._wp       ! No compensation for SST perturbations is applied by default
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -305,6 +311,7 @@ CONTAINS
     config_range_rootdp       = range_rootdp
     config_range_rsmin        = range_rsmin
     config_range_laimax       = range_laimax
+    config_stdev_sst_pert     = stdev_sst_pert
     config_use_ensemble_pert  = use_ensemble_pert
 
 

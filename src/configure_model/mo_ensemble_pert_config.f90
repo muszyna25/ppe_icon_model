@@ -51,7 +51,7 @@ MODULE mo_ensemble_pert_config
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
             range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock,   &
             range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,           &
-            range_lowcapefac, range_negpblcape
+            range_lowcapefac, range_negpblcape, stdev_sst_pert, sst_pert_corrfac
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -137,6 +137,13 @@ MODULE mo_ensemble_pert_config
   REAL(wp) :: &                    !< Maximum leaf area index related to land-cover class
     &  range_laimax
 
+  REAL(wp) :: &                    !< Standard deviation of SST perturbations specified in SST analysis (K)
+    &  stdev_sst_pert              !  this switch controls the correction term sst_pert_corrfac, compensating the systematic
+                                   !  increase of evaporation related to the SST perturbations
+
+  REAL(wp) :: &                    !< Tuning factor for saturation pressure over oceans, compensating the systematic
+    &  sst_pert_corrfac            !  increase of evaporation related to the SST perturbations
+
   LOGICAL :: use_ensemble_pert     !< main switch
 
   CONTAINS
@@ -156,7 +163,7 @@ MODULE mo_ensemble_pert_config
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
     INTEGER  :: rnd_size, i, jg, ipn
-    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac
+    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac, svp_pert
 
 
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
@@ -339,6 +346,21 @@ MODULE mo_ensemble_pert_config
       ENDDO
 
       DEALLOCATE(rnd_seed)
+
+      ! Calculate correction term for systematically increased evaporation related to SST perturbations
+      ! To simplify the calculation, we make the approximation that a 10 K temperature change corresponds
+      ! to a factor 2 in the saturation vapor pressure, which is well justified between 0 and 25 deg C
+      !
+      svp_pert = 0.1_wp*stdev_sst_pert*LOG(2._wp)
+      sst_pert_corrfac = 2._wp / (EXP(svp_pert) + EXP(-svp_pert))
+
+      WRITE(message_text,'(f8.5)') sst_pert_corrfac
+      CALL message('e_sat correction factor for SST perturbations', TRIM(message_text))
+
+    ELSE
+
+      sst_pert_corrfac = 1._wp
+
     ENDIF
 
   END SUBROUTINE configure_ensemble_pert

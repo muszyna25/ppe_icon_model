@@ -36,7 +36,7 @@ MODULE mo_util_phys
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqni, ininact, &
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
        &                              iqm_max, nqtendphy, lart
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
@@ -1061,6 +1061,7 @@ CONTAINS
   END SUBROUTINE iau_update_tracer
 
 
+
   !
   ! Add slow-physics tendencies to tracer fields
   !
@@ -1068,66 +1069,98 @@ CONTAINS
   ! convection is the only slow-physics routine which provides tracer 
   ! tendencies.
   ! In addition, this routine
-  ! - makes sure that increments from advection and/or convection 
-  !   do not result in negative mass fractions. If negative values in qc and/or qi 
+  ! - makes sure that tendencies from advection and/or convection 
+  !   do not result in negative mass fractions. If negative values in qx  
   !   occur, these are clipped. The moisture which is spuriously created by this 
   !   clipping is substracted from qv.
   ! - Diagnoses amount of convective rain and snow (rain_con, snow_con), 
   !   as well as the total convective precipitation (prec_con).
   ! - applies large-scale-forcing tendencies, if ICON is run in single-column-mode.
   ! 
-  SUBROUTINE tracer_add_phytend( prm_nwp_tend, pdtime, prm_diag, pt_prog_rcf, &
-    &                            jg, jb, i_startidx, i_endidx, kend)
+  SUBROUTINE tracer_add_phytend( p_rho_now, prm_nwp_tend, pdtime, prm_diag, &
+    &                            pt_prog_rcf, jg, jb, i_startidx, i_endidx, kend)
 
-    TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend !< atm tend vars
-    REAL(wp),            INTENT(IN)   :: pdtime       !< time step
-    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !< the physics variables
-    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
-                                                      !< reduced calling frequency
-    INTEGER             ,INTENT(IN)   :: jg           !< domain ID
-    INTEGER,             INTENT(IN)   :: jb           !< block index
+    REAL(wp)             &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS         &
+#endif
+                        ,INTENT(IN)   :: p_rho_now(:,:)  !< total air density
+    TYPE(t_nwp_phy_tend),INTENT(IN)   :: prm_nwp_tend    !< atm tend vars
+    REAL(wp),            INTENT(IN)   :: pdtime          !< time step
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag        !< the physics variables
+    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf     !< the tracer field at
+                                                         !< reduced calling frequency
+    INTEGER             ,INTENT(IN)   :: jg              !< domain ID
+    INTEGER,             INTENT(IN)   :: jb              !< block index
     INTEGER,             INTENT(IN)   :: i_startidx, i_endidx
-    INTEGER             ,INTENT(IN)   :: kend         !< vertical end index                             
-
+    INTEGER             ,INTENT(IN)   :: kend            !< vertical end index                             
 
     ! Local variables
-    INTEGER  :: jt          !tracers
+    INTEGER  :: jt          ! tracer loop index
+    INTEGER  :: idx         ! tracer position in container
+    INTEGER  :: pos_qv      ! position of qv in local array zrhox
     INTEGER  :: jk,jc
-    REAL(wp) :: zqc, zqi, zqcn, zqin
+    INTEGER  :: iq_start
+    REAL(wp) :: zrhox(nproma,kend,5)
+    REAL(wp) :: zrhox_clip(nproma,kend)
+    !
+    INTEGER, POINTER              :: ptr_conv_list(:)
+    INTEGER, DIMENSION(3), TARGET :: conv_list_small
+    INTEGER, DIMENSION(5), TARGET :: conv_list_large
 
 
+    ! get list of water tracers which are affected by convection
+    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
+      conv_list_large = (/iqv,iqc,iqi,iqr,iqs/)
+      ptr_conv_list =>conv_list_large
+    ELSE
+      conv_list_small = (/iqv,iqc,iqi/)
+      ptr_conv_list =>conv_list_small
+    ENDIF
 
-    ! add convective tendency and fix to positive values
+    zrhox_clip(:,:) = 0._wp
+
+    ! add tendency due to convection
+    DO jt=1,SIZE(ptr_conv_list)
+      idx = ptr_conv_list(jt)
+      DO jk = kstart_moist(jg), kend
+        DO jc = i_startidx, i_endidx
+          zrhox(jc,jk,jt) = p_rho_now(jc,jk)*pt_prog_rcf%tracer(jc,jk,jb,idx)  &
+            &             + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,idx)
+
+          ! keep mass that is created due to artificial clipping
+          zrhox_clip(jc,jk) = zrhox_clip(jc,jk) + MIN(0._wp,zrhox(jc,jk,jt))
+
+          ! clip
+          zrhox(jc,jk,jt) = MAX(0._wp, zrhox(jc,jk,jt))
+        ENDDO
+      ENDDO
+      !
+      ! Re-diagnose tracer mass fraction from partial mass
+      IF (idx == iqv) THEN
+        pos_qv = jt   ! store local qv-position for later use
+        CYCLE         ! special treatment see below
+      ENDIF
+      !
+      DO jk = kstart_moist(jg), kend
+        DO jc = i_startidx, i_endidx
+          pt_prog_rcf%tracer(jc,jk,jb,idx) = zrhox(jc,jk,jt)/p_rho_now(jc,jk)
+        ENDDO
+      ENDDO
+    ENDDO ! jt
+    !
+    ! Special treatment for qv. 
+    ! Rediagnose tracer mass fraction and substract mass created by artificial clipping.
     DO jk = kstart_moist(jg), kend
-!DIR$ IVDEP
       DO jc = i_startidx, i_endidx
-        zqc = pt_prog_rcf%tracer(jc,jk,jb,iqc)+pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)
-        zqi = pt_prog_rcf%tracer(jc,jk,jb,iqi)+pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
-
-        zqcn = MIN(0._wp,zqc)
-        zqin = MIN(0._wp,zqi)
-
-        pt_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp, zqc)
-        pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp, zqi)
-
-        ! Subtract moisture generated by artificial clipping of QC and QI from QV
-        pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,iqv) + zqcn+zqin &
-          &                       + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv))
+        pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp, &
+          &                                    (zrhox(jc,jk,pos_qv) + zrhox_clip(jc,jk)) &
+          &                                    /p_rho_now(jc,jk)                         &
+          &                                   )
       ENDDO
     ENDDO
 
-    ! add convective detrainment tendencies for rain and snow if activated
-    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      DO jk = kstart_moist(jg), kend
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          pt_prog_rcf%tracer(jc,jk,jb,iqr) = pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
-            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr)
-          pt_prog_rcf%tracer(jc,jk,jb,iqs) = pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
-            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
-        ENDDO
-      ENDDO
-    ENDIF
+
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
       ! add convective tendency and fix to positive values
@@ -1136,15 +1169,20 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
-               +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+               +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk)/p_rho_now(jc,jk))
           ENDDO
         ENDDO
       ENDDO
     ENDIF !lart
 
     ! additional clipping for qr, qs, ... up to iqm_max
-    ! (very small negative values may occur during the transport process (order 10E-15)) 
-    DO jt=iqr, iqm_max  ! qr,qs,etc. 
+    ! (very small negative values may occur during the transport process (order 10E-15))
+    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
+      iq_start = iqg  ! qr, qs already clipped above
+    ELSE
+      iq_start = iqr
+    ENDIF 
+    DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,jt) = MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
@@ -1163,6 +1201,8 @@ CONTAINS
       ENDDO
     END IF
 
+
+    ! Diagnose convective precipitation amount
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx

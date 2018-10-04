@@ -1315,11 +1315,14 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
 
         ! Note that TKE in turbtran/turbdiff is defined as the turbulence velocity scale
-        ! TVS=SQRT(2*TKE)
+        ! TVS=SQRT(2*TKE). The TKE is limited to 5.e-5 here because it may be zero on lateral
+        ! boundary points for the limited-area mode, which would cause a crash in the initialization
+        ! performed here but hs no impact on the results otherwise.
         !
         DO jk =1,nlevp1
-          p_prog_now%tke(i_startidx:i_endidx,jk,jb)= SQRT(2.0_wp                        &
-            &                                * p_prog_now%tke(i_startidx:i_endidx,jk,jb))
+          DO jc = i_startidx, i_endidx
+            p_prog_now%tke(jc,jk,jb)= SQRT(2.0_wp*MAX(5.e-5_wp,p_prog_now%tke(jc,jk,jb)))
+          ENDDO
         ENDDO
       ENDIF
 

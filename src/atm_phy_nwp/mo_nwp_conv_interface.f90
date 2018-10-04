@@ -37,14 +37,14 @@ MODULE mo_nwp_conv_interface
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
-  USE mo_run_config,           ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy
+  USE mo_run_config,           ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
   USE mo_physical_constants,   ONLY: grav, alf, cvd, cpd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_art_config,           ONLY: art_config
   USE mo_util_phys,            ONLY: nwp_con_gust
-!!$  USE mo_cuparameters,         ONLY: lmfscv
+
 
   IMPLICIT NONE
 
@@ -68,16 +68,16 @@ CONTAINS
 
 
 
-    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-    TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
+    TYPE(t_patch)               ,INTENT(in)   :: p_patch        !!<grid/patch info.
+    TYPE(t_external_data)       ,INTENT(in)   :: ext_data        !< external data
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-    TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the dyn prog vars
-    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
-    TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the dyn diag vars
-    TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
-    TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
+    TYPE(t_nh_prog)             ,INTENT(in)   :: p_prog          !<the dyn prog vars
+    TYPE(t_nh_prog)             ,INTENT(inout):: p_prog_rcf      !<call freq
+    TYPE(t_nh_diag)             ,INTENT(inout):: p_diag          !<the dyn diag vars
+    TYPE(t_nwp_phy_diag)        ,INTENT(inout):: prm_diag        !<the atm phys vars
+    TYPE(t_nwp_phy_tend)        ,INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
-    REAL(wp),                    INTENT(in)   :: tcall_conv_jg   !< time interval for 
+    REAL(wp)                    ,INTENT(in)   :: tcall_conv_jg   !< time interval for 
                                                                  !< convection
     ! Local array bounds:
 
@@ -91,14 +91,17 @@ CONTAINS
     REAL(wp) :: z_qhfl (nproma,p_patch%nlevp1) !< 3D moisture flux( convection)
     REAL(wp) :: z_shfl (nproma,p_patch%nlevp1) !< 3D sensible heat flux "-"
     REAL(wp) :: z_dtdqv  (nproma,p_patch%nlev) !< 3D moisture convergence
+                                               !< on output, the convection scheme adds the convective 
+                                               !< qv-tendency. It is, however no longer used. 
+                                               !< Instead we make use of the \rho*qv-tendency 
+                                               !< ptenrhoq
     REAL(wp) :: z_dtdt   (nproma,p_patch%nlev) !< temporal temperature tendency
-    REAL(wp) :: z_dtdqv_sv(nproma,p_patch%nlev)!< save array for moisture convergence
     REAL(wp) :: z_dtdt_sv(nproma,p_patch%nlev) !< save array for temperature tendency
     REAL(wp) :: z_ddspeed(nproma)              !< maximum downdraft speed at the surface
 
     ! Local scalars:
 
-    INTEGER  :: jk,jc,jb,jg                !< block indeces
+    INTEGER  :: jk,jc,jb,jg,jt             !< block indices
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
     REAL(wp) :: ticeini, lfocvd, wfac, cpdocvd
@@ -132,8 +135,8 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
-!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac,z_ddspeed), ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
+!$OMP            z_dtdt,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac,z_ddspeed), ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -187,7 +190,6 @@ CONTAINS
             ! moisture convergence
             z_dtdqv(jc,jk) =                                                                 &
               p_diag%ddt_tracer_adv(jc,jk,jb,iqv) + prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv)
-            z_dtdqv_sv(jc,jk) = z_dtdqv(jc,jk)
 
             ! temperature tendencies from other physical processes (used for mass flux closure)
             z_dtdt(jc,jk) =                              &
@@ -205,12 +207,17 @@ CONTAINS
 
         ! The following input fields must be reset to zero because the convective
         ! tendencies are added to them
-        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,2:)  = 0._wp
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
 
         prm_diag%rain_con_rate_3d(:,:,jb)         = 0._wp
         prm_diag%snow_con_rate_3d(:,:,jb)         = 0._wp
+
+        IF(lart .AND. art_config(jg)%nconv_tracer > 0) THEN
+          DO jt=1,art_config(jg)%nconv_tracer
+            prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(:,:) = 0._wp
+          ENDDO
+        ENDIF
 
         !-------------------------------------------------------------------------
         !> Convection
@@ -244,10 +251,11 @@ CONTAINS
 &            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenq  = z_dtdqv                                                 ,& !! INOUT
-&            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
-&            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
-&            ptenr  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)              ,& !! OUT
-&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)              ,& !! OUT
+&            ptenrhoq  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqv)            ,& !! OUT
+&            ptenrhol  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)            ,& !! OUT
+&            ptenrhoi  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)            ,& !! OUT
+&            ptenrhor  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)           ,& !! OUT
+&            ptenrhos  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)           ,& !! OUT
 &            ldcum  = prm_diag%locum   (:,jb)                                 ,& !! OUT
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
@@ -268,7 +276,7 @@ CONTAINS
 &            pvddraf =     z_ddspeed(:)                                       ,& !! OUT
 &            ktrac  = art_config(jg)%nconv_tracer                             ,& !! IN 
 &            pcen   = p_prog_rcf%conv_tracer(jb,:)                            ,& !! IN 
-&            ptenc  = prm_nwp_tend%conv_tracer_tend(jb,:) )                      !! OUT
+&            ptenrhoc = prm_nwp_tend%conv_tracer_tend(jb,:) )                    !! OUT
 
         ELSE
 
@@ -293,10 +301,11 @@ CONTAINS
 &            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenq  = z_dtdqv                                                 ,& !! INOUT
-&            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
-&            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
-&            ptenr  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)              ,& !! OUT
-&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)              ,& !! OUT
+&            ptenrhoq  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqv)            ,& !! OUT
+&            ptenrhol  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)            ,& !! OUT
+&            ptenrhoi  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)            ,& !! OUT
+&            ptenrhor  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)           ,& !! OUT
+&            ptenrhos  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)           ,& !! OUT
 &            ldcum  = prm_diag%locum   (:,jb)                                 ,& !! OUT
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
@@ -326,9 +335,6 @@ CONTAINS
           &  ( z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
           &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):) ) * cpdocvd
 
-        prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
-          &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
-          &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
         ! Convert detrained cloud ice into cloud water if the temperature is only slightly below freezing
         ! and convective cloud top is not cold enough for substantial ice initiation
@@ -339,8 +345,10 @@ CONTAINS
                      0.25_wp*MIN(0._wp,p_diag%temp(jc,prm_diag%mtop_con(jc,jb),jb)-ticeini) )
               prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) = prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) + &
                 wfac*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+
               prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) = prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) - &
-                lfocvd*wfac*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+                lfocvd*wfac*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)/p_prog%rho(jc,jk,jb)
+
               prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) = (1._wp-wfac)*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
             ENDIF
           ENDDO

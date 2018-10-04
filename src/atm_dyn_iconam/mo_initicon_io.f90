@@ -1336,7 +1336,7 @@ MODULE mo_initicon_io
             IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceFg
                 CALL fetch3d(params, 'qv', jg, my_ptr%qv)
-                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                ! check whether we are using DATA from both FG and ANA input, so that it's correctly listed in the input source table
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceAna) THEN
                     CALL inputInstructions(jg)%ptr%setSource('qv', kInputSourceBoth)
                 END IF
@@ -1345,19 +1345,22 @@ MODULE mo_initicon_io
                 CALL fetch3d(params, 'qv', jg, my_ptr3d)
             ENDIF
 
-            ! For the time being, these are identical to qc, qi, qr, AND qs from FG => usually read from FG
-            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-            CALL fetch3d(params, 'qc', jg, my_ptr3d)
-            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-            CALL fetch3d(params, 'qi', jg, my_ptr3d)
-            IF ( iqr /= 0 ) THEN
+            ! For the time being, these are identical to qc, qi, qr, and qs from FG => usually read from FG
+            IF ( .NOT. ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+              my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
+              CALL fetch3d(params, 'qc', jg, my_ptr3d)
+              my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
+              CALL fetch3d(params, 'qi', jg, my_ptr3d)
+              IF ( iqr /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
                 CALL fetch3d(params, 'qr', jg, my_ptr3d)
-            END IF
-            IF ( iqs /= 0 ) THEN
+              END IF
+              IF ( iqs /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
                 CALL fetch3d(params, 'qs', jg, my_ptr3d)
-            END IF
+              END IF
+            ENDIF
+
         END IF
     ENDDO ! loop over model domains
 

@@ -44,7 +44,7 @@ MODULE mo_cuascn
     &                        rtt   ,rd   , ralfdcp,&
     &                        rtber, rtbercu  ,rticecu   ,&
     &                        lphylin  ,rlptrc,           &
-    &                        entshalp ,rmfcmin,rprcon   ,&
+    &                        entshalp ,rmfcmin,          &
     &                        rmflic   ,rmflia ,rvdifts  ,&
     &                        rmfcmax, rlmin, detrpen    ,&
     &                        lhook,   dr_hook, lmfglac
@@ -65,7 +65,7 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, lmfmid, ptsphy,&
+    & entrorg, rprcon, lmfmid, ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
     & ptenq,             &
@@ -141,9 +141,9 @@ CONTAINS
 !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS           PA
 !!    *PTENQ*        MOISTURE TENDENCY                            KG/(KG S)
 !!    *PVERVEL*      VERTICAL VELOCITY                            PA/S
-!!    *zdgeoh*       geopot thickness on half levels               m2/s2
+!!    *zdgeoh*       geopot thickness on full levels              M2/S2
 !!    *zdgeo*        geopot thickness on full levels               m2/s2
-!!    *zdph*         pressure thickness on half levels              Pa
+!!    *zdph*         pressure thickness on full levels             PA
 !!    *pcape*        CAPE                                          J/kg
 !!    *pcapethresh*  CAPE threshold beyond which entrainment parameter is reduced
 
@@ -233,7 +233,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg, rprcon
 LOGICAL           ,INTENT(in)    :: lmfmid
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
@@ -1210,7 +1210,7 @@ END SUBROUTINE cuascn
 
     !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS          PA
     !!    *PGEOH*        PROVISIONAL GEOPOTENTIAL ON HALF LEVELS      m2/s2
-    !!    *zdgeoh*       geopot thickness on half levels               m2/s2
+    !!    *zdgeoh*       geopot thickness on full levels              M2/S2
     !!    *PMFU*         MASSFLUX IN UPDRAFTS                        KG/(M2*S)
 
     !    OUTPUT PARAMETERS (REAL):

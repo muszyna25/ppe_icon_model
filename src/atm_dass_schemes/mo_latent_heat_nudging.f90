@@ -363,6 +363,8 @@ SUBROUTINE organize_lhn ( &
                         assimilation_config(jg)%lhn_relax,assimilation_config(jg)%nlhn_relax
        WRITE(nulhn, *)' Absolute limit of incs.  :  assimilation_config(jg)%lhn_limit = ',assimilation_config(jg)%lhn_limit,&
                         assimilation_config(jg)%abs_lhn_lim,' (K/second)'
+       WRITE(nulhn, *)' Absolute limit of incs.  :  assimilation_config(jg)%lhn_limitp = ',assimilation_config(jg)%lhn_limitp,&
+                        assimilation_config(jg)%abs_lhn_lim,' (K/second)'
        WRITE(nulhn, *)' Humidity enhancement :     assimilation_config(jg)%lhn_hum_adj = ',assimilation_config(jg)%lhn_hum_adj
        WRITE(nulhn, *)' Diagnostic output :        assimilation_config(jg)%lhn_diag    = ',assimilation_config(jg)%lhn_diag
      ENDIF  
@@ -546,8 +548,10 @@ SUBROUTINE organize_lhn ( &
             pr_ref(jc,jb) = MAX(0.0_wp, z_pr_mod(jc,1,jb) + zdcoeff *           &
                             pt_patch%cells%area(jc,jb) * z_nabla2_prmod(jc,1,jb))
    
-            pr_obs(jc,jb) = MAX(0.0_wp, z_pr_obs(jc,1,jb) + zdcoeff *           &
-                            pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb))
+!            pr_obs(jc,jb) = MAX(z_pr_obs(jc,1,jb), z_pr_obs(jc,1,jb) + zdcoeff *           &
+!                            pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb))
+            pr_obs(jc,jb) = z_pr_obs(jc,1,jb) + zdcoeff *           &
+                            pt_patch%cells%area(jc,jb) * z_nabla2_probs(jc,1,jb)
           ENDDO
 
           DO jk = kstart_moist(jg),pt_patch%nlev
@@ -1626,7 +1630,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
     pr_quot         ,& ! ratio of analyzed (observed) to model precipitation
     pr_artif         ,& ! precip corresponding to artificial heating profile
     abs_lim_neg     ,& ! negative absolut limit for increments (= -assimilation_config(jg)%abs_lhn_lim)
-    abs_lim_pos     ,& ! negative absolut limit for increments (= -assimilation_config(jg)%abs_lhn_lim)
+    abs_lim_pos     ,& ! positive absolut limit for increments (= assimilation_config(jg)%abs_lhn_lim)
     prmax           ,&
     prmax_th        ,&
     dummy1,dummy2,dummy3
@@ -1647,9 +1651,10 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
     n_windcor, n_windcor0, n_incloud, ntreat
 
   REAL (KIND=wp)                         ::       &
-    prof_filt(ke)               ,& ! array for filtered vertical heating profile
-    scale_fac           ,& ! scaling factor determined for each profile
-    tt_artif(ke)                 ,& ! artificial heating profile
+    prof_filt(ke)             ,& ! array for filtered vertical heating profile
+    scale_fac                 ,& ! scaling factor determined for each profile
+    tt_artif(ke)              ,& ! artificial heating profile
+    abs_lim_prof(ke)          ,& ! vertical profile for limitation the temperature increment
     pr_quot_max               ,&
     w, ntcoeff
 
@@ -1731,6 +1736,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
   rfade=assimilation_config(jg)%start_fadeout
   IF ( rnlhn >= rfade .AND. rfade < 1.0_wp ) then
      ntcoeff = ( 1.0_wp + rfade/( 1.0_wp - rfade ) ) * ( 1.0_wp - rnlhn )
+     ntcoeff  = MAX(0.0_wp,ntcoeff)
   ELSE
      ntcoeff = 1.0_wp
   ENDIF
@@ -1789,7 +1795,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 
 ! local model precip is too large -> limited downscaling of local profile
      ELSEIF ( pr_quot < assimilation_config(jg)%fac_lhn_down ) THEN
-        scale_fac = assimilation_config(jg)%fac_lhn_down
+        scale_fac = assimilation_config(jg)%fac_lhn_down/10.
         n_down_lim = n_down_lim + 1
         treat_diag(ip)=2_wp
 
@@ -1835,10 +1841,14 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 ! filter and scale the local profiles and nearby profiles from this node
 ! or artificial profiles
 
-     DO k = 1 , ke
+     tt_artif(:) = 0.0
+     abs_lim_prof(:) = 0.0
+     DO k = 1 , ke-5 ! do not touch the lowest model level
         dz = zlev(ip,k) - zlev_artif_max
         tt_artif(k) = tt_artif_max * exp(-0.5*((dz/std_zlev)**2))
         IF (tt_artif(k) < 1.e-7) tt_artif(k) = 0.0
+        abs_lim_prof(k) = abs_lim_pos * exp(-0.5*((dz/(std_zlev))**2))
+        IF (abs_lim_prof(k) < 1.e-7) abs_lim_prof(k) = 0.0
      ENDDO
 
      scale_diag(ip)=scale_fac
@@ -1890,9 +1900,21 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 ! Section 7 : Impose absolute limit on increments if requested (if assimilation_config(jg)%lhn_limit)
 !-------------------------------------------------------------------------------
 
-        IF (assimilation_config(jg)%lhn_limit) THEN
+        IF (assimilation_config(jg)%lhn_limitp) THEN
            DO k=1,ke
-             IF (tt_lheat(ip,k) > abs_lim_pos) THEN
+             IF (ttend_lhn(ip,k) > abs_lim_prof(k)) THEN
+                 ttend_lhn(ip,k) = abs_lim_prof(k)
+                 n_ex_lim_p = n_ex_lim_p + 1
+             ELSEIF (ttend_lhn(ip,k) < -1.*abs_lim_prof(k)) THEN
+                 ttend_lhn(ip,k) = -1.*abs_lim_prof(k)
+                 n_ex_lim_n = n_ex_lim_n + 1
+             ENDIF
+           ENDDO
+
+        ELSE IF (assimilation_config(jg)%lhn_limit) THEN
+
+           DO k=1,ke
+             IF (ttend_lhn(ip,k) > abs_lim_pos) THEN
                  ttend_lhn(ip,k) = abs_lim_pos
                  n_ex_lim_p = n_ex_lim_p + 1
              ELSEIF (ttend_lhn(ip,k) < abs_lim_neg) THEN
@@ -2135,7 +2157,6 @@ SUBROUTINE lhn_q_inc(i_startidx,i_endidx,jg,zdt,ke,t,ttend_lhn,p,qv,qc,qi, &
 ! Diagnostics Output
 
        ELSE IF ( ttend_lhn(jc,k) < delt_minn ) THEN
-!         qv_new(jc,k) = 0.5 * qv(jc,k) ! --> verringert den FBI aber auch den ETS
          nred = nred + 1
        ENDIF
      ELSE
@@ -2143,18 +2164,9 @@ SUBROUTINE lhn_q_inc(i_startidx,i_endidx,jg,zdt,ke,t,ttend_lhn,p,qv,qc,qi, &
      ENDIF
 
      qvtend_lhn(jc,k) = (qv_new(jc,k) - qv(jc,k))/zdt
-!     qvtend_lhn(jc,k) = 10.0 * (qv_new(jc,k) - qv(jc,k))/zdt --> besser, stuerzt aber ab!!!
 
-!     qvtend_lhn(jc,k) = 10.0 * (qv_new(jc,k) - qv(jc,k))
-!     if ( qv_new(jc,k) < qv(jc,k) ) THEN
-!        qvtend_lhn(jc,k) = MAX ( -0.5*qv(jc,k),qvtend_lhn(jc,k))
-!     else
-!        qvtend_lhn(jc,k) = MIN ( 0.5*qv(jc,k),qvtend_lhn(jc,k))
-!     endif
-!     qvtend_lhn(jc,k) =  qvtend_lhn(jc,k)  / zdt
-     
-!     qvtend_lhn(jc,k) = 5.0 * (qv_new(jc,k) - qv(jc,k))/zdt  --> laeuft durch, mit besseren scores
-!test just to adjust qv but not changing t:
+     IF ( assimilation_config(jg)%lhn_limit) qvtend_lhn(jc,k) = MIN ( qvtend_lhn(jc,k), 0.1*qv(jc,k)/zdt)
+
      IF ( assimilation_config(jg)%lhn_no_ttend ) ttend_lhn(jc,k) = 0.0 
      
 
