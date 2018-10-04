@@ -979,10 +979,11 @@ if test -n "$SCTROOT" ; then
 
   AS_CASE([$ac_hostname],
           [mlogin*|btc*],
-          [AS_CASE([$FC],
-                   [nagfor],
-                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+          [AS_CASE([x"$WLFLAG"],
+             [x-Wl,-Wl,],
+             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g'`],
+             [x-Wl],
+             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g'`])],
           [])
 
 dnl checks for additional libs needed for sct, eg. papi
