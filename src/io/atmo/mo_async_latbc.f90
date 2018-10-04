@@ -746,15 +746,17 @@ MODULE mo_async_latbc
       ALLOCATE(latbc%buffer%varID(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-      ! generate file name
-      latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level, &
-           &                                  time_config%tc_exp_startdate,  &
-           &                                  time_config%tc_exp_startdate))
-      latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
-
+      IF (my_process_is_work() .AND. p_pe_work == p_work_pe0 &
+          .OR. latbc%buffer%lcompute_hhl_pres) THEN
+        ! generate file name
+        latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level, &
+             &                                  time_config%tc_exp_startdate,  &
+             &                                  time_config%tc_exp_startdate))
+        latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
+      END IF
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
 
-         INQUIRE (FILE=latbc_file, EXIST=l_exist)
+        INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
             CALL finish(routine,'LATBC file not found: '//latbc_file)
          ENDIF
@@ -879,13 +881,11 @@ MODULE mo_async_latbc
 
       ! Re-open the file to read constant fields.
       !
-      IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
+      IF (latbc%buffer%lcompute_hhl_pres .AND. my_process_is_work()) THEN
 
-        IF (latbc%buffer%lcompute_hhl_pres) THEN
-          CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
-          CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
-          CALL nf(nf_close(ncid), routine)
-        END IF
+        CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
+        CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
+        CALL nf(nf_close(ncid), routine)
       END IF
 
 #endif
