@@ -4037,21 +4037,21 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group"
-    INTEGER                       :: i, grp_id
+    INTEGER                       :: i, grp_id, llmsg_len
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
-    LOGICAL                       :: lquiet
+    CHARACTER(len=*), PARAMETER   :: llmsg = " lon-lat"
+    LOGICAL                       :: lquiet, verbose, skip
 
     nvars  = 0
     grp_id = var_groups_dyn%group_id(grp_name)
     lquiet = .FALSE.
     IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
+    verbose = .NOT. lquiet
 
     ! loop over all variable lists and variables
     DO i = 1,nvar_lists
-      element => NULL()
-
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
@@ -4060,50 +4060,36 @@ CONTAINS
         IF (var_lists(i)%p%patch_id /= opt_dom_id)  CYCLE
       END IF
 
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
         info => element%field%info
         ! Do not inspect element if it is a container
-        IF (info%lcontainer) CYCLE LOOPVAR
-
-        IF (info%in_group(grp_id)) THEN
-          name = TRIM(get_var_name(element%field))
-
+        IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
+          name = get_var_name(element%field)
+          llmsg_len = 0
           ! Skip element if we need only output variables:
-          IF (loutputvars_only .AND. &
-            & ((.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput))) THEN
-            IF (.NOT. lquiet) THEN
-              CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
-            END IF
-            CYCLE LOOPVAR
-          END IF
+          skip = loutputvars_only .AND. &
+            & ((.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput))
 
           IF (lremap_lonlat) THEN
-            IF (info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
-              IF (.NOT. lquiet) THEN
-                CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
-              END IF
-              CYCLE LOOPVAR
-            ENDIF
-          ELSE IF (.NOT. lremap_lonlat) THEN
+            skip = skip .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL
+            llmsg_len = LEN(llmsg)
+          ELSE
             ! If no lon-lat interpolation is requested for this output file,
             ! skip all variables of this kind:
-            IF (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT)) THEN
-              IF (.NOT. lquiet) THEN
-                CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
-              END IF
-              CYCLE LOOPVAR
-            ENDIF
+            skip = skip .OR. &
+                 (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT))
           END IF
 
-          nvars = nvars + 1
-          var_name(nvars) = name
+          IF (.NOT. skip) THEN
+            nvars = nvars + 1
+            var_name(nvars) = name
+          ELSE IF (verbose) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for " &
+                 //llmsg(1:llmsg_len)//"output.")
+          END IF
         END IF
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 
