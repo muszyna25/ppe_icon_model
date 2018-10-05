@@ -427,9 +427,9 @@ CONTAINS
 
     idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
     IF (idx==0) THEN
-      get_var_name = TRIM(var%info%name)
+      get_var_name = var%info%name
     ELSE
-      get_var_name = TRIM(var%info%name(1:idx-1))
+      get_var_name = var%info%name(1:idx-1)
     END IF
   END FUNCTION get_var_name
 
