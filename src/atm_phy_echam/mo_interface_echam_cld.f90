@@ -39,7 +39,7 @@ MODULE mo_interface_echam_cld
 CONTAINS
 
   SUBROUTINE interface_echam_cld(jg,jb,jcs,jce        ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -48,7 +48,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -63,7 +63,13 @@ CONTAINS
 
     ! Local variables
     !
-    INTEGER  :: itype(nproma)    !< type of convection
+    INTEGER                             :: itype(nproma)    !< type of convection
+    !
+    REAL(wp)                            :: hur  (nproma,nlev)
+    REAL(wp)                            :: q_cld(nproma,nlev)
+    !
+    REAL(wp)                            :: tend_ta_cld  (nproma,nlev)
+    REAL(wp)                            :: tend_qtrc_cld(nproma,nlev,ntracer)
 
     IF (ltimer) call timer_start(timer_cld)
 
@@ -101,24 +107,49 @@ CONTAINS
                &     field% aclcov   (:,  jb),     &! out
                &     field% rsfl     (:,  jb),     &! out
                &     field% ssfl     (:,  jb),     &! out
-               &     field% relhum   (:,:,jb),     &! out
-               &     field% q_cld    (:,:,jb),     &! out
-               &      tend% qtrc_cld (:,:,jb,iqv), &! out
-               &      tend% qtrc_cld (:,:,jb,iqc), &! out
-               &      tend% qtrc_cld (:,:,jb,iqi)  )! out
+               &            hur      (:,:),        &! out
+               &            q_cld    (:,:),        &! out
+               &      tend_qtrc_cld  (:,:,iqv),        &! out
+               &      tend_qtrc_cld  (:,:,iqc),        &! out
+               &      tend_qtrc_cld  (:,:,iqi)         )! out
           !
           field% rtype(:,jb) = REAL(itype(:),wp)
           !
-          ! vertical integral
-          field% q_cld_vi(jcs:jce,jb) = SUM(field% q_cld(jcs:jce,:,jb),DIM=2)
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(field% hur)) field% hur(jcs:jce,:,jb) = hur(jcs:jce,:)
+          !
+          IF (ASSOCIATED(field% q_cld   )) field% q_cld   (jcs:jce,:,jb) =     q_cld(jcs:jce,:)
+          IF (ASSOCIATED(field% q_cld_vi)) field% q_cld_vi(jcs:jce,  jb) = SUM(q_cld(jcs:jce,:),DIM=2)
+          !
+          IF (ASSOCIATED(tend% qtrc_cld )) THEN
+             tend% qtrc_cld(jcs:jce,:,jb,iqv) = tend_qtrc_cld(jcs:jce,:,iqv)
+             tend% qtrc_cld(jcs:jce,:,jb,iqc) = tend_qtrc_cld(jcs:jce,:,iqc)
+             tend% qtrc_cld(jcs:jce,:,jb,iqi) = tend_qtrc_cld(jcs:jce,:,iqi)
+          END IF
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(field% q_cld)) q_cld(jcs:jce,:) = field% q_cld(jcs:jce,:,jb)
+          !
+          IF (ASSOCIATED(tend% qtrc_cld )) THEN
+             tend_qtrc_cld(jcs:jce,:,iqv) = tend% qtrc_cld(jcs:jce,:,jb,iqv)
+             tend_qtrc_cld(jcs:jce,:,iqc) = tend% qtrc_cld(jcs:jce,:,jb,iqc)
+             tend_qtrc_cld(jcs:jce,:,iqi) = tend% qtrc_cld(jcs:jce,:,jb,iqi)
+          END IF
           !
        END IF
        !
        ! convert    heating
-       tend% ta_cld(jcs:jce,:,jb) = field% q_cld(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
+       tend_ta_cld(jcs:jce,:) = q_cld(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
        !
-       ! accumulate heating
-       field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_cld(jcs:jce,:,jb)
+       IF (ASSOCIATED(tend% ta_cld)) tend% ta_cld(jcs:jce,:,jb) = tend_ta_cld(jcs:jce,:)
+       
+       ! for output: accumulate heating
+       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_cld(jcs:jce,:)
+       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_cld(jcs:jce,:),DIM=2)
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_cld)
@@ -126,10 +157,10 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend%   ta_cld(jcs:jce,:,jb)
-          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend% qtrc_cld(jcs:jce,:,jb,iqv)
-          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend% qtrc_cld(jcs:jce,:,jb,iqc)
-          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend% qtrc_cld(jcs:jce,:,jb,iqi)
+          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend_ta_cld  (jcs:jce,:)
+          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend_qtrc_cld(jcs:jce,:,iqv)
+          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend_qtrc_cld(jcs:jce,:,iqc)
+          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend_qtrc_cld(jcs:jce,:,iqi)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -137,19 +168,24 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend%   ta_cld(jcs:jce,:,jb)    *pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cld(jcs:jce,:,jb,iqv)*pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_cld(jcs:jce,:,jb,iqc)*pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_cld(jcs:jce,:,jb,iqi)*pdtime
+          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cld(jcs:jce,:)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cld(jcs:jce,:,iqv)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cld(jcs:jce,:,iqc)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cld(jcs:jce,:,iqi)*pdtime
        END IF
        !
     ELSE
        !
-       tend% ta_cld(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_cld   )) field% q_cld   (jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_cld_vi)) field% q_cld_vi(jcs:jce,  jb) = 0.0_wp
        !
-       tend% qtrc_cld(jcs:jce,:,jb,iqv) = 0.0_wp
-       tend% qtrc_cld(jcs:jce,:,jb,iqc) = 0.0_wp
-       tend% qtrc_cld(jcs:jce,:,jb,iqi) = 0.0_wp
+       IF (ASSOCIATED(tend% ta_cld)) tend% ta_cld(jcs:jce,:,jb) = 0.0_wp
+       !
+       IF (ASSOCIATED(tend% qtrc_cld)) THEN
+          tend% qtrc_cld(jcs:jce,:,jb,iqv) = 0.0_wp
+          tend% qtrc_cld(jcs:jce,:,jb,iqc) = 0.0_wp
+          tend% qtrc_cld(jcs:jce,:,jb,iqi) = 0.0_wp
+       END IF
        !
     END IF
 

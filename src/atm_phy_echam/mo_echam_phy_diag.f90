@@ -58,7 +58,7 @@ CONTAINS
     REAL(wp)                            :: zfri (nproma) !< cell area fraction of ice covered water
     REAL(wp)                            :: zfrl (nproma) !< cell area fraction of land
     INTEGER                             :: jc
- 
+
     field => prm_field(jg)
  
     ! 3.3 Weighting factors for fractional surface coverage
@@ -186,20 +186,13 @@ CONTAINS
     ! Local variables
     !
     TYPE(t_echam_phy_field), POINTER    :: field
-    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
     
-    DO jk = 1,nlev
-       DO jc = jcs,jce
-          !
-          field%cpair(jc,jk,jb) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
-          field%cvair(jc,jk,jb) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
-          !
-          field%qconv(jc,jk,jb) = 1._wp/(field%mair(jc,jk,jb)*field%cpair(jc,jk,jb))
-          !
-       END DO
-    END DO
+    field%cpair(jcs:jce,:,jb) = cpd+(cpv-cpd)*field%qtrc(jcs:jce,:,jb,iqv)
+    field%cvair(jcs:jce,:,jb) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
+    !
+    field%qconv(jcs:jce,:,jb) = 1._wp/(field%mair(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb))
     
     NULLIFY(field)
 
@@ -218,25 +211,11 @@ CONTAINS
     ! Local variables
     !
     TYPE(t_echam_phy_field), POINTER    :: field
-    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
     
-    DO jk = 1,nlev
-       DO jc = jcs,jce
-          !
-          ! heating
-          field% q_phy(jc,jk,jb) = 0._wp
-          !
-       END DO
-    END DO
-
-    DO jc = jcs,jce
-       !
-       ! vertical integral of heating
-       field% q_phy_vi(jc,jb) = 0._wp
-       !
-    END DO
+    IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = 0._wp
+    IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = 0._wp
 
     NULLIFY(field)
 
@@ -256,32 +235,20 @@ CONTAINS
     !
     TYPE(t_echam_phy_field), POINTER    :: field
     TYPE(t_echam_phy_tend) , POINTER    :: tend
-    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
     tend  => prm_tend (jg)
     
     ! precipitation flux from all processes
     !
-    DO jc = jcs,jce
-       field% pr(jc,jb) =  field% rsfl(jc,jb) & ! rain large scale
-            &             +field% ssfl(jc,jb) & ! snow large scale
-            &             +field% rsfc(jc,jb) & ! rain convection
-            &             +field% ssfc(jc,jb)   ! snow convection
-    END DO
+    field% pr(jcs:jce,jb) =  field% rsfl(jcs:jce,jb) & ! rain large scale
+         &                  +field% ssfl(jcs:jce,jb) & ! snow large scale
+         &                  +field% rsfc(jcs:jce,jb) & ! rain convection
+         &                  +field% ssfc(jcs:jce,jb)   ! snow convection
  
-    DO jk = 1,nlev
-       DO jc = jcs,jce
-          !
-          ! vertical integral of heating
-          field% q_phy_vi(jc,jb) = field% q_phy_vi(jc,jb) + field% q_phy(jc,jk,jb)
-          !
-          ! now convert the temperature tendency from physics, as computed for constant pressure conditions,
-          ! to constant volume conditions, as needed for the coupling to the dynamics
-          tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) * field% cpair(jc,jk,jb) / field% cvair(jc,jk,jb)
-          !
-       END DO
-    END DO
+    ! convert the temperature tendency from physics, as computed for constant pressure conditions,
+    ! to constant volume conditions, as needed for the coupling to the dynamics
+    tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) * field% cpair(jcs:jce,:,jb) / field% cvair(jcs:jce,:,jb)
 
     NULLIFY(field)
     NULLIFY(tend )

@@ -673,8 +673,6 @@ MODULE mo_psrad_radiation
     REAL(wp), POINTER   ::            vmr_co2,  vmr_ch4,  vmr_n2o,           vmr_o2,  vmr_cfc11,  vmr_cfc12
     REAL(wp), POINTER   :: frad_h2o, frad_co2, frad_ch4, frad_n2o, frad_o3, frad_o2, frad_cfc
 
-    ALLOCATE(zo3_timint(kbdim,ext_ozone(jg)%nplev_o3))
-    
     irad_h2o   => echam_rad_config(jg)% irad_h2o
     irad_co2   => echam_rad_config(jg)% irad_co2
     irad_ch4   => echam_rad_config(jg)% irad_ch4
@@ -798,6 +796,7 @@ MODULE mo_psrad_radiation
            &                            gas_factor     = frad_o3)
 
     CASE(2,8)
+      ALLOCATE(zo3_timint(kbdim,ext_ozone(jg)%nplev_o3))
       CALL o3_timeint(jcs=jcs, jce=jce, kbdim = kbdim,       &
            &          nlev_pres=ext_ozone(jg)%nplev_o3,      &
            &          ext_o3=ext_ozone(jg)%o3_plev(:,:,jb,:),&
@@ -812,6 +811,7 @@ MODULE mo_psrad_radiation
            &          pph  = pp_hl(:,:),                     &
            &          o3_time_int = zo3_timint,              &
            &          o3_clim     = xm_ozn(:,:)              )
+      DEALLOCATE(zo3_timint)
       xm_o3(jcs:jce,:)    = gas_profile(jcs, jce, klev, irad_o3, xm_dry,  &
            &                             gas_scenario_v = xm_ozn(:,:),    &
            &                             gas_factor     = frad_o3)
@@ -830,8 +830,6 @@ MODULE mo_psrad_radiation
     xm_o2(jcs:jce,:)    = gas_profile(jcs, jce, klev, irad_o2, xm_dry,    &
          &                            gas_mmr      = mmr,                 &
          &                            gas_factor   = frad_o2)
-
-    DEALLOCATE(zo3_timint)
 
   END SUBROUTINE psrad_get_gas_profiles
   !-------------------------------------------------------------------
