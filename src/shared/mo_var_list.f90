@@ -339,8 +339,9 @@ CONTAINS
       &                               opt_hor_intp_type
     LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
     ! local variables
-    INTEGER                       :: i, ivintp_type
-    LOGICAL                       :: lcontainer
+    INTEGER                       :: i, hor_intp_type_match
+    LOGICAL                       :: lcontainer, loutput_matters, loutput, &
+         vert_intp_type(SIZE(VINTP_TYPE_LIST)), hor_intp_matters
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
 
@@ -353,6 +354,23 @@ CONTAINS
     lcontainer = .FALSE.
     CALL assign_if_present(lcontainer, opt_lcontainer)
 
+    loutput_matters = PRESENT(opt_loutput)
+    IF (loutput_matters) THEN
+      loutput = opt_loutput
+    ELSE
+      loutput = .FALSE.
+    END IF
+    hor_intp_matters= PRESENT(opt_hor_intp_type)
+    IF (hor_intp_matters) THEN
+      hor_intp_type_match = opt_hor_intp_type
+    ELSE
+      hor_intp_type_match = -1
+    END IF
+    IF (PRESENT(opt_vert_intp_type)) THEN
+      vert_intp_type = opt_vert_intp_type
+    ELSE
+      vert_intp_type = .FALSE.
+    END IF
     !- loop over variables
     ivar = 0
     ! Note that there may be several variables with different time
@@ -368,39 +386,28 @@ CONTAINS
         ! Skip var_lists for which loutput .NEQV. opt_loutput
         IF (opt_loutput .NEQV. var_lists(i)%p%loutput) CYCLE LOOP_VARLISTS
       END IF
-      element => NULL()
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE(ASSOCIATED(element))
         info => element%field%info
         ! Do not inspect element if it is a container
-        IF (info%lcontainer .NEQV. lcontainer) CYCLE LOOPVAR
-        ! Do not inspect element if "loutput=.false."
-        IF (PRESENT(opt_loutput)) THEN
-          IF (opt_loutput .NEQV. info%loutput) CYCLE LOOPVAR
+        IF ((info%lcontainer .EQV. lcontainer) &
+             ! Do not inspect element if "loutput=.false."
+             .AND. ((.NOT. loutput_matters) .OR. (loutput .EQV. info%loutput)) &
+             ! Do not inspect element if it does not contain info for
+             ! horizontal interpolation
+             .AND. (.NOT. hor_intp_matters &
+             &      .OR. info%hor_interp%hor_intp_type == hor_intp_type_match) &
+             ) THEN
+          ! Do not inspect element if it does not contain matching info for
+          ! vertical interpolation
+          IF (ALL(.NOT. vert_intp_type(:) .OR. &
+               & info%vert_interp%vert_intp_type(:))) THEN
+            ivar = ivar+1
+            ! assign without time level suffix:
+            varlist(ivar) = get_var_name(element%field)
+          END IF
         END IF
-        ! Do not inspect element if it does not contain info for
-        ! vertical interpolation
-        IF (PRESENT(opt_vert_intp_type)) THEN
-          LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-            IF (opt_vert_intp_type(ivintp_type) .AND. &
-              & .NOT. info%vert_interp%vert_intp_type(ivintp_type)) CYCLE LOOPVAR
-          END DO LOOP_VINTP_TYPES
-        END IF
-        ! Do not inspect element if it does not contain info for
-        ! horizontal interpolation
-        IF (PRESENT(opt_hor_intp_type)) THEN
-          IF (info%hor_interp%hor_intp_type /= opt_hor_intp_type) CYCLE LOOPVAR
-        END IF
-
-        ! Check for time level suffix:
-        ivar = ivar+1
-        varlist(ivar) = TRIM(get_var_name(element%field))
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO LOOP_VARLISTS ! i = 1,nvar_lists
 
