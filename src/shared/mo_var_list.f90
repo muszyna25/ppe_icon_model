@@ -300,7 +300,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! @return total number of variables
+  ! @return total number of (non-container) variables
   !
   FUNCTION total_number_of_variables()
     INTEGER :: total_number_of_variables
