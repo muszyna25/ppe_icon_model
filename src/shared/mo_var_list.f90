@@ -314,18 +314,12 @@ CONTAINS
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO i = 1,nvar_lists
-      element => NULL()
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-        ! Do not inspect element if it is a container
-        IF (element%field%info%lcontainer) CYCLE LOOPVAR
-
-        total_number_of_variables = total_number_of_variables + 1
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+        ! Do not count element if it is a container
+        total_number_of_variables = total_number_of_variables &
+             + MERGE(1, 0, .NOT. element%field%info%lcontainer)
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
   END FUNCTION total_number_of_variables
