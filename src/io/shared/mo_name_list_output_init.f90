@@ -1690,7 +1690,7 @@ CONTAINS
       &                               ev_tx_comm, ev_tx_root, &
       &                               event_list_local, ievent_list_local)
 
-    IF (dom_sim_step_info_jstep0 > 0 .AND. p_comm_io /= MPI_COMM_NULL) &
+    IF (dom_sim_step_info_jstep0 > 0 .AND. ASSOCIATED(all_events)) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
