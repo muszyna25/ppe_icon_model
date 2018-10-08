@@ -1635,19 +1635,6 @@ CONTAINS
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
 
-               ! Calculate height-corrected annual maximum of T2M climatology, including contribution from SSO standard 
-               ! deviation. This is used below to reset misclassified glacier points (e.g. salt lakes) to bare soil
-               !
-               ! This correction requires a monthly T2M climatology, which is available only if itype_vegetation_cycle > 1
-               !
-               IF (itype_vegetation_cycle > 1) THEN
-                 t2mclim_hc = MAXVAL(ext_data(jg)%atm_td%t2m_m(jc,jb,:)) + dtdz_clim *                &
-                   ( ext_data(jg)%atm%topography_c(jc,jb) + 1.5_wp*ext_data(jg)%atm%sso_stdh(jc,jb) - &
-                     ext_data(jg)%atm%topo_t2mclim(jc,jb) )
-               ELSE
-                 ! set t2mclim_hc to a value that leaves the landuse classification unchanged
-                 t2mclim_hc = tmelt
-               ENDIF
 
                DO i_lu = 1, ntiles_lnd
 
@@ -1678,6 +1665,32 @@ CONTAINS
                    END IF  ! sum_frac < 1.e-10_wp
                  ENDIF  ! is_frglac_in(jg)
 
+                 ! consistency corrections for glaciered points
+                 !
+                 ! a) plausibility check for glacier points based on T2M climatology (if available):
+                 !    if the warmest month exceeds 10 deg C, then it is unlikely for glaciers to exist
+                 !    This correction requires a monthly T2M climatology, which is available only 
+                 !    if itype_vegetation_cycle > 1
+                 IF (itype_vegetation_cycle > 1) THEN
+                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) THEN
+                     ! Calculate height-corrected annual maximum of T2M climatology, 
+                     ! including contribution from SSO standard deviation. 
+                     ! This is used below to reset misclassified glacier points 
+                     ! (e.g. salt lakes) to bare soil
+                     !
+                     t2mclim_hc = MAXVAL(ext_data(jg)%atm_td%t2m_m(jc,jb,:)) + dtdz_clim *             &
+                       ( ext_data(jg)%atm%topography_c(jc,jb) + 1.5_wp*ext_data(jg)%atm%sso_stdh(jc,jb) - &
+                         ext_data(jg)%atm%topo_t2mclim(jc,jb) )
+
+                     IF (t2mclim_hc > (tmelt + 10._wp)) THEN
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_bare_soil
+                       ext_data(jg)%atm%fr_glac(jc,jb)     = 0._wp
+                       ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp
+                       icount_falseglac(jb) = icount_falseglac(jb) + 1
+                     ENDIF
+                   ENDIF
+                 ENDIF
+
                  lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
                  IF (lu_subs < 0) CYCLE
 
@@ -1702,17 +1715,8 @@ CONTAINS
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
 
-                 ! consistency corrections for glaciered points
-                 !
-                 ! a) plausibility check for glacier points based on T2M climatology (if available):
-                 !    if the warmest month exceeds 10 deg C, then it is unlikely for glaciers to exist
-                 IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice .AND. &
-                     t2mclim_hc > tmelt + 10_wp) THEN
-                   ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_bare_soil
-                   ext_data(jg)%atm%fr_glac(jc,jb)     = 0._wp
-                   ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp
-                   icount_falseglac(jb) = icount_falseglac(jb) + 1
-                 ENDIF
+
+                 ! consistency corrections for glaciered points (continued)
                  !
                  ! b) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
                  IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) &

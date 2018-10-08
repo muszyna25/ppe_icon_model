@@ -115,6 +115,8 @@ MODULE mo_nwp_phy_init
     &                               datetimeToString, newDatetime, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
+    &                               timer_init_nwp_phy
 
   IMPLICIT NONE
 
@@ -209,6 +211,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
+  IF (timers_level > 3) CALL timer_start(timer_init_nwp_phy)
+
   ! Local control variable for extended turbulence initializations
   IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMO/) == init_mode) .OR. &
       init_mode == MODE_ICONVREMAP .AND. .NOT. lread_tke) THEN
@@ -289,7 +293,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! Diagnose aggregated external parameter fields
   ! (mainly for output purposes)
   ! aggregated sai needed below for organize_turbdiff
-  ! This routine is called after init_sea_lists, since 
+  ! This routine is called after init_sea_lists,  
   ! in order to have all tile-related index lists available.
   !
   CALL diagnose_ext_aggr (p_patch, ext_data)
@@ -339,82 +343,103 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   IF (linit_mode) THEN
 
-    DO jb = i_startblk, i_endblk
+    IF (ltestcase) THEN
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-           &  i_startidx, i_endidx, rl_start, rl_end)
+      DO jb = i_startblk, i_endblk
 
-      IF (ltestcase .AND. (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+             &  i_startidx, i_endidx, rl_start, rl_end)
 
-        ! t_g = ape_sst1
+        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
 
-        DO jc = i_startidx, i_endidx
-          zlat = p_patch%cells%center(jc,jb)%lat
-          p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat) ! set SST
-          p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat)
-          p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
-          p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
-          ! Humidity at water surface = humidity at saturation
-          p_diag_lnd%qv_s(jc,jb)     = &
-            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
-          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
-        END DO
+          ! t_g = ape_sst1
 
-
-      ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN
-
-        DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
-                    ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
-          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
-          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
-          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
-
-          p_diag_lnd%qv_s     (jc,jb) = &
-            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-          p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
-            &   p_prog_now%tracer(jc,nlev,jb,iqv))
-          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
-        END DO
-
-      ELSE IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
-
-        DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
-          p_prog_lnd_new%t_g  (jc,jb)   = p_prog_lnd_now%t_g (jc,jb)
-          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
-          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
-          p_diag_lnd%qv_s(jc,jb)     = &
-            &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
-        END DO
-
-      ELSE IF (ltestcase) THEN ! any other testcase
-
-        ! t_g  =  t(nlev)
-        ! qv_ s= qv(nlev)
-        ! KF increase the surface values to obtain fluxes
-
-        DO jc = i_startidx, i_endidx
-          p_prog_lnd_now%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
-          p_prog_lnd_new%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
-          p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
-          p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
-          ! KF NOTE: as long as we have only water as lower boundary
-          ! this is the same setting as for APE
-          p_diag_lnd%qv_s    (jc,jb) = &
-            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
-          p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
-        END DO
-      ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
-
-        !t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values
-        ! needed for example for initializing the turbulence fields
-        IF (init_mode /= MODE_IFSANA) THEN
-          CALL aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now , &
-          &                           p_diag_lnd )
           DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+            zlat = p_patch%cells%center(jc,jb)%lat
+            p_prog_lnd_now%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat) ! set SST
+            p_prog_lnd_new%t_g  (jc,jb)   = ape_sst(ape_sst_case,zlat)
+            p_prog_lnd_now%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = ape_sst(ape_sst_case,zlat)
+            ! Humidity at water surface = humidity at saturation
+            p_diag_lnd%qv_s(jc,jb)     = &
+              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+
+
+        ELSE IF ( nh_test_name == 'wk82' ) THEN
+
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
+                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
+            p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
+            p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+
+            p_diag_lnd%qv_s     (jc,jb) = &
+              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+            p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
+              &   p_prog_now%tracer(jc,nlev,jb,iqv))
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+
+        ELSE IF ( nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
+
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
+            p_prog_lnd_new%t_g  (jc,jb)   = p_prog_lnd_now%t_g (jc,jb)
+            p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g (jc,jb)
+            p_diag_lnd%qv_s(jc,jb)     = &
+              &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+
+        ELSE  ! any other testcase
+
+          ! t_g  =  t(nlev)
+          ! qv_ s= qv(nlev)
+          ! KF increase the surface values to obtain fluxes
+
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+            p_prog_lnd_new%t_g  (jc,jb)   = p_diag%temp (jc,nlev,jb)!+0.2_wp
+            p_prog_lnd_now%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+            p_prog_lnd_new%t_g_t(jc,jb,1) = p_prog_lnd_now%t_g  (jc,jb)
+            ! KF NOTE: as long as we have only water as lower boundary
+            ! this is the same setting as for APE
+            p_diag_lnd%qv_s    (jc,jb) = &
+              & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
+            p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
+          END DO
+        ENDIF
+
+        ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)
+        IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+          DO jc = i_startidx, i_endidx
+            p_diag_lnd%t_seasfc(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
+          ENDDO
+        ENDIF
+
+      ENDDO  ! jb
+
+    ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
+
+      IF (init_mode /= MODE_IFSANA) THEN
+        ! t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values
+        ! needed for example for initializing the turbulence fields
+        CALL aggregate_tg_qvs( p_patch, ext_data, p_prog_lnd_now, p_diag_lnd )
+      ENDIF
+
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+             &  i_startidx, i_endidx, rl_start, rl_end)
+
+        IF (init_mode /= MODE_IFSANA) THEN
+
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_new%t_g(jc,jb) =  p_prog_lnd_now%t_g(jc,jb)
           ENDDO
 
           DO jt = 1, ntiles_total+ntiles_water
@@ -422,28 +447,29 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
               p_prog_lnd_new%t_g_t(jc,jb,jt) = p_prog_lnd_now%t_g_t(jc,jb,jt)
             END DO
           END DO
-        END IF  ! init_mode /= MODE_IFSANA
 
-        ! MODE_IFSANA
-        ! t_g:
-        ! Note, that in copy_prepicon2prog the entire t_g field is initialized with
-        ! t_skin. Lake points are re-initialized with MIN(306.15_wp,tskin).
-        !
-        ! Here, t_g is re-initialized over sea water points with t_seasfc.
-        ! Thus:
-        ! t_g = tskin (from IFS), for land, lake and seaice points
-        ! t_g = t_seasfc for open water
-        !
-        ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
-        !
-        ! qv_s:
-        ! Over the sea and over the ice, qv_s is set to the saturated value
-        ! Over the land we take the minimum of the saturated value and the value
-        ! at the first main level above ground
-        !
 
-        ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
-        IF (init_mode == MODE_IFSANA) THEN
+        ELSE  ! init_mode == MODE_IFSANA
+
+          ! MODE_IFSANA
+          ! t_g:
+          ! Note, that in copy_prepicon2prog the entire t_g field is initialized with
+          ! t_skin. Lake points are re-initialized with MIN(306.15_wp,tskin).
+          !
+          ! Here, t_g is re-initialized over sea water points with t_seasfc.
+          ! Thus:
+          ! t_g = tskin (from IFS), for land, lake and seaice points
+          ! t_g = t_seasfc for open water
+          !
+          ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
+          !
+          ! qv_s:
+          ! Over the sea and over the ice, qv_s is set to the saturated value
+          ! Over the land we take the minimum of the saturated value and the value
+          ! at the first main level above ground
+          !
+
+          ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
           DO ic=1, ext_data%atm%spw_count(jb)
             jc = ext_data%atm%idx_lst_spw(ic,jb)
             IF (lseaice) THEN
@@ -495,17 +521,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             ENDDO
           ENDDO
         END IF  ! init_mode == MODE_IFSANA
-      ENDIF
 
-      ! Copy t_g to t_seasfc for idealized cases with surface scheme (would be undefined otherwise)
-      IF (ltestcase .AND. atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-        DO jc = i_startidx, i_endidx
-          p_diag_lnd%t_seasfc(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
-        ENDDO
-      ENDIF
+      ENDDO  ! jb
 
-    END DO
+    ENDIF  ! ltestcase
+
     CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
+
 
   ELSE  ! in case of restart
     !
@@ -1520,6 +1542,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   CALL sugwd(nlev, pref, phy_params, jg )
   IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
 
+  IF (timers_level > 3) CALL timer_stop(timer_init_nwp_phy)
 
 END SUBROUTINE init_nwp_phy
 
