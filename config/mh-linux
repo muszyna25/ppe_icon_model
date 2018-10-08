@@ -877,7 +877,7 @@ case "$ac_sitename" in
                             no)
                                 ;;
                             "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-intel14
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-intel14
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
@@ -922,7 +922,7 @@ case "$ac_sitename" in
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
                             "$software_tree/mpi/openmpi/2.0.2p1_hpcx-gcc64"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-gcc64
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-gcc64
                                 FFLAGS       = $FFLAGS
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-gcc64
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
