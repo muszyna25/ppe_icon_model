@@ -582,9 +582,8 @@ END SUBROUTINE check_patch_array_sp
 
 
 !>
-!! In a verification run, this routine checks the consistency of an array, i.
-!!
-!! e. if the parts on the worker PEs are identical with the data on
+!! In a verification run, this routine checks the consistency of an array,
+!! i.e. if the parts on the worker PEs are identical with the data on
 !! the verification PE.
 !! For a non-verification run it just does nothing.
 !!

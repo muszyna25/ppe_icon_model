@@ -167,7 +167,7 @@ MODULE mo_mpi
 
   USE mo_kind, ONLY: i4, i8, dp, sp, wp
   USE mo_io_units,       ONLY: nerr
-  USE mo_impl_constants, ONLY: success, pio_type_async, pio_type_cdipio
+  USE mo_impl_constants, ONLY: pio_type_async, pio_type_cdipio
   USE mtime,             ONLY: datetime, max_datetime_str_len, datetimeToString, &
     &                          newDatetime, deallocateDatetime
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
@@ -6153,7 +6153,7 @@ CONTAINS
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize, ilength
+    INTEGER :: p_comm, ilength
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -10074,7 +10074,7 @@ CONTAINS
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_allgatherv_int_1d"
-     INTEGER :: p_comm, sendcount, comm_size, i
+     INTEGER :: p_comm, sendcount, comm_size
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -10111,7 +10111,7 @@ CONTAINS
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: &
           routine = modname//"::p_allgatherv_int_1d_contiguous"
-     INTEGER :: p_comm, sendcount, comm_size, i, n
+     INTEGER :: p_comm, comm_size, i, n
      INTEGER, ALLOCATABLE :: displs(:)
 
      IF (PRESENT(comm)) THEN
@@ -10132,7 +10132,6 @@ CONTAINS
        n = n + recvcounts(i)
      END DO
 
-     sendcount = SIZE(sendbuf)
      CALL p_allgatherv(sendbuf, recvbuf, recvcounts, displs, p_comm)
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in mpi_allgatherv operation!')

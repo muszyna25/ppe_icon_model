@@ -18,10 +18,9 @@
 !!
 MODULE mo_ompthreads
 
-  USE mo_exception,            ONLY: message, warning, finish !message_tex
-  USE mo_run_config,           ONLY: msg_level
+  USE mo_exception,  ONLY: finish
 #ifdef _OPENMP
- USE omp_lib,       ONLY: omp_get_thread_num, omp_get_max_threads, &
+  USE omp_lib,       ONLY: omp_get_thread_num, omp_get_max_threads, &
                           omp_in_parallel, omp_get_num_threads
 !                          omp_get_dynamic, omp_set_dynamic
 #endif
