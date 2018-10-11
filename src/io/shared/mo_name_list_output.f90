@@ -243,7 +243,7 @@ CONTAINS
     part_idx = INDEX(filename, '_part_')
     IF (part_idx > 0) THEN
       ! does the file to append to exist
-      name_len = LEN_TRIM(filename(1:part_idx))
+      name_len = part_idx-1
       INQUIRE(file=filename(1:name_len), exist=lexist)
       IF (lexist) THEN
         ! store the orginal allocated vlist (the handlers different) for later use with new files

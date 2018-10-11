@@ -108,6 +108,10 @@ AC_ARG_ENABLE([psrad],
               AS_HELP_STRING([--enable-psrad],[Use psrad model component.]),
               [],[enable_psrad=yes])
 
+AC_ARG_ENABLE([mixed],
+              AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
+              [],[enable_mixed=no])
+
 dnl ######################################################################
 dnl Serialbox2 serialization setup
 
@@ -349,6 +353,9 @@ AS_IF([test "x$enable_testbed" = "xno"],
 
 AS_IF([test "x$enable_psrad" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"])
+
+AS_IF([test "x$enable_mixed" = "xyes"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__MIXED_PRECISION ${DEFOPT}__MIXED_PRECISION_2"])
 
 dnl #####################################################################
 dnl add local flags
