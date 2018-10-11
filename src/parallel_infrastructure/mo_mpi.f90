@@ -9837,10 +9837,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
-     ! FIXME: this should probably use comm instead of p_comm_work
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+       &              p_real_dp, p_dest, comm, p_error)     ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
      recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9863,7 +9862,7 @@ CONTAINS
 
     CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
       &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-      &              p_int, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+      &              p_int, p_dest, comm, p_error)         ! recvtype, root, comm, error
     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
     recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9883,10 +9882,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
-     ! FIXME: this should probably use comm instead of p_comm_work
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+       &              p_real_dp, p_dest, comm, p_error)     ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
      recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9906,11 +9904,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D2D"
      INTEGER :: p_error
 
-     ! FIXME: I may be wrong, but this looks like a bug to me:
-     !        This call *ignores* the communicator that is passed in and uses p_comm_work instead.
-     CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
-       &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts,
-       &               p_real_dp, p_dest, p_comm_work, p_error)   ! recvtype, root, comm, error
+     CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &    ! sendbuf, sendcount, displs
+       &               p_real_dp, recvbuf, recvcount, &    ! sendtype, recvbuf, recvcounts,
+       &               p_real_dp, p_dest, comm, p_error)   ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_SCATTERV operation!')
 #else
      recvbuf(:,:) = RESHAPE(sendbuf, (/ SIZE(recvbuf,1), SIZE(recvbuf,2) /))
