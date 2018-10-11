@@ -98,7 +98,7 @@ MODULE mo_delaunay_types
   TYPE :: t_mpi_point
     SEQUENCE
     REAL(wp) :: x,y,z,ps
-    INTEGER  :: gindex
+    INTEGER  :: gindex, padding
   END TYPE t_mpi_point
 
   TYPE :: t_mpi_triangle
@@ -1073,7 +1073,7 @@ CONTAINS
     CALL MPI_TYPE_EXTENT(p_real_dp, extent, ierr) 
     offsets(2)     = 4*extent
     oldtypes(2)    = MPI_INTEGER
-    blockcounts(2) = 1
+    blockcounts(2) = 2
     CALL MPI_TYPE_CREATE_STRUCT(2, blockcounts, offsets, oldtypes, mpi_t_point, ierr) 
     CALL MPI_TYPE_COMMIT(mpi_t_point, ierr) 
 

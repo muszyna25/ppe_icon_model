@@ -67,7 +67,7 @@ CONTAINS
 
     ! check whether we have all the restart files we expect
     DO jg = 1, n_dom
-        filename = restartSymlinkName(modelType, jg, n_dom)
+        CALL restartSymlinkName(modelType, jg, filename, n_dom)
         INQUIRE(file = filename, exist = lexists)
         IF (lexists) THEN
             CALL message(routine, "found restart file at '"//filename//"'")
@@ -129,7 +129,7 @@ CONTAINS
     CALL alloc(r1d_s, 1)  !dummy allocation so that there IS no process without a valid allocation
     CALL alloc(i1d,   1)  !dummy allocation so that there IS no process without a valid allocation
 
-    restart_filename = restartSymlinkName(modelType, p_patch%id, opt_ndom)
+    CALL restartSymlinkName(modelType, p_patch%id, restart_filename, opt_ndom)
 
     IF(my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)

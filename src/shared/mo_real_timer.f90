@@ -41,14 +41,14 @@ MODULE mo_real_timer
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
                                 p_pe, p_io, my_process_is_stdio, p_comm_work, &
                                 p_comm_work_test, get_my_mpi_all_comm_size, &
-                                p_comm_size
+                                p_comm_size, p_n_work
   USE mo_parallel_config, ONLY: p_test_run
 #else
   USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio, p_comm_work, &
        p_comm_work_test
 #endif
 
-  USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
+  USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
     &                           num_work_procs, p_sum, p_allgather
   USE mo_master_control,  ONLY: get_my_process_name
@@ -61,6 +61,8 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   INTEGER, PARAMETER :: report_tag = 12345
+#else
+  INTEGER, PARAMETER :: p_n_work = 1
 #endif
 
   ! raw timers
@@ -900,7 +902,8 @@ CONTAINS
   SUBROUTINE timer_report_aggregated()
     ! local variables
     INTEGER                        :: it, irow, max_threads
-    INTEGER                        :: nranks, ranks(num_work_procs)
+    INTEGER                        :: nranks
+    INTEGER, ALLOCATABLE :: ranks(:)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: ranklist_str
     TYPE (t_table)                 :: table
     TYPE(t_timer_reductions)        :: tmr
@@ -914,19 +917,21 @@ CONTAINS
 
     IF (p_pe_work == 0) THEN
       CALL message ('','',all_print=.TRUE.)
-      IF (num_work_procs > 1) THEN
+      IF (p_n_work > 1) THEN
         !-- build list of global ranks within this work communicator
         CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
-        CALL sort_and_compress_list(ranks(1:nranks), ranklist_str)
-        WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str)
+        CALL sort_and_compress_list(ranks, ranklist_str)
+        WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str(1:MAX_CHAR_LENGTH-23))
       ELSE
         WRITE (message_text,'(a)') 'Timer report'
       END IF
+    
       CALL message ('',message_text,all_print=.TRUE.)
 
       max_threads = 1
+#ifdef _OPENMP
 !$    max_threads = omp_get_max_threads()
-
+#endif
       IF (max_threads > 1) THEN
         WRITE (message_text,'(a)') '(master thread only)'
         CALL message ('',message_text,all_print=.TRUE.)
@@ -1109,17 +1114,17 @@ CONTAINS
         CALL set_table_entry(table, irow, "# calls",  TRIM(real2string(tmr%val_call_n(it),'(ES10.1)')))
       END IF
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
-      IF (num_work_procs > 1) &
+      IF (p_n_work > 1) &
         CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(tmr%rank_min(it)))//"]")
       CALL set_table_entry(table, irow, "t_avg",         TRIM(avg_str))
       CALL set_table_entry(table, irow, "t_max",         TRIM(max_str))
-      IF (num_work_procs > 1) &
+      IF (p_n_work > 1) &
         CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(tmr%rank_max(it)))//"]")
       CALL set_table_entry(table, irow, "total min (s)",           TRIM(tot_min_str))
-      IF (num_work_procs > 1) &
+      IF (p_n_work > 1) &
         CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tmr%tot_rank_min(it)))//"]")
       CALL set_table_entry(table, irow, "total max (s)",           TRIM(tot_max_str))
-      IF (num_work_procs > 1) &
+      IF (p_n_work > 1) &
         CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tmr%tot_rank_max(it)))//"]")
     ENDIF
 

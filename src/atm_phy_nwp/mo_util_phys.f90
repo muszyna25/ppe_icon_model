@@ -1050,7 +1050,7 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
             pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
-          zqin = MAX(0._vp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          zqin = MAX(0._wp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
         ELSE
           zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
         ENDIF
@@ -1168,6 +1168,16 @@ CONTAINS
 
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 
+#ifdef __INTEL_COMPILER
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+        prm_diag%rain_con(jc,jb) = prm_diag%rain_con(jc,jb) + pdtime * prm_diag%rain_con_rate(jc,jb)
+        prm_diag%snow_con(jc,jb) = prm_diag%snow_con(jc,jb) + pdtime * prm_diag%snow_con_rate(jc,jb)
+        !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+        prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb) + pdtime * &
+          &                        (prm_diag%rain_con_rate(jc,jb)+ prm_diag%snow_con_rate(jc,jb))
+      ENDDO
+#else
 !DIR$ IVDEP
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
         &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
@@ -1187,6 +1197,7 @@ CONTAINS
         &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
         &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
+#endif
     ENDIF
 
 

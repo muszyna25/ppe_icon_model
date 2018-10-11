@@ -462,7 +462,14 @@ MODULE mo_nwp_phy_types
       ddt_u_ls       (:), &     !! LS tendency for u 
       ddt_v_ls       (:), &     !! LS tendency for v 
       ddt_temp_ls    (:), &     !! LS tendency for temp 
-      ddt_tracer_ls  (:,:)      !! LS tendency for tracer
+      ddt_tracer_ls  (:,:),&     !! LS tendency for tracer
+      ddt_temp_subs_ls(:),  &     !! Christopher Moseley: 7 LS tendencies for profile output
+      ddt_qv_subs_ls  (:),  & 
+      ddt_temp_adv_ls (:),  & 
+      ddt_qv_adv_ls   (:),  & 
+      ddt_temp_nud_ls (:),  & 
+      ddt_qv_nud_ls   (:),  &
+      wsub            (:)
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::  &
       &  tracer_turb_ptr(:)    ,& !< pointer array: one pointer for each component

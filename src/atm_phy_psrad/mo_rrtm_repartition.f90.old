@@ -1,0 +1,1131 @@
+!>
+!! This module is the data communication interface between nwp_old_rrtm_interface and RRTM
+!!
+!! @author Leonidas Linardakis, MPI-M, 2012-08-21
+!!
+!! @par Revision History
+!! Initial release by Leonidas Linardakis, MPI-M, 2012-08-21
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
+MODULE mo_old_rrtm_data_interface
+
+  USE mo_exception,           ONLY: get_filename_noext, finish
+  USE mo_kind,                ONLY: wp
+  
+  USE mo_model_domain,        ONLY: t_patch, p_patch
+  USE mo_grid_config,         ONLY: n_dom
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_nonhydro_types,      ONLY: t_nh_diag
+  
+  USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
+    & nproma, division_method, use_icon_comm, ext_div_from_file
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, &
+    & get_my_mpi_work_communicator, get_my_mpi_work_id, &
+    & get_my_mpi_work_comm_size, get_mpi_all_workroot_id, p_bcast
+   
+  USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
+    & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
+    & print_grid_comm_stats
+  USE mo_dist_dir,            ONLY: dist_dir_get_owners
+  USE mo_decomposition_tools, ONLY: read_ascii_decomposition
+ 
+  USE mo_radiation,           ONLY: radiation
+
+  !------------------------------------------------------------------------------
+  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level,    &
+    &                                timer_radiaton_recv, timer_radiaton_comp, &
+    &                                timer_radiaton_send, timer_preradiaton
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
+                                     iss, iorg, ibc, iso4, idu, MAX_CHAR_LENGTH
+  USE mo_loopindices,          ONLY: get_indices_c
+  USE mtime,                   ONLY: datetime, newDatetime, deallocateDatetime
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
+  USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
+
+
+  IMPLICIT NONE
+
+  PRIVATE
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_old_rrtm_data_interface'
+
+!   PUBLIC :: t_old_rrtm_data
+!   PUBLIC :: init_old_rrtm_model_repart
+!   PUBLIC :: destruct_old_rrtm_model_repart
+!   PUBLIC :: recv_old_rrtm_input, send_old_rrtm_output
+    
+   
+    
+  !--------------------------------------------------------------------------
+  TYPE t_old_rrtm_data
+
+    ! pointers to grids/states from input data
+    ! not used currently
+    TYPE(t_patch),        POINTER :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),POINTER :: ext_data
+    TYPE(t_lnd_diag),     POINTER :: lnd_diag     !< diag vars for sfc
+    TYPE(t_nh_diag),      POINTER :: pt_diag      !<the diagnostic variables
+    TYPE(t_nwp_phy_diag), POINTER :: prm_diag
+    TYPE(t_lnd_prog),     POINTER :: lnd_prog_now
+
+    ! communication patterns
+    INTEGER :: radiation_recv_comm_pattern, radiation_send_comm_pattern
+    
+    !------------------------------------------
+    ! grid parameters
+    INTEGER   :: no_of_cells
+    INTEGER   :: full_levels, half_levels
+    ! blocking parameters
+    INTEGER   :: block_size
+    INTEGER   :: no_of_blocks, end_index
+
+    
+    !------------------------------------------
+    ! INPUT
+    REAL(wp)              :: p_sim_time
+    
+    INTEGER, POINTER  :: convection_type(:,:)    
+    REAL(wp), POINTER  :: recv_convection_type(:,:), send_convection_type(:,:) ! this is for communication
+    
+    REAL(wp), POINTER ::  fr_land_smt(:,:)   !< fraction land in a grid element        [ ]
+                                                         !  = smoothed fr_land
+    REAL(wp), POINTER ::  fr_glac_smt(:,:)   !< fraction land glacier in a grid element [ ]
+                                                         ! = smoothed fr_glac
+    REAL(wp), POINTER ::  cosmu0(:,:)        ! cosine of solar zenith angle
+        
+    REAL(wp), POINTER ::  albedo_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
+    REAL(wp), POINTER ::  albedo_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
+    REAL(wp), POINTER ::  albedo_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+    REAL(wp), POINTER ::  albedo_nir_dif(:,:) !< in surface albedo for visible range, diffuse
+    
+    REAL(wp), POINTER ::  emis_rad(:,:)      ! lw sfc emissivity
+    REAL(wp), POINTER ::  tsfctrad(:,:)      ! surface temperature at trad [K]
+    
+    REAL(wp), POINTER ::  pres_ifc(:,:,:)    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
+    REAL(wp), POINTER ::  pres(:,:,:)        ! pressure (nproma,nlev,nblks_c)                  [Pa]
+    REAL(wp), POINTER ::  temp(:,:,:)        ! temperature (nproma,nlev,nblks_c)                 [K]
+    
+    REAL(wp), POINTER ::  qm_vapor(:,:,:)    !< water vapor mass mix ratio at t-dt
+    REAL(wp), POINTER ::  qm_liquid(:,:,:)   !< cloud water mass mix ratio at t-dt
+    REAL(wp), POINTER ::  qm_ice(:,:,:)      !< cloud ice mass mixing ratio at t-dt
+    
+    REAL(wp), POINTER ::  qm_o3(:,:,:)       ! in o3 mass mixing ratio
+    REAL(wp), POINTER ::  acdnc(:,:,:)       ! cloud droplet number concentration [1/m**3]
+    REAL(wp), POINTER ::  cld_frc(:,:,:)     !< cloud fraction [m2/m2]
+    
+    REAL(wp), POINTER ::  zaeq1(:,:,:)       !< in aerosol continental
+    REAL(wp), POINTER ::  zaeq2(:,:,:)       !< in aerosol maritime
+    REAL(wp), POINTER ::  zaeq3(:,:,:)       !< in aerosol urban
+    REAL(wp), POINTER ::  zaeq4(:,:,:)       !< in aerosol volcano ashes
+    REAL(wp), POINTER ::  zaeq5(:,:,:)       !< in aerosol stratospheric background
+
+    !------------------------------------------
+    ! OUTPUT    
+    REAL(wp), POINTER ::  aclcov (:,:)       ! cloud cover in a column [m2/m2], not used at the moment
+    REAL(wp), POINTER ::  lwflxclr(:,:,:)    ! terrestrial flux, clear sky, net down, longwave clear-sky net flux [W/m2]
+    REAL(wp), POINTER ::  trsolclr(:,:,:)    ! sol. transmissivity, clear sky, net down, shortwave clear-sky net tranmissivity []
+    REAL(wp), POINTER ::  lwflxall(:,:,:)    ! terrestrial flux, all sky, net down, longwave net flux           [W/m2]
+    REAL(wp), POINTER ::  trsolall(:,:,:)    ! solar transmissivity, all sky, net dow, shortwave net tranmissivity []
+    
+  END TYPE t_old_rrtm_data
+  !--------------------------------------------------------------------------
+
+  TYPE(t_old_rrtm_data), POINTER :: rrtm_model_data_array(:)
+    
+CONTAINS
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
+  !!
+  SUBROUTINE nwp_old_rrtm_radiation_repartition (current_date, pt_patch, ext_data, &
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_old_rrtm_radiation_repartition'
+
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),INTENT(in)        :: ext_data
+
+    REAL(wp), INTENT(in) :: &
+      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+
+    TYPE(t_nh_diag), TARGET, INTENT(in)   :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),        INTENT(inout):: lnd_prog
+
+    ! Local scalars:
+    INTEGER:: jc,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+
+    TYPE(t_old_rrtm_data), POINTER :: rrtm_data
+    INTEGER:: return_status
+    REAL(wp), POINTER :: &
+        & test_aclcov  (:,    :),  &
+        & test_lwflxclr(:, :, :),  &
+        & test_trsolclr(:, :, :),  &
+        & test_lwflxall(:, :, :),  &
+        & test_trsolall(:, :, :)
+    REAL(wp) :: check_diff
+
+    CHARACTER(*), PARAMETER :: method_name = "nwp_old_rrtm_radiation_repartition"
+
+    IF (timers_level > 3) CALL timer_start(timer_preradiaton)
+    !-------------------------------------------------------------------------
+    IF (msg_level >= 12) &
+      &  CALL message(routine, 'RRTM radiation on redistributed grid')
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+    jg        = pt_patch%id
+
+    ! number of vertical levels
+    nlev   = pt_patch%nlev
+    nlevp1 = pt_patch%nlevp1
+
+
+
+    !-------------------------------------------------------------------------
+    !> Radiation
+    !-------------------------------------------------------------------------
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+    IF (test_parallel_radiation) THEN
+
+      ! allocate temp arrays for comparing the results
+      ! from the direct radiation call and the redistributed
+      ! radiation call
+      ALLOCATE( &
+        & test_aclcov  (nproma,         pt_patch%nblks_c),  &
+        & test_lwflxclr(nproma, nlevp1, pt_patch%nblks_c),  &
+        & test_trsolclr(nproma, nlevp1, pt_patch%nblks_c),  &
+        & test_lwflxall(nproma, nlevp1, pt_patch%nblks_c),  &
+        & test_trsolall(nproma, nlevp1, pt_patch%nblks_c),  &
+        & STAT=return_status)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          &                         i_startidx, i_endidx, rl_start, rl_end)
+
+
+
+        ! It may happen that an MPI patch contains only nest boundary points
+        ! In this case, no action is needed
+        IF (i_startidx > i_endidx) CYCLE
+
+        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
+
+        CALL radiation(               &
+                                !
+                                ! input
+                                ! -----
+                                !
+          & current_date                     ,&!< in current date
+                                ! indices and dimensions
+          & jg         =jg                   ,&!< in domain index
+          & jb         =jb                   ,&!< in block index
+          & jce        =i_endidx             ,&!< in  end   index for loop over block
+          & kbdim      =nproma               ,&!< in  dimension of block over cells
+          & klev       =nlev                 ,&!< in  number of full levels = number of layers
+          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
+                                !
+          & ktype      =prm_diag%ktype(:,jb) ,&!< in     type of convection
+                                !
+                                ! surface: albedo + temperature
+          & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
+          & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
+                                !
+          & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
+          & alb_vis_dir=prm_diag%albvisdir(:,jb) ,&!< in surface albedo for visible range, direct
+          & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
+          & alb_vis_dif=prm_diag%albvisdif(:,jb) ,&!< in surface albedo for visible range, diffuse
+          & alb_nir_dif=prm_diag%albnirdif(:,jb) ,&!< in surface albedo for near IR range, diffuse
+          & emis_rad=ext_data%atm%emis_rad(:,jb) ,&!< in longwave surface emissivity
+          & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
+                                !
+                                ! atmosphere: pressure, tracer mixing ratios and temperature
+          & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
+          & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
+          & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
+          & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
+          & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
+          & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
+          & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
+          & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
+          & cld_frc    =prm_diag%clc      (:,:,jb)     ,&!< in  cloud fraction [m2/m2]
+          & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
+          & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
+          & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
+          & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
+          & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
+          & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
+                                ! output
+                                ! ------
+                                !
+          & cld_cvr        = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
+          & flx_lw_net_clr = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+          & trm_sw_net_clr = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+          & flx_lw_net     = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+          & trm_sw_net     = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+          & opt_halo_cosmu0 = .FALSE. )
+
+      ENDDO ! blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDIF !test_parallel_radiation
+
+
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_preradiaton)
+      CALL timer_start(timer_radiaton_recv)
+    ENDIF
+
+    ! this maybe used, so we fill it while not an output of the radiation
+    prm_diag%tsfctrad(:,:) = lnd_prog%t_g(:,:)
+    CALL recv_old_rrtm_input( &
+          & ktype      =prm_diag%ktype(:,:)             ,&!< in     type of convection
+          & zland      =ext_data%atm%fr_land_smt(:,:)   ,&!< in     land fraction
+          & zglac      =ext_data%atm%fr_glac_smt(:,:)   ,&!< in     land glacier fraction
+                                !
+          & cos_mu0    =prm_diag%cosmu0  (:,:) ,&!< in  cos of zenith angle mu0
+          ! these are actualy computed from albvisdif
+!          & alb_vis_dir=albvisdir        (:,:) ,&!< in surface albedo for visible range, direct
+!          & alb_nir_dir=albnirdir        (:,:) ,&!< in surface albedo for near IR range, direct
+          & alb_vis_dif=prm_diag%albvisdif(:,:),&!< in surface albedo for visible range, diffuse
+!          & alb_nir_dif=prm_diag%albnirdif(:,:) ,&!< in surface albedo for near IR range, diffuse
+          & emis_rad=ext_data%atm%emis_rad(:,:),&!< in longwave surface emissivity
+          & tk_sfc     =prm_diag%tsfctrad(:,:) ,&!< in surface temperature
+                                !
+                                ! atmosphere: pressure, tracer mixing ratios and temperature
+          & pp_hl      =pt_diag%pres_ifc  (:,:,:)     ,&!< in  pres at half levels at t-dt [Pa]
+          & pp_fl      =pt_diag%pres      (:,:,:)     ,&!< in  pres at full levels at t-dt [Pa]
+          & tk_fl      =pt_diag%temp      (:,:,:)     ,&!< in  temperature at full level at t-dt
+          & qm_vap     =prm_diag%tot_cld  (:,:,:,iqv) ,&!< in  water vapor mass mix ratio at t-dt
+          & qm_liq     =prm_diag%tot_cld  (:,:,:,iqc) ,&!< in cloud water mass mix ratio at t-dt
+          & qm_ice     =prm_diag%tot_cld  (:,:,:,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
+          & qm_o3      =ext_data%atm%o3   (:,:,:)     ,&!< in o3 mass mixing ratio at t-dt
+          & cdnc       =prm_diag%acdnc    (:,:,:)     ,&!< in  cloud droplet numb conc. [1/m**3]
+          & cld_frc    =prm_diag%clc      (:,:,:)     ,&!< in  cloud fraction [m2/m2]
+          & zaeq1      = zaeq1(:,:,:)                 ,&!< in aerosol continental
+          & zaeq2      = zaeq2(:,:,:)                 ,&!< in aerosol maritime
+          & zaeq3      = zaeq3(:,:,:)                 ,&!< in aerosol urban
+          & zaeq4      = zaeq4(:,:,:)                 ,&!< in aerosol volcano ashes
+          & zaeq5      = zaeq5(:,:,:)                 ,&!< in aerosol stratospheric background
+          & patch      = pt_patch                     ,&!< in
+          & rrtm_data  = rrtm_data)                     !< out, pointer to rrtm input values
+
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_radiaton_recv)
+      CALL timer_start(timer_radiaton_comp)
+    ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+    DO jb = 1, rrtm_data%no_of_blocks
+
+      i_endidx = MERGE(rrtm_data%block_size, rrtm_data%end_index, &
+           jb /= rrtm_data%no_of_blocks)
+
+      !Calculate direct albedo from diffuse albedo and solar zenith angle
+      !formula as in Ritter-Geleyn's fesft
+      DO jc = 1, i_endidx
+        rrtm_data%albedo_vis_dir(jc,jb) =  ( 1.0_wp                                                           &
+          &  + 0.5_wp * (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (rrtm_data%cosmu0(jc,jb) * (1.0_wp/rrtm_data%albedo_vis_dif(jc,jb) - 1.0_wp)))**2
+      ENDDO
+!      IF (i_startidx > 1) albvisdir(1:i_startidx-1,jb) = albvisdir(i_startidx,jb)
+
+      ! no distiction between vis and nir albedo
+      rrtm_data%albedo_nir_dir(1:i_endidx,jb) = rrtm_data%albedo_vis_dir(1:i_endidx,jb)
+      rrtm_data%albedo_nir_dif(1:i_endidx,jb) = rrtm_data%albedo_vis_dif(1:i_endidx,jb)
+
+      CALL radiation(               &
+                              !
+                              ! input
+                              ! -----
+                              !
+        & current_date                       ,&!< in current date
+                              ! indices and dimensions 
+        & jg         =jg                     ,&!< in domain index
+        & jb         =jb                     ,&!< in block index
+        & jce        = i_endidx              ,&!< in  end   index for loop over block
+        & kbdim      = rrtm_data%block_size  ,&!< in  dimension of block over cells
+        & klev       = rrtm_data%full_levels ,&!< in  number of full levels =  number of layers
+        & klevp1     = rrtm_data%half_levels ,&!< in  number of half levels =  number of layer ifcs
+                              !
+        & ktype      = rrtm_data%convection_type(:,jb) ,&!< in     type of convection
+                              !
+                              ! surface: albedo + temperature
+        & zland      = rrtm_data%fr_land_smt(:,jb)     ,&!< in     land fraction
+        & zglac      = rrtm_data%fr_glac_smt(:,jb)     ,&!< in     land glacier fraction
+                              !
+        & cos_mu0    = rrtm_data%cosmu0         (:,jb) ,&!< in  cos of zenith angle mu0
+        & alb_vis_dir= rrtm_data%albedo_vis_dir (:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir= rrtm_data%albedo_nir_dir (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dif= rrtm_data%albedo_vis_dif (:,jb) ,&!< in surface albedo for visible range, diffuse
+        & alb_nir_dif= rrtm_data%albedo_nir_dif (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & emis_rad   = rrtm_data%emis_rad       (:,jb) ,&!< in longwave surface emissivity
+        & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
+                              !
+                              ! atmosphere: pressure, tracer mixing ratios and temperature
+        & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
+        & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
+        & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt
+        & qm_vap     = rrtm_data%qm_vapor  (:,:,jb)    ,&!< in  water vapor mass mix ratio at t-dt
+        & qm_liq     = rrtm_data%qm_liquid (:,:,jb)    ,&!< in cloud water mass mix ratio at t-dt
+        & qm_ice     = rrtm_data%qm_ice    (:,:,jb)    ,&!< in cloud ice mass mixing ratio at t-dt
+        & qm_o3      = rrtm_data%qm_o3     (:,:,jb)    ,&!< in o3 mass mixing ratio at t-dt
+        & cdnc       = rrtm_data%acdnc     (:,:,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
+        & cld_frc    = rrtm_data%cld_frc   (:,:,jb)    ,&!< in  cloud fraction [m2/m2]
+        & zaeq1      = rrtm_data%zaeq1     (:,:,jb)    ,&!< in aerosol continental
+        & zaeq2      = rrtm_data%zaeq2     (:,:,jb)    ,&!< in aerosol maritime
+        & zaeq3      = rrtm_data%zaeq3     (:,:,jb)    ,&!< in aerosol urban
+        & zaeq4      = rrtm_data%zaeq4     (:,:,jb)    ,&!< in aerosol volcano ashes
+        & zaeq5      = rrtm_data%zaeq5     (:,:,jb)    ,&!< in aerosol stratospheric background
+        & dt_rad     = atm_phy_nwp_config(jg)%dt_rad   ,&
+                              ! output
+                              ! ------
+                              !
+        & cld_cvr        = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
+        & flx_lw_net_clr = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trm_sw_net_clr = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & flx_lw_net     = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trm_sw_net     = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & opt_halo_cosmu0 = .FALSE. )
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    IF (timers_level > 3) THEN
+      CALL timer_stop(timer_radiaton_comp)
+      CALL timer_start(timer_radiaton_send)
+    ENDIF
+
+    ! aclcov is also output but not used
+    CALL send_old_rrtm_output(        &
+      & rrtm_data               , &
+      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
+      & prm_diag%trsolall(:,:,:), &!< out sol. transmissivity, all sky, net down
+      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
+      & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
+
+    IF (timers_level > 3) &
+      & CALL timer_stop(timer_radiaton_send)
+
+
+    IF (test_parallel_radiation) THEN
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          &                         i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+
+          check_diff = MAXVAL(ABS(prm_diag%lwflxall(jc,:,jb) - test_lwflxall(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%lwflxall=", prm_diag%lwflxall(jc,:,jb)
+            write(0,*) " test_lwflxall=", test_lwflxall(jc,:,jb)
+            CALL finish(method_name,"lwflxall differs")
+          ENDIF
+
+          check_diff = MAXVAL(ABS(prm_diag%trsolall(jc,:,jb) - test_trsolall(jc,:,jb)))
+          IF (check_diff > 0.0_wp) THEN
+            write(0,*) " jc,jb=", jc,jb
+            write(0,*) " prm_diag%trsolall=", prm_diag%trsolall(jc,:,jb)
+            write(0,*) " test_trsolall=", test_trsolall(jc,:,jb)
+            CALL finish(method_name,"trsolall differs")
+          ENDIF
+
+       ENDDO
+     ENDDO
+
+     DEALLOCATE(test_aclcov, test_lwflxclr, test_trsolclr, test_lwflxall, test_trsolall)
+
+   ENDIF ! test_parallel_radiation
+
+
+  END SUBROUTINE nwp_old_rrtm_radiation_repartition
+  !---------------------------------------------------------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE init_old_rrtm_model_repart()
+
+    INTEGER :: return_status, dom
+    CHARACTER(*), PARAMETER :: method_name = "init_old_rrtm_model_repart"
+    
+    IF (my_process_is_mpi_seq()) THEN
+      parallel_radiation_mode(:) = 0
+      RETURN
+    ENDIF
+    
+    ALLOCATE (rrtm_model_data_array(n_dom), STAT=return_status)
+    IF (return_status /= 0 ) &
+      CALL finish (method_name,'ALLOCATE(rrtm_model_data)')
+
+    DO dom=1, n_dom
+    
+      SELECT CASE (parallel_radiation_mode(dom))
+
+      CASE(1) 
+        CALL construct_old_rrtm_model_repart(dom)
+
+      CASE(0)
+         ! no parallel_radiation
+         
+      CASE default
+        CALL finish(method_name, "Wrong parallel_radiation_mode")
+        
+      END SELECT
+      
+    ENDDO
+
+    RETURN
+    
+  END SUBROUTINE init_old_rrtm_model_repart
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  SUBROUTINE construct_old_rrtm_model_repart(patch_no)
+    
+    INTEGER, INTENT(in), TARGET :: patch_no
+    
+    TYPE(t_patch), POINTER :: patch
+    TYPE(t_old_rrtm_data), POINTER :: rrtm_model_data
+    
+    INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
+    INTEGER :: return_status, i, j
+    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER, ALLOCATABLE :: radiation_cells(:)
+    
+    CHARACTER(*), PARAMETER :: method_name = "construct_old_rrtm_model_repart"
+
+    IF (.NOT.use_icon_comm) &
+      & CALL finish(method_name, "repartitioned radiation cannot be used without icon_comm")
+
+    patch => p_patch(patch_no)
+    rrtm_model_data => rrtm_model_data_array(patch_no)
+    rrtm_model_data%pt_patch => patch
+    IF (patch%id /= patch_no) &
+      & CALL finish(method_name, "patch%id /= patch_no")
+        
+    my_mpi_work_id           = get_my_mpi_work_id()
+    my_mpi_work_comm_size    = get_my_mpi_work_comm_size()
+    workroot_mpi_id          = get_mpi_all_workroot_id()
+    my_mpi_work_communicator = get_my_mpi_work_communicator()
+
+    SELECT CASE (division_method(patch_no))
+    CASE(ext_div_from_file) 
+      ! read the radiation re-distribution from file
+      
+      ! NOTE: this global array should be eventully replaced by local arrays
+      !       this is a first implementation
+      ALLOCATE(radiation_owner(patch%n_patch_cells_g), STAT=return_status)
+      IF (return_status /= 0 ) &
+        CALL finish (method_name,'ALLOCATE(radiation_owner) failed')
+    
+      IF (my_mpi_work_id == workroot_mpi_id) THEN
+
+        ! read all the radiation owners and sent the info to each procs
+        IF (radiation_division_file_name(patch_no) == "") THEN
+          radiation_division_file_name(patch_no) = &
+            & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
+        ENDIF
+
+        CALL read_ascii_decomposition(radiation_division_file_name(patch_no), &
+          &                           radiation_owner, patch%n_patch_cells_g)
+      ENDIF
+
+      !-------------------------------
+      ! some checks
+      IF ( MINVAL(radiation_owner(:)) < 0 .OR. &
+        & MAXVAL(radiation_owner(:)) >= my_mpi_work_comm_size) THEN
+        WRITE(0,*) "mpi_work_comm_size=",my_mpi_work_comm_size, &
+        & " MINAVAL=", MINVAL(radiation_owner(:)), &
+          " MAXVAL=",  MAXVAL(radiation_owner(:))
+        CALL finish(method_name,'Invalid redistribution')
+      ENDIF
+
+      CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
+
+      ALLOCATE(radiation_cells(COUNT(radiation_owner(:) == my_mpi_work_id)))
+
+      i = 1
+
+      DO j = 1, patch%n_patch_cells_g
+
+        IF (radiation_owner(j) == my_mpi_work_id) THEN
+
+          radiation_cells(i) = j
+          i = i + 1
+        END IF
+      END DO
+
+      DEALLOCATE(radiation_owner)
+
+    CASE DEFAULT
+      CALL finish(method_name, &
+        & 'value of division_method not compatible with redistributed radiation')
+    END SELECT
+
+    ! create the receive communicator from the dynamics
+    rrtm_model_data%radiation_recv_comm_pattern =                      &
+      & new_icon_comm_pattern(                                         &
+      & total_no_of_points = SIZE(radiation_cells),                    &
+      & receive_from_owner = dist_dir_get_owners(                      &
+      &   patch%cells%decomp_info%owner_dist_dir, radiation_cells(:)), &
+      & my_global_index = radiation_cells(:),                          &
+      & send_glb2loc_index = patch%cells%decomp_info%glb2loc_index,    &
+      & allow_send_to_myself = .true. ,                                &
+      & name = "radiation_rcv_from_dynamics" )
+
+    ! create the inverse communicator, from radiation to dynamics
+    rrtm_model_data%radiation_send_comm_pattern =            &
+      & inverse_of_icon_comm_pattern(                        &
+      &  in_comm_pattern_id = rrtm_model_data%radiation_recv_comm_pattern, &
+      &  name = "radiation_send_to_dynamics" )
+
+    CALL print_grid_comm_stats(rrtm_model_data%radiation_recv_comm_pattern)
+    CALL print_grid_comm_stats(rrtm_model_data%radiation_send_comm_pattern)
+    CALL print_grid_comm_pattern(rrtm_model_data%radiation_recv_comm_pattern)
+    CALL print_grid_comm_pattern(rrtm_model_data%radiation_send_comm_pattern)
+
+    ! now allocate the data for the radiation interface
+    CALL init_old_rrtm_data( &
+      & rrtm_data   = rrtm_model_data   ,          &
+      & no_of_cells = SIZE(radiation_cells), &
+      & full_levels = patch%nlev,                  &
+      & half_levels = patch%nlevp1,                &
+      & block_size  = nproma)
+
+  END SUBROUTINE construct_old_rrtm_model_repart
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE init_old_rrtm_data(rrtm_data, no_of_cells, full_levels, half_levels, block_size)
+    INTEGER, INTENT(in) :: no_of_cells, full_levels, half_levels, block_size
+    TYPE(t_old_rrtm_data), INTENT(inout) :: rrtm_data
+    
+    ! fill the rrtm_data parameters
+    rrtm_data%no_of_cells = no_of_cells
+    rrtm_data%full_levels = full_levels
+    rrtm_data%half_levels = half_levels
+    
+    rrtm_data%block_size       = block_size
+    rrtm_data%no_of_blocks = ( (no_of_cells - 1) / block_size ) + 1
+    rrtm_data%end_index    = no_of_cells - ( (rrtm_data%no_of_blocks - 1) * block_size )
+    
+    CALL allocate_old_rrtm_model_data(rrtm_data)
+
+      
+  END SUBROUTINE init_old_rrtm_data
+  !-----------------------------------------
+
+    
+  !-----------------------------------------
+  !>
+  SUBROUTINE allocate_old_rrtm_model_data(rrtm_data)
+
+    TYPE(t_old_rrtm_data), INTENT(inout) :: rrtm_data
+    
+    INTEGER :: no_of_blocks, block_size, full_levels, half_levels
+    INTEGER :: return_status
+
+    block_size   = rrtm_data%block_size
+    no_of_blocks = rrtm_data%no_of_blocks
+    full_levels  = rrtm_data%full_levels
+    half_levels  = rrtm_data%half_levels
+    
+    !------------------------------------------
+    ALLOCATE( &
+      & rrtm_data%convection_type(block_size,            no_of_blocks),   &
+      & rrtm_data%recv_convection_type(block_size,       no_of_blocks),   &
+      & rrtm_data%send_convection_type(block_size,       no_of_blocks),   &
+      & rrtm_data%fr_land_smt    (block_size,            no_of_blocks),   &
+      & rrtm_data%fr_glac_smt    (block_size,            no_of_blocks),   &
+      & rrtm_data%cosmu0         (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_vis_dir (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_nir_dir (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_vis_dif (block_size,            no_of_blocks),   &
+      & rrtm_data%albedo_nir_dif (block_size,            no_of_blocks),   &
+      & rrtm_data%emis_rad       (block_size,            no_of_blocks),   &
+      & rrtm_data%tsfctrad       (block_size,            no_of_blocks),   &
+      & rrtm_data%pres_ifc       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%pres           (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%temp           (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_vapor       (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_liquid      (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_ice         (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%qm_o3          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%acdnc          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%cld_frc        (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq1          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq2          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq3          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq4          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%zaeq5          (block_size,full_levels,no_of_blocks),   &
+      & rrtm_data%aclcov         (block_size,            no_of_blocks),   &
+      & rrtm_data%lwflxclr       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%trsolclr       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%lwflxall       (block_size,half_levels,no_of_blocks),   &
+      & rrtm_data%trsolall       (block_size,half_levels,no_of_blocks),   &
+      & STAT=return_status)
+
+    IF (return_status /= 0 ) THEN
+      CALL finish ("allocate_old_rrtm_model_data",'failed')
+    ENDIF
+
+    rrtm_data%convection_type = 0
+    rrtm_data%recv_convection_type = 0.0_wp
+    rrtm_data%send_convection_type = 0.0_wp
+    rrtm_data%fr_land_smt     = 0.0_wp
+    rrtm_data%fr_glac_smt     = 0.0_wp
+    rrtm_data%cosmu0          = 0.0_wp
+    rrtm_data%albedo_vis_dir  = 0.0_wp
+    rrtm_data%albedo_nir_dir  = 0.0_wp
+    rrtm_data%albedo_vis_dif  = 0.0_wp
+    rrtm_data%albedo_nir_dif  = 0.0_wp
+    rrtm_data%emis_rad        = 0.0_wp
+    rrtm_data%tsfctrad        = 0.0_wp
+    rrtm_data%pres_ifc        = 0.0_wp
+    rrtm_data%pres            = 0.0_wp
+    rrtm_data%temp            = 0.0_wp
+    rrtm_data%qm_vapor        = 0.0_wp
+    rrtm_data%qm_liquid       = 0.0_wp
+    rrtm_data%qm_ice          = 0.0_wp
+    rrtm_data%qm_o3           = 0.0_wp
+    rrtm_data%acdnc           = 0.0_wp
+    rrtm_data%cld_frc         = 0.0_wp
+    rrtm_data%zaeq1           = 0.0_wp
+    rrtm_data%zaeq2           = 0.0_wp
+    rrtm_data%zaeq3           = 0.0_wp
+    rrtm_data%zaeq4           = 0.0_wp
+    rrtm_data%zaeq5           = 0.0_wp
+    rrtm_data%aclcov          = 0.0_wp
+    rrtm_data%lwflxclr        = 0.0_wp
+    rrtm_data%trsolclr        = 0.0_wp
+    rrtm_data%lwflxall        = 0.0_wp
+    rrtm_data%trsolall        = 0.0_wp
+    
+  END SUBROUTINE allocate_old_rrtm_model_data
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE destruct_old_rrtm_model_repart()
+    
+    INTEGER :: dom
+    
+    IF (my_process_is_mpi_seq()) THEN
+      RETURN
+    ENDIF
+    
+    DO dom=1,n_dom
+      IF (parallel_radiation_mode(dom) == 1) THEN
+        CALL deallocate_old_rrtm_model_data(rrtm_model_data_array(dom))
+      ENDIF
+    ENDDO
+    DEALLOCATE(rrtm_model_data_array)
+  
+  END SUBROUTINE destruct_old_rrtm_model_repart
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE deallocate_old_rrtm_model_data(rrtm_data)
+
+    TYPE(t_old_rrtm_data), INTENT(inout) :: rrtm_data
+    
+    
+    !------------------------------------------
+    DEALLOCATE( &
+      & rrtm_data%convection_type,   &
+      & rrtm_data%recv_convection_type, &
+      & rrtm_data%send_convection_type, &
+      & rrtm_data%fr_land_smt    ,   &
+      & rrtm_data%fr_glac_smt    ,   &
+      & rrtm_data%cosmu0         ,   &
+      & rrtm_data%albedo_vis_dir ,   &
+      & rrtm_data%albedo_nir_dir ,   &
+      & rrtm_data%albedo_vis_dif ,   &
+      & rrtm_data%albedo_nir_dif ,   &
+      & rrtm_data%emis_rad       ,   &
+      & rrtm_data%tsfctrad       ,   &
+      & rrtm_data%pres_ifc       ,   &
+      & rrtm_data%pres           ,   &
+      & rrtm_data%temp           ,   &
+      & rrtm_data%qm_vapor       ,   &
+      & rrtm_data%qm_liquid      ,   &
+      & rrtm_data%qm_ice         ,   &
+      & rrtm_data%qm_o3          ,   &
+      & rrtm_data%acdnc          ,   &
+      & rrtm_data%cld_frc        ,   &
+      & rrtm_data%zaeq1          ,   &
+      & rrtm_data%zaeq2          ,   &
+      & rrtm_data%zaeq3          ,   &
+      & rrtm_data%zaeq4          ,   &
+      & rrtm_data%zaeq5          ,   &
+      & rrtm_data%aclcov         ,   &
+      & rrtm_data%lwflxclr       ,   &
+      & rrtm_data%trsolclr       ,   &
+      & rrtm_data%lwflxall       ,   &
+      & rrtm_data%trsolall)
+    
+  END SUBROUTINE deallocate_old_rrtm_model_data
+  !-----------------------------------------
+
+  !-----------------------------------------------------------
+  SUBROUTINE recv_old_rrtm_input( &
+    & ktype      ,&!< in     type of convection
+    & zland      ,&!< in     land fraction
+    & zglac      ,&!< in     land glacier fraction
+    & cos_mu0    ,&!< in  cos of zenith angle mu0
+!    & alb_vis_dir,&!< in surface albedo for visible range, direct
+!    & alb_nir_dir,&!< in surface albedo for near IR range, direct
+    & alb_vis_dif,&!< in surface albedo for visible range, diffuse
+!    & alb_nir_dif,&!< in surface albedo for near IR range, diffuse
+    & emis_rad   ,&!< in longwave surface emissivity
+    & tk_sfc     ,&!< in surface temperature
+    & pp_hl      ,&!< in  pres at half levels at t-dt [Pa]
+    & pp_fl      ,&!< in  pres at full levels at t-dt [Pa]
+    & tk_fl      ,&!< in  temperature at full level at t-dt
+    & qm_vap     ,&!< in  water vapor mass mix ratio at t-dt
+    & qm_liq     ,&!< in cloud water mass mix ratio at t-dt
+    & qm_ice     ,&!< in cloud ice mass mixing ratio at t-dt
+    & qm_o3      ,&!< in o3 mass mixing ratio at t-dt
+    & cdnc       ,&!< in  cloud droplet numb conc. [1/m**3]
+    & cld_frc    ,&!< in  cloud fraction [m2/m2]
+    & zaeq1      ,&!< in aerosol continental
+    & zaeq2      ,&!< in aerosol maritime
+    & zaeq3      ,&!< in aerosol urban
+    & zaeq4      ,&!< in aerosol volcano ashes
+    & zaeq5      ,&!< in aerosol stratospheric background
+    & patch      ,&!< in
+    & rrtm_data)   !< pointer out
+    
+    INTEGER,  TARGET ::  ktype(:,:)   !< type of convection    [ ]
+    REAL(wp), TARGET ::  zland(:,:)   !< fraction land in a grid element        [ ]
+                                                        !  = smoothed fr_land
+    REAL(wp), TARGET ::  zglac(:,:)   !< fraction land glacier in a grid element [ ]
+                                                        ! = smoothed fr_glac
+    REAL(wp), TARGET ::  cos_mu0(:,:)        ! cosine of solar zenith angle
+
+    REAL(wp), TARGET ::  alb_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
+!    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
+
+    REAL(wp), TARGET ::  emis_rad(:,:)      ! lw sfc emissivity
+    REAL(wp), TARGET ::  tk_sfc(:,:)      ! surface temperature at trad [K]
+
+    REAL(wp), TARGET ::  pp_hl(:,:,:)    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
+    REAL(wp), TARGET ::  pp_fl(:,:,:)        ! pressure (nproma,nlev,nblks_c)                  [Pa]
+    REAL(wp), TARGET ::  tk_fl(:,:,:)        ! temperature (nproma,nlev,nblks_c)                 [K]
+
+    REAL(wp), TARGET ::  qm_vap(:,:,:)    !< water vapor mass mix ratio at t-dt
+    REAL(wp), TARGET ::  qm_liq(:,:,:)   !< cloud water mass mix ratio at t-dt
+    REAL(wp), TARGET ::  qm_ice(:,:,:)      !< cloud ice mass mixing ratio at t-dt
+
+    REAL(wp), TARGET ::  qm_o3(:,:,:)       ! in o3 mass mixing ratio
+    REAL(wp), TARGET ::  cdnc(:,:,:)       ! cloud droplet number concentration [1/m**3]
+    REAL(wp), TARGET ::  cld_frc(:,:,:)     !< cloud fraction [m2/m2]
+
+    REAL(wp), TARGET ::  zaeq1(:,:,:)       !< in aerosol continental
+    REAL(wp), TARGET ::  zaeq2(:,:,:)       !< in aerosol maritime
+    REAL(wp), TARGET ::  zaeq3(:,:,:)       !< in aerosol urban
+    REAL(wp), TARGET ::  zaeq4(:,:,:)       !< in aerosol volcano ashes
+    REAL(wp), TARGET ::  zaeq5(:,:,:)       !< in aerosol stratospheric background
+
+    TYPE(t_patch) :: patch
+    TYPE(t_old_rrtm_data), POINTER :: rrtm_data
+
+    INTEGER :: recv_comm_pattern
+    INTEGER :: recv_fr_land_smt
+    INTEGER :: recv_convection_type
+    INTEGER :: recv_tmp
+    CHARACTER(*), PARAMETER :: method_name = "recv_old_rrtm_input"
+
+    IF (patch%id /= 1) &
+      CALL finish(method_name,"patch%id /= 1")
+
+    rrtm_data => rrtm_model_data_array(patch%id)
+    recv_comm_pattern = rrtm_data%radiation_recv_comm_pattern
+   !-----------------------------------
+    rrtm_data%send_convection_type(:,:) = REAL(ktype(:,:),wp)
+    recv_convection_type = new_icon_comm_variable ( &
+      & recv_var = rrtm_data%recv_convection_type, &
+      & send_var = rrtm_data%send_convection_type, &
+      & comm_pattern_index = recv_comm_pattern, &
+      & status   = is_ready,                    &
+      & scope    = until_sync,                  &
+      & name     = "conv_type" )
+    rrtm_data%convection_type(:,:) = NINT(rrtm_data%recv_convection_type(:,:))
+   
+    recv_fr_land_smt = new_icon_comm_variable ( &
+      & recv_var = rrtm_data%fr_land_smt, &
+      & send_var = zland,                       &
+      & comm_pattern_index = recv_comm_pattern, &
+      & status   = is_ready,                    &
+      & scope    = until_sync,                  &
+      & name     = "fr_land" )
+      
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%fr_glac_smt   , &
+      &  send_var = zglac,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%cosmu0        , &
+      &  send_var = cos_mu0,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+         
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%albedo_vis_dif, &
+      &  send_var = alb_vis_dif,                    &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+!     recv_tmp      = new_icon_comm_variable ( &
+!       &  recv_var = rrtm_data%albedo_nir_dif, &
+!       &  send_var = alb_nir_dif,                    &
+!       &  comm_pattern_index = recv_comm_pattern,    &
+!       &  status   = is_ready,                       &
+!       &  scope    = until_sync,                     &
+!       &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%emis_rad      , &
+      &  send_var = emis_rad,                       &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+              
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%tsfctrad      , &
+      &  send_var = tk_sfc,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%pres_ifc      , &
+      &  send_var = pp_hl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%pres          , &
+      &  send_var = pp_fl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+     recv_tmp     = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%temp          , &
+      &  send_var = tk_fl,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%qm_vapor      , &
+      &  send_var = qm_vap,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+         
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%qm_liquid     , &
+      &  send_var = qm_liq,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%qm_ice        , &
+      &  send_var = qm_ice,                         &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%qm_o3         , &
+      &  send_var = qm_o3,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( & 
+      &  recv_var = rrtm_data%acdnc         , &
+      &  send_var = cdnc,                           &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%cld_frc       , &
+      &  send_var = cld_frc,                        &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+! 
+    
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%zaeq1         , &
+      &  send_var = zaeq1,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%zaeq2         , &
+      &  send_var = zaeq2,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%zaeq3         , &
+      &  send_var = zaeq3,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%zaeq4         , &
+      &  send_var = zaeq4,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+          
+    recv_tmp      = new_icon_comm_variable ( &
+      &  recv_var = rrtm_data%zaeq5         , &
+      &  send_var = zaeq5,                          &
+      &  comm_pattern_index = recv_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "tmp" )
+
+    CALL icon_comm_sync_all()
+  
+  END SUBROUTINE recv_old_rrtm_input
+  !-----------------------------------------------------------
+
+  !-----------------------------------------------------------
+  SUBROUTINE send_old_rrtm_output(        &
+      & rrtm_data,&
+      & lwflxclr, &!< out terrestrial flux, clear sky, net down
+      & trsolclr, &!< out sol. transmissivity, clear sky, net down
+      & lwflxall, &!< out terrestrial flux, all sky, net down
+      & trsolall)  !< out solar transmissivity, all sky, net down
+      
+    TYPE(t_old_rrtm_data), POINTER :: rrtm_data
+    REAL(wp), TARGET :: lwflxclr(:,:,:)!< out terrestrial flux, clear sky, net down
+    REAL(wp), TARGET :: trsolclr(:,:,:)!< out sol. transmissivity, clear sky, net down
+    REAL(wp), TARGET :: lwflxall(:,:,:)!< out terrestrial flux, all sky, net down
+    REAL(wp), TARGET :: trsolall(:,:,:)!< out solar transmissivity, all sky, net down
+
+    INTEGER :: send_comm_pattern, send_tmp
+    
+    send_comm_pattern = rrtm_data%radiation_send_comm_pattern
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = lwflxclr,                       &
+      &  send_var = rrtm_data%lwflxclr,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "lwflxclr" )
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = trsolclr,                       &
+      &  send_var = rrtm_data%trsolclr,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "trsolclr" )
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = lwflxall,                       &
+      &  send_var = rrtm_data%lwflxall,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "lwflxall" )
+    
+    send_tmp      = new_icon_comm_variable ( &
+      &  recv_var = trsolall,                       &
+      &  send_var = rrtm_data%trsolall,             &
+      &  comm_pattern_index = send_comm_pattern,    &
+      &  status   = is_ready,                       &
+      &  scope    = until_sync,                     &
+      &  name     = "trsolall" )
+
+    CALL icon_comm_sync_all()
+      
+  
+  END SUBROUTINE send_old_rrtm_output
+
+END MODULE mo_old_rrtm_data_interface

@@ -20,7 +20,7 @@ MODULE mo_ini_bgc
        &                     gutc, perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
        &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
-       &                     cycdec, pi_alpha_cya,cya_growth_max,          &
+       &                     pi_alpha_cya,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
        &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
@@ -31,7 +31,8 @@ MODULE mo_ini_bgc
                              o2thresh 
 
   USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_cyadyn, l_diffat, i_settling, &
-       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc, ks,&
+       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
+       &                     ks,cycdec,cya_growth_max,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
        &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
 
@@ -135,9 +136,7 @@ CONTAINS
 
 ! ------ cyanobacteria
     buoyancyspeed_cya = 1._wp   ! daily buoyancy speed of cya  
-    cycdec            = 0.1_wp 
     pi_alpha_cya      = 0.03_wp      ! m2 W-1 d-1
-    cya_growth_max    = 0.2_wp      ! d-1
     Topt_cya          = 28._wp       ! deg C
     T1_cya            = 5.5_wp       ! deg C
     T2_cya            = 1._wp        ! deg C

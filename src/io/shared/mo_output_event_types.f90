@@ -102,15 +102,19 @@ MODULE mo_output_event_types
   !        step available.
   !
   TYPE t_event_step_data
-    INTEGER                               :: i_pe                             !< rank of participating PE
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string                  !< ISO 8601 conforming time stamp
-    CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string                  !< output file name
-    INTEGER                               :: jfile, jpart                     !< file counter, "part of file" counter
-    LOGICAL                               :: l_open_file                      !< Flag. .TRUE. if file is to be opened in this step
-    LOGICAL                               :: l_close_file                     !< Flag. .TRUE. if file is closed in this step
+    !> rank of participating PE
+    INTEGER                               :: i_pe
+    !> file counter, "part of file" counter
+    INTEGER                               :: jfile, jpart
+    !> Flag. .TRUE. if file is to be opened in this step
+    LOGICAL                               :: l_open_file
 
     !> tag, e.g. for MPI isend/irecv messages, unique at least on sender side
     INTEGER                               :: i_tag
+    !> ISO 8601 conforming time stamp
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string
+    !> output file name
+    CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string
   END TYPE t_event_step_data
 
 

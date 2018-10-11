@@ -54,7 +54,7 @@ MODULE mo_read_namelists
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
-  USE mo_psrad_radiation     ,ONLY: setup_psrad_radiation
+  USE mo_psrad_interface     ,ONLY: read_psrad_nml
   USE mo_ccycle_nml          ,ONLY: read_ccycle_nml
   USE mo_ccycle_config       ,ONLY: init_ccycle_config
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
@@ -173,8 +173,7 @@ CONTAINS
        !
        CALL read_sea_ice_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
-       ! setup_psrad_radiation depends on cloud_config
-       CALL setup_psrad_radiation        (atm_namelist_filename(1:tlen))
+       CALL read_psrad_nml               (atm_namelist_filename(1:tlen))
        ! carbon cycle
        CALL init_ccycle_config
        CALL read_ccycle_nml              (atm_namelist_filename(1:tlen))

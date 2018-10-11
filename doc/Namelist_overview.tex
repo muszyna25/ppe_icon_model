@@ -1,46 +1,26 @@
-%% LyX 1.4.5.1 created this file.  For more info, see http://www.lyx.org/.
-%% Do not edit unless you really know what you are doing.
-
-\documentclass[10pt,english,a4paper,landscape]{article}
+\documentclass[10pt,a4paper,landscape,DIV=32]{scrartcl}
 
 \usepackage[T1]{fontenc}
-\usepackage[latin1]{inputenc}
+\usepackage[utf8]{inputenc}
 \usepackage{array}
 \usepackage[colorlinks=true,bookmarks=true,linkcolor=blue,citecolor=blue]{hyperref}
 \usepackage{longtable}
-\usepackage{fixltx2e} % needed for LaTeX older than 2016
 \usepackage{amsmath,amssymb}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% LyX specific LaTeX commands.
-%% Bold symbol macro for standard LaTeX users
-\providecommand{\boldsymbol}[1]{\mbox{\boldmath $#1$}}
-%% Because html converters don't know tabularnewline
-\providecommand{\tabularnewline}{\\}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
-\makeatletter
-
 \DeclareMathOperator{\atan}{atan}
 
-\usepackage[landscape]{geometry}
-\AtBeginDvi{\special{landscape}}
-\makeatother
+\providecommand{\tabularnewline}{\\}
 
-\usepackage{babel}
-\makeatother
-
-% avoid paragraph indentation
-%\usepackage[parfill]{parskip}
 \setlength{\parindent}{0pt}
- 
+
 \newenvironment{longtab}
 {
 \begin{longtable}
-{|>{\raggedright}p{4cm}
- |>{\raggedright}p{1.5cm}
- |>{\raggedright}p{1.5cm}
- |>{\raggedright}p{1cm}
- |>{\raggedright}p{8cm}
- |>{\raggedright}p{4cm}|}
+{|>{\raggedright}p{0.23\textwidth}   
+ |>{\raggedright}p{0.06\textwidth}   
+ |>{\raggedright}p{0.10\textwidth}   
+ |>{\raggedright}p{0.06\textwidth}   
+ |>{\raggedright}p{0.28\textwidth}   
+ |>{\raggedright}p{0.18\textwidth}|} 
 \hline
 Parameter& Type& Default& Unit& Description & Scope
 \tabularnewline

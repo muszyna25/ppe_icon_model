@@ -17,7 +17,7 @@
 #define ICON_OMP_END_WORKSHARE $omp end workshare
 !-----------------------------------------------
 
-#ifdef _CRAYFTN
+#if ( defined(_CRAYFTN) || defined(__INTEL_COMPILER) )
 #define ICON_OMP_DEFAULT_SCHEDULE SCHEDULE(guided)
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(runtime)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(guided)

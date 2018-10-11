@@ -43,8 +43,8 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_redist_s_exchange1, xt_redist_delete, xt_redist_p2p_new, &
   &             xt_redist_collection_new, xt_redist_s_exchange, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
-  &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new
-  &             xt_mpi_comm_mark_exclusive
+  &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new, &
+  &             xt_mpi_comm_mark_exclusive, xt_int_kind
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
 USE iso_c_binding, ONLY: c_int, c_loc, c_ptr, c_null_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
@@ -301,6 +301,11 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    INTEGER, INTENT(IN)           :: src_owner(:)        ! Owner of every point
    INTEGER, INTENT(IN)           :: src_global_index(:) ! Global index of every point
 
+   ! FIXME: We might want to do this more elegant. And we might want to check
+   ! whether xt_int_kind is compatible with the size of integer.
+   INTEGER(xt_int_kind), ALLOCATABLE :: src_global_index_cpy(:)
+   INTEGER(xt_int_kind), ALLOCATABLE :: dst_global_index_cpy(:)
+
    LOGICAL, OPTIONAL, INTENT(IN) :: inplace
    INTEGER, OPTIONAL, INTENT(IN) :: comm
 
@@ -420,14 +425,18 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    p_pat%src_n_points = src_n_points
    p_pat%dst_n_points = dst_n_points
-   src_idxlist = &
-    xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
-    &                  src_owner(1:src_n_points) == comm_rank))
+
+   ALLOCATE(src_global_index_cpy(src_n_points))
+   src_global_index_cpy = MERGE(src_global_index(1:src_n_points), -1,&
+                                  src_owner(1:src_n_points) == comm_rank)
+   src_idxlist = xt_idxvec_new(src_global_index_cpy)
+
+   ALLOCATE(dst_global_index_cpy(dst_n_points))
+   dst_global_index_cpy = dst_global_index(1:dst_n_points)
    IF (ALLOCATED(p_pat%dst_mask)) THEN
-     dst_idxlist = xt_idxvec_new(PACK(dst_global_index(1:dst_n_points), &
-       &                              p_pat%dst_mask))
+     dst_idxlist = xt_idxvec_new(PACK(dst_global_index_cpy, p_pat%dst_mask))
    ELSE
-     dst_idxlist = xt_idxvec_new(dst_global_index(1:dst_n_points))
+     dst_idxlist = xt_idxvec_new(dst_global_index_cpy)
    END IF
 
    p_pat%xmap = xt_xmap_intersection_new(src_com_size, src_com, dst_com_size, &
@@ -512,7 +521,7 @@ END SUBROUTINE setup_comm_pattern
       np = SIZE(msg)
       DO i = 1, np
         com(i)%rank = INT(msg(i)%rank, c_int)
-        com(i)%list = xt_idxvec_new(msg(i)%glob_idx)
+        com(i)%list = xt_idxvec_new(int(msg(i)%glob_idx, xt_int_kind))
         nidx = SIZE(msg(i)%glob_idx)
         DO j = 1, nidx
           glbidx = msg(i)%glob_idx(j)
@@ -685,8 +694,8 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
       IF ((p_pat%redists(i)%nfields == nfields) .AND. &
         & (p_pat%redists(i)%mpi_type == mpi_type)) THEN
 
-        IF (ALL(p_pat%redists(i)%dst_nlev(:) == dst_nlev(:)) .AND. &
-            ALL(p_pat%redists(i)%src_nlev(:) == src_nlev(:)) .AND. &
+        IF (ALL(p_pat%redists(i)%dst_nlev(:) == nlev(:,1)) .AND. &
+            ALL(p_pat%redists(i)%src_nlev(:) == nlev(:,2)) .AND. &
             ALL(p_pat%redists(i)%nshift(:) == kshift(:))) THEN
 
           comm_pattern_get_redist = p_pat%redists(i)%redist
@@ -709,8 +718,8 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
   p_pat%redists(n)%nfields = nfields
   ALLOCATE(p_pat%redists(n)%dst_nlev(nfields), &
     &      p_pat%redists(n)%src_nlev(nfields))
-  p_pat%redists(n)%dst_nlev = dst_nlev
-  p_pat%redists(n)%src_nlev = src_nlev
+  p_pat%redists(n)%dst_nlev = nlev(:,1)
+  p_pat%redists(n)%src_nlev = nlev(:,2)
   ALLOCATE(p_pat%redists(n)%nshift(nfields))
   p_pat%redists(n)%nshift = kshift
   p_pat%redists(n)%mpi_type = mpi_type
@@ -718,7 +727,7 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
   IF (nfields == 1) THEN
 
     p_pat%redists(n)%redist = &
-      generate_single_field_redist(p_pat, dst_nlev(1), src_nlev(1), kshift(1), &
+      generate_single_field_redist(p_pat, nlev(1, 1), nlev(1, 2), kshift(1), &
         &                          mpi_type)
 
   ELSE
@@ -968,7 +977,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    REAL(dp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
+   INTEGER :: i, j, k, nlev(1,2), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_r3d','Illegal first dimension of data array')
@@ -986,13 +995,13 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    n = SIZE(recv, 2)
    o = SIZE(recv, 3)
 
-   dst_nlev(1) = n
+   nlev(1,1) = n
    IF (PRESENT(send)) THEN
-     src_nlev(1) = SIZE(send,2)
+     nlev(1,2) = SIZE(send,2)
    ELSE
-     src_nlev(1) = n
+     nlev(1,2) = n
    END IF
-   redist = comm_pattern_get_redist(p_pat, 1, dst_nlev, src_nlev, p_real_dp)
+   redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_dp)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
@@ -1074,7 +1083,7 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    REAL(sp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
+   INTEGER :: i, j, k, nlev(1, 2), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_s3d','Illegal first dimension of data array')
@@ -1092,11 +1101,11 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    n = SIZE(recv, 2)
    o = SIZE(recv, 3)
 
-   dst_nlev(1) = n
+   nlev(1,1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     src_nlev(1) = n
+     nlev(1, 2) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_sp)
 
@@ -1183,7 +1192,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    INTEGER, ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
-   INTEGER :: i, j, k, dst_nlev(1), src_nlev(1), m, n, o
+   INTEGER :: i, j, k, nlev(1, 2), m, n, o
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
@@ -1201,11 +1210,11 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    n = SIZE(recv, 2)
    o = SIZE(recv, 3)
 
-   dst_nlev(1) = n
+   nlev(1, 1) = n
    IF (PRESENT(send)) THEN
      nlev(1, 2) = SIZE(send,2)
    ELSE
-     src_nlev(1) = n
+     nlev(1, 2) = n
    END IF
    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
 
@@ -1345,7 +1354,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE

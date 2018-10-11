@@ -1,13 +1,13 @@
 #--------------------------------------------------------------------------------------------------
 #
-# Aqua Planet Experiment (APE)
+# Radiative convective equilibrium (RCE) experiment
 #
 author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an aqua planet experiment based on the non-hydrostatic atmosphere and the
-# ECHAM physics. The experiment is intialized analytically and uses constant-in-time
+# This file describes a radiative convective equilibrium experiment based on the non-hydrostatic
+# atmosphere and the ECHAM physics. The experiment is intialized analytically and uses constant-in-time
 # boundary conditions for:
 # - SST and sea ice
 # - spectral solar irradiation
@@ -16,7 +16,7 @@ author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
 #
 # No aerosols are used
 #
-# _bb_table_Description_  aqua planet experiment
+# _bb_table_Description_  radiative convective equilibrium experiment
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -42,11 +42,16 @@ icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpi
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=icon_grid_0005_R02B04_G
+#
 grids_folder=${icon_data_poolFolder}/grids
-atmo_dyn_grids=${grid_name}.nc
-
-resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
+#
+# domain globe
+grid_id=0005
+grid_refinement=R02B04
+grid_label=G
+grid_name=icon_grid_${grid_id}_${grid_refinement}_${grid_label}
+#
+atmo_dyn_grids="'${grid_name}.nc',"
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
@@ -77,7 +82,7 @@ cat > ${atmo_namelist} << EOF
  nproma           = ${nproma}
 /
 &grid_nml
- dynamics_grid_filename = "${atmo_dyn_grids}",
+ dynamics_grid_filename = ${atmo_dyn_grids}
  grid_angular_velocity  = 0.
 /
 &run_nml
@@ -138,7 +143,6 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_cnv = "PT4M"
  echam_phy_config(1)%dt_cld = "PT4M"
  echam_phy_config(1)%dt_gwd = "PT4M"
- echam_phy_config(1)%dt_sso = ""
 !
 ! atmospheric chemistry (""=never)
  echam_phy_config(1)%dt_mox = "PT4M"
@@ -151,7 +155,6 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%lice   = .FALSE.
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = .FALSE.
-!
 /
 &echam_rad_nml
 !
@@ -216,8 +219,8 @@ datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${icon_data_poolFolder}/ozone/rce/${resolution}
-add_link_file ${datadir}/bc_ozone_rce.nc                                ./o3_icon_DOM01.nc
+datadir=${icon_data_poolFolder}/ozone/rce/${grid_refinement}_${grid_label}
+add_link_file ${datadir}/bc_ozone_rce.nc                                ./bc_ozone.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -232,6 +235,7 @@ cat >> ${atmo_namelist} << EOF
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
+ !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
 /
 EOF
 
@@ -259,8 +263,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
  ml_varlist       = 'clon'    , 'clat'    , 'areacella',
-                    'sftlf'   , 'sftgif'  , 'sftof'    ,
-                    'orog'    , 'zghalf'  , 'zg'       ,
+                    'zghalf'  , 'zg'      ,
 /
 EOF
 fi

@@ -67,17 +67,17 @@ CONTAINS
 
   !=======================================================================
 
-  SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
-                       & ext_o3, current_date,           & ! IN kproma,nlev_p,jb,nmonth
-                       & o3_time_int                      )! OUT kproma,nlev_p
+  SUBROUTINE o3_timeint( jcs,jce,kbdim,nlev_pres,     & ! IN
+                       & ext_o3, current_date,        & ! IN  jce,nlev_p,jb,nmonth
+                       & o3_time_int                   )! OUT jce,nlev_p
 
  ! In prior version, just a certain month was selected. This is not used anymore
  ! (revision13218) an the routine is now doing true time interpolation
  ! The time interpolation is done to the radiation time step, monthly ozone
  ! values provided that are given at the middle of each month (monthly averages)
 
-    INTEGER, INTENT(in)         :: kproma ! 
-    INTEGER, INTENT(in)         :: kbdim  ! 
+    INTEGER, INTENT(in)         :: jcs, jce    ! 
+    INTEGER, INTENT(in)         :: kbdim       ! 
     INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
     TYPE(datetime), POINTER, INTENT(in) :: current_date
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
@@ -86,12 +86,12 @@ CONTAINS
     
     tiw = calculate_time_interpolation_weights(current_date)
     
-    o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1_index)+ &
-                            tiw%weight2*ext_o3(1:kproma,:,tiw%month2_index)
+    o3_time_int(jcs:jce,:) =tiw%weight1*ext_o3(jcs:jce,:,tiw%month1_index)+ &
+                            tiw%weight2*ext_o3(jcs:jce,:,tiw%month2_index)
 
   END SUBROUTINE o3_timeint
 
-  SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
+  SUBROUTINE o3_pl2ml ( jcs,jce,kbdim,nlev_pres,klev,&
     &                   pfoz,phoz,ppf,pph,   &
     &                   o3_time_int, o3_clim)
 
@@ -111,14 +111,15 @@ CONTAINS
     ! INPUT
     ! -----
 
-    INTEGER, INTENT(in)                             :: kproma ! 
+    INTEGER, INTENT(in)                             :: jcs    ! start and
+    INTEGER, INTENT(in)                             :: jce    ! end index in block
     INTEGER, INTENT(in)                             :: kbdim  ! first dimension of 2-d arrays
     INTEGER, INTENT(in)                             :: klev   ! number of levels
     INTEGER, INTENT(in)                             :: nlev_pres   ! number of o3 data levels
     REAL(wp),INTENT(in) ,DIMENSION(nlev_pres)       :: pfoz  ! full level pressure of o3 data
     REAL(wp),INTENT(in) ,DIMENSION(nlev_pres+1)     :: phoz  ! half level pressure of o3 data
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev)      :: ppf  ! full level pressure 
-    REAL(wp), INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
+    REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
     REAL(wp),INTENT(OUT),DIMENSION(kbdim,klev)      :: o3_clim ! ozone in g/g
 
@@ -128,20 +129,20 @@ CONTAINS
 
     ! pressure integrated ozone at half levels of ozone grid,
     ! and integral at surface
-    REAL(wp), DIMENSION(kproma)                 :: zozintc
+    REAL(wp), DIMENSION(jce)                 :: zozintc
 
     ! time interpolated ozone at full levels of model grid,
     ! pressure integrated ozone at half levels of model,
     ! and integral at surface
-    REAL(wp), DIMENSION(kproma,klev)           :: zozonem 
-    REAL(wp), DIMENSION(kproma)                :: zozintm
+    REAL(wp), DIMENSION(jce,klev)           :: zozonem 
+    REAL(wp), DIMENSION(jce)                :: zozintm
 
     REAL(wp) :: zdp1,zdp2 ! pressure weights in linear interpolation
     INTEGER  :: jl,jk,jkk ! loop indices
-    INTEGER,DIMENSION(kproma)  :: jk1,jkn   ! first and last model level in interpolation
+    INTEGER,DIMENSION(jce)  :: jk1,jkn   ! first and last model level in interpolation
 
-    INTEGER,DIMENSION(kproma)            :: kwork
-    LOGICAL,DIMENSION(kproma)            :: kk_flag
+    INTEGER,DIMENSION(jce)            :: kwork
+    LOGICAL,DIMENSION(jce)            :: kk_flag
 
 
     ! interpolate ozone profile to model grid
@@ -153,7 +154,7 @@ CONTAINS
     jk1(:)     = 1
     kk_flag(:) = .TRUE.
     DO jk = 1,klev
-       DO jl=1,kproma
+       DO jl=jcs,jce
           IF (ppf(jl,jk)<=pfoz(1) .AND. kk_flag(jl)) THEN 
              zozonem(jl,jk)= o3_time_int(jl,1)
              jk1(jl)=jk+1
@@ -169,7 +170,7 @@ CONTAINS
     jkn(:)=klev
     kk_flag(:) = .TRUE.
     DO jk = klev,1,-1
-       DO jl=1,kproma
+       DO jl=jcs,jce
           IF (ppf(jl,jk)>=pfoz(nlev_pres).AND. kk_flag(jl)) THEN
              zozonem(jl,jk)=o3_time_int(jl,nlev_pres)
              jkn(jl)=jk-1
@@ -183,7 +184,7 @@ CONTAINS
        kk_flag(:) = .TRUE.
        kwork(:)   = 1
        DO jkk = 1,nlev_pres
-          DO jl=1,kproma
+          DO jl=jcs,jce
              IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
                 IF (ppf(jl,jk) <= pfoz(jkk) .AND. jkk >= kwork(jl) &
                                             .AND. kk_flag(jl)) THEN
@@ -194,7 +195,7 @@ CONTAINS
           END DO
        END DO
 
-       DO jl=1,kproma
+       DO jl=jcs,jce
           IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
                 jkk = kwork(jl)
                 ! model level is in interval ]pfoz(jkk-1),pfoz(jkk)]
@@ -216,7 +217,7 @@ CONTAINS
     jk1(:)     = 2
     DO jk=2,nlev_pres+1
           ! integrate layers of climatology above surface
-       DO jl=1,kproma
+       DO jl=jcs,jce
           IF (phoz(jk)<=pph(jl,klev) .AND. kk_flag(jl) ) THEN
               zozintc(jl)=zozintc(jl)+ &
                &  o3_time_int(jl,jk-1 )*(phoz(jk)-phoz(jk-1))
@@ -228,9 +229,9 @@ CONTAINS
     END DO
        ! integrate layer of climatology that is intersected
        ! by the surface from upper boundary to surface
-    DO jl=1,kproma
+    DO jl=jcs,jce
        zozintc(jl)=zozintc(jl)+ &
-            &  o3_time_int(jl,jk1(jl)-1 )*(pph(jl,klev)-phoz(jk1(jl)-1))
+            &  o3_time_int(jl,min(jk1(jl)-1,nlev_pres) )*(pph(jl,klev)-phoz(jk1(jl)-1))
     END DO
 
        ! integrate ozone profile on grid of model
@@ -238,7 +239,7 @@ CONTAINS
        ! ----------------------------------------
     zozintm=0._wp
     DO jk=2,klev+1
-       DO jl=1,kproma
+       DO jl=jcs,jce
          zozintm(jl)=zozintm(jl) + zozonem(jl,jk-1)*(pph(jl,jk)-pph(jl,jk-1))
        END DO
     END DO
@@ -248,7 +249,7 @@ CONTAINS
        ! to that integrated on the grid of the climatology
        ! --------------------------------------------------
     DO jk=1,klev
-       DO jl=1,kproma
+       DO jl=jcs,jce
          o3_clim(jl,jk)=zozonem(jl,jk)/zozintm(jl) * zozintc(jl)
        END DO
     END DO

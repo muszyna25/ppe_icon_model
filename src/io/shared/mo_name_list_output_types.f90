@@ -159,6 +159,9 @@ MODULE mo_name_list_output_types
     ! Number of grid used (provided by grid file)
     INTEGER                              :: number_of_grid_used
 
+    ! URI to (horizontal) ICON grid file
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: ICON_grid_file_uri
+
     ! mode how to collect grid information (for output)
     INTEGER                              :: grid_info_mode
 

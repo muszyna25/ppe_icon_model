@@ -16,7 +16,7 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish, warning
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
+  USE mo_impl_constants,     ONLY: max_dom, max_num_io_procs, pio_type_async
   USE mo_util_string,        ONLY: int2string
 
   IMPLICIT NONE
@@ -111,7 +111,7 @@ MODULE mo_parallel_config
   LOGICAL :: use_async_restart_output = .FALSE.
 
   ! Type of parallel I/O
-  INTEGER :: pio_type = 1
+  INTEGER :: pio_type = pio_type_async
 
   INTEGER :: num_io_procs = 0
 

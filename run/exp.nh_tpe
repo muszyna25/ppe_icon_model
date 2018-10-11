@@ -89,6 +89,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &dynamics_nml
  iequations       = 3           ! 3: ICONAM dynamics
@@ -224,7 +225,7 @@ INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon.nc
 #
 # - land: source?, date+time?
 echo "ic_ and bc_ files for TPE not in pool yet, please specify location for files in run script!"

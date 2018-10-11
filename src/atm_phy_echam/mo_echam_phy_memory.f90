@@ -320,7 +320,9 @@ MODULE mo_echam_phy_memory
       & ts_rad     (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
       & ts_rad_rt  (:,  :),  &!< [K] radiative sfc. temperature at radiation time
       & csat       (:,  :),  &!<
-      & cair       (:,  :)    !<
+      & cair       (:,  :),  &!<
+      & q_snocpymlt(:,  :),  &!< [W/m2] heating used to melt snow on the canopy
+      & q_rlw_impl (:,  :)    !< [W/m2] heating correction due to implicit land surface coupling
 
     ! CO2
     REAL(wp),POINTER :: &
@@ -488,7 +490,17 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
     ! global diagnostics
-    REAL(wp),POINTER :: tas_gmean(:)
+    REAL(wp),POINTER ::       &
+      !
+      & tas_gmean    (:),      &!< [K] global mean 2m-temperature
+      & rsdt_gmean   (:),      &!< [W/m2] global mean toa incident shortwave radiation
+      & rsut_gmean   (:),      &!< [W/m2] global mean toa outgoing shortwave radiation
+      & rlut_gmean   (:),      &!< [W/m2] global mean toa outgoing longwave radiation
+      & prec_gmean   (:),      &!< [kg/m2/s] global mean precipitation flux
+      & evap_gmean   (:),      &!< [kg/m2/s] global mean evaporation flux
+      & radtop_gmean (:),      &!< [W/m2] global mean toa total radiation, derived variable
+      & fwfoce_gmean (:),      &!< [kg/m2/s] global mean freshwater flux over ocean area, derived variable
+      & icefrc_gmean (:)!,      &!< global mean ice cover given as the fraction of grid box
    
     ! coupling to HAMOCC lcpl_co2_atmoce
     REAL(wp),POINTER :: &
@@ -1513,6 +1525,7 @@ CONTAINS
          &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
+    !-----------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at radiation times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air_at_rad_time'    , &
@@ -1616,7 +1629,7 @@ CONTAINS
          &       lrestart = .TRUE.                           , &
          &       ldims=shape2d                               )
 
-
+    !-----------------------------------------------------------------------------------------
     ! shortwave flux components at the surface
     ! - at all times
     cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air', &
@@ -1719,7 +1732,7 @@ CONTAINS
          &       cf_desc, grib2_desc                   , &
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
-
+    !---------------------------------------------------------
 
 
     !
@@ -1895,6 +1908,17 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d )
 
+    cf_desc    = t_cf_var('q_snocpymlt', 'W/m2', 'heating for snow melt on canopy', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'q_snocpymlt', field%q_snocpymlt,    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
+
+    cf_desc    = t_cf_var('q_rlw_impl', 'W/m2', 'heating correction due to implicit land surface coupling', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'q_rlw_impl', field%q_rlw_impl,    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
     !
     !------------------
     !
@@ -3418,11 +3442,62 @@ CONTAINS
     END DO
 
     ! global diagnostics
-    cf_desc    = t_cf_var('tas_gmean', 'K', 'temperature at 2m', datatype_flt,'tas_gmean')
+    cf_desc    = t_cf_var('tas_gmean', 'K', 'global mean temperature at 2m', datatype_flt,'tas_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
     CALL add_var( field_list, prefix//'tas_gmean', field%tas_gmean,              &
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=(/1/) )
+
+    cf_desc    = t_cf_var('rsdt_gmean', 'W m-2', 'global mean toa incident shortwave radiation', datatype_flt,'rsdt_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'rsdt_gmean', field%rsdt_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+    cf_desc    = t_cf_var('rsut_gmean', 'W m-2', 'global mean toa outgoing shortwave radiation', datatype_flt,'rsut_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'rsut_gmean', field%rsut_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+    cf_desc    = t_cf_var('rlut_gmean', 'W m-2', 'global mean toa outgoing longwave radiation', datatype_flt,'rlut_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'rlut_gmean', field%rlut_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+    cf_desc    = t_cf_var('prec_gmean', 'kg m-2 s-1', 'global mean precipitation flux', datatype_flt,'prec_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'prec_gmean', field%prec_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+    cf_desc    = t_cf_var('evap_gmean', 'kg m-2 s-1', 'global mean evaporation flux', datatype_flt,'evap_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'evap_gmean', field%evap_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+!   derived variable
+    cf_desc    = t_cf_var('radtop_gmean', 'W m-2', 'global mean toa total radiation', datatype_flt,'radtop_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'radtop_gmean', field%radtop_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+!   derived variable
+    cf_desc    = t_cf_var('fwfoce_gmean', 'kg m-2 s-1', 'mean surface freshwater flux over ocean surface', &
+                & datatype_flt,'fwfoce_gmean')
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+    CALL add_var( field_list, prefix//'fwfoce_gmean', field%fwfoce_gmean,            &
+                & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=(/1/) )
+
+! icefrc not allocated in atmosphere
+!   cf_desc    = t_cf_var('icefrc_gmean', 'frac', 'global mean ice cover of grid box', datatype_flt,'icefrc_gmean')
+!   grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
+!   CALL add_var( field_list, prefix//'icefrc_gmean', field%icefrc_gmean,            &
+!               & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc, &
+!               & lrestart = .FALSE., ldims=(/1/) )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

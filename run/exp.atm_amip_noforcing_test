@@ -36,11 +36,16 @@ icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpi
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grid_name=icon_grid_0005_R02B04_G
+#
 grids_folder=${icon_data_poolFolder}/grids
-atmo_dyn_grids=${grid_name}.nc
-
-resolution=$(awk -F'_' '{print $4}' <<< $grid_name)
+#
+# domain globe
+grid_id=0005
+grid_refinement=R02B04
+grid_label=G
+grid_name=icon_grid_${grid_id}_${grid_refinement}_${grid_label}
+#
+atmo_dyn_grids="'${grid_name}.nc',"
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
@@ -69,7 +74,7 @@ cat > ${atmo_namelist} << EOF
  nproma           = ${nproma}
 /
 &grid_nml
- dynamics_grid_filename = "${atmo_dyn_grids}",
+ dynamics_grid_filename = ${atmo_dyn_grids}
 /
 &run_nml
  num_lev          = 47          ! number of full levels
@@ -90,7 +95,7 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
- ifs2icon_filename= "ifs2icon_1979010100_${resolution}_G.nc"
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
@@ -139,7 +144,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${resolution}_G.nc           ./
+add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -154,6 +159,7 @@ cat >> ${atmo_namelist} << EOF
  lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
+ !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
 /
 EOF
 

@@ -255,8 +255,9 @@ CONTAINS
     TYPE(datetime), POINTER               :: dummy_ptr
     TYPE(t_var_action_element)            :: var_action
     TYPE(datetime), POINTER               :: inidatetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime ! ISO_8601
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime      ! ISO_8601
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_expstart_datetime ! ISO_8601
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime      ! ISO_8601
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end, ref      ! start, end, and reference time
                                                                   ! in ISO_8601 format
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start0, end0, ref0   ! start, end, and reference time
@@ -265,6 +266,8 @@ CONTAINS
 
     ! create model ini_datetime in ISO_8601 format
     CALL dateTimeToString(time_config%tc_startdate, iso8601_ini_datetime)
+    ! create experiment start in ISO_8601 format
+    CALL dateTimeToString(time_config%tc_exp_startdate, iso8601_expstart_datetime)
     ! create model end_datetime in ISO_8601 format
     CALL dateTimeToString(time_config%tc_stopdate, iso8601_end_datetime)
 
@@ -272,8 +275,8 @@ CONTAINS
     start0 = TRIM(iso8601_ini_datetime)
     ! default end time = model end time
     end0 = TRIM(iso8601_end_datetime)
-    ! default reference time = model initialization time
-    ref0 = TRIM(iso8601_ini_datetime)
+    ! default reference time = experiment start time
+    ref0 = TRIM(iso8601_expstart_datetime)
 
 
     ! assign modified start time if offset opt_start is present
@@ -338,8 +341,8 @@ CONTAINS
     start = TRIM(iso8601_ini_datetime)
     ! default end time = model end time
     end = TRIM(iso8601_end_datetime)
-    ! default reference time = model initialization time
-    ref = TRIM(iso8601_ini_datetime)
+    ! default reference time = experiment start time
+    ref = TRIM(iso8601_expstart_datetime)
 
     !---------------------------------------------------------------------------------
 

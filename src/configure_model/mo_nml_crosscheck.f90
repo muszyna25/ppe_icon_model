@@ -65,7 +65,8 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
+    &                              nroot, is_plane_torus
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -74,10 +75,10 @@ MODULE mo_nml_crosscheck
   USE mo_event_manager,      ONLY: initEventManager
   USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
     &                              newDatetime, deallocateDatetime
-  USE mo_gridref_config
+  USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
-  USE mo_grid_config
+  USE mo_grid_config,        ONLY: lredgrid_phys
 
   IMPLICIT NONE
 

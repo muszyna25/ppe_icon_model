@@ -23,6 +23,10 @@ MODULE mo_tropopause
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: rd, cpd, g=>grav
 
+#ifdef VECTOR
+  USE mo_exception,          ONLY: finish
+#endif
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: WMO_tropopause
@@ -89,13 +93,13 @@ CONTAINS
   !!                 EASOE-Winter 1991/1992, Beitr. Phys. Atmosph., 68,
   !!                 227-232.
   !!
-  SUBROUTINE WMO_tropopause( kproma, kbdim, klev,        &
+  SUBROUTINE WMO_tropopause( jcs, kproma, kbdim, klev,   &
                              ncctop, nccbot, lresume,    &
                              ptm1, papm1,                &
                              ptropo, ktrpwmo, ktrpwmop1 )
 
     ! scalar arguments
-    INTEGER, INTENT(in) :: kproma, kbdim, klev
+    INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
     INTEGER, INTENT(in) :: ncctop, nccbot
     LOGICAL, INTENT(in) :: lresume
 
@@ -164,7 +168,7 @@ CONTAINS
 
     ! Calculate the height of the tropopause
 
-    DO jl = 1, kproma
+    DO jl = jcs, kproma
 #ifdef VECTOR
       ztropov(jl) = -999.0_wp
 #else
@@ -178,13 +182,13 @@ CONTAINS
 
 !LK may generate problem on NEC !cdir collapse
     DO jk = iplimt-2, iplimb+1
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
         zpapm1(jl,jk)=papm1(jl,jk)**zkappa
       ENDDO
     ENDDO
 !LK may generate problem on NEC !cdir collapse
     DO jk = iplimt-1, iplimb+1
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
 
         ! ztm   lineare Interpolation in p**kappa
         ! gamma         dt/dp = a * kappa + papm1(jl,jk)**(kappa-1.)
@@ -328,7 +332,7 @@ CONTAINS
 
 #else
 
-    nproma_loop: DO jl = 1, kproma
+    nproma_loop: DO jl = jcs, kproma
       vertical_loop: DO jk = iplimb+1, iplimt-1, -1
         ! First test: valid dt/dz ?
         IF (zdtdz(jl,jk) >  zgwmo .AND.  &     ! dt/dz > -2K/km
@@ -381,12 +385,12 @@ CONTAINS
       ptropo(1:kproma) = ztropov(1:kproma)
    END WHERE
 #else
-    WHERE (ztropo(1:kproma) > 0.0_wp)
-      ptropo(1:kproma) = ztropo(1:kproma)
+    WHERE (ztropo(jcs:kproma) > 0.0_wp)
+      ptropo(jcs:kproma) = ztropo(jcs:kproma)
    END WHERE
 #endif
 
-!LK    DO jl = 1, kproma
+!LK    DO jl = jcs, kproma
 !LK       IF (ztropo(jl) /= ztropov(jl)) &
 !LK            write (0,*) 'Inconsistent tropopause value: ', &
 !LK                        jl, ztropo(jl), ztropov(jl)
@@ -397,7 +401,7 @@ CONTAINS
     ktrpwmop1(:) = iplimt
 
     DO jk = iplimt-1, iplimb+1
-      DO jl = 1, kproma
+      DO jl = jcs, kproma
 
         zdp = 0.5_wp*(papm1(jl,jk+1)-papm1(jl,jk))
 

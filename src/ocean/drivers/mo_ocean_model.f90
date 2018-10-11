@@ -16,7 +16,7 @@ MODULE mo_ocean_model
   USE mo_exception,           ONLY: message, finish
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
-       &                            num_test_pe
+       &                            pio_type, num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
        &                            set_mpi_work_communicators, p_pe_work, process_mpi_io_size, &
@@ -51,7 +51,7 @@ MODULE mo_ocean_model
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
   USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc, &
-    & initialize_fromRestart
+    & initialize_fromRestart, ncheckpoints
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
 
@@ -70,7 +70,7 @@ MODULE mo_ocean_model
   USE mo_ocean_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, &
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, construct_ocean_nudge, &
     & construct_ocean_var_lists
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
@@ -99,6 +99,8 @@ MODULE mo_ocean_model
                                     & construct_atmos_for_ocean, destruct_atmos_for_ocean
   USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
+
+  USE mo_ocean_nudging,       ONLY: ocean_nudge
 
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
@@ -354,7 +356,7 @@ MODULE mo_ocean_model
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-      &                             dedicatedRestartProcs, num_test_pe)
+      &                             dedicatedRestartProcs, num_test_pe, pio_type)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -522,10 +524,13 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
 
     ! patch_2D and ocean_state have dimension n_dom
-    CALL construct_hydro_ocean_state(patch_3d, ocean_state)
+    CALL construct_hydro_ocean_state(patch_3d, ocean_state, ncheckpoints)
     ocean_state(1)%operator_coeff => operators_coefficients
 
+    CALL construct_ocean_nudge(patch_3d%p_patch_2d(1),  ocean_nudge)
+
     if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
+
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 

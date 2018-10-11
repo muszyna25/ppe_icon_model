@@ -66,6 +66,13 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
+#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+
+#ifdef __INTEL_COMPILER
+#define USE_LAXFR_MACROS
+#define laxfr_upflux LAXFR_UPFLUX_MACRO
+#endif
 
 MODULE mo_advection_hflux
 
@@ -95,7 +102,10 @@ MODULE mo_advection_hflux
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
-  USE mo_advection_utils,     ONLY: laxfr_upflux, t_list2D
+#ifndef USE_LAXFR_MACROS
+  USE mo_advection_utils,     ONLY: laxfr_upflux
+#endif
+  USE mo_advection_utils,     ONLY: t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
     &                               prep_gauss_quadrature_q,                    &
@@ -247,6 +257,9 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_real_vt
+#endif
     ! get patch ID
     jg = p_patch%id
 
@@ -800,8 +813,7 @@ CONTAINS
           ! div operator
           !
           p_upflux(je,jk,jb) =  &
-            &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                             p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
 
         END DO  ! end loop over edges
 
@@ -922,7 +934,7 @@ CONTAINS
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c
+    INTEGER  :: i, i_rlstart, i_rlend, i_nchdom, i_rlend_c
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
     TYPE(t_lsq), POINTER :: lsq_lin  !< pointer to p_int_state%lsq_lin
@@ -933,6 +945,10 @@ CONTAINS
 !$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
 !$ACC       PRESENT( p_patch, btraj%cell_idx, btraj%cell_blk), IF( i_am_accel_node .AND. acc_on)
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff
+#endif
+
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -986,7 +1002,14 @@ CONTAINS
 
     IF (p_test_run) THEN
 !$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
+#ifdef __INTEL_COMPILER
+!$OMP PARALLEL DO SCHEDULE(STATIC)
+      DO i = 1,SIZE(z_grad,4)
+        z_grad(:,:,:,i) = 0._wp
+      ENDDO
+#else
       z_grad(:,:,:,:) = 0._wp
+#endif
 !$ACC END KERNELS
     ENDIF
 
@@ -1305,6 +1328,10 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
     TYPE(t_lsq), POINTER :: lsq_lin          !< Pointer to p_int_state%lsq_lin
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff,z_tracer_mflx,z_rhofluxdiv_c
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_fluxdiv_c,z_tracer,z_rho
+#endif
     lsq_lin => p_int%lsq_lin
 
    !-------------------------------------------------------------------------
@@ -2850,6 +2877,13 @@ CONTAINS
       &  patch1_cell_idx(:,:),   patch1_cell_blk(:,:),   & !< dim: (npoints,p_patch%nblks_e)
       &  patch2_cell_idx(:,:),   patch2_cell_blk(:,:)
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_lsq_coeff,dreg_patch0,dreg_patch1,dreg_patch2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_quad_vector_sum0,z_quad_vector_sum1,z_quad_vector_sum2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_dreg_area
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_idx,patch1_cell_idx,patch2_cell_idx
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_blk,patch1_cell_blk,patch2_cell_blk
+#endif
 
     TYPE(t_list2D), SAVE ::   &    !< list with points for which a local
       &  falist                    !< polynomial approximation is insufficient

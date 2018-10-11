@@ -153,6 +153,11 @@ MODULE mo_velocity_advection
     REAL(vp), DIMENSION(:,:,:,:), POINTER  :: ddt_w_adv_tmp
 #endif
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_w_concorr_mc,z_w_con_c,z_w_con_c_full
+!DIR$ ATTRIBUTES ALIGN :64 :: z_v_grad_w,z_w_v,zeta,z_ekinh
+!DIR$ ATTRIBUTES ALIGN :64 :: levmask,cfl_clipping
+#endif
     !--------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_solve_nh_veltend)
@@ -660,7 +665,10 @@ MODULE mo_velocity_advection
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-!DIR$ IVDEP, PREFERVECTOR
+!DIR$ IVDEP
+#ifdef _CRAYFTN
+!DIR$ PREFERVECTOR
+#endif
         DO jk = 1, nlev
           p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &
            (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &

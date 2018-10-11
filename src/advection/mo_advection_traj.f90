@@ -318,6 +318,39 @@ CONTAINS
           ! pos_barycenter_2 = - p_vt(je,jk,jb) * p_dthalf
 
           ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
+#ifdef __INTEL_COMPILER_maybe
+          ivn_pos = 1 + INT(0.5_wp + (SIGN(0.5_wp,p_vn(je,jk,jb))))
+          ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
+
+          ! line and block indices of neighbor cell with barycenter
+          btraj%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,ivn_pos)
+
+          btraj%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,ivn_pos)
+
+
+          ! Calculate the distance cell center --> barycenter for the cell,
+          ! in which the barycenter is located. The distance vector points
+          ! from the cell center to the barycenter.
+          z_ntdistv_bary_1 =  - ( p_vn(je,jk,jb) * p_dthalf + ptr_int%pos_on_tplane_e(je,jb,ivn_pos,1)
+
+          z_ntdistv_bary_2 =  - ( p_vt(je,jk,jb) * p_dthalf + ptr_int%pos_on_tplane_e(je,jb,ivn_pos,2))
+
+          ! In a last step, transform this distance vector into a rotated
+          ! geographical coordinate system with its origin at the circumcenter
+          ! of the upstream cell. Coordinate axes point to local East and local
+          ! North.
+
+          ! component in longitudinal direction
+          btraj%distv_bary(je,jk,jb,1) = &
+               &   z_ntdistv_bary_1*ptr_p%edges%primal_normal_cell(je,jb,ivn_pos)%v1 &
+               & + z_ntdistv_bary_2*ptr_p%edges%dual_normal_cell(je,jb,ivn_pos)%v1
+
+          ! component in latitudinal direction
+          btraj%distv_bary(je,jk,jb,2) = &
+               &   z_ntdistv_bary_1*ptr_p%edges%primal_normal_cell(je,jb,ivn_pos)%v2 &
+               & + z_ntdistv_bary_2*ptr_p%edges%dual_normal_cell(je,jb,ivn_pos)%v2
+
+#else
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
@@ -359,7 +392,7 @@ CONTAINS
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
                & + z_ntdistv_bary_2*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
-
+#endif
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
 !$ACC END PARALLEL
@@ -367,7 +400,6 @@ CONTAINS
 
 !$ACC UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
-
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 

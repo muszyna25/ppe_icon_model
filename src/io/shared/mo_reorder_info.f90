@@ -1,3 +1,10 @@
+! the Intel compiler has an interesting behaviour: if optimization is off,
+! actual arguments to dummy arguments with attribute CONTIGUOUS will always
+! be copied
+#if defined HAVE_FC_ATTRIBUTE_CONTIGUOUS \
+  && ((! defined __INTEL_COMPILER) || defined __OPTIMIZE__)
+#define USE_CONTIGUOUS 1
+#endif
 MODULE mo_reorder_info
   USE mo_kind, ONLY: i4, i8, dp, sp
   USE mo_mpi, ONLY: p_bcast, p_comm_remote_size, p_allgather, p_allgatherv, &
@@ -8,6 +15,11 @@ MODULE mo_reorder_info
   USE mpi
 #endif
   USE mo_util_sort, ONLY: quicksort
+#ifdef HAVE_CDI_PIO
+  USE yaxt, ONLY: xt_idxlist, xt_is_null, xt_idxvec_new, &
+       xt_idxlist_delete, xt_idxstripes_from_idxlist_new, &
+       xt_int_kind
+#endif
   IMPLICIT NONE
   PRIVATE
   !------------------------------------------------------------------------------------------------
@@ -35,6 +47,13 @@ MODULE mo_reorder_info
     !> offset of contributions of all ranks concatenated
     !! (should ONLY be set on I/O servers)
     INTEGER, ALLOCATABLE       :: reorder_index(:)
+
+#ifdef HAVE_CDI_PIO
+    ! describe which parts of a global array this MPI rank provides for an
+    ! array of nlev in reorder_idxlst_xt(nlev)
+    TYPE(xt_idxlist), ALLOCATABLE :: reorder_idxlst_xt(:)
+#endif
+
     ! Index how to reorder the contributions of all compute PEs
     ! into the global array (set on all PEs)
   END TYPE t_reorder_info
@@ -60,12 +79,25 @@ CONTAINS
   SUBROUTINE release_reorder_info(ri)
     TYPE(t_reorder_info), INTENT(INOUT) :: ri
 
+#ifdef HAVE_CDI_PIO
+    INTEGER :: i, n
+#endif
     IF (ALLOCATED(ri%reorder_index_own)) DEALLOCATE(ri%reorder_index_own)
     IF (ALLOCATED(ri%reorder_index)) DEALLOCATE(ri%reorder_index)
     IF (ALLOCATED(ri%own_idx)) DEALLOCATE(ri%own_idx)
     IF (ALLOCATED(ri%own_blk)) DEALLOCATE(ri%own_blk)
     IF (ALLOCATED(ri%pe_own)) DEALLOCATE(ri%pe_own)
     IF (ALLOCATED(ri%pe_off)) DEALLOCATE(ri%pe_off)
+#ifdef HAVE_CDI_PIO
+    IF (ALLOCATED(ri%reorder_idxlst_xt)) THEN
+      n = SIZE(ri%reorder_idxlst_xt)
+      DO i = 1, n
+        IF (.NOT. xt_is_null(ri%reorder_idxlst_xt(i))) &
+             CALL xt_idxlist_delete(ri%reorder_idxlst_xt(i))
+      END DO
+    END IF
+#endif
+
   END SUBROUTINE release_reorder_info
 
   SUBROUTINE mask2reorder_info(ri, mask, n_points_g, glb_index, group_comm, &
@@ -73,7 +105,7 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: glb_index, mask
 #endif
     INTEGER(i8), ALLOCATABLE, OPTIONAL, INTENT(out) :: &
@@ -88,6 +120,9 @@ CONTAINS
     INTEGER(i8) :: occ_temp, occ_accum
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occ_temp)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_data"
+#ifdef HAVE_CDI_PIO
+    TYPE(xt_idxlist) :: idxvec
+#endif
 
     n_points = SIZE(mask)
     n = COUNT(mask)
@@ -175,9 +210,17 @@ CONTAINS
       apos = (pos - 1_i8)/nbits_i8
       bpos = MOD(pos - 1_i8, nbits_i8)
       occ_accum = IAND(ISHFT(1_i8, bpos) - 1_i8, occupation_mask(apos))
-      ri%reorder_index_own(i) = occ_pfxsum(apos) + POPCNT(occ_accum) + 1
+      ri%reorder_index_own(i) = occ_pfxsum(apos) + POPCNT(occ_accum)
     END DO
-
+#ifdef HAVE_CDI_PIO
+    ALLOCATE(ri%reorder_idxlst_xt(1))
+    idxvec = xt_idxvec_new(int(ri%reorder_index_own, xt_int_kind))
+    ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+    CALL xt_idxlist_delete(idxvec)
+#endif
+    DO i = 1, ri%n_own
+      ri%reorder_index_own(i) = ri%reorder_index_own(i) + 1
+    END DO
     DEALLOCATE(glbidx_own)
     IF (PRESENT(retained_occupation_mask)) THEN
       CALL MOVE_ALLOC(occupation_mask, retained_occupation_mask)
@@ -191,7 +234,7 @@ CONTAINS
     INTEGER, ALLOCATABLE, INTENT(inout) :: a_perm(:)
     INTEGER, INTENT(in) :: permutation(:)
     CHARACTER(len=*), PARAMETER :: routine=modname//"::permute"
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: permutation
 #endif
     INTEGER, ALLOCATABLE :: temp(:)
@@ -261,7 +304,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:)
     REAL(dp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -278,7 +321,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:)
     REAL(sp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -295,7 +338,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:)
     REAL(dp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -312,7 +355,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:)
     REAL(sp), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -329,7 +372,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     INTEGER(i4), INTENT(in) :: part_data(:)
     INTEGER(i4), INTENT(inout) :: whole_data(:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, n, ofs
@@ -346,7 +389,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:,:)
     REAL(dp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -366,7 +409,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:,:)
     REAL(sp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -386,7 +429,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(sp), INTENT(in) :: part_data(:,:)
     REAL(dp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -406,7 +449,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     REAL(dp), INTENT(in) :: part_data(:,:)
     REAL(sp), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs
@@ -426,7 +469,7 @@ CONTAINS
     INTEGER, INTENT(in) :: part_idx
     INTEGER(i4), INTENT(in) :: part_data(:,:)
     INTEGER(i4), INTENT(inout) :: whole_data(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+#ifdef USE_CONTIGUOUS
     CONTIGUOUS :: part_data, whole_data
 #endif
     INTEGER :: i, k, n, nlev, ofs

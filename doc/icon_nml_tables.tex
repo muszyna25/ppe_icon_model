@@ -1125,6 +1125,10 @@ echam\_rad\_config(jg)\% \newline cobld & R & 23.44100 & deg &
 obliquity of the Earth rotation axis on the Kepler orbit &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .FALSE. \tabularnewline
 %
+echam\_rad\_config(jg)\% \newline clonp & R & 282.7000 & deg &
+longitude of perihelion with respect to vernal equinox on the Kepler orbit &
+echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .FALSE. \tabularnewline
+%
 echam\_rad\_config(jg)\% \newline lyr\_perp & L & .FALSE. & &
 .FALSE. for transient VSOP87 Earth orbit \\ .TRUE.: VSOP87 Earth orbit of year yr\_perp is perpertuated &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s  and l\_orbvsop87 = .TRUE. \tabularnewline
@@ -1178,9 +1182,9 @@ echam\_rad\_config(jg)\% \newline irad\_o3 & I & 0 & &
 Selects source for concentration of O3 \\
 0: set to zero (or epsilon) \\
 1: from tracer \\
-2: 3-dim concentration of month 9 from file \\
-4: 3-dim concentration of month 1 from file \\
-8: 3-dim concentration, time dependent from file &
+2: 3-dim concentration, climatological annual cycle, monthly means from an annual file \\
+4: 3-dim concentration, constant in time, 1st time slice file \\
+8: 3-dim concentration, time dependent, monthly means from yearly files &
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% \newline irad\_o2 & I & 2 & &
@@ -2316,7 +2320,7 @@ C &
 Filename of IFS2ICON input file, default
 ''\texttt{<path>ifs2icon\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=2
 \tabularnewline
 
@@ -2328,7 +2332,7 @@ C &
 Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
@@ -2341,7 +2345,7 @@ Filename of DWD analysis input file, default
 ''\texttt{<path>dwdana\_R<nroot>B<jlev>\_DOM
 <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
-\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{nroot0}, \texttt{jlev},
 and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
@@ -2799,7 +2803,8 @@ surface type \\
 2 = fixed surface fluxes \\
 3 = fixed buoyancy fluxes \\
 4 = RICO test case \\
-5 = fixed SST &
+5 = fixed SST \\
+6 = time varying SST and qv\_s case with prescribed roughness length for semi-idealized setups &
 \tabularnewline
 
 %\hline
@@ -3332,6 +3337,12 @@ is\_plane\_torus=.TRUE.
 \tabularnewline
 
 %\hline
+is\_nudging & L & .FALSE. &  &
+switch for enabling LS Newtonian relaxation (nudging) for horizontal winds, temperature and specific humidity&
+is\_plane\_torus=.TRUE.
+\tabularnewline
+
+%\hline
 is\_geowind & L & .FALSE. &  &
 switch for enabling geostrophic wind &
 is\_plane\_torus=.TRUE.
@@ -3356,6 +3367,51 @@ is\_rad\_forcing=.TRUE.
 Defined and used in: \verb+src/namelists/mo_ls_forcing_nml.f90+
 
 
+%------------------------------------------------------------------------------
+% master_nml: the minimum one needs to specify about an integration
+%------------------------------------------------------------------------------
+\subsection{master\_nml}
+\begin{longtab}
+
+%\hline
+\textbf{institute} &
+C & ' ' & &
+Acronym of the institute for which the full institute name is printed in the log file. Options are DWD, MPIM, KIT, or CSCS. Otherwise the full names of MPIM and DWD are printed.&
+\tabularnewline
+
+%\hline
+\textbf{lrestart}&
+L & .FALSE. & &
+If .TRUE.: Current experiment is started from a restart.&
+\tabularnewline
+
+%\hline
+\textbf{read\_restart\_namelists}&
+L & .TRUE. & &
+If .TRUE.: Namelists are read from the restart file to override the default namelist settings, before reading new namelists from the run script. Otherwise the namelists stored in the restart file are ignored.&
+\tabularnewline
+
+%\hline
+\textbf{lrestart\_write\_last}&
+L & .FALSE. & &
+If .TRUE.: model run should create restart at experiment end.  This is
+independent from the settings of the restart interval.&
+\tabularnewline
+
+%\hline
+\textbf{model\_base\_dir} &
+C & ' ' & &
+General path which may be used in file names of other name lists:
+If a file name contains the keyword "\texttt{<path>}", then this
+\texttt{model\_base\_dir} will be substituted.
+ &
+\tabularnewline
+
+\end{longtab}
+
+%------------------------------------------------------------------------------
+% master_model_nml: specifies specifics for each component model
+%------------------------------------------------------------------------------
 \subsection{master\_model\_nml (repeated for each model)}
 \begin{longtab}
 
@@ -3401,49 +3457,68 @@ Stride of MPI ranks.&
 
 \end{longtab}
 
-
 %------------------------------------------------------------------------------
-% master_nml: the minimum one needs to specify about an integration
+% master_time_control_nml: time information need in early stage of model init.
 %------------------------------------------------------------------------------
-\subsection{master\_nml}
+\subsection{master\_time\_control\_nml}
 \begin{longtab}
 
 %\hline
-\textbf{institute} &
-C & ' ' & &
-Acronym of the institute for which the full institute name is printed in the log file. Options are DWD, MPIM, KIT, or CSCS. Otherwise the full names of MPIM and DWD are printed.&
+\textbf{calendar} & I & 1 & &
+Selects the calendar type to use:   \\
+0 = calendar is not defined yet     \\
+1 = proleptic Gregorian calendar    \\
+2 = 365 day year without leap years \\
+3 = 360 day year with 30 day months &
 \tabularnewline
-
 %\hline
-\textbf{lrestart}&
-L & .FALSE. & &
-If .TRUE.: Current experiment is started from a restart.&
+
+\textbf{experimentReferenceDate} &
+C & experiment start date & &
+This specifies the reference date for the calendar in use. It is an
+anchor date for cycling of events on the time line.
+If this namelist parameter is unspecified, then the reference
+date is set to the experiment start date.
+&
 \tabularnewline
 
-%\hline
-\textbf{read\_restart\_namelists}&
-L & .TRUE. & &
-If .TRUE.: Namelists are read from the restart file to override the default namelist settings, before reading new namelists from the run script. Otherwise the namelists stored in the restart file are ignored.&
+\textbf{experimentStartDate} &
+C & ISO8601 formatted string & date of initial file &
+This is the start date of an experiment, which remains valid for the
+whole experiment. The start date is also the reference date of the
+experiment, which is the anchor point for cycling events. In special
+cases the reference date might be reset. Reasons might be debugging
+purposes or spinning off experiments from an existing restart of an
+other experiment.
 \tabularnewline
 
-%\hline
-\textbf{lrestart\_write\_last}&
-L & .FALSE. & &
-If .TRUE.: model run should create restart at experiment end.  This is
-independent from the settings of the restart interval.&
+\textbf{experimentStopDate} &
+C & ISO8601 formatted string & n/a &
+This is the date an experiment is finished.&
 \tabularnewline
 
-%\hline
-\textbf{model\_base\_dir} &
-C & ' ' & &
-General path which may be used in file names of other name lists:
-If a file name contains the keyword "\texttt{<path>}", then this
-\texttt{model\_base\_dir} will be substituted.
- &
+\textbf{forecastLeadTime} &
+C & ISO8601 formatted string & n/a &
+Specifies the time span for a numerical weather forecast.
+It is used to set the experiment stop time with respect to
+the experiment start date. &
 \tabularnewline
 
+\textbf{checkpointTimeIntVal} &
+C & ISO8601 formatted string & n/a &
+Time interval for writing checkpoints.&
+\tabularnewline
+
+\textbf{restartTimeIntVal} &
+C & ISO8601 formatted string & n/a &
+Time interval for writing a restart file and interrupt the
+current running job.&
+\tabularnewline
+
+%% %\hline
 \end{longtab}
 
+%% Defined and used in: \verb+src/namelists/mo_master_time_control_nml.f90+
 
 %------------------------------------------------------------------------------
 % meteogram_output_nml:
@@ -4966,6 +5041,12 @@ L & .FALSE.& &
 processes full domain) &
 \tabularnewline
 
+num\_test\_pe&I&-1&&If set to more than 1, use this many ranks for
+testing and switch to different consistency test. This enables tests
+for identity in setups which are too big to run on a single rank but
+is limited to comparing one MPI parallelization setup
+vs.\ another, obviously.&p\_test\_run = .TRUE.  \tabularnewline
+
 %\hline
 l\_test\_openmp &
 L & .FALSE.& &
@@ -5657,7 +5738,7 @@ determined by top\_height and nlev&
 max\_lay\_thckn&
 R& 25000& m&
 Maximum layer thickness below the height given by htop\_thcknlimit (NWP recommendation: 400 m) \\
-{\it Use with caution! Too ambitious settings may result in numerically unstable layer configurations.}&
+\textit{Use with caution! Too ambitious settings may result in numerically unstable layer configurations.}&
 \tabularnewline
 
 %\hline
@@ -7410,8 +7491,8 @@ Defined and used in: \verb+src/namelists/mo_extpar_nml.f90+
 If no vertical sleve coodinate is chosen (ivctype $/=$2), the hydrostatic and nonhydrostatic models need hybrid vertical level information to generate the
 terrain following coordinates. The hybrid level specification is stored in
 $<$icon home$>$/hyb\_params/HYB\_PARAMS\_$<$nlev$>$.
-The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
-model expects {\bf height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
+The \textbf{hydrostatic} model assumes to get \textbf{pressure based} coordinates, the \textbf{nonhydrostatic}
+model expects \textbf{height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
 
 \section{Compile flag for mixed precision}
 

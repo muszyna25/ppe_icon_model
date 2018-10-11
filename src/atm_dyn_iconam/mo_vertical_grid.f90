@@ -125,6 +125,12 @@ MODULE mo_vertical_grid
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
     LOGICAL :: l_found(nproma), lfound_all
 
+#ifdef INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: ica,z_help,z_temp,z_aux1,z_aux2,l_found
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_ifv,z_me,z_maxslp,z_maxhgtd,z_shift,z_ddxt_z_half_e
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_ddxn_z_half_e,z_aux_c,z_aux_c2,z_aux_e
+!DIR$ ATTRIBUTES ALIGN : 64 :: flat_idx,imask,icount
+#endif
     !------------------------------------------------------------------------
 
     DO jg = 1,n_dom
@@ -1704,6 +1710,10 @@ MODULE mo_vertical_grid
     INTEGER  :: nbidx(nproma,p_patch%nlev,p_patch%nblks_c,3)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_listreduce,i_masklist,k_start,k_end,i_indlist,i_blklist
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_vintcoeff,z_maxslp_avg,z_maxhgtd_avg,nbidx
+#endif
 
     nblks_c    = p_patch%nblks_c
 
@@ -1999,6 +2009,9 @@ MODULE mo_vertical_grid
 
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_aux
+#endif
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
