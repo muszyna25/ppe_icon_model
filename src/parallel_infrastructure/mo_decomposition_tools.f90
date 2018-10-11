@@ -419,6 +419,11 @@ CONTAINS
     LOGICAL, INTENT(in) :: use_next
     INTEGER :: temp
 
+    IF (.NOT. use_next) THEN
+      get_valid_local_index_next = get_valid_local_index_prev(glb2loc_index, glb_index)
+      RETURN
+    ENDIF
+
     IF (glb_index > glb2loc_index%global_size .OR. &
       & glb_index < 1) THEN
 

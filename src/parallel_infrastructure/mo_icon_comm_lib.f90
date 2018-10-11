@@ -26,8 +26,8 @@ MODULE mo_icon_comm_lib
 
   USE mo_kind,            ONLY: wp
   USE mo_exception,       ONLY: message_text, message, finish, warning
-  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
-    & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &
+  USE mo_parallel_config, ONLY: icon_comm_debug, max_send_recv_buffer_size, &
+    & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,         &
     & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode, &
     & max_mpi_message_size
 
@@ -1346,6 +1346,11 @@ CONTAINS
 !     comm_variable(new_comm_var_r2d)%dim_1 = nproma
 
     ! check the vertical_layers
+    IF (PRESENT(vertical_layers)) THEN
+      IF (vertical_layers /= 1) THEN
+        CALL finish(method_name, "Unsupported number of layers.")
+      ENDIF
+    ENDIF
     comm_variable(new_comm_var_r2d_recv_send)%vertical_layers = 1
 
     comm_variable(new_comm_var_r2d_recv_send)%recv_values_2d => recv_var

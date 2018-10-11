@@ -45,8 +45,7 @@ USE mo_mpi,                  ONLY: p_send, p_recv, &
      &                             p_bcast, p_comm_is_intercomm, &
      &                             p_comm_remote_size, p_allgather, &
      &                             p_allgatherv, MPI_COMM_NULL
-USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d, nproma, &
-     &                             comm_pattern_type_yaxt
+USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d, nproma
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp

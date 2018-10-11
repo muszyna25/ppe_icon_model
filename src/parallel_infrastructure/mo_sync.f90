@@ -56,7 +56,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  get_np_send, get_pelist_recv, exchange_data_mult_mixprec
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum!, timer_omp_ordglb_sum
 USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
 
 IMPLICIT NONE
