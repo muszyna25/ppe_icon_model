@@ -1592,12 +1592,12 @@ END SUBROUTINE exchange_data_mult_sp
     nfields = SIZE(recv)
     cpy_psum = 0
     nproma = SIZE(recv(1)%p, 1)
-    nblk = SIZE(recv(1)%p, 3)
     ! set up C pointers
     DO i = 1, nfields
       IF (iscont(i, 1)) THEN
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
+        nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
         incr = nproma * nl * nblk
@@ -1613,6 +1613,7 @@ END SUBROUTINE exchange_data_mult_sp
         IF (iscont(i, 2)) THEN
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
+          nblk = SIZE(send(i)%p, 3)
           ofs = cpy_psum + 1
           nl = nlev(i, 2)
           incr = nproma * nl * nblk
@@ -1644,6 +1645,7 @@ END SUBROUTINE exchange_data_mult_sp
     cpy_psum = 0
     DO i = 1, nfields
       IF (.NOT. iscont(i, 1)) THEN
+        nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
         incr = nproma * nl * nblk
