@@ -18,11 +18,11 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t, c_char
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
-                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
+                                                & cdiEncodeTime, institutInq, vlistCreate, vlistDefVar,          &
                                                 & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
                                                 & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
@@ -41,7 +41,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
-    &                                             pio_type_async, pio_type_cdipio,                  &
+    &                                             pio_type_cdipio,                  &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360,              &
     &                                             INWP
@@ -53,8 +53,8 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
-  USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
-    &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
+    &                                             dict_loadfile, dict_get
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
@@ -70,7 +70,7 @@ MODULE mo_name_list_output_init
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
-       use_dp_mpi2io, num_io_procs, pio_type
+       use_dp_mpi2io, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             ICON_grid_file_uri, number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
@@ -91,22 +91,21 @@ MODULE mo_name_list_output_init
   USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
 #endif
   ! MPI Communication routines
-  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id,                    &
-    &                                             get_my_mpi_work_communicator,                   &
+  USE mo_mpi,                               ONLY: p_bcast, &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
     &                                             mpi_comm_null, mpi_comm_self,                   &
     &                                             p_send, p_recv,                                 &
-    &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
+    &                                             p_real_dp, p_real_sp,          &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
     &                                             my_process_is_io,        &
     &                                             my_process_is_mpi_ioroot,                       &
-    &                                             process_mpi_stdio_id, process_work_io0,         &
-    &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
+    &                                             process_work_io0,         &
+    &                                             process_mpi_io_size, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, p_allgatherv, MPI_COMM_NULL
+    &                                             p_allgather, MPI_COMM_NULL
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -1030,23 +1029,20 @@ CONTAINS
     INTEGER,          PARAMETER :: print_patch_id = 1
 
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
-    INTEGER                              :: i, j, nfiles, &
-      &                                     jp, idom, jg, idom_log,                           &
-      &                                     grid_info_mode, ierrstat, jl,                     &
+    INTEGER                              :: nfiles, &
+      &                                     jp, idom, idom_log,                           &
+      &                                     grid_info_mode, ierrstat,                     &
       &                                     errno
     TYPE (t_output_name_list), POINTER   :: p_onl
-    TYPE(t_list_element),      POINTER   :: element
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
     TYPE(datetime),            POINTER   :: mtime_datetime_start,              &
-      &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
-      &                                     mtime_date
+      &                                     mtime_datetime_end, mtime_date1, mtime_date2
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     INTEGER                              :: idx, istart
     LOGICAL                              :: is_io, is_stdio
-    INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: is_mpi_test
     INTEGER                              :: this_i_lctype
 
@@ -1398,7 +1394,7 @@ CONTAINS
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
     INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
-         vl_list(max_var_lists), i, j, log_patch_id
+         vl_list(max_var_lists), j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
     LOGICAL :: is_work
@@ -1512,7 +1508,7 @@ CONTAINS
   SUBROUTINE assign_output_task(io_proc_id, pe_placement)
     INTEGER, INTENT(out) :: io_proc_id(:)
     INTEGER, INTENT(in) :: pe_placement(:)
-    INTEGER :: i, j, nfiles, test_rank_offset
+    INTEGER :: i, j, nfiles
     INTEGER :: nremaining_io_procs !< no. of non-placed I/O ranks
     LOGICAL :: is_stdio
     CHARACTER(len=MAX_CHAR_LENGTH) :: proc_list_str !< string (unoccupied I/O ranks)
@@ -1551,8 +1547,6 @@ CONTAINS
       IF (ANY(pe_placement /= -1 .AND. pe_placement /= 0)) &
         &  CALL finish(routine, "Invalid explicit placement of IO rank!")
 
-      test_rank_offset = MERGE(num_test_procs, 0, &
-        &                      p_test_run .AND. .NOT. is_mpi_test)
       ! Normal I/O done by the standard I/O processor
       !
       ! Only MPI rank "process_mpi_stdio_id" is available.
@@ -1789,12 +1783,11 @@ CONTAINS
     TYPE(timedelta), POINTER :: mtime_interval, mtime_td
     TYPE(datetime), POINTER :: mtime_datetime, mtime_date
     INTEGER(c_int64_t) :: total_ms
-    INTEGER :: tlen, additional_days(max_time_intervals)
+    INTEGER :: tlen
     INTEGER :: iintvl, nintvls, ifile
     INTEGER :: errno
 
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    LOGICAL :: l_is_restart
     LOGICAL :: include_last
     CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
     CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
@@ -2339,7 +2332,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: pos, apos, bpos, bmask
+    INTEGER(i8) :: pos, apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
