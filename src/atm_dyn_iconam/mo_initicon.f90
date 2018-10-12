@@ -1501,6 +1501,7 @@ MODULE mo_initicon
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
+    INTEGER :: source_of_t_2m
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
@@ -1517,6 +1518,13 @@ MODULE mo_initicon
       p_diag       =>p_nh_state(jg)%diag
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
+
+      ! making this query in the parallel region is not allowed since it's not thread-safe
+      IF (itype_vegetation_cycle == 3) THEN
+        source_of_t_2m = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
+      ELSE
+        source_of_t_2m = -1
+      END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
@@ -1720,8 +1728,7 @@ MODULE mo_initicon
 
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (itype_vegetation_cycle == 3 .AND.  &
-            & inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
+          IF (itype_vegetation_cycle == 3 .AND. source_of_t_2m == kInputSourceAna) THEN
             DO jc = i_startidx, i_endidx
               lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
                 0.25_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
