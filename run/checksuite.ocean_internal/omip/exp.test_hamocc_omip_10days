@@ -24,6 +24,28 @@ ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
+# HAMOCC
+use_hamocc=yes
+if [  "x${use_hamocc}"  = "xyes" ]; then
+lhamocc=".true."
+lbgcadv=".true."
+nlev_eu=$ocean_vertical_levels
+# set nlev_eu to level belonging to approx 500m
+if [ "x$ocean_vertical_levels" = "x40" ];then
+nlev_eu=19
+fi
+if [ "x$ocean_vertical_levels" = "x64" ];then
+nlev_eu=26
+fi
+if [ "x$ocean_vertical_levels" = "x20" ];then
+nlev_eu=16
+fi
+else
+lhamocc=".false."
+lbgcadv=".false."
+fi
+
+#-----------------------------------------------------------------------------
 #
 # write namelist parameters
 # -------------------------
@@ -210,6 +232,103 @@ cat > ${ocean_namelist} << EOF
 EOF
 #-----------------------------------------------------------------------------
 
+if [  "x${use_hamocc}"  = "xyes" ]; then
+cat >> ${ocean_namelist} << EOF1
+&output_nml
+  output_filename  = "${EXPNAME}_hamocc_monitor"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  output_grid      = .false.
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_MONI'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_BASE'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_sediment"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'group:HAMOCC_SED'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
+  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  filename_format  = "<output_filename>_<datetime2>"
+  output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+ !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  file_interval="P1Y"
+  output_grid      = .TRUE.
+  operation       = 'mean'
+  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
+/
+&hamocc_nml
+l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
+l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
+l_bgc_check                       = .FALSE.   ! mass check at every time step
+deltacalc                         = 0.        ! CaCO3 weathering rate [kmol/yr] 
+deltaorg                          = 0.        ! OC weathering rate [kmol/yr]
+deltasil                          = 0.        ! Si(OH)4 weathering rate [kmol/yr]
+atm_co2                           = 278.      ! atmospheric CO2 (default 278)
+atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
+atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
+sinkspeed_opal                    = 30.       ! opal sinking speed [m/d] (default 30)
+sinkspeed_calc                    = 30.       ! calc sinking speed [m/d] (default 30)
+i_settling                        = 1         ! 0 constant POC sinking speed, 1 Martin curve, 2 AGG module (not yet implemented)
+sinkspeed_poc                     = 5.        ! detritus sinking speed [m/d] for i_settling=0 (default 5)
+sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0, mc_depth) [m/d] for i_settling=1 (default 3.5)
+mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
+mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
+l_implsed                         =.FALSE.    ! implicit sediment formulation
+/
+EOF1
+fi
 
 #-----------------------------------------------------------------------------
 . ${thisdir}/add_required_ocean_files
@@ -221,7 +340,7 @@ if [[ x$BB_SYSTEM != x ]]; then
 . ${thisdir}/postFunx.sh
   dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
   cd ${dataPath}
-  slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
+  slave=${BB_SYSTEM:-mistral}_${BB_SLAVE:-gcc}
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
 
   directoryDiff ${refDir} .

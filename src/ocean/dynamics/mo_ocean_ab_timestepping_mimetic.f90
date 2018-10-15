@@ -83,9 +83,9 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp,          &
     & smooth_onCells, div_oce_2D_general_onBlock, div_oce_2D_general_onBlock_sp,  &
     & div_oce_3D_general_onBlock
-  USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
+  USE mo_ocean_velocity_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
-  USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
+  USE mo_ocean_velocity_diffusion,  ONLY: velocity_diffusion,&
     & velocity_diffusion_vertical_implicit_onBlock
   USE mo_ocean_types,               ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range

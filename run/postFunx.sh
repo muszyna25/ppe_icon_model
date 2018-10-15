@@ -10,7 +10,10 @@ function diffWithExitCode {
   nDiff=$(wc -l < $ofile)
 
   if (( $nDiff > 0 )); then
+    echo "--------------------------------------------"
+    echo "Files ${fileA} ${fileB} Differ!"
     cat $ofile;
+    echo "--------------------------------------------"
   fi
 
   rm -f $ofile

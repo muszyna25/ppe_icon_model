@@ -996,12 +996,13 @@ case "$ac_sitename" in
                                 load_modules=gcc/5.2.0 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.3-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 ;;
                             nag)
                                 load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
                                 FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
-                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl
+                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
                                 MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS
                                 ;;
@@ -1009,6 +1010,7 @@ case "$ac_sitename" in
                                 load_modules=intel/16.0.2 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                                 CC_OMPFLAG  = -fopenmp
                                 ;;

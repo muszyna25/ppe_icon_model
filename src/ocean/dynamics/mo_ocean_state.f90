@@ -41,7 +41,7 @@ MODULE mo_ocean_state
     &                               REDI_INDIVIDUAL_DIAGNOSTIC
   USE mo_run_config,          ONLY: test_mode
   USE mo_ocean_types,         ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
-    &                               t_hydro_ocean_aux , t_oce_config ,t_ocean_tracer,  &
+    &                               t_hydro_ocean_aux , t_oce_config,   &
     &                               t_ocean_checkpoint, t_ocean_adjoint
   USE mo_ocean_nudging_types, ONLY: t_ocean_nudge
   USE mo_ocean_nudging,       ONLY: ocean_nudge  
@@ -85,6 +85,7 @@ MODULE mo_ocean_state
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
   USE mo_hamocc_output,      ONLY: construct_hamocc_state_prog
+  USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
   IMPLICIT NONE
   PRIVATE
@@ -201,7 +202,7 @@ CONTAINS
         ! timelevel nnow is not used by the ocean - therefore we dont allocate
         ! variables for this timelevel
         IF (timelevel .ne. nnow(1)) THEN
-        CALL construct_hydro_ocean_prog(patch_2d, &
+        CALL construct_hydro_ocean_prog(patch_3d, &
             &                           ocean_state(1)%p_prog(timelevel), &
             &                           get_timelevel_string(timelevel))
         IF ( lhamocc ) THEN
@@ -628,16 +629,18 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_prog(patch_2d, ocean_state_prog, var_suffix)
+  SUBROUTINE construct_hydro_ocean_prog(patch_3d, ocean_state_prog, var_suffix)
 
-    TYPE(t_patch), INTENT(in), TARGET         :: patch_2d
+    TYPE(t_patch_3D), TARGET, INTENT(in)      :: patch_3d
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: ocean_state_prog
     CHARACTER(LEN=4)                          :: var_suffix
 
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
     INTEGER :: jtrc
+    TYPE(t_ocean_tracer), POINTER :: tracer
+    TYPE(t_patch), POINTER         :: patch_2d
 
-
+    patch_2d => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
@@ -687,13 +690,24 @@ CONTAINS
             & in_group=groups("oce_default", "oce_essentials","oce_prog"))
         END DO
 
+        !--------------------------------------------------------------------------
         ! use of the ocean_tracers structure
-        ALLOCATE(ocean_state_prog%ocean_tracers(no_tracer+nbgctra))
+        ALLOCATE(ocean_state_prog%tracer_collection%tracer(no_tracer+nbgctra))
+        ocean_state_prog%tracer_collection%no_of_tracers = no_tracer+nbgctra
+        ocean_state_prog%tracer_collection%patch_3d => patch_3d
         DO jtrc = 1,no_tracer+nbgctra
+          tracer => ocean_state_prog%tracer_collection%tracer(jtrc)
           ! point the concentration to the 4D tracer
           ! this is a tmeporary solution until the whole code is cleaned
-          ocean_state_prog%ocean_tracers(jtrc)%concentration =>  ocean_state_prog%tracer(:,:,:,jtrc)
-
+          tracer%concentration => ocean_state_prog%tracer(:,:,:,jtrc) 
+          NULLIFY(tracer%top_bc)
+          NULLIFY(tracer%bottom_bc)
+          IF (jtrc <= no_tracer+nbgcadv) THEN
+            tracer%is_advected = .true.
+          ELSE
+            tracer%is_advected = .false.
+          ENDIF
+            
           ! allocate a
   !         IF (use_tracer_x_height) THEN
   !           !
@@ -708,6 +722,10 @@ CONTAINS
   !
   !         ENDIF ! use_tracer_x_height
         ENDDO
+        !---------------------------------------------------------------------------
+      ELSE
+
+        ocean_state_prog%tracer_collection%no_of_tracers = 0
 
       ENDIF ! no_tracer > 0
 
@@ -1258,12 +1276,12 @@ CONTAINS
       & ldims=(/nproma,n_zlev,nblks_e/),loutput=.TRUE., lrestart_cont=.TRUE.)
     ! predicted vn normal velocity component
 
-    CALL add_var(ocean_restart_list, 'zlim', ocean_state_diag%zlim, &
-      & grid_unstructured_cell, za_depth_below_sea, &
-      & t_cf_var('zlim','1','zalesak limiter factor', &
-      & datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),loutput=.true., lrestart_cont=.false.)
+!     CALL add_var(ocean_restart_list, 'zlim', ocean_state_diag%zlim, &
+!       & grid_unstructured_cell, za_depth_below_sea, &
+!       & t_cf_var('zlim','1','zalesak limiter factor', &
+!       & datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+!       & ldims=(/nproma,n_zlev,nblks_e/),loutput=.true., lrestart_cont=.false.)
 
     CALL add_var(ocean_restart_list, 'vn_pred', ocean_state_diag%vn_pred, &
       & grid_unstructured_edge, za_depth_below_sea, &

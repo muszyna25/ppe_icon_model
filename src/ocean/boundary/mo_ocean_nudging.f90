@@ -40,7 +40,7 @@ MODULE mo_ocean_nudging
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
-  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer 
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state
   USE mo_ocean_nudging_types,       ONLY: t_ocean_nudge
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message

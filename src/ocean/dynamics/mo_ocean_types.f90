@@ -27,6 +27,7 @@ MODULE mo_ocean_types
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d
+  USE mo_ocean_tracer_transport_types
 
   USE mtime, ONLY: datetime
   USE mo_time_config, ONLY: t_time_config
@@ -41,10 +42,9 @@ MODULE mo_ocean_types
   PUBLIC :: t_ocean_adjoint
   PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
   PUBLIC :: t_oce_config
-  PUBLIC :: t_ocean_tracer
+  PUBLIC :: t_verticalAdvection_ppm_coefficients
   
 
-  PUBLIC :: t_verticalAdvection_ppm_coefficients
   PUBLIC :: t_operator_coeff
   PUBLIC :: t_solverCoeff_singlePrecision
 
@@ -61,6 +61,25 @@ MODULE mo_ocean_types
     onEdges_HalfLevels :: p  ! pointer to 3D array
   END TYPE t_onEdges_HalfLevels_Pointer_wp
   
+  !-------------------------------------------------------------------------------
+  TYPE t_verticalAdvection_ppm_coefficients
+    !  coefficients for the upwind_vflux_ppm vertical advection
+    !  these are allocated in a block mode (ie each block allocates its own coefficients)
+    !  all dimensions are (nproma, levels),
+    !  although not all the levels are actually used
+    onCellsBlock ::  cellHeightRatio_This_toBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisBelow
+    onCellsBlock ::  cellHeight_2xBelow_x_RatioThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisAboveBelow
+    onCellsBlock ::  cellHeightRatio_2xAboveplusThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_2xBelowplusThis_toThisAbove
+    onCellsBlock ::  cellHeightRatio_ThisAbove_to2xThisplusBelow
+    onCellsBlock ::  cellHeightRatio_ThisBelow_to2xThisplusAbove
+    onCellsBlock ::  cellHeight_inv_ThisAboveBelow2Below
+
+  END TYPE t_verticalAdvection_ppm_coefficients
+  !-------------------------------------------------------------------------------
+
 !   TYPE t_pointer_2d_wp
 !     REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
 !   END TYPE t_pointer_2d_wp
@@ -146,11 +165,6 @@ MODULE mo_ocean_types
     
   END TYPE t_hydro_ocean_base
   
-  TYPE t_ocean_tracer
-    onCells :: concentration
-!     REAL(wp),POINTER :: concentration_x_height(:,:,:) not used any more 
-  END TYPE t_ocean_tracer
-
   !----------------------------------------------
   ! prognostic variables
   TYPE t_hydro_ocean_prog
@@ -162,7 +176,7 @@ MODULE mo_ocean_types
      !   1) pot_temp:= potential temperature, Unit: [deg C]
      !   2) salinity:= salinity, Unit [psu]
     
-    TYPE(t_ocean_tracer), ALLOCATABLE :: ocean_tracers(:)
+    TYPE(t_tracer_collection) :: tracer_collection
     
     TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_hydro_ocean_prog
@@ -257,7 +271,7 @@ MODULE mo_ocean_types
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
       & cfl_horz       ,& ! horizontal cfl values
-      & zlim           ,& ! zalesak limiter factor
+!       & zlim           ,& ! zalesak limiter factor
       & vn_bolus  
       
 !     onEdges_HalfLevels :: &
@@ -326,7 +340,6 @@ MODULE mo_ocean_types
       
     onCells_2D_Type(t_cartesian_coordinates) :: bc_top_veloc_cc
     
-    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
 
     onCells_Type(t_cartesian_coordinates) :: &
@@ -369,23 +382,6 @@ MODULE mo_ocean_types
 
 
   !-------------------------------------------------------------------------------
-  TYPE t_verticalAdvection_ppm_coefficients
-    !  coefficients for the upwind_vflux_ppm vertical advection
-    !  these are allocated in a block mode (ie each block allocates its own coefficients)
-    !  all dimensions are (nproma, levels),
-    !  although not all the levels are actually used
-    onCellsBlock ::  cellHeightRatio_This_toBelow
-    onCellsBlock ::  cellHeightRatio_This_toThisBelow
-    onCellsBlock ::  cellHeight_2xBelow_x_RatioThis_toThisBelow
-    onCellsBlock ::  cellHeightRatio_This_toThisAboveBelow
-    onCellsBlock ::  cellHeightRatio_2xAboveplusThis_toThisBelow
-    onCellsBlock ::  cellHeightRatio_2xBelowplusThis_toThisAbove
-    onCellsBlock ::  cellHeightRatio_ThisAbove_to2xThisplusBelow
-    onCellsBlock ::  cellHeightRatio_ThisBelow_to2xThisplusAbove
-    onCellsBlock ::  cellHeight_inv_ThisAboveBelow2Below
-
-  END TYPE t_verticalAdvection_ppm_coefficients
-
   TYPE t_operator_coeff
 
     ! 1) precomputed 3D-factors for mathematical operators (for efficiency).

@@ -31,7 +31,7 @@ MODULE mo_ocean_limiter
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_adv_horz, timer_hflx_lim, &
     & timer_dif_horz, timer_extra10, timer_extra11, timer_extra12, timer_extra13, timer_extra15
-  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer
+  USE mo_ocean_tracer_transport_types,        ONLY: t_ocean_tracer
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, no_primal_edges
@@ -100,7 +100,7 @@ CONTAINS
     & div_adv_flux_vert,      &   
     & operators_coefficients, &
     & h_old,                  &
-    & h_new, zlim, tracer_index )                  
+    & h_new)                  
     
     TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
     REAL(wp),INTENT(inout)              :: vert_velocity(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
@@ -113,8 +113,7 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)             :: zlim(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
-    INTEGER, INTENT(in)                 :: tracer_index
+!     REAL(wp), INTENT(inout)             :: zlim(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
 
     
     !Local variables

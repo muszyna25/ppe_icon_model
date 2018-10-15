@@ -303,7 +303,7 @@ rm -f finish.status
 #  run_model
 #else
   date
-  ${START} ${MODEL}
+  ${START} ${MODEL} # > out.txt 2>&1
   date
 #fi
 #

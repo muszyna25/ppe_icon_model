@@ -1184,7 +1184,7 @@ MODULE mo_ocean_nml
     str_proc_tst =  (/  & 
       &  'all', &  ! initiate print messages in all method_names
       &  'abm', &  ! main timestepping method_names       in mo_ocean_ab_timestepping (mimetic/rbf)
-      &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
+      &  'vel', &  ! velocity advection and diffusion in mo_ocean_velocity_advection
       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
       &  '   ', &  ! ...
