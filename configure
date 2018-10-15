@@ -2564,6 +2564,17 @@ $as_echo "$as_me: error: This configuration is not supported. Please set a valid
 esac
 
 
+# check for environment variables "$GRIB_API",
+# "$ECCODES" (set by these modules).  If nothing is
+# available: load eccodes module:
+if test -z "$GRIB_API" -a -z "$ECCODES"; then
+  dwd_gribapi_env="1"
+fi
+
+{ $as_echo "$as_me:$LINENO: dwd_gribapi_env = $dwd_gribapi_env." >&5
+$as_echo "$as_me: dwd_gribapi_env = $dwd_gribapi_env." >&6;}
+export dwd_gribapi_env
+
 if test $use_mh_file = yes; then
 
 
@@ -4779,7 +4790,9 @@ fi
          CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
          case $GRIB_OPTION in
   eccodes) if test -n "$AEC_DIR"; then
-  GRIBAPI_LIB="$GRIBAPI_LIB -L\$(AEC_DIR)/lib -laec"
+  # note the backslash-notation for environment variables:
+                        # this means that they are not evaluated right now.
+                        GRIBAPI_LIB="$GRIBAPI_LIB -L\${AEC_DIR}/lib -laec"
                          { $as_echo "$as_me:$LINENO: taking over environment variable $AEC_DIR" >&5
 $as_echo "$as_me: taking over environment variable $AEC_DIR" >&6;}
 fi
