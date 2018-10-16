@@ -390,14 +390,14 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
                                 LAPACK_LIB  = -lsci_cray
                                 ;;
                             gpu*)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 craype-accel-nvidia60
+                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 craype-accel-nvidia60
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
