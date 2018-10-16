@@ -34,7 +34,7 @@ CONTAINS
         &                     powtra, prcaca, prorca, produs,             &
         &                     pown2bud, powh2obud, sred_sed,              &
         &                     porsol, pors2w, calcon,                     &
-        &                     disso_op, disso_cal,  o2thresh,         &
+        &                     disso_op, disso_cal,                        &
         &                     sedtend, isremins, isremino, isreminn,      &
         &                     silsat
 
@@ -45,7 +45,7 @@ CONTAINS
         &                     issso12, ipowaph, ipowno3, ipown2, &
         &                     ipowaal, ipowaic, isssc12, issster
  
-   USE mo_hamocc_nml, ONLY  : disso_po
+   USE mo_hamocc_nml, ONLY  : disso_po,denit_sed
  
   IMPLICIT NONE
 
@@ -67,15 +67,15 @@ CONTAINS
 
    REAL(wp) :: powcar(ks)
 
-   REAL(wp) :: o2lim          ! o2-limitation of processes in suboxic water
    REAL(wp) :: undsa, posol, pomax
-   REAL(wp) :: umfa,denit,bt,alk,c
+   REAL(wp) :: bt,alk,c
    REAL(wp) :: ak1,ak2,akb,akw
-   REAL(wp) :: h,a,satlev
+   REAL(wp) :: satlev
+!   REAL(wp) :: o2lim
    REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
    REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
    REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel,pco2_ch
+   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
    INTEGER  :: jit
 
 
@@ -83,7 +83,7 @@ CONTAINS
 !!! WE start with remineralisation of organic to estimate alkalinity changes first
 !          
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,k,o2lim,pomax,posol,orgsed,sssnew,&
+!HAMOCC_OMP_DO PRIVATE(j,k,pomax,posol,orgsed,sssnew,&
 !HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,&
 !HAMOCC_OMP           a,satlev,powcar,sti,ft,sit,&
 !HAMOCC_OMP           pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,jit,&
@@ -109,7 +109,7 @@ CONTAINS
          IF(bolay(j) > 0._wp) THEN
          IF (powtra(j, k, ipowaox) > 2.e-6_wp) THEN
 
-         o2lim = powtra(j,k,ipowaox)/(o2thresh+powtra(j,k,ipowaox)) ! o2 limitation in oxic water
+        ! o2lim = powtra(j,k,ipowaox)/(o2thresh+powtra(j,k,ipowaox)) ! o2 limitation in oxic water
 
         ! maximal possible aerobe dissolution per time step 
         ! limited by available oxygen concentration, currently max 70 % of O2 
@@ -149,7 +149,7 @@ CONTAINS
 
            orgsed = max(0._wp,sedlay(j,k,issso12)) 
 
-           posol = denit * MIN(0.5_wp * powtra(j, k, ipowno3)/nitdem, orgsed)
+           posol = denit_sed * MIN(0.5_wp * powtra(j, k, ipowno3)/nitdem, orgsed)
            sedlay(j,k,issso12)=sedlay(j,k,issso12)-posol
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol*pors2w(k)
@@ -405,11 +405,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   REAL(wp) :: undsa, posol 
   REAL(wp) :: umfa, bt, alk, c
   REAL(wp) :: ak1, ak2, akb, akw
-  REAL(wp) :: h, t1, t2, a, satlev
+  REAL(wp) :: satlev
   REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
    REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
    REAL(wp) :: hso4,hf,hsi,hpo4
-   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel,pco2_ch
+   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel
    INTEGER  :: jit
 
   !
