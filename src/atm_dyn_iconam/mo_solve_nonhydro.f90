@@ -591,19 +591,25 @@ MODULE mo_solve_nonhydro
 
           ENDIF
 
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __SWAPDIM
-          z_rth_pr(i_startidx:i_endidx,1,jb,1) = p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
-            p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
-          z_rth_pr(i_startidx:i_endidx,1,jb,2) = p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
-            p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            z_rth_pr(jc,1,jb,1) = p_nh%prog(nnow)%rho(jc,1,jb) - &
+              p_nh%metrics%rho_ref_mc(jc,1,jb)
+            z_rth_pr(jc,1,jb,2) = p_nh%prog(nnow)%theta_v(jc,1,jb) - &
+              p_nh%metrics%theta_ref_mc(jc,1,jb)
+          ENDDO
 #else
-          z_rth_pr(1,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
-            p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
-          z_rth_pr(2,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
-            p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            z_rth_pr(1,jc,1,jb) =  p_nh%prog(nnow)%rho(jc,1,jb) - &
+              p_nh%metrics%rho_ref_mc(jc,1,jb)
+            z_rth_pr(2,jc,1,jb) =  p_nh%prog(nnow)%theta_v(jc,1,jb) - &
+              p_nh%metrics%theta_ref_mc(jc,1,jb)
+          ENDDO
 #endif
-!$ACC END KERNELS
+!$ACC END PARALLEL
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG
