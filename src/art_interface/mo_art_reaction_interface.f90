@@ -42,7 +42,9 @@ MODULE mo_art_reaction_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_reacInt,            &
                                           &   timer_art_losschem, timer_art_photo
-  USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend
+  USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend,    &
+                                           &  prm_field
+  USE mo_radiation_config,              ONLY: irad_o3
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -51,6 +53,7 @@ MODULE mo_art_reaction_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
+  USE mo_art_feedback_icon,             ONLY: art_feedback_o3
 #endif
 
   IMPLICIT NONE
@@ -100,6 +103,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
   TYPE(t_echam_phy_tend) , OPTIONAL,  POINTER  :: tend
 ! Local variables
   INTEGER                           :: &
+    &  iTRO3,                          & !< index of O3 tracer
     &  jb,                             & !< loop index
     &  jg,                             & !< domain index
     &  i_startblk, i_endblk,           & !< Start and end of block loop
@@ -167,7 +171,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                  & p_prog_list,                       &
                  & p_diag,                            &
                  & p_metrics,                         &
-                 & tracer)
+                 & tracer,                            &
+                 & iTRO3)
           IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
         CASE(1)
           IF (timers_level > 3) CALL timer_start(timer_art_photo)
@@ -207,7 +212,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                  & p_prog_list,                       &
                  & p_diag,                            &
                  & p_metrics,                         &
-                 & tracer)
+                 & tracer,                            &
+                 & iTRO3)
           IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
         CASE(2)
           IF (iforcing == inwp) THEN
@@ -235,7 +241,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_prog_list,                       &
                    & p_diag,                            &
                    & p_metrics,                         &
-                   & tracer)
+                   & tracer,                            &
+                   & iTRO3)
 
             IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
           ELSEIF (iforcing == iecham) THEN
@@ -250,7 +257,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_diag,                            &
                    & p_prog%rho,                        &
                    & p_metrics,                         &
-                   & tracer)
+                   & tracer                             )
 
             IF (timers_level > 3) CALL timer_stop(timer_art_photo)
             IF (timers_level > 3) CALL timer_start(timer_art_losschem)
@@ -262,7 +269,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
                    & p_prog_list,                       &
                    & p_diag,                            &
                    & p_metrics,                         &
-                   & tracer)
+                   & tracer,                            &
+                   & iTRO3)
 
             IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
           ENDIF
@@ -271,6 +279,29 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT
+
+
+      SELECT CASE ( irad_o3 )
+        CASE (10)
+          IF (art_config(jg)%O3_feedback == 1) THEN 
+      
+            IF (iTRO3 /= 0) THEN
+              SELECT CASE ( iforcing )
+                CASE( inwp )
+                  CALL art_feedback_o3(p_patch,ext_data%atm%o3,tracer(:,:,:,iTRO3))
+                CASE (iecham)
+                  CALL art_feedback_o3(p_patch,prm_field(jg)%o3,tracer(:,:,:,iTRO3))
+             END SELECT
+           
+            ELSE
+              CALL finish('mo_art_reaction_interface:art_reaction_interface', 'You have chosen ART-ozone feedback, irad_o3 = 10, but O3 is not present')
+         
+            ENDIF
+          ENDIF
+      
+      END SELECT
+
+      
     ENDIF !lart_chem
 
     IF (timers_level > 3) CALL timer_stop(timer_art_reacInt)
