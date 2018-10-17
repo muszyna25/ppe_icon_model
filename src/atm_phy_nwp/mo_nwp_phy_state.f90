@@ -520,7 +520,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
+                  & isteptype=TSTEP_ACCUM,                                     &
+                  & hor_interp=create_hor_interp_metadata(                     &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
+                  & ) )
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -532,7 +536,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       CALL add_var( diag_list, 'ice_gsp', diag%ice_gsp,                        &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
+                  & isteptype=TSTEP_ACCUM,                                     &
+                  & hor_interp=create_hor_interp_metadata(                     &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
+                  & ) )
       
 
        ! &      diag%hail_gsp(nproma,nblks_c)
@@ -541,7 +549,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       CALL add_var( diag_list, 'hail_gsp', diag%hail_gsp,                      &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
+                  & isteptype=TSTEP_ACCUM,                                     &
+                  & hor_interp=create_hor_interp_metadata(                     &
+                  &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
+                  & ) )
 
     END SELECT
 
@@ -643,7 +655,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,  lrestart=.FALSE.,                           &
                 & in_group=groups("additional_precip_vars"),                  &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                        &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
+                & ) )
 
     ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &
@@ -653,7 +669,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
                 & in_group=groups("additional_precip_vars"),                  &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                        &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
+                & ) )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
@@ -662,7 +682,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                        &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
+                & ) )
 
 
 
@@ -1163,10 +1187,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qv', 'kg m-2',                 &
                 & 'column integrated water vapour (diagnostic)_avg',           &
-                & datatype_flt),                                             &
+                & datatype_flt),                                               &
                 & grib2_var( 0, 1, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                         & 
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                     &
+                &    fallback_type=HINTP_TYPE_LONLAT_RBF                       &
+                & ) )
 
     ! TQC_DIA_AVG
     CALL add_ref( diag_list, 'tot_cld_vi_avg',      &
@@ -1174,10 +1202,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qc', '',                       &
                 & 'tci_specific_cloud_water_content (diagnostic)_avg',         &
-                & datatype_flt),                                             &
+                & datatype_flt),                                               &
                 & grib2_var(0, 1, 215, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                         &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                     &
+                &    fallback_type=HINTP_TYPE_LONLAT_RBF                       &
+                & ) )
 
     ! TQI_DIA_AVG
     CALL add_ref( diag_list, 'tot_cld_vi_avg',          &
@@ -1185,10 +1217,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
                 & 'tci_specific_cloud_ice_content (diagnostic)_avg',           &
-                & datatype_flt),                                             &
+                & datatype_flt),                                               &
                 & grib2_var(0, 1, 216, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
-                & isteptype=TSTEP_AVG )
+                & isteptype=TSTEP_AVG,                                         & 
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                     &
+                &    fallback_type=HINTP_TYPE_LONLAT_RBF                       &
+                & ) )
 
 
     ! &      diag%clct_avg(nproma,nblks_c)
@@ -1545,7 +1581,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                  &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
-      & ldims=shape2d, isteptype=a_steptype, in_group=groups("rad_vars") )
+      & ldims=shape2d, isteptype=a_steptype, in_group=groups("rad_vars"),  &
+      & hor_interp=create_hor_interp_metadata(                             &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                           &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     ! &      diag%swflxtoa_a(nproma,nblks_c)
@@ -1558,7 +1597,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name) , diag%swflxtoa_a,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,               &
       & ldims=shape2d,                                                     &
-      & isteptype=a_steptype, in_group=groups("rad_vars") )
+      & isteptype=a_steptype, in_group=groups("rad_vars"),                 &
+      & hor_interp=create_hor_interp_metadata(                             &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                           &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
     
     ! &      diag%lwflxsfc_a(nproma,nblks_c)
     WRITE(name,'(A,A5)') TRIM(prefix),"thb_s"
@@ -1570,7 +1612,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%lwflxsfc_a,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &      diag%swflxsfc_a(nproma,nblks_c)
     WRITE(name,'(A,A5)') TRIM(prefix),"sob_s"
@@ -1582,19 +1627,25 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%swflxsfc_a,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%asod_t(nproma,nblks)
     WRITE(name,'(A,A5)') TRIM(prefix),"sod_t"
     WRITE(long_name,'(A30,A4,A18)') "Top down solar radiation ", meaning, &
                                   &" since model start"
-    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name),    &
          &                datatype_flt)
     grib2_desc = grib2_var(0, 4, 7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, TRIM(name), diag%asod_t,                    &
-      & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
-      & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+    CALL add_var( diag_list, TRIM(name), diag%asod_t,                     &
+      & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,              &
+      & ldims=shape2d,                                                    &
+      & isteptype=a_steptype, in_group=groups("rad_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%asou_t(nproma,nblks)
     WRITE(name,'(A,A5)') TRIM(prefix),"sou_t"
@@ -1606,7 +1657,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%asou_t,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%athd_s(nproma,nblks)
     WRITE(name,'(A,A5)') TRIM(prefix),"thd_s"
@@ -1618,7 +1672,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%athd_s,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%athu_s(nproma,nblks)
     WRITE(name,'(A,A5)') TRIM(prefix),"thu_s"
@@ -1630,7 +1687,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%athu_s,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%asodird_s(nproma,nblks)
     WRITE(name,'(A,A8)') TRIM(prefix),"sodird_s"
@@ -1642,7 +1702,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%asodird_s,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%asodifd_s(nproma,nblks)
     WRITE(name,'(A,A8)') TRIM(prefix),"sodifd_s"
@@ -1654,7 +1717,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%asodifd_s,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &       diag%asodifu_s(nproma,nblks)
     WRITE(name,'(A,A8)') TRIM(prefix),"sodifu_s"
@@ -1666,7 +1732,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%asodifu_s,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
-      & isteptype=a_steptype, in_group=groups("rad_vars"))
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &      diag%aswflx_par_sfc(nproma,nblks_c)
     WRITE(name,'(A,A13)') TRIM(prefix),"swflx_par_sfc"
@@ -1678,7 +1747,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%aswflx_par_sfc,            &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   & 
-      & isteptype=a_steptype, in_group=groups("rad_vars") )
+      & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &      diag%vio3(nproma,nblks_c)
     cf_desc    = t_cf_var('vio3', '', 'vertically integrated ozone amount', datatype_flt)
@@ -1869,7 +1941,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%ashfl_s,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & isteptype=a_steptype, in_group=groups("pbl_vars") )
+      & isteptype=a_steptype, in_group=groups("pbl_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     ! &      diag%lhfl_s(nproma,nblks_c)
@@ -1888,7 +1963,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%alhfl_s,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & isteptype=a_steptype, in_group=groups("pbl_vars") )
+      & isteptype=a_steptype, in_group=groups("pbl_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     ! &      diag%lhfl_bs(nproma,nblks_c)
@@ -1908,7 +1986,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%alhfl_bs,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
-      & isteptype=a_steptype )
+      & isteptype=a_steptype,                                             &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &      diag%lhfl_pl(nproma,nlev_soil,nblks_c)
     cf_desc    = t_cf_var('lhfl_pl', 'W m-2 ', 'latent heat flux from plants', &
@@ -1926,7 +2007,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%alhfl_pl,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
       & ldims=(/nproma,nlev_soil,kblks/), lrestart=.TRUE.,                &
-      & isteptype=a_steptype )
+      & isteptype=a_steptype,                                             &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     ! &      diag%qhfl_s(nproma,nblks_c)
     cf_desc    = t_cf_var('qhfl_s', 'Kg m-2 s-1', 'surface moisture flux', datatype_flt)
@@ -1948,7 +2032,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, TRIM(name), diag%aqhfl_s  ,                  &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & isteptype=a_steptype, in_group=groups("pbl_vars") )
+      & isteptype=a_steptype, in_group=groups("pbl_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     cf_desc    = t_cf_var('qcfl_s', 'kg m-2 s-1',                         &
@@ -2642,7 +2729,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 !   They are not important to obtain bit identical model results
     CALL add_var( diag_list, TRIM(name), diag%aumfl_s,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     WRITE(name,'(A,A6)') TRIM(prefix),"vmfl_s"
     WRITE(long_name,'(A26,A4,A18)') "v-momentum flux flux at surface ", meaning, &
@@ -2652,7 +2742,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(0, 2, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%avmfl_s,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     !------------------------------
@@ -2675,7 +2768,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(192, 128, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%astr_u_sso,                      &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     WRITE(name,'(A,A9)') TRIM(prefix),"str_v_sso"
     WRITE(long_name,'(A30,A4,A18)') "meridional sso surface stress ", meaning, " since model start"
@@ -2683,7 +2779,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(192, 128, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%astr_v_sso,                      &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     !------------------------------
@@ -2706,7 +2805,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(192, 128, 197, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%adrag_u_grid,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
     WRITE(name,'(A,A11)') TRIM(prefix),"drag_v_grid"
     WRITE(long_name,'(A35,A4,A18)') "meridional resolved surface stress ", meaning, " since model start"
@@ -2714,7 +2816,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(192, 128, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, TRIM(name), diag%adrag_v_grid,                    &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE. )
+      & isteptype=a_steptype, lrestart=.TRUE., loutput=.TRUE.,                 &
+      & hor_interp=create_hor_interp_metadata(                                 &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                               &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
 
     !------------------------------

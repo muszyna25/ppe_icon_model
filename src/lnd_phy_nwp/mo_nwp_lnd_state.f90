@@ -49,7 +49,8 @@ MODULE mo_nwp_lnd_state
 
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, &
-    &                                TLEV_NNOW_RCF, ALB_SI_MISSVAL, TASK_COMPUTE_SMI
+    &                                HINTP_TYPE_LONLAT_BCTR, TLEV_NNOW_RCF,           &
+    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
@@ -1427,7 +1428,11 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'runoff_s', p_diag_lnd%runoff_s,        &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
-           & isteptype=TSTEP_ACCUM )
+           & isteptype=TSTEP_ACCUM,                                                &
+           & hor_interp=create_hor_interp_metadata(                                &
+           &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                              &
+           &    fallback_type=HINTP_TYPE_LONLAT_NNB                                &
+           & ) )
 
 
     ! & p_diag_lnd%runoff_g(nproma,nblks_c)
@@ -1437,7 +1442,11 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'runoff_g', p_diag_lnd%runoff_g,        &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
-           & isteptype=TSTEP_ACCUM )
+           & isteptype=TSTEP_ACCUM,                                                &
+           & hor_interp=create_hor_interp_metadata(                                &
+           &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                              &
+           &    fallback_type=HINTP_TYPE_LONLAT_NNB                                &
+           & ) )
 
 
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
