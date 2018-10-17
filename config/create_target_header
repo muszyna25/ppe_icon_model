@@ -1218,7 +1218,7 @@ set_run_target_kesch_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  poolFolder_prefix=/project/c14/data-eniac
+  poolFolder_prefix=/project/csstaff/inputs/icon
   icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
@@ -1305,7 +1305,7 @@ set_run_target_kesch_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  poolFolder_prefix=/project/c14/data-eniac
+  poolFolder_prefix=/project/csstaff/inputs/icon
   icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
