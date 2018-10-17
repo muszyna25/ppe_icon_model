@@ -239,7 +239,7 @@ cat >> ${ocean_namelist} << EOF1
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${daily}"
+  output_interval  = "${{output_interval}"
   file_interval="P1Y"
   output_grid      = .false.
   operation       = 'mean'
@@ -251,7 +251,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${output_interval}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -263,7 +263,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_sediment"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${output_interval}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -275,7 +275,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${output_interval}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -287,7 +287,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${output_interval}"
   file_interval="P1Y"
   !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
@@ -301,7 +301,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${output_interval}"
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval="P1Y"
   output_grid      = .TRUE.
