@@ -137,10 +137,6 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
-#if _OPENACC
-!!!!  !$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
-#endif
-
   END SUBROUTINE construct
 
 
@@ -162,10 +158,6 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
-
-#if _OPENACC
-!!!! !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
-#endif
 
     IF (ASSOCIATED(obj%cell_idx)) THEN
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
@@ -237,7 +229,7 @@ CONTAINS
     REAL(wp) :: z_ntdistv_bary_1, z_ntdistv_bary_2      !< cell center --> barycenter in 'normal' and
                                                         !< 'tangential' coordinates.
 
-    INTEGER :: je, jk, jb        !< index of edge, vert level, block
+    INTEGER :: je, jk, jb, ivn_pos        !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
@@ -318,7 +310,7 @@ CONTAINS
           ! pos_barycenter_2 = - p_vt(je,jk,jb) * p_dthalf
 
           ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
-#ifdef __INTEL_COMPILER_maybe
+#if defined(__INTEL_COMPILER_maybe)
           ivn_pos = 1 + INT(0.5_wp + (SIGN(0.5_wp,p_vn(je,jk,jb))))
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
@@ -331,7 +323,7 @@ CONTAINS
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
           ! from the cell center to the barycenter.
-          z_ntdistv_bary_1 =  - ( p_vn(je,jk,jb) * p_dthalf + ptr_int%pos_on_tplane_e(je,jb,ivn_pos,1)
+          z_ntdistv_bary_1 =  - ( p_vn(je,jk,jb) * p_dthalf + ptr_int%pos_on_tplane_e(je,jb,ivn_pos,1))
 
           z_ntdistv_bary_2 =  - ( p_vt(je,jk,jb) * p_dthalf + ptr_int%pos_on_tplane_e(je,jb,ivn_pos,2))
 

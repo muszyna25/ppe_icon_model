@@ -937,13 +937,8 @@ CONTAINS
     INTEGER  :: i, i_rlstart, i_rlend, i_nchdom, i_rlend_c
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_lin           !< Instance of p_int_state%lsq_lin
-    lsq_lin = p_int%lsq_lin
-#else
     TYPE(t_lsq), POINTER :: lsq_lin  !< pointer to p_int_state%lsq_lin
     lsq_lin => p_int%lsq_lin
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -1332,17 +1327,12 @@ CONTAINS
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_lin                   !< Instance of p_int_state%lsq_lin
-    lsq_lin  = p_int%lsq_lin
-#else
     TYPE(t_lsq), POINTER :: lsq_lin          !< Pointer to p_int_state%lsq_lin
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff,z_tracer_mflx,z_rhofluxdiv_c
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_fluxdiv_c,z_tracer,z_rho
 #endif
     lsq_lin => p_int%lsq_lin
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -1827,13 +1817,8 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
 
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -2344,13 +2329,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -2923,13 +2903,8 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
 
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 

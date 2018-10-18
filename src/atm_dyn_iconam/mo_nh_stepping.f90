@@ -692,13 +692,13 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-!!!  i_am_accel_node = .false.    ! Dectivate GPUs
 
   CALL save_convenience_pointers( )
 
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
 
   CALL refresh_convenience_pointers( )
+  i_am_accel_node = .false.    ! Dectivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -2201,10 +2201,16 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
