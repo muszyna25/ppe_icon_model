@@ -1666,11 +1666,11 @@ MODULE mo_solve_nonhydro
         IF (istep == 1) THEN
           CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e,opt_varname="z_rho_e")
         ELSE
-          CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn,"vn_nnew")
+          CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn,opt_varname="vn_nnew")
         ENDIF
       ENDIF
 
-      IF (idiv_method == 2 .AND. istep == 1) CALL sync_patch_array(SYNC_E,p_patch,z_theta_v_e,"z_theta_v_e")
+      IF (idiv_method == 2 .AND. istep == 1) CALL sync_patch_array(SYNC_E,p_patch,z_theta_v_e,opt_varname="z_theta_v_e")
 
       IF (timers_level > 5) THEN
         CALL timer_stop(timer_solve_nh_exch)
@@ -2820,7 +2820,7 @@ MODULE mo_solve_nonhydro
 #endif
           ELSE
             ! Only w needs to be synchronized
-            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,"w_nnew")
+            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,opt_varname="w_nnew")
           ENDIF
         ELSE ! istep = 2: synchronize all prognostic variables
           CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
