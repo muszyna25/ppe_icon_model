@@ -2317,10 +2317,13 @@ MODULE mo_solve_nonhydro
           ENDDO
 !$ACC END PARALLEL
         ELSE IF (.NOT. l_open_ubc .AND. .NOT. l_vert_nested) THEN
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
-          p_nh%prog(nnew)%w(:,1,jb) = 0._wp
-          z_contr_w_fl_l(:,1)       = 0._wp
-!$ACC END KERNELS
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,1,jb) = 0._wp
+            z_contr_w_fl_l(jc,1)       = 0._wp
+          ENDDO
+!$ACC END PARALLEL
         ELSE  ! l_vert_nested
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR
