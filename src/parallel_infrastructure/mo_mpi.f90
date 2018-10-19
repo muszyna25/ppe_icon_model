@@ -308,6 +308,7 @@ MODULE mo_mpi
   PUBLIC :: MPI_2INTEGER
 #endif
   PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL, MPI_COMM_SELF
+  PUBLIC :: mpi_request_null
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
@@ -354,6 +355,7 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: MPI_COMM_SELF  = 1
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
+  INTEGER, PARAMETER :: mpi_request_null = 0
   ! this is the global communicator
   INTEGER, PARAMETER :: global_mpi_communicator = 0  ! replaces MPI_COMM_WORLD
 #endif
