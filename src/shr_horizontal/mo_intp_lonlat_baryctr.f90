@@ -728,7 +728,7 @@
       !$  DOUBLE PRECISION                  :: time_s, toc
       INTEGER                               :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)         :: ll_point_c           !< cartes. coordinates of lon-lat points
-      REAL(wp)                              :: v(0:2,3)
+      REAL(wp)                              :: v(3,0:2)
       LOGICAL                               :: inside_test
       INTEGER                               :: last_idx1(3)
 
@@ -783,16 +783,16 @@
             j = obj_list(i)
 
             DO k=0,2
-              v(k,:) = (/ p_global%a(tri_global%a(j)%p(k))%x, &
-                &         p_global%a(tri_global%a(j)%p(k))%y, &
-                &         p_global%a(tri_global%a(j)%p(k))%z /)
+              v(1,k) = p_global%a(tri_global%a(j)%p(k))%x
+              v(2,k) = p_global%a(tri_global%a(j)%p(k))%y
+              v(3,k) = p_global%a(tri_global%a(j)%p(k))%z
             END DO
 
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
 
             CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(0,:),v(1,:),v(2,:),               &
+              &                             v(:,0),v(:,1),v(:,2),               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             ! test if either the barycentric interpolation weights
@@ -851,13 +851,13 @@
           ELSE
 
             CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(0,:),v(1,:),v(2,:),               &
+              &                             v(:,0),v(:,1),v(:,2),               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             IF (dbg_level > 5) THEN
-              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v(0,:)
-              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v(1,:)
-              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v(2,:)
+              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v(:,0)
+              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v(:,1)
+              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v(:,2)
             END IF
 
             IF (ALL(last_idx1(1:3) >= 1)) THEN
