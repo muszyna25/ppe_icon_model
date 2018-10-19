@@ -133,7 +133,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
-    &                                     p_max, p_comm_work_2_io
+    &                                     p_max, p_comm_work_2_io, mpi_request_null
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta,             &
@@ -3249,9 +3249,8 @@ CONTAINS
   SUBROUTINE compute_wait_for_async_io(jstep)
     INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
-    INTEGER :: msg
-    INTEGER  :: i,j, nwait_list, io_proc_id
-    INTEGER  :: wait_list(num_io_procs)
+    INTEGER :: i,j, nwait_list, io_proc_id
+    INTEGER :: msg(num_io_procs), wait_list(num_io_procs), reqs(num_io_procs)
     CHARACTER(len=*), PARAMETER :: &
       routine = modname//'::compute_wait_for_async_io'
 
@@ -3263,6 +3262,7 @@ CONTAINS
       IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": ", routine, ", jstep=",jstep
       wait_list(:) = -1
       nwait_list   =  0
+      reqs = mpi_request_null
 
       ! Go over all output files, collect IO PEs
       OUTFILE_LOOP : DO i=1,SIZE(output_file)
@@ -3275,12 +3275,15 @@ CONTAINS
         END IF
       END DO OUTFILE_LOOP
       DO i=1,nwait_list
-        ! Blocking receive call:
         IF (ldebug) WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
-        CALL p_recv(msg, wait_list(i), 0, comm=p_comm_work_2_io)
+        CALL p_irecv(msg(i), wait_list(i), 0, comm=p_comm_work_2_io, &
+             request=reqs(i))
         ! Just for safety: Check if we got the correct tag
-        IF (msg /= msg_io_done) CALL finish(routine, 'Got illegal I/O tag')
       END DO
+      ! Blocking until all messages are received
+      CALL p_wait(reqs(1:nwait_list))
+      IF (ANY(msg(1:nwait_list) /= msg_io_done)) &
+           CALL finish(routine, 'Got illegal I/O tag')
     END IF
     ! Wait in barrier until message is here
     IF (ldebug) WRITE (0,*) "pe ", p_pe, ": waiting in barrier ", routine
