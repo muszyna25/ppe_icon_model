@@ -759,7 +759,6 @@ CONTAINS
             END IF
           END IF
 
-          IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
           mtime_date = mtime_date + delta
 
           l_active = mtime_date <= mtime_end .AND.   &
