@@ -613,6 +613,11 @@ MODULE mo_mpi
     MODULE PROCEDURE p_wait_n
   END INTERFACE p_wait
 
+  INTERFACE p_clear_request
+    MODULE PROCEDURE p_clear_request
+    MODULE PROCEDURE p_clear_requests
+  END INTERFACE p_clear_request
+
   INTERFACE p_sendrecv
      MODULE PROCEDURE p_sendrecv_real_1d
      MODULE PROCEDURE p_sendrecv_real_2d
@@ -10496,9 +10501,13 @@ CONTAINS
 
   SUBROUTINE p_clear_request(request)
     INTEGER, INTENT(INOUT) :: request
-    request = MERGE_HAVE_MPI(MPI_REQUEST_NULL, 0)
+    request = mpi_request_null
   END SUBROUTINE p_clear_request
 
+  SUBROUTINE p_clear_requests(requests)
+    INTEGER, INTENT(INOUT) :: requests(:)
+    requests = mpi_request_null
+  END SUBROUTINE p_clear_requests
 
   FUNCTION p_mpi_wtime()
     REAL(dp) :: p_mpi_wtime
