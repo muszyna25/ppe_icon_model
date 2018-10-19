@@ -5567,13 +5567,14 @@ CONTAINS
   !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
-  SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm)
+  SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm, request)
 
     INTEGER, INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+    INTEGER, OPTIONAL, INTENT(INOUT) :: request
 #ifndef NOMPI
-    INTEGER :: p_comm, icount
+    INTEGER :: p_comm, icount, out_request
 
     IF (PRESENT(comm)) THEN
       p_comm = comm
@@ -5591,9 +5592,15 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    CALL p_inc_request
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
-         p_comm, p_request(p_irequest), p_error)
+         p_comm, out_request, p_error)
+
+    IF (PRESENT(request)) THEN
+      request               = out_request
+    ELSE
+      CALL p_inc_request
+      p_request(p_irequest) = out_request
+    END IF
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
