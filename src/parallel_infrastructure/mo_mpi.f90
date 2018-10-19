@@ -605,7 +605,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_real_4d
      MODULE PROCEDURE p_irecv_int_4d
      MODULE PROCEDURE p_irecv_bool_4d
-  END INTERFACE
+  END INTERFACE p_irecv
 
   INTERFACE p_sendrecv
      MODULE PROCEDURE p_sendrecv_real_1d
