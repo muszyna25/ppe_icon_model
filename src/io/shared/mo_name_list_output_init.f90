@@ -1418,26 +1418,23 @@ CONTAINS
         ! Check if name_list has variables of corresponding type
         SELECT CASE(i_typ)
         CASE (level_type_ml)
-          IF (p_onl%ml_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_ml
-          pe_placement => p_onl%pe_placement_ml(1:npartitions)
+          pe_placement => p_onl%pe_placement_ml(:)
           varlist_ptr  => p_onl%ml_varlist
         CASE (level_type_pl)
-          IF (p_onl%pl_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_pl
           pe_placement => p_onl%pe_placement_pl(:)
           varlist_ptr  => p_onl%pl_varlist
         CASE (level_type_hl)
-          IF (p_onl%hl_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_hl
           pe_placement => p_onl%pe_placement_hl(:)
           varlist_ptr  => p_onl%hl_varlist
         CASE (level_type_il)
-          IF (p_onl%il_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_il
           pe_placement => p_onl%pe_placement_il(:)
           varlist_ptr  => p_onl%il_varlist
         END SELECT
+        IF (varlist_ptr(1) == ' ') CYCLE
 
         IF (npartitions > 1) THEN
           WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
