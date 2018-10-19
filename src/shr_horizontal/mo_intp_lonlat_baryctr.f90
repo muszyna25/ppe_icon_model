@@ -124,7 +124,8 @@
       ! local variables
       TYPE(t_cartesian_coordinates) :: a,b,c,p
       REAL(wp) :: B1(2), B2(2), r(2), det
-      
+      INTEGER :: i
+
       ! Cartesian coordinates of triangle vertices
       a%x(:) = p1
       b%x(:) = p2
@@ -134,9 +135,11 @@
       ! solve linear system for the barycentric coordinates
       !
       ! define matrix and right hand side
-      a%x(1:3) = a%x(1:3) - c%x(1:3)
-      b%x(1:3) = b%x(1:3) - c%x(1:3)
-      p%x(1:3) = p%x(1:3) - c%x(1:3)
+      DO i = 1, 3
+        a%x(i) = a%x(i) - c%x(i)
+        b%x(i) = b%x(i) - c%x(i)
+        p%x(i) = p%x(i) - c%x(i)
+      END DO
       B1(1:2) = (/ cc_dot_product(a,a) , cc_dot_product(a,b) /)   ! (a-c)^2     ,  (a-c)*(b-c)
       B2(1:2) = (/ B1(2)               , cc_dot_product(b,b) /)   ! (a-c)*(b-c) ,  (b-c)^2
       r(1:2)  = (/ cc_dot_product(p,a) , cc_dot_product(p,b) /)   ! [ (p-c)*(a-c), (p-c)*(b-c) ]
