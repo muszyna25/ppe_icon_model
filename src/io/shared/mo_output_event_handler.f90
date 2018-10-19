@@ -890,10 +890,11 @@ CONTAINS
       step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
       CALL MOVE_ALLOC(step_data, p_event%event_step(i)%event_step_data)
     END DO
-    IF (ldebug) THEN
-      WRITE (0,*) routine, ": defined event ",                            &
-        &         TRIM(p_event%event_step(1)%event_step_data(1)%filename_string), "; tag = ", &
-        &         p_event%event_step(1)%event_step_data(1)%i_tag
+    IF (ldebug .AND. n_event_steps > 0) THEN
+      WRITE (0,'(3a,2(a,i0))') routine, ": defined event ", &
+           & TRIM(p_event%event_step(1)%event_step_data(1)%filename_string), &
+           & "; tag = ", p_event%event_step(1)%event_step_data(1)%i_tag, &
+           & "; pe = ", i_pe
     END IF
 
     ! clean up
