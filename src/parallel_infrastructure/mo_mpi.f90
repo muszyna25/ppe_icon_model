@@ -607,6 +607,12 @@ MODULE mo_mpi
      MODULE PROCEDURE p_irecv_bool_4d
   END INTERFACE p_irecv
 
+  INTERFACE p_wait
+    MODULE PROCEDURE p_wait
+    MODULE PROCEDURE p_wait_1
+    MODULE PROCEDURE p_wait_n
+  END INTERFACE p_wait
+
   INTERFACE p_sendrecv
      MODULE PROCEDURE p_sendrecv_real_1d
      MODULE PROCEDURE p_sendrecv_real_2d
@@ -8288,20 +8294,28 @@ CONTAINS
   !------------------------------------------------------
 
   !------------------------------------------------------
-  SUBROUTINE p_wait(request)
-    INTEGER, INTENT(INOUT), OPTIONAL :: request
+  SUBROUTINE p_wait
 #ifndef NOMPI
-    INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
-
-    IF (PRESENT(request)) THEN
-      CALL MPI_WAIT(request,p_status_wait(:,1), p_error)
-      CALL p_clear_request(request)
-    ELSE
-      CALL MPI_WAITALL(p_irequest, p_request, p_status_wait, p_error)
-      p_irequest = 0
-    END IF
+    CALL mpi_waitall(p_irequest, p_request, mpi_statuses_ignore, p_error)
+    p_irequest = 0
 #endif
   END SUBROUTINE p_wait
+
+  SUBROUTINE p_wait_1(request)
+    INTEGER, INTENT(INOUT) :: request
+#ifndef NOMPI
+    CALL mpi_wait(request, mpi_status_ignore, p_error)
+    CALL p_clear_request(request)
+#endif
+  END SUBROUTINE p_wait_1
+
+  SUBROUTINE p_wait_n(requests)
+    INTEGER, INTENT(INOUT) :: requests(:)
+#ifndef NOMPI
+    CALL mpi_waitall(SIZE(requests), requests, mpi_statuses_ignore, p_error)
+    CALL p_clear_request(requests)
+#endif
+  END SUBROUTINE p_wait_n
 
   SUBROUTINE p_wait_any(return_pe)
 
