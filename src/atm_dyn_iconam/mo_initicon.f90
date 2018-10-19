@@ -1025,9 +1025,6 @@ MODULE mo_initicon
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: ddfac=0.1_wp, smtfac=0.075_wp
 
-    ! analysed water vapour partial density
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_rhov
-
     ! to sum up the water loading term
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
 
@@ -1153,8 +1150,11 @@ MODULE mo_initicon
               &                        * vtmpc1* initicon(jg)%atm_inc%qv(jc,jk,jb)
 
 
-            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
-              &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            ! APPROXIMATION: neglect density increment for the time being, in order to be consistent with 
+            ! the (currently inaccurate) IAU tracer update in iau_update_tracer
+            !   p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
+            !     &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb)
 
           ENDDO  ! jc
         ENDDO  ! jk
@@ -1339,8 +1339,7 @@ MODULE mo_initicon
         ! For the special case that increments are added in one go,
         ! compute vertical wind increment consistent with the vn increment
         ! Note that here the filtered velocity increment is used.
-        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), &
-          &      z_rhov(nproma,nlev), STAT=ist)
+        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
         ENDIF
@@ -1354,7 +1353,7 @@ MODULE mo_initicon
         i_startblk = p_patch(jg)%cells%start_block(rl_start)
         i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_rhov)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1365,16 +1364,20 @@ MODULE mo_initicon
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
 
+              ! use this version and corresponding update equation below, as soon as the approximation 
+              ! to rhov_incr is removed (see above)
+              !
               ! analysed water vapour partial density
-              z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
-                &           + p_diag%rhov_incr(jc,jk,jb)
+              !z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
+              !  &           + p_diag%rhov_incr(jc,jk,jb)
 
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
               ! make sure, that due to GRIB2 roundoff errors, qv does not drop
               ! below threshhold (currently 5E-7 kg/kg)
-              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
-
+              !p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+                &                                   + p_diag%rhov_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
 
               ! Remember to update theta_v
               p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
@@ -1439,7 +1442,7 @@ MODULE mo_initicon
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
 
         ! deallocate temporary arrays
-        DEALLOCATE( w_incr, z_rhov, STAT=ist )
+        DEALLOCATE( w_incr, STAT=ist )
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
         ENDIF
