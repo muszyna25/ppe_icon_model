@@ -69,9 +69,20 @@ MODULE mo_echam_phy_config
      !                      !  .TRUE. : parameterizations update the physics state
      !                      !           so that each param. provides a new prov. state
      !
-     LOGICAL  :: ldrymoist  !  .true. : use dry   air mass as conserved reference air mass
-     !                      !  .false.: use moist air mass as conserved reference air mass
+     LOGICAL  :: ldrymoist  !  .TRUE. : use dry   air mass as conserved reference air mass
+     !                      !  .FALSE.: use moist air mass as conserved reference air mass
      !
+     !                      !  If negative tracer mass fractions are found
+     !                      !  in the dynamics to physics interface, then ...
+     INTEGER  :: iqneg_d2p  !  1: ... they are reported
+     !                      !  2: ... they are set to zero
+     !                      !  3: ... they are reported and set to zero
+     !
+     !                      !  If negative tracer mass fractions are found
+     !                      !  in the physics to dynamics interface, then ...
+     INTEGER  :: iqneg_p2d  !  1: ... they are reported
+     !                      !  2: ... they are set to zero
+     !                      !  3: ... they are reported and set to zero
      !
      ! time control of processes
      ! - sd = start date
@@ -248,6 +259,9 @@ CONTAINS
     echam_phy_config(:)%ldcphycpl = .FALSE.
     echam_phy_config(:)%lparamcpl = .TRUE.
     echam_phy_config(:)%ldrymoist = .FALSE.
+    !
+    echam_phy_config(:)%iqneg_d2p  = 0
+    echam_phy_config(:)%iqneg_p2d  = 0
     !
     ! time control parameters
     echam_phy_config(:)% dt_rad = ''
@@ -649,6 +663,10 @@ CONTAINS
        CALL message    ('','')
        CALL message    ('','tracer reference air mass: .FALSE.: moist air mass, .TRUE.: dry air mass')
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% ldrymoist  ',echam_phy_config(jg)% ldrymoist  )
+       CALL message    ('','')
+       CALL message    ('','treatment of negative tracer mass fractions:')
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% iqneg_d2p  ',echam_phy_config(jg)% iqneg_d2p    )
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% iqneg_p2d  ',echam_phy_config(jg)% iqneg_p2d    )
        CALL message    ('','')
        CALL message    ('','time control parameters')
        CALL message    ('','')
