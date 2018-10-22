@@ -1532,7 +1532,10 @@ if test x${MPI_LAUNCH+set} != xset ; then
   fi
 fi
        FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
-       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
+       FCFLAGS_sub=${FCFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       FFLAGS_sub=${FFLAGS/-fmodule-private/}
+       FFLAGS_sub=${FFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS_sub' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
        ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
        ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
        AC_CONFIG_SUBDIRS([externals/yaxt])
