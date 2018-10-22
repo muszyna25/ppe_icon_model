@@ -96,7 +96,7 @@ CONTAINS
     INTEGER  :: jg
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
-    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:atm_crosscheck'
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
     REAL(wp) :: restart_time
     TYPE(datetime), POINTER :: reference_dt
     
@@ -844,7 +844,7 @@ CONTAINS
   SUBROUTINE land_crosscheck
 
     INTEGER  :: jg
-    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:land_crosscheck'
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::land_crosscheck'
 
 #ifdef __NO_JSBACH__
     IF (ANY(echam_phy_config(:)%ljsb)) THEN
@@ -868,7 +868,7 @@ CONTAINS
   SUBROUTINE art_crosscheck
   
     CHARACTER(len=*), PARAMETER :: &
-      &  routine =  'mo_nml_crosscheck:art_crosscheck'
+      &  routine =  modname//'::art_crosscheck'
 #ifdef __ICON_ART
     INTEGER  :: &
       &  jg
