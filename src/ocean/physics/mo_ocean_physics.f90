@@ -576,7 +576,7 @@ CONTAINS
     REAL(wp), INTENT(in)       ::smoothFactor
     ! Local variables
     TYPE(t_patch), POINTER  :: patch_2D
-    INTEGER :: je,jv,jb,jk, jev, ile, ibe
+    INTEGER :: je,jv,jk, jev, ile, ibe
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index, blockNo
     INTEGER :: i_startidx_v, i_endidx_v
@@ -600,15 +600,15 @@ CONTAINS
           ibe = patch_2D%verts%edge_blk(jv,blockNo,jev)
           sea_edges_onLevel = 0
           !             write(0,*) jv,blockNo, patch_2D%verts%num_edges(jv,blockNo), ":", ile, ibe
-          z_k_ave_v(jv,jb)= z_k_ave_v(jv,jb) + k_h(ile,ibe)
+          z_k_ave_v(jv,blockNo)= z_k_ave_v(jv,blockNo) + k_h(ile,ibe)
           sea_edges_onLevel = sea_edges_onLevel + 1
             
           !IF(patch_2D%verts%num_edges(jv,blockNo)== 5)THEN
           !  z_K_ave_v(jv,jk,blockNo)=80000_wp!°z_K_max
           !ENDIF
         END DO ! jev = 1, patch_2D%verts%num_edges(jv,blockNo)
-        IF(sea_edges_onLevel /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
-          & z_k_ave_v(jv,jb) = z_k_ave_v(jv,jb) / REAL(sea_edges_onLevel,wp)
+        IF(sea_edges_onLevel /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,blockNo))THEN
+          & z_k_ave_v(jv,blockNo) = z_k_ave_v(jv,blockNo) / REAL(sea_edges_onLevel,wp)
       ENDDO
     END DO
 
@@ -625,8 +625,8 @@ CONTAINS
         il_v2 = patch_2D%edges%vertex_idx(je,blockNo,2)
         ib_v2 = patch_2D%edges%vertex_blk(je,blockNo,2)
           
-        k_h(je,jb)= 0.5_wp * smoothFactor * (z_k_ave_v(il_v1,ib_v1) + z_k_ave_v(il_v2,ib_v2)) + &
-          & (1.0_wp - smoothFactor) * k_h(je,jb)
+        k_h(je,blockNo)= 0.5_wp * smoothFactor * (z_k_ave_v(il_v1,ib_v1) + z_k_ave_v(il_v2,ib_v2)) + &
+          & (1.0_wp - smoothFactor) * k_h(je,blockNo)
       ENDDO
     END DO
 
