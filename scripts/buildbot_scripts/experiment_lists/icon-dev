@@ -5,6 +5,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -31,6 +32,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -54,6 +56,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -79,6 +82,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
@@ -92,6 +96,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -115,6 +120,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -140,6 +146,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00:30:00
@@ -153,6 +160,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -171,6 +179,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
@@ -189,6 +198,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|checksuite.icon-dev/check.atm_amip|
+experiment|checksuite.icon-dev/check.atm_amip_update|
 experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|aes/exp.test_concurrent_psrad_model|
