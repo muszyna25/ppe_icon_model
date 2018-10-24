@@ -556,7 +556,7 @@ set_run_target_bullx()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-        set_default use_openmp_threads 4
+        set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '$smt_adjust' / OMP_NUM_THREADS))"'
     else
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
@@ -638,12 +638,12 @@ set_run_target_bullx()
 
   add_free_var MALLOC_TRIM_THRESHOLD_ -1
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="compute"}
+    queue=${queue:="compute2,compute"}
     use_nodes=1
     tasks_per_node=1
     SBATCH_ntasks_per_node=""
  else
-    queue=${queue:="compute"}
+    queue=${queue:="compute2,compute"}
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
   fi
@@ -675,6 +675,9 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
+# the following is needed to work around a bug that otherwise leads to
+# a too low number of ranks when using compute,compute2 as queue
+#SBATCH --mem=0
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --exclusive
