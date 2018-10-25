@@ -383,6 +383,7 @@ use_ensemble_pert=.true.,
 &synsat_nml
 lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this test
 /
+&output_nml
  ! ---------------------------------------------------------- !
  ! ---  IGLO: constant output fields - native grid, vv=0  --- !
  ! ---------------------------------------------------------- !
