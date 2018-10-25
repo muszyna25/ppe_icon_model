@@ -354,6 +354,7 @@ MODULE mo_adjust
 
      REAL(KIND=jprb) :: z1s, z2s, zcond,zcond1, zcor,      &
        &                zoealfa, zqmax, zqsat, ztarg, zqp
+     REAL(kind=jprb) :: pt1, pq1
 !     REAL(KIND=jprb) :: zfoeewi, zfoeewl
 
      REAL(KIND=jprb) :: zl, zi, zf
@@ -605,21 +606,21 @@ MODULE mo_adjust
         IF(n_vmass <=  0)  THEN ! Not using Vector MASS
 !DIR$ IVDEP
            DO jl=kidia,kfdia
-              zqp    =1.0_JPRB/psp(jl)
+             zqp    =1.0_JPRB/psp(jl)
               zqsat=foeewmcu(pt(jl,kk))*zqp
               zqsat=MIN(0.5_JPRB,zqsat)
               zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
               zqsat=zqsat*zcor
             zcond1=(pq(jl,kk)-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt(jl,kk)))
-            pt(jl,kk)=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
-            pq(jl,kk)=pq(jl,kk)-zcond1
-            zqsat=foeewmcu(pt(jl,kk))*zqp
+            pt1=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
+            pq1=pq(jl,kk)-zcond1
+            zqsat=foeewmcu(pt1)*zqp
             zqsat=MIN(0.5_JPRB,zqsat)
             zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
             zqsat=zqsat*zcor
-            zcond1=(pq(jl,kk)-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt(jl,kk)))
-            pt(jl,kk)=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
-            pq(jl,kk)=pq(jl,kk)-zcond1
+            zcond1=(pq1-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt1))
+            pt(jl,kk)=pt1+foeldcpmcu(pt1)*zcond1
+            pq(jl,kk)=pq1-zcond1
           ENDDO
         ELSE
 !DIR$ IVDEP
