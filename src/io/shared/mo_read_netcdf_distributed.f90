@@ -296,6 +296,8 @@ CONTAINS
     LOGICAL, SAVE        :: isCommReady = .FALSE.
 #endif
 
+    CALL message ("distrib_nf_open:",path)
+
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
 #ifdef HAVE_PARALLEL_NETCDF
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
