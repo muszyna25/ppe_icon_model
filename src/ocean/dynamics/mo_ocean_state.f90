@@ -219,8 +219,9 @@ CONTAINS
     CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux)
 
     CALL construct_checkpoints(patch_2d, ocean_state(1)%p_check,ncheckpoints)
+#ifdef __COMPAD_ADJLOOP__
     CALL construct_adjoints(patch_2d, ocean_state(1)%p_adjoint)
-    
+#endif    
     CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
   END SUBROUTINE construct_hydro_ocean_state
