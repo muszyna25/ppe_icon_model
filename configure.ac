@@ -1787,6 +1787,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
                    [
+                    CDIROOT="${CDIROOT}"
+                    export CDIROOT
                     build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"
