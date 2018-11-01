@@ -241,10 +241,14 @@ INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
   CHARACTER(len=*), INTENT(in)  :: name
   CHARACTER(len=*), INTENT(out) :: tval
 
-  INTEGER :: res
+  INTEGER :: res, tlen
 
   IF  (p_pe_work == p_io) THEN
-    res = nf_get_att_text(ncid, varid, name, tval)
+    res = nf_inq_attlen(ncid, varid, name, tlen)
+    IF (res == nf_noerr) THEN
+      res = nf_get_att_text(ncid, varid, name, tval)
+      tval = tval(1:tlen)
+    END IF
   ENDIF
 
   CALL p_bcast(res, p_io, p_comm_work)
