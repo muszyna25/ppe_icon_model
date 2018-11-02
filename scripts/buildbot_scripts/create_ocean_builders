@@ -15,11 +15,11 @@ machine=mistral
 ./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc --with-yaxt"                  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-mpi    --with-openmp"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_openmp   --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17 --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="" --builderflags="Inactive"  --list $list
+./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-mpi    --with-openmp" --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --configureflags="" --builderflags="Inactive"  --list $list
