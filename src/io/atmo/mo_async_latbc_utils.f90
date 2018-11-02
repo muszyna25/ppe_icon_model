@@ -1643,8 +1643,8 @@
     !!
     SUBROUTINE update_lin_interpolation( latbc, step_datetime )
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
-      TYPE(datetime),  POINTER  :: step_datetime
-      TYPE(timedelta), POINTER  :: delta_tstep
+      TYPE(datetime)            :: step_datetime
+      TYPE(timedelta)           :: delta_tstep
       REAL(wp)                  :: dtime_latbc      ! time delta between two consecutive 
                                                     ! boundary forcing time slices
       TYPE(timedelta)           :: td
@@ -1658,7 +1658,6 @@
       td = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime
       dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime))
 
-      delta_tstep => newTimedelta("PT0S")
       delta_tstep = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - step_datetime
 
 
@@ -1687,7 +1686,6 @@
       latbc_config%lc2 = 1._wp - latbc_config%lc1
 
       ! deallocating mtime and deltatime
-      CALL deallocateTimedelta(delta_tstep)
 #endif
 
     END SUBROUTINE update_lin_interpolation
