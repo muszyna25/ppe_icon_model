@@ -5145,7 +5145,9 @@ itype\_latbc $\ge$ 1
 %\hline
 pio\_type &
 I & 1& &
-Type of parallel I/O. Only used if number of I/O processors greater than number of domains.
+Type of parallel I/O.\\
+1: Classical async I/O proccessors\\
+2: CDI-PIO (Experimental!)
 Experimental!&
 \tabularnewline
 
@@ -5195,6 +5197,32 @@ I & 1 & &
 Number of levels to be buffered by the asynchronous restart process.
 The (asynchronous) restart is capable of writing and communicating
 more than one 2D slice at once. &
+\tabularnewline
+
+%\hline
+num\_dist\_array\_replicas &
+I & 1 & &
+\emph{(Advanced namelist parameter:)}
+Number of replicas of the distributed array used for the pre\_patch.
+&
+\tabularnewline
+
+%\hline
+io\_process\_stride &
+I & -1 & &
+\emph{(Advanced namelist parameter:)}
+Stride of processes taking part in reading of data. (Few reading
+processes, i.e. a large stride, often gives best performance.)
+&
+\tabularnewline
+
+%\hline
+io\_process\_rotate &
+I & 0 & &
+\emph{(Advanced namelist parameter:)}
+Rotate of processes taking part in reading of data.
+(Process taking part if p\_pe\_work \% stride == rotate)
+&
 \tabularnewline
 
 \end{longtab}
