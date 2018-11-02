@@ -202,9 +202,9 @@ CONTAINS
         ! timelevel nnow is not used by the ocean - therefore we dont allocate
         ! variables for this timelevel
         IF (timelevel .ne. nnow(1)) THEN
-        CALL construct_hydro_ocean_prog(patch_3d, &
-            &                           ocean_state(1)%p_prog(timelevel), &
-            &                           get_timelevel_string(timelevel))
+          CALL construct_hydro_ocean_prog(patch_3d, &
+            &                             ocean_state(1)%p_prog(timelevel), &
+            &                             get_timelevel_string(timelevel))
         IF ( lhamocc ) THEN
           CALL construct_hamocc_state_prog(ocean_restart_list, &
             &                              patch_2d, &

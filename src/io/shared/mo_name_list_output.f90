@@ -170,8 +170,8 @@ MODULE mo_name_list_output
 #endif
   ! post-ops
 
-#ifndef __NO_ICON_ATMO__
   USE mo_post_op,                   ONLY: perform_post_op
+#ifndef __NO_ICON_ATMO__
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize, &
        meteogram_flush_file
   USE mo_meteogram_config,          ONLY: meteogram_output_config
@@ -786,11 +786,11 @@ CONTAINS
     TYPE (t_var_metadata), POINTER              :: info
     TYPE (t_reorder_info), POINTER              :: p_ri
     INTEGER                                     :: ri_n_glb
-#ifndef __NO_ICON_ATMO__
+
     REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
     REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
     INTEGER, ALLOCATABLE, TARGET :: i_ptr_m(:,:,:)
-#endif
+
     REAL(wp), POINTER :: r_ptr(:,:,:)
     REAL(sp), POINTER :: s_ptr(:,:,:)
     INTEGER, POINTER :: i_ptr(:,:,:)
@@ -798,10 +798,10 @@ CONTAINS
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: last_bdry_index
     INTEGER :: info_nlevs
-#ifndef __NO_ICON_ATMO__
+
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
-#endif
+
     LOGICAL :: is_mpi_test, is_stdio
 #ifndef NOMPI
     LOGICAL :: participate_in_async_io, lasync_io_metadata_prepare
@@ -898,7 +898,7 @@ CONTAINS
         ! set a default time level (which is not used anyway, but must
         ! be a valid array subscript):
       tl = 1
-#ifndef __NO_ICON_ATMO__
+
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND. &
         & .NOT. ASSOCIATED(of%var_desc(iv)%s_ptr)  .AND. &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
@@ -912,7 +912,7 @@ CONTAINS
           CALL finish(routine,'Actual timelevel not in '//TRIM(info%name))
         END IF
       ENDIF
-#endif
+
 
       nindex = MERGE(info%ncontained, 1, info%lcontained)
 
@@ -928,6 +928,7 @@ CONTAINS
         idata_type = iINTEGER
       END IF
 
+      call message(routine,'call get_ptr_to_var_data for '//trim(info%name))
       CALL get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, &
         &                      nindex, tl, of%var_desc(iv), info)
 
@@ -935,7 +936,6 @@ CONTAINS
       ! Perform post-ops (small arithmetic operations on fields)
       ! --------------------------------------------------------
 
-#ifndef __NO_ICON_ATMO__
       ipost_op_type = info%post_op%ipost_op_type
       post_op_apply &
            = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
@@ -984,7 +984,6 @@ CONTAINS
           CALL perform_post_op(info%post_op, i_ptr)
         ENDIF
       END IF
-#endif
 
       var_ignore_level_selection = .FALSE.
 
@@ -1174,7 +1173,7 @@ CONTAINS
     SELECT CASE (info%ndims)
     CASE (1)
       IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
-           & CALL finish(routine, "internal error")
+           & CALL finish(routine, "Internal error (ndims=1, lcontained)")
       IF (ASSOCIATED(var_desc%r_ptr)) THEN
         r_ptr => var_desc%r_ptr(:,1:1,1:1,1,1)
       ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
@@ -1182,7 +1181,7 @@ CONTAINS
       ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
         i_ptr => var_desc%i_ptr(:,1:1,1:1,1,1)
       ELSE
-        CALL finish(routine, "Internal error!")
+        CALL finish(routine, "Internal error (not found vardata pointer)")
       ENDIF
 
     CASE (2)
