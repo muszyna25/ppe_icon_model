@@ -71,8 +71,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN) :: name
     CHARACTER(len=*), OPTIONAL, INTENT(IN) :: text
     INTEGER, OPTIONAL, INTENT(IN) :: exit_no
-    
-    write(*,*) name, ": (", exit_no, ") ", text
+    IF (PRESENT(text) .AND. PRESENT(exit_no)) THEN
+      write(*,*) name, ": (", exit_no, ") ", text
+    ENDIF
     STOP 
   END SUBROUTINE
 

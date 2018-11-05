@@ -172,8 +172,8 @@ function diff_results
     DIFF_STATUS=0
 
     # create more beautiful output for variables MODEL_DIR[12]
-    cd $MODEL_DIR1; MODEL_DIR1=`pwd`
     cd $MODEL_DIR2; MODEL_DIR2=`pwd`
+    cd $MODEL_DIR1; MODEL_DIR1=`pwd`
 
     # dump output of "cdo diffn", if differences exist, only for the first date
     CAT_CDO_DIFFN='yes'
@@ -379,7 +379,7 @@ while getopts ":cd:e:f:hm:o:r:s:t:u" OPT; do
         r  ) REFERENCE=$OPTARG
             CMODES="u ur un um uo urn urm uro unm uno umo urnm urno urmo unmo urnmo"
             if string_in_list $MD $CMODES; then
-                if [ ! -d ${REFERENCE}/run ]; then
+                if [ ! -d ${REFERENCE} ]; then
 	            echo 'you asked for an update test, but no reference model found'
 	            echo "reference model ${REFERENCE} does not exist"
 	            exit 1

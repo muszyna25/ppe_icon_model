@@ -1002,7 +1002,7 @@ CONTAINS
 
   SUBROUTINE cdiGetStringError(errorId, outErrorString)
     INTEGER(C_INT), VALUE :: errorId
-    CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: outErrorString
+    CHARACTER(KIND = C_CHAR, LEN=*), INTENT(INOUT) :: outErrorString
     CHARACTER(KIND = C_CHAR), dimension(:), POINTER :: cString
     INTEGER :: i, n
 

@@ -41,7 +41,7 @@ MODULE mo_name_list_output_zaxes_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output_zaxes_types'
 
   !> axis ID which signals the end of an MPI send/receive process
-  INTEGER, PARAMETER :: MPI_SENTINEL = -9999
+  INTEGER, PARAMETER :: MSG_SENTINEL = -9999
 
 
   !> Derived type which contains all meta-data of a vertical axis.
@@ -651,7 +651,7 @@ CONTAINS
     END DO
     ! the last item of the list is marked by a subsequent "sentinel
     ! message":
-    sentinel%zaxisNlev = MPI_SENTINEL
+    sentinel%zaxisNlev = MSG_SENTINEL
     CALL sentinel%sendMPI(dest,comm)
   END SUBROUTINE t_verticalAxisList_sendMPI
 
@@ -668,7 +668,7 @@ CONTAINS
     DO
       ALLOCATE(axis)
       CALL axis%recvMPI(src,comm)
-      IF (axis%zaxisNlev == MPI_SENTINEL) THEN
+      IF (axis%zaxisNlev == MSG_SENTINEL) THEN
         DEALLOCATE(axis)
         EXIT
       END IF
@@ -700,14 +700,14 @@ CONTAINS
       END DO
       ! the last item of the list is marked by a subsequent "sentinel
       ! message":
-      sentinel%zaxisNlev = MPI_SENTINEL
+      sentinel%zaxisNlev = MSG_SENTINEL
       CALL sentinel%bcastMPI(root,comm)
     END IF
     IF (isReceiver) THEN
       DO
         ALLOCATE(axis)
         CALL axis%bcastMPI(root,comm)
-        IF (axis%zaxisNlev == MPI_SENTINEL) THEN
+        IF (axis%zaxisNlev == MSG_SENTINEL) THEN
           DEALLOCATE(axis)
           EXIT
         END IF
