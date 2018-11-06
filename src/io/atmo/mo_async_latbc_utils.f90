@@ -36,7 +36,7 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data
+    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data, t_buffer
     USE mo_kind,                ONLY: wp, i8
     USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma
@@ -1611,23 +1611,20 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-05-19)
     !!
-    FUNCTION get_field_index(latbc,name) RESULT(result_varID)
-      TYPE (t_latbc_data), INTENT(IN) :: latbc
+    FUNCTION get_field_index(buffer,name) RESULT(result_varID)
+      TYPE(t_buffer), INTENT(IN) :: buffer
       CHARACTER (LEN=*),   INTENT(IN) :: name !< variable name
       ! local variables
       LOGICAL, PARAMETER :: ldebug = .FALSE.
       INTEGER :: result_varID, varID, nvars
       CHARACTER(len=len(name)) :: name_lc
 
-      IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
-
       result_varID = -1
-      nvars = latbc%buffer%ngrp_vars
+      nvars = buffer%ngrp_vars
       if (nvars >= 1) name_lc = tolower(name)
       ! looping over variable list in internal name
       LOOP : DO varID=1, nvars
-        IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-        IF (name_lc == tolower(latbc%buffer%internal_name(varID))) THEN
+        IF (name_lc == tolower(buffer%internal_name(varID))) THEN
           result_varID = varID
           EXIT LOOP
         END IF
@@ -1707,7 +1704,7 @@
       p_ri => latbc%patch_data%cells
       IF (PRESENT(opt_p_ri))  p_ri => opt_p_ri
 
-      jm = get_field_index(latbc, TRIM(name))
+      jm = get_field_index(latbc%buffer, TRIM(name))
       IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
 
 !$OMP PARALLEL DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
@@ -1739,7 +1736,7 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_3D_generic"
       INTEGER :: jm, jk, j, jb, jl
 
-      jm = get_field_index(latbc, TRIM(name))
+      jm = get_field_index(latbc%buffer, TRIM(name))
       IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
 
       ! consistency check
