@@ -218,7 +218,7 @@ MODULE mo_async_latbc_types
     INTEGER :: new_latbc_tlev
 
     ! storage for time-constant height level data
-    TYPE(t_init_state_const) :: latbc_data_const
+    TYPE(t_init_state_const), POINTER :: latbc_data_const => NULL()
 
     ! storage for two time-level boundary data
     TYPE(t_init_state) :: latbc_data(2)
@@ -332,7 +332,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_latbc_data_finalize"
-    INTEGER :: tlev
+    INTEGER :: tlev, ierror
 
     CALL message("", 'deallocating latbc data')
 
@@ -350,11 +350,13 @@ CONTAINS
     END IF
 
     ! deallocating date and time data structures
-    IF (ASSOCIATED(latbc%mtime_last_read)) THEN
+    IF (ASSOCIATED(latbc%mtime_last_read)) &
       CALL deallocateDatetime(latbc%mtime_last_read)
-    END IF
-    IF (ASSOCIATED(latbc%delta_dtime)) THEN
+    IF (ASSOCIATED(latbc%delta_dtime)) &
       CALL deallocateTimedelta(latbc%delta_dtime)
+    IF (ASSOCIATED(latbc%latbc_data_const)) THEN
+      DEALLOCATE(latbc%latbc_data_const, stat=ierror)
+      IF (ierror /= SUCCESS) CALL finish(routine, "deallocate failed!")
     END IF
   END SUBROUTINE t_latbc_data_finalize
 
