@@ -454,7 +454,7 @@ MODULE mo_async_latbc
 
       TYPE(t_latbc_data),   INTENT(INOUT), TARGET :: latbc
       TYPE(t_reorder_data), INTENT(INOUT) :: p_ri           ! reorder info data structure
-      INTEGER,              INTENT(IN)    :: glb_indices(:)
+      INTEGER, ALLOCATABLE, INTENT(IN)    :: glb_indices(:)
       INTEGER,              INTENT(IN)    :: nindices_g     ! global no. of indices
       INTEGER,              INTENT(IN)    :: hgrid_type     ! grid type (CELL/EDGE)
 #ifndef NOMPI
