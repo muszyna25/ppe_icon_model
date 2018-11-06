@@ -76,7 +76,7 @@
 MODULE mo_name_list_output
 
   ! constants
-  USE mo_kind,                      ONLY: wp, i8, dp, sp
+  USE mo_kind,                      ONLY: wp, i4, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
     &                                     ihs_ocean, BOUNDARY_MISSVAL
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
@@ -210,6 +210,33 @@ MODULE mo_name_list_output
     MODULE PROCEDURE set_boundary_mask_dp
     MODULE procedure set_boundary_mask_sp
   END INTERFACE set_boundary_mask
+
+  INTERFACE var_copy
+    MODULE PROCEDURE var_copy_dp2dp
+    MODULE PROCEDURE var_copy_dp2dp_miss
+    MODULE PROCEDURE var_copy_dp2dp_ls
+    MODULE PROCEDURE var_copy_dp2dp_ls_miss
+    MODULE PROCEDURE var_copy_sp2dp
+    MODULE PROCEDURE var_copy_sp2dp_miss
+    MODULE PROCEDURE var_copy_sp2dp_ls
+    MODULE PROCEDURE var_copy_sp2dp_ls_miss
+    MODULE PROCEDURE var_copy_i42dp
+    MODULE PROCEDURE var_copy_i42dp_miss
+    MODULE PROCEDURE var_copy_i42dp_ls
+    MODULE PROCEDURE var_copy_i42dp_ls_miss
+    MODULE PROCEDURE var_copy_dp2sp
+    MODULE PROCEDURE var_copy_dp2sp_miss
+    MODULE PROCEDURE var_copy_dp2sp_ls
+    MODULE PROCEDURE var_copy_dp2sp_ls_miss
+    MODULE PROCEDURE var_copy_sp2sp
+    MODULE PROCEDURE var_copy_sp2sp_miss
+    MODULE PROCEDURE var_copy_sp2sp_ls
+    MODULE PROCEDURE var_copy_sp2sp_ls_miss
+    MODULE PROCEDURE var_copy_i42sp
+    MODULE PROCEDURE var_copy_i42sp_miss
+    MODULE PROCEDURE var_copy_i42sp_ls
+    MODULE PROCEDURE var_copy_i42sp_ls_miss
+  END INTERFACE var_copy
 
 CONTAINS
 
@@ -1581,68 +1608,665 @@ CONTAINS
       &              .AND. (.NOT. var_ignore_level_selection) &
       &              .AND. (info%ndims > 2)
 
+    IF (use_dp_mpi2io) THEN
+      SELECT CASE(idata_type)
+      CASE (iREAL)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs)
+          END IF
+        END IF
+      CASE (iREAL_sp)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs)
+          END IF
+        END IF
+      CASE (iINTEGER)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs)
+          END IF
+        END IF
+      END SELECT
+    ELSE
+      SELECT CASE(idata_type)
+      CASE (iREAL)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs)
+          END IF
+        END IF
+      CASE (iREAL_sp)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs)
+          END IF
+        END IF
+      CASE (iINTEGER)
+        IF (make_level_selection) THEN
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval, of%level_selection%global_idx)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
+              of%level_selection%global_idx)
+          END IF
+        ELSE
+          IF (apply_missval) THEN
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
+              i_endblk, i_endidx, missval)
+          ELSE
+            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs)
+          END IF
+        END IF
+      END SELECT
+    END IF
+#endif
+  END SUBROUTINE data_write_to_memwin
+
+  SUBROUTINE var_copy_dp2dp(buf, ioff, r, ri, nlevs)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2dp
+
+  SUBROUTINE var_copy_dp2dp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:), missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2dp_miss
+
+  SUBROUTINE var_copy_dp2dp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
     DO jk = 1, nlevs
       ! handle the case that a few levels have been selected out of
       ! the total number of levels:
-      IF (make_level_selection) THEN
-        lev_idx = of%level_selection%global_idx(jk)
-      ELSE
-        lev_idx = jk
-      END IF
-
-      IF (use_dp_mpi2io) THEN
-        SELECT CASE(idata_type)
-        CASE (iREAL)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+i) = &
-                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        CASE (iREAL_sp)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+i) = &
-                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        CASE (iINTEGER)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+i) = &
-                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        END SELECT
-
-        ! If required, set lateral boundary points to missing
-        ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) &
-          CALL set_boundary_mask(of%mem_win%mem_ptr_dp(ioff+1:ioff+ri%n_own), &
-          &                      missval, i_endblk, i_endidx, ri)
-      ELSE
-        SELECT CASE (idata_type)
-        CASE(ireal)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+i) = &
-                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
-          ENDDO
-        CASE (iREAL_sp)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+i) = &
-                 & s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i))
-          ENDDO
-        CASE (iINTEGER)
-          DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+i) = &
-                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
-          ENDDO
-        END SELECT
-
-        ! If required, set lateral boundary points to missing
-        ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) &
-          CALL set_boundary_mask(of%mem_win%mem_ptr_sp(ioff+1:ioff+ri%n_own), &
-          &                      REAL(missval, sp), i_endblk, i_endidx, ri)
-      END IF
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+      END DO
       ioff = ioff + ri%n_own
-    END DO ! nlevs
-#endif !not NOMPI
-  END SUBROUTINE data_write_to_memwin
+    END DO
+  END SUBROUTINE var_copy_dp2dp_ls
+
+  SUBROUTINE var_copy_dp2dp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:), missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2dp_ls_miss
+
+  SUBROUTINE var_copy_sp2dp(buf, ioff, r, ri, nlevs)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2dp
+
+  SUBROUTINE var_copy_sp2dp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2dp_miss
+
+  SUBROUTINE var_copy_sp2dp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2dp_ls
+
+  SUBROUTINE var_copy_sp2dp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2dp_ls_miss
+
+  SUBROUTINE var_copy_i42dp(buf, ioff, r, ri, nlevs)
+    REAL(dp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42dp
+
+  SUBROUTINE var_copy_i42dp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(dp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42dp_miss
+
+  SUBROUTINE var_copy_i42dp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42dp_ls
+
+  SUBROUTINE var_copy_i42dp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(dp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),dp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42dp_ls_miss
+
+  SUBROUTINE var_copy_dp2sp(buf, ioff, r, ri, nlevs)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2sp
+
+  SUBROUTINE var_copy_dp2sp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:), missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = REAL(missval, sp)
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2sp_miss
+
+  SUBROUTINE var_copy_dp2sp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2sp_ls
+
+  SUBROUTINE var_copy_dp2sp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: r(:,:,:), missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = missval
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_dp2sp_ls_miss
+
+  SUBROUTINE var_copy_sp2sp(buf, ioff, r, ri, nlevs)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2sp
+
+  SUBROUTINE var_copy_sp2sp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = REAL(missval, sp)
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2sp_miss
+
+  SUBROUTINE var_copy_sp2sp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2sp_ls
+
+  SUBROUTINE var_copy_sp2sp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = REAL(missval, sp)
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_sp2sp_ls_miss
+
+  SUBROUTINE var_copy_i42sp(buf, ioff, r, ri, nlevs)
+    REAL(sp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42sp
+
+  SUBROUTINE var_copy_i42sp_miss(buf, ioff, r, ri, nlevs, i_endblk, i_endidx, &
+       missval)
+    REAL(sp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,jk,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = REAL(missval, sp)
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42sp_miss
+
+  SUBROUTINE var_copy_i42sp_ls(buf, ioff, r, ri, nlevs, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42sp_ls
+
+  SUBROUTINE var_copy_i42sp_ls_miss(buf, ioff, r, ri, nlevs, &
+       i_endblk, i_endidx, missval, level_selection)
+    REAL(sp), INTENT(inout) :: buf(:)
+    INTEGER(i4), INTENT(in) :: r(:,:,:)
+    REAL(dp), INTENT(in) :: missval
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(inout) :: ioff
+    INTEGER, INTENT(in) :: level_selection(:), nlevs, i_endblk, i_endidx
+
+    INTEGER :: i, jk, lev_idx, ri_blk, ri_idx
+    DO jk = 1, nlevs
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      lev_idx = level_selection(jk)
+      DO i = 1, ri%n_own
+        ri_blk = ri%own_blk(i)
+        ri_idx = ri%own_idx(i)
+        IF (ri_blk > i_endblk &
+             & .OR. ri_blk == i_endblk .AND. ri_idx > i_endidx) THEN
+          buf(ioff+i) = REAL(r(ri_idx,lev_idx,ri_blk),sp)
+        ELSE
+          buf(ioff+i) = REAL(missval, sp)
+        END IF
+      END DO
+      ioff = ioff + ri%n_own
+    END DO
+  END SUBROUTINE var_copy_i42sp_ls_miss
 
   SUBROUTINE set_boundary_mask_dp(buf, missval, i_endblk, i_endidx, ri)
     REAL(dp), INTENT(inout) :: buf(:)
