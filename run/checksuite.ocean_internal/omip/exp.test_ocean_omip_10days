@@ -67,6 +67,20 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_default','group:ice_default'            !, 'topBoundCond_windStress_u'
 /
 &output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_inst"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${output_interval}"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'group:oce_essentials'
+/
+&output_nml
  output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${output_interval}"
