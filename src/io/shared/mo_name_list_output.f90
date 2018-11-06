@@ -1612,7 +1612,7 @@ CONTAINS
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) &
-          CALL set_boundary_mask(of%mem_win%mem_ptr_dp(ioff:ioff+ri%n_own), &
+          CALL set_boundary_mask(of%mem_win%mem_ptr_dp(ioff+1:ioff+ri%n_own), &
           &                      missval, i_endblk, i_endidx, ri)
       ELSE
         SELECT CASE (idata_type)
@@ -1636,7 +1636,7 @@ CONTAINS
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) &
-          CALL set_boundary_mask(of%mem_win%mem_ptr_sp(ioff:ioff+ri%n_own), &
+          CALL set_boundary_mask(of%mem_win%mem_ptr_sp(ioff+1:ioff+ri%n_own), &
           &                      REAL(missval, sp), i_endblk, i_endidx, ri)
       END IF
       ioff = ioff + INT(ri%n_own,i8)
