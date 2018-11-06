@@ -28,7 +28,9 @@ MODULE mo_async_latbc_types
   USE mo_initicon_types,        ONLY: t_init_state, t_init_state_const
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_exception,             ONLY: finish, message
-
+#ifndef NOMPI
+  USE mpi
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -79,12 +81,18 @@ MODULE mo_async_latbc_types
   END TYPE t_reorder_data
 
 
+#ifdef NOMPI
+  INTEGER, PARAMETER :: mpi_win_null = 0
+#endif
+
   !> Data structure containing variables for MPI memory window
   !
   TYPE t_mem_win
      ! Currently, we use only 1 MPI window for all input prefetching
      ! Used for async prefetch only
-     INTEGER            :: mpi_win
+#ifndef NOMPI
+     INTEGER            :: mpi_win = mpi_win_null
+#endif
      REAL(sp), POINTER  :: mem_ptr_sp(:) => NULL() !< Pointer to memory window (REAL*4)
   END TYPE t_mem_win
 
@@ -252,14 +260,28 @@ CONTAINS
   SUBROUTINE t_patch_data_finalize(patch_data)
     CLASS(t_patch_data), INTENT(INOUT) :: patch_data
 
+#ifndef NOMPI
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::t_patch_data_finalize'
+    INTEGER :: ierror
+#endif
+
     !CALL message("", 't_patch_data_finalize')
 
     IF (ALLOCATED(patch_data%var_data))             DEALLOCATE(patch_data%var_data)
     CALL patch_data%cells%finalize()
     CALL patch_data%edges%finalize()
+#ifndef NOMPI
     ! note: we do not touch the MPI window pointer here:
     !
-    ! IF (ASSOCIATED(patch_data%mem_win%mem_ptr_sp))  DEALLOCATE(patch_data%mem_win%mem_ptr_sp)
+    IF (patch_data%mem_win%mpi_win /= mpi_win_null) THEN
+      CALL mpi_win_free(patch_data%mem_win%mpi_win, ierror)
+      IF (ierror /= 0) CALL finish(routine, "mpi_win_free failed!")
+    END IF
+    IF (ASSOCIATED(patch_data%mem_win%mem_ptr_sp)) THEN
+      CALL mpi_free_mem(patch_data%mem_win%mem_ptr_sp, ierror)
+      IF (ierror /= 0) CALL finish(routine, "mpi_free_mem failed!")
+    END IF
+#endif
   END SUBROUTINE t_patch_data_finalize
 
 

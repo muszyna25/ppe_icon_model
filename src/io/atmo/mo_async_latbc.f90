@@ -1462,8 +1462,6 @@ MODULE mo_async_latbc
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
-      latbc%patch_data%mem_win%mpi_win = MPI_WIN_NULL
-
       ! Get size and offset of the data for the input
       mem_size = 0_i8
 
@@ -1570,12 +1568,12 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
       TYPE(c_ptr)                     :: c_mem_ptr
-      INTEGER                         :: mpierr, nbytes_real
+      INTEGER                         :: ierror, nbytes_real
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
 
       ! Get the amount of bytes per REAL*4 variable (as used in MPI
       ! communication)
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+      CALL MPI_Type_extent(p_real_sp, nbytes_real, ierror)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
       mem_bytes = mem_size*INT(nbytes_real,i8)
@@ -1592,16 +1590,15 @@ MODULE mo_async_latbc
       IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
            & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
 
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
+      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
 
-      NULLIFY(patch_data%mem_win%mem_ptr_sp)
       CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ mem_size /) )
 
       ! Create memory window for communication
       patch_data%mem_win%mem_ptr_sp(:) = 0._sp
       CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
-      IF (mpierr /= 0) CALL finish(routine, "MPI error!")
+        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, ierror )
+      IF (ierror /= 0) CALL finish(routine, "MPI error!")
 #endif
 
     END SUBROUTINE allocate_mem_noncray

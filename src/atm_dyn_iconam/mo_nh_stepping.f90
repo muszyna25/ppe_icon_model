@@ -166,7 +166,7 @@ MODULE mo_nh_stepping
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
     &                                    read_latbc_data_sync=>read_latbc_data, &
-    &                                    deallocate_latbc_data, p_latbc_data,   &
+    &                                    p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev,      &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
@@ -2809,14 +2809,6 @@ MODULE mo_nh_stepping
   IF (ist /= SUCCESS) THEN
     CALL finish ( modname//': perform_nh_stepping',    &
       &    'deallocation for linit_dyn failed' )
-  ENDIF
-
-  IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
-    IF (num_prefetch_proc >= 1) THEN
-      CALL latbc%finalize()
-    ELSE
-      CALL deallocate_latbc_data()
-    ENDIF
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
