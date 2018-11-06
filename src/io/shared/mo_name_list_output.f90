@@ -1574,7 +1574,7 @@ CONTAINS
     IF (apply_missval) THEN
       missval = get_bdry_missval(info, idata_type)
       CALL get_bdry_blk_idx(i_log_dom, &
-        &                   i_startidx, i_endidx, i_startblk, i_endblk)
+        &                   i_startblk, i_endblk, i_startidx, i_endidx)
     END IF
 
     make_level_selection = ASSOCIATED(of%level_selection) &
