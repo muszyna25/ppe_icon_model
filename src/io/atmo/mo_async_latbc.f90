@@ -472,6 +472,8 @@ MODULE mo_async_latbc
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         p_ri%pe_skip(:) = .FALSE.
       ELSE
+        ALLOCATE(p_ri%pe_skip(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         SELECT CASE(hgrid_type)
         CASE (GRID_UNSTRUCTURED_CELL)
           nblks     = p_patch(1)%nblks_c
@@ -530,6 +532,10 @@ MODULE mo_async_latbc
       END IF
 
       CALL p_gather(p_ri%this_skip, p_ri%pe_skip, process_work_pref0, p_comm_work_pref)
+      IF (.NOT. is_pref) THEN
+        DEALLOCATE(p_ri%pe_skip, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      END IF
 #endif
     END SUBROUTINE create_latbc_mask
 
