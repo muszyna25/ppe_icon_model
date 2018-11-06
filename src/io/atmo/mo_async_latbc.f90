@@ -461,11 +461,13 @@ MODULE mo_async_latbc
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_latbc_mask"
       INTEGER                   :: nblks, sync_type, ierrstat
+      LOGICAL                   :: is_pref
       INTEGER(i8)               :: eoff
       INTEGER(i8), ALLOCATABLE  :: ioff(:)
       REAL(sp),   ALLOCATABLE   :: var_out(:,:,:), tmp_buf(:)
 
-      IF (my_process_is_pref()) THEN
+      is_pref = my_process_is_pref()
+      IF (is_pref) THEN
         ALLOCATE(p_ri%pe_skip(0:num_work_procs-1+num_prefetch_proc), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         p_ri%pe_skip(:) = .FALSE.
@@ -487,7 +489,7 @@ MODULE mo_async_latbc
       ! 
       ! Set a "1.0" on all LATBC points and send them to the compute
       ! PEs ...
-      IF (my_process_is_pref()) THEN
+      IF (is_pref) THEN
         
         ALLOCATE(ioff(0:num_work_procs+num_prefetch_proc-1), tmp_buf(nindices_g), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -498,11 +500,11 @@ MODULE mo_async_latbc
         DEALLOCATE(ioff, tmp_buf, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
         
-      END IF ! my_process_is_pref()
+      END IF ! is_pref
 
       CALL p_barrier(p_comm_work_pref)
       
-      IF (.NOT. my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
         ALLOCATE(var_out(nproma, 1, nblks), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         var_out        = 0.0_sp
@@ -521,7 +523,7 @@ MODULE mo_async_latbc
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       END IF
 
-      IF (.NOT. my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
         p_ri%this_skip = .NOT. ANY(p_ri%read_mask(:,:))
       ELSE
         p_ri%this_skip = .TRUE.
