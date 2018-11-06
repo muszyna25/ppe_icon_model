@@ -779,7 +779,7 @@ CONTAINS
     INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
       &                                            nlevs, nindex, lonlat_id,          &
       &                                            idata_type
-    INTEGER(i8)                                 :: ioff
+    INTEGER                                     :: ioff
 #ifndef NOMPI
     INTEGER                                     :: mpierr
 #endif
@@ -810,7 +810,7 @@ CONTAINS
     LOGICAL, PARAMETER :: participate_in_async_io = .FALSE.
 #endif
     ! Offset in memory window for async I/O
-    ioff = 0_i8
+    ioff = 0
 
     i_dom = of%phys_patch_id
     i_log_dom = of%log_patch_id
@@ -1550,7 +1550,7 @@ CONTAINS
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
     INTEGER, INTENT(in) :: i_ptr(:,:,:)
-    INTEGER(i8), INTENT(inout) :: ioff
+    INTEGER, INTENT(inout) :: ioff
     TYPE(t_reorder_info),  INTENT(in) :: ri
     TYPE(t_var_metadata), INTENT(in) :: info
     INTEGER, INTENT(in) :: i_log_dom
@@ -1594,17 +1594,17 @@ CONTAINS
         SELECT CASE(idata_type)
         CASE (iREAL)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_dp(ioff+i) = &
                  & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         CASE (iREAL_sp)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_dp(ioff+i) = &
                  & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         CASE (iINTEGER)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_dp(ioff+i) = &
                  & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         END SELECT
@@ -1618,17 +1618,17 @@ CONTAINS
         SELECT CASE (idata_type)
         CASE(ireal)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_sp(ioff+i) = &
                  & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
         CASE (iREAL_sp)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_sp(ioff+i) = &
                  & s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i))
           ENDDO
         CASE (iINTEGER)
           DO i = 1, ri%n_own
-            of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+            of%mem_win%mem_ptr_sp(ioff+i) = &
                  & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
         END SELECT
@@ -1639,7 +1639,7 @@ CONTAINS
           CALL set_boundary_mask(of%mem_win%mem_ptr_sp(ioff+1:ioff+ri%n_own), &
           &                      REAL(missval, sp), i_endblk, i_endidx, ri)
       END IF
-      ioff = ioff + INT(ri%n_own,i8)
+      ioff = ioff + ri%n_own
     END DO ! nlevs
 #endif !not NOMPI
   END SUBROUTINE data_write_to_memwin
@@ -1673,7 +1673,7 @@ CONTAINS
     DO i = 1, n
       IF (ri%own_blk(i) < i_endblk .OR. &
         & (ri%own_blk(i) == i_endblk .AND. ri%own_idx(i) <= i_endidx)) THEN
-        buf(INT(i,i8)) = missval
+        buf(i) = missval
       END IF
     END DO
   END SUBROUTINE set_boundary_mask_sp
