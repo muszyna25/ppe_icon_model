@@ -928,7 +928,6 @@ CONTAINS
         idata_type = iINTEGER
       END IF
 
-      call message(routine,'call get_ptr_to_var_data for '//trim(info%name))
       CALL get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, &
         &                      nindex, tl, of%var_desc(iv), info)
 
