@@ -184,7 +184,7 @@ MODULE mo_ocean_types
 
   TYPE t_hydro_ocean_diag
 
-    onCells ::                 &
+    onCells ::          &
       & rho            ,& ! density. Unit: [kg/m^3]
       & rhopot         ,& ! potential density. Unit: [kg/m^3]
       & rho_GM         ,& ! potential density. Unit: [kg/m^3]      
@@ -197,8 +197,8 @@ MODULE mo_ocean_types
       & kin            ,& ! kinetic energy. Unit [m/s].
 !       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
-      & temp_insitu    ,&
-      & t,s            ,& ! dummy pointer for output variabless
+!       & temp_insitu    ,&
+      & t,s          ,& ! dummy pointer for output variabless
       & Buoyancy_Freq  ,&
       & Richardson_Number,            &
       & osaltGMRedi,           &

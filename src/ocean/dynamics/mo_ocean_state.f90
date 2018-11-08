@@ -1506,27 +1506,27 @@ CONTAINS
     ! initialize all components with zero (this is preliminary)
     ocean_state_diag%ptp_vn    = 0.0_wp
 
-    CALL add_var(ocean_default_list,'temp_insitu',ocean_state_diag%temp_insitu,grid_unstructured_cell,&
-      & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'K', 'in situ temperature', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+!     CALL add_var(ocean_default_list,'temp_insitu',ocean_state_diag%temp_insitu,grid_unstructured_cell,&
+!       & za_depth_below_sea, &
+!       & t_cf_var('temp_insitu', 'K', 'in situ temperature', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     CALL add_var(ocean_default_list,'zos_square',ocean_state_diag%zos_square,grid_unstructured_cell,&
       & za_surface, &
-      & t_cf_var('zos_square', 'm^2', 'squera of sea surface hight', datatype_flt),&
+      & t_cf_var('zos_square', 'm^2', 'square of sea surface hight', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
      CALL add_var(ocean_default_list,'Rossby_Radius',ocean_state_diag%Rossby_Radius,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'm', 'Rossby Radius', datatype_flt),&
+      & t_cf_var('Rossby_Radius', 'm', 'Rossby Radius', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     CALL add_var(ocean_default_list,'Richardson_Number',ocean_state_diag%Richardson_Number,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'm', 'Richardson Number', datatype_flt),&
+      & t_cf_var('Richardson_Numbe', 'm', 'Richardson Number', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
@@ -1534,13 +1534,13 @@ CONTAINS
 
     CALL add_var(ocean_default_list,'Buoyancy_Freq',ocean_state_diag%Buoyancy_Freq,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', '1/s', 'Buoyancy Frequency', datatype_flt),&
+      & t_cf_var('Buoyancy_Freq', '1/s', 'Buoyancy Frequency', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
    CALL add_var(ocean_default_list,'Wavespeed_baroclinic',ocean_state_diag%Wavespeed_baroclinic,grid_unstructured_cell,&
       & za_surface, &
-      & t_cf_var('temp_insitu', 'm', 'Baroclinic wavespeed', datatype_flt),&
+      & t_cf_var('Wavespeed_baroclinic', 'm', 'Baroclinic wavespeed', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 

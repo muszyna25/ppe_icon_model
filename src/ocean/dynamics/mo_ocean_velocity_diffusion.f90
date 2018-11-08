@@ -23,7 +23,9 @@ MODULE mo_ocean_velocity_diffusion
   USE mo_math_types,          ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form
+  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form, &
+    &  HarmonicVort_weight, HarmonicDiv_weight, BiharmonicVort_weight, BiharmonicDiv_weight
+
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_hydro_ocean_aux
@@ -750,12 +752,11 @@ CONTAINS
             & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
             & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
             & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
-            & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &
+            & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo) * HarmonicVort_weight   &
             & +                                                &
             & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
-
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo) * HarmonicDiv_weight
 
         END DO
       END DO
@@ -908,11 +909,11 @@ CONTAINS
             & (patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
             & - z_rot_v(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )  &
-            & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo))   &
+            & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)) * BiharmonicVort_weight  &
             & + & !patch_3D%wet_e(edge_index,level,blockNo)  *                    &
             & (( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))    &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )  &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)))
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo) * BiharmonicDiv_weight ))
 
         END DO
       END DO
