@@ -36,7 +36,7 @@ MODULE mo_interface_echam_mox
 CONTAINS
   
   SUBROUTINE interface_echam_mox(jg, jb,jcs,jce       ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&  
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -45,7 +45,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -57,6 +57,10 @@ CONTAINS
     INTEGER                 ,POINTER    :: fc_mox
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
+
+    ! Local variables
+    !
+    REAL(wp)                            :: tend_qtrc_mox(nproma,nlev,ntracer)
 
     IF (ltimer) call timer_start(timer_mox)
 
@@ -71,11 +75,24 @@ CONTAINS
        IF ( is_active ) THEN
           !
           CALL methox( jcs, jce,                  &
-               &       nproma,                    &
-               &       nlev,                      &
-               &       field%presm_old(:,:,jb),   &
-               &       field%qtrc(:,:,jb,iqv),    &
-               &       tend%qtrc_mox(:,:,jb,iqv)  )
+               &       nproma, nlev,              &
+               &       field% presm_old(:,:,jb),  &
+               &       field% qtrc(:,:,jb,iqv),   &
+               &       tend_qtrc_mox(:,:,iqv)     )
+          !
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(tend% qtrc_mox)) THEN
+             tend% qtrc_mox(jcs:jce,:,jb,iqv) = tend_qtrc_mox(jcs:jce,:,iqv)
+          END IF
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(tend% qtrc_mox)) THEN
+             tend_qtrc_mox(jcs:jce,:,iqv) = tend% qtrc_mox(jcs:jce,:,jb,iqv)
+          END IF
           !
        END IF
        !
@@ -85,7 +102,7 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend%qtrc_mox(jcs:jce,:,jb,iqv)
+          tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -93,12 +110,14 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend% qtrc_mox(jcs:jce,:,jb,iqv)*pdtime
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)*pdtime
        END IF
        !
     ELSE
        !
-       tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp
+       IF (ASSOCIATED(tend% qtrc_mox)) THEN
+          tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp
+       END IF
        !
     END IF
 

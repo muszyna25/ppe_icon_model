@@ -16,6 +16,9 @@ author_list="Marco Giorgetta, MPIM"
 # - tropospheric aerosol optical properties
 # - stratospheric volcanic aerosol optical properties
 #
+# _bb_table_Description_  AMIP experiment
+# _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
+#
 #--------------------------------------------------------------------------------------------------
 
 # (0) unset some setting of create_target_header for mistral
@@ -32,7 +35,16 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix=/users/icontest
+else
+    poolFolder_prefix=
+fi
+
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -52,15 +64,15 @@ atmo_dyn_grids="'${grid_name}.nc',"
 
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="2015-01-01T00:00:00Z"}
+    end_date=${end_date:="1979-01-01T00:16:00Z"}
 
 # restart intervals
-checkpoint_interval="P1Y"
-restart_interval="P1Y"
+checkpoint_interval="PT8M"
+restart_interval="PT16M"
 
 # output intervals
-output_interval="P1D"
-file_interval="P1M"
+output_interval="PT4M"
+file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -75,22 +87,12 @@ run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
 jsbach_with_hd=no
-jsbach_with_carbon=yes        # yes needs jsbach_pfts usecase
+jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
 jsbach_check_wbal=no          # check water balance
-output_lnd=basic              # amount of output: none/basic/medium/full
 
 # Some further processing for land configuration
 # ----------------------------------------------
 #
-output_tiles="'box'"
-if [[ ${output_lnd} == "basic" ]]
-then
-  output_tiles="${output_tiles}, 'glac', 'veg'"
-fi
-if [[ $jsbach_with_lakes == yes ]]
-then
-  [[ ${output_lnd} == "full" ]] && output_tiles="${output_tiles}, 'lake', 'land'"
-fi
 ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
@@ -98,8 +100,6 @@ lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE.
 if [[ $jsbach_usecase == *pfts* ]]
 then
   pft_file_tag="11pfts_"
-  [[ ${output_lnd} == "full" ]] && \
-    output_tiles="${output_tiles}, 'pft01','pft02','pft03','pft04','pft05','pft06','pft07','pft08','pft09','pft10','pft11'"
 else
   pft_file_tag=""
 fi
@@ -110,14 +110,13 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
- num_io_procs     = 3           ! for default setup
 /
 &grid_nml
  dynamics_grid_filename = ${atmo_dyn_grids}
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- modelTimeStep    = "PT20M"
+ modelTimeStep    = "PT4M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -137,7 +136,7 @@ cat > ${atmo_namelist} << EOF
  ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
- ndyn_substeps    = 10          ! dtime/dt_dyn
+ ndyn_substeps    = 2           ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -169,15 +168,15 @@ cat > ${atmo_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT2H"
- echam_phy_config(1)%dt_vdf = "PT20M"
- echam_phy_config(1)%dt_cnv = "PT20M"
- echam_phy_config(1)%dt_cld = "PT20M"
- echam_phy_config(1)%dt_gwd = "PT20M"
- echam_phy_config(1)%dt_sso = "PT20M"
+ echam_phy_config(1)%dt_rad = "PT8M"
+ echam_phy_config(1)%dt_vdf = "PT4M"
+ echam_phy_config(1)%dt_cnv = "PT4M"
+ echam_phy_config(1)%dt_cld = "PT4M"
+ echam_phy_config(1)%dt_gwd = "PT4M"
+ echam_phy_config(1)%dt_sso = "PT4M"
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = "PT20M"
+ echam_phy_config(1)%dt_mox = "PT4M"
  echam_phy_config(1)%dt_car = ""
  echam_phy_config(1)%dt_art = ""
 !
@@ -439,6 +438,7 @@ cat >> ${atmo_namelist} << EOF
 &io_nml
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
+ lnetcdf_flt64_output = .TRUE.
  itype_pres_msl   = 4
  restart_file_type= 5
  !restart_write_mode = "joint procs multifile"    !not necessary/useful in default r2b4 setup
@@ -485,7 +485,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -513,7 +512,6 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -543,7 +541,7 @@ EOF
 fi
 
 
-output_phy_3d=no
+output_phy_3d=yes
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -553,7 +551,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -579,7 +576,7 @@ EOF
 fi
 
 
-output_trc_3d=no
+output_trc_3d=yes
 #
 if [[ "$output_trc_3d" == "yes" ]]; then
   #
@@ -608,106 +605,52 @@ EOF
 fi
 
 
-# Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 
-# eventually be handled by the lnd_namelist file. 
-# Available variable groups:
-#   jsb_all, jsb_<process>_all, jsb_all_<level>, jsb_<process>_<level>
-# where <process> is the process name and <level> is the output level (basic/medium/full)
-if [[ "$output_lnd" != "none" ]]; then
+output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
+#
+if [[ "$output_aer_3d" == "yes" ]]; then
+  #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_fract"
+ output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${start_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_tile_fractions'
-/
-&output_nml
- output_filename  = "${EXPNAME}_lnd_basic"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_basic'
+ ml_varlist       = 'ps'          , 'pfull'       , 'zg'          ,
+                    'aer_aod_533' , 'aer_ssa_533',  'aer_asy_533' , 
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
+                    'aer_aod_9731',
 /
 EOF
 fi
-case "${output_lnd}" in
-  medium|full)
-    cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_medium"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_medium'
-/
-EOF
-    ;;
-esac
-case "${output_lnd}" in
-  full)
-    cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_full"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_full'
-/
-EOF
-    ;;
-esac
 
-if [[ "$jsbach_check_wbal" == "yes" ]]; then
+
+# minimal jsbach output for running atm_amip experiment
+# for more jsbach output see exp.atm_amip_les
+#
+output_lnd=yes
+#
+if [[ "$output_lnd" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_wbal"
+ output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  filetype         = 5
  remap            = 0
- operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'hydro_water_flux_box', 'hydro_water_content_box', 'hydro_water_budget_box',
-EOF
-  if [[ "$jsbach_with_hd" == "yes" ]]; then
-    cat >> ${atmo_namelist} << EOF
-                    'hydro_runoff_box'   , 'hydro_drainage_box',
-                    'hd_water_budget_box', 'hd_water_budget_old_box', 'hd_water_flux_box', 'hd_water_error_box'
-EOF
-  fi
-  cat >> ${atmo_namelist} << EOF
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
 /
 EOF
 fi

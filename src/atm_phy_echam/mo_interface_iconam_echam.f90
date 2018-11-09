@@ -65,7 +65,7 @@
 MODULE mo_interface_iconam_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: finish
+  USE mo_exception             ,ONLY: finish, print_value
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
@@ -84,6 +84,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
+  USE mo_math_constants        ,ONLY: rad2deg
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
   USE mtime                    ,ONLY: datetime , newDatetime , deallocateDatetime     ,&
     &                                 timedelta, newTimedelta, deallocateTimedelta    ,&
@@ -530,9 +531,29 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
             !
+            ! Handling of negative tracer mass fractions resulting from dynamics
+            !
+            IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
+               IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
+                  IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     CALL print_value('grid   index jg',jg)
+                     CALL print_value('tracer index jt',jt)
+                     CALL print_value('level  index jk',jk)
+                     CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                     CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
+                     CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                     CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
+                  END IF
+                  IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
+                     pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
+                  END IF
+               END IF
+            END IF
+            !
             ! Tracer mass
+            !
             field%      mtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-               &                            *field%           mair  (jc,jk,jb)
+                 &                            *field%           mair  (jc,jk,jb)
             !
             ! Tracer mass fraction
             field%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
@@ -810,6 +831,27 @@ CONTAINS
                 &                            +tend% mtrc_phy(jc,jk,jb,jt) &
                 &                            *dt_loc
               !
+              ! Handling of negative tracer mass coming from physics
+              !   qtrc as well as other fields are derived from mtrc.
+              !   Therefore check mtrc for negative values.
+              !
+              IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
+                 IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
+                    IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                       CALL print_value('grid   index jg',jg)
+                       CALL print_value('tracer index jt',jt)
+                       CALL print_value('level  index jk',jk)
+                       CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                       CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
+                       CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                       CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                    END IF
+                    IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                       field% mtrc(jc,jk,jb,jt) = 0.0_wp
+                    END IF
+                 END IF
+              END IF
+              !
               ! new tracer path
               field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
                 &                            +field% mtrc    (jc,jk,jb,jt)
@@ -822,7 +864,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      ! Loop over cells
+    ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs_c,jbe_c

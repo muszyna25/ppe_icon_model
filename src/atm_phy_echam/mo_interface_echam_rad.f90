@@ -49,12 +49,12 @@ CONTAINS
   SUBROUTINE interface_echam_rad(is_in_sd_ed_interval, &
        &                         is_active,            &
        &                         patch,                &
-       &                         this_datetime         )
+       &                         datetime_old          )
 
     LOGICAL                 ,INTENT(in)    :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in)    :: is_active
     TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
-    TYPE(datetime)          ,POINTER       :: this_datetime
+    TYPE(datetime)          ,POINTER       :: datetime_old
 
     ! Local variables
     !
@@ -91,7 +91,7 @@ CONTAINS
               & ktype          = itype(:,:)               ,&!< in  type of convection
               & loland         = loland(:,:)              ,&!< in  land-sea mask. (logical)
               & loglac         = loglac(:,:)              ,&!< in  glacier mask (logical)
-              & this_datetime  = this_datetime            ,&!< in  actual time step
+              & this_datetime  = datetime_old             ,&!< in  actual time step
               & pcos_mu0       = field%cosmu0_rt(:,:)     ,&!< in  solar zenith angle
               & daylght_frc    = field%daylght_frc_rt(:,:),&!in daylight fraction
               & alb_vis_dir    = field%albvisdir(:,:)     ,&!< in  surface albedo for visible range, direct

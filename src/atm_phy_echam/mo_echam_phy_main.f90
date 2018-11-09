@@ -33,8 +33,8 @@ MODULE mo_echam_phy_main
 
   USE mo_model_domain        ,ONLY: t_patch
 
-  USE mo_omp_loop            ,ONLY: omp_loop_cell, &
-    &                               omp_loop_cell_tc
+  USE mo_omp_loop            ,ONLY: omp_loop_cell_diag, &
+    &                               omp_loop_cell_prog
 
   USE mo_echam_phy_config    ,ONLY: echam_phy_tc, dt_zero
   USE mo_echam_phy_diag      ,ONLY: surface_fractions, &
@@ -90,51 +90,51 @@ CONTAINS
     ! Initialize (diagnostic)
     !-------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,initialize)
+    CALL omp_loop_cell_diag(patch,initialize)
 
     !-------------------------------------------------------------------
     ! Specific heat of moist air (diagnostic)
     !-------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,cpair_cvair_qconv)
+    CALL omp_loop_cell_diag(patch,cpair_cvair_qconv)
 
     !-------------------------------------------------------------------
     ! Calculate surface fraction (diagnostic)
     !-------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,surface_fractions)
+    CALL omp_loop_cell_diag(patch,surface_fractions)
  
     !-------------------------------------------------------------------
     ! Cloud cover (diagnostic)
     !-------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,interface_echam_cov)
+    CALL omp_loop_cell_diag(patch,interface_echam_cov)
 
     !---------------------------------------------------------------------
     ! 3.9 Determine tropopause height (diagnostic)
     !---------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,interface_echam_wmo)
+    CALL omp_loop_cell_diag(patch,interface_echam_wmo)
 
     !---------------------------------------------------------------------
     ! Cloud droplet number concentration (diagnostic)
     ! used in radiation and cloud
     !---------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,droplet_number)
+    CALL omp_loop_cell_diag(patch,droplet_number)
 
 
     !-------------------------------------------------------------------
     ! Radiation (one interface for LW+SW)
     !-------------------------------------------------------------------
     !
-    IF ( (echam_phy_tc(jg)%dt_rad > dt_zero) ) THEN
+    IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
        is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_rad <= datetime_old) .AND. &
             &                          (echam_phy_tc(jg)%ed_rad >  datetime_old)
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
-       CALL message_forcing_action('LW and SW radiation (rad)'     ,&
+       CALL message_forcing_action('LW and SW radiation (rad:fluxes )' ,&
             &                      is_in_sd_ed_interval, is_active )
        !
        ! radiative fluxes
@@ -145,10 +145,13 @@ CONTAINS
        ! always compute radiative heating
        is_active = .TRUE.
        !
+       CALL message_forcing_action('LW and SW radiation (rht:heating)' ,&
+            &                      is_in_sd_ed_interval, is_active )
+       !
        ! radiative heating
-       CALL omp_loop_cell_tc(patch, interface_echam_rht      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_rht      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -157,7 +160,7 @@ CONTAINS
     ! Vertical diffusion, boundary layer and surface
     !-------------------------------------------------------------------
     !
-    IF ( echam_phy_tc(jg)%dt_vdf >  dt_zero ) THEN
+    IF ( echam_phy_tc(jg)%dt_vdf > dt_zero ) THEN
        !
        is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_vdf <= datetime_old) .AND. &
             &                          (echam_phy_tc(jg)%ed_vdf >  datetime_old)
@@ -166,9 +169,9 @@ CONTAINS
        CALL message_forcing_action('vertical diffusion (vdf)'      ,&
             &                      is_in_sd_ed_interval, is_active )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_vdf      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_vdf      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -185,9 +188,9 @@ CONTAINS
        CALL message_forcing_action('lin. Cariolle ozone chem. (car)' ,&
             &                      is_in_sd_ed_interval, is_active   )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_car      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_car      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -231,9 +234,9 @@ CONTAINS
        CALL message_forcing_action('Hines gravity wave drag (gwd)' ,&
             &                      is_in_sd_ed_interval, is_active )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_gwd      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_gwd      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -251,9 +254,9 @@ CONTAINS
        CALL message_forcing_action('sub grid scale orographic effects (sso)' ,&
             &                      is_in_sd_ed_interval, is_active           )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_sso      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_sso      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -271,9 +274,9 @@ CONTAINS
        CALL message_forcing_action('cumulus convection (cnv)'      ,&
             &                      is_in_sd_ed_interval, is_active )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_cnv      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_cnv      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -290,9 +293,9 @@ CONTAINS
        CALL message_forcing_action('cloud microphysics (cld)',    &
             &                      is_in_sd_ed_interval, is_active)
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_cld      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_cld      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
        !
     END IF
 
@@ -301,18 +304,19 @@ CONTAINS
     ! Methane oxidation + H2O photolysis
     !-------------------------------------------------------------------
     !
-    IF ( (echam_phy_tc(jg)%dt_mox > dt_zero) ) THEN
-      !
-      is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_mox <= datetime_old) .AND. &
-           &                          (echam_phy_tc(jg)%ed_mox >  datetime_old)
-      is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_mox,   datetime_old)
+    IF ( echam_phy_tc(jg)%dt_mox > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_mox <= datetime_old) .AND. &
+            &                          (echam_phy_tc(jg)%ed_mox >  datetime_old)
+       is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_mox,   datetime_old)
        !
        CALL message_forcing_action('ch4 oxidation & h2o photolysis (mox)' ,&
             &                      is_in_sd_ed_interval, is_active        )
        !
-       CALL omp_loop_cell_tc(patch, interface_echam_mox      ,&
-            &                is_in_sd_ed_interval, is_active ,&
-            &                datetime_old, pdtime            )
+       CALL omp_loop_cell_prog(patch, interface_echam_mox      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
+       !
     END IF
 
 
@@ -327,7 +331,7 @@ CONTAINS
     ! Finalize (diagnostic)
     !-------------------------------------------------------------------
     !
-    CALL omp_loop_cell(patch,finalize)
+    CALL omp_loop_cell_diag(patch,finalize)
 
   END SUBROUTINE echam_phy_main
   !---------------------------------------------------------------------

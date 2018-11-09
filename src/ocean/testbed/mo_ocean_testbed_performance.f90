@@ -367,7 +367,7 @@ CONTAINS
       DO je = i_startidx_e, i_endidx_e
         !Get indices of two adjacent cells
         edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
-        edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,1)
+        edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
         edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
         edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
         elev  = patch_3D%p_patch_1D(1)%dolic_e(je,jb)

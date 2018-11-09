@@ -129,7 +129,8 @@ MODULE mo_atmo_model
   USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
 #ifdef HAVE_CDI_PIO
-  USE mo_name_list_output_init,   ONLY: init_cdipio_cb, write_ready_files_cdipio
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
+  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
 #endif
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
