@@ -1,28 +1,52 @@
 #!/bin/ksh
+ source ./support.sh
+if [ $# -eq 0 ]
+  then
+    usage
+	exit
+fi
+while [ "$1" != "" ]; do
+	PARAM=`echo $1 | awk -F= '{print $1}'`
+    VALUE=`echo $1 | awk -F= '{print $2}'`
+case $PARAM in
+	--input_file|-input_file)
+		input_file=$VALUE
+		;;
+     -h | --help)
+       usage
+       exit
+       ;;
+esac
+shift
+done
 
- ##
- echo "Trying to find out on which HPC the TESTSUITE is performed..." >&2
- HPC=`(hostname || uname -n) 2>/dev/null | sed 1q`
- case x"$HPC" in #(
-   xic2*) :
-     echo "...IC2 at KIT"; CENTER="IMK" ;; #(
-   xhc3*) :
-     echo "...HC3 at KIT"; CENTER="IMK" ;; #(
-   xuc1*) :
-     echo "...UC1 at KIT"; CENTER="IMK" ;; #(
-   xfh2*) :
-     echo "...FH2  at KIT"; CENTER="IMK" ;; #(
-   xxce*) :
-     echo "...XCE at DWD"; CENTER="DWD" ;; #(
-   xlce*) :
-     echo "...LCE at DWD"; echo "  ERROR: Testsuite has to be run and compiled on XCE !!!", exit 201 ;; #(
-   *) :
-     echo "...unknown HPC" ; exit 202 ;; #(
- esac
- ##
- echo "Reading configuration state for ICON-ART Testsuite" >&2
- . setup_testsuite.cfg
- ##
+
+echo $input_file
+if [ -z "$input_file" ] ;
+
+then
+    echo " --------------------------------" 
+	echo " --------------------------------" 
+	echo "           missing input file"
+	echo " --------------------------------" 
+	echo " --------------------------------" 
+    usage
+	exit
+fi
+
+ set_cluster
+ read_setup $input_file
+
+ echo "The is/are #"$number_of_experiments " experiment(s) read in from " $input_file
+ i=0
+ while [ $i -lt $number_of_experiments ]
+ do
+    create_header ${experiment[$i]}
+	create_body ${experiment[$i]} 
+    create_footer ${experiment[$i]}
+	
+	i=$i+1
+ done
 
  d=`date -d today +%Y%m%d`
 
@@ -47,36 +71,6 @@
 # cd ${testers_home}/CHECKOUT/icon-art-${d}-r${REVISION}
   cd $ICON_FOLDER
 
- case ${CENTER} in
-    IMK)
-       ##
-       # LOAD IC2 MODULES
-       ##
-       #module load compiler/intel/${compiler_version}
-       ##module load openmpi/${openmpi_version}
-       ##module load netcdf/${netcdf_version}
-       ##
-       ;;
-    DWD)
-       ##
-       if [[ ":${PE_ENV}" != ':CRAY' ]] ; then
-          module unload libdwd grib_api
-          module unload cray-netcdf netcdf perftools stat
-          module unload craype-hugepages2M
-          case "{PE_ENV}" in
-             GNU)   prgenv_="PrgEnv-gnu"   ;;
-             INTEL) prgenv_="PrgEnv-intel" ;;
-          esac
-          module swap ${prgenv_} PrgEnv-cray
-       fi
-       module swap cce cce/${compiler_version}
-       module load cray-netcdf perftools stat
-       module load libdwd
-       module load grib_api
-       module list
-       ##       
-       ;;
- esac
 
  ##
  # Create checkout.info to store checkout information (e.g. which branches are checked out?)
@@ -322,13 +316,68 @@ EOF
     echo "Performing AMIP Testsuite">>${info_filename}
     exp_name="AMIP${exp_name_suffix}"
     complete_output_folder=${output_folder}/${d}/${exp_name}
-    chmod 750 ${ART_FOLDER}/runctrl_examples/run_scripts/exp.testsuite.chem1
-    ${ART_FOLDER}/runctrl_examples/run_scripts/exp.testsuite.amip ${input_folder} ${exp_name} ${ICON_FOLDER} ${ART_FOLDER} ${complete_output_folder} \
-                                                    ${CENTER} ${FILETYPE} 2>&1
+    output_script=run/checksuite.icon-kit/$exp_name.run
+    icon_data_poolFolder="$icon_data_poolFolder"
+	
+cat > $output_script << EOF
+#!/bin/bash
+CENTER=$CENTER
+basedir=$ICON_FOLDER
+icon_data_poolFolder=$icon_data_poolFolder
+EXPNAME=atm_amip_test_kit
+OUTDIR=$complete_output_folder
+ICONFOLDER=$ICON_FOLDER
+ARTFOLDER=$ART_FOLDER
+FILETYPE=4
+COMPILER=intel
+restart=.False.
+read_restart_namelists=.False.
+
+EOF
+
+    cat ${ART_FOLDER}/runctrl_examples/run_scripts//exp.testsuite.amip_base >> run/checksuite.icon-kit/$exp_name.run
+	chmod +x run/checksuite.icon-kit/$exp_name.run
 
  else
     echo "CHEM1 test skipped."                                    >>${info_filename}
  fi
+
+
+
+ if [[ "${perform_test_AMIP_full}" == "Yes" ]] ; then
+
+    echo "Performing AMIP Testsuite">>${info_filename}
+	exp_name_suffix='_full'
+    exp_name="AMIP${exp_name_suffix}"
+    complete_output_folder=${output_folder}/${d}/${exp_name}
+    output_script=run/checksuite.icon-kit/$exp_name.run
+    icon_data_poolFolder="$icon_data_poolFolder"
+	
+cat > $output_script << EOF
+#!/bin/bash
+CENTER=$CENTER
+basedir=$ICON_FOLDER
+icon_data_poolFolder=$icon_data_poolFolder
+EXPNAME=atm_amip_full
+ICONFOLDER=$ICON_FOLDER
+ARTFOLDER=$ART_FOLDER
+FILETYPE=4
+COMPILER=intel
+restart=.False.
+read_restart_namelists=.False.
+
+EOF
+
+    cat ${ART_FOLDER}/runctrl_examples/run_scripts//exp.testsuite.amip_full >> run/checksuite.icon-kit/$exp_name.run
+	chmod +x run/checksuite.icon-kit/$exp_name.run
+
+ else
+    echo "AMIP full test skipped."                                    >>${info_filename}
+ fi
+
+
+
+
  if [[ "${perform_test_VOLC}" == "Yes" ]] ; then
 
     echo "Performing VOLC Testsuite">>${info_filename}
@@ -370,4 +419,7 @@ EOF
  # further testcases
 
  ##
+
+
+
 
