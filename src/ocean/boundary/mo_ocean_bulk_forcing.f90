@@ -43,7 +43,7 @@ MODULE mo_ocean_bulk_forcing
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn
 
-  USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale,  &
+  USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale,  forcing_frequency, &
     &  no_tracer, para_surfRelax_Temp, type_surfRelax_Temp,             &
     &  para_surfRelax_Salt, type_surfRelax_Salt,                                &
     &  i_sea_ice, l_relaxsal_ice, forcing_enable_freshwater,                    &
@@ -82,7 +82,6 @@ MODULE mo_ocean_bulk_forcing
   PUBLIC :: update_ocean_surface_stress
 
   PUBLIC :: balance_elevation
-  PUBLIC :: read_forc_data_oce
 
 
   CHARACTER(len=12)           :: str_module    = 'OceanBulkForcing'  ! Output of module for 1 line debug
@@ -329,6 +328,8 @@ CONTAINS
     INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
     REAL(wp) :: rday1, rday2
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: sodt
+
 
     TYPE(t_patch), POINTER:: p_patch 
     !TYPE(t_subset_range), POINTER :: all_cells
@@ -380,20 +381,39 @@ CONTAINS
     ! apply daily forcing-data directly:
     !
     ELSE
+      ! - forcing data sets are read in mo_ext_data , forcing_timescale allocates and reads the no. of forcing steps
+      ! - forcing_frequency is a namelist variable and controls how often the same forcing step is used  
+      ! - jmon1 for controling correct forcing step
+      ! - no time interpolation applied (jom2 = jmon1, rday2 = 0)
+      ! - sotd = seconds of this day
 
-      ! - now daily data sets are read in mo_ext_data
-      ! - use rday1, rday2, jmon1 = jmon2 = yday for controling correct day in year
-      ! - no interpolation applied, 
-      jmon1 = yday
+      sodt=REAL(this_datetime%time%hour*3600._wp + &
+           this_datetime%time%minute*60._wp + this_datetime%time%second)
+
+      IF (forcing_timescale == 28 .OR. forcing_timescale == 29 .OR. forcing_timescale == 30 .OR. forcing_timescale == 31 )  THEN
+        jmon1 = 1 + ((jdmon-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
+      ELSE
+        jmon1 = 1 + ((yday-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
+      ENDIF
+
+      idt_src=0
+      IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
+      & write(0,*)' use forcing record ',jmon1,' at ', yday, this_datetime%time%hour,this_datetime%time%minute &
+                  ,this_datetime%time%second
+
       jmon2 = jmon1
       rday1 = 1.0_wp
       rday2 = 0.0_wp
 
-      ! Leap year: read Feb, 28 twice since only 365 data-sets are available
-      IF (ylen == 366) then
+
+      ! Leap year in OMIP forcing: read Feb, 28 twice since only 365 data-sets are available
+      IF (ylen == 366 .and. forcing_timescale == 365 ) then
         IF (yday>59) jmon1=yday-1
         jmon2=jmon1
       ENDIF
+
+
+
 
     END IF
 
@@ -1149,314 +1169,5 @@ CONTAINS
 
   END SUBROUTINE balance_elevation
 
-!**********************************************************************
-!------------------------------ Read NCEP -----------------------------
-!**********************************************************************
- 
-  !-------------------------------------------------------------------------
-  !>
-  !! Read ocean forcing data from netcdf
-  !!
-  !! Read ocean forcing data for NCEP or other forcing
-  !! This routine reads annual data sets of length forcing_timescale
-  !!
-  !! @par Revision History
-  !! Initial revision by Stephan Lorenz, MPI (2012-02-17)
-  !!
-  !!
-  SUBROUTINE read_forc_data_oce (p_patch, ext_data, no_set)
-
-    TYPE(t_patch), INTENT(IN)            :: p_patch
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    INTEGER,       INTENT(IN)            :: no_set          !  no of set in file to be read
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ocean_bulk_forcing:read_forc_data_oce'
-
-    CHARACTER(filename_max) :: ncep_file   !< file name for reading in
-
-    LOGICAL :: l_exist
-    INTEGER :: jg, no_cells, no_tst, jtime, jt !, jc, jb
-    INTEGER :: ncid, dimid,mpi_comm
-    TYPE(t_stream_id) :: stream_id
-    INTEGER :: i_start(2),i_count(2), jcells
-
-    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,forcing_timescale)  ! set length is forcing_timescale, 3rd dimension
-    REAL(wp):: z_c   (nproma,forcing_timescale,p_patch%alloc_cell_blocks)  ! 2nd dimension is forcing_timescale
-    !TYPE (t_keyword_list), POINTER :: keywords => NULL()
-
-    !-------------------------------------------------------------------------
-
-    !  READ NCEP FORCING
-
-    !-------------------------------------------------------------------------
-
-    !CALL message (TRIM(routine), 'start')
-
-    IF (iforc_oce == OMIP_FluxFromFile) THEN
-
-    !DO jg = 1,n_dom
-      jg = 1
-
-      ! i_lev       = p_patch%level
-      ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
-      ncep_file='ocean-flux.nc'
-
-      !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
-
-      IF(my_process_is_stdio()) THEN
-        !
-        CALL message( TRIM(routine),'Ocean NCEP forcing flux file is: '//TRIM(ncep_file) )
-        INQUIRE (FILE=ncep_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'NCEP forcing flux file is not found.')
-        ENDIF
-
-        !
-        ! open file
-        !
-        CALL nf(nf_open(TRIM(ncep_file), NF_NOWRITE, ncid))
-        !CALL message( TRIM(routine),'Ocean NCEP flux file opened for read' )
-
-        !
-        ! get and check number of cells in ncep data
-        !
-        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-
-        IF(p_patch%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in NCEP flux file do not match.')
-        ENDIF
-
-        !
-        ! get number of timesteps
-        !
-        CALL nf(nf_inq_dimid(ncid, 'time', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst))
-        !
-        ! check - s.b.
-
-      ENDIF
-
-      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-      stream_id = openInputFile(ncep_file, p_patch)
-
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
-      CALL p_bcast(no_tst, p_io, mpi_comm)
-
-      !-------------------------------------------------------
-      !
-      ! Read 12 monthly NCEP data sets for triangle centers using 4-dim routine
-      !
-      !-------------------------------------------------------
-
-      jcells = p_patch%n_patch_cells  !  global dimension
-      jtime  = forcing_timescale              !  time period to read (not yet)
-
-
-      ! provide NCEP fluxes for sea ice (interface to ocean)
-      ! 1:  'stress_x': zonal wind stress       [Pa]
-      ! 2:  'stress_y': meridional wind stress  [Pa]
-      ! 3:  'SST"     : sea surface temperature [K]
-
-      ! zonal wind stress
-      !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-      ! &  forcing_timescale, nproma, p_patch%nblks_c
-      !CALL read_3D(stream_id, on_cells, 'stress_x', z_flx2(:,:,:))
-      !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
-      !do jt=1,jtime
-      !  write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)
-      !enddo
-
-      ! start-pointer and length of pointer for reading data:
-      ! start: first set (1,1); second year (1,jtime+1)
-      i_start(1) = 1
-      i_start(2) = jtime*(no_set-1) + 1  ! position pointer to set no_set
-      i_count(1) = jcells                ! length of pointer, dim 1 of z_dummy_array
-      i_count(2) = jtime                 ! length of pointer, dim 2 of z_dummy_array
-
-      idt_src=2  ! output print level (1-5, fix)
-      IF (idbg_mxmn >= idt_src) THEN
-        !
-        WRITE(message_text,'(A,I6,A)')  'Ocean NCEP flux file contains',no_tst,' data sets'
-        CALL message( TRIM(routine), TRIM(message_text) )
-
-        WRITE(message_text,'(4(A,I4))')  'NCEP data set: length = ',jtime, &
-          &   '; no. of set =',no_set,                                     &
-          &   '; pos. of ptr =', i_start(2)
-        CALL message( TRIM(routine), TRIM(message_text) )
-      END IF
-
-      CALL read_2D_time(stream_id, on_cells, 'stress_x', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,1) = z_flux(:,:,jt)
-      END DO
-
-      ! meridional wind stress
-      CALL read_2D_time(stream_id, on_cells, 'stress_y', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,2) = z_flux(:,:,jt)
-      END DO
-
-      ! SST
-      CALL read_2D_time(stream_id, on_cells, 'SST', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
-      END DO
-
- !    ! Read complete NCEP data sets for focing ocean model (iforc_type=5)
- !    ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
- !    ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
- !    ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
- !    ! 7:  fclou(:,:),  &  ! Fractional cloud cover
- !    ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
- !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
-
-      ! 2m-temperature
-      CALL read_2D_time(stream_id, on_cells, 'temp_2m', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
-      END DO
-
-      ! 2m dewpoint temperature
-      CALL read_2D_time(stream_id, on_cells, 'dpt_temp_2m', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
-      END DO
-
-      ! Scalar wind
-      CALL read_2D_time(stream_id, on_cells, 'scalar_wind', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
-      END DO
-
-      ! cloud cover
-      CALL read_2D_time(stream_id, on_cells, 'cloud', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
-      END DO
-
-      ! sea level pressure
-      CALL read_2D_time(stream_id, on_cells, 'pressure', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,8) = z_flux(:,:,jt)
-      END DO
-
-      ! total solar radiation
-      CALL read_2D_time(stream_id, on_cells, 'tot_solar', &
-        &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-        &               end_timestep=i_count(2) + i_start(2))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
-      END DO
-
-      ! precipitation
-  !   CALL read_2D_time(stream_id, on_cells, 'precip', &
-  !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-  !     &               end_timestep=i_count(2) + i_start(2))
-  !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
-  !   END DO
-
-      ! evaporation or downward surface LW flux
-  !   CALL read_2D_time(stream_id, on_cells, 'evap', &
-  !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-  !     &               end_timestep=i_count(2) + i_start(2))
-  !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
-  !   END DO
-  !   CALL read_2D_time(stream_id, on_cells, 'dlwrf', &
-  !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-  !     &               end_timestep=i_count(2) + i_start(2))
-  !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
-  !   END DO
-
-      ! runoff
-  !   CALL read_2D_time(stream_id, on_cells, 'runoff', &
-  !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
-  !     &               end_timestep=i_count(2) + i_start(2))
-  !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)
-  !   END DO
-
-
-      !
-      ! close file
-      !
-      CALL closeFile(stream_id)
-
-    !ENDDO
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,1)
-      CALL dbg_print('ReadFc: NCEP: stress-x'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2)
-      CALL dbg_print('ReadFc: NCEP: stress-y'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3)
-      CALL dbg_print('ReadFc: NCEP: SST'         ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=4  ! output print level (1-5, fix)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4)
-      CALL dbg_print('ReadFc: NCEP: temp_2m'     ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5)
-      CALL dbg_print('ReadFc: NCEP: dpt_temp_2m' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6)
-      CALL dbg_print('ReadFc: NCEP: scalar_wind' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7)
-      CALL dbg_print('ReadFc: NCEP: cloudiness'  ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8)
-      CALL dbg_print('ReadFc: NCEP: pressure'    ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9)
-      CALL dbg_print('ReadFc: NCEP: total solar' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10)
-    ! CALL dbg_print('ReadFc: NCEP: precip.'     ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11)
-    ! CALL dbg_print('ReadFc: NCEP: evaporation' ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    ! z_c(:,:,:) = ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12)
-    ! CALL dbg_print('ReadFc: NCEP: runoff'      ,z_c         ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
-      idt_src=2  ! output print level (1-5, fix)
-      IF (idbg_mxmn >= idt_src) &
-        & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
-
-    END IF ! iforc_oce=OMIP_FluxFromFile
-
-  END SUBROUTINE read_forc_data_oce
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(status)
-
-    INTEGER, INTENT(in) :: status
-
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_ocean_bulk_forcing netCDF error', nf_strerror(status))
-    ENDIF
-
-  END SUBROUTINE nf
-  !-------------------------------------------------------------------------
 
 END MODULE mo_ocean_bulk_forcing

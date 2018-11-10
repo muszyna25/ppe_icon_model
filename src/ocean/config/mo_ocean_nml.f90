@@ -618,6 +618,8 @@ MODULE mo_ocean_nml
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
+  REAL(wp) :: forcing_frequency                    = 86400.0_wp
+  REAL(wp) :: sw_scaling_factor                    = 1.0_wp
   LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
@@ -673,6 +675,8 @@ MODULE mo_ocean_nml
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
+    &                 forcing_frequency                   , &
+    &                 sw_scaling_factor                   , &
     &                 forcing_windStress_u_amplitude      , &
     &                 forcing_windStress_v_amplitude      , &
 !DR    &                 forcing_windstress_meridional_waveno, &
