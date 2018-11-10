@@ -1203,11 +1203,31 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
+    ! tendency of snow
+      CALL add_var(ocean_default_list, 'delta_snow', ocean_state_diag%delta_snow , &
+       &         grid_unstructured_cell, za_surface,&
+       &         t_cf_var('delta_snow', 'W m-2', 'tendency of snow expressed as heat content', datatype_flt),&
+       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+    ! tendency of ice
+      CALL add_var(ocean_default_list, 'delta_ice', ocean_state_diag%delta_ice, &
+       &         grid_unstructured_cell, za_surface,&
+       &         t_cf_var('delta_ice', 'W m-2', 'tendendcy of ice expressed as heat content', datatype_flt),&
+       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+      CALL add_var(ocean_default_list, 'delta_thetao', ocean_state_diag%delta_thetao,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('delta_theta','W m-2','tendendy of liquid water temperature expressed as heat content', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
       CALL add_var(ocean_default_list, 'opottemptend', ocean_state_diag%opottemptend,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
-       & t_cf_var('opottemptend','','complete temperature tendency at cells', datatype_flt),&
+       & t_cf_var('opottemptend','K','complete temperature tendency at cells', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
@@ -1647,10 +1667,51 @@ CONTAINS
       & loutput=.TRUE.)
     CALL add_var(ocean_default_list, 'pacific_moc',ocean_state_diag%pacific_moc,    &
       & GRID_ZONAL, za_depth_below_sea,&
-      & t_cf_var('pacific_moc','Sv','global meridional overturning', datatype_flt), &
+      & t_cf_var('pacific_moc','Sv','indopacific meridional overturning', datatype_flt), &
       & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/n_zlev,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)
+
+    ! Implied ocean heat transport
+    CALL add_var(ocean_default_list, 'global_hfl',ocean_state_diag%global_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_hfl','W','global implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_hfl',ocean_state_diag%atlantic_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_hfl','W','atlantic implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_hfl',ocean_state_diag%pacific_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_hfl','W','indopacific implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
+    ! hfbasin ocean heat transport
+    CALL add_var(ocean_default_list, 'global_hfbasin',ocean_state_diag%global_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_hfbasin','W','global northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_hfbasin',ocean_state_diag%atlantic_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_hfbasin','W','atlantic northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_hfbasin',ocean_state_diag%pacific_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_hfbasin','W','indopacific northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
 
 
 !       CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &

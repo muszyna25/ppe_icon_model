@@ -212,6 +212,7 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
+      & delta_thetao, & 
       & heat_content_liquid_water,    &
       & odensitytend
 
@@ -224,14 +225,22 @@ MODULE mo_ocean_types
       & condep           ,&! convection depth index
       & heat_content_snow ,&
       & heat_content_seaice ,&
+      & delta_ice, & 
+      & delta_snow, &
       & heat_content_total ,&
       & zos_square     ,&
-      & Rossby_Radius    ,&      
+      & Rossby_Radius    ,&
       & Wavespeed_baroclinic ,&
       & global_moc       ,& ! MOC global
-      & atlantic_moc     ,& ! MOC atantic
-      & pacific_moc         ! MOC pacific
-      
+      & atlantic_moc     ,& ! MOC atlantic
+      & pacific_moc      ,& ! MOC pacific
+      & global_hfl       ,& ! implied ocean heat transport global
+      & atlantic_hfl     ,& ! implied ocean heat transport atlantic
+      & pacific_hfl      ,& ! implied ocean heat transport pacific
+      & global_hfbasin   ,& ! northward ocean heat transport global
+      & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
+      & pacific_hfbasin     ! northward ocean heat transport pacific
+
    onCells_2D :: &
       & northernHemisphere ,&
       & southernHemisphere
