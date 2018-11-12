@@ -757,6 +757,7 @@ MODULE mo_mpi
   END INTERFACE p_reduce
 
   INTERFACE p_allreduce
+    MODULE PROCEDURE p_allreduce_bool_0d
     MODULE PROCEDURE p_allreduce_int4_0d
     MODULE PROCEDURE p_allreduce_int8_0d
   END INTERFACE p_allreduce
@@ -9306,6 +9307,23 @@ CONTAINS
     resultVar = input
 #endif
   END FUNCTION p_allreduce_int4_0d
+
+  FUNCTION p_allreduce_bool_0d(input, reductionOp, comm) &
+       RESULT(res)
+    LOGICAL :: res
+    LOGICAL, INTENT(IN) :: input
+    INTEGER, INTENT(in) :: reductionOp, comm
+
+#ifndef NOMPI
+    INTEGER :: ierror
+    CHARACTER(*), PARAMETER :: routine = modname//":p_allreduce_bool_0d"
+
+    CALL mpi_allreduce(input, res, 1, mpi_logical, reductionOp, comm, ierror)
+    IF (ierror /= MPI_SUCCESS) CALL finish(routine, "error in mpi_allreduce.")
+#else
+    res = input
+#endif
+  END FUNCTION p_allreduce_bool_0d
 
   INTEGER(i8) FUNCTION p_allreduce_int8_0d(input, reductionOp, comm) RESULT(resultVar)
     INTEGER(i8), INTENT(IN) :: input
