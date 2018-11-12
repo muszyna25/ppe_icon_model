@@ -303,7 +303,7 @@ MODULE mo_mpi
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, &
             MPI_UNDEFINED, mpi_max, mpi_in_place, mpi_op_null, &
-            mpi_datatype_null, mpi_sum, mpi_lor
+            mpi_datatype_null
 #endif
   PUBLIC :: MPI_2INTEGER
 #endif
@@ -318,6 +318,12 @@ MODULE mo_mpi
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
+
+  ! mpi reduction operators
+  PUBLIC :: mpi_lor, mpi_land, mpi_sum
+#ifdef NOMPI
+  INTEGER, PARAMETER :: mpi_lor = 1, mpi_land = 2, mpi_sum = 3
+#endif
 
   PUBLIC ::get_mpi_time,ellapsed_mpi_time
 
