@@ -8430,7 +8430,7 @@ CONTAINS
 
     IF (my_process_is_mpi_parallel()) THEN
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_sp, &
-          p_sum_op(), p_comm, p_error)
+          mpi_sum, p_comm, p_error)
     ELSE
        p_sum = zfield
     END IF
@@ -8459,14 +8459,14 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       IF (PRESENT(root)) THEN
         CALL MPI_REDUCE (zfield, p_sum, 1, p_real_dp, &
-          p_sum_op(), root, p_comm, p_error)
+          mpi_sum, root, p_comm, p_error)
         ! get local PE identification
         CALL MPI_COMM_RANK (p_comm, my_rank, p_error)
         ! do not use the result on all the other ranks:
         IF (root /= my_rank)  p_sum = zfield
       ELSE
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
-          p_sum_op(), p_comm, p_error)
+          mpi_sum, p_comm, p_error)
       END IF
     ELSE
        p_sum = zfield
@@ -8605,7 +8605,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int_i8, &
-            p_sum_op(), p_comm, p_error)
+            mpi_sum, p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8632,7 +8632,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
-            p_sum_op(), p_comm, p_error)
+            mpi_sum, p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8660,7 +8660,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, 1, p_int, &
-            p_sum_op(), p_comm, p_error)
+            mpi_sum, p_comm, p_error)
     ELSE
        p_sum = kfield
     END IF
@@ -8688,7 +8688,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
-            p_sum_op(), process_mpi_root_id, p_comm, p_error)
+            mpi_sum, process_mpi_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
     ELSE
        p_sum = SUM(zfield)
@@ -8716,7 +8716,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            p_sum_op(), process_mpi_root_id, p_comm, p_error)
+            mpi_sum, process_mpi_root_id, p_comm, p_error)
        IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
@@ -8744,7 +8744,7 @@ CONTAINS
 
     IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            p_sum_op(), process_mpi_root_id, p_comm, p_error)
+            mpi_sum, process_mpi_root_id, p_comm, p_error)
        IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
@@ -9263,10 +9263,6 @@ CONTAINS
     END IF ! if present(root)
 #endif
   END SUBROUTINE p_allreduce_max_int_1d
-
-  INTEGER FUNCTION p_sum_op() RESULT(resultVar)
-    resultVar = MERGE_HAVE_MPI(MPI_SUM, 0)
-  END FUNCTION p_sum_op
 
   INTEGER FUNCTION p_min_op() RESULT(resultVar)
     resultVar = MERGE_HAVE_MPI(MPI_MIN, 0)
