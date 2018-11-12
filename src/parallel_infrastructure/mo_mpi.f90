@@ -9292,30 +9292,30 @@ CONTAINS
 #endif
   END FUNCTION p_reduce_int8_0d
 
-  INTEGER(i4) FUNCTION p_allreduce_int4_0d(input, reductionOp, communicator) RESULT(resultVar)
+  INTEGER(i4) FUNCTION p_allreduce_int4_0d(input, reductionOp, comm) RESULT(resultVar)
     INTEGER(i4), INTENT(IN) :: input
-    INTEGER, VALUE :: reductionOp, communicator
+    INTEGER, INTENT(in) :: reductionOp, comm
 
 #ifndef NOMPI
     INTEGER :: error
     CHARACTER(*), PARAMETER :: routine = modname//":p_allreduce_int4_0d"
 
-    CALL MPI_Allreduce(input, resultVar, 1, p_int_i4, reductionOp, communicator, error)
+    CALL MPI_Allreduce(input, resultVar, 1, p_int_i4, reductionOp, comm, error)
     IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
 #else
     resultVar = input
 #endif
   END FUNCTION p_allreduce_int4_0d
 
-  INTEGER(i8) FUNCTION p_allreduce_int8_0d(input, reductionOp, communicator) RESULT(resultVar)
+  INTEGER(i8) FUNCTION p_allreduce_int8_0d(input, reductionOp, comm) RESULT(resultVar)
     INTEGER(i8), INTENT(IN) :: input
-    INTEGER, VALUE :: reductionOp, communicator
+    INTEGER, INTENT(in) :: reductionOp, comm
 
 #ifndef NOMPI
     INTEGER :: error
     CHARACTER(*), PARAMETER :: routine = modname//":p_allreduce_int8_0d"
 
-    CALL MPI_Allreduce(input, resultVar, 1, p_int_i8, reductionOp, communicator, error)
+    CALL MPI_Allreduce(input, resultVar, 1, p_int_i8, reductionOp, comm, error)
     IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.)")
 #else
     resultVar = input
