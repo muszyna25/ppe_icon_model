@@ -25,7 +25,7 @@ MODULE mo_initicon_io
   USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -39,7 +39,7 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename,             &
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
@@ -66,7 +66,7 @@ MODULE mo_initicon_io
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
 
 
@@ -1088,6 +1088,11 @@ MODULE mo_initicon_io
               CALL fetch3d(params, 'qs', jg, my_ptr3d)
             END IF
 
+            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqg)
+              CALL fetch3d(params, 'qg', jg, my_ptr3d)
+            END IF
+
             IF (lvert_remap_fg) THEN
 
                 ! the number of input and output levels must be the same for this mode
@@ -1137,6 +1142,7 @@ MODULE mo_initicon_io
 
   !>
   !! Fetch DWD first guess from the request list (atmosphere only) and store to initicon input state
+  !! for subsequent vertical remapping to the current ICON grid
   !! First guess (FG) is read for z_ifc, theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v,
   !! qv, qc, qi, qr, qs.
@@ -1345,6 +1351,22 @@ MODULE mo_initicon_io
                 CALL fetch3d(params, 'qv', jg, my_ptr3d)
             ENDIF
 
+            IF (init_mode == MODE_IAU .AND. qcana_mode > 0) THEN
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceFg
+              CALL fetch3d(params, 'qc', jg, my_ptr%qc)
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qc', kInputSourceBoth)
+              END IF
+            ENDIF
+
+            IF (init_mode == MODE_IAU .AND. qiana_mode > 0) THEN
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceFg
+              CALL fetch3d(params, 'qi', jg, my_ptr%qi)
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qi', kInputSourceBoth)
+              END IF
+            ENDIF
+
             ! For the time being, these are identical to qc, qi, qr, and qs from FG => usually read from FG
             IF ( .NOT. ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
               my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
@@ -1358,6 +1380,10 @@ MODULE mo_initicon_io
               IF ( iqs /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
                 CALL fetch3d(params, 'qs', jg, my_ptr3d)
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqg)
+                CALL fetch3d(params, 'qg', jg, my_ptr3d)
               END IF
             ENDIF
 

@@ -82,6 +82,7 @@ MODULE mo_limarea_config
     TYPE(timedelta), POINTER        :: dtime_latbc_mtime ! dt between two consequtive external latbc files
     
     LOGICAL                         :: init_latbc_from_fg  ! take initial lateral boundary conditions from first guess
+    LOGICAL                         :: nudge_hydro_pres    ! use hydrostatic pressure for lateral boundary nudging
 
     ! settings derived from the namelist parameters above:
     LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.
@@ -113,17 +114,17 @@ CONTAINS
 
     IF (latbc_config%itype_latbc == LATBC_TYPE_CONST) THEN
 
-       WRITE(message_text,'(a)')'Lateral boundary nudging using the initial boundary data.'
+       WRITE(message_text,'(a)')'Lateral boundary nudging using constant boundary data from the initial conditions.'
        CALL message(TRIM(routine),message_text)
 
     ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
 
-       WRITE(message_text,'(a)')'Lateral boundary condition using the IFS or COSMO-DE boundary data.'
+       WRITE(message_text,'(a)')'Lateral boundary condition using interpolated boundary data.'
        CALL message(TRIM(routine),message_text)
 
     ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_TEST) THEN
 
-       WRITE(message_text,'(a)')'Lateral boundary condition using the ICON global boundary data.'
+       WRITE(message_text,'(a)')'Test mode with lateral boundary conditions from a nested global ICON run.'
        CALL message(TRIM(routine),message_text)
 
     ELSE
@@ -145,6 +146,11 @@ CONTAINS
       WRITE(message_text,'(a)') 'Synchronous latBC mode: sparse read-in not implemented!'
       CALL finish(TRIM(routine),message_text)
     END IF
+
+    IF (latbc_config%itype_latbc == LATBC_TYPE_TEST .AND. num_prefetch_proc > 0) THEN
+      WRITE(message_text,'(a)') 'Test mode is available for synchronous latBC mode only'
+      CALL finish(TRIM(routine),message_text)
+    ENDIF
   
   END SUBROUTINE configure_latbc
   !--------------------------------------------------------------------------------------

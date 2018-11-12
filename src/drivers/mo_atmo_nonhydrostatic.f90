@@ -179,7 +179,7 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
 
-      CALL configure_ensemble_pert(ext_data)
+      CALL configure_ensemble_pert(ext_data, time_config%tc_exp_startdate)
 
       ! - generate index lists for tiles (land, ocean, lake)
       ! index lists for ice-covered and non-ice covered ocean points

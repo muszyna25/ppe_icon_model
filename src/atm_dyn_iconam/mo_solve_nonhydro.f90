@@ -116,7 +116,7 @@ MODULE mo_solve_nonhydro
   !! Development started by Guenther Zaengl on 2010-02-03
   !!
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
-                       lprep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
+                       lprep_adv, lclean_mflx, idyn_timestep, jstep, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
@@ -137,8 +137,6 @@ MODULE mo_solve_nonhydro
     INTEGER,                   INTENT(IN)    :: idyn_timestep
     ! Time step count since last boundary interpolation (ranges from 0 to 2*ndyn_substeps-1)
     INTEGER,                   INTENT(IN)    :: jstep
-    ! Switch to determine if boundary nudging is executed
-    LOGICAL,                   INTENT(IN)    :: l_bdy_nudge
     ! Time levels
     INTEGER,                   INTENT(IN)    :: nnow, nnew
     ! Time step
@@ -1448,31 +1446,6 @@ __COLLAPSE_2_LOOPS
 #else
 !$OMP END DO
 #endif
-
-      IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
-
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( p_int, p_nh ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-#else
-!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-#endif
-        DO ic = 1, p_nh%metrics%nudge_e_dim
-          je = p_nh%metrics%nudge_e_idx(ic)
-          jb = p_nh%metrics%nudge_e_blk(ic)
-!DIR$ IVDEP
-!$ACC LOOP VECTOR
-          DO jk = 1, nlev
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-              + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
-          ENDDO
-        ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
-!$OMP END DO
-#endif
-      ENDIF
 
       ! Boundary update of horizontal velocity
       IF (istep == 1 .AND. (l_limited_area .OR. jg > 1)) THEN

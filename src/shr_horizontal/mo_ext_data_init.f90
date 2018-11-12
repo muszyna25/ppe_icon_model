@@ -52,7 +52,7 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
-    &                              itype_vegetation_cycle
+    &                              itype_vegetation_cycle, read_nc_via_cdi
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_rad_config,   ONLY: echam_rad_config
   USE mo_echam_phy_config,   ONLY: echam_phy_config
@@ -85,7 +85,6 @@ MODULE mo_ext_data_init
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
-  USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
@@ -118,7 +117,7 @@ MODULE mo_ext_data_init
   INTEGER, PARAMETER :: num_lcc = 23, n_param_lcc = 7
 
   LOGICAL, ALLOCATABLE :: is_frglac_in(:) !< checks whether the extpar file contains fr_glac
-  LOGICAL :: read_netcdf_data             !< control variable if extpar data are in GRIB2 for NetCDF format
+  LOGICAL :: read_netcdf_parallel         !< control variable if NetCDF extpar data are read via parallel NetCDF or cdilib
 
 
   PUBLIC :: init_ext_data
@@ -185,9 +184,11 @@ CONTAINS
       IF(extpar_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
       END IF
-      read_netcdf_data = .FALSE.
+      read_netcdf_parallel = .FALSE. ! GRIB2 can only be read using cdi library
+    ELSE IF (read_nc_via_cdi) THEN
+      read_netcdf_parallel = .FALSE.
     ELSE
-      read_netcdf_data = .TRUE.
+      read_netcdf_parallel = .TRUE.
     END IF
 
     !------------------------------------------------------------------
@@ -1021,7 +1022,7 @@ CONTAINS
 
         ! Start reading external parameter data
         ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
-        IF (read_netcdf_data) THEN
+        IF (read_netcdf_parallel) THEN
           extpar_file = generate_filename(extpar_filename, getModelBaseDir(), &
             &                             TRIM(p_patch(jg)%grid_filename),    &
             &                              nroot,                             &
@@ -1185,7 +1186,7 @@ CONTAINS
 
         END SELECT ! iforcing
 
-        IF (read_netcdf_data) THEN
+        IF (read_netcdf_parallel) THEN
           CALL closeFile(stream_id)
         ELSE
           CALL deleteInputParameters(parameters)
@@ -1399,19 +1400,19 @@ CONTAINS
        ENDIF
 
        IF (PRESENT(arr2d)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D(stream_id, on_cells, TRIM(varname), arr2d)
          ELSE
            CALL read_cdi_2d(parameters, TRIM(varname), arr2d)
          ENDIF
        ELSE IF (PRESENT(arr2di)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D_int(stream_id, on_cells, TRIM(varname), arr2di)
          ELSE
            CALL read_cdi_2d(parameters, TRIM(varname), arr2di)
          ENDIF
        ELSE IF (PRESENT(arr3d)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D_extdim(stream_id, on_cells, TRIM(varname), arr3d)
          ELSE IF (dim3_is_time) THEN
            CALL read_cdi_2d(parameters, SIZE(arr3d,3), TRIM(varname), arr3d)

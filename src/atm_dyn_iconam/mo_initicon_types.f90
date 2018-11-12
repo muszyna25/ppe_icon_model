@@ -73,6 +73,7 @@ MODULE mo_initicon_types
       &                                    qi      => NULL(), &
       &                                    qr      => NULL(), &
       &                                    qs      => NULL(), &
+      &                                    qg      => NULL(), &
       &                                    rho     => NULL(), &
       &                                    theta_v => NULL(), &
       &                                    tke     => NULL()
@@ -132,7 +133,7 @@ MODULE mo_initicon_types
     INTEGER :: nlev
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
-                                               pres, qv, qc, qi, qr, qs, tke
+                                               pres, qv, qc, qi, qr, qs, qg, tke
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_finalize   !< destructor
   END TYPE t_pi_atm
@@ -209,7 +210,7 @@ MODULE mo_initicon_types
   ! state for saving initial state
   TYPE :: t_saveinit_state
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, snow_age,    &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, alb_si, gz0, hsnow_max, h_snow, snow_age, &
                                              t_mnw_lk, t_wml_lk, h_ml_lk, t_bot_lk, c_t_lk, t_b1_lk, h_b1_lk
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn, gz0_t,                           &
@@ -256,6 +257,7 @@ CONTAINS
     CALL DO_PTR_DEALLOCATE(atm_in%qi)
     CALL DO_PTR_DEALLOCATE(atm_in%qr)
     CALL DO_PTR_DEALLOCATE(atm_in%qs)
+    CALL DO_PTR_DEALLOCATE(atm_in%qg)
     CALL DO_PTR_DEALLOCATE(atm_in%rho)
     CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
     CALL DO_PTR_DEALLOCATE(atm_in%tke)
@@ -316,6 +318,7 @@ CONTAINS
     CALL DO_DEALLOCATE(atm%qi)
     CALL DO_DEALLOCATE(atm%qr)
     CALL DO_DEALLOCATE(atm%qs)
+    CALL DO_DEALLOCATE(atm%qg)
     CALL DO_DEALLOCATE(atm%tke)
   END SUBROUTINE t_pi_atm_finalize
 
@@ -391,6 +394,7 @@ CONTAINS
     CALL DO_DEALLOCATE(saveinit_data%t_b1_lk)
     CALL DO_DEALLOCATE(saveinit_data%h_b1_lk)
     CALL DO_DEALLOCATE(saveinit_data%hsnow_max)
+    CALL DO_DEALLOCATE(saveinit_data%h_snow)
     CALL DO_DEALLOCATE(saveinit_data%snow_age)
     CALL DO_DEALLOCATE(saveinit_data%theta_v)
     CALL DO_DEALLOCATE(saveinit_data%rho)

@@ -185,7 +185,7 @@ CONTAINS
     INTEGER :: jg,jgc            !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
-    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
+    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c, lvalid_data  !< switches for latent heat nudging
     LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
                                                                 ! due to grid scale microphysics 
                                                                 ! and satad for latent heat nudging
@@ -710,7 +710,11 @@ CONTAINS
                                & radar_data(jg),                   & 
                                & prm_nwp_tend,                     &
                                & mtime_datetime,                   &
-                               & lcall_lhn, lcall_lhn_v            )
+                               & lcall_lhn, lcall_lhn_v,lvalid_data)
+
+        IF (msg_level >= 7 .AND. .NOT.lvalid_data) THEN
+          CALL message('mo_nh_interface_nwp:','LHN turned off due to lack of valid data')
+        ENDIF
       ELSE IF (msg_level >= 15) THEN
         WRITE (message_text,'(a,f10.2,i5)') 'LHN not running because of specified times!',p_sim_time,jg
         CALL message('mo_nh_interface_nwp:', message_text)
@@ -718,7 +722,7 @@ CONTAINS
 
 
       lcall_lhn_c = assimilation_config(jgc)%dass_lhn%isActive(mtime_datetime)
-      lapply_lhn  = lcall_lhn .OR. lcall_lhn_c
+      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. lvalid_data
 
       IF (lapply_lhn) THEN
 

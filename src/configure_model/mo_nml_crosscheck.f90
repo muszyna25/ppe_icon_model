@@ -27,8 +27,7 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD, MODE_IFSANA
-  USE mo_cdi,                ONLY: FILETYPE_GRB2
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
@@ -36,7 +35,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
     &                              num_io_procs, itype_comm, num_restart_procs, &
     &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config
+  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
   USE mo_master_config,      ONLY: isRestart
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
     &                              ltransport, ntracer, nlev, ltestcase,             &
@@ -51,7 +50,8 @@ MODULE mo_nml_crosscheck
   USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
-                                      lhdiff_rcf, rayleigh_type
+    &                                 lhdiff_rcf, rayleigh_type,                     &
+    &                                 ivctype, ndyn_substeps
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
@@ -59,8 +59,7 @@ MODULE mo_nml_crosscheck
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,     &
-    &                              ana_varnames_map_file, lread_ana
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
   USE mo_nh_testcases_nml,   ONLY: nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -78,6 +77,7 @@ MODULE mo_nml_crosscheck
   USE mo_interpol_config
   USE mo_sleve_config
   USE mo_grid_config
+  USE mo_nudging_nml,        ONLY: check_nudging
 
   IMPLICIT NONE
 
@@ -835,6 +835,11 @@ CONTAINS
     IF (iforcing==iecham) CALL land_crosscheck()
 
     CALL art_crosscheck()
+
+    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                     &
+      &                 l_limited_area, latbc_config%lsparse_latbc, latbc_config%itype_latbc, & 
+      &                 latbc_config%nudge_hydro_pres, LATBC_TYPE_CONST, is_plane_torus,      &
+      &                 lart, ndyn_substeps                                                   )
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

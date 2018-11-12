@@ -173,7 +173,7 @@ SUBROUTINE organize_lhn ( &
                             & radar_data,                       &
                             & prm_nwp_tend,                     &
                             & datetime_current,                 &
-                            & ltlhn, ltlhnverif                 ) !>in 
+                            & ltlhn, ltlhnverif, lvalid_data    ) !>in / out
 
 !-------------------------------------------------------------------------------
 !
@@ -217,6 +217,7 @@ SUBROUTINE organize_lhn ( &
   LOGICAL, INTENT(IN)  :: &
     ltlhn,ltlhnverif                 ! true if latent heat nudging is active
 
+  LOGICAL, INTENT(OUT) :: lvalid_data
 
 ! Local parameters, scalars, arrays:
 !-------------------------------------------------------------------------------
@@ -283,7 +284,6 @@ SUBROUTINE organize_lhn ( &
 
   LOGICAL  :: &
     scale_fac_index(nproma,pt_patch%nblks_c)
-!#endif
 
 
   LOGICAL :: ltoold
@@ -384,7 +384,9 @@ SUBROUTINE organize_lhn ( &
      CALL lhn_obs_prep (pt_patch,radar_data,pr_obs(:,:),wobs_space(:,:),wobs_time(:,:), &
        &                ltoold,datetime_current)
 
+     lvalid_data = .NOT. ltoold
      IF (ltoold) RETURN
+
 
 !-------------------------------------------------------------------------------
 ! Section 2 : Determine total model precipitation rate
@@ -837,7 +839,7 @@ END SUBROUTINE organize_lhn
 !-------------------------------------------------------------------------------
 
 SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
-  &                      ltoold,datetime_current)
+  &                      ltoyoungorold,datetime_current)
 
 !-------------------------------------------------------------------------------
 !
@@ -873,7 +875,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
   REAL (KIND=wp), DIMENSION(nproma,pt_patch%nblks_c),INTENT(OUT)    :: &
     wobs_time, wobs_space, pr_obs
 
-  LOGICAL, INTENT(OUT) :: ltoold
+  LOGICAL, INTENT(OUT) :: ltoyoungorold
   TYPE (datetime),INTENT(in) :: datetime_current
 
 
@@ -1022,18 +1024,22 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
      if ( radar_data%radar_td%obs_date(i) < tnow) td_in_min(i)= -1. * td_in_min(i)
   ENDDO
 
-  ltoold=.false.
+  ltoyoungorold=.false.
   IF (ALL(td_in_min < 0) ) THEN
-     CALL message (yroutine,'obsvervations are too old')
-     CALL print_value('Max time_diff',MAXVAL(td_in_min))
-     CALL print_value('Min time_diff',MINVAL(td_in_min))
-     ltoold=.true.
+     IF (msg_level > 12) THEN
+       CALL message (yroutine,'obsvervations are too old')
+       CALL print_value('Max time_diff',MAXVAL(td_in_min))
+       CALL print_value('Min time_diff',MINVAL(td_in_min))
+     ENDIF
+     ltoyoungorold=.true.
      RETURN
   ELSE IF (ALL(td_in_min > assimilation_config(jg)%lhn_dt_obs)) THEN
-     CALL message (yroutine,'obsvervations are too young')
-     CALL print_value('Max time_diff',MAXVAL(td_in_min))
-     CALL print_value('Min time_diff',MINVAL(td_in_min))
-     ltoold=.true.
+     IF (msg_level > 12) THEN
+       CALL message (yroutine,'obsvervations are too young')
+       CALL print_value('Max time_diff',MAXVAL(td_in_min))
+       CALL print_value('Min time_diff',MINVAL(td_in_min))
+     ENDIF
+     ltoyoungorold=.true.
      RETURN
   ELSE
      icenter=MINLOC(ABS(td_in_min),1)
@@ -1047,12 +1053,12 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,pr_obs,wobs_space,wobs_time, &
      weight_index_0=icenter
   ENDIF
 
-  IF (icenter == iread - 1) THEN
-     assimilation_config(jg)%nlhn_end=-9999
-     assimilation_config(jg)%nlhnverif_end=-9999
-     CALL message (yroutine,'LHN switched off: no more data available')
-     RETURN
-  ENDIF
+!  IF (icenter == iread - 1) THEN
+!     assimilation_config(jg)%nlhn_end=-9999
+!     assimilation_config(jg)%nlhnverif_end=-9999
+!     CALL message (yroutine,'LHN switched off: no more data available')
+!     RETURN
+!  ENDIF
 
   lp1=.FALSE.
   lp2=.FALSE.

@@ -42,9 +42,10 @@ MODULE mo_util_phys
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: iau_wgt_adv
+  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
@@ -108,13 +109,12 @@ CONTAINS
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
     REAL(wp) :: ff10m, ustar, uadd_sso, gust_add
-    REAL(wp), PARAMETER :: gust_factor = 8.0_wp
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))
     ustar = SQRT( MAX( tcm, 5.e-4_wp) * ( u1**2 + v1**2) )
     gust_add = MAX(0._wp,MIN(2._wp,0.2_wp*(ff10m-10._wp)))*(1._wp+mtnmask)
-    vgust_dyn = ff10m + mtnmask*uadd_sso + (gust_factor+gust_add+2._wp*mtnmask)*ustar
+    vgust_dyn = ff10m + mtnmask*uadd_sso + (tune_gust_factor+gust_add+2._wp*mtnmask)*ustar
 
   END FUNCTION nwp_dyn_gust
 
@@ -1045,18 +1045,32 @@ CONTAINS
       ENDDO
     ENDDO
 
-    ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
     DO jk = 1, kend
       DO jc = i_startidx, i_endidx
-        IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
-            pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
-          zqin = MAX(0._wp, pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
-        ELSE
-          zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+        IF (qcana_mode == 2 .AND. pt_prog_rcf%tracer(jc,jk,jb,iqc) > 0._wp) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + &
+            iau_wgt_adv*pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+          pt_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqc) + &
+            iau_wgt_adv*pt_diag%rhoc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ELSE 
+          IF (qcana_mode >= 1) THEN
+            zqin = (pt_diag%rhov_incr(jc,jk,jb)+pt_diag%rhoc_incr(jc,jk,jb))/pt_prog%rho(jc,jk,jb)
+          ELSE
+            zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+          ENDIF
+          ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
+          IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) zqin = MAX(0._wp, zqin)
+          pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv*zqin)
         ENDIF
-        pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv * zqin
+
+        IF (qiana_mode > 0) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqi) + &
+            iau_wgt_adv*pt_diag%rhoi_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
       ENDDO
     ENDDO
+
 
   END SUBROUTINE iau_update_tracer
 

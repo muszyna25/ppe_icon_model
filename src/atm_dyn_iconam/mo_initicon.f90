@@ -34,10 +34,9 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
-    &                               lread_ana, ltile_init, &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
     &                               fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
@@ -345,7 +344,7 @@ MODULE mo_initicon
 
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
-    CHARACTER(LEN = 9) :: incrementsList_IAU(8)
+    CHARACTER(LEN = 9) :: incrementsList_IAU(10)
     CHARACTER(LEN = 4) :: incrementsList_IAU_OLD(6)
     CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
 #endif
@@ -402,7 +401,8 @@ MODULE mo_initicon
 #if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow', 't_2m']
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', &
+                                                        & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
                 CASE DEFAULT
@@ -413,8 +413,8 @@ MODULE mo_initicon
 #else
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', &
-                      &                    'qv       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
+                      &                    'qc       ', 'qi       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU
@@ -1157,6 +1157,19 @@ MODULE mo_initicon
             p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb)
 
           ENDDO  ! jc
+
+          IF (qcana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qc(jc,jk,jb)
+            ENDDO
+          ENDIF
+
+          IF (qiana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoi_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qi(jc,jk,jb)
+            ENDDO
+          ENDIF
+
         ENDDO  ! jk
 
       ENDDO  ! jb
@@ -1364,13 +1377,13 @@ MODULE mo_initicon
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
 
+
               ! use this version and corresponding update equation below, as soon as the approximation 
               ! to rhov_incr is removed (see above)
               !
               ! analysed water vapour partial density
               !z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
               !  &           + p_diag%rhov_incr(jc,jk,jb)
-
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
               ! make sure, that due to GRIB2 roundoff errors, qv does not drop
@@ -1384,6 +1397,21 @@ MODULE mo_initicon
                 &                          / p_prog_now%rho(jc,jk,jb)
 
             ENDDO  ! jc
+
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqc)+&
+                 p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqi)+&
+                 p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
           ENDDO  ! jk
 
         ENDDO  ! jb

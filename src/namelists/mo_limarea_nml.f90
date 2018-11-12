@@ -77,6 +77,8 @@ CONTAINS
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid
     !> take initial lateral boundary conditions from first guess
     LOGICAL                         :: init_latbc_from_fg
+    !> use hydrostatic pressure for lateral boundary nudging
+    LOGICAL                         :: nudge_hydro_pres
 
     ! dictionary which maps internal variable names onto
     ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
@@ -85,7 +87,7 @@ CONTAINS
 
     NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, &
      &                     latbc_filename, latbc_path, latbc_boundary_grid, &
-     &                     latbc_varnames_map_file, init_latbc_from_fg
+     &                     latbc_varnames_map_file, init_latbc_from_fg, nudge_hydro_pres
 
     !------------------------------------------------------------
     ! Default settings
@@ -101,6 +103,7 @@ CONTAINS
     latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
     latbc_varnames_map_file = " "
     init_latbc_from_fg  = .FALSE.
+    nudge_hydro_pres    = .TRUE.
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -156,6 +159,7 @@ CONTAINS
     latbc_config%lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) > 0)
     latbc_config%latbc_varnames_map_file = latbc_varnames_map_file
     latbc_config%init_latbc_from_fg  = init_latbc_from_fg
+    latbc_config%nudge_hydro_pres    = nudge_hydro_pres
 
     ! There exist to alternative ways to set the update interval for
     ! lateral bc data. If both parameters are used, we test for

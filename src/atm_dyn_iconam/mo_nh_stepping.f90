@@ -107,10 +107,9 @@ MODULE mo_nh_stepping
   USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
-                                         prep_bdy_nudging,                              &
-                                         outer_boundary_nudging, nest_boundary_nudging, &
+                                         prep_bdy_nudging, nest_boundary_nudging,       &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         prep_outer_bdy_nudging, save_progvars
+                                         limarea_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
@@ -1228,6 +1227,7 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub                ! (advective) timestep for next finer grid level
     TYPE(timedelta), POINTER :: mtime_dt_sub
     REAL(wp):: rdt_loc,  rdtmflx_loc ! inverse time step for local grid level
+    REAL(wp) :: tsrat  ! ratio between physics and dynamics time step
 
     LOGICAL :: lnest_active, lcall_rrg, lbdy_nudging
 
@@ -1791,39 +1791,41 @@ MODULE mo_nh_stepping
       ! Update nudging tendency fields for limited-area mode
       IF (jg == 1 .AND. l_limited_area) THEN
 
+         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
+
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+
+            IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
+               p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
 
             IF (num_prefetch_proc >= 1) THEN
 
               ! Asynchronous LatBC read-in:
               ! update the coefficients for the linear interpolation
               CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
                 &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,                        &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
                 &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
                 &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
             ELSE
               
               ! update the coefficients for the linear interpolation
               CALL update_lin_interc(datetime_local(jg)%ptr)
-              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &                         p_nh_state(jg)%prog(n_new_rcf),                &  
-                &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,    &
-                &                         p_latbc_old=p_latbc_data(last_latbc_tlev)%atm, &
-                &                         p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
 
             ENDIF
 
          ELSE ! constant lateral boundary data
 
-            CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
+                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
 
          ENDIF
-
-         ! Apply nudging at the lateral boundaries
-         CALL outer_boundary_nudging (jg, nnew(jg), n_new_rcf, REAL(ndyn_substeps,wp))
 
       ENDIF
 
@@ -2097,7 +2099,6 @@ MODULE mo_nh_stepping
                                                   ! (first substep)
     LOGICAL                  :: lsave_mflx
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
-    LOGICAL                  :: l_bdy_nudge
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
     TYPE(timeDelta), POINTER :: time_diff
     !-------------------------------------------------------------------------
@@ -2107,14 +2108,6 @@ MODULE mo_nh_stepping
 
     ! compute dynamics timestep
     dt_dyn = dt_phy/ndyn_substeps_var(jg)
-
-
-    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
-      ! apply boundary nudging if feedback is turned off and in limited-area mode
-      l_bdy_nudge = .TRUE.
-    ELSE
-      l_bdy_nudge = .FALSE.
-    ENDIF
 
     IF ( idiv_method == 1 .AND. (ltransport .OR. p_patch%n_childdom > 0 .AND. grf_intmethod_e >= 5)) THEN
       lprep_adv = .TRUE. ! do computations for preparing tracer advection in solve_nh
@@ -2192,7 +2185,7 @@ MODULE mo_nh_stepping
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
-        &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+        &           nstep, ndyn_substeps_tot-1, dt_dyn)
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.

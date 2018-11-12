@@ -31,7 +31,7 @@
 !!
 MODULE mo_nonhydro_state
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,            &
     &                                INWP, IECHAM,                                   &
     &                                VINTP_METHOD_VN,                                &
@@ -66,7 +66,7 @@ MODULE mo_nonhydro_state
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
-    &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg
+    &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, qcana_mode, qiana_mode
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,           &
     &                                add_ref, new_var_list, delete_var_list,       &
@@ -667,6 +667,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                          "mode_iau_ana_in", "mode_iau_anaatm_in",      &
             &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqc
         !QI
@@ -692,6 +693,7 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                          "mode_iau_ana_in", "mode_iau_anaatm_in",      &
             &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqi
         !QR
@@ -846,7 +848,9 @@ MODULE mo_nonhydro_state
             &                       l_loglin=.FALSE.,                                  &
             &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+            &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                           "mode_iau_fg_in" )                             )
         END IF ! inwp_gscp==2
 
         !CK> improved ice nucleation scheme
@@ -1527,6 +1531,8 @@ MODULE mo_nonhydro_state
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
     &       p_diag%rhov_incr, &
+    &       p_diag%rhoc_incr, &
+    &       p_diag%rhoi_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -2404,7 +2410,7 @@ MODULE mo_nonhydro_state
 
       ! rho_incr   p_diag%rho_incr(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('rho_incr', ' ',                   &
+      cf_desc    = t_cf_var('rho_incr', 'kg m-3',                   &
         &                   'density increment from DA', datatype_flt)
       grib2_desc = grib2_var( 0, 3, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'rho_incr', p_diag%rho_incr,                   &
@@ -2415,13 +2421,37 @@ MODULE mo_nonhydro_state
 
       ! rhov_incr  p_diag%rhov_incr(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('rhov_incr', ' ',                   &
+      cf_desc    = t_cf_var('rhov_incr', 'kg m-3',                   &
         &                   'partial density of water vapour increment from DA', datatype_flt)
       grib2_desc = grib2_var(  0, 1, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'rhov_incr', p_diag%rhov_incr,                    &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
+
+      IF (qcana_mode > 0) THEN
+        ! rhoc_incr  p_diag%rhoc_incr(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('rhoc_incr', 'kg m-3',                   &
+          &                   'partial density of cloud water increment from DA', datatype_flt)
+        grib2_desc = grib2_var( 0, 6, 38, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_diag_list, 'rhoc_incr', p_diag%rhoc_incr,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                    & ldims=shape3d_c, &
+                    & lrestart=.FALSE., loutput=.TRUE.)
+      ENDIF
+
+      IF (qiana_mode > 0) THEN
+        ! rhoi_incr  p_diag%rhoi_incr(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('rhoi_incr', ' ',                   &
+          &                   'partial density of cloud ice increment from DA', datatype_flt)
+        grib2_desc = grib2_var( 0, 6, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_diag_list, 'rhoi_incr', p_diag%rhoi_incr,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                    & ldims=shape3d_c, &
+                    & lrestart=.FALSE., loutput=.TRUE.)
+      ENDIF
 
     ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
 
@@ -2864,6 +2894,7 @@ MODULE mo_nonhydro_state
     &       p_metrics%ovlp_halo_c_blk, &
     &       p_metrics%bdy_mflx_e_idx, &
     &       p_metrics%bdy_mflx_e_blk, &
+    &       p_metrics%nudgecoeff_vert, &
     &       p_metrics%mask_prog_halo_c)
 
 

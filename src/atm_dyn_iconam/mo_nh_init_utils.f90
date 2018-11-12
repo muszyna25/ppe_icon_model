@@ -935,7 +935,8 @@ CONTAINS
       IF (iprog_aero == 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
       IF (lprog_albsi)         ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
       IF (itype_trvg == 3)     ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
-      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%snow_age(nproma,nblks_c))
+      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%h_snow(nproma,nblks_c),&
+                                         saveinit(jg)%snow_age(nproma,nblks_c))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -995,6 +996,7 @@ CONTAINS
       IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(lnd_diag%hsnow_max, saveinit(jg)%hsnow_max)
+        CALL copy(lnd_diag%h_snow, saveinit(jg)%h_snow)
         CALL copy(lnd_diag%snow_age, saveinit(jg)%snow_age)
       ENDIF
 
@@ -1094,6 +1096,7 @@ CONTAINS
       IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(saveinit(jg)%hsnow_max, lnd_diag%hsnow_max)
+        CALL copy(saveinit(jg)%h_snow, lnd_diag%h_snow)
         CALL copy(saveinit(jg)%snow_age, lnd_diag%snow_age)
       ENDIF
 
@@ -1140,7 +1143,7 @@ CONTAINS
       IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
       IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
-      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%snow_age)
+      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%h_snow, saveinit(jg)%snow_age)
 
       ! For the limited-area mode and one-way nesting, we also need to reset grf_tend_vn on the nudging points
 

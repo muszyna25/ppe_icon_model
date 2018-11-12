@@ -16,7 +16,6 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, message
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
@@ -54,6 +53,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
+  PUBLIC :: qcana_mode, qiana_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
   PUBLIC :: lvert_remap_fg
@@ -135,6 +135,7 @@ MODULE mo_initicon_config
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode ! mode of processing QC/QI increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time

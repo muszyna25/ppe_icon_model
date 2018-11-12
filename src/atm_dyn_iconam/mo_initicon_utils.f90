@@ -24,7 +24,7 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
@@ -33,7 +33,7 @@ MODULE mo_initicon_utils
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in,                  &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
@@ -677,8 +677,9 @@ MODULE mo_initicon_utils
         DO jk = 1, nlev
           DO jc = 1, nlen
             !
-            ! Diagnostic pressure
+            ! Diagnostic pressure and temperature
             p_nh_state(jg)%diag%pres(jc,jk,jb)         = initicon(jg)%atm%pres(jc,jk,jb)
+            p_nh_state(jg)%diag%temp(jc,jk,jb)         = initicon(jg)%atm%temp(jc,jk,jb)
             !
             ! Dynamic prognostic variables on cell points
             p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = initicon(jg)%atm%w(jc,jk,jb)
@@ -705,6 +706,9 @@ MODULE mo_initicon_utils
             IF ( iqs /= 0 ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
             END IF
+            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+            END IF
           ENDDO
         ENDDO
         !
@@ -718,6 +722,9 @@ MODULE mo_initicon_utils
             END IF
             IF ( iqs /= 0 ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+            END IF
+            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
             END IF
           ENDDO
         ENDDO
@@ -1427,12 +1434,13 @@ MODULE mo_initicon_utils
     TYPE(t_nh_metrics), INTENT(IN) :: metrics
 
     ! Local variables: loop control and dimensions
-    INTEGER :: nlev, nlevp1, nblks_c, nblks_e
+    INTEGER :: nlev, nlevp1, nblks_c, nblks_e, jg
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
+    jg      = p_patch%id
 
     ! basic init_icon data
     initicon%const%topography_c => topography_c
@@ -1527,6 +1535,13 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
             END IF
 
+            IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+                ALLOCATE(atm%qg(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm%qg(:,:,:))
+!$OMP END PARALLEL
+            END IF
+
             atm%nlev         = nlev
             atm%linitialized = .TRUE.
         ELSE
@@ -1554,6 +1569,21 @@ MODULE mo_initicon_utils
             CALL init(atm_inc%vn(:,:,:))
             CALL init(atm_inc%qv(:,:,:))
 !$OMP END PARALLEL 
+
+            IF (init_mode == MODE_IAU) THEN
+              IF (qcana_mode > 0) THEN
+                ALLOCATE(atm_inc%qc(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qc(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+              IF (qiana_mode > 0) THEN
+                ALLOCATE(atm_inc%qi(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qi(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+            ENDIF
 
             atm_inc%nlev         = nlev
             atm_inc%linitialized = .TRUE.
@@ -1679,7 +1709,7 @@ MODULE mo_initicon_utils
       atm_in%qi      (nproma,nlev_in,nblks_c),   &
       atm_in%qr      (nproma,nlev_in,nblks_c),   &
       atm_in%qs      (nproma,nlev_in,nblks_c),   &
-      const%z_mc_in         (nproma,nlev_in,nblks_c) )
+      const%z_mc_in  (nproma,nlev_in,nblks_c) )
 !$OMP PARALLEL 
     CALL init(atm_in%pres(:,:,:))
     CALL init(const%z_mc_in(:,:,:))

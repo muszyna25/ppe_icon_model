@@ -281,14 +281,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &        shape2d_synsat(2), shape3d_aero(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
-    INTEGER :: jsfc, ist, jg
+    INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
     CHARACTER(len=21) :: name
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart, lhave_graupel
+    LOGICAL :: lrestart
 
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
@@ -323,14 +323,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL default_var_list_settings( diag_list,                 &
                                   & lrestart=.TRUE.  )
 
-    lhave_graupel = .FALSE.
-    DO jg = 1, n_dom
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-      CASE (2,4,5,6)
-        lhave_graupel = .TRUE.
-      END SELECT
-    ENDDO
-
    
     !------------------------------
     ! Meteorological quantities
@@ -364,7 +356,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_INSTANT )
 
     ! For graupel scheme 
-    IF (lhave_graupel) THEN
+    IF (atm_phy_nwp_config(k_jg)%lhave_graupel) THEN
       
       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
@@ -512,7 +504,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
 
     !Surface precipitation variables for graupel scheme and two moment microphysics
-    IF (lhave_graupel) THEN
+    IF (atm_phy_nwp_config(k_jg)%lhave_graupel) THEN
        ! &      diag%graupel_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
         &                   datatype_flt)

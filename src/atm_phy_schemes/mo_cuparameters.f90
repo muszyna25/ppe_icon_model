@@ -36,7 +36,7 @@ MODULE mo_cuparameters
   USE mo_nwp_parameters,  ONLY: t_phy_params
   USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
     tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop, tune_gkdrag, &
-    tune_gkwake, tune_gfrcrit, tune_grcrit, tune_rprcon
+    tune_gkwake, tune_gfrcrit, tune_grcrit, tune_rprcon, tune_rdepths
 #endif
 
 #ifdef __GME__
@@ -1185,9 +1185,9 @@ ENDIF
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
 IF (lshallow_only) THEN
-  phy_params%rdepths=1.3e4_jprb/MAX(1._jprb,(5.e3_jprb/rsltn)**0.75_jprb)
+  phy_params%rdepths=0.65_jprb*tune_rdepths/MAX(1._jprb,(5.e3_jprb/rsltn)**0.75_jprb)
 ELSE
-  phy_params%rdepths=2.e4_jprb
+  phy_params%rdepths=tune_rdepths
 ENDIF
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
