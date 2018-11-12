@@ -232,6 +232,7 @@ EOF
 #-----------------------------------------------------------------------------
 #  compare with reference
 if [[ x$BB_SYSTEM != x ]]; then
+  rm -f ${final_status_file}
 . ${thisdir}/postFunx.sh
   dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
   cd ${dataPath}
@@ -239,7 +240,7 @@ if [[ x$BB_SYSTEM != x ]]; then
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
 
   directoryDiff ${refDir} .
-  check_error $? "DIFFCHECK for exp: ${EXPNAME}"
+  check_final_status $? "DIFFCHECK for exp: ${EXPNAME}"
   cd -
 fi
 
