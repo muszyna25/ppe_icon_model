@@ -2387,23 +2387,10 @@ CONTAINS
     TYPE(t_var_metadata), INTENT(in) :: info
     INTEGER, INTENT(in) :: i_log_dom
 
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, n_own, ioff, &
-         nmiss, i, jk, lev_idx
-    LOGICAL :: apply_missval, make_level_selection
-    REAL(dp) :: missval
+    INTEGER :: n_own, ioff, nmiss
     REAL(dp), ALLOCATABLE :: temp_buf_dp(:)
     REAL(sp), ALLOCATABLE :: temp_buf_sp(:)
     TYPE(xt_idxlist) :: partdesc
-
-    ! set missval if needed
-    apply_missval =       info%lmask_boundary                  &
-      &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
-      &             .AND. config_lmask_boundary
-    IF (apply_missval) THEN
-      missval = get_bdry_missval(info, idata_type)
-      CALL get_bdry_blk_idx(i_log_dom, &
-        &                   i_startidx, i_endidx, i_startblk, i_endblk)
-    END IF
 
     n_own = ri%n_own
 
@@ -2412,10 +2399,6 @@ CONTAINS
     ELSE
       ALLOCATE(temp_buf_sp(nlevs*n_own))
     END IF
-
-    make_level_selection = ASSOCIATED(of%level_selection) &
-      &              .AND. (.NOT. var_ignore_level_selection) &
-      &              .AND. (info%ndims > 2)
 
     CALL set_time_varying_metadata(of, info, of%var_desc(iv)%info_ptr)
 
@@ -2432,72 +2415,15 @@ CONTAINS
     ioff = 0
     partdesc = get_partdesc(ri%reorder_idxlst_xt, nlevs, ri%n_glb)
     IF (use_dp_mpi2io) THEN
-      DO jk = 1, nlevs
-        ! handle the case that a few levels have been selected out of
-        ! the total number of levels:
-        IF (make_level_selection) THEN
-          lev_idx = of%level_selection%global_idx(jk)
-        ELSE
-          lev_idx = jk
-        END IF
-        IF (idata_type == iREAL) THEN
-          DO i = 1, n_own
-            temp_buf_dp(ioff+i) = &
-                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        ELSE IF (idata_type == iREAL_sp) THEN
-          DO i = 1, n_own
-            temp_buf_dp(ioff+i) = &
-                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        ELSE IF (idata_type == iINTEGER) THEN
-          DO i = 1, n_own
-            temp_buf_dp(ioff+i) = &
-                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
-          ENDDO
-        END IF
-        ! If required, set lateral boundary points to missing
-        ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) &
-          CALL set_boundary_mask(temp_buf_dp(ioff+1:ioff+n_own), &
-          &                      missval, i_endblk, i_endidx, ri)
-        ioff = ioff + ri%n_own
-      END DO
+      CALL var2buf(temp_buf_dp, ioff, of%level_selection, &
+        idata_type, r_ptr, s_ptr, i_ptr, &
+        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
       CALL streamWriteVarPart(of%cdiFileID, info%cdiVarID, &
            &                  temp_buf_dp, nmiss, partdesc)
     ELSE
-      DO jk = 1, nlevs
-        ! handle the case that a few levels have been selected out of
-        ! the total number of levels:
-        IF (make_level_selection) THEN
-          lev_idx = of%level_selection%global_idx(jk)
-        ELSE
-          lev_idx = jk
-        END IF
-        IF (idata_type == iREAL) THEN
-          DO i = 1, ri%n_own
-            temp_buf_sp(ioff+i) = &
-                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
-          ENDDO
-        ELSE IF (idata_type == iREAL_sp) THEN
-          DO i = 1, n_own
-            temp_buf_sp(ioff+i) = &
-                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
-          ENDDO
-        ELSE IF (idata_type == iINTEGER) THEN
-          DO i = 1, ri%n_own
-            temp_buf_sp(ioff+i) = &
-                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
-          ENDDO
-        END IF
-
-        ! If required, set lateral boundary points to missing
-        ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) &
-          CALL set_boundary_mask(temp_buf_sp(ioff+1:ioff+ri%n_own), &
-          &                      REAL(missval, sp), i_endblk, i_endidx, ri)
-        ioff = ioff + ri%n_own
-      END DO ! nlevs
+      CALL var2buf(temp_buf_sp, ioff, of%level_selection, &
+        idata_type, r_ptr, s_ptr, i_ptr, &
+        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
       CALL streamWriteVarPartF(of%cdiFileID, info%cdiVarID, &
            &                   temp_buf_sp, nmiss, partdesc)
     END IF
