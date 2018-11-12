@@ -211,7 +211,7 @@ MODULE mo_multifile_restart
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
-    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op, p_barrier
+    &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
     &                                        isAsync, rBuddy, rGroup,            &
@@ -558,10 +558,10 @@ CONTAINS
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       IF(my_process_is_restart()) THEN
         !dedicated proc mode: restart processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work)
       ELSE
         !joint proc mode: all processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work_restart)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work_restart)
       END IF
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
       dpTime = p_mpi_wtime() - dpTime
