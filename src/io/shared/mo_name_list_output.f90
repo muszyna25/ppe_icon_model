@@ -97,6 +97,7 @@ MODULE mo_name_list_output
   USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
+  USE mo_level_selection_types,     ONLY: t_level_selection
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
   USE mo_master_config,             ONLY: getModelBaseDir
@@ -210,6 +211,11 @@ MODULE mo_name_list_output
     MODULE PROCEDURE set_boundary_mask_dp
     MODULE procedure set_boundary_mask_sp
   END INTERFACE set_boundary_mask
+
+  INTERFACE var2buf
+    MODULE PROCEDURE var2buf_sp
+    MODULE PROCEDURE var2buf_dp
+  END INTERFACE var2buf
 
   INTERFACE var_copy
     MODULE PROCEDURE var_copy_dp2dp
@@ -1096,8 +1102,15 @@ CONTAINS
             nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
         ELSE
-          CALL data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
-            &  nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+          IF (use_dp_mpi2io) THEN
+            CALL var2buf(of%mem_win%mem_ptr_dp, ioff, of%level_selection, &
+              &          idata_type, r_ptr, s_ptr, i_ptr, &
+              &          nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+          ELSE
+            CALL var2buf(of%mem_win%mem_ptr_sp, ioff, of%level_selection, &
+              &          idata_type, r_ptr, s_ptr, i_ptr, &
+              &          nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+          END IF
 #endif
         END IF
 #ifdef HAVE_CDI_PIO
@@ -1569,24 +1582,109 @@ CONTAINS
     END IF
   END SUBROUTINE set_time_varying_metadata
 
-  SUBROUTINE data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
+  SUBROUTINE var2buf_sp(buf, ioff, level_selection, &
+       idata_type, r_ptr, s_ptr, i_ptr, &
        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
-    TYPE (t_output_file), INTENT(INOUT) :: of
+    REAL(sp), INTENT(inout) :: buf(:)
+    INTEGER, INTENT(inout) :: ioff
+    TYPE(t_level_selection), POINTER :: level_selection
     INTEGER, INTENT(in) :: idata_type, nlevs
     LOGICAL, INTENT(in) :: var_ignore_level_selection
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
     INTEGER, INTENT(in) :: i_ptr(:,:,:)
-    INTEGER, INTENT(inout) :: ioff
     TYPE(t_reorder_info),  INTENT(in) :: ri
     TYPE(t_var_metadata), INTENT(in) :: info
     INTEGER, INTENT(in) :: i_log_dom
 
-    REAL(wp) :: missval
+    REAL(dp) :: missval
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i, jk, lev_idx
-    LOGICAL :: apply_missval
-    LOGICAL :: make_level_selection
+    LOGICAL :: apply_missval, make_level_selection
+
+    apply_missval =       info%lmask_boundary                  &
+      &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
+      &             .AND. config_lmask_boundary
+    IF (apply_missval) THEN
+      missval = get_bdry_missval(info, idata_type)
+      CALL get_bdry_blk_idx(i_log_dom, &
+        &                   i_startblk, i_endblk, i_startidx, i_endidx)
+    END IF
+
+    make_level_selection = ASSOCIATED(level_selection) &
+      &              .AND. (.NOT. var_ignore_level_selection) &
+      &              .AND. (info%ndims > 2)
+
+    SELECT CASE(idata_type)
+    CASE (iREAL)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
+        ELSE
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, level_selection%global_idx)
+        END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
+        ELSE
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs)
+        END IF
+      END IF
+    CASE (iREAL_sp)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
+        ELSE
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, level_selection%global_idx)
+        END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
+        ELSE
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs)
+        END IF
+      END IF
+    CASE (iINTEGER)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
+        ELSE
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, level_selection%global_idx)
+        END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
+        ELSE
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs)
+        END IF
+      END IF
+    END SELECT
+
+  END SUBROUTINE var2buf_sp
+
+  SUBROUTINE var2buf_dp(buf, ioff, level_selection, &
+    idata_type, r_ptr, s_ptr, i_ptr, &
+    nlevs, var_ignore_level_selection, ri, info, i_log_dom)
+    REAL(dp), INTENT(INOUT) :: buf(:)
+    INTEGER, INTENT(inout) :: ioff
+    TYPE(t_level_selection), POINTER :: level_selection
+    INTEGER, INTENT(in) :: idata_type, nlevs
+    LOGICAL, INTENT(in) :: var_ignore_level_selection
+    REAL(dp), INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, INTENT(in) :: i_ptr(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: ri
+    TYPE(t_var_metadata), INTENT(in) :: info
+    INTEGER, INTENT(in) :: i_log_dom
+
+    REAL(dp) :: missval
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    LOGICAL :: apply_missval, make_level_selection
 #ifndef NOMPI
 
     ! ------------------------
@@ -1604,121 +1702,62 @@ CONTAINS
         &                   i_startblk, i_endblk, i_startidx, i_endidx)
     END IF
 
-    make_level_selection = ASSOCIATED(of%level_selection) &
+    make_level_selection = ASSOCIATED(level_selection) &
       &              .AND. (.NOT. var_ignore_level_selection) &
       &              .AND. (info%ndims > 2)
 
-    IF (use_dp_mpi2io) THEN
-      SELECT CASE(idata_type)
-      CASE (iREAL)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+    SELECT CASE(idata_type)
+    CASE (iREAL)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, r_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, level_selection%global_idx)
         END IF
-      CASE (iREAL_sp)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, s_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, r_ptr, ri, nlevs)
         END IF
-      CASE (iINTEGER)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+      END IF
+    CASE (iREAL_sp)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_dp, ioff, i_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, level_selection%global_idx)
         END IF
-      END SELECT
-    ELSE
-      SELECT CASE(idata_type)
-      CASE (iREAL)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, r_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, s_ptr, ri, nlevs)
         END IF
-      CASE (iREAL_sp)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+      END IF
+    CASE (iINTEGER)
+      IF (make_level_selection) THEN
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval, level_selection%global_idx)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, s_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, level_selection%global_idx)
         END IF
-      CASE (iINTEGER)
-        IF (make_level_selection) THEN
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval, of%level_selection%global_idx)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
-              of%level_selection%global_idx)
-          END IF
+      ELSE
+        IF (apply_missval) THEN
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs, &
+            i_endblk, i_endidx, missval)
         ELSE
-          IF (apply_missval) THEN
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs, &
-              i_endblk, i_endidx, missval)
-          ELSE
-            CALL var_copy(of%mem_win%mem_ptr_sp, ioff, i_ptr, ri, nlevs)
-          END IF
+          CALL var_copy(buf, ioff, i_ptr, ri, nlevs)
         END IF
-      END SELECT
-    END IF
+      END IF
+    END SELECT
 #endif
-  END SUBROUTINE data_write_to_memwin
+  END SUBROUTINE var2buf_dp
 
   SUBROUTINE var_copy_dp2dp(buf, ioff, r, ri, nlevs)
     REAL(dp), INTENT(inout) :: buf(:)
@@ -3414,3 +3453,8 @@ CONTAINS
 #endif
 
 END MODULE mo_name_list_output
+!
+! Local Variables:
+! f90-continuation-indent: 2
+! End:
+!
