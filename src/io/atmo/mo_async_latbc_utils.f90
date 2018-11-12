@@ -1640,41 +1640,45 @@
     !!
     SUBROUTINE update_lin_interpolation( latbc, step_datetime )
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
-      TYPE(datetime)            :: step_datetime
+      TYPE(datetime), INTENT(in) :: step_datetime
+#ifndef NOMPI
       TYPE(timedelta)           :: delta_tstep
       REAL(wp)                  :: dtime_latbc      ! time delta between two consecutive 
                                                     ! boundary forcing time slices
       TYPE(timedelta)           :: td
+      LOGICAL :: failure
 
       CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::update_lin_interpolation"
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prev
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prv
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN):: delta_tstep_str
-#ifndef NOMPI
-
+      INTEGER :: prv_tlev, cur_tlev
       ! compute boundary update timedelta
-      td = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime
-      dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime))
+      cur_tlev = latbc%new_latbc_tlev
+      prv_tlev = latbc%prev_latbc_tlev()
+      td = latbc%latbc_data(cur_tlev)%vDateTime - latbc%latbc_data(prv_tlev)%vDateTime
+      dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(cur_tlev)%vDateTime))
 
-      delta_tstep = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - step_datetime
+      delta_tstep = latbc%latbc_data(cur_tlev)%vDateTime - step_datetime
 
-
-      IF (msg_level >= 15) THEN
-        CALL message(routine, "")
-        CALL datetimeToString(latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime, vDateTime_str_prev)
-        CALL datetimeToString(latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime, vDateTime_str_cur)
+      failure = delta_tstep%month /= 0
+      IF (msg_level >= 15 .OR. failure) THEN
+        CALL message(routine, "", all_print=failure)
+        CALL datetimeToString(latbc%latbc_data(prv_tlev)%vDateTime, vDateTime_str_prv)
+        CALL datetimeToString(latbc%latbc_data(cur_tlev)%vDateTime, vDateTime_str_cur)
         CALL timedeltaToString(delta_tstep, delta_tstep_str)
-        WRITE (message_text, '(a,a)')  "lbc vdate current : ", TRIM(vDateTime_str_cur)
-        CALL message("", message_text)
-        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", TRIM(vDateTime_str_prev)
-        CALL message("", message_text)
-        WRITE (message_text, '(a,a)')  "delta_tstep_str: ", TRIM(delta_tstep_str)
-        CALL message("", message_text)
+        WRITE (message_text, '(a,a)')  "lbc vdate current : ", vDateTime_str_cur
+        CALL message("", message_text, all_print=failure)
+        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", vDateTime_str_prv
+        CALL message("", message_text, all_print=failure)
+        WRITE (message_text, '(a,a)')  "delta_tstep_str: ", delta_tstep_str
+        CALL message("", message_text, all_print=failure)
+        IF (delta_tstep%month /= 0) &
+          CALL finish(routine, "time difference for reading boundary&
+          & data must not be more than a month.")
       ENDIF
 
 
 
-      IF(delta_tstep%month /= 0) &
-           CALL finish(routine, "time difference for reading boundary data cannot be more than a month.")
 
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 
