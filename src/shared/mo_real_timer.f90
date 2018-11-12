@@ -50,7 +50,8 @@ MODULE mo_real_timer
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
-    &                           num_work_procs, p_sum, p_allgather
+    &                           num_work_procs, p_sum, p_allgather, mpi_land, &
+    &                           p_allreduce
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -1049,6 +1050,8 @@ CONTAINS
     CALL p_allgather(n, tcounts, comm=p_comm_work)
     consistent_sub_timer_counts = ALL(tcounts(1:) == tcounts(0))
     consistent_timer_lists = .FALSE.
+    consistent_sub_timer_counts &
+         = p_allreduce(consistent_sub_timer_counts, mpi_land, p_comm_work)
     IF (consistent_sub_timer_counts) THEN
       ALLOCATE(tmrlists(n, 0:ntasks-1))
       CALL p_allgather(subtimer_list(1:n), tmrlists, comm=p_comm_work)
