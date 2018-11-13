@@ -592,6 +592,25 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ENDIF
   ENDDO
 
+  ! Reference pressure for vertical distribution of aerosol optical depths
+  ! Uses coarse-scale orography if available, otherwise use model orography
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+    IF (itype_vegetation_cycle >= 2) THEN
+      DO jc = i_startidx,i_endidx
+        temp = t00 + dtdz_standardatm*ext_data%atm%topo_t2mclim(jc,jb)
+        prm_diag%pref_aerdis(jc,jb) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_standardatm))
+      ENDDO
+    ELSE
+      DO jc = i_startidx,i_endidx
+        temp = t00 + dtdz_standardatm*ext_data%atm%topography_c(jc,jb)
+        prm_diag%pref_aerdis(jc,jb) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_standardatm))
+      ENDDO
+    ENDIF
+
+  ENDDO
 
   ! start filling phy_params
   !

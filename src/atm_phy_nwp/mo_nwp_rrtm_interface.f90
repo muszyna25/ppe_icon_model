@@ -300,7 +300,8 @@ CONTAINS
 
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
-            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
+            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / &
+              MAX(prm_diag%pref_aerdis(jc,jb),0.95_wp*pt_diag%pres_ifc(jc,nlevp1,jb))
           ENDDO
         ENDDO
 

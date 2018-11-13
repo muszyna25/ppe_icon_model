@@ -527,15 +527,6 @@ CONTAINS
         CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
       ENDIF
 
-      IF (iprog_aero == 1 .AND. .NOT. linit) THEN
-        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,                                         &
-                              prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
-                              prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
-                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
-                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
-                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
-                              lnd_diag%h_snow_t(:,jb,:)                                                  )
-      ENDIF
 
     ENDDO ! nblks
 
@@ -863,6 +854,18 @@ CONTAINS
         ! rediagnose pressure
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
                         jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
+
+      IF (iprog_aero == 1 .AND. .NOT. linit) THEN
+        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,                                         &
+                              prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
+                              prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
+                              prm_diag%rain_gsp_rate(:,jb),prm_diag%snow_gsp_rate(:,jb),                 &
+                              prm_diag%rain_con_rate(:,jb),prm_diag%snow_con_rate(:,jb),                 &
+                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
+                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
+                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
+                              lnd_diag%h_snow_t(:,jb,:)                                                  )
       ENDIF
 
     ENDDO

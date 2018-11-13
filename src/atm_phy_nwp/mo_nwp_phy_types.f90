@@ -375,6 +375,7 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS          &
 #endif
       & ::                  &
+      & pref_aerdis(:,:),   &
       & aercl_ss  (:,:),    &
       & aercl_or  (:,:),    &
       & aercl_bc  (:,:),    &

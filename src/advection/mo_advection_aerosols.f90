@@ -63,11 +63,11 @@ CONTAINS
 
     ! Start and end heights for vertical averaging of mass fluxes
     ! 1. all aerosol classes except dust
-    zstart(1) =  400._wp
-    zend(1)   = 1200._wp
+    zstart(1) =  500._wp
+    zend(1)   = 1500._wp
     ! 2. dust (has a larger decay scale than the others)
-    zstart(2) = 1000._wp
-    zend(2)   = 3000._wp
+    zstart(2) = 1500._wp
+    zend(2)   = 6000._wp
 
     ! Compute corresponding level indices
     DO jk = nlev, 1, -1

@@ -31,7 +31,7 @@ MODULE mo_aerosol_util
   USE mo_model_domain,         ONLY: t_patch
   USE mo_radiation_rg_par,     ONLY: jpspec
   USE mo_srtm_config,          ONLY: jpsw
-  USE mo_phyparam_soil,        ONLY: cpwp, cfcap
+  USE mo_phyparam_soil,        ONLY: cadp, cfcap
   USE mo_lnd_nwp_config,       ONLY: ntiles_total
   USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
 
@@ -694,13 +694,15 @@ CONTAINS
   ! Very simple parameterization of source and sink terms for prognostic 2D aerosol fields
   !
   SUBROUTINE prog_aerosol_2D (nproma,jcs,jce,dtime,aerosol,aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du, &
-                              gust_dyn,gust_con,soiltype,plcov_t,frac_t,w_so_t,t_so_t,h_snow_t)
+                              rr_gsp,sr_gsp,rr_con,sr_con,gust_dyn,gust_con,soiltype,plcov_t,frac_t,     &
+                              w_so_t,t_so_t,h_snow_t)
     
     INTEGER,  INTENT(in)    :: nproma, jcs, jce
     REAL(wp), INTENT(in)    :: dtime
 
     REAL(wp), INTENT(inout) :: aerosol(:,:)
     REAL(wp), INTENT(in)    :: aercl_ss(:),aercl_or(:),aercl_bc(:),aercl_su(:),aercl_du(:),  &
+                               rr_gsp(:),sr_gsp(:),rr_con(:),sr_con(:),                      &
                                gust_dyn(:),gust_con(:),plcov_t(:,:),frac_t(:,:),w_so_t(:,:), &
                                t_so_t(:,:),h_snow_t(:,:)
     INTEGER,  INTENT(in)    :: soiltype(:)
@@ -708,15 +710,16 @@ CONTAINS
     INTEGER :: jc, js, jt
 
     REAL(wp) :: relax_scale(2), relax_fac(2), od_clim(nclass_aero), vfac, wsofac, tsofac, minfrac, &
-                plcfac, snwfac, dustsrc(ntiles_total), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc
+                plcfac, snwfac, dustsrc(ntiles_total), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc, &
+                washout, washout_scale
 
     ! Fractions of climatology used as target values for relaxation (tuned to approximately balance the source terms)
     relax_scale(1)  = 0.7_wp
-    relax_scale(2)  = 0.5_wp
+    relax_scale(2)  = 0.4_wp
 
     ! Relaxation time scales
-    relax_fac(1) = 1._wp/(2.5_wp*86400._wp) ! 2.5 days for aerosols with shallow vertical extent
-    relax_fac(2) = 1._wp/(6._wp*86400._wp)  ! 6 days for aerosols with deep vertical extent (dust)
+    relax_fac(1) = 1._wp/(3._wp*86400._wp)  ! 3 days for aerosols with shallow vertical extent
+    relax_fac(2) = 1._wp/(10._wp*86400._wp) ! 10 days for aerosols with deep vertical extent (dust)
 
     ! Time scales for sources
     ts_dustsrc = 1._wp/(12.5_wp*86400._wp) ! 12.5 days for dust source terms
@@ -725,14 +728,17 @@ CONTAINS
     ts_bcsrc   = 1._wp/(2.0_wp*86400._wp)  ! 2    days for black carbon
     ts_susrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sulfate aerosol
 
+    ! Washout scale for dust
+    washout_scale = 1._wp/10._wp  ! e-folding scale 10 mm WE precipitation
+
     minfrac = 0.025_wp ! minimum allowed fraction of climatological aerosol optical depth
 
-    ! climatological globally averaged optical depths (approximate values)
-    od_clim(iss)  = 0.006_wp
-    od_clim(iorg) = 0.02_wp
-    od_clim(ibc)  = 0.003_wp
-    od_clim(iso4) = 0.02_wp
-    od_clim(idu)  = 0.025_wp
+    ! optical depth offsets for climatology-based source terms
+    od_clim(iss)  = 0.005_wp
+    od_clim(iorg) = 0.015_wp
+    od_clim(ibc)  = 0.002_wp
+    od_clim(iso4) = 0.015_wp
+    od_clim(idu)  = 0.075_wp
 
     ! Relaxation to scaled climatology
     DO jc = jcs, jce
@@ -754,15 +760,18 @@ CONTAINS
         aerosol(jc,iorg) = aerosol(jc,iorg) + dtime*ts_orgsrc*MAX(0._wp,aercl_or(jc)-od_clim(iorg))
         aerosol(jc,ibc)  = aerosol(jc,ibc)  + dtime*ts_bcsrc* MAX(0._wp,aercl_bc(jc)-od_clim(ibc))
         DO jt = 1, ntiles_total
-          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-cpwp(js)) / (cfcap(js)-cpwp(js))
+          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-1.5_wp*cadp(js)) / (cfcap(js)-1.5_wp*cadp(js))
           plcfac = MAX(0._wp, (0.75_wp-plcov_t(jc,jt))/0.75_wp)
           snwfac = MAX(0._wp, (0.05_wp-h_snow_t(jc,jt))*20._wp)
           tsofac = MAX(0._wp, MIN(1._wp,0.4_wp*(t_so_t(jc,jt)-270.65_wp)))
-          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (9._wp+16._wp*wsofac))
-          dustsrc(jt) = dtime*ts_dustsrc*( vfac*plcfac*snwfac*tsofac +                &
-                                           MAX(0._wp,aercl_du(jc)-4._wp*od_clim(idu)) )
+          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (7.5_wp+17.5_wp*wsofac))
+          dustsrc(jt) = dtime*ts_dustsrc*( vfac*plcfac*snwfac*tsofac +        &
+                   MAX(0._wp,aercl_du(jc)-MAX(od_clim(idu),aerosol(jc,idu)) ) )
         ENDDO
-        aerosol(jc,idu)  = aerosol(jc,idu) + SUM(dustsrc(1:ntiles_total)*frac_t(jc,1:ntiles_total))
+        ! washout of mineral dust by precipitation: convective precip is counted only by 1/4 because it 
+        ! is assumed not to cover the whole grid box
+        washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.25_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
+        aerosol(jc,idu)  = aerosol(jc,idu) - washout + SUM(dustsrc(1:ntiles_total)*frac_t(jc,1:ntiles_total))
       ENDIF
     ENDDO
 
