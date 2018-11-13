@@ -932,7 +932,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qh',                             &
                     &  'kgkg-1 ','specific_hail_content', datatype_flt),             &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & grib2_var(0, 1, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
@@ -974,7 +974,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qnr',                            &
                     &  ' kg-1 ','number_concentration_rain_droplet', datatype_flt),  &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & grib2_var(0, 1, 228, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -995,7 +995,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qns',                            &
                     &  ' kg-1 ','number_concentration_snow', datatype_flt),          &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & grib2_var(0, 1, 217, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -1016,7 +1016,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qng',                            &
                     &  ' kg-1 ','number_concentration_graupel', datatype_flt),       &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & grib2_var(0, 1, 218, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -1037,7 +1037,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qnh',                            &
                     &  ' kg-1 ','number_concentration_hail', datatype_flt),          &
-                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & grib2_var(0, 1, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
