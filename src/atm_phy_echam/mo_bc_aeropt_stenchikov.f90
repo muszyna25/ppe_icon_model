@@ -114,20 +114,27 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
   TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)  
-  
+
   IF (tiw%month2_index == inm2_time_interpolation) RETURN
+
   IF (ALLOCATED(aod_v_s)) THEN
+
     CALL shift_months_bc_aeropt_stenchikov
-    imonth(1)=tiw%month2_index
-    iyear(1)=current_date%date%year
-    IF (imonth(1) == 13 ) THEN
-      imonth(1)=1
-      iyear(1)=iyear(1)+1
+    imonth(2)=tiw%month2_index
+    iyear(2)=current_date%date%year
+    IF (imonth(2) == 13 ) THEN
+      imonth(2)=1
+      iyear(2)=iyear(1)+1
     END IF
-    imonth(2)=imonth(1)
-    iyear(2)=iyear(1)
-    nmonths=1
+
+    CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
+                       'longitude',       'latitude',         'levels', &
+                       imonth(2),    iyear(2),    2  )
+
+    inm2_time_interpolation=tiw%month2_index
+
   ELSE
+
     CALL su_bc_aeropt_stenchikov
     imonth(1)=tiw%month1_index
     imonth(2)=tiw%month2_index
@@ -142,13 +149,17 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
       iyear(2)=iyear(2)+1
     END IF
     nmonths=2
+    inm2_time_interpolation=tiw%month2_index
+
+    DO imonths=1,nmonths
+
+      CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
+                         'longitude',       'latitude',         'levels', &
+                         imonth(imonths),    iyear(imonths),    imonths   )
+    END DO
+
   ENDIF
-  inm2_time_interpolation=tiw%month2_index
-  DO imonths=1,nmonths
-  CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
-                     'longitude',       'latitude',         'levels', &
-                     imonth(imonths),    iyear(imonths),    imonths   )
-  END DO
+
 END SUBROUTINE read_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
 !> SUBROUTINE add_bc_aeropt_stenchikov
@@ -210,7 +221,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)
-  
+ 
 ! It is assumed that the pressure levels of the climatology do not change with time but
 ! are unequally spaced. Since the pressure of each icon level may change with time,
 ! each specific icon level may have its centre in a different level of the climatology at
@@ -227,7 +238,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
                         & ,kproma              ,kbdim            ,krow          &
                         & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat     &
                         & ,inmw2_lat           ,p_lat_shift      ,p_rdeltalat   &
-                        & ,r_lat_clim           ,lat_clim         ,norder        )
+                        & ,r_lat_clim          ,lat_clim         ,norder        )
 ! 2. Solar radiation
 ! 2.1 interpolate optical properties solar radiation
   DO jwl=1,nb_sw
@@ -238,33 +249,35 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
-                                     w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             tiw%weight2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
-                                     w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
-                                     w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             tiw%weight2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
-                                     w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zasy_s(jl,jk,jwl)=tiw%weight1*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
-                                     w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             tiw%weight2*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
-                                     w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm2))
+           zext_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1) + &
+                                          w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
+                             tiw%weight2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2) + &
+                                          w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm2))
+           zomg_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1) + &
+                                          w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
+                             tiw%weight2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2) + &
+                                          w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm2))
+           zasy_s(jl,jk,jwl)=tiw%weight1*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1) + &
+                                          w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
+                             tiw%weight2*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+  &
+                                          w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
   END DO
+
   DO jwl=1,nb_sw
      DO jl=jcs,kproma
         idx_lat_1=inmw1_lat(jl)
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_s(jl,jwl)=tiw%weight1*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1)+ &
-                               w2_lat*aod_v_s(jwl,idx_lat_2,nm1))+ &
-                       tiw%weight2*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2)+ &
-                               w2_lat*aod_v_s(jwl,idx_lat_2,nm2))
+        zaod_s(jl,jwl)=tiw%weight1*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1) + &
+                                    w2_lat*aod_v_s(jwl,idx_lat_2,nm1))+ &
+                       tiw%weight2*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2) + &
+                                    w2_lat*aod_v_s(jwl,idx_lat_2,nm2))
      END DO
   END DO
+
 ! 2.2 normalize zext to the correct total optical depth
 !     the normalization factor generally depends on the wavelength if
 !     the ratios of the extinction at different wavelengths are not 
@@ -320,14 +333,14 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
-                                     w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             tiw%weight2*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
-                                     w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
-                                     w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             tiw%weight2*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
-                                     w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm2))
+           zext_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1) + &
+                                          w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
+                             tiw%weight2*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2) + &
+                                          w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm2))
+           zomg_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1) + &
+                                          w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
+                             tiw%weight2*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2) + &
+                                          w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
   END DO
@@ -337,10 +350,10 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_t(jl,jwl)=tiw%weight1*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1)+ &
-                               w2_lat*aod_v_t(jwl,idx_lat_2,nm1))+ &
-                       tiw%weight2*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2)+ &
-                               w2_lat*aod_v_t(jwl,idx_lat_2,nm2))
+        zaod_t(jl,jwl)=tiw%weight1*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1) + &
+                                    w2_lat*aod_v_t(jwl,idx_lat_2,nm1))+ &
+                       tiw%weight2*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2) + &
+                                    w2_lat*aod_v_t(jwl,idx_lat_2,nm2))
      END DO
   END DO
 ! 2.2 normalize zext to the correct total optical depth
