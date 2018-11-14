@@ -40,8 +40,8 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & calc_vert_velocity,       &
     & update_time_indices
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog, t_ocean_tracer
-  !USE mo_ocean_math_operators,     ONLY: calculate_thickness
+    & t_hydro_ocean_prog
+  USE mo_ocean_tracer_transport_types,     ONLY: t_ocean_tracer
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_forcing,          ONLY: destruct_ocean_forcing
   USE mo_ocean_physics_types,    ONLY: t_ho_params
@@ -53,7 +53,8 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
   USE mo_ocean_output
-  USE mo_ocean_diffusion,        ONLY:  tracer_diffusion_vertical_implicit, velocity_diffusion_vertical_implicit
+  USE mo_ocean_tracer_diffusion, ONLY: tracer_diffusion_vertical_implicit
+  USE mo_ocean_velocity_diffusion,ONLY: velocity_diffusion_vertical_implicit
   USE mo_parallel_config,        ONLY: nproma
   USE mo_math_utility_solvers,   ONLY: apply_triangular_matrix
   USE mo_statistics
@@ -86,7 +87,7 @@ CONTAINS
     REAL(wp) :: residual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: mean_trace
 
-    ocean_tracer => ocean_state(1)%p_prog(nold(1))%ocean_tracers(1)
+    ocean_tracer => ocean_state(1)%p_prog(nold(1))%tracer_collection%tracer(1)
     cells_in_domain => patch_3d%p_patch_2D(1)%cells%in_domain
 
     !---------------------------------------------------------------------

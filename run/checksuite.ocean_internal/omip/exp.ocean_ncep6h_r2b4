@@ -5,9 +5,9 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2001-01-01T00:00:00Z"
-  end_date="2024-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
-# restart=".true."
+start_date="1948-01-01T00:00:00Z"
+  end_date="2018-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 restart_interval="P1Y"
@@ -19,23 +19,27 @@ output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
-modelTimeStep="PT900S"
-restartSemaphoreFilename='isRestartRun.sem'
-if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-  modelTimeStep="PT1800S"
-fi
-
+modelTimeStep="PT1H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
-forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+
+YEAR="1948"
+if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
+    YEAR_=$(cdo -s showyear ../experiments/${EXPNAME}/restart_oce_DOM01.nc)
+    YEAR=$(echo $YEAR_ | xargs echo -n )
+fi
+NCEP_FORCING=/work/mh0033/m211054/projects/icon/forcing_ncep/forcing_ncep6h_r2b4/${YEAR}_ncep_icon_OceanOnly_Icos_0158km_etopo40_forcing.nc
+FORCING_TIMESCALE=$(cdo -s ntime $NCEP_FORCING)
+
+forcing_timescale=$FORCING_TIMESCALE  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
-ocean_vertical_levels=64
-ocean_grids="OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc"
-grids_folder=/pool/data/ICON/oes/input/r0002/OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G
+ocean_vertical_levels=40
+ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
+grids_folder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
+ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -128,26 +132,21 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 64 unevenly spaced levels used by MPIOM/GR30
+! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
- dzlev_m(1:64)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
-                       13.0,   14.0,   15.0,   16.0,   17.0,   18.0,   20.0,   22.0,   24.0,   26.0,
-                       29.0,   33.0,   36.0,   39.0,   42.0,   45.0,   48.0,   52.0,   56.0,   60.0,
-                       64.0,   68.0,   72.0,   76.0,   80.0,   85.0,   90.0,   95.0,  100.0,  106.0,
-                      112.0,  118.0,  124.0,  130.0,  138.0,  146.0,  154.0,  162.0,  170.0,  178.0,
-                      186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
-                      286.0,  296.0,  306.0,  318.0
+ dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                =  7.5E-14
-  solver_max_iter_per_restart     =  14      !
-  solver_FirstGuess               = 1
-  select_lhs                      = 2
-
-
+  solver_max_iter_per_restart     =  19       !
   solver_max_restart_iterations   = 100       ! outer (restart solver)
+!  select_lhs                      = 2
+
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
@@ -167,13 +166,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
-  VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
+  VelocityDiffusion_order = 1          ! 21=biharmonic+laplacian (for the laplacian leith)
 
-  BiharmonicViscosity_scaling     =  1
-  BiharmonicViscosity_reference   =  1.5E12  !  [m2/s] constant horizontal viscosity coefficient for velocity
-  BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_scaling     =  1
-  HarmonicViscosity_reference   =  0.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_reference   =  3.0E+4  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_background  =  0.0  
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
@@ -184,8 +181,8 @@ cat > ${ocean_namelist} << EOF
 &ocean_vertical_diffusion_nml
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  Salinity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
   convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
   RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
@@ -199,13 +196,13 @@ cat > ${ocean_namelist} << EOF
   Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
   GMRedi_usesRelativeMaxSlopes = .false.
   S_max=1.0e-3                               
   S_d=0.0001                                 ! 1e-3 to 1e-4
-  k_tracer_GM_kappa_parameter     = 0.0     !
-  k_tracer_isoneutral_parameter   = 0.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter     = 1000.0     !
+  k_tracer_isoneutral_parameter   = 1000.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
@@ -236,7 +233,8 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
-  forcing_frequency               = 86400.0
+  forcing_frequency               = 21600.0
+  sw_scaling_factor               = 0.89                ! reduce sw in ncep forcing by 11%
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -260,8 +258,19 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_type        = 1         ! read from file
 /                                    
 &ocean_diagnostics_nml
-  diagnostics_level            = 1
-  diagnose_for_horizontalVelocity = .false.
+   diagnostics_level            = 1
+   gibraltar(1:10)              = 1367,1369
+   denmark_strait(1:10)         = 1411,1443
+   drake_passage(1:10)          = 7167,7201,7203,7288,7290,7505
+   indonesian_throughflow(1:20) = 2114,2118,2117,2120,4242,4245,4343,4349,4340,4350,4250,4615,4611,4616
+   scotland_iceland(1:10)       = 1240,1439,1238,1249,1248
+   mozambique(1:10)             = 1704,1688,1707,4200
+   framStrait(1:10)             = 116,118,1462
+   beringStrait(1:10)           = 693,721
+   barentsOpening(1:10)         = 68,65,67,42
+   agulhas(1:10)                = 8024,8022
+   agulhas_long(1:10)           = 8024,8022,6036
+   agulhas_longer(1:10)         = 8024,8022,6036,6025
 /
 &io_nml
   restart_file_type = 5
@@ -278,8 +287,8 @@ EOF
 # add standard atmo_non-hydrostatic_files
 #. ${thisdir}/add_required_ocean_files
 
-add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G-64levels.nc initial_state.nc
-add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-flux.nc
-add_link_file $ocean_data_InputFolder/omipRelaxSurface-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-relax.nc
+add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OceanOnly_Icos_0158km_etopo40-40levels.nc initial_state.nc
+add_link_file $NCEP_FORCING ocean-flux.nc
+add_link_file $ocean_data_InputFolder/omipRelaxSurface-OceanOnly_Icos_0158km_etopo40.nc ocean-relax.nc
 
 #-----------------------------------------------------------------------------

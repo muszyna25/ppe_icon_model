@@ -5,9 +5,9 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2001-01-01T00:00:00Z"
-  end_date="2024-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
-# restart=".true."
+start_date="1948-01-01T00:00:00Z"
+  end_date="2018-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
 restart_interval="P1Y"
@@ -30,7 +30,16 @@ autoPostProcessing="false"                         # submit postprocessing job
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
-forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+
+YEAR="1948"
+if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
+    YEAR_=$(cdo -s showyear ../experiments/${EXPNAME}/restart_oce_DOM01.nc)
+    YEAR=$(echo $YEAR_ | xargs echo -n )
+fi
+NCEP_FORCING=/work/mh0033/m211054/projects/icon/forcing_ncep/forcing_ncep6h_r2b6/${YEAR}_ncep_icon_OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G_forcing.nc
+FORCING_TIMESCALE=$(cdo -s ntime $NCEP_FORCING)
+
+forcing_timescale=$FORCING_TIMESCALE  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
 ocean_vertical_levels=64
 ocean_grids="OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc"
@@ -236,7 +245,8 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
-  forcing_frequency               = 86400.0
+  forcing_frequency               = 21600.0
+  sw_scaling_factor               = 0.89                ! reduce sw in ncep forcing by 11%
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -279,7 +289,7 @@ EOF
 #. ${thisdir}/add_required_ocean_files
 
 add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G-64levels.nc initial_state.nc
-add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-flux.nc
+add_link_file $NCEP_FORCING ocean-flux.nc
 add_link_file $ocean_data_InputFolder/omipRelaxSurface-OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc ocean-relax.nc
 
 #-----------------------------------------------------------------------------

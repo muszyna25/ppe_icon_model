@@ -54,7 +54,8 @@ cd checksuite.icon-dev
 ./icon-dev.checksuite -m update -o no -r /pool/data/ICON/buildbot_data/aes/reference.18306/${BB_SYSTEM}_${BB_SLAVE}/
 STATUS=$?
 
-echo $STATUS > $rundir/$job_name.status
+check_final_status $STATUS "$EXPERIMENT"
+
 
 #--------------------------------------------------------------------------------
 exit
