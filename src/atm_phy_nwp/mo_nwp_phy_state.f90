@@ -1758,6 +1758,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d, lrestart=.FALSE. )
 
+    ! Reference pressure used for vertical distribution of aerosol optical depths
+    ! &      diag%pref_aerdis(nproma,nblks_c)
+    cf_desc    = t_cf_var('pref_aerdis', '', '', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'pref_aerdis', diag%pref_aerdis,              &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d, lrestart=.FALSE. ) 
+
+
     IF (irad_aero == 5) THEN ! Old Tanre aerosol climatology taken over from the COSMO model (to be used with inwp_radiation==2)
       ! &      diag%aersea(nproma,nblks_c)
       cf_desc    = t_cf_var('aersea', '', '', datatype_flt)
@@ -1795,14 +1804,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       ELSE
         lrestart = .FALSE.
       ENDIF
-
-      ! Reference pressure used for vertical distribution of aerosol optical depths
-      ! &      diag%pref_aerdis(nproma,nblks_c)
-      cf_desc    = t_cf_var('pref_aerdis', '', '', datatype_flt)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, 'pref_aerdis', diag%pref_aerdis,              &
-        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-        & ldims=shape2d, lrestart=.FALSE. ) 
 
       ! &      diag%aercl_ss(nproma,nblks_c)
       cf_desc    = t_cf_var('aercl_ss', '', '', datatype_flt)
