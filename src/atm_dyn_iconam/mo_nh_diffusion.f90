@@ -49,7 +49,7 @@ MODULE mo_nh_diffusion
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_mult_mp
-  USE mo_physical_constants,  ONLY: cvd_o_rd, rd, grav
+  USE mo_physical_constants,  ONLY: cvd_o_rd, grav
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
 #ifdef _OPENACC
@@ -134,8 +134,8 @@ MODULE mo_nh_diffusion
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
-    INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
-    REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
+    INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk !, iedge, iedblk
+    REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, geofac_n2s !, blcoef
     LOGICAL :: ltemp_diffu
     INTEGER :: diffu_type, discr_vn, discr_t
     INTEGER :: jg                 !< patch ID
@@ -1212,10 +1212,10 @@ MODULE mo_nh_diffusion
         icell      => p_nh_metrics%zd_indlist
         iblk       => p_nh_metrics%zd_blklist
         ilev       => p_nh_metrics%zd_vertidx
-        iedge      => p_nh_metrics%zd_edgeidx
-        iedblk     => p_nh_metrics%zd_edgeblk
+   !     iedge      => p_nh_metrics%zd_edgeidx
+   !     iedblk     => p_nh_metrics%zd_edgeblk
         vcoef      => p_nh_metrics%zd_intcoef
-        blcoef     => p_nh_metrics%zd_e2cell
+   !     blcoef     => p_nh_metrics%zd_e2cell
         geofac_n2s => p_nh_metrics%zd_geofac
 
         nproma_zdiffu = MIN(nproma,256)

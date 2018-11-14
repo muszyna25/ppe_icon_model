@@ -47,7 +47,7 @@ MODULE mo_solve_nonhydro
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_gradients,    ONLY: grad_green_gauss_cell
   USE mo_velocity_advection,ONLY: velocity_tendencies
-  USE mo_math_constants,    ONLY: pi, dbl_eps
+  USE mo_math_constants,    ONLY: dbl_eps
   USE mo_math_divrot,       ONLY: div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_init_vgrid,        ONLY: nflatlev
