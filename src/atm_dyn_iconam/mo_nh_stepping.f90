@@ -94,6 +94,7 @@ MODULE mo_nh_stepping
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
@@ -450,7 +451,9 @@ MODULE mo_nh_stepping
     END DO
 
     !AD: Also output special diagnostics for LES on torus
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
+    IF (atm_phy_nwp_config(1)%is_les_phy &
+      .AND. sampl_freq_step>0 &
+      .AND. is_ls_forcing)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
