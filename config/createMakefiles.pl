@@ -261,7 +261,7 @@ foreach my $dir ( @directories ) {
 
         #If we are linking against an external cdi lib, skip support/cdilib.c.
         if (exists($ENV{'CDIROOT'})
-                && $ENV{CDIROOT} !~ '^\s*$') {
+                && $ENV{'CDIROOT'} !~ '^\s*$') {
             @seen{"cdilib.c"} = ();
         }
     }

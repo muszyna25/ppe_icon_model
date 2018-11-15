@@ -28,7 +28,7 @@ MODULE mo_interface_echam_art
   USE mo_model_domain           ,ONLY: t_patch
   USE mo_nonhydro_state         ,ONLY: p_nh_state, p_nh_state_lists
   
-  USE mo_echam_phy_config       ,ONLY: echam_phy_config
+!!$  USE mo_echam_phy_config       ,ONLY: echam_phy_config
   USE mo_echam_phy_memory       ,ONLY: t_echam_phy_field, prm_field, &
     &                                  t_echam_phy_tend,  prm_tend
 

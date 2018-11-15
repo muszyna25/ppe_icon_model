@@ -41,6 +41,8 @@ MODULE mo_read_netcdf_distributed
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_read_netcdf_distributed'
+
   PUBLIC :: distrib_read
   PUBLIC :: distrib_nf_open
   PUBLIC :: distrib_nf_close
@@ -294,7 +296,11 @@ CONTAINS
     INTEGER, ALLOCATABLE :: varids(:)
     INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
     LOGICAL, SAVE        :: isCommReady = .FALSE.
+    LOGICAL              :: exists, use_par_access
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::distrib_nf_open'
 #endif
+
+    CALL message ("distrib_nf_open:",path)
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
 #ifdef HAVE_PARALLEL_NETCDF
@@ -315,16 +321,31 @@ CONTAINS
 
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
 #ifdef HAVE_PARALLEL_NETCDF
-      CALL nf(nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
-        & MPI_INFO_NULL, distrib_nf_open))
+      ierr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
+        & MPI_INFO_NULL, distrib_nf_open)
 
-      ! Switch all vars to collective. Hopefully this is sufficient.
-      CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
-      ALLOCATE(varids(nvars))
-      CALL nf(nf_inq_varids(distrib_nf_open, nvars, varids))
-      DO i = 1,nvars
-        CALL nf(nf_var_par_access(distrib_nf_open, varids(i), NF_COLLECTIVE))
-      ENDDO
+      ! We do our own error handling here to give the filename to the user if
+      ! a file does not exist.
+      IF (ierr == nf_noerr) THEN
+        ! Switch all vars to collective. Hopefully this is sufficient.
+        CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
+        ALLOCATE(varids(nvars))
+        CALL nf(nf_inq_varids(distrib_nf_open, nvars, varids))
+        DO i = 1,nvars
+          CALL nf(nf_var_par_access(distrib_nf_open, varids(i), NF_COLLECTIVE))
+        ENDDO
+      ELSE
+        INQUIRE(file=path, exist=exists)
+        IF (.NOT. exists) THEN
+          CALL finish("mo_read_netcdf_distributed", "File "//TRIM(path)//" does not exist.")
+        ELSE
+          ! If file exists just do the usual thing.
+          CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+          CALL message(routine, 'warning: falling back to serial semantics for&
+               & opening netcdf file '//path)
+        ENDIF
+      ENDIF
+
 #else
       CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
 #endif
@@ -1061,10 +1082,10 @@ CONTAINS
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message('mo_read_netcdf_distributed netCDF error', &
+        CALL message(modname//' netCDF error', &
           &          nf_strerror(STATUS), level=em_warn)
       ELSE
-        CALL finish('mo_read_netcdf_distributed netCDF error', &
+        CALL finish(modname//' netCDF error', &
           &         nf_strerror(STATUS))
       ENDIF
     ENDIF

@@ -1059,7 +1059,7 @@ CONTAINS
 
     ! status variables
     INTEGER :: ist, netcd_status, ncid, ncid_grf, dimid, varid, max_cell_connectivity, &
-      &        max_verts_connectivity, ji, jc, ic, ilev, dim_idxlist, ierr
+      &        max_verts_connectivity, ji, jc, ic, ilev, dim_idxlist, ierr, tlen
     INTEGER,  POINTER :: local_ptr(:), local_ptr_2d(:,:)
     REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
     LOGICAL :: lhave_phys_id
@@ -1077,12 +1077,19 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(patch_pre%grid_filename)
     CALL message ('', TRIM(message_text))
 
+    tlen = LEN_TRIM(patch_pre%grid_filename)
 #if HAVE_PARALLEL_NETCDF
-    CALL nf(nf_open_par(TRIM(patch_pre%grid_filename), &
-       &                IOR(nf_nowrite, nf_mpiio), &
-       &                p_comm_work, MPI_INFO_NULL, ncid))
-#else
-    CALL nf(nf_open(TRIM(patch_pre%grid_filename), nf_nowrite, ncid))
+    ierr = nf_open_par(patch_pre%grid_filename(1:tlen), &
+       &               IOR(nf_nowrite, nf_mpiio), &
+       &               p_comm_work, MPI_INFO_NULL, ncid)
+    IF (ierr /= nf_noerr) THEN
+#endif
+      CALL nf(nf_open(patch_pre%grid_filename(1:tlen), nf_nowrite, ncid))
+#if HAVE_PARALLEL_NETCDF
+      WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
+           & opening netcdf file ', patch_pre%grid_filename(1:tlen)
+      CALL message(routine,message_text)
+    END IF
 #endif
 
     ! Test, if grid refinement information is available in the NetCDF
@@ -1091,12 +1098,20 @@ CONTAINS
     IF (lsep_grfinfo) THEN
       WRITE(message_text,'(a,a)') 'Read gridref info from file ', TRIM(patch_pre%grid_filename_grfinfo)
       CALL message ('', TRIM(message_text))
+      tlen = LEN_TRIM(patch_pre%grid_filename_grfinfo)
 #if HAVE_PARALLEL_NETCDF
-      CALL nf(nf_open_par(TRIM(patch_pre%grid_filename_grfinfo), &
-         &                IOR(nf_nowrite, nf_mpiio), p_comm_work, &
-         &                MPI_INFO_NULL, ncid_grf))
-#else
-      CALL nf(nf_open(TRIM(patch_pre%grid_filename_grfinfo), nf_nowrite, ncid_grf))
+      ierr = nf_open_par(patch_pre%grid_filename_grfinfo(1:tlen), &
+         &               IOR(nf_nowrite, nf_mpiio), p_comm_work, &
+         &               MPI_INFO_NULL, ncid_grf)
+      IF (ierr /= nf_noerr) THEN
+#endif
+        CALL nf(nf_open(patch_pre%grid_filename_grfinfo(1:tlen), nf_nowrite, &
+             ncid_grf))
+#if HAVE_PARALLEL_NETCDF
+        WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
+             & opening netcdf file ', patch_pre%grid_filename_grfinfo(1:tlen)
+        CALL message(routine,message_text)
+      END IF
 #endif
     ELSE
       ncid_grf = ncid

@@ -787,7 +787,7 @@ case "$ac_sitename" in
                         FPPFLAGS    = -fpp
                         STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION -D__LOOP_EXCHANGE
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -D__LOOP_EXCHANGE
-                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume norealloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_
                         FFLAGS      = $FPPFLAGS -assume realloc_lhs
                         LDFLAGS     = -gdwarf-4
                         F77FLAGS    = $FPPFLAGS
@@ -877,7 +877,7 @@ case "$ac_sitename" in
                             no)
                                 ;;
                             "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-intel14
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-intel14
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
@@ -922,7 +922,7 @@ case "$ac_sitename" in
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
                             "$software_tree/mpi/openmpi/2.0.2p1_hpcx-gcc64"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-gcc64
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-gcc64
                                 FFLAGS       = $FFLAGS
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-gcc64
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
@@ -1119,12 +1119,13 @@ case "$ac_sitename" in
                                 load_modules=gcc/5.2.0 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.3-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 ;;
                             nag)
                                 load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
                                 FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
-                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl
+                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
                                 MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS
                                 ;;
@@ -1132,6 +1133,7 @@ case "$ac_sitename" in
                                 load_modules=intel/16.0.2 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                                 CC_OMPFLAG  = -fopenmp
                                 ;;

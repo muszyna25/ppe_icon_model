@@ -54,7 +54,8 @@ cd checksuite.icon-kit
 ./icon-kit.checksuite
 STATUS=$?
 
-echo $STATUS > $rundir/$job_name.status
+check_final_status $STATUS "$EXPERIMENT"
+
 
 #--------------------------------------------------------------------------------
 exit
