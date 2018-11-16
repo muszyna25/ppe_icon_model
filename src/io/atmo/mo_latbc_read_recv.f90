@@ -264,6 +264,13 @@ CONTAINS
     REAL(sp), ALLOCATABLE          :: var3_sp(:)
     INTEGER                        :: np, nval, nv_off, mpi_error, ierrstat
     INTEGER                        :: dst_start, dst_end, src_start, src_end
+#ifndef NOMPI
+#ifdef DO_NOT_COMBINE_PUT_AND_NOCHECK
+    INTEGER, PARAMETER :: lock_assert = 0
+#else
+    INTEGER, PARAMETER :: lock_assert = MPI_MODE_NOCHECK
+#endif
+#endif
     LOGICAL                        :: lskip
 
 
@@ -333,7 +340,7 @@ CONTAINS
        END IF
 
        IF (.NOT. lskip) THEN
-         CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
+         CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, lock_assert, patch_data%mem_win%mpi_win, mpi_error)
          
          ! consistency check:
          IF (SIZE(var3_sp) < nv_off+nval) THEN
