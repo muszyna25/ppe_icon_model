@@ -1636,7 +1636,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 
    start_sync_timer(timer_exch_data)
 
-   lsend     = .FALSE.
+   lsend = PRESENT(send)
 
    nfields = SIZE(recv)
    nproma1 = SIZE(recv(1)%p, 1)
@@ -1646,7 +1646,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
      iscont(i, 1) = IS_CONTIGUOUS(recv(i)%p)
      cpy_shape = SHAPE(recv(i)%p)
      nproma_mismatch_found = nproma_mismatch_found &
-       &                     .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
+       &          .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
      nl = cpy_shape(2)
      nblk = cpy_shape(3)
      nlev(i, 1) = nl
@@ -1658,7 +1658,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
        iscont(i, 2) = IS_CONTIGUOUS(send(i)%p)
        cpy_shape = SHAPE(send(i)%p)
        nproma_mismatch_found = nproma_mismatch_found &
-         &                     .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
+         &        .OR. cpy_shape(1) /= nproma1
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
@@ -1666,7 +1666,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
        nlev(i, 2) = nl
      END DO
    ELSE
-     iscont(:, 2) = .FALSE.
+     iscont(:, 2) = .TRUE.
      nlev(:, 2) = nlev(:, 1)
    END IF
 
