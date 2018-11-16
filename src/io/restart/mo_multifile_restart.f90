@@ -282,7 +282,7 @@ CONTAINS
     srcRanks = PACK((/(i, i=0,num_work_procs-1)/), &
                      (/(rBuddy(pe_in=i)==myWrt, i=0,num_work_procs-1)/))
     IF (nStreams > nSrcRanks) &
-      CALL finish(routine, "more horizontal multifile chunks worker ranks requested!")
+      CALL finish(routine, "more horizontal multifile chunks than worker ranks requested!")
     ! allocate patch data structure
     ALLOCATE(t_MultifilePatchData :: me%patchData(n_dom*nStreams), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -300,6 +300,9 @@ CONTAINS
         IF (.NOT.iAmRestartWriter()) THEN 
           lthis_pe_active = ANY(myProcId == srcRanks(sRStrt:sREnd))
           CALL patchData%createCollectors(myWrt, srcRanks(1:0), lthis_pe_active)
+          ! too keep mo_timer happy
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
         ELSE
           CALL patchData%createCollectors(myWrt, srcRanks(sRStrt:sREnd), .TRUE.)
         END IF
