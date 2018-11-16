@@ -1421,22 +1421,37 @@ END SUBROUTINE exchange_data_i3d
 !! in one step
 !! yaxt version by Moritz Hanke, April 2016
 !!
-SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
+  SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
+       recv, send, nshift)
+
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+
+    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
+    TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+
+    INTEGER, INTENT(IN)           :: ndim2tot
+    INTEGER, OPTIONAL, INTENT(IN) :: nshift
+    CALL exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
+  END SUBROUTINE exchange_data_mult_dp
+
+
+  SUBROUTINE exchange_data_mult_dp_top(p_pat, ndim2tot, &
    recv, send, nshift)
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-   TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
-   TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+   TYPE(t_ptr_3d), TARGET, PTR_INTENT(in) :: recv(:)
+   TYPE(t_ptr_3d), TARGET, OPTIONAL, PTR_INTENT(in) :: send(:)
 
    INTEGER, INTENT(IN)           :: ndim2tot
    INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
    INTEGER :: nlev(SIZE(recv), 2)
-   LOGICAL :: iscont(SIZE(recv), 2)
+   LOGICAL :: needs_cpy(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
    LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
+   TYPE(t_ptr_3d), POINTER :: send_(:)
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_dp"
@@ -1459,7 +1474,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
    nproma_mismatch_found = .FALSE.
    cpy_size = 0
    DO i = 1, nfields
-     iscont(i, 1) = IS_CONTIGUOUS(recv(i)%p)
+     needs_cpy(i, 1) = .NOT. IS_CONTIGUOUS(recv(i)%p)
      cpy_shape = SHAPE(recv(i)%p)
      nproma_mismatch_found = nproma_mismatch_found &
        &          .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
@@ -1468,34 +1483,41 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
        &        + nproma1 * nl * nblk &
-       &             * (MERGE(0, 1, iscont(i, 1)) + MERGE(1, 0, cpy_recv))
+       &             * (MERGE(1, 0, needs_cpy(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
-       iscont(i, 2) = IS_CONTIGUOUS(send(i)%p)
+       needs_cpy(i, 2) = .NOT. IS_CONTIGUOUS(send(i)%p)
        cpy_shape = SHAPE(send(i)%p)
        nproma_mismatch_found = nproma_mismatch_found &
          &        .OR. cpy_shape(1) /= nproma1
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
+         &        + nproma1 * MERGE(nl, 0, needs_cpy(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE
-     iscont(:, 2) = .TRUE.
+     needs_cpy(:, 2) = cpy_recv
      nlev(:, 2) = nlev(:, 1)
    END IF
 
+   IF (cpy_recv) THEN
+     send_ => recv
+   ELSE IF (lsend) THEN
+     send_ => send
+   ELSE
+     NULLIFY(send_)
+   END IF
    IF (nproma_mismatch_found) &
      CALL finish(routine, "inconsistent array shapes detected")
 
-   CALL exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, iscont, &
-        recv, send, nshift)
+   CALL exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
+        recv, send_, nshift)
 
    stop_sync_timer(timer_exch_data)
 
-END SUBROUTINE exchange_data_mult_dp
+END SUBROUTINE exchange_data_mult_dp_top
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -1507,16 +1529,16 @@ END SUBROUTINE exchange_data_mult_dp
   !! in one step
   !! yaxt version by Moritz Hanke, April 2016
   !!
-  SUBROUTINE exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, iscont, &
+  SUBROUTINE exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
     recv, send, nshift)
 
     CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
     TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
-    TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+    TYPE(t_ptr_3d), POINTER, PTR_INTENT(in) :: send(:)
 
     INTEGER, INTENT(IN) :: cpy_size, nlev(SIZE(recv), 2)
-    LOGICAL, INTENT(IN)           :: iscont(SIZE(recv), 2)
+    LOGICAL, INTENT(IN)           :: needs_cpy(SIZE(recv), 2)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
@@ -1527,7 +1549,7 @@ END SUBROUTINE exchange_data_mult_dp
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
-    lsend = PRESENT(send)
+    lsend = ASSOCIATED(send)
     cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
@@ -1535,7 +1557,7 @@ END SUBROUTINE exchange_data_mult_dp
     nproma = SIZE(recv(1)%p, 1)
     ! set up C pointers
     DO i = 1, nfields
-      IF (iscont(i, 1)) THEN
+      IF (.NOT. needs_cpy(i, 1)) THEN
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
         nblk = SIZE(recv(i)%p, 3)
@@ -1551,7 +1573,7 @@ END SUBROUTINE exchange_data_mult_dp
     END DO
     IF (lsend) THEN
       DO i = 1, nfields
-        IF (iscont(i, 2)) THEN
+        IF (.NOT. needs_cpy(i, 2)) THEN
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
           nblk = SIZE(send(i)%p, 3)
@@ -1564,18 +1586,6 @@ END SUBROUTINE exchange_data_mult_dp
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
-      END DO
-    ELSE IF (cpy_recv) THEN
-      DO i = 1, nfields
-        nblk = SIZE(recv(i)%p, 3)
-        ofs = cpy_psum + 1
-        nl = nlev(i, 1)
-        incr = nproma * nl * nblk
-        last = cpy_psum + incr
-        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
-        cpy_psum = cpy_psum + incr
-        cpy(:, :, :) = recv(i)%p
-        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
@@ -1597,7 +1607,7 @@ END SUBROUTINE exchange_data_mult_dp
 
     cpy_psum = 0
     DO i = 1, nfields
-      IF (.NOT. iscont(i, 1)) THEN
+      IF (needs_cpy(i, 1)) THEN
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
@@ -1626,17 +1636,18 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-   TYPE(t_ptr_3d_sp), PTR_INTENT(in) :: recv(:)
-   TYPE(t_ptr_3d_sp), OPTIONAL, PTR_INTENT(in) :: send(:)
+   TYPE(t_ptr_3d_sp), TARGET, PTR_INTENT(in) :: recv(:)
+   TYPE(t_ptr_3d_sp), TARGET, OPTIONAL, PTR_INTENT(in) :: send(:)
 
    INTEGER, INTENT(IN)           :: ndim2tot
    INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
    INTEGER :: nlev(SIZE(recv), 2)
-   LOGICAL :: iscont(SIZE(recv), 2)
+   LOGICAL :: needs_cpy(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
    LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
+   TYPE(t_ptr_3d_sp), POINTER :: send_(:)
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_sp"
@@ -1659,7 +1670,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
    nproma_mismatch_found = .FALSE.
    cpy_size = 0
    DO i = 1, nfields
-     iscont(i, 1) = IS_CONTIGUOUS(recv(i)%p)
+     needs_cpy(i, 1) = .NOT. IS_CONTIGUOUS(recv(i)%p)
      cpy_shape = SHAPE(recv(i)%p)
      nproma_mismatch_found = nproma_mismatch_found &
        &          .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
@@ -1668,30 +1679,37 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
        &        + nproma1 * nl * nblk &
-       &             * (MERGE(0, 1, iscont(i, 1)) + MERGE(1, 0, cpy_recv))
+       &             * (MERGE(1, 0, needs_cpy(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
-       iscont(i, 2) = IS_CONTIGUOUS(send(i)%p)
+       needs_cpy(i, 2) = .NOT. IS_CONTIGUOUS(send(i)%p)
        cpy_shape = SHAPE(send(i)%p)
        nproma_mismatch_found = nproma_mismatch_found &
          &        .OR. cpy_shape(1) /= nproma1
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
+         &        + nproma1 * MERGE(nl, 0, needs_cpy(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE
-     iscont(:, 2) = .TRUE.
+     needs_cpy(:, 2) = cpy_recv
      nlev(:, 2) = nlev(:, 1)
    END IF
 
+   IF (cpy_recv) THEN
+     send_ => recv
+   ELSE IF (lsend) THEN
+     send_ => send
+   ELSE
+     NULLIFY(send_)
+   END IF
    IF (nproma_mismatch_found) &
      CALL finish(routine, "inconsistent array shapes detected")
 
-   CALL exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, iscont, &
-        recv, send, nshift)
+   CALL exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
+        recv, send_, nshift)
 
    stop_sync_timer(timer_exch_data)
 
@@ -1707,16 +1725,16 @@ END SUBROUTINE exchange_data_mult_sp
   !! in one step
   !! yaxt version by Moritz Hanke, April 2016
   !!
-  SUBROUTINE exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, iscont, &
+  SUBROUTINE exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
     recv, send, nshift)
 
     CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-    TYPE(t_ptr_3d_sp), INTENT(in) :: recv(:)
-    TYPE(t_ptr_3d_sp), OPTIONAL, INTENT(in) :: send(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in) :: recv(:)
+    TYPE(t_ptr_3d_sp), POINTER, PTR_INTENT(in) :: send(:)
 
     INTEGER, INTENT(IN) :: cpy_size, nlev(SIZE(recv), 2)
-    LOGICAL, INTENT(IN)           :: iscont(SIZE(recv), 2)
+    LOGICAL, INTENT(IN)           :: needs_cpy(SIZE(recv), 2)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
@@ -1727,7 +1745,7 @@ END SUBROUTINE exchange_data_mult_sp
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
-    lsend = PRESENT(send)
+    lsend = ASSOCIATED(send)
     cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
@@ -1735,7 +1753,7 @@ END SUBROUTINE exchange_data_mult_sp
     nproma = SIZE(recv(1)%p, 1)
     ! set up C pointers
     DO i = 1, nfields
-      IF (iscont(i, 1)) THEN
+      IF (.NOT. needs_cpy(i, 1)) THEN
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
         nblk = SIZE(recv(i)%p, 3)
@@ -1751,7 +1769,7 @@ END SUBROUTINE exchange_data_mult_sp
     END DO
     IF (lsend) THEN
       DO i = 1, nfields
-        IF (iscont(i, 2)) THEN
+        IF (.NOT. needs_cpy(i, 2)) THEN
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
           nblk = SIZE(send(i)%p, 3)
@@ -1764,18 +1782,6 @@ END SUBROUTINE exchange_data_mult_sp
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
-      END DO
-    ELSE IF (cpy_recv) THEN
-      DO i = 1, nfields
-        nblk = SIZE(recv(i)%p, 3)
-        ofs = cpy_psum + 1
-        nl = nlev(i, 1)
-        incr = nproma * nl * nblk
-        last = cpy_psum + incr
-        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
-        cpy_psum = cpy_psum + incr
-        cpy(:, :, :) = recv(i)%p
-        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
@@ -1797,7 +1803,7 @@ END SUBROUTINE exchange_data_mult_sp
 
     cpy_psum = 0
     DO i = 1, nfields
-      IF (.NOT. iscont(i, 1)) THEN
+      IF (needs_cpy(i, 1)) THEN
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
