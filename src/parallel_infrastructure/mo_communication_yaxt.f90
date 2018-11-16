@@ -1467,8 +1467,8 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
      nblk = cpy_shape(3)
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
-       &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
-     IF (cpy_recv) cpy_size = cpy_size + nproma1 * nl * nblk
+       &        + nproma1 * nl * nblk &
+       &             * (MERGE(0, 1, iscont(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
@@ -1667,8 +1667,8 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
      nblk = cpy_shape(3)
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
-       &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
-     IF (cpy_recv) cpy_size = cpy_size + nproma1 * nl * nblk
+       &        + nproma1 * nl * nblk &
+       &             * (MERGE(0, 1, iscont(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
