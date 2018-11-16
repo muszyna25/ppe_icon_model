@@ -1436,7 +1436,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
    LOGICAL :: iscont(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
-   LOGICAL :: lsend, nproma_mismatch_found
+   LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_dp"
@@ -1452,6 +1452,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
    start_sync_timer(timer_exch_data)
 
    lsend = PRESENT(send)
+   cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
    nfields = SIZE(recv)
    nproma1 = SIZE(recv(1)%p, 1)
@@ -1467,6 +1468,7 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
        &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+     IF (cpy_recv) cpy_size = cpy_size + nproma1 * nl * nblk
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
@@ -1519,13 +1521,14 @@ END SUBROUTINE exchange_data_mult_dp
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
          kshift(SIZE(recv))
-    LOGICAL :: lsend
+    LOGICAL :: lsend, cpy_recv
     REAL(dp), TARGET :: cpy_buf(cpy_size)
     REAL(dp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
     lsend = PRESENT(send)
+    cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
     cpy_psum = 0
@@ -1561,6 +1564,18 @@ END SUBROUTINE exchange_data_mult_dp
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
+      END DO
+    ELSE IF (cpy_recv) THEN
+      DO i = 1, nfields
+        nblk = SIZE(recv(i)%p, 3)
+        ofs = cpy_psum + 1
+        nl = nlev(i, 1)
+        incr = nproma * nl * nblk
+        last = cpy_psum + incr
+        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
+        cpy_psum = cpy_psum + incr
+        cpy(:, :, :) = recv(i)%p
+        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
@@ -1621,7 +1636,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
    LOGICAL :: iscont(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
-   LOGICAL :: lsend, nproma_mismatch_found
+   LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_sp"
@@ -1637,6 +1652,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
    start_sync_timer(timer_exch_data)
 
    lsend = PRESENT(send)
+   cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
    nfields = SIZE(recv)
    nproma1 = SIZE(recv(1)%p, 1)
@@ -1652,6 +1668,7 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
        &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+     IF (cpy_recv) cpy_size = cpy_size + nproma1 * nl * nblk
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
@@ -1704,13 +1721,14 @@ END SUBROUTINE exchange_data_mult_sp
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
          kshift(SIZE(recv))
-    LOGICAL :: lsend
+    LOGICAL :: lsend, cpy_recv
     REAL(sp), TARGET :: cpy_buf(cpy_size)
     REAL(sp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
     lsend = PRESENT(send)
+    cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
     cpy_psum = 0
@@ -1746,6 +1764,18 @@ END SUBROUTINE exchange_data_mult_sp
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
+      END DO
+    ELSE IF (cpy_recv) THEN
+      DO i = 1, nfields
+        nblk = SIZE(recv(i)%p, 3)
+        ofs = cpy_psum + 1
+        nl = nlev(i, 1)
+        incr = nproma * nl * nblk
+        last = cpy_psum + incr
+        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
+        cpy_psum = cpy_psum + incr
+        cpy(:, :, :) = recv(i)%p
+        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
