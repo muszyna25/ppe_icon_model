@@ -39,19 +39,17 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
-                                p_pe, p_io, my_process_is_stdio, p_comm_work, &
-                                p_comm_work_test, get_my_mpi_all_comm_size, &
+                                p_pe, get_my_mpi_all_comm_size, &
                                 p_comm_size, p_n_work
   USE mo_parallel_config, ONLY: p_test_run
-#else
-  USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio, p_comm_work, &
-       p_comm_work_test
 #endif
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
-    &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
+    &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
+    &                           p_min, p_max,  &
     &                           num_work_procs, p_sum, p_allgather, mpi_land, &
-    &                           p_allreduce
+    &                           p_allreduce, my_process_is_stdio, p_io, &
+    &                           p_comm_work, p_comm_work_test
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
