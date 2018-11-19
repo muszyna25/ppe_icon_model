@@ -676,6 +676,7 @@ MODULE mo_mpi
   INTERFACE p_gather
      MODULE PROCEDURE p_gather_real_0d1d
      MODULE PROCEDURE p_gather_real_1d2d
+     MODULE PROCEDURE p_gather_real_2d3d
      MODULE PROCEDURE p_gather_real_5d6d
      MODULE PROCEDURE p_gather_real_1d1d
      MODULE PROCEDURE p_gather_int_0d1d
@@ -9500,7 +9501,7 @@ CONTAINS
 #else
      recvbuf(:) = sendbuf
 #endif
-   END SUBROUTINE p_gather_real_0d1d
+  END SUBROUTINE p_gather_real_0d1d
 
   SUBROUTINE p_gather_real_1d2d (sendbuf, recvbuf, p_dest, comm)
     REAL(dp),          INTENT(in   ) :: sendbuf(:)
@@ -9521,9 +9522,32 @@ CONTAINS
                      recvbuf, SIZE(sendbuf), p_real_dp, &
                      p_dest, p_comm, p_error)
 #else
-     recvbuf(:,LBOUND(recvbuf,2)) = sendbuf(:)
+     recvbuf(:,1) = sendbuf(:)
 #endif
-   END SUBROUTINE p_gather_real_1d2d
+  END SUBROUTINE p_gather_real_1d2d
+
+  SUBROUTINE p_gather_real_2d3d(sendbuf, recvbuf, p_dest, comm)
+    REAL(dp),          INTENT(in   ) :: sendbuf(:,:)
+    REAL(dp),          INTENT(inout) :: recvbuf(:,:,:)
+    INTEGER,           INTENT(in   ) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in   ) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL mpi_gather(sendbuf, SIZE(sendbuf), p_real_dp, &
+                    recvbuf, SIZE(sendbuf), p_real_dp, &
+                    p_dest, p_comm, p_error)
+#else
+    recvbuf(:,:,1) = sendbuf(:,:)
+#endif
+  END SUBROUTINE p_gather_real_2d3d
 
    SUBROUTINE p_gather_real_5d6d (sendbuf, recvbuf, p_dest, comm)
      REAL(dp),          INTENT(in   ) :: sendbuf(:,:,:,:,:)
