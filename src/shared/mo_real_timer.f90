@@ -41,15 +41,15 @@ MODULE mo_real_timer
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
                                 p_pe, get_my_mpi_all_comm_size, &
                                 p_comm_size, p_n_work
-  USE mo_parallel_config, ONLY: p_test_run
 #endif
+  USE mo_parallel_config, ONLY: p_test_run
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
     &                           p_min, p_max,  &
     &                           num_work_procs, p_sum, p_allgather, mpi_land, &
     &                           p_allreduce, my_process_is_stdio, p_io, &
-    &                           p_comm_work, p_comm_work_test
+    &                           p_comm_work, p_comm_work_test, p_gather
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -583,13 +583,10 @@ CONTAINS
 
     INTEGER, PARAMETER :: i_sum = 1, i_min = 2, i_max = 3
 
-    REAL(dp)::sbuf(3,timer_top), rbuf(3,timer_top,num_test_procs+num_work_procs), res(3,timer_top)
-    REAL(dp) :: q, avg, alpha, e
-#ifdef _OPENMP
-    REAL(dp) :: t
-#endif
-    INTEGER  :: p_error, itpos(timer_top)
-    INTEGER  :: ip, iit, it, it1, it2, n
+    REAL(dp), ALLOCATABLE :: sbuf(:,:), sbuf_raw(:,:), rbuf(:,:,:), res(:,:)
+    REAL(dp) :: q, avg, alpha, e, t
+    INTEGER  :: itpos(timer_top), comm
+    INTEGER  :: ip, iit, it, it1, it2, n, thread_id
 
     CHARACTER(len=12) :: min_str, avg_str, max_str, sum_str, e_str
 
@@ -602,37 +599,32 @@ CONTAINS
       it2 = timer_top
     ENDIF
 
-#ifdef _OPENMP
-
 !$omp parallel private(t)
+    n = 1
+    thread_id = 0
+!$  n = omp_get_num_threads()
+!$  thread_id = omp_get_thread_num()
+!$omp master
+    ALLOCATE(sbuf_raw(timer_top,0:n-1), sbuf(timer_top,3), &
+         rbuf(timer_top,3,num_test_procs+num_work_procs), res(timer_top,3))
+!$omp end master
+!$omp barrier
     DO it = 1, timer_top
-!$omp critical
       t = rt(it)%tot
-      sbuf(i_sum,it) = sbuf(i_sum,it)+t
-      sbuf(i_min,it) = MIN(sbuf(i_min,it),t)
-      sbuf(i_max,it) = MAX(sbuf(i_max,it),t)
-!$omp end critical
+      sbuf_raw(it,thread_id) = t
     ENDDO
+!$omp barrier
+!$omp do
+    DO it = 1, timer_top
+      sbuf(it,i_sum) = SUM(sbuf_raw(it,:))
+      sbuf(it,i_min) = MINVAL(sbuf_raw(it,:))
+      sbuf(it,i_max) = MAXVAL(sbuf_raw(it,:))
+    ENDDO
+!$omp end do nowait
 !$omp end parallel
 
-    n = omp_get_num_threads()
-
-#else
-    n = 1
-    DO it = 1, timer_top
-      sbuf(:,it) = rt(it)%tot
-    ENDDO
-
-#endif
-
-#ifndef NOMPI
-    CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
-         rbuf, SIZE(sbuf), p_real_dp, &
-         p_io, MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run), p_error)
-#else
-    rbuf(:,:,1) = sbuf(:,:)
-#endif
-
+    comm = MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run)
+    CALL p_gather(sbuf, rbuf, p_io, comm=comm)
 
     n = n*(num_test_procs+num_work_procs)
     q = 1.0_dp/REAL(n,dp)
