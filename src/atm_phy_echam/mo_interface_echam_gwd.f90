@@ -39,7 +39,7 @@ MODULE mo_interface_echam_gwd
 CONTAINS
 
   SUBROUTINE interface_echam_gwd(jg, jb,jcs,jce       ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -48,7 +48,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -63,9 +63,15 @@ CONTAINS
 
     ! Local variables
     !
-    REAL(wp) :: zdis_gwd(nproma,nlev) !< out, energy dissipation rate [J/s/kg]
-    INTEGER  :: nc                    !< number of cells/columns from jcs to jce
-!!$    REAL(wp) :: zlat_deg(nproma)       !< latitude in deg N
+    REAL(wp)                            :: q_gwd(nproma,nlev)
+    !
+    REAL(wp)                            :: tend_ta_gwd(nproma,nlev)
+    REAL(wp)                            :: tend_ua_gwd(nproma,nlev)
+    REAL(wp)                            :: tend_va_gwd(nproma,nlev)
+    !
+    REAL(wp)                            :: zdis_gwd(nproma,nlev) !< out, energy dissipation rate [J/s/kg]
+    INTEGER                             :: nc                    !< number of cells/columns from jcs to jce
+!!$    REAL(wp)                            :: zlat_deg(nproma)       !< latitude in deg N
 
     IF (ltimer) call timer_start(timer_gwd)    
 
@@ -102,22 +108,39 @@ CONTAINS
 !!$               &         zlat_deg(:)              ,&
 !!$               &         aprflux(:,krow)          ,&
                &         zdis_gwd(:,:)            ,&
-               &         tend%   ua_gwd(:,:,jb)   ,&
-               &         tend%   va_gwd(:,:,jb)    )
+               &         tend_ua_gwd(:,:)         ,&
+               &         tend_va_gwd(:,:)          )
           !
           ! heating
-          field% q_gwd(jcs:jce,:,jb) = zdis_gwd(jcs:jce,:) * field%mair(jcs:jce,:,jb)
+          q_gwd(jcs:jce,:) = zdis_gwd(jcs:jce,:) * field%mair(jcs:jce,:,jb)
           !
-          ! vertical integral
-          field% q_gwd_vi(jcs:jce,jb) = SUM(field% q_gwd(jcs:jce,:,jb),DIM=2)
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(field% q_gwd   )) field% q_gwd   (jcs:jce,:,jb) =     q_gwd(jcs:jce,:)
+          IF (ASSOCIATED(field% q_gwd_vi)) field% q_gwd_vi(jcs:jce,  jb) = SUM(q_gwd(jcs:jce,:),DIM=2)
+          !
+          IF (ASSOCIATED(tend% ua_gwd)) tend% ua_gwd(jcs:jce,:,jb) = tend_ua_gwd(jcs:jce,:)
+          IF (ASSOCIATED(tend% va_gwd)) tend% va_gwd(jcs:jce,:,jb) = tend_va_gwd(jcs:jce,:)
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(field% q_gwd)) q_gwd(jcs:jce,:) = field% q_gwd(jcs:jce,:,jb)
+          !
+          IF (ASSOCIATED(tend% ua_gwd)) tend_ua_gwd(jcs:jce,:) = tend% ua_gwd(jcs:jce,:,jb)
+          IF (ASSOCIATED(tend% va_gwd)) tend_va_gwd(jcs:jce,:) = tend% va_gwd(jcs:jce,:,jb)
           !
        END IF
        !
        ! convert    heating
-       tend% ta_gwd(jcs:jce,:,jb) = field% q_gwd(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
+       tend_ta_gwd(jcs:jce,:) = q_gwd(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
        !
-       ! accumulate heating
-       field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_gwd(jcs:jce,:,jb)
+       IF (ASSOCIATED(tend% ta_gwd)) tend% ta_gwd(jcs:jce,:,jb) = tend_ta_gwd(jcs:jce,:)
+
+       ! for output: accumulate heating
+       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_gwd(jcs:jce,:)
+       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_gwd(jcs:jce,:),DIM=2)
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_gwd)
@@ -125,9 +148,9 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)
-          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)
-          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)
+          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend_ta_gwd(jcs:jce,:)
+          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend_ua_gwd(jcs:jce,:)
+          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend_va_gwd(jcs:jce,:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -135,16 +158,19 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend% ta_gwd(jcs:jce,:,jb)*pdtime
-          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend% ua_gwd(jcs:jce,:,jb)*pdtime
-          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend% va_gwd(jcs:jce,:,jb)*pdtime
+          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_gwd(jcs:jce,:)*pdtime
+          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend_ua_gwd(jcs:jce,:)*pdtime
+          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend_va_gwd(jcs:jce,:)*pdtime
        END IF
        !
     ELSE
        !
-       tend% ta_gwd(jcs:jce,:,jb) = 0.0_wp
-       tend% ua_gwd(jcs:jce,:,jb) = 0.0_wp
-       tend% va_gwd(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_gwd   )) field% q_gwd   (jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_gwd_vi)) field% q_gwd_vi(jcs:jce,  jb) = 0.0_wp
+       !
+       IF (ASSOCIATED(tend% ta_gwd)) tend% ta_gwd(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ua_gwd)) tend% ua_gwd(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% va_gwd)) tend% va_gwd(jcs:jce,:,jb) = 0.0_wp
        !
     END IF
 

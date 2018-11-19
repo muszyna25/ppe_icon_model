@@ -1690,7 +1690,7 @@ CONTAINS
       &                               ev_tx_comm, ev_tx_root, &
       &                               event_list_local, ievent_list_local)
 
-    IF (dom_sim_step_info_jstep0 > 0 .AND. p_comm_io /= MPI_COMM_NULL) &
+    IF (dom_sim_step_info_jstep0 > 0 .AND. ASSOCIATED(all_events)) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info_jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
@@ -1799,6 +1799,7 @@ CONTAINS
     LOGICAL :: include_last
     CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
     CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
+    CHARACTER(LEN=max_datetime_str_len+1) :: output_start(max_time_intervals)
     CHARACTER(len=max_char_length) :: attname !< attribute name
 
     ! pack file-name meta-data into a derived type to pass them
@@ -1855,6 +1856,7 @@ CONTAINS
 
     include_last    = of%name_list%include_last
     output_interval = of%name_list%output_interval
+    output_start    = of%name_list%output_start
 
     ! Handle the case that one namelist has been split into
     ! concurrent, alternating files ("streams"):
@@ -1862,7 +1864,7 @@ CONTAINS
     IF (of%npartitions > 1) THEN
       ! count the number of different time intervals for this event (usually 1)
       nintvls = 0
-      DO WHILE (LEN_TRIM(of%name_list%output_start(nintvls+1)) > 0)
+      DO WHILE (LEN_TRIM(output_start(nintvls+1)) > 0)
         nintvls = nintvls + 1
         IF (nintvls == MAX_TIME_INTERVALS) EXIT
       END DO
@@ -1870,14 +1872,14 @@ CONTAINS
       DO iintvl=1,nintvls
         mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
         IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
-        mtime_datetime => newDatetime(TRIM(strip_from_modifiers(of%name_list%output_start(iintvl))))
+        mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
         !
         ! - The start_date gets an offset of
         !         "(ifile_partition - 1) * output_interval"
         DO ifile=1,(of%ifile_partition-1)
           mtime_datetime = mtime_datetime + mtime_interval
         END DO
-        CALL datetimeToString(mtime_datetime, of%name_list%output_start(iintvl))
+        CALL datetimeToString(mtime_datetime, output_start(iintvl))
         ! - The output_interval is replaced by "
         !         "npartitions * output_interval"
         total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
@@ -1907,7 +1909,7 @@ CONTAINS
     ! --- I/O PEs communicate their event data, the other PEs create
     ! --- the event data only locally for their own event control:
     out_event => new_parallel_output_event(of%name_list%ready_file,        &
-         &             of%name_list%output_start, of%name_list%output_end, &
+         &             output_start, of%name_list%output_end, &
          &             output_interval, include_last, dom_sim_step_info,   &
          &             fname_metadata, compute_matching_sim_steps,         &
          &             generate_output_filenames, local_i, p_comm_io,      &

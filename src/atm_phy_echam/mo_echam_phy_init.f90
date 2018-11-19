@@ -612,23 +612,8 @@ CONTAINS
       IF (isrestart()) THEN
          !
          IF ( echam_phy_tc(jg)%dt_rad == dt_zero ) THEN
-            field% rsd_rt      (:,:,:) = 0.0_wp
-            field% rsu_rt      (:,:,:) = 0.0_wp
-            field% rsdcs_rt    (:,:,:) = 0.0_wp
-            field% rsucs_rt    (:,:,:) = 0.0_wp
-            field% rvds_dir_rt (:,  :) = 0.0_wp
-            field% rpds_dir_rt (:,  :) = 0.0_wp
-            field% rnds_dir_rt (:,  :) = 0.0_wp
-            field% rvds_dif_rt (:,  :) = 0.0_wp
-            field% rpds_dif_rt (:,  :) = 0.0_wp
-            field% rnds_dif_rt (:,  :) = 0.0_wp
-            field% rvus_rt     (:,  :) = 0.0_wp
-            field% rpus_rt     (:,  :) = 0.0_wp
-            field% rnus_rt     (:,  :) = 0.0_wp
             field% rld_rt      (:,:,:) = 0.0_wp
             field% rlu_rt      (:,:,:) = 0.0_wp
-            field% rldcs_rt    (:,:,:) = 0.0_wp
-            field% rlucs_rt    (:,:,:) = 0.0_wp
          END IF
          !
          IF ( echam_phy_tc(jg)%dt_cnv == dt_zero ) THEN

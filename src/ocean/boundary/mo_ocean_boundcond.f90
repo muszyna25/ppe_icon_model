@@ -35,7 +35,7 @@ MODULE mo_ocean_boundcond
   USE mo_exception,          ONLY: message, finish
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_ocean_types,          ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,        ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_ocean_surface_types,ONLY: t_ocean_surface

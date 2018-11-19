@@ -378,10 +378,11 @@ MODULE mo_ocean_model
       & patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
     CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))
-
-    !--------------------------------------------
     ! Setup the information for the physical patches
     CALL setup_phys_patches
+
+    ! we need the nnow info
+    CALL configure_dynamics ( n_dom )
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
@@ -403,8 +404,6 @@ MODULE mo_ocean_model
     ! 9. Horizontal and vertical grid(s) are now defined.
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
-
-    CALL configure_dynamics ( n_dom )
 
     CALL configure_gribout(grid_generatingcenter, grid_generatingsubcenter, n_dom)
 

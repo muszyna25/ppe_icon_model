@@ -27,7 +27,7 @@ MODULE mo_ocean_testbed_solverMatrix
     & calc_vert_velocity,       &
     & update_time_indices
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog, t_ocean_tracer
+    & t_hydro_ocean_prog
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_mpi,                    ONLY: my_process_is_stdio, num_work_procs
   USE mo_time_config,            ONLY: time_config

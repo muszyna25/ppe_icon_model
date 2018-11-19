@@ -35,14 +35,14 @@ mpi_ocean_procs=${mpi_ocean_procs:=1}
 #-----------------------------------------------------------------------------
 if [ $mpi_total_procs -lt `expr $mpi_ocean_procs + 1` ] ; then
    echo "The coupled runs require at least 2 mpi procs. Exiting."
-   check_error 0
+   check_final_status 0
    exit
 fi
-if [ $OMP_NUM_THREADS -gt 1 ] ; then
-   echo "The coupled runs will not run in OpenMP mode . Exiting."
-   check_error 0
-   exit
-fi
+# if [ $OMP_NUM_THREADS -gt 1 ] ; then
+#    echo "The coupled runs will not run in OpenMP mode . Exiting."
+#    check_final_status 0
+#    exit
+# fi
 
 #-----------------------------------------------------------------------------
 # ATMO

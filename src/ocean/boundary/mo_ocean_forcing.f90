@@ -951,7 +951,7 @@ CONTAINS
       & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     CALL set_windstress(patch_2d, windStress_v, forcing_windstress_v_type, &
-      & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+      & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     ! calculate normal edge stress from u,v
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE

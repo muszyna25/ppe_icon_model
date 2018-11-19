@@ -175,9 +175,7 @@ CONTAINS
 
     CALL message (TRIM(method_name), TRIM(name)//"...")
     ! read temperature
-    !  - 2011-11-01, >r7005: read one data set, annual mean only
-    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
-      &                       read_netcdf_broadcast_method)
+    stream_id = openInputFile(initialState_InputFileName, patch_2d)
 
     CALL read_3D_1Time( stream_id=stream_id, location=on_cells, &
       & variable_name=name, fill_array=variable,               &

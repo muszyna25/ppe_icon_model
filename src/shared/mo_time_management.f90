@@ -45,7 +45,8 @@ MODULE mo_time_management
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
     &                                    set_calendar, set_is_relative_time,               &
-    &                                    set_tc_dt_model, calendar_index2string
+    &                                    set_tc_dt_model, set_tc_dt_dyn,                   &
+    &                                    calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
@@ -184,7 +185,8 @@ CONTAINS
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
     ! --------------------------------------------------------------
 
-    CALL set_tc_dt_model(dtime_string)
+    CALL set_tc_dt_model(dtime_string) ! dyn. time step  on the global grid
+    CALL set_tc_dt_dyn                 ! dyn. time steps on all grids
     IF (dtime_real > 0._wp) THEN
       ! In case that we came from the REAL-valued namelist setting of
       ! the time step we try to avoid rounding errors in floating
@@ -209,7 +211,14 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Model time step          : ', TRIM(dtime_string)
     CALL message('',message_text)
     CALL message('','')
-    
+    DO jg=1,n_dom
+       dtime1 => time_config%tc_dt_dyn(jg)
+       CALL timedeltaToString  (dtime1, dtime_string)
+       WRITE(message_text,'(a,i2.2,a,a,a,f8.3,a)') '- Time step on grid jg=',jg,': ', &
+         &   TRIM(dtime_string),' = ',time_config%dt_dyn_sec(jg),' sec'
+       CALL message('',message_text)
+    END DO
+
   END SUBROUTINE compute_timestep_settings
 
   !---------------------------------------------------------------------------------------
