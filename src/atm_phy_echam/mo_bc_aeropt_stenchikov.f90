@@ -124,7 +124,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
     iyear(2)=current_date%date%year
     IF (imonth(2) == 13 ) THEN
       imonth(2)=1
-      iyear(2)=iyear(1)+1
+      iyear(2)=iyear(2)+1
     END IF
 
     CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
