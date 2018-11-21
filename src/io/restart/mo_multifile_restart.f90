@@ -211,7 +211,7 @@ MODULE mo_multifile_restart
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
-    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op
+    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op, p_barrier
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
     &                                        isAsync, rBuddy, rGroup,            &
@@ -484,21 +484,33 @@ CONTAINS
     dpTime = p_mpi_wtime()
     bWritten = 0_i8
     CALL restartWritingParameters(opt_nrestart_streams=nrestart_streams)
-    !ensure that all processes have up-to-date patch DATA
     CALL me%updatePatchData()
-    !create the multifile directory
-    CALL getRestartFilename('multifile', 0, restartArgs, filename)
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) &
+        & CALL patchData%start_local_access()
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        IF (my_process_is_work()) &
+          & CALL patchData%exposeData()
+      END IF
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        CALL patchData%start_remote_access()
+      END IF
+    END DO
     IF(iAmRestartMaster()) THEN
-        IF(createEmptyMultifileDir(filename) /= SUCCESS) CALL finish(routine, "error creating multifile-dir")
-    END IF
-    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
-    !ensure that the other processes DO NOT continue before the
-    !directory has been created:
-    CALL p_bcast(dummy, rBuddy(0), p_comm_work_restart) 
-    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(iAmRestartMaster()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      IF (createEmptyMultifileDir(filename) /= SUCCESS) &
+        & CALL finish(routine, "error creating multifile-dir")
+      CALL p_barrier(p_comm_work)
       restartAttributes => RestartAttributeList_make()
-      CALL restartAttributes%setInteger('multifile_file_count', nrestart_streams*restartProcCount())
+      CALL restartAttributes%setInteger('multifile_file_count', &
+        & nrestart_streams*restartProcCount())
       n_dom_active = 0
       DO jg = 1, SIZE(me%patchData)
         patchData => toMultifilePatchData(me%patchData(jg))
@@ -511,43 +523,24 @@ CONTAINS
       CALL me%writeAttributeFile(filename, restartAttributes, namelists)
       CALL restartAttributes%destruct()
       DEALLOCATE(restartAttributes)
-    END IF
-    ! COLLECT the payload data
-    DO jg = 1, SIZE(me%patchData)
-      patchData => toMultifilePatchData(me%patchData(jg))
-      IF (patchData%description%l_dom_active) THEN
-        CALL patchData%start_local_access()
+    ELSE IF(.NOT.isAsync().OR.iAmRestartWriter()) THEN
+      CALL p_barrier(p_comm_work)
+    ELSE 
+      dpTime = p_mpi_wtime() - dpTime
+      IF(my_process_is_mpi_workroot()) THEN
+        WRITE(message_text, *) "restart: preparing checkpoint-data took " &
+          & //TRIM(real2string(dpTime))//"s"
+        CALL message(routine, message_text)
       END IF
-    END DO
+    END IF
     IF (iAmRestartWriter()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
       DO jg = 1, SIZE(me%patchData)
         patchData => toMultifilePatchData(me%patchData(jg))
         IF (patchData%description%l_dom_active .AND. ASSOCIATED(patchData%varData)) THEN
           findex = nrestart_streams*rGroup() + (jg-1)/n_dom
           cdiIds(jg) = patchData%openPayloadFile(filename, findex, &
-                                                 restartArgs%restart_datetime, bWritten)
-        END IF
-      END DO
-    END IF
-    IF (my_process_is_work()) THEN
-      DO jg = 1, SIZE(me%patchData)
-        patchData => toMultifilePatchData(me%patchData(jg))
-        IF (patchData%description%l_dom_active) THEN
-          CALL patchData%exposeData()
-        END IF
-      END DO
-    END IF
-    ! WRITE the payload files
-    DO jg = 1, SIZE(me%patchData)
-      patchData => toMultifilePatchData(me%patchData(jg))
-      IF (patchData%description%l_dom_active) THEN
-        CALL patchData%start_remote_access()
-      END IF
-    END DO
-    IF(iAmRestartWriter()) THEN
-      DO jg = 1, SIZE(me%patchData)
-        patchData => toMultifilePatchData(me%patchData(jg))
-        IF (patchData%description%l_dom_active) THEN
+            & restartArgs%restart_datetime, bWritten)
           CALL patchData%collectData(cdiIds(jg)%fHndl, bWritten)
           CALL cdiIds(jg)%closeAndDestroyIds()
         END IF
@@ -555,14 +548,7 @@ CONTAINS
     END IF
     IF(iAmRestartMaster()) CALL createMultifileRestartLink(filename, TRIM(restartArgs%modelType))
 #ifndef NOMPI
-    IF(isAsync().AND.my_process_is_work()) THEN
-      !dedicated proc mode: work processes
-      dpTime = p_mpi_wtime() - dpTime
-      IF(my_process_is_mpi_workroot()) THEN
-        WRITE(message_text, *) "restart: preparing checkpoint-data took "//TRIM(real2string(dpTime))//"s"
-        CALL message(routine, message_text)
-      END IF
-    ELSE
+    IF(.NOT.(isAsync().AND.my_process_is_work())) THEN
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       IF(my_process_is_restart()) THEN
         !dedicated proc mode: restart processes
@@ -572,8 +558,6 @@ CONTAINS
         totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work_restart)
       END IF
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-      !the previous CALL has synchronized us, so now it's safe
-      !to stop the timer
       dpTime = p_mpi_wtime() - dpTime
       IF(iAmRestartMaster()) THEN
         gbWritten = REAL(totBWritten, dp)/1024.0_dp/1024.0_dp/1024.0_dp
