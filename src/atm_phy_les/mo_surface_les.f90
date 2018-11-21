@@ -32,9 +32,7 @@ MODULE mo_surface_les
   USE mo_run_config,          ONLY: msg_level
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants    ,  ONLY: min_rlcell_int, success
-  USE mo_sync,                ONLY: sync_c, &
-       sync_patch_array, sync_patch_array_mult, &
-       global_sum_array
+  USE mo_sync,                ONLY: sync_c, sync_patch_array_mult, global_sum_array
   USE mo_physical_constants,  ONLY: cpd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
@@ -71,9 +69,6 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: th0_rico = 298.5_wp
   REAL(wp), PARAMETER :: psfc = 101540._wp
 
-  CHARACTER(len=12)  :: str_module = 'surface_les'  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
-
   REAL(wp), SAVE, ALLOCATABLE ::  ts(:), qvs(:)
   REAL(wp), SAVE :: dt_interval = 0._wp
 
@@ -89,14 +84,13 @@ MODULE mo_surface_les
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
-                                 p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
-                                 prm_diag, theta, qv, p_sim_time)
+  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_prog_lnd_now, &
+                                 p_prog_lnd_new, p_diag_lnd, prm_diag, theta, qv, p_sim_time)
+                                  
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
-    TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_lnd_prog),  INTENT(in)        :: p_prog_lnd_now!<land prog state 
     TYPE(t_lnd_prog),  INTENT(inout)     :: p_prog_lnd_new!<land prog state 
     TYPE(t_lnd_diag),  INTENT(inout)     :: p_diag_lnd    !<land diag state 
@@ -105,13 +99,13 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
     REAL(wp),          INTENT(in)        :: p_sim_time    !current sim time
 
-    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, mwind, wstar
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, mwind
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
-    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, t_sfc, ex_sfc, inv_bus_mom
+    REAL(wp) :: RIB, tcn_mom, tcn_heat, t_sfc, ex_sfc, inv_bus_mom
     REAL(wp) :: ustar_mean, stime, etime, int_weight
     REAL(wp) :: pres_sfc(nproma,p_patch%nblks_c)
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
     INTEGER :: nlev, jg, itr, jkp1, n_curr, n_next
@@ -136,14 +130,12 @@ MODULE mo_surface_les
     nlev = p_patch%nlev
     jk   = nlev
     jkp1 = jk+1
-
-    i_nchdom   = MAX(1,p_patch%n_childdom)
  
     !loop indices: exclude halo 
     rl_start   = grf_bdywidth_c+1 
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)         
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)         
 
 
     SELECT CASE(les_config(jg)%isrfc_type)
@@ -521,7 +513,7 @@ MODULE mo_surface_les
     p_diag_lnd%qv_s(:,:)    = qvs(n_curr)*(1.-int_weight)+qvs(n_next)*int_weight
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,       &
 !$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,         &
 !$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk

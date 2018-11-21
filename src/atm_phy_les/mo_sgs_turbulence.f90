@@ -25,31 +25,26 @@
 MODULE mo_sgs_turbulence
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish,message_text, debug_messages_on
+  USE mo_exception,           ONLY: message
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_edge
-  USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
-                                    cells2verts_scalar, cells2edges_scalar, &
-                                    edges2cells_scalar, verts2cells_scalar
+  USE mo_intp,                ONLY: cells2verts_scalar, cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: iqv, iqc, msg_level
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
-                                    min_rledge_int, min_rlcell_int, min_rlvert_int
-  USE mo_math_constants,      ONLY: dbl_eps, pi
+  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
+  USE mo_impl_constants    ,  ONLY: min_rlcell, min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_math_utilities,      ONLY: tdma_solver
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
+  USE mo_physical_constants,  ONLY: cpd, rcvd, rcpd, alv
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_surface_les,         ONLY: surface_conditions
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbulent_diagnostic,ONLY: is_sampling_time, idx_sgs_th_flx, &
                                     idx_sgs_qv_flx, idx_sgs_qc_flx,   &
                                     idx_sgs_u_flx, idx_sgs_v_flx
@@ -74,8 +69,6 @@ MODULE mo_sgs_turbulence
                                              w_ie, w_vert
 
   CHARACTER(len=*), PARAMETER :: inmodule = 'mo_sgs_turbulence:'
-  CHARACTER(len=12)  :: str_module = 'sgs_turb'  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
 
   CONTAINS
 
@@ -88,12 +81,11 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(p_sim_time, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion(p_sim_time, p_nh_prog, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
-    TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state
     TYPE(t_nh_diag),   INTENT(inout)     :: p_nh_diag     !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch       !< single patch
@@ -109,12 +101,10 @@ MODULE mo_sgs_turbulence
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
     INTEGER :: nlev, nlevp1
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, jg
+    INTEGER :: jb, jc, jg
 
-
-    !CALL debug_messages_on
 
     IF (msg_level >= 15) &
          CALL message(TRIM(inmodule), 'drive_subgrid_diffusion')
@@ -123,7 +113,6 @@ MODULE mo_sgs_turbulence
 
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
 
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
@@ -157,8 +146,8 @@ MODULE mo_sgs_turbulence
 
     rl_start   = 1
     rl_end     = min_rlcell
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
@@ -180,14 +169,14 @@ MODULE mo_sgs_turbulence
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_prog_lnd_now,        &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv), p_sim_time)
 
     !Calculate Brunt Vaisala Frequency
     CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
 
-    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
+    CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, prm_diag)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                                prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
@@ -196,19 +185,18 @@ MODULE mo_sgs_turbulence
     CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
                                prm_diag%tkvm, prm_nwp_tend%ddt_w_turb, dt)
 
-    CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
-                        prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
-                        prm_diag, p_nh_prog%rho, dt, 'theta')
+    CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, prm_nwp_tend%ddt_temp_turb,  &
+                        p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'theta')
 
     !For qv and qc: implement for qr as well
     IF(.NOT.les_config(jg)%is_dry_cbl)THEN
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
-                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qv')
+                          prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv), p_nh_prog%exner,  &
+                          prm_diag, p_nh_prog%rho, dt, 'qv')
 
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqc), p_nh_metrics, p_patch, p_int, &
-                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qc')
+                          prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc), p_nh_prog%exner,  &
+                          prm_diag, p_nh_prog%rho, dt, 'qc')
     ELSE
 !$OMP PARALLEL
       CALL init(prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv))
@@ -246,13 +234,13 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-20)
-  SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
+  SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, &
                                prm_diag)
 
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog  !< single nh prognostic state
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
+
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
 
@@ -262,14 +250,14 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
     REAL(wp) :: w_full_c2, w_full_v1, w_full_v2
-    REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33, z1, z2
+    REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end, jg
-    INTEGER :: jk, jb, jc, je, ic, jkp1, jv, jkm1, jcn, jbn, jvn
+    INTEGER :: jk, jb, jc, je, jkp1, jkm1
 
     !--------------------------------------------------------------------------
 
@@ -281,7 +269,6 @@ MODULE mo_sgs_turbulence
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
 
     !Allocation
     ALLOCATE( vn_ie(nproma,nlevp1,p_patch%nblks_e),        &
@@ -322,8 +309,8 @@ MODULE mo_sgs_turbulence
     rl_start = 2
     rl_end   = min_rledge_int-3
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -374,8 +361,8 @@ MODULE mo_sgs_turbulence
     rl_start = 4
     rl_end   = min_rledge_int-2
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_vert1,vn_vert2,vn_vert3,vn_vert4,  &
 !$OMP            vt_vert1,vt_vert2,vt_vert3,vt_vert4,w_full_c1,w_full_c2,w_full_v1,  &
@@ -495,8 +482,8 @@ MODULE mo_sgs_turbulence
     !except top and bottom boundaries
     rl_start = 3
     rl_end   = min_rlcell_int-1
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkm1)
     DO jb = i_startblk,i_endblk
@@ -526,8 +513,8 @@ MODULE mo_sgs_turbulence
     !div_of_stress from edge to cell-scalar interpolation
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int-1 !-1 for its use in hor diffusion
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -563,8 +550,8 @@ MODULE mo_sgs_turbulence
 
     rl_start = 3
     rl_end   = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -601,8 +588,8 @@ MODULE mo_sgs_turbulence
     !4a) visc at cell center
     rl_start = grf_bdywidth_c
     rl_end   = min_rlcell_int-1
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -672,7 +659,7 @@ MODULE mo_sgs_turbulence
     REAL(wp),           INTENT(in)       :: dt           !< dt turb
 
     REAL(wp) :: flux_up_e, flux_dn_e, flux_up_v, flux_dn_v, flux_up_c, flux_dn_c
-    REAL(wp) :: stress_uc, stress_vc, stress_c1n, stress_c2n, inv_mwind
+    REAL(wp) :: stress_c1n, stress_c2n
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt, dwdn, inv_dt
     REAL(wp) :: inv_rhoe(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: vn_new(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -684,7 +671,7 @@ MODULE mo_sgs_turbulence
     REAL(wp), DIMENSION(p_patch%nlev) :: var_new, outvar
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jkp1, jb, je, jcn, jbn, jvn, jc
     INTEGER :: nlev, jg, nlevp1
@@ -698,7 +685,6 @@ MODULE mo_sgs_turbulence
     ! number of vertical levels
     nlev     = p_patch%nlev
     nlevp1   = nlev+1
-    i_nchdom = MAX(1,p_patch%n_childdom)
 
     inv_dt  = 1._wp / dt
 
@@ -725,8 +711,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_e+1
     rl_end   = min_rledge_int
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
@@ -1081,8 +1067,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -1120,8 +1106,8 @@ MODULE mo_sgs_turbulence
 
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,stress_c1n,stress_c2n)
       DO jb = i_startblk,i_endblk
@@ -1231,9 +1217,9 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end, jg
-    INTEGER :: jk, jkp1, jb, je, jkm1, jc, jcn, jbn, jvn
+    INTEGER :: jk, jb, je, jkm1, jc, jcn, jbn, jvn
     INTEGER  :: nlev
 
     IF (msg_level >= 18) &
@@ -1244,7 +1230,6 @@ MODULE mo_sgs_turbulence
 
     ! number of vertical levels
     nlev     = p_patch%nlev
-    i_nchdom = MAX(1,p_patch%n_childdom)
 
     inv_dt  = 1._wp / dt
 
@@ -1272,8 +1257,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
@@ -1300,8 +1285,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_e
     rl_end   = min_rledge_int-1
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jkm1,jcn,jbn,dvn1,dvn2,flux_up_c,flux_dn_c,&
@@ -1404,8 +1389,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -1591,14 +1576,13 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
-  SUBROUTINE diffuse_scalar(var, p_nh_metrics, p_patch, p_int, p_nh_diag, tot_tend,  &
+  SUBROUTINE diffuse_scalar(var, p_nh_metrics, p_patch, p_int, tot_tend,  &
                             exner, prm_diag, rho, dt, scalar_name)
 
     REAL(wp),          INTENT(in)        :: var(:,:,:)   !input scalar
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
     REAL(wp),        INTENT(inout),TARGET:: tot_tend(:,:,:)!<total tendency
     REAL(wp),          INTENT(in)        :: exner(:,:,:)   !
     REAL(wp),          INTENT(in)        :: rho(:,:,:)     !density at cell center
@@ -1620,7 +1604,7 @@ MODULE mo_sgs_turbulence
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iecidx, iecblk, ieidx, ieblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, je, jc, jg
     INTEGER  :: nlev, nlevp1
@@ -1634,7 +1618,6 @@ MODULE mo_sgs_turbulence
     ! number of vertical levels
     nlev = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
     inv_dt  = 1._wp / dt
 
     iecidx => p_patch%edges%cell_idx
@@ -1668,8 +1651,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     IF(TRIM(scalar_name)=='theta')THEN
 
@@ -1771,8 +1754,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_e
     rl_end   = min_rledge_int-1
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -1800,8 +1783,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -1833,8 +1816,8 @@ MODULE mo_sgs_turbulence
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 
     SELECT CASE(les_config(jg)%vert_scheme_type)

@@ -61,14 +61,10 @@ MODULE mo_les_utilities
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
         TRIM("mo_les_utilities:init_vertical_grid_for_les")
-    INTEGER :: i_startblk, i_endblk, ist
-    INTEGER :: nlevp1, i_nchdom, nlev, nlen
-    INTEGER :: jk, je, jc, jb, jkm1
+    INTEGER :: ist
     ! helper for syncing single-precision array
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: ddx_arg, ddx
 
-    nlev        = p_patch%nlev
-    nlevp1      = p_patch%nlevp1
 
     IF(.NOT.les_config(jg)%les_metric) &
       RETURN
@@ -171,15 +167,14 @@ MODULE mo_les_utilities
     REAL(wp), INTENT(out)                 :: varout(:,:,:)                     
 
     INTEGER :: i_startblk, i_endblk
-    INTEGER :: i_endidx, i_startidx, nlevp1, i_nchdom, nlev
+    INTEGER :: i_endidx, i_startidx, nlevp1, nlev
     INTEGER :: jk, jc, jb
 
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlev+1
-    i_nchdom  = MAX(1,p_patch%n_childdom)
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -256,11 +251,10 @@ MODULE mo_les_utilities
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
-  SUBROUTINE global_hor_mean(p_patch, var, varout, inv_no_cells, nchdom)
+  SUBROUTINE global_hor_mean(p_patch, var, varout, inv_no_cells)
 
     TYPE(t_patch),     INTENT(in), TARGET :: p_patch
     REAL(wp), INTENT(in)                  :: var(:,:,:), inv_no_cells
-    INTEGER,  INTENT(in)                  :: nchdom
     REAL(wp), INTENT(out)                 :: varout(:)                     
 
     REAL(wp) :: var_aux(SIZE(var,1),SIZE(var,2),SIZE(var,3))
@@ -272,8 +266,8 @@ MODULE mo_les_utilities
     var_aux(:,:,:) = 0._wp
 
     rl_start   = grf_bdywidth_c+1
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(min_rlcell_int,nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(min_rlcell_int)
     nz         = SIZE(var,2)
 
    !Now put values in interior nodes
@@ -339,22 +333,19 @@ MODULE mo_les_utilities
     REAL(wp), INTENT(INOUT)               :: bru_vais(:,:,:)
 
     REAL(wp) :: thetav_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
-    REAL(wp) :: term1, qs, temp_ic
     INTEGER  :: i_startblk, i_endblk, rl_start, rl_end
-    INTEGER  :: i_endidx, i_startidx, nlev, nlevp1, i_nchdom
+    INTEGER  :: i_endidx, i_startidx, nlev
     INTEGER  :: jk, jc, jb
 
     !To be calculated at all cells at interface levels, except top/bottom 
     !boundaries
 
     nlev      = p_patch%nlev
-    nlevp1    = nlev+1
-    i_nchdom  = MAX(1,p_patch%n_childdom)
 
     rl_start   = 2
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, thetav, thetav_ic, rl_start, rl_end)
 

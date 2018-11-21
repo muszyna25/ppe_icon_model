@@ -1170,7 +1170,7 @@ MODULE mo_nh_testcases
       nlev   = p_patch(jg)%nlev
 
       CALL init_warm_bubble ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+                              p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
