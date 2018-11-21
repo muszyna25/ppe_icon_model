@@ -34,7 +34,9 @@ MODULE mo_art_reaction_interface
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_nonhydro_state,                ONLY: p_nh_state
   USE mo_run_config,                    ONLY: lart, iforcing
+  USE mo_parallel_config,               ONLY: nproma
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
@@ -46,6 +48,7 @@ MODULE mo_art_reaction_interface
                                            &  prm_field
   USE mo_radiation_config,              ONLY: irad_o3
 #ifdef __ICON_ART
+  USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
   USE mo_art_gasphase,                  ONLY: art_loss_gasphase
@@ -53,6 +56,7 @@ MODULE mo_art_reaction_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
+  USE mo_art_psc_state,                 ONLY: art_psc_main
   USE mo_art_feedback_icon,             ONLY: art_feedback_o3
 #endif
 
@@ -161,6 +165,24 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
     ! ----------------------------------
 
     IF (art_config(jg)%lart_chem) THEN
+
+      ! ----------------------------------
+      ! ---  Treat PSCs
+      ! ---------------------------------
+    
+      IF (art_config(jg)%lart_psc) THEN
+       CALL art_psc_main(p_art_data(jg)%PSC_meta,                                  &
+                 &       p_patch,                                                  &
+                 &       p_dtime,                                                  &
+                 &       p_diag%temp,                                              &
+                 &       p_diag%pres,                                              &
+                 &       p_prog%rho,                                               &
+                 &       p_metrics%z_ifc(:,1:nlev,:)-p_metrics%z_ifc(:,2:nlev+1,:),&
+                 &       i_startblk, i_endblk, i_rlstart, i_rlend, nlev,           &
+                 &       jg, tracer)
+      END IF
+
+
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
           IF (timers_level > 3) CALL timer_start(timer_art_losschem)
@@ -234,7 +256,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
             IF (timers_level > 3) CALL timer_stop(timer_art_photo)
             IF (timers_level > 3) CALL timer_start(timer_art_losschem)
 
-            CALL art_loss_gasphase(current_date,        &
+            CALL art_loss_gasphase(nproma,              &
+                   & current_date,                      &
                    & ext_data,                          &
                    & p_patch,                           &
                    & p_dtime,                           &
@@ -262,7 +285,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
             IF (timers_level > 3) CALL timer_stop(timer_art_photo)
             IF (timers_level > 3) CALL timer_start(timer_art_losschem)
 
-            CALL art_loss_gasphase(current_date,        &
+            CALL art_loss_gasphase(nproma,              &
+                   & current_date,                      &
                    & ext_data,                          &
                    & p_patch,                           &
                    & p_dtime,                           &
@@ -308,6 +332,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
     IF (timers_level > 3) CALL timer_stop(timer_art)
   ENDIF ! lart
 #endif
+
 
 END SUBROUTINE art_reaction_interface
 !!
