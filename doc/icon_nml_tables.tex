@@ -1087,6 +1087,18 @@ echam\_phy\_config(jg)\% \newline lamip & L & .FALSE. & &
 .TRUE. for AMIP boundary conditions &
 run\_nml/iforcing = 2 \tabularnewline
 %
+echam\_phy\_config(jg)\% \newline iqneg\_d2p& I & 0 & &
+If negative tracer mass fractions are found in the dynamics to physics interface, then: \\
+1,3: they are reported; \\
+2,3: they are replaced with zero &
+run\_nml/iforcing = 2 \tabularnewline
+%
+echam\_phy\_config(jg)\% \newline iqneg\_p2d& I & 0 & &
+If negative tracer mass fractions are found in the dynamics to physics interface, then: \\
+1,3: they are reported; \\
+2,3: they are replaced with zero &
+run\_nml/iforcing = 2 \tabularnewline
+%
 \end{longtab}
 
 %------------------------------------------------------------------------------

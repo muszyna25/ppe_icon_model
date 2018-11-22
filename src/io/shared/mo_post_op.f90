@@ -27,7 +27,9 @@ MODULE mo_post_op
   USE mo_kind,                ONLY: dp, sp
   USE mo_var_metadata_types,  ONLY: t_post_op_meta, POST_OP_NONE,    &
     &                               POST_OP_SCALE, POST_OP_LUC
+#ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,      ONLY: convert_luc_ICON2GRIB
+#endif
   USE mo_exception,           ONLY: finish
   IMPLICIT NONE
   
@@ -179,6 +181,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+#ifndef __NO_ICON_ATMO__
     CASE(POST_OP_LUC)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(l1,l2), SCHEDULE(runtime)
@@ -191,6 +194,7 @@ CONTAINS
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
+#endif
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -335,6 +339,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+#ifndef __NO_ICON_ATMO__
     CASE(POST_OP_LUC)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(l1,l2,l3), SCHEDULE(runtime)
@@ -349,7 +354,7 @@ CONTAINS
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
-      !
+#endif
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT

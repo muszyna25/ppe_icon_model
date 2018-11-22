@@ -1,0 +1,26 @@
+#!/bin/bash
+set -x
+addexp="./addexp"
+#############################################################################
+##
+## create ocean list
+##
+#############################################################################
+listname=oes-ref
+./rmlist $listname
+# ./mklist $listname
+./create_ocean_builders $listname
+
+#-----------------------------------------------------------
+# OES
+
+# add omip binary-identical test on mistral
+$addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days \
+ checksuite.ocean_internal/omip/exp.test_hamocc_omip_10days       \
+ --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
+
+#-----------------------------------------------------------
+#lets see the list
+./lslist $listname
+#-----------------------------------------------------------
+

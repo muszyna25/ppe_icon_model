@@ -30,7 +30,7 @@ MODULE mo_ocean_tracer_transport_vert
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
     & timer_adpo_vert, timers_level  !, timer_dif_vert,
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_verticalAdvection_ppm_coefficients, &
+  USE mo_ocean_types,                 ONLY: t_verticalAdvection_ppm_coefficients, &
     & t_operator_coeff
   USE mo_model_domain,              ONLY: t_patch,t_patch_3d, t_patch_vert
   USE mo_exception,                 ONLY: finish !, message_text, message
@@ -39,6 +39,7 @@ MODULE mo_ocean_tracer_transport_vert
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_patch_array
   USE mo_ocean_limiter,             ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_mo_onblock 
+  USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_transport_state
 
 IMPLICIT NONE
   
@@ -64,21 +65,15 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE advect_flux_vertical( patch_3d,   &
     & trac_old,             &
-    & ocean_state,          &
+    & transport_state,          &
     & operators_coeff,      &
-!     & bc_top_tracer,        &
-!     & bc_bot_tracer,        &
-    & flux_div_vert,        &
-    & tracer_id)
+    & flux_div_vert)
     
     TYPE(t_patch_3d ),TARGET :: patch_3d
     REAL(wp), INTENT(inout)           :: trac_old(:,:,:) ! (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_ocean_transport_state), TARGET :: transport_state
     TYPE(t_operator_coeff), TARGET    :: operators_coeff
-!     REAL(wp)                          :: bc_top_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-!     REAL(wp)                          :: bc_bot_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
-    INTEGER, INTENT(in)               :: tracer_id
     
     !Local variables
     REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw
@@ -109,7 +104,7 @@ CONTAINS
     ! CALL sync_patch_array(sync_c, patch_2D, trac_old)
     
     ! This is already synced in  edges_in_domain !
-    ! CALL sync_patch_array(SYNC_C, patch_2D, ocean_state%p_diag%w_time_weighted)
+    ! CALL sync_patch_array(SYNC_C, patch_2D, transport_state%w)
     
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
@@ -117,7 +112,7 @@ CONTAINS
       ! Vertical advection scheme: piecewise parabolic method (ppm) inUse
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
-        & ocean_state%p_diag%w_time_weighted,              &
+        & transport_state%w,              &
         & dtime, 1,                                &
         & patch_3d%p_patch_1d(1)%prism_thick_c,     &
         & patch_3d%p_patch_1d(1)%inv_prism_thick_c, &
@@ -149,7 +144,7 @@ CONTAINS
 
       CALL upwind_vflux_oce( patch_3d,                  &
         & trac_old,                    &
-        & ocean_state%p_diag%w_time_weighted, &
+        & transport_state%w, &
         & z_adv_flux_v )
 
       !z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
@@ -159,7 +154,7 @@ CONTAINS
       CALL finish(TRIM(routine), ' This option for vertical tracer transport is not supported')
       !       CALL central_vflux_oce(patch_3D,                 &
       !         &                    trac_old,                   &
-      !         &                    ocean_state%p_diag%w_time_weighted,&
+      !         &                    transport_state%w,&
       !         &                    z_adv_flux_v)
       !
       !       CALL vflx_limiter_pd_oce( patch_3D,              &
@@ -174,12 +169,12 @@ CONTAINS
 
       CALL upwind_vflux_oce( patch_3d,          &
         & trac_old,                             &
-        & ocean_state%p_diag%w_time_weighted,          &
+        & transport_state%w,          &
         & z_adv_flux_vu )
 
       CALL adpo_vtrac_oce( patch_3d,            &
         & trac_old,                             &
-        & ocean_state%p_diag%w_time_weighted,          &
+        & transport_state%w,          &
         & dtime,                                &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &
         & adpo_weight)
@@ -198,7 +193,7 @@ CONTAINS
             !
             !without the weighting factors (i.e. 1-adpo_weight=0=adpo_weigth) the added flux is identical to central flux
             z_adv_flux_v(jc,jk,jb) = z_adv_flux_vu(jc,jk,jb)&
-              & +0.5_wp*ABS(ocean_state%p_diag%w_time_weighted(jc,jk,jb))&
+              & +0.5_wp*ABS(transport_state%w(jc,jk,jb))&
               & *(trac_old(jc,jk-1,jb) - trac_old(jc,jk,jb))*adpo_weight(jc,jk,jb)
 
           ENDDO
@@ -208,7 +203,7 @@ CONTAINS
     CASE(fct_vert_minmod)
       CALL advect_flux_vertical_high_res( patch_3d,  &
         & trac_old,           &
-        & ocean_state,               &
+        & transport_state,               &
         & a_v,                &
         & z_adv_flux_v)
 
@@ -254,14 +249,14 @@ CONTAINS
   SUBROUTINE advect_flux_vertical_high_res( &
     & patch_3d,         &  
     & trac_old,         &
-    & ocean_state,      &
+    & transport_state,      &
     & a_v,              &
     & adv_flux_v)
     
     !TYPE(t_patch), TARGET, INTENT(IN) :: patch_2D
     TYPE(t_patch_3d ),TARGET :: patch_3d
     REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_ocean_transport_state), TARGET :: transport_state
     REAL(wp)                          :: a_v(:,:,:)
     REAL(wp), INTENT(inout)           :: adv_flux_v(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     
@@ -301,7 +296,7 @@ CONTAINS
     !0) For testing
     CALL upwind_vflux_oce( patch_3d,                  &
       & trac_old,                   &
-      & ocean_state%p_diag%w_time_weighted,&
+      & transport_state%w,&
       & z_adv_flux_low )
     
     CALL sync_patch_array(sync_c, patch_2d, z_adv_flux_low)
@@ -317,7 +312,7 @@ CONTAINS
           
           z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
           
-          z_mflux(jc,jk,jb)     = ABS(ocean_state%p_diag%w_time_weighted(jc,jk,jb))
+          z_mflux(jc,jk,jb)     = ABS(transport_state%w(jc,jk,jb))
           
           IF (z_mflux(jc,jk,jb) == 0.0_wp) THEN
             z_limit_sigma(jc,jk,jb) = 1.0_wp   !  z_mflux can be zero!
@@ -334,7 +329,7 @@ CONTAINS
     CALL sync_patch_array(sync_c, patch_2d, z_mflux)
     
     !This corresponds to (16) in Casulli-Zanolli.
-    CALL ratio_consecutive_gradients(patch_3d,ocean_state%p_diag%w_time_weighted, trac_old,z_consec_grad)
+    CALL ratio_consecutive_gradients(patch_3d,transport_state%w, trac_old,z_consec_grad)
     
     !3) calculate psi-part of limiter (see (17)-(19) in Casulli-Zanolli).
     CALL calculate_limiter_function(patch_3d, z_limit_sigma, z_consec_grad,z_limit_phi)
@@ -362,8 +357,8 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print thisLevel (1-5, fix)
-    CALL dbg_print('AdvDifVert: w_time_weighted',ocean_state%p_diag%w_time_weighted ,str_module,idt_src)
-    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,ocean_state%p_diag%div_mass_flx_c  ,str_module,idt_src)
+    CALL dbg_print('AdvDifVert: w_time_weighted',transport_state%w ,str_module,idt_src)
+    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,transport_state%p_diag%div_mass_flx_c  ,str_module,idt_src)
     CALL dbg_print('AdvVert: adv_flux_v'     ,adv_flux_v                ,str_module,idt_src)
     !CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
     !---------------------------------------------------------------------

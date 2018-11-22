@@ -64,7 +64,7 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
     &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
-    &  max_turbulenece_TracerDiffusion_amplification
+    &  max_turbulenece_TracerDiffusion
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -102,7 +102,7 @@ MODULE mo_ocean_physics
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    & WindMixingDecay, WindMixingLevel
-  USE mo_ocean_diffusion,     ONLY: veloc_diff_harmonic_div_grad
+  USE mo_ocean_velocity_diffusion, ONLY: veloc_diff_harmonic_div_grad
   
 
   IMPLICIT NONE
@@ -309,11 +309,13 @@ CONTAINS
       out_DiffusionCoefficients(:,:) = 0.0_wp
 
     CASE(1)
-      out_DiffusionCoefficients(:,:) = DiffusionReferenceValue
+      out_DiffusionCoefficients(:,:) = DiffusionReferenceValue + DiffusionBackgroundValue
 
 !     CASE(2)!calculate coefficients based on Leith closure. Start value is the same as case(2).
 !       out_DiffusionCoefficients(:,:) = 3.82E-12_wp * &
 !         & (points_in_munk_layer * maxEdgeLength)**3
+
+#define edge_area(je,jb) (patch_2D%edges%primal_edge_length(je,jb)*patch_2D%edges%dual_edge_length(je,jb))
 
    CASE(2)
       ! linear scale
@@ -322,8 +324,9 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%area_edge(je,jb))
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * &
+            & SQRT(edge_area(je,jb))
 
         END DO
       END DO
@@ -347,22 +350,23 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%area_edge(je,jb)
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * &
+            & edge_area(je,jb)
 
         END DO
       END DO
 
-
     ! **3
-    CASE(6)
+    CASE(4)
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%area_edge(je,jb))**3
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * &
+            & SQRT(edge_area(je,jb))**3
 
         END DO
       END DO
@@ -378,8 +382,8 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**3
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**3
 
         END DO
       END DO
@@ -390,8 +394,8 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%primal_edge_length(je,jb)**3
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%primal_edge_length(je,jb)**3
 
         END DO
       END DO
@@ -406,10 +410,8 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%dual_edge_length(je,jb)**3)
-          END DO
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%dual_edge_length(je,jb)**3)
 
         END DO
       END DO
@@ -421,33 +423,34 @@ CONTAINS
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-            out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%area_edge(je,jb)**2
-
-        END DO
-      END DO
-
-    CASE(11)
-      !The number that controls all that the "z_diff_efdt_ratio"
-      !is different. Higher z_diff_efdt_ratio decreases the final
-      !diffusion coefficient
-      z_diff_efdt_ratio = 10000.0_wp * DiffusionReferenceValue
-      z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, start_index, end_index)
-        DO je = start_index, end_index
           out_DiffusionCoefficients(je,jb) = &
-          & patch_2D%edges%area_edge(je,jb)*patch_2D%edges%area_edge(je,jb)*z_diff_multfac
+            & DiffusionBackgroundValue + DiffusionReferenceValue * &
+            & edge_area(je,jb)**2
+
         END DO
       END DO
-      !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
-      !         DO jb = all_edges%start_block, all_edges%end_block
-      !            CALL get_index_range(all_edges, jb, start_index, end_index)
-      !            DO je = start_index, end_index
-      !              physics_param%HarmonicViscosity_reference(je,:,jb) = z_diff_multfac*&
-      !              &maxval(patch_2D%edges%primal_edge_length)**4
-      !            END DO
-      !          END DO
+
+!     CASE(11)
+!       !The number that controls all that the "z_diff_efdt_ratio"
+!       !is different. Higher z_diff_efdt_ratio decreases the final
+!       !diffusion coefficient
+!       z_diff_efdt_ratio = 10000.0_wp * DiffusionReferenceValue
+!       z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
+!       DO jb = all_edges%start_block, all_edges%end_block
+!         CALL get_index_range(all_edges, jb, start_index, end_index)
+!         DO je = start_index, end_index
+!           out_DiffusionCoefficients(je,jb) = &
+!           & patch_2D%edges%area_edge(je,jb)*patch_2D%edges%area_edge(je,jb)*z_diff_multfac
+!         END DO
+!       END DO
+!       !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
+!       !         DO jb = all_edges%start_block, all_edges%end_block
+!       !            CALL get_index_range(all_edges, jb, start_index, end_index)
+!       !            DO je = start_index, end_index
+!       !              physics_param%HarmonicViscosity_reference(je,:,jb) = z_diff_multfac*&
+!       !              &maxval(patch_2D%edges%primal_edge_length)**4
+!       !            END DO
+!       !          END DO
 
    CASE(12)
       ! Simple scaling of the backgound diffusion by the dual edge length^4
@@ -459,9 +462,10 @@ CONTAINS
         DO je = start_index, end_index
 
           length_scale = &
-          & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))
+          & sqrt(edge_area(je,jb))
 
           out_DiffusionCoefficients(je,jb)=C_MPIOM*length_scale**2
+
         END DO
       END DO
 
@@ -521,6 +525,8 @@ CONTAINS
         CALL finish ('mo_ocean_physics:scale_horizontal_diffusion', 'uknown DiffusionScaling')
 
     END SELECT
+
+#undef edge_area
 
     ! smooth if requested
     DO i=1, HorizontalViscosity_SmoothIterations
@@ -775,7 +781,7 @@ CONTAINS
               & param%TracerDiffusion_BasisCoeff(je,blockNo,i) +  &
               & MIN(grad_vort_abs * TracerDiffusion_LeithWeight * &
               &     param%LeithHarmonicViscosity_BasisCoeff(je,blockNo), &
-              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification) 
+              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion) 
           END DO
 
         END DO
@@ -890,7 +896,7 @@ CONTAINS
             param%TracerDiffusion_coeff(je,level,blockNo,i) = &
               & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
               & MIN(LeithCoeff * TracerDiffusion_LeithWeight,    &
-              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification)
+              &     max_turbulenece_TracerDiffusion)
           END DO
 
         END DO
@@ -902,8 +908,16 @@ CONTAINS
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('LeithClosure: viscosity',param%HarmonicViscosity_coeff,&
+    CALL dbg_print('Leith 2: Harm.viscos.',param%HarmonicViscosity_coeff,&
       & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: coeff.',param%LeithHarmonicViscosity_BasisCoeff,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
+!       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w_time_weighted,&
+!       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
+
+
 !     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
 !       &str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
@@ -993,7 +1007,7 @@ CONTAINS
             param%TracerDiffusion_coeff(je,level,blockNo,i) = &
               & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
               & MIN(LeithCoeff * TracerDiffusion_LeithWeight,    &
-              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification)
+              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion)
           END DO
 
         END DO

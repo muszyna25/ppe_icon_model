@@ -21,7 +21,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-MODULE mo_ocean_veloc_advection
+MODULE mo_ocean_velocity_advection
   !-------------------------------------------------------------------------
   !
   USE mo_kind,                ONLY: wp
@@ -2063,4 +2063,4 @@ ENDDO
   ! ! END FUNCTION laplacian4vortex_flux
   !-------------------------------------------------------------------------
 
-END MODULE mo_ocean_veloc_advection
+END MODULE mo_ocean_velocity_advection

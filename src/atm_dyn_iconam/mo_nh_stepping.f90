@@ -94,6 +94,7 @@ MODULE mo_nh_stepping
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
@@ -166,7 +167,7 @@ MODULE mo_nh_stepping
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
     &                                    read_latbc_data_sync=>read_latbc_data, &
-    &                                    deallocate_latbc_data, p_latbc_data,   &
+    &                                    p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev,      &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
@@ -450,7 +451,9 @@ MODULE mo_nh_stepping
     END DO
 
     !AD: Also output special diagnostics for LES on torus
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
+    IF (atm_phy_nwp_config(1)%is_les_phy &
+      .AND. sampl_freq_step>0 &
+      .AND. is_ls_forcing)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -2809,14 +2812,6 @@ MODULE mo_nh_stepping
   IF (ist /= SUCCESS) THEN
     CALL finish ( modname//': perform_nh_stepping',    &
       &    'deallocation for linit_dyn failed' )
-  ENDIF
-
-  IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
-    IF (num_prefetch_proc >= 1) THEN
-      CALL latbc%finalize()
-    ELSE
-      CALL deallocate_latbc_data()
-    ENDIF
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping

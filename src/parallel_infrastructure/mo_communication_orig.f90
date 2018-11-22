@@ -3202,12 +3202,11 @@ CONTAINS
 #endif
 #endif
 
-      stop_sync_timer(timer_exch_data)
       !---------------------------------------------------------
     ENDIF  ! .NOT. my_process_is_mpi_seq()
 
 !$ACC END DATA
-
+    stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_grf
 

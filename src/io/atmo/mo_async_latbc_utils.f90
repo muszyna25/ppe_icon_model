@@ -148,6 +148,7 @@
       nblks_c = p_patch%nblks_c
       nblks_e = p_patch%nblks_e
 
+      ALLOCATE(latbc%latbc_data_const)
       ALLOCATE(latbc%latbc_data_const%z_mc_in(nproma,nlev_in,nblks_c), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       
