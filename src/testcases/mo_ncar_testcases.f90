@@ -121,7 +121,7 @@ CONTAINS
        CALL regrot(lon,lat,rot_lon,rot_lat,0.0_wp,-0.5_wp*pi+rotation_angle*deg2rad,1)
     ENDIF
 
-    temperature  = t_mean(eta) + t_deviation(rot_lon,rot_lat,eta)
+    temperature  = t_mean(eta) + t_deviation(rot_lat,eta)
   END FUNCTION temperature
   !
   ! Horizontally averaged temperature (equation (4) and (5) in Jablonowski and Williamson (2006))
@@ -140,15 +140,14 @@ CONTAINS
   ! Temperature deviation from the horizontal mean
   ! (equation (6) minus horizontally averaged temperature)
   !
-  REAL(wp) FUNCTION t_deviation(lon,lat,eta)
+  REAL(wp) FUNCTION t_deviation(lat,eta)
     IMPLICIT NONE
-    REAL(wp), INTENT(IN) :: eta, lon, lat
-    REAL(wp)             :: factor, phi_vertical, rot_lon, rot_lat
+    REAL(wp), INTENT(IN) :: eta, lat
+    REAL(wp)             :: factor, phi_vertical, rot_lat
 
     factor       = eta*pi*u0/Rd
     phi_vertical = (eta - eta0) * 0.5_wp*pi
 
-    rot_lon = lon
     rot_lat = lat
 
     t_deviation = factor * 1.5_wp * SIN(phi_vertical) * (COS(phi_vertical))**0.5_wp               &
@@ -631,7 +630,7 @@ CONTAINS
 
   END SUBROUTINE init_pure_adv_wind
 
-  SUBROUTINE init_pure_adv_tracers (tracer_variant, lon, lat, height, rotation_angle,  &
+  SUBROUTINE init_pure_adv_tracers (tracer_variant, lon, lat, height,  &
     &                               q4, q5, q6, q7, q8)
   !-----------------------------------------------------------------------
   !     input parameters
@@ -644,8 +643,7 @@ CONTAINS
   !    456 : tracers q4, q5 and q6
   REAL(wp), INTENT(in)  :: lon,              & ! longitude in radians
     lat,                                     & ! latitude in radians
-    height,                                  & ! height of the level in m
-    rotation_angle                             ! alpha in degrees
+    height
   !-----------------------------------------------------------------------
   !     output parameters
   !-----------------------------------------------------------------------
@@ -669,11 +667,9 @@ CONTAINS
   !-----------------------------------------------------------------------
   !     local variables
   !-----------------------------------------------------------------------
-  REAL(wp) :: alpha
   REAL(wp) :: sin_tmp, cos_tmp
   REAL(wp) :: d1, d2, r
 
-  alpha = rotation_angle*deg2rad
   !-----------------------------------------------------------------------
   !     Tracer variables
   !-----------------------------------------------------------------------

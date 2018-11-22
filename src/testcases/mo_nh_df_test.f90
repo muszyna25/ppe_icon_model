@@ -28,13 +28,13 @@
 MODULE mo_nh_df_test
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_physical_constants,  ONLY: rd, cpd, p0ref
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
   USE mo_math_types,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
-  USE mo_math_utilities,      ONLY: gnomonic_proj, gc2cc, az_eqdist_proj
+  USE mo_math_utilities,      ONLY: gnomonic_proj, gc2cc!, az_eqdist_proj
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -238,7 +238,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_sim_time  !< simulation time in seconds
                                         !< since start
 
-    INTEGER  :: nblks_e, npromz_e, nblks_v
+    INTEGER  :: nblks_e, nblks_v
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     INTEGER  :: jb,je,jv,jk         !< loop indices
@@ -262,7 +262,6 @@ CONTAINS
     u4  = (10._wp*grid_sphere_radius)/(tottime)    !< flow field amplitude [m/s]
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
     nblks_v  = ptr_patch%nblks_v
 
    ! number of vertical levels
@@ -542,7 +541,7 @@ CONTAINS
       &  p_cc(:,:,:)    
 
     INTEGER  :: jb,jc,jk            !> loop indices
-    INTEGER  :: nblks_c, npromz_c
+    INTEGER  :: nblks_c
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     REAL(wp) :: z_alpha             !< Earths rotation axis pitch angle in rad
@@ -561,7 +560,6 @@ CONTAINS
     bell_radius = 0.5_wp * grid_sphere_radius  !< tracer distribution
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -980,7 +978,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_sim_time  !< simulation time in seconds
                                         !< since start
 
-    INTEGER  :: nblks_e, npromz_e
+    INTEGER  :: nblks_e
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     INTEGER  :: jb,je,jk            !< loop indices
@@ -998,16 +996,14 @@ CONTAINS
     REAL(wp) ::   &                 !< geographical coordinates of departure region
      &  z_barycenter(nproma,ptr_patch%nlev,ptr_patch%nblks_e,2) !< barycenter
 
-    REAL(wp) :: u0, u3, u4      !< flow field amplitude [m/s]
+    REAL(wp) :: u3, u4      !< flow field amplitude [m/s]
     !---------------------------------------------------------------------------
     ! constants
-    u0  = (2._wp*pi*grid_sphere_radius)/(tottime)  !< circumference / 12 days [m/s]
     u3  = (5._wp*grid_sphere_radius)/(tottime)     !< for case 3 (divergent flow)
     u4  = (10._wp*grid_sphere_radius)/(tottime)    !< flow field amplitude [m/s]
 
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -1362,7 +1358,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: p_cc(:,:,:)   !< tracer array
 
     INTEGER  :: jb,jc,jk                     !< loop indices
-    INTEGER  :: nblks_c, npromz_c
+    INTEGER  :: nblks_c
     INTEGER  :: nlev                         !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
 
@@ -1373,7 +1369,6 @@ CONTAINS
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
