@@ -178,6 +178,8 @@ if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
+/
+&master_time_control_nml
  experimentStartDate  = "$start_date" 
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 

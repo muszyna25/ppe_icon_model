@@ -878,7 +878,7 @@ case "$ac_sitename" in
                                 ;;
                             "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
                                 load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-intel14
-                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF -DDO_NOT_COMBINE_PUT_AND_NOCHECK
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
@@ -923,7 +923,7 @@ case "$ac_sitename" in
                                 ;;
                             "$software_tree/mpi/openmpi/2.0.2p1_hpcx-gcc64"|*)
                                 load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-gcc64
-                                FFLAGS       = $FFLAGS
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF -DDO_NOT_COMBINE_PUT_AND_NOCHECK
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-gcc64
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-gcc64/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-gcc64/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi

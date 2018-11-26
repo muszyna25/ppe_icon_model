@@ -47,7 +47,8 @@ USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
+USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
+     &                             is_plane_torus, l_limited_area
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -111,6 +112,7 @@ USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
+USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
@@ -737,9 +739,13 @@ CONTAINS
     ENDIF
 
     ! call close name list prefetch
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-      CALL close_prefetch()
-      CALL latbc%finalize()
+    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+      IF (num_prefetch_proc >= 1) THEN
+        CALL close_prefetch()
+        CALL latbc%finalize()
+      ELSE
+        CALL deallocate_latbc_data()
+      END IF
     END IF
 
     ! Delete output variable lists

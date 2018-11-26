@@ -1409,7 +1409,8 @@ CONTAINS
         &		       p_nh_state(jg)%diag,		       & !in
         &		       prm_diag 			       ) !inout
 
-    IF( is_sampling_time )THEN
+    IF( is_sampling_time .AND. is_ls_forcing)THEN
+
       CALL calculate_turbulent_diagnostics(                 &
                               & pt_patch,                   & !in
                               & pt_prog,  pt_prog_rcf,      & !in
