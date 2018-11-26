@@ -329,7 +329,7 @@ MODULE mo_nh_stepping
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
 
-      IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jg))
+      IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
     IF (.NOT.isRestart()) THEN
@@ -1577,14 +1577,14 @@ MODULE mo_nh_stepping
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
-          IF (iprog_aero == 1) THEN
+          IF (iprog_aero >= 1) THEN
 
-            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), dt_loc, & !in
-            &          prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,           & !inout, in
-            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,   & !in
-            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                 & !in
-            &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%airmass_new                       ) !in
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
+            &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
+            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
+            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
+            &          p_nh_state(jg)%diag%airmass_now,                          & !in
+            &          p_nh_state(jg)%diag%airmass_new                           ) !in
 
           ENDIF
 
@@ -2023,7 +2023,7 @@ MODULE mo_nh_stepping
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
 
-              IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
+              IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &

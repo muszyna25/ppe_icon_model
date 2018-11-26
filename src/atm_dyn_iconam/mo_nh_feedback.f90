@@ -1114,7 +1114,7 @@ CONTAINS
     IF(ltransport) &
       ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, trFeedback%len))
 
-    IF(ltransport .AND. iprog_aero == 1) &
+    IF(ltransport .AND. iprog_aero >= 1) &
       ALLOCATE(feedback_aero(nproma, nclass_aero, i_startblk:i_endblk))
 
     i_startblk = 1
@@ -1254,7 +1254,7 @@ CONTAINS
         ENDDO
       ENDIF
 
-      IF (ltransport .AND. iprog_aero == 1) THEN
+      IF (ltransport .AND. iprog_aero >= 1) THEN
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1317,7 +1317,7 @@ CONTAINS
     CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_e_fbk, 0, 0, 1, nlev_c, &
       RECV1_SP=parent_vn, SEND1_SP=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
       CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1_SP=parent_aero,     SEND1_SP=feedback_aero,                    &
         RECV4D_SP=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D_SP=feedback_rhoqx)
@@ -1335,7 +1335,7 @@ CONTAINS
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
       RECV1=parent_vn, SEND1=feedback_vn )
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, trFeedback%len+1, trFeedback%len*nlev_c+nclass_aero, &
         RECV1=parent_aero,     SEND1=feedback_aero,                    &
         RECV4D=parent_rhoqx(:,:,:,1:trFeedback%len), SEND4D=feedback_rhoqx)
@@ -1668,7 +1668,7 @@ CONTAINS
 #endif
         ENDDO
 
-        IF (iprog_aero == 1) THEN
+        IF (iprog_aero >= 1) THEN
 
           DO jt = 1, nclass_aero
             DO jc = i_startidx,i_endidx
@@ -1679,7 +1679,7 @@ CONTAINS
             ENDDO
           ENDDO
 
-        ENDIF  ! iprog_aero = 1
+        ENDIF  ! iprog_aero
       ENDIF  ! ltransport
 
     ENDDO
@@ -1688,7 +1688,7 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
 
       DO nt = 1, trFeedback%len
         jt = trFeedback%list(nt)
@@ -1744,7 +1744,7 @@ CONTAINS
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
     IF (ltransport) DEALLOCATE(feedback_rhoqx)
-    IF (ltransport .AND. iprog_aero == 1) DEALLOCATE(feedback_aero)
+    IF (ltransport .AND. iprog_aero >= 1) DEALLOCATE(feedback_aero)
 
   END SUBROUTINE relax_feedback
 

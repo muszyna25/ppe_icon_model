@@ -1544,39 +1544,42 @@ MODULE mo_initicon_io
             IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk)
             IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk)
 
-            IF(iprog_aero == 1) THEN
-                aerosol_fg_present(jg) = .TRUE.
+            IF(iprog_aero >= 1) THEN
+                IF (iprog_aero == 1) THEN
+                  aerosol_fg_present(jg,1:4) = .FALSE.
+                  aerosol_fg_present(jg,5)   = .TRUE.
+                ELSE
+                  aerosol_fg_present(jg,:)   = .TRUE.
+                ENDIF
 
                 my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
                 CALL fetchSurface(params, 'aer_ss', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg,iss) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
                 CALL fetchSurface(params, 'aer_or', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg,iorg) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
                 CALL fetchSurface(params, 'aer_bc', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg,ibc) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
                 CALL fetchSurface(params, 'aer_su', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg,iso4) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
                 CALL fetchSurface(params, 'aer_du', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg,idu) = .FALSE.
 
-                ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
-                IF(.NOT.aerosol_fg_present(jg)) THEN
-                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
-                END IF
+                ! Reading of each of these variables is purely OPTIONAL, and inform the InputInstructions about this.
+                IF (.NOT.aerosol_fg_present(jg,iss))  CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,iorg)) CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,ibc))  CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,iso4)) CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,idu))  CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
             ELSE
-                aerosol_fg_present(jg) = .FALSE.
+                aerosol_fg_present(jg,:) = .FALSE.
             END IF
         END IF
     END DO

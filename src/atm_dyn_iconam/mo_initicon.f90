@@ -329,7 +329,7 @@ MODULE mo_initicon
             END IF
     END SELECT
     ! Init aerosol field from climatology if no first-guess data have been available
-    IF (iprog_aero == 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
+    IF (iprog_aero >= 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.

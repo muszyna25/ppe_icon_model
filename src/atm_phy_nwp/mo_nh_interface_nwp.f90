@@ -856,8 +856,8 @@ CONTAINS
                         jb, i_startidx, i_endidx, 1, nlev)
       ENDIF
 
-      IF (iprog_aero == 1 .AND. .NOT. linit) THEN
-        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,                                         &
+      IF (iprog_aero >= 1 .AND. .NOT. linit) THEN
+        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,iprog_aero,                              &
                               prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
                               prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
                               prm_diag%rain_gsp_rate(:,jb),prm_diag%snow_gsp_rate(:,jb),                 &
@@ -1586,7 +1586,7 @@ CONTAINS
         ENDIF
 
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero == 1) THEN
+        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
                                      pt_diag%exner_pr, prm_diag%aerosol,                         &
                                      f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))

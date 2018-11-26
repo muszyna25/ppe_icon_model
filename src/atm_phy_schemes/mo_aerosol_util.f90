@@ -32,7 +32,7 @@ MODULE mo_aerosol_util
   USE mo_radiation_rg_par,     ONLY: jpspec
   USE mo_srtm_config,          ONLY: jpsw
   USE mo_phyparam_soil,        ONLY: cadp, cfcap
-  USE mo_lnd_nwp_config,       ONLY: ntiles_total
+  USE mo_lnd_nwp_config,       ONLY: ntiles_lnd
   USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
 
   IMPLICIT NONE
@@ -693,11 +693,11 @@ CONTAINS
 
   ! Very simple parameterization of source and sink terms for prognostic 2D aerosol fields
   !
-  SUBROUTINE prog_aerosol_2D (nproma,jcs,jce,dtime,aerosol,aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du, &
-                              rr_gsp,sr_gsp,rr_con,sr_con,gust_dyn,gust_con,soiltype,plcov_t,frac_t,     &
-                              w_so_t,t_so_t,h_snow_t)
+  SUBROUTINE prog_aerosol_2D (nproma,jcs,jce,dtime,iprog_aero,aerosol,aercl_ss,aercl_or,aercl_bc,aercl_su,aercl_du,       &
+                              rr_gsp,sr_gsp,rr_con,sr_con,gust_dyn,gust_con,soiltype,plcov_t,frac_t,w_so_t,t_so_t,h_snow_t)
+                              
     
-    INTEGER,  INTENT(in)    :: nproma, jcs, jce
+    INTEGER,  INTENT(in)    :: nproma, jcs, jce, iprog_aero
     REAL(wp), INTENT(in)    :: dtime
 
     REAL(wp), INTENT(inout) :: aerosol(:,:)
@@ -710,10 +710,11 @@ CONTAINS
     INTEGER :: jc, js, jt
 
     REAL(wp) :: relax_scale(2), relax_fac(2), od_clim(nclass_aero), vfac, wsofac, tsofac, minfrac, &
-                plcfac, snwfac, dustsrc(ntiles_total), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc, &
+                plcfac, snwfac, dustsrc(ntiles_lnd), ts_dustsrc, ts_saltsrc, ts_orgsrc, ts_bcsrc, ts_susrc, &
                 washout, washout_scale
 
-    ! Fractions of climatology used as target values for relaxation (tuned to approximately balance the source terms)
+    ! Fractions of climatology used as target values for relaxation 
+    ! (tuned to approximately balance the source terms for non-dust aerosol classes)
     relax_scale(1)  = 0.7_wp
     relax_scale(2)  = 0.4_wp
 
@@ -724,12 +725,12 @@ CONTAINS
     ! Time scales for sources
     ts_dustsrc = 1._wp/(12.5_wp*86400._wp) ! 12.5 days for dust source terms
     ts_saltsrc = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sea salt
-    ts_orgsrc  = 1._wp/(1.5_wp*86400._wp)  ! 1.5  days for organic aerosol
-    ts_bcsrc   = 1._wp/(2.0_wp*86400._wp)  ! 2    days for black carbon
+    ts_orgsrc  = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for organic aerosol
+    ts_bcsrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for black carbon
     ts_susrc   = 1._wp/(2.5_wp*86400._wp)  ! 2.5  days for sulfate aerosol
 
     ! Washout scale for dust
-    washout_scale = 1._wp/10._wp  ! e-folding scale 10 mm WE precipitation
+    washout_scale = 1._wp/7.5_wp  ! e-folding scale 7.5 mm WE precipitation
 
     minfrac = 0.025_wp ! minimum allowed fraction of climatological aerosol optical depth
 
@@ -740,52 +741,72 @@ CONTAINS
     od_clim(iso4) = 0.015_wp
     od_clim(idu)  = 0.075_wp
 
+    ! Prediction of mineral dust; other aerosol classes are treated prognostically only if iprog_aero=2
+
     ! Relaxation to scaled climatology
     DO jc = jcs, jce
-      aerosol(jc,iss)  = aerosol(jc,iss)  + dtime*relax_fac(1)*(relax_scale(1)*aercl_ss(jc)-aerosol(jc,iss))
-      aerosol(jc,iorg) = aerosol(jc,iorg) + dtime*relax_fac(1)*(relax_scale(1)*aercl_or(jc)-aerosol(jc,iorg))
-      aerosol(jc,ibc)  = aerosol(jc,ibc)  + dtime*relax_fac(1)*(relax_scale(1)*aercl_bc(jc)-aerosol(jc,ibc))
-      aerosol(jc,iso4) = aerosol(jc,iso4) + dtime*relax_fac(1)*(relax_scale(1)*aercl_su(jc)-aerosol(jc,iso4))
       aerosol(jc,idu)  = aerosol(jc,idu)  + dtime*relax_fac(2)*(relax_scale(2)*aercl_du(jc)-aerosol(jc,idu))
     ENDDO
 
-    ! Sources are specified where either the climatological value exceeds the global average
-    ! or (in case of dust) strong wind blows over dry unfrozen soil with little vegetation
+    ! Sources and sinks for mineral dust, including weak climatology-based source term
     DO jc = jcs, jce
-      aerosol(jc,iso4) = aerosol(jc,iso4) + dtime*ts_susrc* MAX(0._wp,aercl_su(jc)-od_clim(iso4))
-      IF (soiltype(jc) == 9) THEN ! sea water
-        aerosol(jc,iss)  = aerosol(jc,iss)  + dtime*ts_saltsrc*MAX(0._wp,aercl_ss(jc)-od_clim(iss))
-      ELSE IF (soiltype(jc) >= 3 .AND. soiltype(jc) <= 8) THEN ! land excluding glaciers and rock
+      IF (soiltype(jc) >= 3 .AND. soiltype(jc) <= 8) THEN ! land excluding glaciers and rock
         js = soiltype(jc)
-        aerosol(jc,iorg) = aerosol(jc,iorg) + dtime*ts_orgsrc*MAX(0._wp,aercl_or(jc)-od_clim(iorg))
-        aerosol(jc,ibc)  = aerosol(jc,ibc)  + dtime*ts_bcsrc* MAX(0._wp,aercl_bc(jc)-od_clim(ibc))
-        DO jt = 1, ntiles_total
-          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-1.5_wp*cadp(js)) / (cfcap(js)-1.5_wp*cadp(js))
-          plcfac = MAX(0._wp, (0.75_wp-plcov_t(jc,jt))/0.75_wp)
-          snwfac = MAX(0._wp, (0.05_wp-h_snow_t(jc,jt))*20._wp)
-          tsofac = MAX(0._wp, MIN(1._wp,0.4_wp*(t_so_t(jc,jt)-270.65_wp)))
-          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (7.5_wp+17.5_wp*wsofac))
+        DO jt = 1, ntiles_lnd ! snow tiles are excluded a priori; the snow depth criterion is relevant without snow tiles only
+          wsofac = MAX(0._wp,w_so_t(jc,jt)/dzsoil(1)-1.5_wp*cadp(js)) / (cfcap(js)-1.5_wp*cadp(js)) ! soil moisture < field cap.
+          plcfac = MAX(0._wp, (0.75_wp-plcov_t(jc,jt))/0.75_wp)             ! plant cover < 75%
+          snwfac = MAX(0._wp, (0.05_wp-h_snow_t(jc,jt))*20._wp)             ! snow depth < 5 cm
+          tsofac = MAX(0._wp, MIN(1._wp,0.4_wp*(t_so_t(jc,jt)-270.65_wp)))  ! top soil layer warmer than -2.5 deg C
+          vfac   = MAX(0._wp, gust_dyn(jc)+gust_con(jc) - (7.5_wp+17.5_wp*wsofac)) ! gusts > soil-moisture dependent threshold
           dustsrc(jt) = dtime*ts_dustsrc*( vfac*plcfac*snwfac*tsofac +        &
                    MAX(0._wp,aercl_du(jc)-MAX(od_clim(idu),aerosol(jc,idu)) ) )
         ENDDO
-        ! washout of mineral dust by precipitation: convective precip is counted only by 1/4 because it 
+        ! washout of mineral dust by precipitation: convective precip is counted only by 50% because it
         ! is assumed not to cover the whole grid box
-        washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.25_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
-        aerosol(jc,idu)  = aerosol(jc,idu) - washout + SUM(dustsrc(1:ntiles_total)*frac_t(jc,1:ntiles_total))
+        washout = dtime*washout_scale*(rr_gsp(jc)+sr_gsp(jc)+0.5_wp*(rr_con(jc)+sr_con(jc)))*aerosol(jc,idu)
+        aerosol(jc,idu)  = aerosol(jc,idu) - washout + SUM(dustsrc(1:ntiles_lnd)*frac_t(jc,1:ntiles_lnd))
       ENDIF
     ENDDO
 
     ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
     DO jc = jcs, jce
-      aerosol(jc,iss)  = MAX(aerosol(jc,iss),  minfrac*aercl_ss(jc))
-      aerosol(jc,iorg) = MAX(aerosol(jc,iorg), minfrac*aercl_or(jc))
-      aerosol(jc,ibc)  = MAX(aerosol(jc,ibc),  minfrac*aercl_bc(jc))
-      aerosol(jc,iso4) = MAX(aerosol(jc,iso4), minfrac*aercl_su(jc))
       aerosol(jc,idu)  = MAX(aerosol(jc,idu),  minfrac*aercl_du(jc))
     ENDDO
 
+    IF (iprog_aero == 2) THEN
+
+      ! Relaxation to scaled climatology
+      DO jc = jcs, jce
+        aerosol(jc,iss)  = aerosol(jc,iss)  + dtime*relax_fac(1)*(relax_scale(1)*aercl_ss(jc)-aerosol(jc,iss))
+        aerosol(jc,iorg) = aerosol(jc,iorg) + dtime*relax_fac(1)*(relax_scale(1)*aercl_or(jc)-aerosol(jc,iorg))
+        aerosol(jc,ibc)  = aerosol(jc,ibc)  + dtime*relax_fac(1)*(relax_scale(1)*aercl_bc(jc)-aerosol(jc,ibc))
+        aerosol(jc,iso4) = aerosol(jc,iso4) + dtime*relax_fac(1)*(relax_scale(1)*aercl_su(jc)-aerosol(jc,iso4))
+      ENDDO
+
+      ! Sources are specified where either the climatological value exceeds the global average
+      ! sources of sea salt and black carbon are restricted to water and land surfaces, respectively
+      DO jc = jcs, jce
+        aerosol(jc,iso4) = aerosol(jc,iso4) + dtime*ts_susrc*MAX(0._wp,aercl_su(jc)-MAX(od_clim(iso4),0.3_wp*aerosol(jc,iso4)))
+        aerosol(jc,iorg) = aerosol(jc,iorg) + dtime*ts_orgsrc*MAX(0._wp,aercl_or(jc)-MAX(od_clim(iorg),0.3_wp*aerosol(jc,iorg)))
+        IF (soiltype(jc) == 9) THEN ! water
+          aerosol(jc,iss)  = aerosol(jc,iss)  + dtime*ts_saltsrc*MAX(0._wp,aercl_ss(jc)-od_clim(iss))
+        ELSE                        ! land
+          aerosol(jc,ibc)  = aerosol(jc,ibc)  + dtime*ts_bcsrc* MAX(0._wp,aercl_bc(jc)-od_clim(ibc))
+        ENDIF
+      ENDDO
+
+      ! Ensure that the aerosol optical depth does not fall below 2.5% of the climatological value
+      DO jc = jcs, jce
+        aerosol(jc,iss)  = MAX(aerosol(jc,iss),  minfrac*aercl_ss(jc))
+        aerosol(jc,iorg) = MAX(aerosol(jc,iorg), minfrac*aercl_or(jc))
+        aerosol(jc,ibc)  = MAX(aerosol(jc,ibc),  minfrac*aercl_bc(jc))
+        aerosol(jc,iso4) = MAX(aerosol(jc,iso4), minfrac*aercl_su(jc))
+      ENDDO
+
+    ENDIF
 
   END SUBROUTINE prog_aerosol_2D
+
 
   ! Tuning of longwave absorption coefficient of mineral dust in order to reduce cold bias in the Saharan region
   !

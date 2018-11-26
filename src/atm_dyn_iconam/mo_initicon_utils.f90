@@ -234,8 +234,6 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     DO jg = 1, n_dom
 
-      IF (aerosol_fg_present(jg)) CYCLE
-
       rl_start = 1
       rl_end   = min_rlcell
 
@@ -249,24 +247,27 @@ MODULE mo_initicon_utils
 
         DO jc = i_startidx, i_endidx
 
-          prm_diag(jg)%aerosol(jc,iss,jb) = zw1*ext_data(jg)%atm_td%aer_ss(jc,jb,mo1) &
-            &                              +zw2*ext_data(jg)%atm_td%aer_ss(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,iorg,jb) = zw1*ext_data(jg)%atm_td%aer_org(jc,jb,mo1) &
-            &                               +zw2* ext_data(jg)%atm_td%aer_org(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,ibc,jb) = zw1*ext_data(jg)%atm_td%aer_bc(jc,jb,mo1) &
-            &                               +zw2*ext_data(jg)%atm_td%aer_bc(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,iso4,jb) = zw1*ext_data(jg)%atm_td%aer_so4(jc,jb,mo1) &
-            &                               +zw2*ext_data(jg)%atm_td%aer_so4(jc,jb,mo2)
-          prm_diag(jg)%aerosol(jc,idu,jb) = zw1*ext_data(jg)%atm_td%aer_dust(jc,jb,mo1) &
-            &                              +zw2*ext_data(jg)%atm_td%aer_dust(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iss)) prm_diag(jg)%aerosol(jc,iss,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_ss(jc,jb,mo1)  + zw2*ext_data(jg)%atm_td%aer_ss(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iorg)) prm_diag(jg)%aerosol(jc,iorg,jb) = &
+            &  zw1*ext_data(jg)%atm_td%aer_org(jc,jb,mo1) + zw2*ext_data(jg)%atm_td%aer_org(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,ibc)) prm_diag(jg)%aerosol(jc,ibc,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_bc(jc,jb,mo1)  + zw2*ext_data(jg)%atm_td%aer_bc(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,iso4)) prm_diag(jg)%aerosol(jc,iso4,jb) = &
+            &  zw1*ext_data(jg)%atm_td%aer_so4(jc,jb,mo1) + zw2*ext_data(jg)%atm_td%aer_so4(jc,jb,mo2)
+          IF (.NOT. aerosol_fg_present(jg,idu)) prm_diag(jg)%aerosol(jc,idu,jb) =   &
+            &  zw1*ext_data(jg)%atm_td%aer_dust(jc,jb,mo1)+ zw2*ext_data(jg)%atm_td%aer_dust(jc,jb,mo2)
 
         ENDDO
 
       ENDDO
 !$OMP END DO
 !$OMP MASTER
-      WRITE(message_text,'(a,i3)') 'Aerosol initialized from climatology, domain ',jg
-      CALL message('init_aerosol', TRIM(message_text))
+      IF ( ANY(.NOT.aerosol_fg_present(jg,1:5))) THEN
+        WRITE(message_text,'(a,i3,a,i3,a)') 'Aerosol initialized from climatology, domain ',jg,', for',&
+          COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
+        CALL message('init_aerosol', TRIM(message_text))
+      ENDIF
 !$OMP END MASTER
     ENDDO
 !$OMP END PARALLEL

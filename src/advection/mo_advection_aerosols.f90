@@ -18,7 +18,7 @@ MODULE mo_advection_aerosols
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, nclass_aero
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, nclass_aero, idu
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_advection_config,    ONLY: advection_config
   ! USE mo_advection_limiter,   ONLY: hflx_limiter_sm
@@ -102,7 +102,7 @@ CONTAINS
   !! Developed by Guenther Zaengl, DWD (2015-11-05)
   !!
   !!
-  SUBROUTINE aerosol_2D_advection(p_patch, p_int, dtime, aerosol, vn_traj, mflx_h, mflx_v, &
+  SUBROUTINE aerosol_2D_advection(p_patch, p_int, iprog_aero, dtime, aerosol, vn_traj, mflx_h, mflx_v, &
                                   deltaz_e, rhodz_now, rhodz_new)
 
 
@@ -110,6 +110,7 @@ CONTAINS
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: p_int    ! interpolation state
 
+    INTEGER,  INTENT(IN) :: iprog_aero      ! option for prognostic treatment (1 = dust only, 2 = all)
     REAL(wp), INTENT(IN) :: dtime           ! advection time step
 
     REAL(wp), INTENT(INOUT) :: aerosol(:,:,:)   ! 2D aerosol optical depth fields (middle index = aerosol class)
@@ -143,7 +144,7 @@ CONTAINS
 
     INTEGER  :: jb, jk, jt, jc, je, jg, ilc, ibc, kst, kend
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
-    INTEGER  :: i_rlstart, i_rlend
+    INTEGER  :: i_rlstart, i_rlend, jtstart, jtend, jtstep
 
     ! Mapping array between 5 aerosol types and 2 layer thickness classes
     INTEGER, PARAMETER :: ji(nclass_aero) = (/1,1,1,1,2/)
@@ -164,6 +165,12 @@ CONTAINS
     iblk => p_patch%cells%edge_blk
 
     ! Compute vertically averaged mass fluxes, back-trajectory velocities, and air masses
+    IF (iprog_aero == 1) THEN
+      jtstart = 2 ! dust only
+    ELSE
+      jtstart = 1 ! all aerosol classes
+    ENDIF
+    jtend = 2
 
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 
@@ -178,9 +185,11 @@ CONTAINS
       CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, i_rlstart, i_rlend )
 
-      DO jt = 1, 2
-        vn_traj_avg(:,jt,jb) = 0._wp
-        mflx_h_int(:,jt,jb)  = 0._wp
+
+      vn_traj_avg(:,:,jb) = 0._wp
+      mflx_h_int(:,:,jb)  = 0._wp
+
+      DO jt = jtstart, jtend
         dz(:) = 0._vp
 
         DO jk = advection_config(jg)%kstart_aero(jt), advection_config(jg)%kend_aero(jt)
@@ -209,6 +218,16 @@ CONTAINS
     i_startblk = p_patch%cells%start_block(i_rlstart)
     i_endblk   = p_patch%cells%end_block(i_rlend)
 
+    IF (iprog_aero == 1) THEN
+      jtstart = idu ! dust only
+      jtend   = idu
+      jtstep  = 1
+    ELSE
+      jtstart = 1 ! all aerosol classes
+      jtend   = nclass_aero
+      jtstep  = 4
+    ENDIF
+
 !$OMP DO PRIVATE(jb,jk,jt,jc,i_startidx,i_endidx,kst,kend)
     DO jb = i_startblk, i_endblk
 
@@ -217,7 +236,7 @@ CONTAINS
 
       ! Decay scales for all aerosol types but dust are the same. Therefore, the computation is done
       ! only for types 1 and 5, and the remaining ones are filled afterwards
-      DO jt = 1, nclass_aero, 4
+      DO jt = jtstart, jtend, jtstep
         rhodz_now_int(:,jt,jb) = 0._wp
         rhodz_new_int(:,jt,jb) = 0._wp
 
@@ -242,10 +261,12 @@ CONTAINS
       ENDDO
 
       ! Copy integrated values from type 1 to types 2-4
-      DO jc = i_startidx, i_endidx
-        rhodz_now_int(jc,2:4,jb) = rhodz_now_int(jc,1,jb)
-        rhodz_new_int(jc,2:4,jb) = rhodz_new_int(jc,1,jb)
-      ENDDO
+      IF (iprog_aero > 1) THEN
+        DO jc = i_startidx, i_endidx
+          rhodz_now_int(jc,2:4,jb) = rhodz_now_int(jc,1,jb)
+          rhodz_new_int(jc,2:4,jb) = rhodz_new_int(jc,1,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO
@@ -269,9 +290,11 @@ CONTAINS
 
     ! Reconstruct 2D gradient fields of aerosol
     IF (advection_config(jg)%igrad_c_miura == 1 .AND. advection_config(jg)%llsq_svd) THEN
-      CALL recon_lsq_cell_l_svd(aerosol, p_patch, p_int%lsq_lin, grad_aero, opt_rlend=min_rlcell_int-1)
+      CALL recon_lsq_cell_l_svd(aerosol, p_patch, p_int%lsq_lin, grad_aero, opt_rlend=min_rlcell_int-1, &
+                                opt_slev = jtstart, opt_elev = jtend)
     ELSE
-      CALL grad_green_gauss_cell(aerosol, p_patch, p_int, grad_aero, opt_rlend=min_rlcell_int-1)
+      CALL grad_green_gauss_cell(aerosol, p_patch, p_int, grad_aero, opt_rlend=min_rlcell_int-1, &
+                                opt_slev = jtstart, opt_elev = jtend)
     ENDIF
 
 
@@ -289,7 +312,7 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
-      DO jt = 1, nclass_aero
+      DO jt = jtstart, jtend
         DO je = i_startidx, i_endidx
 
           ilc = btraj%cell_idx(je,ji(jt),jb)
@@ -325,7 +348,7 @@ CONTAINS
 
 
       DO jc = i_startidx, i_endidx
-        DO jt = 1, nclass_aero
+        DO jt = jtstart, jtend
 
           fluxdiv_c(jc,jt) =                                                     &
             flx_aero(iidx(jc,jb,1),jt,iblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
@@ -335,7 +358,7 @@ CONTAINS
         ENDDO
       ENDDO
 
-      DO jt = 1, nclass_aero
+      DO jt = jtstart, jtend
         DO jc = i_startidx, i_endidx
           aerosol(jc,jt,jb) = MAX(0._wp, ( aerosol(jc,jt,jb)*rhodz_now_int(jc,jt,jb) - &
             dtime*fluxdiv_c(jc,jt) ) / rhodz_new_int(jc,jt,jb))

@@ -945,7 +945,7 @@ CONTAINS
 
     ENDIF
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
      CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, prm_diag(jg)%aerosol,    &
                              prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
     ENDIF

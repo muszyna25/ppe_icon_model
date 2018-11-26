@@ -20,7 +20,7 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
-    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero
   USE mo_io_units,           ONLY: filename_max
   USE mo_io_util,            ONLY: get_filetype
   USE mo_model_domain,       ONLY: t_patch
@@ -199,7 +199,7 @@ MODULE mo_initicon_config
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
-  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
 
   LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
 

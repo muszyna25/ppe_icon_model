@@ -1870,7 +1870,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         cf_desc    = t_cf_var('aer_'//TRIM(caer), '', '', DATATYPE_FLT32)
         grib2_desc = grib2_var(0, 20, 102, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
           &           + t_grib2_int_key("constituentType", constituentType)
-        IF (iprog_aero == 1) THEN
+        IF (iprog_aero > 1 .OR. iprog_aero == 1 .AND. k == idu) THEN
           CALL add_ref( diag_list, 'aerosol',                                    &
                 & 'aer_'//TRIM(caer), diag%aerosol_ptr(k)%p_2d,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
