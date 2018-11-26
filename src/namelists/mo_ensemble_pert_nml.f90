@@ -21,10 +21,8 @@
 MODULE mo_ensemble_pert_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -178,7 +176,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
