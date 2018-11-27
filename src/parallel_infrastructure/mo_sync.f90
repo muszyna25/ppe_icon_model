@@ -84,8 +84,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-13
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-13
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -451,18 +451,26 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
+!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = f4din(:,:,:,i)
+!$ACC END KERNELS
          CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f4din_sp)) THEN
        ALLOCATE(arr3(UBOUND(f4din_sp,1), UBOUND(f4din_sp,2), UBOUND(f4din_sp,3)))
+!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din_sp,4)
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = REAL(f4din_sp(:,:,:,i),wp)
+!$ACC END KERNELS
          CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, opt_varname)
@@ -575,8 +583,12 @@ SUBROUTINE check_patch_array_sp(typ, p_patch, arr, opt_varname)
    REAL(sp), INTENT(IN) :: arr(:,:,:)
    REAL(wp) :: arr_wp(SIZE(arr,1),SIZE(arr,2),SIZE(arr,3))
 
+!$ACC DATA CREATE(arr_wp) IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
    arr_wp(:,:,:) = REAL(arr(:,:,:),wp)
+!$ACC END KERNELS
    CALL check_patch_array_3(typ, p_patch, arr_wp, opt_varname)
+!$ACC END DATA
 
 END SUBROUTINE check_patch_array_sp
 
@@ -935,12 +947,13 @@ END SUBROUTINE check_patch_array_4
 !! @par Revision History
 !! Initial version by Rainer Johanni, Oct 2011
 
-SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
+SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varname )
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
   TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
   LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
+  CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
 
   INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
   LOGICAL :: remap
@@ -991,6 +1004,10 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   ! Set z_idx with the global 1D-index of all points
 
+!$ACC DATA COPYIN( z_idx ), IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1004,11 +1021,14 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
 
   ! Sync z_idx
-  CALL sync_patch_array(type_arr, p_patch, z_idx)
+  CALL sync_patch_array(type_arr, p_patch, z_idx, opt_varname)
 
   ! Set all points with local index corresponding to z_idx
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1034,6 +1054,9 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
+
+!$ACC END DATA
 
 END SUBROUTINE sync_idx
 
@@ -1884,7 +1907,7 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
 #if defined( __ROUNDOFF_CHECK )
       IF ( ( ( ABS(aux(k)- res(k)) > ABS_TOL ) ) .AND.     &
                 ( ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)  > REL_TOL ) ) THEN
-        out_of_sync = .FALSE.
+        out_of_sync = .TRUE.
         PRINT *, 'Abs. error ', ABS(aux(k)- res(k)), ' rel. error ', ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)
       ENDIF
 #else
