@@ -1,6 +1,10 @@
 
+There are two different ICON License contracts for non-commercial research purposes, see the directory "license":
 
-The user can find the license, binding for the usage of ICON, in the file MPI-M-ICONLizenzvertragV143.pdf.
-Third party license terms can be found in the accompanying directory.
+(1) An individual license is available with the code and via a web-based platform managed by MPI-M, see: MPI-M-ICONLizenzvertragV143.pdf
+(2) An institutional license (for a whole research institute) is available from DWD, see: DWD-ICON_Non-Commercial_Research_Licence.pdf
 
-MPI for Meteorology, Hamburg, 2018-08-07, R. Budich
+Software to which a separate license is applicable is subject to the terms of its associated license, see files in the according directory 
+"Third_party_license_terms" in the subdirectory "license".
+
+MPI for Meteorology, Hamburg, 2018-11-27, R. Budich
