@@ -57,7 +57,8 @@ MODULE mo_solve_nonhydro
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
   USE mo_advection_traj,    ONLY: t_back_traj, btraj_compute_o1
-  USE mo_sync,              ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, sync_patch_array_mult, sync_patch_array_mult_mp
+  USE mo_sync,              ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array,                     &
+                                  sync_patch_array_mult, sync_patch_array_mult_mp, sync_idx
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop,       &
                                   timer_solve_nh_cellcomp, timer_solve_nh_edgecomp,             &
@@ -325,6 +326,7 @@ MODULE mo_solve_nonhydro
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
+    
     ! Precompute Rayleigh damping factor
     DO jk = 2, nrdmax(jg)
        z_raylfac(jk) = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
@@ -337,7 +339,10 @@ MODULE mo_solve_nonhydro
 !$ACC              z_exner_ic, z_alpha, z_beta, z_q, z_contr_w_fl_l, z_exner_expl,       &
 !$ACC              z_flxdiv_mass, z_flxdiv_theta, z_rho_expl, z_w_expl,                  &
 !$ACC              z_rho_v, z_theta_v_v, z_graddiv_vn, z_hydro_corr, z_graddiv2_vn,      &
-!$ACC              scal_divdamp, enh_divdamp_fac, bdy_divdamp, btraj ), &
+#ifndef __LOOP_EXCHANGE
+!$ACC              btraj, &
+#endif
+!$ACC              scal_divdamp, enh_divdamp_fac, bdy_divdamp ), &
 !$ACC      COPYIN( nflatlev, nflat_gradp, vct_a, kstart_dd3d, kstart_moist, nrdmax, z_raylfac, ndyn_substeps_var ), &
 !$ACC      PRESENT( p_patch, p_nh, prep_adv ), &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
@@ -459,10 +464,10 @@ MODULE mo_solve_nonhydro
 
       ! initialize nest boundary points of z_rth_pr with zero
       IF (istep == 1 .AND. (jg > 1 .OR. l_limited_area)) THEN
-#ifndef __MIXED_PRECISION
-        CALL init_zero_contiguous_dp(z_rth_pr(1,1,1,1), 2*nproma*nlev*i_startblk)
-#else
+#ifdef __MIXED_PRECISION
         CALL init_zero_contiguous_sp(z_rth_pr(1,1,1,1), 2*nproma*nlev*i_startblk)
+#else
+        CALL init_zero_contiguous_dp(z_rth_pr(1,1,1,1), 2*nproma*nlev*i_startblk)
 #endif
 !$OMP BARRIER
       ENDIF
@@ -1133,7 +1138,6 @@ MODULE mo_solve_nonhydro
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
@@ -1431,6 +1435,7 @@ MODULE mo_solve_nonhydro
             ENDDO
           ENDDO
 !$ACC END PARALLEL
+
         ELSE
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
@@ -1448,14 +1453,12 @@ MODULE mo_solve_nonhydro
         ENDIF
 
         IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
-
         ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
-            !$ACC LOOP VECTOR
             DO jk = 1, nlev
               z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(jk,je,jb)      &
                 + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(jk,iqidx(je,jb,1),iqblk(je,jb,1)) &
@@ -1464,7 +1467,6 @@ MODULE mo_solve_nonhydro
                 + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(jk,iqidx(je,jb,4),iqblk(je,jb,4))
 #else
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO je = i_startidx, i_endidx
               z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
                 + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1664,7 +1666,7 @@ MODULE mo_solve_nonhydro
         ENDIF
       ELSE IF (itype_comm == 1) THEN
         IF (istep == 1) THEN
-          CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e,opt_varname="z_rho_e")
+          CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e,opt_varname="vn_nnew and z_rho_e")
         ELSE
           CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn,opt_varname="vn_nnew")
         ENDIF
@@ -1732,13 +1734,12 @@ MODULE mo_solve_nonhydro
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%rbf_vec_coeff_e(4,je,jb)                       &
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-
             ENDDO
           ENDDO
 !$ACC END PARALLEL
 
         ELSE IF (itime_scheme >= 5) THEN
-
+          PRINT *, "ITIME_SCHEME >= 5 !!!!!!!!!!!!!!!!"
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
@@ -1792,7 +1793,6 @@ MODULE mo_solve_nonhydro
             ENDDO
           ENDDO
 !$ACC END PARALLEL
-
         ENDIF
 
         IF (idiv_method == 1) THEN  ! Compute fluxes at edges using averaged velocities
@@ -2001,7 +2001,7 @@ MODULE mo_solve_nonhydro
               ! COMMENT: this optimization yields drastically better performance in an OpenACC context
               ! Interpolate contravariant correction to cell centers...
               z_w_concorr_mc_m1 =  &
-                p_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
+                P_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
                 p_int%e_bln_c_s(jc,2,jb)*z_w_concorr_me(ieidx(jc,jb,2),jk-1,ieblk(jc,jb,2)) + &
                 p_int%e_bln_c_s(jc,3,jb)*z_w_concorr_me(ieidx(jc,jb,3),jk-1,ieblk(jc,jb,3))
               z_w_concorr_mc_m0 =  &
@@ -2817,17 +2817,24 @@ MODULE mo_solve_nonhydro
           IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
             ! Synchronize w and vertical contribution to divergence damping
 #ifdef __MIXED_PRECISION
-            CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, opt_varname="z_dwdz_dd")
+            CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, opt_varname="w_nnew and z_dwdz_dd")
 #else
-            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="z_dwdz_dd")
+!!!            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="w_nnew and z_dwdz_dd")
+            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner,opt_varname="exner_nnew")
+            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%rho,opt_varname="rho_nnew")
+            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,opt_varname="w_nnew")
+            CALL sync_patch_array(SYNC_C,p_patch,z_dwdz_dd,opt_varname="z_dwdz_dd")
 #endif
           ELSE
             ! Only w needs to be synchronized
             CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,opt_varname="w_nnew")
           ENDIF
         ELSE ! istep = 2: synchronize all prognostic variables
-          CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
-            p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w,opt_varname="w_nnew")
+!!!          CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
+!!!            p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w,opt_varname="rho, exner, w_nnew")
+          CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%rho, opt_varname="rho_nnew istep=2")
+          CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner, opt_varname="exner_nnew istep=2")
+          CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w, opt_varname="w_nnew istep=2")
         ENDIF
       ENDIF
 
