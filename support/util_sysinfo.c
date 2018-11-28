@@ -223,3 +223,10 @@ void util_unset_mtrace(void)
 {
   muntrace();
 }
+
+
+void util_c_getpid(long int* pid)
+{
+  *pid = (long int) getpid();
+  return;
+}
