@@ -61,7 +61,7 @@ MODULE mo_nwp_lnd_state
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
     &                                itype_interception, l2lay_rho_snow, itype_trvg, &
-    &                                itype_snowevap
+    &                                itype_snowevap, groups_smi
   USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
@@ -399,7 +399,7 @@ MODULE mo_nwp_lnd_state
          & tlev_source=TLEV_NNOW_RCF,                      &! for output take field from nnow_rcf slice
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",     &
          &                 "mode_iau_fg_in","mode_iau_old_fg_in",              &
-         &                 "mode_combined_in","mode_cosmo_in") ) 
+         &                 "mode_combined_in","mode_cosmo_in","ICON_INI_OUT") ) 
 
 
     ! & p_prog_lnd%t_g_t(nproma,nblks_c,ntiles_total+ntiles_water), STAT = ist)
@@ -972,7 +972,8 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d, tlev_source=TLEV_NNOW_RCF,                           &
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
-         &                 "mode_iau_old_fg_in","mode_combined_in","mode_cosmo_in") )   
+         &                 "mode_iau_old_fg_in","mode_combined_in","mode_cosmo_in", &
+         &                 "ICON_INI_OUT") )   
 
 
     ! since it is currently not envisaged to have mixed sea-lake gridpoints, h_ice 
@@ -985,7 +986,8 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d, tlev_source=TLEV_NNOW_RCF,                           &
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
-         &                 "mode_iau_old_fg_in","mode_combined_in","mode_cosmo_in") )   
+         &                 "mode_iau_old_fg_in","mode_combined_in",            &
+         &                 "mode_cosmo_in","ICON_INI_OUT") )   
 
 
     !
@@ -1017,7 +1019,7 @@ MODULE mo_nwp_lnd_state
          & initval = ALB_SI_MISSVAL,                                             &
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in", "mode_iau_fg_in", &
-         &                 "mode_iau_old_fg_in","mode_cosmo_in"),                &
+         &                 "mode_iau_old_fg_in","mode_cosmo_in","ICON_INI_OUT"),                &
          & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )   
 
 
@@ -1049,7 +1051,7 @@ MODULE mo_nwp_lnd_state
       &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
       CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,                               &
            & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT") )
 
 
       ! p_prog_wtr%t_wml_lk(nproma,nblks_c)
@@ -1058,7 +1060,7 @@ MODULE mo_nwp_lnd_state
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
       CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,                             &
            & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT") )
 
 
       ! p_prog_wtr%h_ml_lk(nproma,nblks_c)
@@ -1067,7 +1069,7 @@ MODULE mo_nwp_lnd_state
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
       CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,                               &
            & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT") )
 
 
       ! p_prog_wtr%t_bot_lk(nproma,nblks_c)
@@ -1076,7 +1078,7 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_bot_lk'//suffix, p_prog_wtr%t_bot_lk,                                    &
            & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM_HALF, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT") )
 
 
       ! p_prog_wtr%c_t_lk(nproma,nblks_c)
@@ -1086,7 +1088,7 @@ MODULE mo_nwp_lnd_state
         &           + t_grib2_int_key("typeOfSecondFixedSurface", 162)
       CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,                                 &
            & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT") )
 
 
       ! p_prog_wtr%t_b1_lk(nproma,nblks_c)
@@ -1232,7 +1234,8 @@ MODULE mo_nwp_lnd_state
            & initval=0.001_wp,                                               &
            & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in", &
            &                 "mode_iau_fg_in","mode_iau_old_fg_in",          &
-           &                 "mode_combined_in","mode_cosmo_in") )      
+           &                 "mode_combined_in","mode_cosmo_in",             &
+           &                 "ICON_INI_OUT") )      
 
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
@@ -1243,7 +1246,8 @@ MODULE mo_nwp_lnd_state
            & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                   &
            & initval=0._wp,                                                    &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in",&
-           &                 "mode_iau_old_ana_in","mode_combined_in") )
+           &                 "mode_iau_old_ana_in","mode_combined_in",         &
+           &                 "ICON_INI_OUT") )
 
 
 
@@ -1304,7 +1308,8 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",       &
-         &                 "mode_iau_fg_in","mode_iau_old_fg_in","mode_combined_in","mode_cosmo_in"), &
+         &                 "mode_iau_fg_in","mode_iau_old_fg_in","mode_combined_in", &
+         &                 "mode_cosmo_in","ICON_INI_OUT"),                      &
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
 
@@ -1377,7 +1382,8 @@ MODULE mo_nwp_lnd_state
          & in_group=groups("land_vars","dwd_fg_sfc_vars",                        &
          &                 "mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in",&
          &                 "mode_dwd_ana_in","mode_iau_ana_in",                  &
-         &                 "mode_iau_old_ana_in","mode_combined_in","mode_cosmo_in") )
+         &                 "mode_iau_old_ana_in","mode_combined_in",             &
+         &                 "mode_cosmo_in","ICON_INI_OUT") )
 
 
     ! & p_diag_lnd%w_so(nproma,nlev_soil,nblks_c)
@@ -1404,7 +1410,7 @@ MODULE mo_nwp_lnd_state
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",       &
-         &                 "mode_iau_fg_in","mode_iau_old_fg_in"),               &
+         &                 "mode_iau_fg_in","mode_iau_old_fg_in","ICON_INI_OUT"),&
          & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ),&
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
@@ -1416,6 +1422,7 @@ MODULE mo_nwp_lnd_state
            & p_diag_lnd%smi, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,          &
            & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
            & lrestart=.FALSE., loutput=.TRUE.,                                     &
+           & in_group=groups(groups_smi),                                      &
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
            & l_pp_scheduler_task=TASK_COMPUTE_SMI )
     ENDIF  ! l_smi
@@ -1524,7 +1531,7 @@ MODULE mo_nwp_lnd_state
       CALL add_var( diag_list, vname_prefix//'plantevap', p_diag_lnd%plantevap,   &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d,in_group=groups("dwd_fg_sfc_vars", "mode_iau_fg_in",   &
-           & "mode_dwd_fg_in"), lrestart=.FALSE., loutput=.TRUE. )
+           & "mode_dwd_fg_in","ICON_INI_OUT"), lrestart=.FALSE., loutput=.TRUE. )
 
       ! & p_diag_lnd%plantevap_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('plantevap_t', 'kg m-2', &
@@ -1560,7 +1567,7 @@ MODULE mo_nwp_lnd_state
          & in_group=groups("land_vars", "snow_vars","dwd_fg_sfc_vars",         &
          &                 "mode_dwd_ana_in","mode_iau_fg_in",                 &
          &                 "mode_iau_old_fg_in","mode_combined_in",            &
-         &                 "mode_cosmo_in") )
+         &                 "mode_cosmo_in","ICON_INI_OUT") )
 
 
     ! & p_diag_lnd%w_snow(nproma,nblks_c)
@@ -1572,7 +1579,7 @@ MODULE mo_nwp_lnd_state
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",     &
          &                 "mode_iau_old_ana_in",                              &
-         &                 "mode_combined_in","mode_cosmo_in"),                &
+         &                 "mode_combined_in","mode_cosmo_in","ICON_INI_OUT"), &
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
 
@@ -1585,7 +1592,7 @@ MODULE mo_nwp_lnd_state
          & in_group=groups("land_vars", "snow_vars","dwd_fg_sfc_vars",           &
          &                 "mode_dwd_fg_in","mode_iau_fg_in",                    &
          &                 "mode_iau_old_ana_in","mode_combined_in",             &
-         &                 "mode_cosmo_in") )
+         &                 "mode_cosmo_in","ICON_INI_OUT") )
 
 
     ! & p_diag_lnd%h_snow(nproma,nblks_c)
@@ -1596,7 +1603,7 @@ MODULE mo_nwp_lnd_state
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                  &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
            &                 "mode_iau_ana_in","mode_iau_old_ana_in",              &
-           &                 "mode_combined_in") )
+           &                 "mode_combined_in","ICON_INI_OUT") )
 
 
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
@@ -1632,7 +1639,7 @@ MODULE mo_nwp_lnd_state
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in",&
            &                 "mode_iau_ana_in","mode_iau_old_ana_in",             &
-           &                 "mode_combined_in","mode_cosmo_in") )
+           &                 "mode_combined_in","mode_cosmo_in","ICON_INI_OUT") )
 
 
     ! & p_diag_lnd%freshsnow_t(nproma,nblks_c,ntiles_total)

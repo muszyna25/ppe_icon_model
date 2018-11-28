@@ -56,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(57) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(59) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -109,6 +109,8 @@ MODULE mo_var_groups
     &  "ICE_BUDGETS           ",  &
     &  "ICE_DIAG              ",  &
     &  "LATBC_PREFETCH_VARS   ",  &
+    &  "ICON_INI_OUT          ",  &  ! Variable set needed to initialize ICON (including optional variables)
+    &  "ICON_LBC_OUT          ",  &  ! Variable set needed for ICON-LAM lateral boundary conditions
     &  "ART_AEROSOL           ",  &  ! ICON-ART fields for aerosol particles
     &  "ART_CHEMISTRY         ",  &  ! ICON-ART fields for chemical tracers
     &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracers
@@ -327,10 +329,10 @@ CONTAINS
   !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
   !  function.
   !
-  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
+  FUNCTION groups_arg(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11, g12, g13)
     LOGICAL :: groups_arg(MAX_GROUPS)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
-      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11
+      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11, g12, g13
 
     groups_arg(:) = .FALSE.
     groups_arg(var_groups_dyn%group_id("ALL")) = .TRUE.
@@ -345,6 +347,8 @@ CONTAINS
     IF (PRESENT(g09)) groups_arg(var_groups_dyn%group_id(g09)) = .TRUE.
     IF (PRESENT(g10)) groups_arg(var_groups_dyn%group_id(g10)) = .TRUE.
     IF (PRESENT(g11)) groups_arg(var_groups_dyn%group_id(g11)) = .TRUE.
+    IF (PRESENT(g12)) groups_arg(var_groups_dyn%group_id(g12)) = .TRUE.
+    IF (PRESENT(g13)) groups_arg(var_groups_dyn%group_id(g13)) = .TRUE.
   END FUNCTION groups_arg
 
 

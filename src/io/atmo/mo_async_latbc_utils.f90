@@ -1268,7 +1268,8 @@
             &                  latbc%latbc_data(tlev)%atm_in%w,     &
             &                  latbc%latbc_data(tlev)%atm_in%pres,  &
             &                  latbc%latbc_data(tlev)%atm_in%temp,  &
-            &                  nblks_c, p_patch%npromz_c, nlev_in )
+            &                  nblks_c, p_patch%npromz_c, nlev_in,  &
+            &                  opt_lmask=latbc%patch_data%cells%read_mask)
         END IF
 
       END IF

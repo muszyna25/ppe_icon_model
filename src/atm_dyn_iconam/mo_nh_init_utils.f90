@@ -425,7 +425,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev)
+  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev, opt_lmask)
 
 
     ! Input fields
@@ -440,31 +440,60 @@ CONTAINS
     INTEGER , INTENT(IN) :: nblks      ! Number of blocks
     INTEGER , INTENT(IN) :: npromz     ! Length of last block
     INTEGER , INTENT(IN) :: nlev       ! Number of model levels
-
+    
+    LOGICAL , INTENT(IN), OPTIONAL :: opt_lmask(:,:) ! logical mask of points to process
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, jc
     INTEGER :: nlen
 
+    IF(PRESENT(opt_lmask)) THEN
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
 
-    DO jb = 1, nblks
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-      ENDIF
-
-      DO jk = 1, nlev
-        DO jc = 1, nlen
-          w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            IF (opt_lmask(jc,jb)) THEN
+              w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+            ELSE ! fill with dummy value
+              w(jc,jk,jb) = 0._wp
+            ENDIF
+          ENDDO
         ENDDO
-      ENDDO
 
-    ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ELSE ! not present opt_lmask
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
+
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDIF ! PRESENT(opt_lmask)
 
   END SUBROUTINE convert_omega2w
 

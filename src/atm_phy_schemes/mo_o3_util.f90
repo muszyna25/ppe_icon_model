@@ -1307,6 +1307,7 @@ CONTAINS
           IF (l_found(jc)) THEN
             ! Determine level indices right below 100 and 375 hPa
             k375 = prm_diag%k850(jc,jb)  ! to be safe over very high mountains
+            k100 = -1
             DO jk = prm_diag%k850(jc,jb), 3, -1
               IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) k375 = jk
               IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) THEN
@@ -1315,6 +1316,10 @@ CONTAINS
               ENDIF
               IF (p_diag%pres(jc,jk,jb) < 10000._wp) EXIT
             ENDDO
+            ! Check if 100 hPa level is found. This happens only, if something else went
+            ! completely wrong, e.g. with surface pressure values > 1300 hPa. This might be caused,
+            ! for example, by a too large time step.
+            IF (k100 < 0) CALL finish(TRIM(routine),'100 hPa level not found!')
             o3_clim(k100-1:k375) = ext_data%atm%o3(jc,k100-1:k375,jb)
             jkk = k100
             DO jk = k100, k375

@@ -23,6 +23,7 @@
 MODULE mo_initicon
 
   USE mo_kind,                ONLY: dp, wp, vp
+  USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -40,7 +41,7 @@ MODULE mo_initicon
     &                               fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, max_dom,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
@@ -51,6 +52,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_nh_init_nest_utils,  ONLY: interpolate_vn_increments
   USE mo_util_phys,           ONLY: virtual_temp
+  USE mo_util_string,         ONLY: int2string
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
@@ -232,8 +234,9 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdfg"
-    INTEGER :: jg
+    INTEGER :: jg, jg1
     CLASS(t_InputRequestList), POINTER :: requestList
+    CHARACTER(LEN=filename_max) :: fgFilename_str(max_dom)
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -252,17 +255,37 @@ MODULE mo_initicon
       ENDIF
     END DO
 
+    DO jg = 1, n_dom
+      fgFilename_str(jg) = " "
+      IF(p_patch(jg)%ldom_active) THEN
+        fgFilename_str(jg) = fgFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (fgFilename_str(jg1) == fgFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter fgFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) THEN
-          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename_str(jg)))
         ENDIF  ! p_io
         IF (ana_varnames_map_file /= ' ') THEN
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., &
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE., &
             &                       opt_dict = ana_varnames_dict)
         ELSE
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE.)
         END IF
       END IF
     END DO
@@ -349,7 +372,8 @@ MODULE mo_initicon
     CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
 #endif
     CLASS(t_InputRequestList), POINTER :: requestList
-    INTEGER :: jg
+    CHARACTER(LEN=filename_max) :: anaFilename_str(max_dom)
+    INTEGER :: jg, jg1
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -379,16 +403,36 @@ MODULE mo_initicon
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
+      anaFilename_str(jg) = ""
+      IF(p_patch(jg)%ldom_active) THEN
+        anaFilename_str(jg) = anaFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (anaFilename_str(jg1) == anaFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter anaFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
+    DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
             IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
             IF(my_process_is_stdio()) THEN
-                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
+                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename_str(jg)))
             ENDIF  ! p_io
             IF (ana_varnames_map_file /= ' ') THEN
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., &
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE., &
                 &                       opt_dict = ana_varnames_dict)
             ELSE
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE.)
             END IF
         END IF
     END DO

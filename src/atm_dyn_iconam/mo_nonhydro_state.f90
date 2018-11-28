@@ -542,7 +542,8 @@ MODULE mo_nonhydro_state
       &          in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
       &                          "dwd_fg_atm_vars","mode_dwd_fg_in",           &
       &                          "mode_iau_fg_in","mode_iau_old_fg_in",        &
-      &                          "LATBC_PREFETCH_VARS") )
+      &                          "LATBC_PREFETCH_VARS",                        &
+      &                          "ICON_INI_OUT","ICON_LBC_OUT") )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', datatype_flt)
@@ -640,7 +641,8 @@ MODULE mo_nonhydro_state
             &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
             &                           "mode_iau_old_fg_in","mode_iau_ana_in",        &
             &                           "mode_iau_anaatm_in",                          &
-            &                           "mode_iau_old_ana_in" ) )
+            &                           "mode_iau_old_ana_in",                         &
+            &                           "ICON_INI_OUT","ICON_LBC_OUT") )
         END IF ! iqv 
 
         !QC
@@ -667,8 +669,10 @@ MODULE mo_nonhydro_state
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                          "mode_iau_ana_in", "mode_iau_anaatm_in",      &
-            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_ana_in", "mode_iau_anaatm_in",       &
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in",         &
+            &                         "LATBC_PREFETCH_VARS",                         &
+            &                         "ICON_INI_OUT","ICON_LBC_OUT") )
         END IF ! iqc
         !QI
         IF ( iqi /= 0 ) THEN
@@ -694,7 +698,9 @@ MODULE mo_nonhydro_state
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
             &                          "mode_iau_ana_in", "mode_iau_anaatm_in",      &
-            &                         "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
+            &                         "mode_iau_fg_in","mode_iau_old_fg_in",         &
+            &                         "LATBC_PREFETCH_VARS",                         &
+            &                         "ICON_INI_OUT","ICON_LBC_OUT") )
         END IF ! iqi
         !QR
         IF ( iqr /= 0 ) THEN
@@ -719,7 +725,9 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
+            &                           "LATBC_PREFETCH_VARS",                         &
+            &                           "ICON_INI_OUT","ICON_LBC_OUT") )
         END IF ! iqr
         !QS
         IF ( iqs /= 0 ) THEN
@@ -744,7 +752,9 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
+            &                           "LATBC_PREFETCH_VARS",                         &
+            &                           "ICON_INI_OUT","ICON_LBC_OUT") )
         END IF ! iqs
 
         !O3
@@ -1208,7 +1218,8 @@ MODULE mo_nonhydro_state
           &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),               &
           &           in_group=groups("atmo_ml_vars", "atmo_pl_vars",             &
           &           "atmo_zl_vars", "dwd_fg_atm_vars", "mode_dwd_fg_in",        &
-          &           "mode_iau_fg_in","mode_iau_old_fg_in") )
+          &           "mode_iau_fg_in","mode_iau_old_fg_in",                      &
+          &           "ICON_INI_OUT","ICON_LBC_OUT") )
         
       ELSE
 
@@ -1569,7 +1580,8 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )  
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS",   &
+                &                 "ICON_INI_OUT","ICON_LBC_OUT") )  
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -1585,7 +1597,8 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS",   &
+                &                 "ICON_INI_OUT","ICON_LBC_OUT") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1716,7 +1729,8 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS",   &
+                &                 "ICON_INI_OUT","ICON_LBC_OUT") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1755,7 +1769,8 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_zl_vars",                &
                 & "dwd_fg_atm_vars","mode_dwd_ana_in",                          &
                 & "mode_iau_ana_in","mode_iau_old_ana_in",                      &
-                & "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
+                & "mode_iau_anaatm_in","LATBC_PREFETCH_VARS",                   &
+                & "ICON_INI_OUT","ICON_LBC_OUT") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !
@@ -2913,9 +2928,9 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 0, 3, 6, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfSecondFixedSurface", 101)
     IF (init_mode == MODE_ICONVREMAP) THEN
-      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS", "mode_dwd_fg_in")
+      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS", "mode_dwd_fg_in","ICON_INI_OUT")
     ELSE
-      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS")
+      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS","ICON_INI_OUT")
     ENDIF
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF_HHL, cf_desc, grib2_desc, &

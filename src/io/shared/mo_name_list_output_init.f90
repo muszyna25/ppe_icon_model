@@ -1271,32 +1271,28 @@ CONTAINS
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
         IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
         
-        ! compare start date and end date: if these are equal, then
-        ! the interval does not matter and must not be checked.
-        !
         mtime_datetime_start => newDatetime(TRIM(strip_from_modifiers(p_onl%output_start(idx))))
         mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
 
-        IF (mtime_datetime_end > mtime_datetime_start) THEN
-          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
-          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
+        mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
+        IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
           
-          mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
-          CALL timedeltaToString(mtime_td, lower_bound_str)
-          mtime_day => newTimedelta("P1D")
-          IF (mtime_td > mtime_day)  THEN
-            CALL finish(routine, "Internal error: dtime > 1 day!")
-          END IF
-          IF (mtime_output_interval < mtime_td) THEN
-            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
-          END IF
-          CALL deallocateTimedelta(mtime_output_interval)
-          CALL deallocateTimeDelta(mtime_td)
-          CALL deallocateTimeDelta(mtime_day)
-
-          CALL deallocateDatetime(mtime_datetime_start)
-          CALL deallocateDatetime(mtime_datetime_end)
+        mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
+        CALL timedeltaToString(mtime_td, lower_bound_str)
+        mtime_day => newTimedelta("P1D")
+        IF (mtime_td > mtime_day)  THEN
+          CALL finish(routine, "Internal error: dtime > 1 day!")
         END IF
+        IF (mtime_output_interval < mtime_td) THEN
+          CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
+        END IF
+        CALL deallocateTimedelta(mtime_output_interval)
+        CALL deallocateTimeDelta(mtime_td)
+        CALL deallocateTimeDelta(mtime_day)
+
+        CALL deallocateDatetime(mtime_datetime_start)
+        CALL deallocateDatetime(mtime_datetime_end)
+
       END DO INTVL_LOOP
 
       p_onl => p_onl%next

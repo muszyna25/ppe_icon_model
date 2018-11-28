@@ -48,7 +48,8 @@ MODULE mo_initicon_io
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
-    &                               my_process_is_mpi_workroot
+    &                               my_process_is_mpi_workroot,    &
+    &                               my_process_is_stdio
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
@@ -238,7 +239,7 @@ MODULE mo_initicon_io
     TYPE(t_patch), TARGET,  INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
-    INTEGER :: jg, jlev, jc, jk, jb, i_endidx
+    INTEGER :: jg, jlev, jc, jk, jb, i_endidx, jg1
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
@@ -268,6 +269,7 @@ MODULE mo_initicon_io
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
+      ifs2icon_file(jg) = " "
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -279,6 +281,30 @@ MODULE mo_initicon_io
       ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
+      IF (my_process_is_stdio()) THEN
+        ! consistency check: check for duplicate file names which may
+        ! occur, for example, if the keyword pattern (namelist
+        ! parameter) has been defined ambiguously by the user.
+        DO jg1 = 1,(jg-1)
+          IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+          IF (ifs2icon_file(jg1) == ifs2icon_file(jg)) THEN
+            CALL finish(routine, "Error! Namelist parameter ifs2icon_filename="//TRIM(ifs2icon_filename)//&
+              &"has been defined ambiguously for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//&
+              &TRIM(int2string(jg, '(i0)'))//"!")
+          END IF
+        END DO
+      END IF
+
+    END DO
+
+
+    DO jg = 1, n_dom
+
+      jlev = p_patch(jg)%level
+
+      ! Skip reading the atmospheric input data if a model domain
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! Read in data from IFS2ICON
       !
@@ -611,7 +637,7 @@ MODULE mo_initicon_io
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
-    INTEGER :: jg, jlev
+    INTEGER :: jg, jlev, jg1
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
@@ -636,7 +662,7 @@ MODULE mo_initicon_io
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
-
+      ifs2icon_file(jg) = " "
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -647,6 +673,31 @@ MODULE mo_initicon_io
       !
       ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
+
+      IF (my_process_is_stdio()) THEN
+        ! consistency check: check for duplicate file names which may
+        ! occur, for example, if the keyword pattern (namelist
+        ! parameter) has been defined ambiguously by the user.
+        DO jg1 = 1,(jg-1)
+          IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+          IF (ifs2icon_file(jg1) == ifs2icon_file(jg)) THEN
+            CALL finish(routine, "Error! Namelist parameter ifs2icon_filename="//TRIM(ifs2icon_filename)//&
+              &"has been defined ambiguously for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//&
+              &TRIM(int2string(jg, '(i0)'))//"!")
+          END IF
+        END DO
+      END IF
+
+    END DO
+
+
+    DO jg = 1, n_dom
+
+      jlev = p_patch(jg)%level
+
+      ! Skip reading the atmospheric input data if a model domain
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! Read in data from IFS2ICON
       !
