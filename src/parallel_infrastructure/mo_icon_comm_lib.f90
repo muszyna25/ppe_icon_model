@@ -2455,15 +2455,17 @@ CONTAINS
     INTEGER,                 INTENT(IN) :: total_dim
     INTEGER,                 INTENT(IN) :: comm
     ! local variables:
-    INTEGER  :: mpi_type(2), mpi_disp(2), mpi_block(2), rextent, min_type, ierr, mintype_op
+    INTEGER  :: mpi_type(2), mpi_block(2), min_type, ierr, mintype_op
 
 #ifndef NOMPI
+    INTEGER(MPI_ADDRESS_KIND) :: typeLB, rextent, mpi_disp(2)
+
     ! create a user-defined type for MPI allreduce operation:
     mpi_type  = (/ p_real_dp, MPI_INTEGER /)
-    CALL MPI_TYPE_EXTENT(p_real_dp, rextent, ierr)
-    mpi_disp  = (/ 0, rextent /)
+    CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, rextent, ierr)
+    mpi_disp  = (/ 0_MPI_ADDRESS_KIND, rextent /)
     mpi_block = (/ 1, 2 /)
-    CALL MPI_TYPE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr)
+    CALL MPI_TYPE_CREATE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr)
     CALL MPI_TYPE_COMMIT(min_type, ierr)
     ! register user-defined reduction operation
     CALL MPI_OP_CREATE(mintype_minfct, .TRUE., mintype_op, ierr)

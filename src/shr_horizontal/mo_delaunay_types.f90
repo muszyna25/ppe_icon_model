@@ -1030,9 +1030,9 @@ CONTAINS
 #if (!defined(NOMPI))
     CHARACTER(*), PARAMETER :: routine = modname//":sync_point_list"
     INTEGER                        :: ierr, mpi_t_point, local_nentries, global_nentries, mpi_comm,    &
-      &                               oldtypes(2), blockcounts(2), ierrstat, extent, nranks, i, irank, &
+      &                               oldtypes(2), blockcounts(2), ierrstat, nranks, i, irank, &
       &                               this_start, this_end
-    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2)
+    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2), typeLB, extent
     INTEGER, ALLOCATABLE           :: recv_count(:), recv_displs(:)
     TYPE(t_mpi_point), ALLOCATABLE :: tmp(:), recv_tmp(:)
     LOGICAL                        :: lsync_gindex
@@ -1068,7 +1068,7 @@ CONTAINS
     offsets(1)     = 0_MPI_ADDRESS_KIND
     oldtypes(1)    = p_real_dp
     blockcounts(1) = 4 
-    CALL MPI_TYPE_EXTENT(p_real_dp, extent, ierr) 
+    CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, extent, ierr) 
     offsets(2)     = 4*extent
     oldtypes(2)    = MPI_INTEGER
     blockcounts(2) = 1

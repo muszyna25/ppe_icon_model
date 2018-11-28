@@ -91,8 +91,8 @@ CONTAINS
 #ifdef __xlC__
         INTEGER :: rma_cache_hint
 #endif
-        INTEGER :: nbytes_real, mpi_error
-        INTEGER(KIND=MPI_ADDRESS_KIND) :: mem_bytes
+        INTEGER :: mpi_error
+        INTEGER(KIND=MPI_ADDRESS_KIND) :: mem_bytes, nbytes_real, typeLB
         TYPE(C_PTR) :: c_mem_ptr
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':openMpiWindow'
 
@@ -104,13 +104,13 @@ CONTAINS
 
         ! doubleCount is calculated as number of variables above, get number of bytes
         ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
-        CALL MPI_Type_extent(p_real_dp, nbytes_real, mpi_error)
+        CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, nbytes_real, mpi_error)
         IF(mpi_error /= MPI_SUCCESS) THEN
-          CALL finish(routine, 'MPI_Type_extent returned error '//TRIM(int2string(mpi_error)))
+          CALL finish(routine, 'MPI_GET_TYPE_EXTENT returned error '//TRIM(int2string(mpi_error)))
         END IF
 
         ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
-        mem_bytes = MAX(doubleCount, 1_i8)*INT(nbytes_real, i8)
+        mem_bytes = MAX(doubleCount, 1_i8) * nbytes_real
 
         ! allocate amount of memory needed with MPI_Alloc_mem
         ! 
@@ -155,7 +155,8 @@ CONTAINS
 
         ! create memory window for communication
         mem_ptr_dp(:) = 0._dp
-        CALL MPI_Win_create(mem_ptr_dp, mem_bytes, nbytes_real, MPI_INFO_NULL, communicator, mpi_win, mpi_error)
+        CALL MPI_Win_create(mem_ptr_dp, mem_bytes, INT(nbytes_real), MPI_INFO_NULL, communicator, &
+          &                 mpi_win, mpi_error)
         IF(mpi_error /= MPI_SUCCESS) THEN
           CALL finish(routine, 'MPI_Win_create returned error '//TRIM(int2string(mpi_error)))
         END IF

@@ -1553,15 +1553,15 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
       TYPE(c_ptr)                     :: c_mem_ptr
-      INTEGER                         :: mpierr, nbytes_real
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+      INTEGER                         :: mpierr
+      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, typeLB, nbytes_real
 
       ! Get the amount of bytes per REAL*4 variable (as used in MPI
       ! communication)
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_sp, typeLB, nbytes_real, mpierr)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = mem_size*INT(nbytes_real,i8)
+      mem_bytes = mem_size*nbytes_real
 
       ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
       ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
@@ -1582,7 +1582,7 @@ MODULE mo_async_latbc
 
       ! Create memory window for communication
       patch_data%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
+      CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
         &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
       IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 #endif

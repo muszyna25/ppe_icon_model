@@ -3114,19 +3114,18 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
     TYPE(c_ptr)                     :: c_mem_ptr
     INTEGER                         :: mpierr
-    INTEGER                         :: nbytes_real
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, typeLB, nbytes_real
 
     ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
     IF (use_dp_mpi2io) THEN
-      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, nbytes_real, mpierr)
     ELSE
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_sp, typeLB, nbytes_real, mpierr)
     ENDIF
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+    mem_bytes = MAX(mem_size,1_i8) * nbytes_real
 
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
     ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
@@ -3153,7 +3152,7 @@ CONTAINS
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
       ! Create memory window for communication
       of%mem_win%mem_ptr_dp(:) = 0._dp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 
@@ -3162,7 +3161,7 @@ CONTAINS
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
       ! Create memory window for communication
       of%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 
