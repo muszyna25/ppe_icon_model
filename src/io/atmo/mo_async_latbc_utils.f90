@@ -82,6 +82,7 @@
     USE mo_master_config,       ONLY: isRestart
     USE mo_fortran_tools,       ONLY: copy, init
     USE mo_util_string,         ONLY: tolower
+    USE mo_util_sysinfo,        ONLY: check_file_exists
     USE mo_dictionary,          ONLY: t_dictionary, dict_get
     IMPLICIT NONE
 
@@ -790,7 +791,12 @@
 
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
 
-      INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
+      ! Optional idle-wait-and-retry: Read process waits if files are
+      ! not present. This is *not* performed for the first two time
+      ! slices to avoid unnecessary waiting, eg. when the user has
+      ! mistyped a path name.
+      l_exist = check_file_exists(latbc_full_filename, &
+        &                         latbc_config%nretries, latbc_config%retry_wait_sec)
       IF (.NOT. l_exist) THEN
          CALL finish(routine, "File not found: "//TRIM(latbc_filename))
       ENDIF

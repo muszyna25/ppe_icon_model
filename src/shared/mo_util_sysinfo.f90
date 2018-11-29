@@ -8,12 +8,18 @@
 MODULE mo_util_sysinfo
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_LONG
+  USE mo_mpi,            ONLY: p_mpi_wtime
+  USE mo_kind,           ONLY: wp
   USE mo_io_units,       ONLY: find_next_free_unit
   USE mo_exception,      ONLY: finish
 
   IMPLICIT NONE
 
   PRIVATE
+
+  ! module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_sysinfo'
+
 
   ! log stream errors:
   ENUM, BIND(C)
@@ -107,6 +113,7 @@ MODULE mo_util_sysinfo
   PUBLIC :: util_compiler_release
   PUBLIC :: util_c_getpid
   PUBLIC :: get_smaps_sum
+  PUBLIC :: check_file_exists
 
 CONTAINS
 
@@ -155,6 +162,7 @@ CONTAINS
   INTEGER FUNCTION get_smaps_sum(filename, opt_ierr)
     CHARACTER(LEN=*),   INTENT(IN)    :: filename   !< source file name.
     INTEGER, INTENT(OUT), OPTIONAL    :: opt_ierr   !< error code (0=SUCCESS).
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_smaps_sum"
 #ifndef _CRAYFTN
     CALL finish("get_smaps_sum", "Not implemented!")
 #else
@@ -209,5 +217,60 @@ CONTAINS
     get_smaps_sum = sum/1024
 #endif
   END FUNCTION get_smaps_sum
+
+
+  !> Idle wait for @p wait_sec seconds. Non-collective.
+  !
+  SUBROUTINE wait_idle(wait_sec)
+    INTEGER, INTENT(IN) :: wait_sec
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_idle"
+#ifdef NOMPI
+    CALL finish(routine, "Only implemented for parallel setups!")
+#else
+    ! local variables
+    REAL(wp) starttime, elapsed_sec
+    starttime = p_mpi_wtime()
+    LOOP: DO
+      ! Polling loop: Do not use in regions of spacetime exhibiting
+      ! strong gravitational effects, right?
+      elapsed_sec = p_mpi_wtime() - starttime
+      IF (INT(elapsed_sec) > wait_sec)  EXIT LOOP
+    END DO LOOP
+#endif
+  END SUBROUTINE wait_idle
+
+
+  !> Checks with INQUIRE, if a file with the (full path) file name @p
+  !  filename exists. Optionally: If the file does not exist, perform
+  !  an idle-wait-and-retry loop.
+  !
+  !  @return .TRUE. if file exists.
+  !
+  LOGICAL FUNCTION check_file_exists(filename, nretries, retry_wait_sec)
+    CHARACTER(LEN=*),  INTENT(IN) :: filename
+    INTEGER, INTENT(IN), OPTIONAL :: nretries
+    INTEGER, INTENT(IN), OPTIONAL :: retry_wait_sec
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_file_exists"
+    INTEGER :: i
+    LOGICAL :: l_exist
+
+    ! consistency check
+    IF (PRESENT(retry_wait_sec) .NEQV. PRESENT(nretries)) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+
+    INQUIRE(FILE=TRIM(ADJUSTL(filename)), EXIST=l_exist)
+    IF (PRESENT(nretries) .AND. .NOT. l_exist) THEN
+      LOOP : DO i=1,nretries
+        WRITE (0,'(4a,i0,a)') routine, ' :: file not found: "', &
+          &                   TRIM(ADJUSTL(filename)), '", retry after ', retry_wait_sec, ' seconds.'
+        CALL wait_idle(retry_wait_sec)
+        INQUIRE(FILE=TRIM(ADJUSTL(filename)), EXIST=l_exist)
+        IF (l_exist)  EXIT LOOP
+      END DO LOOP
+    END IF
+    check_file_exists = l_exist
+  END FUNCTION check_file_exists
 
 END MODULE mo_util_sysinfo

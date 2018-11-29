@@ -91,6 +91,11 @@ MODULE mo_limarea_config
     ! shortnames or NetCDF var names used in lateral boundary nudging.
     CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
 
+    !> if LatBC data is unavailable: number of retries
+    INTEGER                         :: nretries
+
+    !> if LatBC data is unavailable: idle wait seconds between retries
+    INTEGER                         :: retry_wait_sec
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
 
