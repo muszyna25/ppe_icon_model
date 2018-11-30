@@ -59,7 +59,7 @@ CONTAINS
        & p_forfrac , k_indfor  , p_sfluxzen, p_taug    , p_taur &
        & )
 
-    USE yoesrta16, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta16, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat1
 
     INTEGER(i4),INTENT(in) :: icount
@@ -236,7 +236,7 @@ CONTAINS
        & p_forfrac , k_indfor , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta17, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta17, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl , layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -443,7 +443,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta18, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta18, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl , layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -621,7 +621,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta19, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta19, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -799,7 +799,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta20, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta20, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, absch4c, rayl, layreffr
 
     INTEGER(i4),INTENT(in) :: icount
@@ -954,7 +954,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta21, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta21, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1164,7 +1164,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta22, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta22, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1356,7 +1356,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta23, ONLY : absa, forrefc, selfrefc &
+    USE mo_yoesrta23, ONLY : absa, forrefc, selfrefc &
          & , sfluxrefc, raylc, layreffr, givfac
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1487,7 +1487,7 @@ CONTAINS
        & k_indfor  , p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta24, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta24, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, abso3ac, abso3bc, raylac, raylbc, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
@@ -1672,7 +1672,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta25, ONLY : absa, sfluxrefc, abso3ac, abso3bc, raylc, layreffr
+    USE mo_yoesrta25, ONLY : absa, sfluxrefc, abso3ac, abso3bc, raylc, layreffr
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1779,7 +1779,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta26, ONLY : sfluxrefc, raylc
+    USE mo_yoesrta26, ONLY : sfluxrefc, raylc
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1852,7 +1852,7 @@ CONTAINS
        & k_laytrop, p_sfluxzen, p_taug    , p_taur &
        & )
 
-    USE yoesrta27, ONLY : absa, absb, sfluxrefc, raylc, layreffr, scalekur
+    USE mo_yoesrta27, ONLY : absa, absb, sfluxrefc, raylc, layreffr, scalekur
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -1971,7 +1971,7 @@ CONTAINS
        & p_sfluxzen, p_taug   , p_taur &
        & )
 
-    USE yoesrta28, ONLY : absa, absb, sfluxrefc, rayl, layreffr, strrat
+    USE mo_yoesrta28, ONLY : absa, absb, sfluxrefc, rayl, layreffr, strrat
 
     INTEGER(i4),INTENT(in) :: icount
     INTEGER,INTENT(in)    :: kbdim
@@ -2145,7 +2145,7 @@ CONTAINS
        & k_indfor, p_sfluxzen, p_taug   , p_taur  &
        & )
 
-    USE yoesrta29, ONLY : absa, absb, forrefc, selfrefc &
+    USE mo_yoesrta29, ONLY : absa, absb, forrefc, selfrefc &
          & , sfluxrefc, absh2oc, absco2c, rayl, layreffr
 
     INTEGER(i4),INTENT(in) :: icount

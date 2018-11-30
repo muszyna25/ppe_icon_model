@@ -26,7 +26,7 @@ SUBROUTINE srtm_kgb17
 
 USE mo_kind, ONLY : wp
 
-USE yoesrta17, ONLY : ka, kb, selfref, forref, sfluxref, rayl, strrat &
+USE mo_yoesrta17, ONLY : ka, kb, selfref, forref, sfluxref, rayl, strrat &
  & , layreffr
 
 !     ------------------------------------------------------------------

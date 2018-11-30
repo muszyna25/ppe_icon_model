@@ -24,7 +24,7 @@ SUBROUTINE srtm_kgb26
 
 USE mo_kind, ONLY : wp
 
-USE yoesrta26, ONLY : sfluxref, rayl
+USE mo_yoesrta26, ONLY : sfluxref, rayl
 
 !     ------------------------------------------------------------------
 

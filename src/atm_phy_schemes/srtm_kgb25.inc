@@ -24,7 +24,7 @@ SUBROUTINE srtm_kgb25
 
 USE mo_kind, ONLY : wp
 
-USE yoesrta25, ONLY : ka, sfluxref, rayl, abso3a, abso3b &
+USE mo_yoesrta25, ONLY : ka, sfluxref, rayl, abso3a, abso3b &
  & , layreffr
 
 !     ------------------------------------------------------------------
