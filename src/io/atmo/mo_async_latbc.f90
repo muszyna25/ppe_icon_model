@@ -142,7 +142,7 @@
 !!              * the intermediate buffer may have only the size of
 !!              * the boundary strip.
 !!              * most important subroutine in this context:
-!!                "read_latbc_data" and, therein, "CALL
+!!                "prefetch_latbc_data" and, therein, "CALL
 !!                prefetch_cdi_3d".
 !!
 !!   "Fetch": Copies the data from the intermediate buffer into
@@ -216,7 +216,7 @@ MODULE mo_async_latbc
     USE mo_time_config,               ONLY: time_config
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, t_latbc_data
     USE mo_grid_config,               ONLY: nroot
-    USE mo_async_latbc_utils,         ONLY: read_latbc_data, read_init_latbc_data, async_init_latbc_data,&
+    USE mo_async_latbc_utils,         ONLY: prefetch_latbc_data, read_init_latbc_data, async_init_latbc_data,&
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
@@ -325,7 +325,7 @@ MODULE mo_async_latbc
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
          latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
-         CALL read_latbc_data(latbc, latbc_read_datetime)
+         CALL prefetch_latbc_data(latbc, latbc_read_datetime)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
@@ -724,8 +724,7 @@ MODULE mo_async_latbc
 
       ! adding the variable 'GEOSP' to the list by add_to_list
       ! as the variable cannot be found in metadata variable list
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
-           CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
+      CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
 
       ! allocate the number of vertical levels and other fields with
       ! the same size as number of variables
@@ -765,21 +764,16 @@ MODULE mo_async_latbc
            CALL finish(routine, "Unknown file type")
          END IF
 
-         IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-           ! Search name mapping for name in file
-           DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
-           ENDDO
+         ! Search name mapping for name in file
+         DO jp= 1, ngrp_prefetch_vars
+           latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+         ENDDO
 
-           ! subroutine to read const (height level) data and to check
-           ! whether some variable is specified in input file and setting
-           ! flag for its further usage
-           CALL check_variables(latbc, latbc_varnames_dict, fileID_latbc)
-         ELSE
-           DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = TRIM(grp_vars(jp))
-           ENDDO
-         ENDIF
+         ! subroutine to read const (height level) data and to check
+         ! whether some variable is specified in input file and setting
+         ! flag for its further usage
+         CALL check_variables(latbc, latbc_varnames_dict, fileID_latbc)
+
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
          flen_latbc = util_filesize(TRIM(latbc_file))
@@ -1511,24 +1505,22 @@ MODULE mo_async_latbc
          ENDDO
       ENDDO ! vars
 
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-         DO jp = 1, latbc%buffer%ngrp_vars
-            IF (TRIM(latbc%buffer%mapped_name(jp)) == TRIM(latbc%buffer%geop_ml_var)) THEN
-               ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
-               ! as the variable GEOSP doesn't exist in metadata
-               mem_size = mem_size + INT(1*latbc%patch_data%cells%n_own,i8)
+      DO jp = 1, latbc%buffer%ngrp_vars
+        IF (TRIM(latbc%buffer%mapped_name(jp)) == TRIM(latbc%buffer%geop_ml_var)) THEN
+          ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
+          ! as the variable GEOSP doesn't exist in metadata
+          mem_size = mem_size + INT(1*latbc%patch_data%cells%n_own,i8)
 
-               IF(my_process_is_work())THEN
-                  ! allocate the buffer sizes for variable 'GEOSP' on compute processors
-                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierrstat)
-                  IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-               ENDIF
+          IF(my_process_is_work())THEN
+            ! allocate the buffer sizes for variable 'GEOSP' on compute processors
+            ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+          ENDIF
 
-               ! variable GEOSP is stored in cell center location
-               latbc%buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
-            ENDIF
-         ENDDO
-      ENDIF
+          ! variable GEOSP is stored in cell center location
+          latbc%buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
+        ENDIF
+      ENDDO
 
       ! allocate amount of memory needed with MPI_Alloc_mem
       CALL allocate_mem_noncray(latbc%patch_data, MAX(mem_size,1_i8))
