@@ -762,7 +762,8 @@ MODULE mo_mpi
   END INTERFACE
 
   INTERFACE p_reduce
-    MODULE PROCEDURE p_reduce_int8_0d
+    MODULE PROCEDURE p_reduce_i8_0d
+    MODULE PROCEDURE p_reduce_i4_0d
   END INTERFACE p_reduce
 
   INTERFACE p_allreduce
@@ -9267,20 +9268,38 @@ CONTAINS
 #endif
   END SUBROUTINE p_allreduce_max_int_1d
 
-  INTEGER(i8) FUNCTION p_reduce_int8_0d(input, reductionOp, root, communicator) RESULT(resultVar)
-    INTEGER(i8), INTENT(IN) :: input
-    INTEGER, VALUE :: reductionOp, root, communicator
+  FUNCTION p_reduce_i8_0d(send, op, root, comm) RESULT(recv)
+    INTEGER(i8) :: recv
+    INTEGER(i8), INTENT(IN) :: send
+    INTEGER, INTENT(in) :: op, root, comm
 
 #ifndef NOMPI
-    INTEGER :: error
-    CHARACTER(*), PARAMETER :: routine = modname//":p_reduce_int8_0d"
+    INTEGER :: ierror
+    CHARACTER(*), PARAMETER :: routine = modname//":p_reduce_i8_0d"
 
-    CALL MPI_Reduce(input, resultVar, 1, p_int_i8, reductionOp, root, communicator, error)
-    IF(error /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
+    CALL MPI_Reduce(send, recv, 1, p_int_i8, op, root, comm, ierror)
+    IF (ierror /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
 #else
-    resultVar = input
+    recv = send
 #endif
-  END FUNCTION p_reduce_int8_0d
+  END FUNCTION p_reduce_i8_0d
+
+  FUNCTION p_reduce_i4_0d(send, op, root, comm) &
+       RESULT(recv)
+    INTEGER(i4) :: recv
+    INTEGER(i4), INTENT(IN) :: send
+    INTEGER, INTENT(in) :: op, root, comm
+
+#ifndef NOMPI
+    INTEGER :: ierror
+    CHARACTER(*), PARAMETER :: routine = modname//":p_reduce_i4_0d"
+
+    CALL MPI_Reduce(send, recv, 1, p_int_i4, op, root, comm, ierror)
+    IF (ierror /= MPI_SUCCESS) CALL finish(routine, "error in MPI call.")
+#else
+    recv = send
+#endif
+  END FUNCTION p_reduce_i4_0d
 
   INTEGER(i4) FUNCTION p_allreduce_int4_0d(input, reductionOp, comm) RESULT(resultVar)
     INTEGER(i4), INTENT(IN) :: input
