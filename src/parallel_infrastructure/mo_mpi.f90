@@ -682,6 +682,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_gather_int_0d1d
      MODULE PROCEDURE p_gather_int_1d1d
      MODULE PROCEDURE p_gather_int_1d2d
+     MODULE PROCEDURE p_gather_int_2d3d
      MODULE PROCEDURE p_gather_char_0d1d
      MODULE PROCEDURE p_gather_bool_0d1d
   END INTERFACE
@@ -9682,6 +9683,29 @@ CONTAINS
      recvbuf(:,1) = sendbuf(:)
 #endif
    END SUBROUTINE p_gather_int_1d2d
+
+  SUBROUTINE p_gather_int_2d3d(sendbuf, recvbuf, p_dest, comm)
+    INTEGER,           INTENT(in) :: sendbuf(:,:)
+    INTEGER,        INTENT(inout) :: recvbuf(:,:,:)
+    INTEGER,           INTENT(in) :: p_dest
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL mpi_gather(sendbuf, SIZE(sendbuf), mpi_integer, &
+      &             recvbuf, SIZE(sendbuf), mpi_integer, &
+      &             p_dest, p_comm, p_error)
+#else
+     recvbuf(:,:,1) = sendbuf(:,:)
+#endif
+   END SUBROUTINE p_gather_int_2d3d
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> wrapper for MPI_Gather()
