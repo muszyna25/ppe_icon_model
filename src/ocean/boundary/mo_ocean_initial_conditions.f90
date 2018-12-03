@@ -584,12 +584,10 @@ CONTAINS
     CASE (221)
       ! Abernathey setup 01; initial SST reflects the heat fluxes
       CALL SST_Abernathey_01(patch_3d=patch_3d, ocean_temperature=ocean_temperature, &
-        & BaseTemperature=initial_temperature_top * 0.5_wp, &
+!       & BaseTemperature=initial_temperature_top * 0.5_wp, &
         & VariationAmplitude=initial_temperature_south, &
         & VariationLength = basin_height_deg * deg2rad, &
         & VariationWaveNo=2.5_wp, &
-        & NorthTemperature=initial_temperature_north, &
-        & NorthLat=(basin_center_lat + 0.5_wp * basin_height_deg - relax_width) * deg2rad, &
         & SouthLat=(basin_center_lat - 0.5_wp * basin_height_deg) * deg2rad)
             
       CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
@@ -747,7 +745,7 @@ CONTAINS
   
     CASE (207)
       CALL message(TRIM(method_name), 'Galewsky Test ')
-      CALL velocity_GalewskyTest(patch_3d, normal_velocity, velocity_amplitude=initial_velocity_amplitude)
+      CALL velocity_GalewskyTest(patch_3d, normal_velocity)
  
 
      CASE (300)
@@ -981,14 +979,12 @@ CONTAINS
 
     INTEGER :: block, idx
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: perturbation_lat, perturbation_lon
 
-    INTEGER :: v1_idx, v1_blk, v2_idx, v2_blk, v3_idx, v3_blk
-    TYPE(t_cartesian_coordinates), POINTER :: vertex_cartesian(:,:)
-    TYPE(t_geographical_coordinates), POINTER :: vertex_lonlat(:,:)
+!   INTEGER :: v1_idx, v1_blk, v2_idx, v2_blk, v3_idx, v3_blk
+!   TYPE(t_cartesian_coordinates), POINTER :: vertex_cartesian(:,:)
+!   TYPE(t_geographical_coordinates), POINTER :: vertex_lonlat(:,:)
 !   TYPE(t_cartesian_coordinates) :: barycenter_cartesian
 !   TYPE(t_geographical_coordinates) :: barycenter_lonlat
-    REAL(wp) :: min_lat, max_lat
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest2'
     !-------------------------------------------------------------------------
@@ -996,9 +992,9 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-    vertex_cartesian => patch_2d%verts%cartesian
-    vertex_lonlat => patch_2d%verts%vertex
+!   cell_center => patch_2d%cells%center
+!   vertex_cartesian => patch_2d%verts%cartesian
+!   vertex_lonlat => patch_2d%verts%vertex
 
     ! test2_h
     CALL message(TRIM(method_name), ' h for Williamson Test 2')
@@ -1024,7 +1020,7 @@ CONTAINS
   !         ocean_height(idx,block) = test2_h( barycenter_lonlat%lon, barycenter_lonlat%lat, 0.0_wp)
 
           ! this is the correct one
-        ocean_height(idx,block) = test2_h( cell_center(idx, block)%lon, cell_center(idx, block)%lat, 0.0_wp)
+        ocean_height(idx,block) = test2_h( cell_center(idx, block)%lon, cell_center(idx, block)%lat)
       END DO
     END DO
 
@@ -1042,7 +1038,6 @@ CONTAINS
 
     INTEGER :: block, idx
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: perturbation_lat, perturbation_lon
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
     !-------------------------------------------------------------------------
@@ -1055,7 +1050,7 @@ CONTAINS
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
-        ocean_height(idx,block) = test5_h( cell_center(idx, block)%lon, cell_center(idx, block)%lat, 0.0_wp)
+        ocean_height(idx,block) = test5_h( cell_center(idx, block)%lat)
       END DO
     END DO
 
@@ -1073,7 +1068,6 @@ CONTAINS
 
     INTEGER :: block, idx
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: perturbation_lat, perturbation_lon
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest6'
     !-------------------------------------------------------------------------
@@ -1104,7 +1098,6 @@ write(0,*)'Williamson-Test6:h', maxval(ocean_height),minval(ocean_height)
 
     INTEGER :: block, idx
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: perturbation_lat, perturbation_lon
     REAL(wp) :: h_perturb, phi_2, alpha,beta
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_GalewskyTest'
@@ -1118,7 +1111,7 @@ write(0,*)'Williamson-Test6:h', maxval(ocean_height),minval(ocean_height)
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
-        ocean_height(idx,block) = galewsky_h(cell_center(idx, block)%lon, cell_center(idx, block)%lat, 0.0_wp)
+        ocean_height(idx,block) = galewsky_h(cell_center(idx, block)%lat)
       END DO
     END DO
  write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)   
@@ -1214,18 +1207,15 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp), INTENT(in) :: velocity_amplitude
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_subset_range), POINTER :: all_edges, all_cells
+    TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_cartesian_coordinates), POINTER ::cellVelocity_cc(:,:,:)
 
-    INTEGER :: edge_block, edge_index, level
-    INTEGER :: start_edges_index, end_edges_index
+    INTEGER :: level
     INTEGER :: cell_block, cell_index
     INTEGER :: start_cells_index, end_cells_index
     REAL(wp) :: point_lon, point_lat     ! latitude of point
     REAL(wp) :: x1, x2, x3
-    REAL(wp) :: t       ! point of time
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
-    REAL(wp) :: edge_vn
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
     !-------------------------------------------------------------------------
@@ -1233,7 +1223,6 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     ! CALL message(TRIM(method_name), ' ')
 
     patch_2d => patch_3d%p_patch_2d(1)
-    all_edges => patch_2d%edges%ALL
     all_cells => patch_2d%cells%ALL
 
     ! fisrt calculate th velocyt at cell centers
@@ -1307,9 +1296,8 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     INTEGER :: edge_block, edge_index, level
     INTEGER :: start_edges_index, end_edges_index
     REAL(wp) :: point_lon, point_lat     ! latitude of point
-    REAL(wp) :: t       ! point of time
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
-    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
+    REAL(wp) :: edge_vn
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_6'
     !-------------------------------------------------------------------------
@@ -1343,20 +1331,18 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
   !-----------------------------------------------------------------------------------
 
     !-----------------------------------------------------------------------------------
-  SUBROUTINE velocity_GalewskyTest(patch_3d, vn, velocity_amplitude)
+  SUBROUTINE velocity_GalewskyTest(patch_3d, vn)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: vn(:,:,:)
-    REAL(wp), INTENT(in) :: velocity_amplitude
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_edges
 
     INTEGER :: edge_block, edge_index, level
     INTEGER :: start_edges_index, end_edges_index
-    REAL(wp) :: point_lon, point_lat     ! latitude of point
-    REAL(wp) :: t       ! point of time
+    REAL(wp) :: point_lat     ! latitude of point
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
-    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
+    REAL(wp) :: edge_vn
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
     !-------------------------------------------------------------------------
@@ -1369,12 +1355,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
-        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
 
-        uu = galewsky_u(point_lon,point_lat,velocity_amplitude)
+        uu = galewsky_u(point_lat)
 
-        vv = galewsky_v(point_lon,point_lat,velocity_amplitude)
+        vv = galewsky_v()
 
         edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
@@ -1398,14 +1383,12 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_edges
 
-    INTEGER :: edge_block, edge_index, level
+    INTEGER :: edge_block, edge_index
     INTEGER :: start_edges_index, end_edges_index
     REAL(wp) :: point_lon, point_lat     ! latitude of point
-    REAL(wp) :: t       ! point of time
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: edge_vn!, COS_angle1, SIN_angle1
-    REAL(wp) :: vn_perturb, alpha,beta, phi_2
-    REAL(wp) :: shear_depth, shear_center, shear_top,shear_bottom
+    REAL(wp) :: shear_depth
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_KelvinHelmholtz'
     !-------------------------------------------------------------------------
 
@@ -1414,15 +1397,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     patch_2d => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
     
-    phi_2 = 0.25_wp*pi
-    beta  = 1.0_wp/15.0_wp
-    alpha = 1.0_wp/3.0_wp
-    
-    
     shear_depth  = 0.05_wp
-    shear_center = INT(0.5_wp*n_zlev)
-    shear_top    = shear_center-INT(0.5_wp*shear_depth)
-    shear_bottom = shear_center+INT(0.5_wp*shear_depth)
     
     edge_vn = 0.1_wp
 
@@ -1470,7 +1445,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: lon_deg
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_uniform_SeparationAtLon'
     !-------------------------------------------------------------------------
@@ -1485,7 +1460,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
 
-        lat_deg = patch_2d%cells%center(idx,block)%lat 
         lon_deg = patch_2d%cells%center(idx,block)%lon * rad2deg
 
         IF((lon_deg-basin_center_lon) >= wallLonDeg) THEN
@@ -1515,7 +1489,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: lon_deg
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_uniform_SeparationAtLon'
     !-------------------------------------------------------------------------
@@ -1529,7 +1503,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
-        lat_deg = patch_2d%cells%center(idx,block)%lat
         lon_deg = patch_2d%cells%center(idx,block)%lon
 
         IF((lon_deg-basin_center_lon) >= wallLatDeg)THEN
@@ -1646,7 +1619,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: lat_deg
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_AddLocalPerturbation'
     !-------------------------------------------------------------------------
@@ -1661,7 +1634,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
         lat_deg = patch_2d%cells%center(idx,block)%lat*rad2deg
-        lon_deg = patch_2d%cells%center(idx,block)%lon*rad2deg
 
 !        IF(ABS(lon_deg) < 2.5_wp .AND. &
 !          ABS(lat_deg-basin_center_lat) < 0.25_wp*basin_height_deg) THEN
@@ -1677,7 +1649,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
       END DO
     END DO
-	
   END SUBROUTINE temperature_AddSinusoidalPerturbation
   !-------------------------------------------------------------------------------
 
@@ -1789,12 +1760,11 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, width
+    REAL(wp):: lat_deg, width
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_front'
     !-------------------------------------------------------------------------
@@ -1803,7 +1773,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
 
     width = 0.0_wp
     ocean_temperature(:,:,:)=0.0_wp
@@ -1813,7 +1782,6 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       DO idx = start_cell_index, end_cell_index
   
         lat_deg = patch_2d%cells%center(idx,block)%lat*rad2deg
-        lon_deg = patch_2d%cells%center(idx,block)%lon*rad2deg
 
          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
            IF( lat_deg>= basin_center_lat+ width)THEN    
@@ -2089,17 +2057,16 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE SST_Abernathey_01(patch_3d, ocean_temperature, BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo, &
-    & NorthTemperature, NorthLat, SouthLat)
+  SUBROUTINE SST_Abernathey_01(patch_3d, ocean_temperature, VariationAmplitude, VariationLength, VariationWaveNo, SouthLat)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
-    REAL(wp), INTENT(in) :: BaseTemperature, VariationAmplitude, VariationLength, VariationWaveNo
-    REAL(wp), INTENT(in) :: NorthTemperature, NorthLat, SouthLat
+    REAL(wp), INTENT(in) :: VariationAmplitude, VariationLength, VariationWaveNo
+    REAL(wp), INTENT(in) :: SouthLat
     
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
-    INTEGER :: block, idx, level
+    INTEGER :: block, idx
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: y_lat
               
@@ -2260,20 +2227,15 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg, lon_deg
     REAL(wp),POINTER :: density(:,:,:)
     REAL(wp):: slope_parameter =0.5_wp
-    REAL(wp) :: x_coord, z_coord,linear_increase,linear_decrease
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    REAL(wp) :: x_coord, z_coord
     !REAL(wp) :: upper_level, middle_level, lower_level
-    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
-    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), POINTER :: tracer(:,:,:) 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
@@ -2281,20 +2243,13 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-    lat(:,:) = patch_2d%cells%center(:,:)%lat    
     
-    tracer =>ocean_tracer(:,:,:)
     density=> ocean_state%p_diag%rho(:,:,:)
     ocean_tracer=0.0_wp
     density=0.0_wp
     slope_parameter =0.00001_wp
 !    slope_parameter =0.15_wp !0.5
-    temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
-    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
-    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
-    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
 !write(*,*)'surface gradient',temperature_difference
 !    lat(:,:) = patch_2d%cells%center(:,:)%lat    
 !    level=1
@@ -2507,21 +2462,16 @@ END DO
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg
     REAL(wp),POINTER :: density(:,:,:)
     REAL(wp):: slope_parameter =0_wp
-    REAL(wp) :: x_coord, z_coord,x_coord_prime,linear_increase,linear_decrease
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    REAL(wp) :: x_coord, z_coord,x_coord_prime
     !REAL(wp) :: upper_level, middle_level, lower_level
-    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
-    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: inv_cell_characteristic_length,cell_characteristic_length, cell_aspect_ratio
-    REAL(wp), POINTER :: tracer(:,:,:) 
+    REAL(wp) :: inv_cell_characteristic_length,cell_aspect_ratio
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
@@ -2529,22 +2479,13 @@ END DO
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-    lat(:,:) = patch_2d%cells%center(:,:)%lat    
     
-    tracer =>ocean_tracer(:,:,:)
     density=> ocean_state%p_diag%rho(:,:,:)
     ocean_tracer=0.0_wp
     density=0.0_wp
 !    slope_parameter =0.00001_wp
     slope_parameter =5.0_wp !1.5_wp !0.75_wp !0.15
-    temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
-    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
-    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
-    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
- 
- 
     density(:,:,:)=0.0_wp
     ocean_tracer(:,:,:)=0.0_wp
     DO block = all_cells%start_block, all_cells%end_block
@@ -2552,11 +2493,9 @@ END DO
       DO idx = start_cell_index, end_cell_index
       
         inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(idx,block))
-        cell_characteristic_length     = SQRT(patch_2D%cells%area(idx,block))
       
 
         lat_deg = patch_2d%cells%center(idx,block)%lat * rad2deg
-        lon_deg = patch_2d%cells%center(idx,block)%lon * rad2deg
         
         x_coord = (lat_deg +0.5*basin_height_deg)/(basin_height_deg)
         x_coord_prime=x_coord !1.0_wp-x_coord
@@ -2610,19 +2549,16 @@ END DO
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg
     REAL(wp),POINTER :: density(:,:,:)
     REAL(wp):: slope_parameter =0.5_wp
-    REAL(wp) :: x_coord, z_coord
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon,lat_diff
+    REAL(wp) :: lat_diff
     !REAL(wp) :: upper_level, middle_level, lower_level
-    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary
-    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: temperature_difference,basin_southBoundary
     REAL(wp), POINTER :: tracer(:,:,:) 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
@@ -2631,8 +2567,6 @@ END DO
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-    lat(:,:) = patch_2d%cells%center(:,:)%lat    
     
     tracer =>ocean_tracer(:,:,:)
     density=> ocean_state%p_diag%rho(:,:,:)
@@ -2644,7 +2578,7 @@ END DO
 
     temperature_difference = (initial_temperature_south - initial_temperature_north)
     
-    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+
     basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
     lat_diff               = basin_height_deg*deg2rad!basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
  
@@ -2657,7 +2591,6 @@ END DO
       DO idx = start_cell_index, end_cell_index
 
         lat_deg = patch_2d%cells%center(idx,block)%lat !* rad2deg
-        lon_deg = patch_2d%cells%center(idx,block)%lon !* rad2deg
         slope_parameter=(lat_deg-basin_southBoundary)/lat_diff
 
         tracer(idx,1,block)=initial_temperature_south- slope_parameter*temperature_difference       
@@ -2704,20 +2637,16 @@ END DO
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp),POINTER :: density(:,:,:)
     REAL(wp):: slope_parameter =0.5_wp
-    REAL(wp) :: x_coord, z_coord,linear_increase,linear_decrease
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    REAL(wp) :: x_coord, z_coord
     !REAL(wp) :: upper_level, middle_level, lower_level
-    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
-    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!   REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff
     REAL(wp) :: lat_deg, lon_deg
-    REAL(wp), POINTER :: tracer(:,:,:) 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
@@ -2725,20 +2654,17 @@ END DO
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
-    lat(:,:) = patch_2d%cells%center(:,:)%lat    
     
-    tracer =>ocean_tracer(:,:,:)
     density=> ocean_state%p_diag%rho(:,:,:)
     ocean_tracer=0.0_wp
     density=0.0_wp
 !    slope_parameter =0.00001_wp
     slope_parameter =0.05
-    temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
+!   temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
-    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
-    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
-    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+!   basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+!   basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+!   lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
 !write(*,*)'surface gradient',temperature_difference
 !    lat(:,:) = patch_2d%cells%center(:,:)%lat    
 !    level=1
@@ -2946,7 +2872,7 @@ END DO
   SUBROUTINE tracer_Redi_test_withdensity(patch_3d, ocean_tracer,ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
-   TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
@@ -2955,9 +2881,6 @@ END DO
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp),POINTER :: density(:,:,:)
     REAL(wp):: slope_parameter =0.5_wp
-    !REAL(wp) :: x_coord, z_coord,linear_increase,linear_decrease
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
-    !REAL(wp) :: upper_level, middle_level, lower_level
     REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
     REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks),linear_increase  
     REAL(wp), POINTER :: tracer(:,:,:) 
@@ -3073,18 +2996,15 @@ END DO
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp),POINTER :: density(:,:,:)
-    REAL(wp):: slope_parameter =0.5_wp
     !REAL(wp) :: x_coord, z_coord,linear_increase,linear_decrease
-    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
     !REAL(wp) :: upper_level, middle_level, lower_level
-    REAL(wp) :: temperature_difference,basin_westBoundary,basin_eastBoundary,lat_diff,bottom_value
-    REAL(wp) :: basin_northBoundary,basin_southBoundary, linear_increase
+    REAL(wp) :: temperature_difference,basin_eastBoundary,lat_diff,bottom_value
+    REAL(wp) :: basin_northBoundary,linear_increase
     REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: lon(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)  
     REAL(wp), POINTER :: tracer(:,:,:) 
@@ -3096,7 +3016,6 @@ END DO
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
     
     tracer =>ocean_tracer(:,:,:)
     density => ocean_state%p_diag%rho
@@ -3107,16 +3026,13 @@ END DO
 
     
     basin_eastBoundary    = (basin_center_lat + 0.5_wp*basin_width_deg) * deg2rad
-    basin_westBoundary    = (basin_center_lat - 0.5_wp*basin_width_deg) * deg2rad
 
 !write(*,*)'surface gradient',temperature_difference
     lat(:,:) = patch_2d%cells%center(:,:)%lat    
     lon(:,:) = patch_2d%cells%center(:,:)%lon  
 
-    basin_westBoundary = minval(lon)
     basin_eastBoundary = maxval(lon)
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
-    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
         
     
     
@@ -3370,8 +3286,6 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER    :: top_level
-    INTEGER    :: bottom_level
     !-------------------------------------------------------------------------
     IF (.NOT. has_missValue) RETURN
     
@@ -3465,7 +3379,7 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: linear_increase, old_max
+    REAL(wp) :: linear_increase
 
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
@@ -3526,12 +3440,10 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: linear_increase
 
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    linear_increase = 0.0_wp
     
 
     DO block = all_cells%start_block, all_cells%end_block
@@ -3561,12 +3473,10 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: linear_increase
 
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    linear_increase = 0.0_wp
 
 
     DO block = all_cells%start_block, all_cells%end_block
@@ -3678,14 +3588,13 @@ stop
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg, z_tmp
     REAL(wp):: z_ldiff, z_ltrop, z_lpol
-    REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
+    REAL(wp):: z_ttrop, z_tpol, z_tdiff
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_WeakGrad'
     !-------------------------------------------------------------------------
@@ -3694,7 +3603,6 @@ stop
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
 
     ! Temperature profile in first layer depends on latitude only
     ! Construct temperature profile
@@ -3707,7 +3615,6 @@ stop
 
     z_ttrop = 25.0_wp      ! 2011-09-05: stable stratification
     z_tpol  = 10.0_wp      ! 2011-09-05: stable stratification
-    z_tdeep =  5.0_wp      ! 2011-09-05: stable stratification
     z_ltrop = 15.0_wp      ! tropical boundary latitude of transition zone
     z_lpol  = 60.0_wp      ! polar boundary latitude of transition zone
     z_tdiff = z_ttrop - z_tpol
@@ -3771,7 +3678,6 @@ stop
     REAL(wp) :: top_value, bottom_value
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
@@ -3782,7 +3688,6 @@ stop
 
     patch_2d    => patch_3d%p_patch_2d(1)
     all_cells   => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
 
     
     shear_depth  = 4.0_wp
@@ -3837,21 +3742,19 @@ stop
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg, z_tmp
     REAL(wp):: z_ldiff, z_ltrop, z_lpol
-    REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
+    REAL(wp):: z_ttrop, z_tpol, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_TropicsPolar'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    cell_center => patch_2d%cells%center
 
     ! Temperature profile depends on latitude and depth
     ! Construct temperature profile
@@ -3916,9 +3819,8 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
-    REAL(wp):: distan, lat_deg, lon_deg
-    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
+    REAL(wp):: distan
+    REAL(wp):: perturbation_lat, perturbation_lon, perturbation_width
     REAL(wp):: temperature
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_circularLonLatPerturbation'
@@ -4089,8 +3991,7 @@ stop
 
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
@@ -4151,7 +4052,6 @@ stop
 
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg!, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -4217,7 +4117,6 @@ stop
 
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg!, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -4283,7 +4182,6 @@ stop
 
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg!, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -4348,9 +4246,8 @@ stop
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: BLOCK, idx, level, ll
+    INTEGER :: BLOCK, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg!, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -4381,8 +4278,6 @@ stop
         !depends on latitude only and is uniform across
         !all vertical layers
         DO level = 1, n_zlev
-
-          ll=n_zlev+1-level
 
           ocean_salinity(idx,level,BLOCK)=0.0_wp
           IF (lat_deg < south) THEN
@@ -4418,10 +4313,9 @@ stop
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: BLOCK, idx, level, ll
+    INTEGER :: BLOCK, idx, level
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
-    REAL(wp):: lat_deg, lon_deg, distan !, z_tmp
+    REAL(wp):: lat_deg, lon_deg!, distan !, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
@@ -4455,7 +4349,6 @@ stop
         !all vertical layers
         DO level = 1, n_zlev
 
-          ll=n_zlev+1-level
 
           ocean_salinity(idx,level,BLOCK)=0.0_wp
 
@@ -4510,14 +4403,13 @@ stop
 
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg, lon_deg !, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_GM_idealized'
     !-------------------------------------------------------------------------
-    REAL(wp) :: a,b,c,xlon,alon_0,alat_0,height,sssu,delta_t_back,tano
+    REAL(wp) :: a,b,c,xlon,alon_0,alat_0,sssu,delta_t_back,tano
 
     ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
 
@@ -4559,7 +4451,6 @@ stop
           b= (xlon-alon_0)**2
           c= 10_wp**2
 
-          !height=0.0_wp
           sssu=0.8_wp*EXP(- ( a + b ) / c)
 
           ocean_temperature(idx,level,BLOCK) =8.0_wp  + delta_t_back*ll+tano*sssu
@@ -4584,14 +4475,13 @@ stop
 
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: levels
     REAL(wp):: lat_deg, lon_deg !, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_GM_idealized'
     !-------------------------------------------------------------------------
-    REAL(wp) :: a,b,c,xlon,alon_0,alat_0,height,sssu,delta_t_back,tano
+    REAL(wp) :: a,b,c,xlon,alon_0,alat_0,sssu,delta_t_back,tano
 
     ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
 
@@ -4634,7 +4524,6 @@ stop
           b= (xlon-alon_0)**2
           c=  10_wp**2
 
-          !height=0.0_wp
           sssu=0.8_wp*EXP(- ( a + b ) / c)
 
           ocean_temperature(idx,level,BLOCK) =0.0_wp  + delta_t_back*ll+tano*sssu
@@ -4715,13 +4604,12 @@ stop
   ! Developed  by L.Bonaventura  (2002-5).
   ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
   !
-  FUNCTION test2_h( point_lon, point_lat, p_t) result(p_hh)
+  FUNCTION test2_h( point_lon, point_lat) result(p_hh)
     REAL(wp), PARAMETER :: h0 = 2.94e4_wp * rgrav  ! maximum height
     
     ! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: point_lon     ! longitude of point
     REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
     
     ! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! height
@@ -4756,14 +4644,12 @@ stop
   ! !REVISION HISTORY:
   ! Developed  by L.Bonaventura  (2002-5).
   ! Revised to programming guide by Th.Heinze, DWD, (2007-01)
-  FUNCTION test5_h( point_lon, point_lat, p_t) result(p_hh)
+  FUNCTION test5_h( point_lat) result(p_hh)
     REAL(wp), PARAMETER :: h0    = 5960._wp  ! maximum height
     REAL(wp), PARAMETER :: uzero = 20._wp    ! maximum velocity
     
     ! !INPUT PARAMETERS:
-    REAL(wp), INTENT(in) :: point_lon     ! longitude of point
     REAL(wp), INTENT(in) :: point_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
     
     ! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! height
@@ -4808,7 +4694,6 @@ stop
 
     REAL(wp) :: point_lon     ! longitude of point
     REAL(wp) :: point_lat     ! latitude of point
-    REAL(wp) :: p_t           ! point of time
 
     REAL(wp)             :: point_height      ! orography
 
@@ -4846,7 +4731,6 @@ stop
 
         point_lon = patch_2d%cells%center(idx, block)%lon
         point_lat = patch_2d%cells%center(idx, block)%lat
-        p_t       = 0.0_wp
 
         ! square of distance (in geographical coordinate sense) of point
         ! from mountain center
@@ -5266,7 +5150,7 @@ stop
 
 ! !LOCAL VARIABLES:  
     !REAL(wp)              :: z_omg, z_r_omega 
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
+    REAL(wp)              :: z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_cosfi2, z_sinfi, z_sinfi2
     REAL(wp)              :: z_cosfir, z_cosfirm1
     REAL(wp)              :: z_cosdl, z_dlon, z_rr1r2
@@ -5280,7 +5164,6 @@ stop
 !-----------------------------------------------------------------------  
 !BOC
 
-    z_r_omega  = sphere_radius * earth_angular_velocity
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
     
@@ -5346,7 +5229,7 @@ stop
 
 ! !LOCAL VARIABLES:  
     !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
+    REAL(wp)              :: z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_sinfi
     REAL(wp)              :: z_cosfir, z_cosfirm1
     REAL(wp)              :: z_sindl, z_dlon, z_rr1r2
@@ -5360,7 +5243,6 @@ stop
 !-----------------------------------------------------------------------  
 !BOC
 
-    z_r_omega = sphere_radius * earth_angular_velocity
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
     
@@ -5422,7 +5304,6 @@ stop
 
 ! !LOCAL VARIABLES:  
     !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
-    REAL(wp)              :: z_r_omega, z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_sinfi
     REAL(wp)              :: z_cosfir
     REAL(wp)              :: z_cosdl, z_dlon, z_rr1r2
@@ -5436,9 +5317,7 @@ stop
 !-----------------------------------------------------------------------  
 !BOC
 
-    z_r_omega = sphere_radius * earth_angular_velocity
     !z_omg     = re_omg_kk / re
-    z_re_omg_kk= sphere_radius * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
     
     z_r       = REAL(r,wp)
     z_r1      = z_r + 1._wp
@@ -5467,13 +5346,12 @@ stop
   END FUNCTION Williamson_test6_vort
 
 !EOC  
-  FUNCTION sphere_h( p_lon, p_lat, p_t) RESULT(h_site)
+  FUNCTION sphere_h( p_lon, p_lat) RESULT(h_site)
 
     !This test case situates a cone on the sphere, which declines with time.
     
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
 
     ! !RETURN VALUE:  
     REAL(wp) :: h_site, radius  
@@ -5502,12 +5380,7 @@ stop
   END FUNCTION sphere_h
 
 
-  FUNCTION sphere_u( p_lon, p_lat, p_t) RESULT(u_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION sphere_u() RESULT(u_site)
 ! !RETURN VALUE:  
     REAL(wp)             :: u_site      ! meridional velocity
 
@@ -5517,12 +5390,7 @@ stop
 
 
 
-  FUNCTION sphere_v( p_lon, p_lat, p_t) RESULT(v_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION sphere_v() RESULT(v_site)
 ! !RETURN VALUE:  
     REAL(wp)             :: v_site      ! meridional velocity
 
@@ -5532,12 +5400,7 @@ stop
   END FUNCTION sphere_v
 
 
-  FUNCTION sphere_oro(p_lon, p_lat, p_t) RESULT(p_or)
-
-! !INPUT PARAMETERS:  
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+  FUNCTION sphere_oro() RESULT(p_or)
 
 ! !RETURN VALUE:  
     REAL(wp)             :: p_or      ! orography
@@ -5552,12 +5415,8 @@ stop
   END FUNCTION sphere_oro
 
 
-  FUNCTION sphere_wind(p_lon, p_lat, p_t, direction) RESULT(wd)
-
-! !INPUT PARAMETERS:  
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+  FUNCTION sphere_wind(p_lat, direction) RESULT(wd)
+    REAL(wp), INTENT(IN) :: p_lat
     INTEGER, INTENT(in) :: direction
 
 ! !RETURN VALUE:  
@@ -5581,12 +5440,7 @@ stop
 
 
 
-  FUNCTION vortex_h( p_lon, p_lat, p_t) RESULT(h_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION vortex_h() RESULT(h_site)
 
     ! !RETURN VALUE:  
     REAL(wp) :: h_site 
@@ -5616,22 +5470,18 @@ stop
   END FUNCTION vortex_h
 
 
-  FUNCTION vortex_u( p_lon, p_lat, p_t) RESULT(u_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+  FUNCTION vortex_u() RESULT(u_site)
 
 ! !RETURN VALUE:  
     REAL(wp)             :: u_site      ! meridional velocity
 
-    REAL(wp) :: d,radius 
-    REAL(wp) :: L_x = 5000000.0
-    REAL(wp) :: L_y = 4330000.0
+!   REAL(wp) :: d,radius 
+!   REAL(wp) :: L_x = 5000000.0
+!   REAL(wp) :: L_y = 4330000.0
 
 
-    d = 150.0           !Height of the cone
-    radius = 0.25*L_x        !Radius of the cone
+!   d = 150.0           !Height of the cone
+!   radius = 0.25*L_x        !Radius of the cone
 !   radius = 1.5*L_x        !Radius of the cone
 
 !!$    u_site=0.0_wp
@@ -5661,12 +5511,7 @@ stop
 
 
 
-  FUNCTION vortex_v( p_lon, p_lat, p_t) RESULT(v_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION vortex_v() RESULT(v_site)
 ! !RETURN VALUE:  
     REAL(wp)             :: v_site      ! meridional velocity
 
@@ -5676,12 +5521,7 @@ stop
 
 
 
-  FUNCTION vortex_vort( p_lon, p_lat, p_t) RESULT(vort_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION vortex_vort() RESULT(vort_site)
 ! !RETURN VALUE:  
     REAL(wp)             :: vort_site      ! meridional velocity
     
@@ -5690,12 +5530,9 @@ stop
   END FUNCTION vortex_vort
 
 
-  FUNCTION vortex_wind(p_lon, p_lat, p_t, direction) RESULT(wd)
+  FUNCTION vortex_wind(direction) RESULT(wd)
  
 ! !INPUT PARAMETERS:  
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
     INTEGER, INTENT(in) :: direction
 
 ! !RETURN VALUE:  
@@ -5719,19 +5556,18 @@ stop
 
 
 
-  FUNCTION vortex_oro(p_lon, p_lat, p_t) RESULT(p_or)
+  FUNCTION vortex_oro(p_lon) RESULT(p_or)
 
 ! !INPUT PARAMETERS:  
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+!   REAL(wp), INTENT(in) :: p_lat     ! latitude of point
 
 ! !RETURN VALUE:  
     REAL(wp)             :: p_or      ! orography
 
     REAL(wp) :: x2, d
     REAL(wp) :: L_x = 5000000.0
-    REAL(wp) :: L_y = 4330000.0
+!   REAL(wp) :: L_y = 4330000.0
 
 !EOP  
 !-----------------------------------------------------------------------  
@@ -5768,12 +5604,7 @@ stop
 
 
 
-  FUNCTION vortex_sphere_h( p_lon, p_lat, p_t) RESULT(h_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
+  FUNCTION vortex_sphere_h() RESULT(h_site)
 
     ! !RETURN VALUE:  
     REAL(wp) :: h_site 
@@ -5783,11 +5614,7 @@ stop
   END FUNCTION vortex_sphere_h
 
 
-  FUNCTION vortex_sphere_u( p_lon, p_lat, p_t) RESULT(u_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+  FUNCTION vortex_sphere_u() RESULT(u_site)
 
 ! !RETURN VALUE:  
     REAL(wp)             :: u_site      ! meridional velocity
@@ -5799,11 +5626,7 @@ stop
 
 
 
-  FUNCTION vortex_sphere_v( p_lon, p_lat, p_t) RESULT(v_site)
-
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
+  FUNCTION vortex_sphere_v() RESULT(v_site)
 
 ! !RETURN VALUE:  
     REAL(wp)             :: v_site      ! meridional velocity
@@ -5811,13 +5634,7 @@ stop
     v_site = 0.0_wp
   END FUNCTION vortex_sphere_v
 
-  FUNCTION vortex_wind_sphere(p_lon, p_lat, p_t, direction) RESULT(wd)
- 
-! !INPUT PARAMETERS:  
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-    INTEGER, INTENT(in) :: direction
+  FUNCTION vortex_wind_sphere() RESULT(wd)
 
 ! !RETURN VALUE:  
     REAL(wp)             :: wd        ! wind
@@ -5828,10 +5645,10 @@ stop
 
 
 
-  FUNCTION galewsky_h( p_lon, p_lat, p_t) RESULT(h_site)
+  FUNCTION galewsky_h( p_lat) RESULT(h_site)
 
    IMPLICIT NONE
-   REAL(wp) , INTENT(in):: p_lon,p_lat,p_t
+   REAL(wp) , INTENT(in):: p_lat
    REAL(wp) :: h_site
 
    h_site = 10166.0_wp-geostr_balance11(p_lat, galewsky_uu)
@@ -5839,20 +5656,17 @@ stop
   END FUNCTION galewsky_h
 
 
-  FUNCTION galewsky_u(p_lon, p_lat, p_t) RESULT(u_site)
+  FUNCTION galewsky_u(p_lat) RESULT(u_site)
 
    IMPLICIT NONE
    REAL(wp) , INTENT(in):: p_lat
-   REAL(wp) , INTENT(in):: p_lon,p_t
-   REAL(wp) ::  u_site, d
+   REAL(wp) ::  u_site
    REAL(wp) ::  phi0, phi1, umax, en
 
    phi0=pi/7._wp
    phi1=pi/2._wp - phi0
    en=exp(-4._wp/(phi0-phi1)**2)
    umax=80._wp
-
-   d=.1_wp
 
    if ((p_lat.gt.phi0).and.(p_lat.lt.phi1))then
         u_site=umax/en*exp(1._wp/(p_lat-phi0)/(p_lat-phi1))
@@ -5869,15 +5683,13 @@ stop
 
    IMPLICIT NONE
    REAL(wp) , INTENT(in):: p_lat
-   REAL(wp) ::  u_site, d
+   REAL(wp) ::  u_site
    REAL(wp) ::  phi0, phi1, umax, en
 
    phi0=pi/7._wp
    phi1=pi/2._wp - phi0
    en=exp(-4._wp/(phi0-phi1)**2)
    umax=80._wp
-
-   d=.1_wp
 
    if ((p_lat.gt.phi0).and.(p_lat.lt.phi1))then
         u_site=umax/en*exp(1._wp/(p_lat-phi0)/(p_lat-phi1))
@@ -5891,13 +5703,8 @@ stop
   END FUNCTION galewsky_uu
 
 
-  FUNCTION galewsky_v( p_lon, p_lat, p_t) RESULT(v_site)
+  FUNCTION galewsky_v() RESULT(v_site)
 
-    REAL(wp), INTENT(in), optional :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in), optional :: p_lat     ! latitude
-    REAL(wp), INTENT(in), optional :: p_t       ! point of time
-
-! !RETURN VALUE:  
     REAL(wp)             :: v_site      ! meridional velocity
 
 
@@ -5906,14 +5713,8 @@ stop
 
   END FUNCTION galewsky_v
 
-  FUNCTION galewsky_oro(p_lon, p_lat, p_t) RESULT(p_or)
+  FUNCTION galewsky_oro() RESULT(p_or)
 
-! !INPUT PARAMETERS:  
-    REAL(wp), INTENT(in) :: p_lon     ! longitude of point
-    REAL(wp), INTENT(in) :: p_lat     ! latitude of point
-    REAL(wp), INTENT(in) :: p_t       ! point of time
-
-! !RETURN VALUE:  
     REAL(wp)             :: p_or      ! orography
 
 !EOP  
@@ -6075,14 +5876,14 @@ stop
   END FUNCTION geostr_balance11
 
    SUBROUTINE tracer_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt, lon_bubble_opt,&
-  & radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+  & radius_bubble_opt, layers_above_bubble_opt)
 ! This subroutine places an ellipsoid of defined salinity or temperature, which has its maximum/minimum 
 ! value at the midpoint and approaches the value of its environment linearly with radius
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
     REAL(wp), TARGET :: tracer(:,:,:)
     REAL(wp),intent(in):: bubble_inside, bubble_outside
     REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
-    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
@@ -6162,7 +5963,7 @@ stop
 
 
  SUBROUTINE tracer_bubble_disturbed(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt,&
-  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt)
 ! This subroutine places an ellipsoid of defined salinity or temperature, which has its maximum/minimum 
 ! value at the midpoint and approaches the value of its environment linearly with radius. There is a
 ! disturbance at the upper side of the bubble if it's lighter than the environment and vise versa.
@@ -6170,7 +5971,7 @@ stop
     REAL(wp), TARGET :: tracer(:,:,:)
     REAL(wp),intent(in):: bubble_inside, bubble_outside
     REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
-    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
@@ -6180,7 +5981,7 @@ stop
     INTEGER :: start_cell_index, end_cell_index
     INTEGER ::layers_above_bubble, layers_bubble, layers_perturbation
     REAL(wp):: lat_deg, lon_deg, z_tmp, test, amplitude_perturbation
-    REAL(wp):: dist, dist_layer, position_perturbation
+    REAL(wp):: dist, dist_layer
     REAL(wp):: lat_bubble, lon_bubble, radius_bubble
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_bubble_disturbed'
@@ -6273,7 +6074,7 @@ stop
    END SUBROUTINE tracer_bubble_disturbed
 
  SUBROUTINE tracer_double_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt,&
-  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+  & lon_bubble_opt, radius_bubble_opt, layers_above_bubble_opt)
 ! This subroutine places an ellipsoid of defined salinity or temperature, which has its minimum/maximum 
 ! value at the midpoint and approaches the value of its environment linearly with radius. Below the
 ! bubble is another smaller bubble with opposite density.
@@ -6281,7 +6082,7 @@ stop
     REAL(wp), TARGET :: tracer(:,:,:)
     REAL(wp),intent(in):: bubble_inside, bubble_outside
     REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
-    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
@@ -6474,14 +6275,14 @@ stop
 
 
  SUBROUTINE tracer_bubbles_side_by_side(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt, lon_bubble_opt,&
-  & radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+  & radius_bubble_opt, layers_above_bubble_opt)
 ! This subroutine places two ellipsoid of defined salinity or temperature next to each other, which has its maximum/minimum 
 ! value at the midpoint and approaches the value of its environment linearly with radius
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
     REAL(wp), TARGET :: tracer(:,:,:)
     REAL(wp),intent(in):: bubble_inside, bubble_outside
     REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
-    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
@@ -6580,13 +6381,13 @@ stop
 
 
   SUBROUTINE Roberts_tracer_bubble(patch_3d, tracer,bubble_inside, bubble_outside, lat_bubble_opt, lon_bubble_opt,&
-    & radius_bubble_opt, layers_above_bubble_opt, layers_bubble_opt)
+    & radius_bubble_opt, layers_above_bubble_opt)
 ! The difference to the upper bubble cases is that the radius is given in meter and  the temperature decreases exponential
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d 
     REAL(wp), TARGET :: tracer(:,:,:)
     REAL(wp),intent(in):: bubble_inside, bubble_outside
     REAL(wp),intent(in),optional:: lat_bubble_opt, lon_bubble_opt, radius_bubble_opt
-    INTEGER,intent(in),optional::layers_above_bubble_opt, layers_bubble_opt
+    INTEGER,intent(in),optional::layers_above_bubble_opt
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
@@ -6684,7 +6485,7 @@ stop
  
      INTEGER :: block, idx, level
      INTEGER :: start_cell_index, end_cell_index
-     REAL(wp) :: lat_deg, lon_deg
+     REAL(wp) :: lat_deg
      REAL(wp) :: h, depth, lat_neu
      REAL(wp) :: tracer_top, tracer_bottom
  
@@ -6706,7 +6507,6 @@ stop
  
          !transfer to latitude in degrees
          lat_deg = cell_center(idx,block)% lat * rad2deg
-         lon_deg = cell_center(idx,block)% lon * rad2deg
 
          IF ( abs( lat_deg ) < 65.0_wp ) THEN
   
