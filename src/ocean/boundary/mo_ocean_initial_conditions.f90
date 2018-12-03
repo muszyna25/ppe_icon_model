@@ -43,7 +43,7 @@ MODULE mo_ocean_initial_conditions
     & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
     & smooth_initial_temperature_weights, &
     & initial_perturbation_waveNumber, initial_perturbation_max_ratio,         &
-    & relax_width, smooth_initial_salinity_iterations, &
+    & smooth_initial_salinity_iterations, &
     & smooth_initial_height_iterations, smooth_initial_temperature_iterations,&
     & OceanReferenceDensity, LinearThermoExpansionCoefficient
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
