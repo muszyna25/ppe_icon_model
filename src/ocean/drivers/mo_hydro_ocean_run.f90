@@ -28,6 +28,7 @@ MODULE mo_hydro_ocean_run
   USE mo_impl_constants,         ONLY: max_char_length, success
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
+  USE mo_coupling_config,        ONLY: is_coupled_run
   USE mo_memory_log,             ONLY: memory_log_add
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
@@ -110,9 +111,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state,p_as, sea_ice, ext_data, is_restart, &
-    & solvercoeff_sp)
+  SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, &
+    & p_oce_sfc, p_as, sea_ice, ext_data, is_restart, solvercoeff_sp)
+
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
+    TYPE(t_ocean_surface)             :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(in)   :: p_as
     TYPE(t_operator_coeff)            :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -128,6 +131,11 @@ CONTAINS
       if(ltimer)call timer_stop(timer_bgc_ini)
     endif
 #endif
+
+    IF (is_restart .AND. is_coupled_run() ) THEN
+        ! Initialize 10m Wind Speed from restart file when run in coupled mode
+        p_as%fu10 = p_oce_sfc%Wind_Speed_10m
+    ENDIF
 
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
         ! Initialize u_ice, v_ice with sea_ice vals read from the restart file
@@ -375,6 +383,11 @@ CONTAINS
           & patch_2d%cells%owned )
         CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
           & patch_2d%edges%owned )
+        CALL dbg_print('HydOce: fu10'              ,p_as%fu10                         ,str_module,idt_src, &
+          & in_subset=patch_2d%cells%owned)
+        CALL dbg_print('HydOce: concsum'           ,sea_ice%concsum                   ,str_module,idt_src, &
+          & in_subset=patch_2d%cells%owned)
+
         !---------------------------------------------------------------------
 
         CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)

@@ -186,8 +186,8 @@ MODULE mo_ocean_model
 
     CALL prepare_output()
 
-    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1),p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+    CALL prepare_ho_stepping(ocean_patch_3d, operators_coefficients, &
+      & ocean_state(1), v_oce_sfc, p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
 
     !------------------------------------------------------------------
     ! write initial state
