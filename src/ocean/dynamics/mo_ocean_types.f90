@@ -259,7 +259,7 @@ MODULE mo_ocean_types
       & w              ,& ! vertical velocity. Unit [m/s].
       & w_old          ,& ! vertical velocity from previous timestep. Unit [m/s].
 !       & w_prev         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
-      & w_time_weighted,& ! predicted normal velocity vector at cells
+!       & w_time_weighted,& ! predicted normal velocity vector at cells
       & cfl_vert          ! vertical cfl values
 
     onEdges_tracers :: &
@@ -290,8 +290,7 @@ MODULE mo_ocean_types
       & vort            ! vorticity at triangle vertices. Unit [1/s]
       
     onVertices_Type(t_cartesian_coordinates) :: &
-      & p_vn_dual,   &    ! reconstructed velocity at vertex in cartesian coordinates
-      & p_vn_mean         ! reconstructed velocity at vertex in cartesian coordinates
+      & p_vn_dual
     
     onEdges_2D :: &
       & h_e              ,& ! surface height at cell edges. Unit [m].
@@ -458,16 +457,6 @@ MODULE mo_ocean_types
     mapEdgesToVertices_3D_Type(t_cartesian_coordinates) :: edge2vert_vector_cc
 
     onCells :: fixed_vol_norm
-!     REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
-!     REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
-
-    !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
-    ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
-!     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
-    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
-    onEdges_3D_Type(t_cartesian_coordinates) :: edge_position_cc
-    onEdges_3D_Type(t_cartesian_coordinates) :: moved_edge_position_cc
-    onEdges_3D_Type(t_cartesian_coordinates) :: upwind_cell_position_cc
 
     blockList_Type(t_verticalAdvection_ppm_coefficients) :: verticalAdvectionPPMcoeffs
 

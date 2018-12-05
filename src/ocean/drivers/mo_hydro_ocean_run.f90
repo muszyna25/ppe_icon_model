@@ -55,9 +55,9 @@ MODULE mo_hydro_ocean_run
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection, t_ocean_transport_state
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers, prepare_tracer_transport
-  USE mo_ocean_tracer_GMRedi,    ONLY: advect_ocean_tracers_GMRedi, prepare_tracer_transport_GMRedi
+  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, map_edges2edges_viacell_3d_const_z
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
+  USE mo_ocean_tracer_GMRedi,    ONLY: advect_ocean_tracers_GMRedi
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -425,12 +425,15 @@ CONTAINS
         stop_timer(timer_normal_veloc,4)
 
         !------------------------------------------------------------------------
-        ! Step 5: calculate vertical velocity from continuity equation under
+        ! Step 5: calculate vertical velocity and mass_flx_e from continuity equation under
         ! incompressiblity condition in the non-shallow-water case
         IF ( iswm_oce /= 1 ) THEN
           start_timer(timer_vert_veloc,4)
           CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
           stop_timer(timer_vert_veloc,4)
+        ELSE
+          CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state(jg)%p_diag%vn_time_weighted, operators_coefficients, &
+              & ocean_state(jg)%p_diag%mass_flx_e)
         ENDIF
         !------------------------------------------------------------------------
 
@@ -621,26 +624,25 @@ CONTAINS
     new_tracer_collection => ocean_state%p_prog(nnew(1))%tracer_collection
 
 
-    IF (no_tracer>=1) THEN
-      !calculate some information that is used for all tracers
-      IF (GMRedi_configuration==Cartesian_Mixing) THEN
-        CALL prepare_tracer_transport( patch_3d, &
-          & ocean_state, operators_coefficients)
-      ELSE
-        CALL prepare_tracer_transport_GMRedi( patch_3d, &
-          & ocean_state, p_phys_param,                  &
-          & operators_coefficients)
-      ENDIF
-    ENDIF
+!     IF (no_tracer>=1) THEN
+!       !calculate some information that is used for all tracers
+!       IF (GMRedi_configuration==Cartesian_Mixing) THEN
+!         CALL prepare_tracer_transport( patch_3d, &
+!           & ocean_state, operators_coefficients)
+!       ELSE
+!         CALL prepare_tracer_transport_GMRedi( patch_3d, &
+!           & ocean_state, p_phys_param,                  &
+!           & operators_coefficients)
+!       ENDIF
+!     ENDIF
     !------------------------------------------------------------------------
-
     IF (no_tracer>=1) THEN
 
       ! fill transport_state
       transport_state%patch_3d    => patch_3d
       transport_state%h_old       => ocean_state%p_prog(nold(1))%h
       transport_state%h_new       => ocean_state%p_prog(nnew(1))%h
-      transport_state%w           => ocean_state%p_diag%w_time_weighted
+      transport_state%w           => ocean_state%p_diag%w  ! w_time_weighted
       transport_state%mass_flux_e => ocean_state%p_diag%mass_flx_e
       transport_state%vn          => ocean_state%p_diag%vn_time_weighted
       ! fill boundary conditions

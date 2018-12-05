@@ -1340,11 +1340,11 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
-    CALL add_var(ocean_default_list, 'w_time_weighted', ocean_state_diag%w_time_weighted, &
-      & grid_unstructured_cell, za_depth_below_sea_half, &
-      & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+!     CALL add_var(ocean_default_list, 'w_time_weighted', ocean_state_diag%w_time_weighted, &
+!       & grid_unstructured_cell, za_depth_below_sea_half, &
+!       & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     ! vorticity
     CALL add_var(ocean_restart_list, 'vort', ocean_state_diag%vort, &
@@ -1495,10 +1495,6 @@ CONTAINS
     END IF
 
     !reconstrcuted velocity at edges in cartesian coordinates
-    ALLOCATE(ocean_state_diag%p_vn_mean(nproma,n_zlev,nblks_e), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
-    END IF
     ALLOCATE(ocean_state_diag%p_mass_flux_sfc_cc(nproma,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for p_mass_flux_sfc_cc at cells failed')
@@ -1510,10 +1506,6 @@ CONTAINS
     ocean_state_diag%p_vn_dual(:,:,:)%x(1)=0.0_wp
     ocean_state_diag%p_vn_dual(:,:,:)%x(2)=0.0_wp
     ocean_state_diag%p_vn_dual(:,:,:)%x(3)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(1)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(2)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(3)=0.0_wp
-
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(1)=0.0_wp
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(2)=0.0_wp
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(3)=0.0_wp

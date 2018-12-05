@@ -876,10 +876,10 @@ CONTAINS
             &    * patch_2D%edges%inv_primal_edge_length(je,blockNo)
 
           grad_w_e = &
-            & (  ocean_state%p_diag%w_time_weighted(cell2_idx,level,  cell2_blk) &
-            &  + ocean_state%p_diag%w_time_weighted(cell2_idx,level+1,cell2_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level,  cell1_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level+1,cell1_blk)) &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
             &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
 
           LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
@@ -914,7 +914,7 @@ CONTAINS
 !       & str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
 !       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
-!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w_time_weighted,&
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w,&
 !       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
 
 
@@ -987,10 +987,10 @@ CONTAINS
 
 
           grad_w_e = &
-            & (  ocean_state%p_diag%w_time_weighted(cell2_idx,level,  cell2_blk) &
-            &  + ocean_state%p_diag%w_time_weighted(cell2_idx,level+1,cell2_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level,  cell1_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level+1,cell1_blk)) &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
             &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
 
           LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
