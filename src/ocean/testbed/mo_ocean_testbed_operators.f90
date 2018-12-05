@@ -50,6 +50,7 @@ MODULE mo_ocean_testbed_operators
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
   USE mo_ocean_testbed_coriolis, ONLY: test_nonlinear_coriolis_3d
   USE mo_ocean_testbed_div,   ONLY: test_div
+  USE mo_ocean_testbed_PtP,   ONLY: test_PtP
 
 
   IMPLICIT NONE
@@ -93,6 +94,8 @@ CONTAINS
         CALL operator_test_old(patch_3D, ocean_state(1), operators_coefficients)
       CASE (103:113)
         CALL test_div(patch_3D, ocean_state(1), operators_coefficients, test_mode)
+      CASE (114:115)
+        CALL test_PtP(patch_3D, ocean_state(1), operators_coefficients, test_mode)
       
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
