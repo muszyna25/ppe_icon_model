@@ -747,7 +747,7 @@ MODULE mo_async_latbc
       INTEGER(KIND=i8)                        :: flen_latbc
       LOGICAL                                 :: l_exist
       CHARACTER(LEN=:), ALLOCATABLE           :: latbc_filename, latbc_file
-      CHARACTER(LEN=MAX_CHAR_LENGTH)          :: name, cdiErrorText
+      CHARACTER(LEN=MAX_CHAR_LENGTH)          :: name, cdiErrorText, name_lc
 
       ! allocating buffers containing name of variables
       ALLOCATE(grp_vars(MAX_NUM_GRPVARS))
@@ -841,8 +841,9 @@ MODULE mo_async_latbc
 
             IF (ldebug)  WRITE(0,*) 'name ', TRIM(name)
 
+            name_lc = tolower(name)
             DO jp = 1, ngrp_prefetch_vars !latbc%buffer%ngrp_vars
-               IF(tolower(name) == tolower(latbc%buffer%grp_vars(jp))) THEN
+               IF(name_lc == tolower(latbc%buffer%grp_vars(jp))) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
 
