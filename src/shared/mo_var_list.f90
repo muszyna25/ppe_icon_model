@@ -4184,14 +4184,14 @@ CONTAINS
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
     !
-    TYPE(t_list_element), POINTER :: this_list_element
+    TYPE(t_list_element), POINTER :: element
     INTEGER :: key,hgrid
 
     hgrid = -1
@@ -4199,19 +4199,13 @@ CONTAINS
     !
     key = util_hashword(name, LEN_TRIM(name), 0)
     !
-    this_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      IF ( elementFoundByName(key,name,this_list_element,opt_caseInsensitive) ) THEN
-        IF (-1 == hgrid) THEN
-          RETURN
-        ELSE
-          IF (hgrid == this_list_element%field%info%hgrid) RETURN
-        ENDIF
+    element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(element))
+      IF (-1 == hgrid .OR. hgrid == element%field%info%hgrid) THEN
+        IF (elementFoundByName(key,name,element,opt_caseInsensitive)) RETURN
       ENDIF
-      this_list_element => this_list_element%next_list_element
+      element => element%next_list_element
     ENDDO
-    !
-    NULLIFY (this_list_element)
     !
   END FUNCTION find_list_element
   
