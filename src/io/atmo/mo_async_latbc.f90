@@ -1437,6 +1437,7 @@ MODULE mo_async_latbc
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       LOGICAL :: is_work
+      INTEGER :: grp_tlen(latbc%buffer%ngrp_vars)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
       ! Get size and offset of the data for the input
@@ -1444,7 +1445,9 @@ MODULE mo_async_latbc
 
       ALLOCATE(grp_vars_bool(latbc%buffer%ngrp_vars))
       ALLOCATE(latbc%buffer%hgrid(latbc%buffer%ngrp_vars))
-
+      DO jp = 1, latbc%buffer%ngrp_vars
+        grp_tlen(jp) = LEN_TRIM(StrLowCasegrp(jp))
+      END DO
       grp_vars_bool(1:latbc%buffer%ngrp_vars) = .FALSE.
 
       is_work = my_process_is_work()
@@ -1452,8 +1455,8 @@ MODULE mo_async_latbc
       DO iv = 1, SIZE(latbc%patch_data%var_data)
          DO jp = 1, latbc%buffer%ngrp_vars
             ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
-            IF((TRIM(StrLowCasegrp(jp)) == TRIM(latbc%patch_data%var_data(iv)%info%name)) .OR. &
-                 & (TRIM(StrLowCasegrp(jp))//TIMELEVEL_SUFFIX//'1' == TRIM(latbc%patch_data%var_data(iv)%info%name))) THEN
+            IF (StrLowCasegrp(jp) == latbc%patch_data%var_data(iv)%info%name &
+              & .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == latbc%patch_data%var_data(iv)%info%name) THEN
 
                nlevs = 0
                IF(.NOT. grp_vars_bool(jp))  THEN
