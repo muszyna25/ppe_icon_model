@@ -1328,29 +1328,20 @@ MODULE mo_async_latbc
 
       INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
       INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
-      LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
+      LOGICAL, INTENT(IN) :: owner_mask(n_points) ! owner_mask for logical patch
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo ! Result: reorder info
 
       ! local variables
-      INTEGER :: i, n, il, ib, ierrstat
-      LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
+      INTEGER :: i, n, ierrstat
 
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_data"
 
       ! Just for safety
       IF(my_process_is_pref()) CALL finish(routine, 'Must not be called on Prefetching PE')
 
-      ! Set the physical patch owner mask
-      ALLOCATE(phys_owner_mask(n_points))
-      DO i = 1, n_points
-         il = idx_no(i)
-         ib = blk_no(i)
-         phys_owner_mask(i) = owner_mask(il,ib)
-      ENDDO
-
       ! Get number of owned cells/edges/verts (without halos, physical patch only)
-      p_reo%n_own = COUNT(phys_owner_mask(:))
+      p_reo%n_own = COUNT(owner_mask(:))
 
       !   WRITE(*,*) 'set_reorder_data p_pe_work ', p_pe_work , ' p_reo%n_own ', p_reo%n_own, ' n_points ', n_points
 
@@ -1366,7 +1357,7 @@ MODULE mo_async_latbc
 
       n = 0
       DO i = 1, n_points
-         IF(phys_owner_mask(i)) THEN
+         IF(owner_mask(i)) THEN
             n = n+1
             p_reo%own_idx(n) = idx_no(i)
             p_reo%own_blk(n) = blk_no(i)
@@ -1383,9 +1374,6 @@ MODULE mo_async_latbc
 
       ! Get global number of points for current (physical!) patch
       p_reo%n_glb = SUM(p_reo%pe_own(:))
-
-      DEALLOCATE(phys_owner_mask, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
     END SUBROUTINE set_reorder_data
 
