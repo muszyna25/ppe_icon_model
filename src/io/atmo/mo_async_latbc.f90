@@ -854,9 +854,9 @@ MODULE mo_async_latbc
                   latbc%buffer%varID(counter) = varID
 
                   ! getting the variable name in the file
-                  latbc%buffer%mapped_name(counter) = TRIM(name)
+                  latbc%buffer%mapped_name(counter) = name
                   latbc%buffer%internal_name(counter) = &
-                    TRIM(dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name)))
+                    dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name))
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = grp_vars(jp)
 
