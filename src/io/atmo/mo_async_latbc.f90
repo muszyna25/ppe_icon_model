@@ -743,7 +743,7 @@ MODULE mo_async_latbc
       ! GRIB2 shortnames or NetCDF var names.
       INTEGER                                 :: ierrstat, vlistID, nvars, varID, zaxisID,  &
         &                                        jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars, &
-        &                                        nlev_in, ncid
+        &                                        nlev_in, ncid, tlen
       INTEGER(KIND=i8)                        :: flen_latbc
       LOGICAL                                 :: l_exist
       CHARACTER(LEN=:), ALLOCATABLE           :: latbc_filename, latbc_file
@@ -855,8 +855,9 @@ MODULE mo_async_latbc
 
                   ! getting the variable name in the file
                   latbc%buffer%mapped_name(counter) = name
+                  tlen = LEN_TRIM(name)
                   latbc%buffer%internal_name(counter) = &
-                    dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name))
+                    dict_get(latbc_varnames_dict, name(1:tlen), linverse=.TRUE., default=name(1:tlen))
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = grp_vars(jp)
 
