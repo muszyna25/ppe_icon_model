@@ -1436,6 +1436,7 @@ MODULE mo_async_latbc
       INTEGER :: ierrstat, iv, jp, nlevs
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
+      LOGICAL :: is_work
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
       ! Get size and offset of the data for the input
@@ -1445,7 +1446,8 @@ MODULE mo_async_latbc
       ALLOCATE(latbc%buffer%hgrid(latbc%buffer%ngrp_vars))
 
       grp_vars_bool(1:latbc%buffer%ngrp_vars) = .FALSE.
-      
+
+      is_work = my_process_is_work()
       ! Go over all input variables
       DO iv = 1, SIZE(latbc%patch_data%var_data)
          DO jp = 1, latbc%buffer%ngrp_vars
@@ -1468,7 +1470,7 @@ MODULE mo_async_latbc
                   CASE (GRID_UNSTRUCTURED_CELL)
                      mem_size = mem_size + INT(nlevs*latbc%patch_data%cells%n_own,i8)
 
-                     IF(my_process_is_work())THEN
+                     IF(is_work)THEN
                         ! allocate the buffer sizes for variables on compute processors
                         ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, &
                           &      latbc%patch_data%nblks_c), STAT=ierrstat)
@@ -1481,7 +1483,7 @@ MODULE mo_async_latbc
                   CASE (GRID_UNSTRUCTURED_EDGE)
                      mem_size = mem_size + INT(nlevs*latbc%patch_data%edges%n_own,i8)
 
-                     IF(my_process_is_work())THEN
+                     IF(is_work)THEN
                         ! allocate the buffer sizes for variables on compute processors
                         ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, &
                           &      latbc%patch_data%nblks_e), STAT=ierrstat)
@@ -1509,7 +1511,7 @@ MODULE mo_async_latbc
                ! as the variable GEOSP doesn't exist in metadata
                mem_size = mem_size + INT(1*latbc%patch_data%cells%n_own,i8)
 
-               IF(my_process_is_work())THEN
+               IF(is_work)THEN
                   ! allocate the buffer sizes for variable 'GEOSP' on compute processors
                   ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierrstat)
                   IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
