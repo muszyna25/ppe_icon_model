@@ -206,7 +206,7 @@ MODULE mo_async_latbc
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_bcast, p_barrier
+    USE mo_mpi,                       ONLY: p_bcast, p_barrier, p_allgather
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
@@ -1352,11 +1352,7 @@ MODULE mo_async_latbc
       ! CALL p_barrier(comm=p_comm_work)
 
       ! Gather the number of own points for every PE into p_reo%pe_own
-      CALL MPI_Allgather(p_reo%n_own,  1, p_int, &
-           p_reo%pe_own, 1, p_int, &
-           p_comm_work, mpi_error)
-
-      CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
+      CALL p_allgather(p_reo%n_own, p_reo%pe_own, p_comm_work)
 
       ! Get offset within result array
       p_reo%pe_off(0) = 0
