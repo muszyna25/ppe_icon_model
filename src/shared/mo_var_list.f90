@@ -4175,6 +4175,8 @@ CONTAINS
       elementFoundByName &
         = tolower(name2look4) == tolower(get_var_name(element%field))
     ELSE
+      ! fixme: unless perfect hashing can be employed, this
+      ! might create false positives
       elementFoundByName = key2look4 == element%field%info%key
     END IF
   END FUNCTION elementFoundByName
