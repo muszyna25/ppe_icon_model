@@ -1211,8 +1211,7 @@ MODULE mo_async_latbc
             element => var_lists(i)%p%first_list_element
             !   IF(element%field%info%used_dimensions(2) == 0) CYCLE
             nvars = 0
-            DO
-               IF(.NOT.ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                !      IF(element%field%info%used_dimensions(2) == 0) CYCLE
                nvars = nvars+1
                element => element%next_list_element
@@ -1242,8 +1241,7 @@ MODULE mo_async_latbc
             ! Count the number of variable entries
             element => var_lists(iv)%p%first_list_element
             nelems = 0
-            DO
-               IF(.NOT.ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                nelems = nelems+1
                element => element%next_list_element
             ENDDO
@@ -1275,8 +1273,7 @@ MODULE mo_async_latbc
          IF (.NOT. is_pref) THEN
             element => var_lists(iv)%p%first_list_element
             nelems = 0
-            DO
-               IF(.NOT.ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                i2 = i2 + 1
                patch_data%var_data(i2)%info = element%field%info
                nelems = nelems+1
