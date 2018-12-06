@@ -593,7 +593,6 @@ CONTAINS
     IF (itimer > 0) THEN
       it1 = itimer
       it2 = itimer
-      CALL real_timer_abort(0,'timer_report_short: itimer>0 not supported (yet)')
     ELSE
       it1 = 1
       it2 = timer_top
@@ -609,13 +608,13 @@ CONTAINS
          rbuf(timer_top,3,num_test_procs+num_work_procs), res(timer_top,3))
 !$omp end master
 !$omp barrier
-    DO it = 1, timer_top
+    DO it = it1, it2
       t = rt(it)%tot
       sbuf_raw(it,thread_id) = t
     ENDDO
 !$omp barrier
 !$omp do
-    DO it = 1, timer_top
+    DO it = it1, it2
       sbuf(it,i_sum) = SUM(sbuf_raw(it,:))
       sbuf(it,i_min) = MINVAL(sbuf_raw(it,:))
       sbuf(it,i_max) = MAXVAL(sbuf_raw(it,:))
@@ -630,7 +629,7 @@ CONTAINS
     q = 1.0_dp/REAL(n,dp)
     res(:,:) = rbuf(:,:,1)
     DO ip = 2, num_test_procs+num_work_procs
-      DO it = 1, timer_top
+      DO it = it1, it2
         res(i_sum,it) = res(i_sum,it)+rbuf(i_sum,it,ip)
         res(i_min,it) = MIN(res(i_min,it),rbuf(i_min,it,ip))
         res(i_max,it) = MAX(res(i_max,it),rbuf(i_max,it,ip))
@@ -653,7 +652,7 @@ CONTAINS
 
       CALL mrgrnk(res(i_sum,:),itpos)
 
-      DO iit = timer_top, 1, -1
+      DO iit = it2, it1, -1
         it = itpos(iit)
         IF (rt(it)%stat == rt_undef_stat) CYCLE
         IF (res(i_sum,it) <= 0.0_dp) CYCLE
