@@ -1184,7 +1184,7 @@ MODULE mo_async_latbc
 
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: info_size, i, iv, nelems, nv, n, all_var, &
+      INTEGER                       :: info_size, i, iv, nelems, nv, n, &
            &                           all_nvars, nvars, i2, ierrstat
       LOGICAL                       :: is_pref
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
@@ -1221,13 +1221,12 @@ MODULE mo_async_latbc
       ENDIF
 
       ! get the number of var lists
-      IF (.NOT. is_pref) all_var = all_nvars
-      CALL p_bcast(all_var, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(all_nvars, bcast_root, p_comm_work_2_pref)
 
-      IF (all_var <= 0) RETURN
+      IF (all_nvars <= 0) RETURN
 
       ! allocate the array of variables
-      ALLOCATE(patch_data%var_data(all_var))
+      ALLOCATE(patch_data%var_data(all_nvars))
 
       i2 = 0
       ! For each var list, get its components
