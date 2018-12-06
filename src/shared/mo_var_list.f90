@@ -479,24 +479,14 @@ CONTAINS
   END FUNCTION get_var_timelevel
 
   ! return logical if a variable name has a timelevel encoded
-  LOGICAL FUNCTION has_time_level(varname,timelevel)
+  LOGICAL FUNCTION has_time_level(varname)
     CHARACTER(LEN=*) :: varname
-    INTEGER, INTENT(INOUT), OPTIONAL :: timelevel
-
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:has_time_level'
     INTEGER :: idx
 
     idx = INDEX(varname,TIMELEVEL_SUFFIX)
     has_time_level = (0 .EQ. idx)
-
-    IF (.NOT. has_time_level) RETURN
-    
-    IF (PRESENT(timelevel)) THEN
-      timelevel = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
-      IF(timelevel <= 0 .OR. timelevel > MAX_TIME_LEVELS) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
-    ENDIF
-  END FUNCTION 
+  END FUNCTION
 
   !------------------------------------------------------------------------------------------------
   !> @return tile index (extracted from tile index suffix "t_") or "-1"
