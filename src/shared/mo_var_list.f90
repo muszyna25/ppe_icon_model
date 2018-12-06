@@ -4171,10 +4171,12 @@ CONTAINS
       RETURN
     ENDIF
 
-    elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
-        &                      key2look4 == element%field%info%key, &
-        &                      caseInsensitive)
-
+    IF (caseInsensitive) THEN
+      elementFoundByName &
+        = tolower(name2look4) == tolower(get_var_name(element%field))
+    ELSE
+      elementFoundByName = key2look4 == element%field%info%key
+    END IF
   END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
   
