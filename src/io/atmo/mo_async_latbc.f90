@@ -198,15 +198,16 @@ MODULE mo_async_latbc
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
     USE mo_exception,                 ONLY: finish, message, message_text
-    USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
-         &                                  my_process_is_mpi_test, p_int, p_real_sp,        &
-         &                                  process_work_pref0, p_gather
+    USE mo_mpi,                       ONLY: stop_mpi, my_process_is_pref, &
+         &                                  my_process_is_mpi_test, p_real_sp, &
+         &                                  p_reduce, mpi_sum, p_allgather, &
+         &                                  p_allgatherv, p_bcast
     USE mo_parallel_config,           ONLY: nproma, num_prefetch_proc
+    USE mo_decomposition_tools,       ONLY: t_grid_domain_decomp_info
     USE mo_model_domain,              ONLY: p_patch, t_patch
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_bcast, p_barrier, p_allgather, p_allgatherv
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
@@ -234,6 +235,7 @@ MODULE mo_async_latbc
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
+    USE mo_util_sort,                 ONLY: quicksort
     USE mo_time_config,               ONLY: time_config
     USE mtime,                        ONLY: datetime, OPERATOR(+)
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
@@ -244,7 +246,6 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-    USE mo_latbc_read_recv,           ONLY: prefetch_proc_send, compute_data_receive
     USE mo_sync,                      ONLY: sync_patch_array, SYNC_E, SYNC_C
 #ifdef YAC_coupling
     USE mo_coupling_config,           ONLY: is_coupled_run
@@ -349,55 +350,65 @@ MODULE mo_async_latbc
     !  This routine is called after reading the namelists AND setting up
     !  the domains and variables.
     !
-    SUBROUTINE set_patch_data(latbc, bcast_root, latbc_varnames_dict)
-      TYPE (t_latbc_data), INTENT(INOUT) :: latbc
-      INTEGER,             INTENT(IN)    :: bcast_root
-      TYPE (t_dictionary), INTENT(IN)    :: latbc_varnames_dict
-
 #ifndef NOMPI
+    SUBROUTINE set_patch_data_params(patch_data, bcast_root)
+      TYPE(t_patch_data), INTENT(INOUT) :: patch_data
+      INTEGER, INTENT(IN) :: bcast_root
+
       ! local variables:
-      CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data"
+      CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data_paraams"
 
       ! allocate patch data structure
       ! set number of global cells/edges/verts and patch ID
 
       IF (my_process_is_work()) THEN
-         latbc%patch_data%nlev          = p_patch(1)%nlev
-         latbc%patch_data%nlevp1        = p_patch(1)%nlevp1
-         latbc%patch_data%level         = p_patch(1)%level
-         latbc%patch_data%nblks_c       = p_patch(1)%nblks_c
-         latbc%patch_data%nblks_e       = p_patch(1)%nblks_e
-         latbc%patch_data%n_patch_cells = p_patch(1)%n_patch_cells
-         latbc%patch_data%n_patch_edges = p_patch(1)%n_patch_edges
-         latbc%patch_data%n_patch_cells_g = p_patch(1)%n_patch_cells_g
-         latbc%patch_data%n_patch_edges_g = p_patch(1)%n_patch_edges_g
+         patch_data%nlev          = p_patch(1)%nlev
+         patch_data%nlevp1        = p_patch(1)%nlevp1
+         patch_data%level         = p_patch(1)%level
+         patch_data%nblks_c       = p_patch(1)%nblks_c
+         patch_data%nblks_e       = p_patch(1)%nblks_e
+         patch_data%n_patch_cells = p_patch(1)%n_patch_cells
+         patch_data%n_patch_edges = p_patch(1)%n_patch_edges
+         patch_data%n_patch_cells_g = p_patch(1)%n_patch_cells_g
+         patch_data%n_patch_edges_g = p_patch(1)%n_patch_edges_g
       END IF
 
       ! transfer data to prefetching PE
-      CALL p_bcast(latbc%patch_data%nlev, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%nlevp1, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%level, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%nblks_c, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%nblks_e, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%n_patch_cells, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%n_patch_edges, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(latbc%patch_data%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nlev, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nlevp1, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%level, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nblks_c, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nblks_e, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_cells, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_edges, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
 
-      ! ---------------------------------------------------------------------------
-      ! replicate data on prefetch proc
-      ! ---------------------------------------------------------------------------
+    END SUBROUTINE set_patch_data_params
+#endif
+
+    ! ------------------------------------------------------------------------
+    ! replicate data on prefetch proc
+    ! ------------------------------------------------------------------------
+#ifndef NOMPI
+    SUBROUTINE set_patch_data(latbc, cell_mask, edge_mask, bcast_root, &
+         latbc_varnames_dict)
+      TYPE (t_latbc_data), INTENT(INOUT) :: latbc
+      LOGICAL, ALLOCATABLE, INTENT(in) :: cell_mask(:,:), edge_mask(:,:)
+      INTEGER,             INTENT(IN)    :: bcast_root
+      TYPE (t_dictionary), INTENT(IN)    :: latbc_varnames_dict
+
       IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
          ! set reorder data on work PE
          CALL set_reorder_data( p_patch(1)%n_patch_cells_g, p_patch(1)%n_patch_cells, &
-              p_patch(1)%cells%decomp_info%owner_mask, p_patch(1)%cells%decomp_info%glb_index, &
+              cell_mask, p_patch(1)%cells%decomp_info%glb_index, &
               latbc%patch_data%cells )
 
          CALL set_reorder_data( p_patch(1)%n_patch_edges_g, p_patch(1)%n_patch_edges, &
-              p_patch(1)%edges%decomp_info%owner_mask, p_patch(1)%edges%decomp_info%glb_index, &
+              edge_mask, p_patch(1)%edges%decomp_info%glb_index, &
               latbc%patch_data%edges )
 
       ENDIF
@@ -413,7 +424,6 @@ MODULE mo_async_latbc
       ! flag for its further usage
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT)  CALL check_variables(latbc, latbc_varnames_dict)
 
-#endif
 
     END SUBROUTINE set_patch_data
 
@@ -422,94 +432,124 @@ MODULE mo_async_latbc
     !> prefetching PE: Create a local LOGICAL mask on each worker PE
     !> which is TRUE, when this entry is present in the index list.
     !
-    SUBROUTINE create_latbc_mask(latbc, p_ri, glb_indices, nindices_g, hgrid_type)
-
-      TYPE(t_latbc_data),   INTENT(INOUT), TARGET :: latbc
-      TYPE(t_reorder_data), INTENT(INOUT) :: p_ri           ! reorder info data structure
-      INTEGER, ALLOCATABLE, INTENT(IN)    :: glb_indices(:)
-      INTEGER,              INTENT(IN)    :: nindices_g     ! global no. of indices
-      INTEGER,              INTENT(IN)    :: hgrid_type     ! grid type (CELL/EDGE)
-#ifndef NOMPI
+    SUBROUTINE create_latbc_mask_work(n, mask, decomp_info)
+      INTEGER, INTENT(in) :: n
+      LOGICAL, INTENT(out) :: mask(n)
+      TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_latbc_mask"
-      INTEGER                   :: nblks, sync_type, ierrstat
-      LOGICAL                   :: is_pref
-      INTEGER(i8)               :: eoff
-      INTEGER(i8), ALLOCATABLE  :: ioff(:)
-      REAL(sp),   ALLOCATABLE   :: var_out(:,:,:), tmp_buf(:)
+      INTEGER                   :: nr, m, ierror, nfound, dummy(1)
+      INTEGER, ALLOCATABLE      :: ranges(:,:)
 
-      is_pref = my_process_is_pref()
-      IF (is_pref) THEN
-        ALLOCATE(p_ri%pe_skip(0:num_work_procs-1+num_prefetch_proc), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-        p_ri%pe_skip(:) = .FALSE.
+      ! get number of ranges describing bc indices
+      CALL p_bcast(nr, 0, comm=p_comm_work_2_pref)
+      IF (nr > 0) THEN
+        ALLOCATE(ranges(nr,2), stat=ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        CALL p_bcast(ranges, 0, comm=p_comm_work_2_pref)
+        m = SIZE(decomp_info%glb_index)
+        IF (m > 0) THEN
+          CALL mask_from_range_matches(mask, nr, ranges, decomp_info%glb_index,&
+               nfound)
+          mask(m+1:n) = .FALSE.
+        END IF
+        dummy = p_reduce(MERGE(1, 0, nfound>0), mpi_sum, 0, comm=p_comm_work_2_pref)
       ELSE
-        ALLOCATE(p_ri%pe_skip(1), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-        SELECT CASE(hgrid_type)
-        CASE (GRID_UNSTRUCTURED_CELL)
-          nblks     = p_patch(1)%nblks_c
-          sync_type = SYNC_C
-        CASE (GRID_UNSTRUCTURED_EDGE)
-          nblks     = p_patch(1)%nblks_e
-          sync_type = SYNC_E
-        CASE DEFAULT
-          CALL finish(routine, "Internal error!")
-        END SELECT
+        nfound = 0
+        mask = .FALSE.
       END IF
+    END SUBROUTINE create_latbc_mask_work
 
-      ! we use the send/receive routines here to determine which
-      ! entries are read from file.!
-      ! 
-      ! Set a "1.0" on all LATBC points and send them to the compute
-      ! PEs ...
-      IF (is_pref) THEN
-        
-        ALLOCATE(ioff(0:num_work_procs+num_prefetch_proc-1), tmp_buf(nindices_g), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-        tmp_buf(:)              = 0.0_sp
-        tmp_buf(glb_indices(:)) = 1.0_sp
-        ioff                    = 0
-        CALL prefetch_proc_send(latbc%patch_data, tmp_buf(:), 1, hgrid_type, ioff)
-        DEALLOCATE(ioff, tmp_buf, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-        
-      END IF ! is_pref
+    SUBROUTINE mask_from_range_matches(mask, nr, ranges, g_idx, nfound)
+      LOGICAL, INTENT(out) :: mask(*)
+      INTEGER, INTENT(in) :: nr
+      INTEGER, INTENT(in) :: ranges(nr,2), g_idx(:)
+      INTEGER, INTENT(out) :: nfound
 
-      CALL p_barrier(p_comm_work_pref)
-      
-      IF (.NOT. is_pref) THEN
-        ALLOCATE(var_out(nproma, 1, nblks), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-        var_out        = 0.0_sp
-        eoff           = 0_i8
-        p_ri%this_skip = .FALSE.
-        CALL compute_data_receive(hgrid_type, 1, var_out, eoff, latbc%patch_data)
+      INTEGER :: n, ir, rs, re, jl, ig
 
-        ! build a logical mask, which local points are read from file
-        !
-        ! TODO: does compute data receive fill the halo points? then
-        ! the following sync is obsolete:
-        CALL sync_patch_array(sync_type, p_patch(1), var_out)
-        p_ri%read_mask(:,:) = (var_out(:,1,:)  > 0._sp)
+      n = SIZE(g_idx)
+      nfound = 0
+      g_idx_loop: DO jl = 1, n
+        ig = g_idx(jl)
+        DO ir = 1, nr
+          rs = ranges(ir, 1)
+          re = ranges(ir, 2)
+          IF (ig < rs) EXIT
+          IF (ig <= re) THEN
+            mask(jl) = .TRUE.
+            nfound = nfound + 1
+            CYCLE g_idx_loop
+          END IF
+        END DO
+        mask(jl) = .FALSE.
+      END DO g_idx_loop
+    END SUBROUTINE mask_from_range_matches
 
-        DEALLOCATE(var_out, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-      END IF
+    !> Based on a 1D list of global indices, available on the
+    !> prefetching PE: Create a local LOGICAL mask on each worker PE
+    !> which is TRUE, when this entry is present in the index list.
+    !
+    SUBROUTINE create_latbc_mask_pref(glb_indices, active_worker_count)
+      INTEGER, ALLOCATABLE, INTENT(IN)    :: glb_indices(:)
+      INTEGER, INTENT(out) :: active_worker_count
 
-      IF (.NOT. is_pref) THEN
-        p_ri%this_skip = .NOT. ANY(p_ri%read_mask(:,:))
+      CHARACTER(LEN=*), PARAMETER :: &
+           routine = modname//"::create_latbc_mask_pref"
+      INTEGER                   :: ierror, i, n, root_pref2work, &
+           rs, re, jl, nr, dummy
+      INTEGER, ALLOCATABLE      :: sorted_glb_index(:), ranges(:,:)
+
+      n = SIZE(glb_indices)
+      IF (n > 0) THEN
+        ALLOCATE(sorted_glb_index(n), stat=ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        sorted_glb_index = glb_indices
+        CALL quicksort(sorted_glb_index)
+        ! count ranges
+        re = sorted_glb_index(1)
+        nr = 1
+        DO i = 2, n
+          jl = sorted_glb_index(i)
+          nr = nr + MERGE(1, 0, jl /= re .AND. jl /= re + 1)
+          re = jl
+        END DO
+        ALLOCATE(ranges(nr, 2), stat=ierror)
+        IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! convert sorted indices into ranges
+        rs = sorted_glb_index(1)
+        re = sorted_glb_index(1)
+        nr = 1
+        DO i = 2, n
+          jl = sorted_glb_index(i)
+          IF (jl == re .OR. jl == re + 1) THEN
+            re = jl
+          ELSE
+            ranges(nr, 1) = rs
+            ranges(nr, 2) = re
+            rs = jl
+            re = jl
+            nr = nr + 1
+          END IF
+        END DO
+        ranges(nr, 1) = rs
+        ranges(nr, 2) = re
       ELSE
-        p_ri%this_skip = .TRUE.
+        nr = 0
       END IF
-
-      CALL p_gather(p_ri%this_skip, p_ri%pe_skip, process_work_pref0, p_comm_work_pref)
-      IF (.NOT. is_pref) THEN
-        DEALLOCATE(p_ri%pe_skip, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
+      ! bcast number of ranges describing glb_indices to clients
+      CALL p_bcast(nr, root_pref2work, comm=p_comm_work_2_pref)
+      ! bcast ranges to clients
+      IF (nr > 0) THEN
+        CALL p_bcast(ranges, root_pref2work, comm=p_comm_work_2_pref)
+        active_worker_count = p_reduce(dummy, mpi_sum, root_pref2work, &
+             comm=p_comm_work_2_pref)
+      ELSE
+        active_worker_count = 0
       END IF
+    END SUBROUTINE create_latbc_mask_pref
 #endif
-    END SUBROUTINE create_latbc_mask
 
 
     !------------------------------------------------------------------------------------------------
@@ -518,6 +558,7 @@ MODULE mo_async_latbc
     SUBROUTINE init_prefetch(latbc)
       TYPE(t_latbc_data), INTENT(INOUT), TARGET :: latbc
 
+#ifndef NOMPI
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
 
@@ -530,14 +571,9 @@ MODULE mo_async_latbc
 
       TYPE (t_dictionary)           :: latbc_varnames_dict
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
-      INTEGER                       :: ierrstat, ic, idx_c, blk_c
-      INTEGER                       :: tlen
+      INTEGER                       :: ierrstat, ic, idx_c, blk_c, cell_active_ranks, edge_active_ranks
+      INTEGER                       :: tlen, covered
       LOGICAL                       :: is_pref, is_work
-
-      ! bcast_root is not used in this case
-      bcast_root = 0
-
-#ifndef NOMPI
 
       is_pref = my_process_is_pref()
       is_work = my_process_is_work()
@@ -557,50 +593,30 @@ MODULE mo_async_latbc
       IF(tlen > 0) &
          CALL dict_loadfile(latbc_varnames_dict, latbc_config%latbc_varnames_map_file(1:tlen))
 
-      ! create and transfer patch data
-      CALL set_patch_data(latbc, bcast_root, latbc_varnames_dict)
-
-      ! open and read file containing information of prefetch variables
-      ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
-      IF (is_work) THEN
-        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
-      ELSE IF ( my_process_is_pref() ) THEN
-        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
-      ENDIF
-
-      ! destroy variable name dictionaries:
-      CALL dict_finalize(latbc_varnames_dict)
-
-      ! initialize the memory window for communication
-      IF (.NOT. my_process_is_mpi_test()) &
-           CALL init_remote_memory_window(latbc, StrLowCasegrp)
-
-      DEALLOCATE(StrLowCasegrp)
+      CALL set_patch_data_params(latbc%patch_data, bcast_root)
 
       ! --- "sparse latbc mode": read only data for boundary rows
       !
       !     this requires index information obtained from an additional
       !     grid file:
-      ALLOCATE(latbc%patch_data%cells%read_mask(nproma, latbc%patch_data%nblks_c), &
-        &      latbc%patch_data%edges%read_mask(nproma, latbc%patch_data%nblks_e), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      latbc%patch_data%cells%read_mask(:,:) = .TRUE.
-      latbc%patch_data%edges%read_mask(:,:) = .TRUE.
+      IF (is_work) THEN
+        ALLOCATE(latbc%patch_data%cell_mask(nproma, latbc%patch_data%nblks_c), &
+          &      latbc%patch_data%edge_mask(nproma, latbc%patch_data%nblks_e), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      END IF
 
       IF (latbc_config%lsparse_latbc) THEN
 
         CALL message(routine, "sparse LATBC read-in mode.")
 
         IF (is_pref) THEN
-       
           opt_att(1)%var_name = "global_cell_index"
           opt_att(1)%att_name = "nglobal"
           opt_att(1)%value => latbc%global_index%n_patch_cells_g
-          
           opt_att(2)%var_name = "global_edge_index"
           opt_att(2)%att_name = "nglobal"
           opt_att(2)%value => latbc%global_index%n_patch_edges_g
-                   
+
           CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,                   &
             &                     varname1     = "global_cell_index",                 &
             &                     var1         = latbc%global_index%cells,            &
@@ -615,39 +631,85 @@ MODULE mo_async_latbc
           IF (latbc%global_index%n_patch_edges_g /= latbc%patch_data%n_patch_edges_g) THEN
             CALL finish(routine, "LatBC boundary edge list does not match in size!")
           END IF
-        END IF
 
-        CALL create_latbc_mask(latbc, latbc%patch_data%cells, latbc%global_index%cells, &
-          &                    latbc%global_index%n_patch_cells_g, GRID_UNSTRUCTURED_CELL)
-        CALL create_latbc_mask(latbc, latbc%patch_data%edges, latbc%global_index%edges, &
-          &                    latbc%global_index%n_patch_edges_g, GRID_UNSTRUCTURED_EDGE)
-
-        ! status output
-        IF (is_pref) THEN
+          CALL create_latbc_mask_pref(latbc%global_index%cells, &
+            &                         cell_active_ranks)
+          CALL create_latbc_mask_pref(latbc%global_index%edges, &
+            &                         edge_active_ranks)
+          ! status output
           WRITE (0,'(3a,i0,a,i0,a)') &
             &   " ", routine, ": prefetching PE reads ", latbc%global_index%n_patch_cells_g, &
             &   " cells and ", latbc%global_index%n_patch_edges_g, " edges."
-          WRITE (0,'(3a,i0,a,i0,a)')      &
-            &   " ", routine, ": ", COUNT(.NOT. latbc%patch_data%edges%pe_skip), " of ", num_work_procs, &
+          WRITE (0,'(3a,2(i0,a))') &
+            &   " ", routine, ": ", edge_active_ranks, " of ", num_work_procs, &
             &   " worker PEs are involved in the LATBC read-in."
         ELSE
+          CALL create_latbc_mask_work(SIZE(latbc%patch_data%cell_mask), &
+            &                         latbc%patch_data%cell_mask, &
+            &                         p_patch(1)%cells%decomp_info)
+          CALL create_latbc_mask_work(SIZE(latbc%patch_data%edge_mask), &
+            &                         latbc%patch_data%edge_mask, &
+            &                         p_patch(1)%edges%decomp_info)
           ! consistency check: test if all nudging points are filled by
           ! the LATBC read-in
+          covered = 0
           DO ic=1,p_nh_state(1)%metrics%nudge_c_dim
             idx_c = p_nh_state(1)%metrics%nudge_c_idx(ic)
             blk_c = p_nh_state(1)%metrics%nudge_c_blk(ic)
-            IF (.NOT. latbc%patch_data%cells%read_mask(idx_c,blk_c)) THEN
-              CALL finish(routine, "Nudging zone width mismatch: "//&
-                &" Not all nudging points are filled by the LATBC READ-in.")
-            END IF
+            covered = covered &
+              + MERGE(1, 0, latbc%patch_data%cell_mask(idx_c,blk_c))
           END DO
+          IF (covered /= p_nh_state(1)%metrics%nudge_c_dim) THEN
+            WRITE (message_text, '(2(a,i0),a)') &
+              'Nudging zone width mismatch: only ', covered, ' of ', &
+              p_nh_state(1)%metrics%nudge_c_dim, &
+              ' nudging points are filled by the LATBC READ-in.'
+            CALL finish(routine, message_text)
+          END IF
+          ! fixme: restrict transferred cells/edges to those owned to not trip up
+          ! reorder information
+          latbc%patch_data%cell_mask(:,:) &
+               =       latbc%patch_data%cell_mask &
+               & .AND. p_patch(1)%cells%decomp_info%owner_mask
+          latbc%patch_data%edge_mask(:,:) &
+               =       latbc%patch_data%edge_mask &
+               & .AND. p_patch(1)%edges%decomp_info%owner_mask
         END IF
-
       ELSE
+        ! fixme: this should be initialized to .true. so no extra data
+        ! needs to be exchanged via sync
+        IF (is_work) THEN
+          latbc%patch_data%cell_mask(:,:) = p_patch(1)%cells%decomp_info%owner_mask
+          latbc%patch_data%edge_mask(:,:) = p_patch(1)%edges%decomp_info%owner_mask
+        END IF
 
         CALL message(routine, "non-sparse LATBC read-in mode.")
 
       END IF ! lsparse_latbc
+
+      ! create and transfer patch data
+      CALL set_patch_data(latbc, latbc%patch_data%cell_mask, &
+           latbc%patch_data%edge_mask, bcast_root, latbc_varnames_dict)
+
+      ! open and read file containing information of prefetch variables
+      ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
+      IF (is_work) THEN
+        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
+        CALL sync_patch_array(sync_c, p_patch(1), latbc%patch_data%cell_mask)
+        CALL sync_patch_array(sync_e, p_patch(1), latbc%patch_data%edge_mask)
+      ELSE IF ( my_process_is_pref() ) THEN
+        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
+      ENDIF
+
+      ! destroy variable name dictionaries:
+      CALL dict_finalize(latbc_varnames_dict)
+
+      ! initialize the memory window for communication
+      IF (.NOT. my_process_is_mpi_test()) &
+           CALL init_remote_memory_window(latbc, StrLowCasegrp)
+
+      DEALLOCATE(StrLowCasegrp)
+
 
       ! allocate input data for lateral boundary nudging
       IF (is_work) THEN
@@ -1115,11 +1177,11 @@ MODULE mo_async_latbc
     !
     !  This routine has to be called by all PEs (work and prefetch)
     !
+#ifndef NOMPI
     SUBROUTINE replicate_data_on_pref_proc(patch_data, bcast_root)
       TYPE(t_patch_data),  INTENT(INOUT) :: patch_data
       INTEGER,             INTENT(IN) :: bcast_root
 
-#ifndef NOMPI
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
@@ -1252,7 +1314,6 @@ MODULE mo_async_latbc
          DEALLOCATE(info_storage, STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       ENDDO
-#endif
 
     END SUBROUTINE replicate_data_on_pref_proc
 
@@ -1271,11 +1332,9 @@ MODULE mo_async_latbc
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo ! Result: reorder info
 
-#ifndef NOMPI
       ! local variables
       INTEGER :: i, n, il, ib, ierrstat
       LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
-      INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_data"
 
@@ -1302,7 +1361,7 @@ MODULE mo_async_latbc
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       ! Global index of my own points
-      ALLOCATE(glbidx_own(p_reo%n_own), STAT=ierrstat)
+      ALLOCATE(p_reo%reorder_index(p_reo%n_own), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       n = 0
@@ -1311,80 +1370,27 @@ MODULE mo_async_latbc
             n = n+1
             p_reo%own_idx(n) = idx_no(i)
             p_reo%own_blk(n) = blk_no(i)
-            glbidx_own(n)  = glb_index(i)
+            p_reo%reorder_index(n)  = glb_index(i)
          ENDIF
       ENDDO
 
       ! Gather the number of own points for every PE into p_reo%pe_own
       ALLOCATE(p_reo%pe_own(0:p_n_work-1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ALLOCATE(p_reo%pe_off(0:p_n_work-1), STAT=ierrstat)
-      IF (ierrstat  /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      ! make sure all are done
-      ! CALL p_barrier(comm=p_comm_work)
 
       ! Gather the number of own points for every PE into p_reo%pe_own
       CALL p_allgather(p_reo%n_own, p_reo%pe_own, p_comm_work)
 
-      ! Get offset within result array
-      p_reo%pe_off(0) = 0
-      DO i = 1, p_n_work-1
-         p_reo%pe_off(i) = p_reo%pe_off(i-1) + p_reo%pe_own(i-1)
-      ENDDO
-
       ! Get global number of points for current (physical!) patch
       p_reo%n_glb = SUM(p_reo%pe_own(:))
 
-      ! Get the global index numbers of the data when it is gathered on PE 0
-      ! exactly in the same order as it is retrieved later during prefetching.
-      ALLOCATE(glbidx_glb(p_reo%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      ! make sure all are done
-      ! CALL p_barrier(comm=p_comm_work)
-
-      CALL p_allgatherv(glbidx_own, glbidx_glb, p_reo%pe_own, &
-           p_reo%pe_off, p_comm_work)
-
-      ! Get reorder_index
-      ALLOCATE(p_reo%reorder_index(p_reo%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      ! Spans the complete logical domain
-      ALLOCATE(reorder_index_log_dom(n_points_g), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      reorder_index_log_dom(:) = 0
-
-      DO i = 1, p_reo%n_glb
-         ! Reorder_index_log_dom stores where a global point in logical domain comes from.
-         ! It is nonzero only at the physical patch locations
-         reorder_index_log_dom(glbidx_glb(i)) = i
-      ENDDO
-
-      ! Gather the reorder index for the physical domain
-      n = 0
-      DO i = 1, n_points_g
-         IF(reorder_index_log_dom(i)>0) THEN
-            n = n+1
-            p_reo%reorder_index(n) = reorder_index_log_dom(i)
-         ENDIF
-      ENDDO
-
-      ! Safety check
-      IF(n/=p_reo%n_glb) THEN
-         WRITE (message_text, *) 'Reordering failed: n=',n, ' /= p_reo%n_glb=',p_reo%n_glb
-         CALL finish(routine, message_text)
-      ENDIF
-
-      DEALLOCATE(phys_owner_mask, glbidx_own, glbidx_glb, reorder_index_log_dom, STAT=ierrstat)
+      DEALLOCATE(phys_owner_mask, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-#endif
 
     END SUBROUTINE set_reorder_data
 
 
-    !------------------------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     !
     ! Transfers reorder data to restart PEs.
     !
@@ -1392,35 +1398,48 @@ MODULE mo_async_latbc
       INTEGER,              INTENT(IN)    :: bcast_root
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo
 
-#ifndef NOMPI
       ! local variables
-      INTEGER                             :: ierrstat
+      INTEGER                             :: ierrstat, dummy(1), i, accum
+      LOGICAL                             :: is_pref
+      INTEGER, ALLOCATABLE                :: rcounts(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
       !transfer the global number of points, this is not known on prefetching PE
       CALL p_bcast(p_reo%n_glb, bcast_root, p_comm_work_2_pref)
 
-      IF(my_process_is_pref())THEN
+      is_pref = my_process_is_pref()
+      IF (is_pref) THEN
 
-         ! on prefetch PE: n_own=0, own_ide and own_blk are not allocated
-         p_reo%n_own = 0
+        ! on prefetch PE: n_own=0, own_ide and own_blk are not allocated
+        p_reo%n_own = 0
 
-         ! pe_own must be allocated for num_work_procs, not for p_n_work
-         ALLOCATE(p_reo%pe_own(0:num_work_procs-1), STAT=ierrstat)
-         IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-         ALLOCATE(p_reo%pe_off(0:num_work_procs-1), STAT=ierrstat)
-         IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-         ALLOCATE(p_reo%reorder_index(p_reo%n_glb), STAT=ierrstat)
-         IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! pe_own must be allocated for num_work_procs, not for p_n_work
+        ALLOCATE(p_reo%pe_own(0:num_work_procs-1), &
+             p_reo%reorder_index(p_reo%n_glb), &
+             p_reo%pe_off(0:num_work_procs-1), STAT=ierrstat)
+        IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       ENDIF
 
       CALL p_bcast(p_reo%pe_own,        bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(p_reo%pe_off,        bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(p_reo%reorder_index, bcast_root, p_comm_work_2_pref)
-#endif
+      IF (is_pref) THEN
+        ! Get offset within result array
+        accum = 0
+        DO i = 0, num_work_procs-1
+          p_reo%pe_off(i) = accum
+          accum = accum + p_reo%pe_own(i)
+        ENDDO
+        CALL p_allgatherv(dummy(1:0), p_reo%reorder_index, p_reo%pe_own, &
+             p_reo%pe_off, p_comm_work_2_pref)
+      ELSE
+        ALLOCATE(rcounts(num_prefetch_proc), STAT=ierrstat)
+        rcounts = 0
+        IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        CALL p_allgatherv(p_reo%reorder_index, dummy, rcounts, &
+             rcounts, p_comm_work_2_pref)
+      END IF
+
     END SUBROUTINE  transfer_reorder_data
+#endif
 
 
     !------------------------------------------------------------------------------------------------

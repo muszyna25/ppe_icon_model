@@ -66,17 +66,7 @@ MODULE mo_async_latbc_types
      INTEGER, ALLOCATABLE :: pe_own(:)
      ! offset of contributions of PEs (set on all PEs)
      INTEGER, ALLOCATABLE :: pe_off(:)
-
-     ! logical mask, which local points are read from input file
-     LOGICAL, ALLOCATABLE :: read_mask(:,:)
-
-     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
-     LOGICAL              :: this_skip
-
-     ! flag: if .TRUE., then the corresponding PE is skipped in the MPI_PUT operation
-     LOGICAL, ALLOCATABLE :: pe_skip(:)
-
-  CONTAINS
+ CONTAINS
     PROCEDURE :: finalize => t_reorder_data_finalize   !< destructor
   END TYPE t_reorder_data
 
@@ -162,7 +152,7 @@ MODULE mo_async_latbc_types
   TYPE t_patch_data
      TYPE(t_reorder_data) :: cells
      TYPE(t_reorder_data) :: edges
-
+     LOGICAL, ALLOCATABLE :: cell_mask(:,:), edge_mask(:,:)
      TYPE(t_var_data), ALLOCATABLE :: var_data(:)
 
      ! used for async prefetching only
@@ -269,7 +259,9 @@ CONTAINS
 
     IF (ALLOCATED(patch_data%var_data))             DEALLOCATE(patch_data%var_data)
     CALL patch_data%cells%finalize()
+    IF (ALLOCATED(patch_data%cell_mask)) DEALLOCATE(patch_data%cell_mask)
     CALL patch_data%edges%finalize()
+    IF (ALLOCATED(patch_data%edge_mask)) DEALLOCATE(patch_data%edge_mask)
 #ifndef NOMPI
     ! note: we do not touch the MPI window pointer here:
     !
@@ -295,8 +287,6 @@ CONTAINS
     IF (ALLOCATED(reorder_data%own_blk))       DEALLOCATE(reorder_data%own_blk)
     IF (ALLOCATED(reorder_data%pe_own))        DEALLOCATE(reorder_data%pe_own)
     IF (ALLOCATED(reorder_data%pe_off))        DEALLOCATE(reorder_data%pe_off)
-    IF (ALLOCATED(reorder_data%read_mask))     DEALLOCATE(reorder_data%read_mask)
-    IF (ALLOCATED(reorder_data%pe_skip))       DEALLOCATE(reorder_data%pe_skip)
   END SUBROUTINE t_reorder_data_finalize
 
 

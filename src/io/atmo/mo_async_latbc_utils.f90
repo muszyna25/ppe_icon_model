@@ -1034,7 +1034,6 @@
         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jc = p_ri%own_idx(j) ! Line  index in distributed patch
-          IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
 !DIR$ IVDEP
           DO jk = 1, nlev_in
 #else
@@ -1042,7 +1041,6 @@
           DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jc = p_ri%own_idx(j) ! Line  index in distributed patch
-            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
 #endif
 
             log_exner = (1._wp/cvd_o_rd)*LOG(latbc%latbc_data(tlev)%atm_in%rho(jc,jk,jb)* &
@@ -1118,8 +1116,6 @@
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jc = p_ri%own_idx(j) ! Line  index in distributed patch
 
-               IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
-
                latbc%latbc_data(tlev)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
              ENDDO
            ENDDO
@@ -1168,9 +1164,9 @@
         CALL sync_patch_array(SYNC_C, p_patch, phi_sfc)
         CALL sync_patch_array(SYNC_C, p_patch, psfc)
 
-        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
-          CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev), &
-            &                                    opt_lmask=latbc%patch_data%cells%read_mask)
+        IF (latbc%patch_data%cells%n_own > 0) THEN
+          CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, &
+               latbc%latbc_data(tlev), latbc%patch_data%cell_mask)
         END IF
 
       END IF
@@ -1179,7 +1175,7 @@
         CALL sync_patch_array(SYNC_C, p_patch, omega)
         ! (note that "convert_omega2w" requires the pressure field
         ! which has been computed before)
-        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
+        IF (latbc%patch_data%cells%n_own > 0) THEN
           CALL convert_omega2w(omega, &
             &                  latbc%latbc_data(tlev)%atm_in%w,     &
             &                  latbc%latbc_data(tlev)%atm_in%pres,  &
@@ -1203,11 +1199,11 @@
       !   this for single PEs
       !
       IF (latbc_config%lsparse_latbc) THEN
-        IF ( .NOT. (latbc%patch_data%cells%this_skip .AND. latbc%patch_data%edges%this_skip)) THEN
+        IF (latbc%patch_data%cells%n_own > 0 .OR. latbc%patch_data%edges%n_own > 0) THEN
           CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
             &    opt_use_vn=latbc%buffer%lread_vn,                                       &
-            &    opt_lmask_c=latbc%patch_data%cells%read_mask,                           &
-            &    opt_lmask_e=latbc%patch_data%edges%read_mask, opt_latbcmode=.TRUE.)
+            &    opt_lmask_c=latbc%patch_data%cell_mask,                           &
+            &    opt_lmask_e=latbc%patch_data%edge_mask, opt_latbcmode=.TRUE.)
         ENDIF
       ELSE
         CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
@@ -1301,8 +1297,6 @@
             jb = latbc%patch_data%cells%own_blk(j) ! Block index in distributed patch
             jc = latbc%patch_data%cells%own_idx(j) ! Line  index in distributed patch
 
-            IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
-            
             latbc%latbc_data_const%z_mc_in(jc,jk,jb)  = (z_ifc_in(jc,jk,jb) + z_ifc_in(jc,jk+1,jb) ) * 0.5_wp
           ENDDO
         ENDDO
@@ -1715,7 +1709,6 @@
       DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
         jb = p_ri%own_blk(j) ! Block index in distributed patch
         jl = p_ri%own_idx(j) ! Line  index in distributed patch
-        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
         target_buf(jl,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,1,jb), wp)
       ENDDO
 !$OMP END PARALLEL DO
@@ -1754,14 +1747,12 @@
       DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
         jb = p_ri%own_blk(j) ! Block index in distributed patch
         jl = p_ri%own_idx(j) ! Line  index in distributed patch
-        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
         DO jk=1, latbc%buffer%nlev(jm)
 #else
       DO jk=1, latbc%buffer%nlev(jm)
         DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
 #endif
           target_buf(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
         ENDDO
