@@ -4213,17 +4213,17 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
 
-    TYPE(t_list_element), POINTER :: this_list_element
+    TYPE(t_list_element), POINTER :: element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
-      IF (ASSOCIATED (this_list_element)) RETURN
+      element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
+      IF (ASSOCIATED (element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists
 
