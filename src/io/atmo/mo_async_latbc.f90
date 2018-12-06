@@ -342,34 +342,7 @@ MODULE mo_async_latbc
 
     END SUBROUTINE prefetch_main_proc
 
-    !------------------------------------------------------------------------------------------------
-    !
-    ! Common helper routines for error handling and releasing of resources.
-    !
-    !------------------------------------------------------------------------------------------------
-    !
-    !  A simple helper routine to check the result of the last MPI call.
-    !
-    SUBROUTINE check_mpi_error(routine, mpi_call, mpi_error, l_finish)
-
-      CHARACTER(LEN=*), INTENT(IN)    :: routine, mpi_call
-      INTEGER, INTENT(IN)             :: mpi_error
-      LOGICAL, INTENT(IN)             :: l_finish
-
-#ifndef NOMPI
-      IF (mpi_error /= MPI_SUCCESS) THEN
-        WRITE (message_text, *) TRIM(mpi_call), ' returned with error=', mpi_error
-        IF (l_finish) THEN
-          CALL finish(routine, message_text)
-        ELSE
-          CALL message(routine, message_text)
-        ENDIF
-      ENDIF
-#endif
-
-    END SUBROUTINE check_mpi_error
-
-    !------------------------------------------------------------------------------------------------
+    !--------------------------------------------------------------------------
     !
     !> Initialize data structures for prefetching boundary data
     !
