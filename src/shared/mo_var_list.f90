@@ -4268,8 +4268,7 @@ CONTAINS
             ! count the number of variable restart entries
             element => var_lists(iv)%p%first_list_element
             nelems = 0
-            DO
-                IF(.NOT.ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                 IF(element%field%info%lrestart) nelems = nelems+1
                 element => element%next_list_element
             END DO
@@ -4287,8 +4286,7 @@ CONTAINS
 
         IF(operation == kPackOp) THEN
             element => var_lists(iv)%p%first_list_element
-            DO
-                IF(.NOT. ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                 IF(element%field%info%lrestart) THEN
                     info_storage = TRANSFER(element%field%info, (/ 0 /))
                     CALL packedMessage%packer(operation, info_storage)
