@@ -1184,7 +1184,7 @@ MODULE mo_async_latbc
 
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
+      INTEGER                       :: info_size, i, iv, nelems, nv, n, all_var, &
            &                           all_nvars, nvars, i2, ierrstat
       LOGICAL                       :: is_pref
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
@@ -1245,14 +1245,12 @@ MODULE mo_async_latbc
                nelems = nelems+1
                element => element%next_list_element
             ENDDO
-            list_info = nelems
          ENDIF
 
          ! Send basic info:
-         CALL p_bcast(list_info, bcast_root, p_comm_work_2_pref)
+         CALL p_bcast(nelems, bcast_root, p_comm_work_2_pref)
 
          IF (is_pref) THEN
-            nelems = list_info
             ! Create var list
             CALL new_var_list( p_var_list, var_list_name)
          ENDIF
