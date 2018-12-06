@@ -811,11 +811,11 @@ MODULE mo_async_latbc
          IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
            ! Search name mapping for name in file
            DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+             latbc%buffer%grp_vars(jp) = dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp))
            ENDDO
          ELSE
            DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = TRIM(grp_vars(jp))
+             latbc%buffer%grp_vars(jp) = grp_vars(jp)
            ENDDO
          ENDIF
 
