@@ -206,7 +206,7 @@ MODULE mo_async_latbc
     ! MPI Communicators
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_bcast, p_barrier, p_allgather
+    USE mo_mpi,                       ONLY: p_bcast, p_barrier, p_allgather, p_allgatherv
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
@@ -1300,7 +1300,7 @@ MODULE mo_async_latbc
 
 #ifndef NOMPI
       ! local variables
-      INTEGER :: i, n, il, ib, mpi_error, ierrstat
+      INTEGER :: i, n, il, ib, ierrstat
       LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
       INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
@@ -1371,11 +1371,8 @@ MODULE mo_async_latbc
       ! make sure all are done
       ! CALL p_barrier(comm=p_comm_work)
 
-      CALL MPI_Allgatherv(glbidx_own, p_reo%n_own, p_int, &
-           glbidx_glb, p_reo%pe_own, p_reo%pe_off, p_int, &
-           p_comm_work, mpi_error)
-
-      CALL check_mpi_error(routine, 'MPI_Allgatherv', mpi_error, .TRUE.)
+      CALL p_allgatherv(glbidx_own, glbidx_glb, p_reo%pe_own, &
+           p_reo%pe_off, p_comm_work)
 
       ! Get reorder_index
       ALLOCATE(p_reo%reorder_index(p_reo%n_glb), STAT=ierrstat)
