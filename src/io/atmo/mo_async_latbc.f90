@@ -1289,24 +1289,25 @@ MODULE mo_async_latbc
          IF (is_pref) THEN
 
             ! Insert elements into var list
-            p_var_list%p%first_list_element => NULL()
-            element => NULL() ! Safety only
-            DO n = 1, nelems
-               IF(.NOT.ASSOCIATED(p_var_list%p%first_list_element)) THEN
-                  ALLOCATE(p_var_list%p%first_list_element)
-                  element => p_var_list%p%first_list_element
-               ELSE
-                  ALLOCATE(element%next_list_element)
-                  element => element%next_list_element
-               ENDIF
-
+           IF (nelems > 0) THEN
+             ALLOCATE(p_var_list%p%first_list_element)
+             element => p_var_list%p%first_list_element
+             DO n = 1, nelems
                i2 = i2 + 1
-               element%next_list_element => NULL()
 
                ! Set info structure from binary representation in info_storage
                element%field%info = TRANSFER(info_storage(:, n), info)
                patch_data%var_data(i2)%info = element%field%info
-            ENDDO
+               IF (n < nelems) THEN
+                 ALLOCATE(element%next_list_element)
+               ELSE
+                 NULLIFY(element%next_list_element)
+               ENDIF
+               element => element%next_list_element
+             ENDDO
+           ELSE
+             NULLIFY(p_var_list%p%first_list_element)
+           END IF
          ENDIF
          DEALLOCATE(info_storage, STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
