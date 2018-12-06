@@ -4145,23 +4145,19 @@ CONTAINS
     IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
-  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
-    INTEGER :: key2look4
+  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,name_has_time_level,element,case_insensitive)
+    INTEGER, INTENT(in) :: key2look4
     CHARACTER(len=*),   INTENT(in) :: name2look4
-    TYPE(t_list_element) :: element
-    LOGICAL, OPTIONAL              :: opt_caseInsensitive
-
-    LOGICAL :: caseInsensitive
-    caseInsensitive = .FALSE.
-    CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
+    TYPE(t_list_element), INTENT(in) :: element
+    LOGICAL, INTENT(in) :: name_has_time_level, case_insensitive
 
     ! go forward only if both variables have NO or THE SAME timelevel
-    IF (has_time_level(name2look4) .NEQV. has_time_level(element%field%info%name)) THEN
-      elementFoundByName = .FALSE. 
+    IF (name_has_time_level .NEQV. has_time_level(element%field%info%name)) THEN
+      elementFoundByName = .FALSE.
       RETURN
     ENDIF
 
-    IF (caseInsensitive) THEN
+    IF (case_insensitive) THEN
       elementFoundByName &
         = tolower(name2look4) == tolower(get_var_name(element%field))
     ELSE
@@ -4185,16 +4181,22 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: element
     INTEGER :: key,hgrid
+    LOGICAL :: name_has_time_level
+    LOGICAL :: case_insensitive
+    case_insensitive = .FALSE.
+    CALL assign_if_present(case_insensitive, opt_caseInsensitive)
 
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
     key = util_hashword(name, LEN_TRIM(name), 0)
+    name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(element))
       IF (-1 == hgrid .OR. hgrid == element%field%info%hgrid) THEN
-        IF (elementFoundByName(key,name,element,opt_caseInsensitive)) RETURN
+        IF (elementFoundByName(key,name,name_has_time_level,&
+          &                    element,case_insensitive)) RETURN
       ENDIF
       element => element%next_list_element
     ENDDO
