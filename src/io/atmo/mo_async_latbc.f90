@@ -1504,7 +1504,7 @@ MODULE mo_async_latbc
 
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
          DO jp = 1, latbc%buffer%ngrp_vars
-            IF (TRIM(latbc%buffer%mapped_name(jp)) == TRIM(latbc%buffer%geop_ml_var)) THEN
+            IF (latbc%buffer%mapped_name(jp) == latbc%buffer%geop_ml_var) THEN
                ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
                ! as the variable GEOSP doesn't exist in metadata
                mem_size = mem_size + INT(1*latbc%patch_data%cells%n_own,i8)
