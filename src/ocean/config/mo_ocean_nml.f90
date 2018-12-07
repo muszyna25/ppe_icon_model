@@ -807,7 +807,11 @@ MODULE mo_ocean_nml
   INTEGER :: agulhas_long(100)           = -1
   INTEGER :: agulhas_longer(100)         = -1
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
-  
+
+  ! run eddy diagnostics
+  LOGICAL  :: eddydiag             = .FALSE.
+
+
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
     & florida_strait, &
     & denmark_strait, &
@@ -822,7 +826,8 @@ MODULE mo_ocean_nml
     & agulhas, &
     & agulhas_long, &
     & agulhas_longer, &
-    & diagnose_for_horizontalVelocity
+    & diagnose_for_horizontalVelocity, &
+    & eddydiag
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model

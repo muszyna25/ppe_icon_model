@@ -213,6 +213,22 @@ MODULE mo_ocean_types
       & opottemptend,                 &
       & osalttend,                    &
       & delta_thetao, & 
+      & uT, &  !< product of temperature and u-velocity
+      & uS, &  !< product of salinity and u-velocity
+      & uR, &  !< product of density and u-velocity
+      & uu, &  !< square of u-velocity
+      & vT, &  !< product of temperature and v-velocity
+      & vS, &  !< product of salinity and v-velocity
+      & vR, &  !< product of density and v-velocity  
+      & vv, &  !< square of  v-velocity
+      & wT, &  !< product of temperature and w-velocity
+      & wS, &  !< product of salinity and w-velocity
+      & wR, &  !< product of density and w-velocity
+      & ww, &  !< square of w-velocity 
+      & uw, &  !< product of u-velocity and w-velocity 
+      & vw, &  !< product of v-velocity and w-velocity
+      & uv, &  !< product of u-velocity and v-velocity
+      & sigma0, &  !< potential density anomaly (desitity - 1000)
       & heat_content_liquid_water,    &
       & odensitytend
 

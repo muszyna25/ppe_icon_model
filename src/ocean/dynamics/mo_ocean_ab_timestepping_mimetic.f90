@@ -2073,8 +2073,9 @@ CONTAINS
     ENDIF
 
     CALL sync_patch_array(sync_c,patch_2D,vertical_velocity)
-    
-    !CALL map_scalar_prismtop2center(patch_3d, vertical_velocity, op_coeffs, ocean_state%p_diag%w_prismcenter)
+
+    ! w_prismcenter is used in ther eddy diagnostic
+    CALL map_scalar_prismtop2center(patch_3d, vertical_velocity, op_coeffs, ocean_state%p_diag%w_prismcenter)
     
     !-----------------------------------------------------
     IF (use_continuity_correction) THEN
