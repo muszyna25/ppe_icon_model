@@ -2300,7 +2300,7 @@ CONTAINS
     ENDDO
 
     CALL mask2reorder_info(p_ri, phys_owner_mask, n_points_g, glb_index, &
-         p_comm_work, occupation_mask)
+         p_comm_work, occupation_mask, pio_type == pio_type_cdipio)
     DEALLOCATE(phys_owner_mask)
 
 
@@ -2427,16 +2427,18 @@ CONTAINS
     END DO
 
 #ifdef HAVE_CDI_PIO
-    ALLOCATE(reorder_index_own_pio(n_own),          &
-      &      patch_info_ll%ri%reorder_idxlst_xt(1), &
-      &      STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    IF (pio_type == pio_type_cdipio) THEN
+      ALLOCATE(reorder_index_own_pio(n_own),          &
+        &      patch_info_ll%ri%reorder_idxlst_xt(1), &
+        &      STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    ! CDI-PIO acts C like...
-    reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
-    idxvec = xt_idxvec_new(reorder_index_own_pio)
-    patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
-    CALL xt_idxlist_delete(idxvec)
+      ! CDI-PIO acts C like...
+      reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
+      idxvec = xt_idxvec_new(reorder_index_own_pio)
+      patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+      CALL xt_idxlist_delete(idxvec)
+    END IF
 #endif
 
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN

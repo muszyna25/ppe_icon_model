@@ -101,7 +101,7 @@ CONTAINS
   END SUBROUTINE release_reorder_info
 
   SUBROUTINE mask2reorder_info(ri, mask, n_points_g, glb_index, group_comm, &
-       retained_occupation_mask)
+       retained_occupation_mask, create_idxlist)
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
@@ -110,6 +110,7 @@ CONTAINS
 #endif
     INTEGER(i8), ALLOCATABLE, OPTIONAL, INTENT(out) :: &
          retained_occupation_mask(:)
+    LOGICAL, OPTIONAL, INTENT(in) :: create_idxlist
 
     INTEGER :: n_points, i, il, n, group_comm_size
     INTEGER :: ierror
@@ -121,7 +122,13 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist) :: idxvec
 #endif
+    LOGICAL :: create_idxlist_
 
+    IF (PRESENT(create_idxlist)) THEN
+      create_idxlist_ = create_idxlist
+    ELSE
+      create_idxlist_ = .FALSE.
+    END IF
     n_points = SIZE(mask)
     n = COUNT(mask)
     ! Get number of owned cells/edges/verts (without halos, physical patch only)
@@ -190,10 +197,12 @@ CONTAINS
     CALL glb_idx2reorder_idx(ri%reorder_index_own, glbidx_own(1:ri%n_own), &
          occ_pfxsum, occupation_mask)
 #ifdef HAVE_CDI_PIO
-    ALLOCATE(ri%reorder_idxlst_xt(1))
-    idxvec = xt_idxvec_new(int(ri%reorder_index_own, xt_int_kind))
-    ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
-    CALL xt_idxlist_delete(idxvec)
+    IF (create_idxlist_) THEN
+      ALLOCATE(ri%reorder_idxlst_xt(1))
+      idxvec = xt_idxvec_new(INT(ri%reorder_index_own, xt_int_kind))
+      ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+      CALL xt_idxlist_delete(idxvec)
+    END IF
 #endif
     DO i = 1, ri%n_own
       ri%reorder_index_own(i) = ri%reorder_index_own(i) + 1
