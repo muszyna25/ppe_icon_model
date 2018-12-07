@@ -722,10 +722,6 @@ MODULE mo_async_latbc
       CALL collect_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, loutputvars_only=.FALSE., &
         &                lremap_lonlat=.FALSE. )
 
-      ! adding the variable 'GEOSP' to the list by add_to_list
-      ! as the variable cannot be found in metadata variable list
-      CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
-
       ! allocate the number of vertical levels and other fields with
       ! the same size as number of variables
       ALLOCATE(latbc%buffer%nlev(ngrp_prefetch_vars),        &
@@ -764,16 +760,19 @@ MODULE mo_async_latbc
            CALL finish(routine, "Unknown file type")
          END IF
 
-         ! Search name mapping for name in file
-         DO jp= 1, ngrp_prefetch_vars
-           latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
-         ENDDO
-
          ! subroutine to read const (height level) data and to check
          ! whether some variable is specified in input file and setting
          ! flag for its further usage
          CALL check_variables(latbc, latbc_varnames_dict, fileID_latbc)
 
+         ! adding the variable 'GEOSP' to the list by add_to_list
+         ! as the variable cannot be found in metadata variable list
+         CALL add_to_list(grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
+
+         ! Search name mapping for name in file
+         DO jp= 1, ngrp_prefetch_vars
+           latbc%buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+         ENDDO
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
          flen_latbc = util_filesize(TRIM(latbc_file))
