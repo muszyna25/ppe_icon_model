@@ -457,6 +457,8 @@ MODULE mo_ocean_nml
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
+  INTEGER  :: LeithViscosity_SmoothIterations = 0
+  REAL(wp) :: LeithViscosity_SpatialSmoothFactor = 0.5_wp
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -492,6 +494,8 @@ MODULE mo_ocean_nml
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
     &  LeithBiharmonicViscosity_scaling,        &
+    &  LeithViscosity_SmoothIterations,         &
+    &  LeithViscosity_SpatialSmoothFactor,      &
     &  TracerDiffusion_LeithWeight,             &     ! experimental, do not use!
     &  max_turbulenece_TracerDiffusion, &  ! experimental, do not use!
     & &
