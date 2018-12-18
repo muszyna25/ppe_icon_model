@@ -23,8 +23,8 @@
 MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell,  &
-    &                               min_rledge_int, min_rlcell_int, MIURA, MIURA3
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
+    &                               MIURA, MIURA3
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics

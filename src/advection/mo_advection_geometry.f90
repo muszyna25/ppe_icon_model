@@ -849,8 +849,7 @@ CONTAINS
     &                         dreg_patch0, dreg_patch1, dreg_patch2,   &
     &                         patch1_cell_idx, patch1_cell_blk,        &
     &                         patch2_cell_idx, patch2_cell_blk,        &
-    &                         opt_rlstart, opt_rlend, opt_slev,        &
-    &                         opt_elev )
+    &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
       &  p_patch
@@ -888,11 +887,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
 
     REAL(wp) ::       &   !< coordinates of arrival points. The origin
       &  arrival_pts(falist%npoints,2,2)
@@ -935,7 +929,6 @@ CONTAINS
     INTEGER :: ie                      !< index list loop counter
     INTEGER :: i_startblk, i_endblk
     INTEGER :: i_rlstart, i_rlend, i_nchdom
-    INTEGER :: slev, elev              !< vertical start and end level
 
     LOGICAL :: lintersect_line1, lintersect_line2
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
@@ -981,18 +974,6 @@ CONTAINS
 
 
     ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = p_patch%nlev
-    END IF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE
