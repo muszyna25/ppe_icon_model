@@ -84,8 +84,8 @@ CONTAINS
 !          
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(j,k,pomax,posol,orgsed,sssnew,&
-!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,&
-!HAMOCC_OMP           a,satlev,powcar,sti,ft,sit,&
+!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,&
+!HAMOCC_OMP           satlev,powcar,sti,ft,sit,&
 !HAMOCC_OMP           pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,jit,&
 !HAMOCC_OMP           hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
 
