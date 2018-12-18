@@ -74,7 +74,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 !HAMOCC_OMP            cek0,ak0,oxy,ani,ck1,ck2,ckb,ckw,ak1,ak2,&
 !HAMOCC_OMP            akw,akb, pis, pis2,aksi,cksi,aks,cks,akf,ckf,&
 !HAMOCC_OMP            ck1p,ck2p,ck3p,ak1p,ak2p,ak3p,rs, sti, fti, s2,&
-!HAMOCC_OMP            total2free_0p, free2SWS_0p, total2SWS_0, SWS2total,&
+!HAMOCC_OMP            total2free_0p, free2SWS_0p, total2SWS_0p, SWS2total,&
 !HAMOCC_OMP            tt,ts,ts2,ts3,ts4,ts5,lnkpk0,tc) HAMOCC_OMP_DEFAULT_SCHEDULE
 
  DO jc = start_idx, end_idx
