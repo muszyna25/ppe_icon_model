@@ -12,23 +12,8 @@ listname=icon-dev
 ./create_all_builders $listname
 
 #-----------------------------------------------------------
-# this failes in the current aes master
+# this one fails
 $addexp checksuite.icon-dev/check.atm_amip_update      --list $listname
-
-#-----------------------------------------------------------
-# DWD
-# tests for nwp
-$addexp exp.test_nwp_R02B04N06_multifile_restart  --builders MISTRAL_nag --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=2"  --machines mistral --list $listname
-# this experiment runs only with-mpi and without openmp
-$addexp exp.test_nwp_R02B04N06multi2  --builders MISTRAL_nag --without-configureflags without-mpi with-openmp \
---machines mistral --runflags "cpu_time=00:45:00 no_of_nodes=2" --list $listname
-
-#-----------------------------------------------------------
-# Other tests
-#   torus test from Anurag
-$addexp checksuite.icon-dev/check.atm_rce_les  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
-#   old test from Anurag
-$addexp checksuite.icon-dev/check.atm_icoles_nested --builders MISTRAL_nag --runflags "cpu_time=00:30:00" --list $listname
 
 #-----------------------------------------------------------
 #lets see the list

@@ -951,7 +951,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     nag*)
-                        load_modules    = gcc/4.9.2 nag/6.0.1064 mvapich2/1.9b-static-nag60 ${load_modules}
+                        load_modules    = gcc/4.9.2 nag/6.0.1064 ${load_modules}
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -965,10 +965,9 @@ case "$ac_sitename" in
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         ZLIBROOT    = /usr
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
-                        MPIROOT     = $software_tree/mpi/mvapich2-1.9b-static-nag60
-                        IB_LIBS     = -lmpl -libmad -lrdmacm -libumad -libverbs 
-                        SYS_LIBS    = -lhwloc -lxml2 -lnuma -lrt -lutil -lpthread -lm -ldl
-                        MPI_LIB     = -lmpichf90 -lmpich -lopa $IB_LIBS $SYS_LIBS
+                        MPIROOT     = /work/mh0287/m214089/mvapich2-2.3-static-nag60
+                        MPI_LIB     = -lmpifort -lmpi -libmad -lrdmacm -libumad -libverbs -lnuma -ldl -lrt -lm -lpthread
+                        MPI_LAUNCH  = $MPIROOT/bin/mpirun
                         XML2ROOT    = /usr
                         mpi_startrun = srun
                         ;;
