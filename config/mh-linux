@@ -967,6 +967,7 @@ case "$ac_sitename" in
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
                         MPIROOT     = /work/mh0287/m214089/mvapich2-2.3-static-nag60
                         MPI_LIB     = -lmpifort -lmpi -libmad -lrdmacm -libumad -libverbs -lnuma -ldl -lrt -lm -lpthread
+                        MPI_LAUNCH  = $MPIROOT/bin/mpirun
                         XML2ROOT    = /usr
                         mpi_startrun = srun
                         ;;
