@@ -26,9 +26,10 @@ MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
   USE mtime,                    ONLY: datetime, timedelta, newDatetime, newTimedelta, &
-    &                                 deallocateDatetime, MAX_CALENDAR_STR_LEN
-  USE mo_impl_constants,        ONLY: proleptic_gregorian,                            &
-                                    & julian_gregorian, cly360
+    &                                 deallocateDatetime, MAX_CALENDAR_STR_LEN,       &
+    &                                 OPERATOR(*), gettotalmillisecondstimedelta
+  USE mo_impl_constants,        ONLY: proleptic_gregorian, julian_gregorian, cly360
+  USE mo_grid_config,           ONLY: n_dom, dynamics_parent_grid_id
   USE mo_util_string,           ONLY: tolower
  
   IMPLICIT NONE
@@ -47,6 +48,7 @@ MODULE mo_time_config
   PUBLIC :: set_is_relative_time
   PUBLIC :: set_calendar
   PUBLIC :: set_tc_dt_model
+  PUBLIC :: set_tc_dt_dyn
   PUBLIC :: set_tc_write_restart
   
   !> namelist parameters (as raw character strings):
@@ -113,14 +115,16 @@ MODULE mo_time_config
 
     ! well, the model's timestep
     
-    TYPE(timedelta), POINTER :: tc_dt_model      => NULL()
+    TYPE(timedelta), POINTER     :: tc_dt_model => NULL() ! dynamics time step  on the global grid in mtime format
+    TYPE(timedelta), ALLOCATABLE :: tc_dt_dyn (:)         ! dynamics time steps on all grids in mtime format
+    REAL(wp)       , ALLOCATABLE :: dt_dyn_sec(:)         ! dynamics time steps on all grids in seconds
  
   END TYPE t_time_config
   !>
   !! 
   !! The actual variable
   !!
-  TYPE(t_time_config), SAVE :: time_config
+  TYPE(t_time_config), TARGET, SAVE :: time_config
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_config"
 
@@ -226,6 +230,30 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: modelTimeStep
     time_config%tc_dt_model => newTimedelta(modelTimeStep)
   END SUBROUTINE set_tc_dt_model
+
+  SUBROUTINE set_tc_dt_dyn
+    INTEGER                      :: jg, jgp
+    TYPE(datetime), POINTER      :: reference_dt
+    !
+    ALLOCATE(time_config%tc_dt_dyn (n_dom))
+    ALLOCATE(time_config%dt_dyn_sec(n_dom))
+    !
+    ! 'global grid': jg=1
+    IF (n_dom >= 1) time_config%tc_dt_dyn(1) = time_config%tc_dt_model
+    !
+    ! refined grids: jg=2:n_dom
+    DO jg=2,n_dom
+       jgp = dynamics_parent_grid_id(jg)
+       time_config%tc_dt_dyn(jg) = time_config%tc_dt_dyn(jgp)*0.5_wp
+    END DO
+    !
+    reference_dt => newDatetime("1980-06-01T00:00:00.000")
+    DO jg=1,n_dom
+       time_config%dt_dyn_sec(jg) = REAL(getTotalMilliSecondsTimeDelta(time_config%tc_dt_dyn(jg),reference_dt),wp)/1000._wp
+    END DO
+    CALL deallocateDatetime(reference_dt)
+    !
+  END SUBROUTINE set_tc_dt_dyn
 
   SUBROUTINE set_tc_write_restart(writeRestart)
     LOGICAL, INTENT(in) :: writeRestart

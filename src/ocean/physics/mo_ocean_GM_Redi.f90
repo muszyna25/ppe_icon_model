@@ -45,7 +45,8 @@ MODULE mo_ocean_GM_Redi
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer
-  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state !, v_base
+  USE mo_ocean_tracer_transport_types,        ONLY: t_ocean_tracer
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish, message !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
@@ -66,7 +67,7 @@ MODULE mo_ocean_GM_Redi
     & map_vec_prismtop2center_on_block_GM
   USE mo_ocean_thermodyn,           ONLY : calc_neutralslope_coeff_func_onColumn,&
                                          & calc_neutralslope_coeff_func_onColumn_UNESCO  
-USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit    
+  USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit    
 
   IMPLICIT NONE
   
@@ -98,7 +99,7 @@ CONTAINS
   !!
 !<Optimize:inUse:done>
   SUBROUTINE prepare_ocean_physics(patch_3d, ocean_state, param, op_coeff)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
@@ -122,7 +123,7 @@ CONTAINS
   !!
   !<Optimize:inUse:done>
   SUBROUTINE calc_ocean_physics(patch_3d, ocean_state, param, op_coeff, tracer_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params), INTENT(inout)         :: param
     TYPE(t_operator_coeff),INTENT(in)        :: op_coeff
@@ -181,7 +182,7 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux(patch_3d, ocean_state, param, op_coeff,&
     &GMredi_flux_horz, GMredi_flux_vert, tracer_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
@@ -241,12 +242,12 @@ CONTAINS
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
     ELSEIF(tracer_index>2)THEN
 !write(0,*)'-------------------------------------TRACER==3-----------------------------------------'    
-!ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_state%p_diag%rho_GM
-!&=ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration 
+!ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration=ocean_state%p_diag%rho_GM
+!&=ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index-1)%concentration 
 
       !Here we have to provide a sbr that calculates derivatives below    
       CALL calc_tracer_derivatives( patch_3d,&
-                                  & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+                                  & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
                                   & tracer_index)
@@ -476,7 +477,7 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calc_neutral_slopes(patch_3d, ocean_state, param, op_coeff)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
@@ -518,11 +519,11 @@ CONTAINS
 
     IF(no_tracer>=2)THEN
       IF(SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
-        pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
+        pot_temp          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(1)%concentration
         grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
         grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
     
-        salinity          => ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration
+        salinity          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(2)%concentration
         grad_S_vec        => ocean_state%p_aux%PgradSalinity_horz_center
         grad_S_vert_center=> ocean_state%p_aux%DerivSalinity_vert_center
       
@@ -531,11 +532,11 @@ CONTAINS
         grad_rho_GM_vec        => ocean_state%p_aux%PgradDensity_horz_center
         grad_rho_GM_vert_center=> ocean_state%p_aux%DerivDensity_vert_center
 
-        pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
+        pot_temp          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(1)%concentration
         grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
         grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
         
-        salinity          => ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration
+        salinity          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(2)%concentration
         grad_S_vec        => ocean_state%p_aux%PgradSalinity_horz_center
         grad_S_vert_center=> ocean_state%p_aux%DerivSalinity_vert_center
         
@@ -544,7 +545,7 @@ CONTAINS
     !all relevant imformation is stored in the tracer%temperature structure
     ELSEIF(no_tracer==1)THEN      
       !pot_temp          => ocean_state%p_diag%rho	
-      pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration      
+      pot_temp          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(1)%concentration      
       grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
       grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
 
@@ -972,7 +973,7 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calc_tracer_derivatives(patch_3d, tracer, ocean_state, op_coeff, tracer_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: tracer(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
@@ -1111,7 +1112,7 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calc_tapering_function(patch_3d, param, ocean_state)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     !TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
@@ -1314,7 +1315,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE calc_entries_mixing_tensor(patch_3d, ocean_state, param,taper_diagonal_horz,taper_diagonal_vert_expl,&
     & taper_diagonal_vert_impl, taper_off_diagonal_horz, taper_off_diagonal_vert,tracer_index )
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     REAL(wp), INTENT(inout)                          :: taper_diagonal_horz(:,:,:)
@@ -1651,7 +1652,7 @@ END DO
   !<Optimize:inUse>
   SUBROUTINE diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
     &tracer_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
@@ -1716,8 +1717,8 @@ END DO
     temp_array(1:nproma,1:n_zlev,1:patch_3d%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
     
    IF(no_tracer>=2)THEN
-      pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
-      salinity          => ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration
+      pot_temp          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(1)%concentration
+      salinity          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(2)%concentration
     ELSEIF(no_tracer==1)THEN      
       pot_temp          => ocean_state%p_diag%rho
     ENDIF
@@ -1759,12 +1760,12 @@ END DO
 
     ELSEIF(tracer_index>2)THEN
 ! write(0,*)'-----------------------------BALANCE-DIAG-TRACER==3-----------------------------------------'    
-ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_state%p_diag%rho_GM
-!&=ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration 
-        tracer                          => ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration
+ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration=ocean_state%p_diag%rho_GM
+!&=ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index-1)%concentration 
+        tracer                          => ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       !Here we have to provide a sbr that calculates derivatives below    
       CALL calc_tracer_derivatives( patch_3d,&
-                                  & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+                                  & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
                                   & tracer_index)
@@ -1883,8 +1884,7 @@ ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration=ocean_stat
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                        &
           & temp_tracer_before,              &
-          & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,                &
-          & op_coeff)
+          & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)
 
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block

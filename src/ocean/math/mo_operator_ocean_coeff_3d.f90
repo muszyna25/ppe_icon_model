@@ -42,7 +42,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_operator_coeff, &
-    & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
+    & t_solverCoeff_singlePrecision, t_verticalAdvection_ppm_coefficients
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
@@ -703,22 +703,6 @@ CONTAINS
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2cell_coeff_cc failed')
     ENDIF
 
-    ALLOCATE(operators_coefficients%upwind_cell_position_cc(nproma,nz_lev,nblks_e),stat=return_status)
-    IF (return_status /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind cell failed')
-    ENDIF
-    ALLOCATE(operators_coefficients%moved_edge_position_cc(nproma,nz_lev,nblks_e),stat=return_status)
-    IF (return_status /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
-    ENDIF
-    ALLOCATE(operators_coefficients%edge_position_cc(nproma,nz_lev,nblks_e),stat=return_status)
-    IF (return_status /= success) THEN
-      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
-    ENDIF
-!    ALLOCATE(operators_coefficients%cell_position_cc(nproma,nz_lev,alloc_cell_blocks),stat=return_status)
-!    IF (return_status /= success) THEN
-!      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
-!    ENDIF
     !
     !normalizing factors for edge to cell mapping.
     !
@@ -820,18 +804,6 @@ CONTAINS
     all_edges => patch_2D%edges%all
     !all_verts => patch_2D%verts%all
 
-    DO jk = 1, nz_lev
-      DO block = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
-        DO je =  edges_startidx, edges_endidx
-!           operators_coefficients%edge_position_cc(je,jk,block)             = gc2cc(patch_2D%edges%center(je,block))
-          operators_coefficients%edge_position_cc(je,jk,block)             = patch_2D%edges%cartesian_center(je,block)
-          operators_coefficients%moved_edge_position_cc(je,jk,block)%x(:)  = 0._wp
-          operators_coefficients%upwind_cell_position_cc(je,jk,block)%x(:) = 0._wp
-        END DO
-      END DO
-    END DO
-
     operators_coefficients%edge2edge_viacell_coeff= 0._wp
     operators_coefficients%edge2edge_viavert_coeff= 0._wp
 
@@ -911,10 +883,6 @@ CONTAINS
     DEALLOCATE(operators_coefficients%edge2vert_vector_cc)
 
     DEALLOCATE(operators_coefficients%edge2edge_viavert_coeff)
-
-    DEALLOCATE(operators_coefficients%upwind_cell_position_cc)
-    DEALLOCATE(operators_coefficients%moved_edge_position_cc)
-    DEALLOCATE(operators_coefficients%edge_position_cc)
 
     DEALLOCATE(operators_coefficients%fixed_vol_norm)
 !     DEALLOCATE(operators_coefficients%variable_vol_norm)

@@ -2254,7 +2254,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
   SUBROUTINE map_scalar_prismtop2center(patch_3d, scalar_top, p_op_coeff,scalar_center)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
     REAL(wp)                                         :: scalar_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_c)       
@@ -2442,7 +2442,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
   SUBROUTINE map_scalar_prismtop2center_GM(patch_3d, scalar_top, p_op_coeff, scalar_center)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
     REAL(wp)                                         :: scalar_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_c)       

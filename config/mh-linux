@@ -40,7 +40,7 @@ CC     = gcc
 CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4
 
 case "$fortran_compiler" in
-    default|gcc)
+    default|gcc*)
         config_compiler  = gcc
         compiler_version = $(gfortran --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
         CFLAGS      = $CFLAGS -DgFortran
@@ -145,7 +145,7 @@ case "$fortran_compiler" in
         MODDIR      = -mdir 
         WLFLAG      = -Wl,-Wl,
         ;;
-    pgi)
+    pgi*)
         config_compiler  = pgi
         compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
         CFLAGS      = $CFLAGS -DgFortran
@@ -163,53 +163,16 @@ case "$fortran_compiler" in
         MODDIR      = -module 
         WLFLAG      = -Wl        
         ;;
-    pgi_gpu)
-        config_target=daint_gpu
-        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda -D_LOC_TIMING
-        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
-        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
-        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-        ;;
-    pgi_openacc_mc)
-        config_target=daint_gpu
-        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline -D_LOC_TIMING
-        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
-        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.3.1/PGI/17.10/
-        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-        ;;
-    cray)
+    cray*)
         config_compiler  = cray
         compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2              -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
         F77FLAGS    = $FFLAGS
         LDFLAGS     = -hflex_mp=conservative  -Ktrap=divz,ovf,inv
-        FCLIBS      = 
-        GEN_FLAGS   =
-        FDEBUG      = -g -R abc
-        DEFOPT      = -D
-        DEFCOPT     = -D
-        MODOPT      = -I
-        MODDIR      = -J
-        ;;
-    cray_gpu)
-        config_compiler  = cray_gpu
-        compiler_version = $(ftn -V 2>&1 > /dev/null | awk -F" " '{split($5,v,"."); printf("cray%1d%1d", v[1], v[2])}')
-        CC          = cc
-        FC          = ftn
-        F77         = $FC
-        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
-        CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3
-        F77FLAGS    = $FFLAGS
         FCLIBS      = 
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
@@ -260,87 +223,216 @@ case "$ac_sitename" in
                 FC = ftn
                 F77= ftn
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
-		        XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP02/gpu/easybuild/software/libxml2/2.9.3-CrayGNU-2016.11
-                ZLIBROOT    = /usr
+                XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08
+                ZLIBROOT    = /apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/zlib/1.2.11-CrayGNU-18.08
 
                 case "$fortran_compiler" in
-                    gcc)
-                        config_target=daint_cpu
-                        load_modules =modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5
-                        CFLAGS      = -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB    = -lsci_gnu
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -ljasper -dynamic -L/usr/lib64 -llzma
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
-			;;
-                    intel)
-                        config_target=daint_cpu
-                        load_modules = PrgEnv-intel cray-netcdf
-                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
-                        F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
-                        FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -assume realloc_lhs
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
-			OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/INTEL/17.0.4.196
-			;;
-                    pgi)
-                        config_target=daint_cpu 
-                        load_modules = PrgEnv-pgi cray-netcdf daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -tp=haswell
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -tp=haswell -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-			;;
-                    pgi_gpu)
-                        config_target=daint_gpu
-                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -acc=verystrict -ta=nvidia:cc60,cuda8.0 -Minfo=accel,inline -Mcuda
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -ta=nvidia:cc60,cuda8.0 -Mcuda -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-                       ;;
-                    pgi_openacc_mc)
-                        config_target=daint_gpu
-                        load_modules = PrgEnv-pgi cray-netcdf cudatoolkit daint-gpu
-                        FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include -ta=multicore -tp=haswell -Minfo=accel,inline
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
-                        LDFLAGS     = -ta=multicore -tp=haswell -Mnorpath
-                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
-                        OTHER_LIBS  = \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -L/opt/gcc/5.3.0/snos/lib64 -lstdc++fs -lstdc++
-                       ;;
-                    cray)
-                        config_target=daint_cpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
-                        CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
-                        LDFLAGS     = -Wl,--allow-multiple-definition
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB  = -lsci_cray
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -dynamic -L/usr/lib64 -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
+                    gcc*)
+                        CFLAGS      = -DgFortran -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/GNU/6.2.0
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -l:libjasper.a -dynamic -L/usr/lib64 -llzma
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                ;;
+                            ftg)
+                                config_target = daint_cpu
+                                STD_FLAGS   = -fbacktrace -fbounds-check -fstack-protector-all $FCHECK -D__LOOP_EXCHANGE
+                                FFLAGS        = ${FLANG/ffree-line-length-132/ffree-line-length-none} $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DgFortran -cpp -save-temps -O -g -DFORCE_FTG_SERIALIZATION
+                                config_tuning = "standalone"
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS        = ${FFLAGS}
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT   = ${NETCDF_DIR}
+                                HDF5ROOT     = ${HDF5_DIR}
+                                LAPACKROOT   = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB   = -lsci_gnu
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
                         ;;
-                    cray_gpu)
-                        config_target=daint_gpu
-                        load_modules = modules craype daint-gpu PrgEnv-cray cdt/18.04 cray-netcdf cray-hdf5 craype-accel-nvidia60
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hadd_paren -hacc_model=deep_copy -O2 -h ipafrom=../../../src/shared/mo_loopindices.f90 -r am -Ktrap=divz,ovf,inv
+                    intel*)
+                        CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/INTEL/18.0.2
+			                  OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/INTEL/17.0.1.132/lib -ljasper -L/apps/daint/UES/jenkins/sandbox/easybuild/software/libxml2/2.9.3-CrayGNU-2016.03/lib -lxml2 -L/usr/lib64 -llzma -dynamic
+                        config_tuning = $(tmp=${fortran_compiler#'intel'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                STD_FLAGS   = -g -O2 -qopt-report -fp-model source -fpp -traceback  -D__LOOP_EXCHANGE
+                                F77FLAGS    = -g -O2 -qopt-report -fp-model source -fpp -traceback  
+                                FFLAGS      = -g -O2 -qopt-report -fp-model source -fpp -D__LOOP_EXCHANGE -assume realloc_lhs
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_intel
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
+                        ;;
+                    pgi*)
+                        #FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
+                        FFLAGS      = -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
+                        F77FLAGS    = $FFLAGS
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.5
+                        OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma
+                        LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
+                        LAPACK_LIB  = -llapack -lblas
+                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = daint_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda9.1 -Minfo=accel,inline -Mcuda
+                                LDFLAGS       = -ta=nvidia:cc60,cuda9.1 -Mcuda -Mnorpath
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
+                                LDFLAGS       = -tp=haswell -Mnorpath
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = daint-gpu PrgEnv-pgi gcc/6.2.0 cray-netcdf cray-hdf5
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                ;;
+                            gpu_1810*)
+                                SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
+                                load_modules = daint-gpu PrgEnv-pgi eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                ;;
+                            gpu*)
+                                load_modules = daint-gpu PrgEnv-pgi gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                ;;
+                            1810*)
+                                SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
+                                load_modules = daint-gpu PrgEnv-pgi eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++
+                                ;;
+                        esac
+                        ;;
+                    cray*)
+                        FFLAGS      = -Df2cFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv
+                        F77FLAGS    = $FFLAGS
                         CFLAGS      = -g -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2 -O3 -DUSE_XML2
-                        NETCDFROOT  = ${NETCDF_DIR}
-                        HDF5ROOT    = ${HDF5_DIR}
-                        LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                        LAPACK_LIB  = -lsci_cray
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/CCE/8.7.0
-                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -ljasper -llzma \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a
-			                  ;;
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/CCE/8.7.3
+                        OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/CRAY/8.5.5/lib -l:libjasper.a -dynamic -L/usr/lib64 -llzma
+                        config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = daint_gpu
+                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
+                                ;;
+                            *)
+                                config_target = daint_cpu
+                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -hfp1 -hnoacc -O1,cache0
+                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            gpu*)
+                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 craype-accel-nvidia60
+                                NETCDFROOT  = ${NETCDF_DIR}
+                                HDF5ROOT    = ${HDF5_DIR}
+                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
+                                LAPACK_LIB  = -lsci_cray
+                                ;;
+                            *)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
+                                (>&6 echo "")
+                                exit 1
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
+                        ;;
                     *)
                         echo
                         echo
@@ -389,7 +481,7 @@ case "$ac_sitename" in
                     cray)
                         config_target=tave_knl
                         load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl
-                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
+                        FFLAGS      = -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
 			HDF5ROOT    = /opt/cray/pe/hdf5/default/CRAY/8.3
@@ -419,18 +511,33 @@ case "$ac_sitename" in
                         CC = mpicc
                         FC = mpif90
                         F77= mpif90
-                        DEFOPT      = -D
-                        DEFCOPT     = -D
-                        MODOPT      = -I
-                        MODDIR      = -J
-                        config_target = kesch_cpu
-                        FFLAGS        = $FLANG $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -O2
-                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -cpp -std=c99 -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        FFLAGS        = $FLANG $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DgFortran -cpp -O2
+                        CFLAGS        = -D_XOPEN_SOURCE=700 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -O2 -std=c99 -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/gnu
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.2/gnu
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
                         case "${config_tuning}" in
-                            default)
+                            gpu*)
+                                (>&6 echo "")
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                ;;
+                            ftg)
+                                config_target = kesch_cpu
+                                STD_FLAGS   = -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
+                                FFLAGS        = ${FLANG/ffree-line-length-132/ffree-line-length-none} $FWARN -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -DgFortran -cpp -save-temps -O -g -DFORCE_FTG_SERIALIZATION
+                                config_tuning = "standalone"
+                                ;;
+                            *)
+                                config_target = kesch_cpu
+                                FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
                                 load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
@@ -446,27 +553,49 @@ case "$ac_sitename" in
                                 (>&6 echo "")
                                 ;;
                         esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
                         ;;
                     pgi*)
                         CC = mpicc
                         FC = mpif90
                         F77= mpif90
-                        DEFOPT      = -D
-                        DEFCOPT     = -D
-                        MODOPT      = -I
-                        MODDIR      = -module 
-                        config_target = kesch_cpu
-                        FFLAGS        = -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
-                        CFLAGS        = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        FFLAGS         = -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
+                        F77FLAGS       = $FFLAGS
+                        CFLAGS         = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/pgi
-                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.2/pgi
+                        LAPACKROOT  = ${PGI}/linux86-64/17.10
+                        LAPACK_LIB  = -llapack -lblas
+                        config_tuning  = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
                         case "${config_tuning}" in
-                            default)
-                                load_modules  = git/2.14.1 craype-haswell PrgEnv-gnu netcdf netcdf-fortran hdf5 cray-libsci
-                                NETCDFROOT    = ${EBROOTNETCDF}
-                                NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
-                                HDF5ROOT      = ${EBROOTHDF5}
+                            gpu*)
+                                config_target = kesch_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=tesla,cc35,cuda8.0 -Minfo=accel,inline
+                                LDFLAGS       = -ta=tesla,cc35,cuda8.0
+                                ;;
+                            *)
+                                config_target = kesch_cpu
+                                FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE
+                                ;;
+                        esac
+                        # Setup of specific version
+                        case "${config_tuning}" in
+                            default|standalone)
+                                load_modules  = git/2.14.1 PrgEnv-pgi/17.10 pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                NETCDFROOT    = ${NETCDF_ROOT}
+                                HDF5ROOT      = ${NETCDF_ROOT}
+                                ;;
+                            gpu*)
+                                load_modules  = git/2.14.1 PrgEnv-pgi/17.10 pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
+                                NETCDFROOT    = ${NETCDF_ROOT}
+                                HDF5ROOT      = ${NETCDF_ROOT}
                                 ;;
                             *)
                                 (>&6 echo "")
@@ -476,22 +605,25 @@ case "$ac_sitename" in
                                 exit 1
                                 ;;
                         esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a -lstdc++fs -lstdc++
+                                ;;
+                        esac
                         ;;
                     cray*)
                         CC = cc
                         FC = ftn
                         F77= ftn
-                        DEFOPT      = -D
-                        DEFCOPT     = -D
-                        MODOPT      = -I
-                        MODDIR      = -J
                         # FDEBUG        = -O0 -g -Rb -Rc -Rd -Rp #-Rs leads to ICE
-                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -Df2cFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv
+                        FFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv
                         # CDEBUG       = -O0 -g
                         CFLAGS        = -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -Df2cFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O3 -DUSE_XML2
                         LDFLAGS       = -Wl,--allow-multiple-definition
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/cray/
-                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2/cray
+                        SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.2/cray
                         config_tuning = $(tmp=${fortran_compiler#'cray'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
@@ -501,12 +633,12 @@ case "$ac_sitename" in
                                 ;;
                             *)
                                 config_target = kesch_cpu
-                                FFLAGS        = ${FFLAGS} -hflex_mp=conservative -hfp1 -hnoacc -Ocache0
+                                FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=conservative -hfp1 -hnoacc -Ocache0
                                 ;;
                         esac
                         # Setup of specific version
                         case "${config_tuning}" in
-                            default)
+                            default|standalone)
                                 load_modules  = git/2.14.1 craype-haswell PrgEnv-cray netCDF netCDF-Fortran HDF5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
@@ -514,7 +646,7 @@ case "$ac_sitename" in
                                 LAPACKROOT    = ${CRAY_LIBSCI_PREFIX_DIR}
                                 LAPACK_LIB    = -lsci_cray
                                 ;;
-                            gpu)
+                            gpu*)
                                 load_modules  = git/2.14.1 craype-haswell PrgEnv-cray craype-accel-nvidia35 netCDF netCDF-Fortran HDF5 cray-libsci
                                 NETCDFROOT    = ${EBROOTNETCDF}
                                 NETCDFFROOT   = ${EBROOTNETCDFMINFORTRAN}
@@ -528,6 +660,13 @@ case "$ac_sitename" in
                                 (>&6 echo "Unknown tuning $config_tuning for $fortran_compiler selected.")
                                 (>&6 echo "")
                                 exit 1
+                                ;;
+                        esac
+                        # Setup for standalone run
+                        case "${config_tuning}" in
+                            *standalone)
+                                FFLAGS      = ${FFLAGS} -I\$(SERIALBOX2ROOT)/include
+                                OTHER_LIBS  = ${OTHER_LIBS} -L\$(SERIALBOX2ROOT)/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++
                                 ;;
                         esac
                         ;;
@@ -664,7 +803,7 @@ case "$ac_sitename" in
                         FPPFLAGS    = -fpp
                         STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION -D__LOOP_EXCHANGE
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -D__LOOP_EXCHANGE
-                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume realloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -assume norealloc_lhs -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH_
                         FFLAGS      = $FPPFLAGS -assume realloc_lhs
                         LDFLAGS     = -gdwarf-4
                         F77FLAGS    = $FPPFLAGS
@@ -754,8 +893,8 @@ case "$ac_sitename" in
                             no)
                                 ;;
                             "$software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14/"|"openmpi/2.0.2p1_hpcx-intel14"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-intel14
-                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-intel14
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF -DDO_NOT_COMBINE_PUT_AND_NOCHECK
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-intel14
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
@@ -799,8 +938,8 @@ case "$ac_sitename" in
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
                             "$software_tree/mpi/openmpi/2.0.2p1_hpcx-gcc64"|*)
-                                load_modules = ${load_modules} hpcx/1.9.7 openmpi/2.0.2p1_hpcx-gcc64
-                                FFLAGS       = $FFLAGS
+                                load_modules = ${load_modules} openmpi/2.0.2p1_hpcx-gcc64
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF -DDO_NOT_COMBINE_PUT_AND_NOCHECK
                                 MPIROOT      = $software_tree/mpi/openmpi-2.0.2p1_hpcx-gcc64
                                 SYS_LIBS     = -ldl -lm -lnuma $WLFLAG,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath $WLFLAG,/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-gcc64/lib $WLFLAG,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-gcc64/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
@@ -812,7 +951,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     nag*)
-                        load_modules    = gcc/4.9.2 nag/6.0.1064 mvapich2/1.9b-static-nag60 ${load_modules}
+                        load_modules    = gcc/4.9.2 nag/6.0.1064 ${load_modules}
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -826,10 +965,9 @@ case "$ac_sitename" in
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         ZLIBROOT    = /usr
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
-                        MPIROOT     = $software_tree/mpi/mvapich2-1.9b-static-nag60
-                        IB_LIBS     = -lmpl -libmad -lrdmacm -libumad -libverbs 
-                        SYS_LIBS    = -lhwloc -lxml2 -lnuma -lrt -lutil -lpthread -lm -ldl
-                        MPI_LIB     = -lmpichf90 -lmpich -lopa $IB_LIBS $SYS_LIBS
+                        MPIROOT     = /work/mh0287/m214089/mvapich2-2.3-static-nag60
+                        MPI_LIB     = -lmpifort -lmpi -libmad -lrdmacm -libumad -libverbs -lnuma -ldl -lrt -lm -lpthread
+                        MPI_LAUNCH  = $MPIROOT/bin/mpirun
                         XML2ROOT    = /usr
                         mpi_startrun = srun
                         ;;
@@ -996,12 +1134,13 @@ case "$ac_sitename" in
                                 load_modules=gcc/5.2.0 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.3-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 ;;
                             nag)
                                 load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
                                 FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
-                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl
+                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
                                 MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS
                                 ;;
@@ -1009,6 +1148,7 @@ case "$ac_sitename" in
                                 load_modules=intel/16.0.2 ${load_modules}
                                 MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
                                 MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
+                                LDFLAGS = $LDFLAGS $SYS_LIBS
                                 HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                                 CC_OMPFLAG  = -fopenmp
                                 ;;

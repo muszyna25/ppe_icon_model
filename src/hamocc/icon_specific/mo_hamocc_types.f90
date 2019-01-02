@@ -23,6 +23,7 @@ MODULE mo_hamocc_types
   USE mo_math_types,         ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   USE mo_linked_list,        ONLY: t_var_list
+  USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection
 
 
   PUBLIC :: t_hamocc_diag
@@ -190,6 +191,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
+
+  TYPE t_hammoc_tracer
+
+    TYPE(t_tracer_collection) :: tracer_collection
+
+  END TYPE t_hammoc_tracer
 
 ! array of states
    TYPE t_hamocc_state

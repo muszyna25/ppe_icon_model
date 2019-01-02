@@ -467,13 +467,13 @@
        &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
        &                     perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification,             rn2,             &
-       &                     cycdec, pi_alpha_cya,cya_growth_max,          &
+       &                      pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
        &                     buoyancyspeed_cya, &
        &                     doccya_fac, thresh_aerob, thresh_sred 
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
-      &                 sinkspeed_opal, sinkspeed_calc
+      &                 cycdec, sinkspeed_opal, sinkspeed_calc
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
@@ -614,6 +614,7 @@ SUBROUTINE to_bgcout_real(cname,val)
   CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
 
   cpara_name=cname
+  write(0,*) "hamocc val ", trim(cname), ":", val
   IF(abs(val)<100._wp.and.abs(val)>0.1)then
     write(cpara_val, '(f9.2)') val
   ELSE

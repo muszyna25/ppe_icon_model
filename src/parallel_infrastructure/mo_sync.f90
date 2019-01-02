@@ -84,8 +84,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-13
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-13
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -189,17 +189,10 @@ SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
    CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
-   CHARACTER(len=:), POINTER :: varname
-   CHARACTER(len=4), SAVE, TARGET :: default_name = 'sync'
 
-   IF (PRESENT(opt_varname)) THEN
-     varname => opt_varname
-   ELSE
-     varname => default_name
-   END IF
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) &
-     CALL check_patch_array_3(typ, p_patch, arr, varname)
+     CALL check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
@@ -338,7 +331,7 @@ END SUBROUTINE sync_patch_array_i2
 !! developed by Rainer Johanni
 !!
 SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, &
-                                 f3din4, f3din5, f4din, f3din_arr)
+                                 f3din4, f3din5, f4din, f3din_arr, opt_varname)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -349,6 +342,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
    CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
    INTEGER :: i
    INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
 
@@ -368,21 +362,21 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        DO i = 1, SIZE(f4din,4)
-         CALL check_patch_array_3(typ, p_patch, f4din(:,:,:,i), 'sync')
+         CALL check_patch_array_3(typ, p_patch, f4din(:,:,:,i), opt_varname)
        ENDDO
      ENDIF
 
      IF (PRESENT(f3din_arr)) THEN
        DO i = 1, SIZE(f3din_arr)
-         CALL check_patch_array_3(typ, p_patch, f3din_arr(i)%p, 'sync')
+         CALL check_patch_array_3(typ, p_patch, f3din_arr(i)%p, opt_varname)
        ENDDO
      ENDIF
 
-     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
-     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, 'sync')
-     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
-     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, 'sync')
-     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, 'sync')
+     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, opt_varname)
+     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, opt_varname)
+     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, opt_varname)
+     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, opt_varname)
+     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, opt_varname)
    ENDIF
 
    ! Boundary exchange for work PEs
@@ -421,7 +415,7 @@ END SUBROUTINE sync_patch_array_mult
 !! developed by Rainer Johanni
 !!
 SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f3din2, f3din3, &
-  f3din4, f3din5, f3din1_sp, f3din2_sp, f3din3_sp, f3din4_sp, f3din5_sp, f4din, f4din_sp)
+  f3din4, f3din5, f3din1_sp, f3din2_sp, f3din3_sp, f3din4_sp, f3din5_sp, f4din, f4din_sp, opt_varname)
 
    INTEGER, INTENT(IN)               :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -434,8 +428,12 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+
    INTEGER :: i
    INTEGER :: ndim2tot, ndim2tot_sp ! Sum of second dimensions over all input fields
+
+   CHARACTER(len=4), SAVE, TARGET :: default_name = 'sync'
 
 !-----------------------------------------------------------------------
 
@@ -453,30 +451,38 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
+!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = f4din(:,:,:,i)
-         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+!$ACC END KERNELS
+         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f4din_sp)) THEN
        ALLOCATE(arr3(UBOUND(f4din_sp,1), UBOUND(f4din_sp,2), UBOUND(f4din_sp,3)))
+!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din_sp,4)
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = REAL(f4din_sp(:,:,:,i),wp)
-         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+!$ACC END KERNELS
+         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
-     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
-     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, 'sync')
-     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
-     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, 'sync')
-     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, 'sync')
-     IF (PRESENT(f3din1_sp)) CALL check_patch_array_sp(typ, p_patch, f3din1_sp, 'sync')
-     IF (PRESENT(f3din2_sp)) CALL check_patch_array_sp(typ, p_patch, f3din2_sp, 'sync')
-     IF (PRESENT(f3din3_sp)) CALL check_patch_array_sp(typ, p_patch, f3din3_sp, 'sync')
-     IF (PRESENT(f3din4_sp)) CALL check_patch_array_sp(typ, p_patch, f3din4_sp, 'sync')
-     IF (PRESENT(f3din5_sp)) CALL check_patch_array_sp(typ, p_patch, f3din5_sp, 'sync')
+     IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, opt_varname)
+     IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, opt_varname)
+     IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, opt_varname)
+     IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, opt_varname)
+     IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, opt_varname)
+     IF (PRESENT(f3din1_sp)) CALL check_patch_array_sp(typ, p_patch, f3din1_sp, opt_varname)
+     IF (PRESENT(f3din2_sp)) CALL check_patch_array_sp(typ, p_patch, f3din2_sp, opt_varname)
+     IF (PRESENT(f3din3_sp)) CALL check_patch_array_sp(typ, p_patch, f3din3_sp, opt_varname)
+     IF (PRESENT(f3din4_sp)) CALL check_patch_array_sp(typ, p_patch, f3din4_sp, opt_varname)
+     IF (PRESENT(f3din5_sp)) CALL check_patch_array_sp(typ, p_patch, f3din5_sp, opt_varname)
    ENDIF
 
    ! Boundary exchange for work PEs
@@ -520,7 +526,7 @@ END SUBROUTINE sync_patch_array_mult_mp
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
-SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
+SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din, opt_varname)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -529,6 +535,7 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
    REAL(wp), INTENT(INOUT) :: f4din(:,:,:,:)
 
    CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
    INTEGER :: i, ndim2tot
 
 !-----------------------------------------------------------------------
@@ -546,7 +553,7 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      DO i = 1, nfields
-       CALL check_patch_array_3(typ, p_patch, f4din(i,:,:,:), 'sync')
+       CALL check_patch_array_3(typ, p_patch, f4din(i,:,:,:), opt_varname)
      ENDDO
    ENDIF
 
@@ -576,8 +583,12 @@ SUBROUTINE check_patch_array_sp(typ, p_patch, arr, opt_varname)
    REAL(sp), INTENT(IN) :: arr(:,:,:)
    REAL(wp) :: arr_wp(SIZE(arr,1),SIZE(arr,2),SIZE(arr,3))
 
+!$ACC DATA CREATE(arr_wp) IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
    arr_wp(:,:,:) = REAL(arr(:,:,:),wp)
+!$ACC END KERNELS
    CALL check_patch_array_3(typ, p_patch, arr_wp, opt_varname)
+!$ACC END DATA
 
 END SUBROUTINE check_patch_array_sp
 
@@ -804,7 +815,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 !!!                       ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g)),  &
 !!!                       ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL)
 #else
-                     WRITE(log_unit,'(a,5i7,3e18.10)') 'sync error location:',&
+                     WRITE(log_unit,'(2a,5i7,3e18.10)') varname, 'sync error location:',&
                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
                        ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g))
 #endif
@@ -936,12 +947,13 @@ END SUBROUTINE check_patch_array_4
 !! @par Revision History
 !! Initial version by Rainer Johanni, Oct 2011
 
-SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
+SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varname )
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
   TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
   LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
+  CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
 
   INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
   LOGICAL :: remap
@@ -992,6 +1004,10 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   ! Set z_idx with the global 1D-index of all points
 
+!$ACC DATA COPYIN( z_idx ), IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1005,11 +1021,14 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
 
   ! Sync z_idx
-  CALL sync_patch_array(type_arr, p_patch, z_idx)
+  CALL sync_patch_array(type_arr, p_patch, z_idx, opt_varname)
 
   ! Set all points with local index corresponding to z_idx
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1035,6 +1054,9 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
+
+!$ACC END DATA
 
 END SUBROUTINE sync_idx
 
@@ -1885,7 +1907,7 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
 #if defined( __ROUNDOFF_CHECK )
       IF ( ( ( ABS(aux(k)- res(k)) > ABS_TOL ) ) .AND.     &
                 ( ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)  > REL_TOL ) ) THEN
-        out_of_sync = .FALSE.
+        out_of_sync = .TRUE.
         PRINT *, 'Abs. error ', ABS(aux(k)- res(k)), ' rel. error ', ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)
       ENDIF
 #else

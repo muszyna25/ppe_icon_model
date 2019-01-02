@@ -153,7 +153,7 @@ CONTAINS
 #endif
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), CREATE( z_x, z_y ), &
+!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -322,7 +322,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
-!$ACC      PCOPYOUT( p_quad_vector_sum ), CREATE( z_x, z_y ),         &
+!$ACC      PCOPYOUT( p_quad_vector_sum ),         &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -488,7 +488,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
+!$ACC      CREATE( z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
@@ -901,7 +901,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), &
+!$ACC      CREATE( z_wgt, z_eta ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -1118,7 +1118,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
 !$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), &
+!$ACC      CREATE( z_wgt, z_eta ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 

@@ -1355,7 +1355,7 @@
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
 
-    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt, lnetcdf_flt64_output)
+    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt32, lnetcdf_flt64_output)
 
     CALL message(TRIM(routine), 'start to construct hamocc sed state')
   

@@ -64,6 +64,9 @@ MODULE mo_ocean_surface_refactor
                                 &   update_flux_fromFile, calc_omip_budgets_ice, calc_omip_budgets_oce, &
                                 &   update_ocean_surface_stress, balance_elevation
 
+  USE mo_ocean_diagnostics, ONLY : diag_heat_tendency
+  USE mo_name_list_output_init, ONLY: isRegistered
+
   IMPLICIT NONE
   
   PRIVATE
@@ -121,6 +124,19 @@ CONTAINS
     IF (no_tracer>=2) p_oce_sfc%sss => p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
     IF (iforc_oce == No_Forcing) RETURN  !  forcing for ocean not defined
+
+    ! save values of ice, snow and temperature for the tendendy and hfbasin diagnostic
+    IF ( isRegistered('delta_ice') .OR. isRegistered('delta_snow') .OR. &
+           isRegistered('delta_thetao') .OR. &
+           isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. &
+           isRegistered('pacind_hfbasin') ) THEN  
+
+      CALL diag_heat_tendency(p_patch_3d, 1, p_ice,            &
+         p_os%p_prog(nold(1))%tracer(:,:,:,1),               &
+         p_os%p_diag%delta_ice,                              &
+         p_os%p_diag%delta_snow, p_os%p_diag%delta_thetao)
+
+     END IF
 
     !---------------------------------------------------------------------
     ! (1) Apply relaxation to surface temperature and salinity

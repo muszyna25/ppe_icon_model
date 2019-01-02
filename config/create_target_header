@@ -574,11 +574,7 @@ set_run_target_bullx()
     fi
   fi
 
-  case x$use_queue in
-    "xdevelop" )
-      queue="compute"
-      ;;
-  esac
+  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
   use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
 # TODO: disabled because other core files are generated
@@ -892,8 +888,9 @@ set_run_target_daint_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -975,8 +972,9 @@ set_run_target_daint_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1059,8 +1057,9 @@ set_run_target_dom_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1131,8 +1130,9 @@ set_run_target_tave_knl()
   set_default use_nproma 16
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,2"
-  icon_data_rootFolder=${icon_data_rootFolder:=/users/icontest/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/users/icontest/pool/data/ICON}
+  poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1214,8 +1214,9 @@ set_run_target_kesch_cpu()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  icon_data_rootFolder=${icon_data_rootFolder:=/project/c15/ICON/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/project/c15/ICON/pool/data/ICON}
+  poolFolder_prefix=/project/csstaff/inputs/icon
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1300,8 +1301,9 @@ set_run_target_kesch_gpu()
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/project/c15/ICON/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/project/c15/ICON/pool/data/ICON}
+  poolFolder_prefix=/project/csstaff/inputs/icon
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then

@@ -78,7 +78,9 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
+#ifdef __ICON_ART
   USE mo_grid_config,        ONLY: lredgrid_phys
+#endif
 
   IMPLICIT NONE
 
@@ -842,6 +844,8 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
+
+    INTEGER  :: jg
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
 #ifdef __NO_JSBACH__
@@ -849,17 +853,14 @@ CONTAINS
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
 #else
-    IF (ANY(echam_phy_config(:)%ljsb)) THEN
-      IF (num_restart_procs > 0) THEN
-        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
+    DO jg=1,n_dom
+      IF (.NOT.echam_phy_config(jg)%ljsb) THEN
+         IF (echam_phy_config(jg)%llake) THEN
+            CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
+            echam_phy_config(jg)%llake = .FALSE.
+         END IF
       END IF
-      IF (num_io_procs > 0) THEN
-        CALL message(method_name, "JSBACH output currently doesn't work with asynchronous parallel output !")
-      END IF
-    ELSE IF (ANY(echam_phy_config(:)%llake)) THEN
-      CALL message(TRIM(method_name), 'Setting llake = .FALSE. since ljsb = .FALSE.')
-      echam_phy_config(:)%llake = .FALSE.
-    END IF
+    END DO
 #endif
 
   END SUBROUTINE land_crosscheck

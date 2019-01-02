@@ -316,7 +316,7 @@ CONTAINS
 !$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
 !$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
-!$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
+!$ACC       CREATE( z_delp_mc1, z_delp_mc2 ),              &
 !$ACC       PRESENT( p_int_state, advection_config, iidx, iblk ),       &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,     & 

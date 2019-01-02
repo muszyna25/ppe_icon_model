@@ -9,6 +9,9 @@
 # Marco Giorgetta, MPI-M, 2010-04-21
 #
 #-----------------------------------------------------------------------------
+final_status_file=${ICON_BASE_PATH}/run/${job_name}.final_status
+rm -f ${final_status_file}
+#-----------------------------------------------------------------------------
 #
 # directories definition
 #
@@ -37,6 +40,10 @@ ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
 
 cd ${EXPDIR}
+
+#-----------------------------------------------------------------------------
+final_status_file=${RUNSCRIPTDIR}/${job_name}.final_status
+rm -f ${final_status_file}
 
 #-----------------------------------------------------------------------------
 # set up the model lists if they do not exist
@@ -171,6 +178,8 @@ if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
+/
+&master_time_control_nml
  experimentStartDate  = "$start_date" 
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 
@@ -303,14 +312,14 @@ rm -f finish.status
 #  run_model
 #else
   date
-  ${START} ${MODEL}
+  ${START} ${MODEL} # > out.txt 2>&1
   date
 #fi
 #
 if [ -r finish.status ] ; then
-  check_error 0 "${START} ${MODEL}"
+  check_final_status 0 "${START} ${MODEL}"
 else
-  check_error -1 "${START} ${MODEL}"
+  check_final_status -1 "${START} ${MODEL}"
 fi
 #
 #-----------------------------------------------------------------------------

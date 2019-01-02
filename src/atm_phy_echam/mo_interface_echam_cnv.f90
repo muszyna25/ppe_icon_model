@@ -29,7 +29,7 @@ MODULE mo_interface_echam_cnv
 
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_cnv
 
-  USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqt, ntracer
+  USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqt
   USE mo_cumastr             ,ONLY: cumastr
 
   IMPLICIT NONE
@@ -39,7 +39,7 @@ MODULE mo_interface_echam_cnv
 CONTAINS
 
   SUBROUTINE interface_echam_cnv(jg,jb,jcs,jce        ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -48,7 +48,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -63,7 +63,15 @@ CONTAINS
 
     ! Local variables
     !
-    INTEGER  :: itype(nproma)                !< type of convection
+    INTEGER                             :: itype(nproma)    !< type of convection
+    !
+    REAL(wp)                            :: q_cnv(nproma,nlev)
+    !
+    REAL(wp)                            :: tend_ta_cnv  (nproma,nlev)
+    REAL(wp)                            :: tend_ua_cnv  (nproma,nlev)
+    REAL(wp)                            :: tend_va_cnv  (nproma,nlev)
+    REAL(wp)                            :: tend_qtrc_cnv(nproma,nlev,ntracer)
+    !
     INTEGER  :: nlevm1, nlevp1
     INTEGER  :: ntrac                        !< # of tracers excluding water vapour and hydrometeors
                                              !< which are convectively transported
@@ -139,31 +147,62 @@ CONTAINS
                &       field% con_dtrl (:,jb),       &! out
                &       field% con_dtri (:,jb),       &! out
                &       field% con_iteqv(:,jb),       &! out
-               &       field% q_cnv    (:,:,jb),     &! out
-               &        tend%   ua_cnv (:,:,jb),     &! out
-               &        tend%   va_cnv (:,:,jb),     &! out
-               &        tend% qtrc_cnv (:,:,jb,iqv), &! out
-               &        tend% qtrc_cnv (:,:,jb,iqt:),&! out
-               &        tend% qtrc_cnv (:,:,jb,iqc), &! out
-               &        tend% qtrc_cnv (:,:,jb,iqi), &! out
+               &              q_cnv    (:,:),        &! out
+               &        tend_ua_cnv    (:,:),        &! out
+               &        tend_va_cnv    (:,:),        &! out
+               &        tend_qtrc_cnv  (:,:,iqv),    &! out
+               &        tend_qtrc_cnv  (:,:,iqt:),   &! out
+               &        tend_qtrc_cnv  (:,:,iqc),    &! out
+               &        tend_qtrc_cnv  (:,:,iqi),    &! out
                &             ztop      (:)           )! out
           !
           ! store convection type as real value
           field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
           !
           ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
-          field% topmax(jcs:jce,jb) = MIN(field% topmax(jcs:jce,jb),ztop(jcs:jce))
+          IF (ASSOCIATED(field% topmax)) field% topmax(jcs:jce,jb) = MIN(field% topmax(jcs:jce,jb),ztop(jcs:jce))
           !
-          ! vertical integral
-          field% q_cnv_vi(jcs:jce,jb) = SUM(field% q_cnv(jcs:jce,:,jb),DIM=2)
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(field% q_cnv))    field% q_cnv   (jcs:jce,:,jb) =     q_cnv(jcs:jce,:)
+          IF (ASSOCIATED(field% q_cnv_vi)) field% q_cnv_vi(jcs:jce,  jb) = SUM(q_cnv(jcs:jce,:),DIM=2)
+          !
+          IF (ASSOCIATED(tend% ua_cnv)) tend% ua_cnv(jcs:jce,:,jb) = tend_ua_cnv(jcs:jce,:)
+          IF (ASSOCIATED(tend% va_cnv)) tend% va_cnv(jcs:jce,:,jb) = tend_va_cnv(jcs:jce,:)
+          !
+          IF (ASSOCIATED(tend% qtrc_cnv )) THEN
+             tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = tend_qtrc_cnv(jcs:jce,:,iqv)
+             tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = tend_qtrc_cnv(jcs:jce,:,iqc)
+             tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = tend_qtrc_cnv(jcs:jce,:,iqi)
+             tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = tend_qtrc_cnv(jcs:jce,:,iqt:)
+          END IF
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(field% q_cnv)) q_cnv(jcs:jce,:) = field% q_cnv(jcs:jce,:,jb)
+          !
+          IF (ASSOCIATED(tend% ua_cnv)) tend_ua_cnv(jcs:jce,:) = tend% ua_cnv(jcs:jce,:,jb)
+          IF (ASSOCIATED(tend% va_cnv)) tend_va_cnv(jcs:jce,:) = tend% va_cnv(jcs:jce,:,jb)
+          !
+          IF (ASSOCIATED(tend% qtrc_cnv )) THEN
+             tend_qtrc_cnv(jcs:jce,:,iqv)  = tend% qtrc_cnv(jcs:jce,:,jb,iqv)
+             tend_qtrc_cnv(jcs:jce,:,iqc)  = tend% qtrc_cnv(jcs:jce,:,jb,iqc)
+             tend_qtrc_cnv(jcs:jce,:,iqi)  = tend% qtrc_cnv(jcs:jce,:,jb,iqi)
+             tend_qtrc_cnv(jcs:jce,:,iqt:) = tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+          END IF
           !
        END IF
        !
        ! convert    heating
-       tend% ta_cnv(jcs:jce,:,jb) = field% q_cnv(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
+       tend_ta_cnv(jcs:jce,:) = q_cnv(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
        !
-       ! accumulate heating
-       field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_cnv(jcs:jce,:,jb)
+       IF (ASSOCIATED(tend% ta_cnv)) tend% ta_cnv(jcs:jce,:,jb) = tend_ta_cnv(jcs:jce,:)
+
+       ! for output: accumulate heating
+       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_cnv(jcs:jce,:)
+       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_cnv(jcs:jce,:),DIM=2)
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_cnv)
@@ -171,13 +210,13 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
-          tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)
-          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)
-          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend% qtrc_cnv(jcs:jce,:,jb,iqc)
-          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend% qtrc_cnv(jcs:jce,:,jb,iqi)
-          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+          tend%   ua_phy(jcs:jce,:,jb)      = tend%   ua_phy(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)
+          tend%   va_phy(jcs:jce,:,jb)      = tend%   va_phy(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)
+          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)
+          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv)
+          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc)
+          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi)
+          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -185,13 +224,13 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)     *pdtime
-          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)     *pdtime
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)     *pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_cnv(jcs:jce,:,jb,iqc) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_cnv(jcs:jce,:,jb,iqi) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)*pdtime
+          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)     *pdtime
+          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)     *pdtime
+          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)     *pdtime
+          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi) *pdtime
+          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
        END IF
        !
     ELSE
@@ -204,13 +243,19 @@ CONTAINS
        field% con_dtri (jcs:jce,jb) = 0.0_wp
        field% con_iteqv(jcs:jce,jb) = 0.0_wp
        !
-       tend%   ta_cnv(jcs:jce,:,jb)      = 0.0_wp
-       tend%   ua_cnv(jcs:jce,:,jb)      = 0.0_wp
-       tend%   va_cnv(jcs:jce,:,jb)      = 0.0_wp
-       tend% qtrc_cnv(jcs:jce,:,jb,iqv ) = 0.0_wp
-       tend% qtrc_cnv(jcs:jce,:,jb,iqc ) = 0.0_wp
-       tend% qtrc_cnv(jcs:jce,:,jb,iqi ) = 0.0_wp
-       tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0.0_wp
+       IF (ASSOCIATED(field% q_cnv   )) field% q_cnv   (jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_cnv_vi)) field% q_cnv_vi(jcs:jce,  jb) = 0.0_wp
+       !
+       IF (ASSOCIATED(tend% ta_cnv)) tend% ta_cnv(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ua_cnv)) tend% ua_cnv(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% va_cnv)) tend% va_cnv(jcs:jce,:,jb) = 0.0_wp
+       !
+       IF (ASSOCIATED(tend% qtrc_cnv)) THEN
+          tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0.0_wp
+          tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = 0.0_wp
+          tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = 0.0_wp
+          tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0.0_wp
+       END IF
        !
     END IF
 

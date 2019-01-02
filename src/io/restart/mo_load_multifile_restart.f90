@@ -229,7 +229,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":readBuffer_construct"
 
     ! Note: These communication patterns also set the halo points.
-    me%commPattern = makeRedistributionPattern(provGlbIdces, reqdGlbIdces)
+    me%commPattern => makeRedistributionPattern(provGlbIdces, reqdGlbIdces)
     pCnt = SIZE(provGlbIdces)
     ALLOCATE(me%readBuf_1d%d(pCnt), me%readBuf_1d%s(pCnt), me%readBuf_1d%i(pCnt), STAT = ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -321,34 +321,6 @@ CONTAINS
     END DO
   END SUBROUTINE openPayloadFiles
 
-  ! globalSize: Total count of different global indices.
-  ! providedGlobalIndices(N): Global indices of the points provided
-  ! by this PE IN the order IN which they are provided. All entries
-  ! must be IN the range [1, globalSize].  requiredGlobalIndices(M):
-  ! Global indices of the points wanted by this PE IN the order IN
-  ! which they are to be placed IN the resulting array. All entries
-  ! must be IN the range [1, globalSize].  owners(M): Rank of the PE
-  ! providing each of the required points.
-  FUNCTION makeCommPattern(glbSize, provGlbIdces, reqdGlbIdces, owners) RESULT(resVar)
-    TYPE(t_comm_pattern_orig), POINTER :: resVar
-    INTEGER, VALUE :: glbSize
-    INTEGER, INTENT(IN) :: provGlbIdces(:), reqdGlbIdces(:), owners(:)
-    INTEGER :: i, local_owner(SIZE(provGlbIdces))
-    TYPE(t_glb2loc_index_lookup) :: lookupTable
-    CHARACTER(*), PARAMETER :: routine = modname//":makeCommPattern"
-
-    IF(SIZE(reqdGlbIdces) /= SIZE(owners)) &
-      & CALL finish(routine, "reqdGlbIdces(:) and owners(:) must be of same size")
-    CALL init_glb2loc_index_lookup(lookupTable, glbSize)
-    CALL set_inner_glb_index(lookupTable, provGlbIdces, &
-      &                      [(i, i = 1, SIZE(provGlbIdces))])
-    local_owner(:) = p_comm_rank(p_comm_work)
-    ALLOCATE(resVar)
-    CALL resVar%setup(SIZE(reqdGlbIdces), owners, reqdGlbIdces, &
-      &               lookupTable, SIZE(provGlbIdces), local_owner, provGlbIdces)
-    CALL deallocate_glb2loc_index_lookup(lookupTable)
-  END FUNCTION makeCommPattern
-
   ! This asserts that the given pattern redistributes a given array
   ! exactly as described by the global indices arrays.
   SUBROUTINE checkRedistributionPattern(pattern, provGlbIdces, reqdGlbIdces)
@@ -373,7 +345,8 @@ CONTAINS
     DO i = 1, oSize
       IF(output(idx_no(i), blk_no(i)) /= REAL(reqdGlbIdces(i))) THEN
 !$OMP CRITICAL
-        CALL finish(routine, "assertion failed: redistribution pattern does not work as expected")
+        CALL finish(routine, &
+          & "assertion failed: redistribution pattern does not work as expected")
 !$OMP END CRITICAL
       END IF
     END DO
@@ -387,12 +360,14 @@ CONTAINS
   ! we have to create first.
   !
   ! The resulting t_comm_pattern will also initialize the halo points.
-  FUNCTION makeRedistributionPattern(provGlbIdces, reqdGlbIdces) RESULT(resultVar)
-    TYPE(t_comm_pattern_orig) :: resultVar
+  FUNCTION makeRedistributionPattern(provGlbIdces, reqdGlbIdces) RESULT(resVar)
+    TYPE(t_comm_pattern_orig), POINTER :: resVar
     INTEGER, INTENT(IN) :: provGlbIdces(:), reqdGlbIdces(:)
     INTEGER :: globalSize, procCount, myRank, error, i
-    INTEGER, ALLOCATABLE :: brokBnds(:), provBuf(:), brokBuf(:), provOfReqdPt(:)
+    INTEGER, ALLOCATABLE :: brokBnds(:), provBuf(:), brokBuf(:), &
+      &  provOfReqdPt(:), local_owner(:)
     TYPE(t_BrokerCommunicationPattern) :: providerToBroker, consumerToBroker
+    TYPE(t_glb2loc_index_lookup) :: lookupTable
     CHARACTER(*), PARAMETER :: routine = modname//":makeRedistributionPattern"
 
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_comm_setup)
@@ -426,13 +401,25 @@ CONTAINS
     provBuf(:) = myRank
     CALL providerToBroker%communicateToBroker(provBuf, brokBuf)
     CALL consumerToBroker%communicateFromBroker(brokBuf, provOfReqdPt)
-    resultVar = makeCommPattern(globalSize, provGlbIdces, reqdGlbIdces, provOfReqdPt)
+
+    IF (SIZE(reqdGlbIdces) /= SIZE(provOfReqdPt)) &
+      & CALL finish(routine, "reqdGlbIdces(:) and owners(:) " // &
+          & "must be of same size")
+    CALL init_glb2loc_index_lookup(lookupTable, globalSize)
+    CALL set_inner_glb_index(lookupTable, provGlbIdces, &
+      & [(i, i = 1, SIZE(provGlbIdces))])
+    ALLOCATE(local_owner(SIZE(provGlbIdces)))
+    local_owner(:) = p_comm_rank(p_comm_work)
+    ALLOCATE(resVar)
+    CALL resVar%setup(SIZE(reqdGlbIdces), provOfReqdPt, reqdGlbIdces, &
+      & lookupTable, SIZE(provGlbIdces), local_owner, provGlbIdces)
+    CALL deallocate_glb2loc_index_lookup(lookupTable)
     CALL providerToBroker%destruct()
     CALL consumerToBroker%destruct()
-    DEALLOCATE(brokBnds, provBuf, brokBuf, provOfReqdPt)
+    DEALLOCATE(brokBnds, provBuf, brokBuf, provOfReqdPt, local_owner)
 #ifdef DEBUG
     ! sanity check (yes, this _is_ defensive)
-    CALL checkRedistributionPattern(resultVar, provGlbIdces, reqdGlbIdces)
+    CALL checkRedistributionPattern(resVar, provGlbIdces, reqdGlbIdces)
 #endif
     IF(timers_level >= 7) CALL timer_stop(timer_load_restart_comm_setup)
   END FUNCTION makeRedistributionPattern
@@ -453,7 +440,8 @@ CONTAINS
 
     restartAttributes => getAttributesForRestarting()
     mfileCnt = restartAttributes%getInteger('multifile_file_count')
-    IF (my_process_is_mpi_workroot()) WRITE(0, *) "reading from ", mfileCnt, " files/patch."
+    IF (my_process_is_mpi_workroot()) &
+      & WRITE(0, *) "reading from ", mfileCnt, " files/patch."
     CALL openPayloadFiles(multifilePath, mfileCnt, p_patch%id, tCnt, me%files)
     ALLOCATE(glbIdx(1)%p(tCnt(1)), glbIdx(2)%p(tCnt(2)), glbIdx(3)%p(tCnt(3)), STAT = ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failure")

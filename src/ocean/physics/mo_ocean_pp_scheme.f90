@@ -63,13 +63,7 @@ MODULE mo_ocean_pp_scheme
     &  Salinity_HorizontalDiffusion_Reference,                &
     &  HarmonicViscosity_background,                          &
     &  BiharmonicViscosity_background,                        &
-    &  LeithHarmonicViscosity_background, LeithHarmonicViscosity_reference,    &
-    &  LeithHarmonicViscosity_scaling,                                         &
-    &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
-    &  LeithBiharmonicViscosity_scaling,                       &
-    &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
-    &  max_turbulenece_TracerDiffusion_amplification, &
+    &  Salinity_ConvectionRestrict, &
     &  ReferencePressureIndbars
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel

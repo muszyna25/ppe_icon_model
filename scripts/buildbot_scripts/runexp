@@ -133,11 +133,11 @@ run_scripts_submit()
         chmod +x submit.$EXP_FILE        
         if [[ "$batch_system" = "moab_kit" ]]
         then
-        jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+          jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
         else
-        ./submit.$EXP_FILE &
+          ./submit.$EXP_FILE &
 
-        fi	
+    fi
 
 
     fi
@@ -187,28 +187,30 @@ run_scripts_submit()
       echo " "
       echo "---------------------------------------------------------"
 
-      if [[ "$batch_system" = "slurm" ]]
-      then
-          sleep 15
-          slurm_jobid=${job_submitted["$EXP_FILE"]}
-          job_state=COMPLETING
-          while [[ "${job_state}" = "COMPLETING" || "${job_state}" = "RUNNING" ]]
-          do
-              sleep 5
-              job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
-          done
-          case "$job_state" in
-              TIMEOUT)
-                  echo 127 > ${EXP_FILE}.status
-              ;;
-              COMPLETED)
-                  echo 0 > ${EXP_FILE}.status
-              ;;
-              *)
-                  echo 191 > ${EXP_FILE}.status         
-              ;;
-          esac    
-      fi
+#       if [[ "$batch_system" = "slurm" ]]
+#       then
+#           sleep 15
+#           slurm_jobid=${job_submitted["$EXP_FILE"]}
+#           job_state=COMPLETING
+#           while [[ "${job_state}" = "COMPLETING" || "${job_state}" = "RUNNING" ]]
+#           do
+#               sleep 5
+#               job_state=`sacct -j ${slurm_jobid} -n -o jobid,state,exitcode | awk 'NR==1{print $2}'`
+#           done
+#           case "$job_state" in
+#               TIMEOUT)
+#                   echo 127 > ${EXP_FILE}.status
+#               ;;
+#               COMPLETED)
+#                   echo 0 > ${EXP_FILE}.status
+#               ;;
+#               *)
+#                   echo 191 > ${EXP_FILE}.status         
+#               ;;
+#           esac    
+#       fi
+
+      exp_status_file=$EXP_FILE.final_status
       if [[ "$batch_system" = "moab_kit" ]]
       then
           sleep 15
@@ -219,21 +221,20 @@ run_scripts_submit()
           done
           case "$job_state" in
           Completed*)
-                  echo 0 > ${EXP_FILE}.status
+                  echo 0 > ${exp_status_file}
               ;;
           esac
 
       fi 
 
-
       STATUS_IN_FILE=255
-      if [ -r $EXP_FILE.status ]
+      if [ -r ${exp_status_file} ]
       then
-        STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+        STATUS_IN_FILE=`cat ${exp_status_file}`
       else
         if [ -r $EXP_FILE.status.2 ]
-	then
-   	  STATUS_IN_FILE=`cat ${EXP_FILE}.status.2`
+        then
+          STATUS_IN_FILE=`cat ${EXP_FILE}.status.2`
         fi
       fi
 
