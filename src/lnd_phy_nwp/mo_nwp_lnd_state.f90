@@ -1346,6 +1346,9 @@ MODULE mo_nwp_lnd_state
       !  Filtered T2M bias
       cf_desc    = t_cf_var('t2m_bias', 'K', 'Filtered T2M bias', datatype_flt)
       grib2_desc = grib2_var(0, 0, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    ! Future correct grib encoding:
+    !  grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL) &
+    !             + t_grib2_int_key("typeOfGeneratingProcess", 206)
       CALL add_var( diag_list, 't2m_bias', p_diag_lnd%t2m_bias,                       &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
         &           ldims=shape2d, lrestart=.true.,                                   &

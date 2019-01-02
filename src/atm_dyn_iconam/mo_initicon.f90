@@ -1799,7 +1799,7 @@ MODULE mo_initicon
             & inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
             DO jc = i_startidx, i_endidx
               lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                0.25_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+                0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
             ENDDO
           ENDIF
 

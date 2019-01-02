@@ -2369,8 +2369,12 @@ CONTAINS
           IF (itype_vegetation_cycle == 3) THEN
             IF (lnd_diag%t2m_bias(jc,jb) < 0._wp) THEN
               ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)*(1._wp-0.25_wp*lnd_diag%t2m_bias(jc,jb))
+              ext_data%atm%eai_t(jc,jb,jt)     = MERGE(c_soil_urb,c_soil,ilu == ext_data%atm%i_lc_urban) / &
+                                                 (1._wp-0.25_wp*lnd_diag%t2m_bias(jc,jb))
             ELSE
               ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)/(1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb))
+              ext_data%atm%eai_t(jc,jb,jt)     = MIN(MERGE(c_soil_urb,c_soil,ilu == ext_data%atm%i_lc_urban) * &
+                                                 (1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb)), 2._wp)
             ENDIF
           ENDIF
 
