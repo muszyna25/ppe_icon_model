@@ -14,15 +14,14 @@ config.status
 config/mh-config-use
 config/set-up.info
 src/lnd_phy_jsbach
-run/*.run
 src/art
 *.o
 *~
 .status.file
 cdo_diffn*.out
 experiments*
-run/*.status
 run/*.run
+run/*.status
 *#
 autom4te.cache
 externals/bin/

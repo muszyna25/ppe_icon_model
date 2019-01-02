@@ -48,7 +48,7 @@ machine=daint
 --builderflags="Active"      --list $list
 ./addbuilder DAINT_GPU_cce        --machine $machine \
 --configureflags="--with-fortran=cray_gpu --without-grib_api --disable-jsbach --disable-ocean --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu" \
---builderflags="build_only"  --list $list
+--builderflags="Active"  --list $list
 
 #DWD machines
 machine=dwd_cray

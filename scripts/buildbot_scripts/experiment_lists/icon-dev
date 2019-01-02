@@ -244,6 +244,8 @@ experiment|checksuite.icon-dev/check.atm_heldsuarez|
 experiment|checksuite.icon-dev/check.atm_ape|
 experiment|checksuite.ocean_internal/technical/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-builder|DAINT_GPU_cce|--with-fortran=cray_gpu --without-grib_api --disable-jsbach --disable-ocean --build=x86_64-cray-linux --host=x86_64-unknown-linux-gnu|build_only
+builder|DAINT_GPU_cce|--with-fortran=cray_gpu --without-grib_api |Active
+experiment|exp.atm_amip_noforcing_validate_test|cpu_time=00:15:00 no_of_nodes=1
+experiment|exp.nh35_tri_jws_validate|cpu_time=00:15:00 no_of_nodes=5
 machine|dwd_cray|
 builder|DWD_cray|--with-fortran=cray|build_only
