@@ -1,9 +1,9 @@
-#! /bin/ksh
+#! /bin/bash
 #
 # Warning: if you change the script's shell adapt the shell_in_use
 #          variable as well (for dash keep sh as shell in use)
 
-shell_in_use=ksh
+shell_in_use=bash
 
 #________________________________________________________________
 #
@@ -60,7 +60,9 @@ if [ ! -z "$moduleshome_in_use" ]
 then
   if [ -r "$moduleshome_in_use/init/$shell_in_use" ]; then
     grep TCLSH "$moduleshome_in_use/init/$shell_in_use" > /dev/null && { export TCLSH=$(which tclsh); }
+    set +u
     . $moduleshome_in_use/init/$shell_in_use
+    set -u
   elif [ -r "$moduleshome_in_use/modulecmd.tcl" ]; then
     eval `tclsh /usr/local/module/modulecmd.tcl sh autoinit`
   fi

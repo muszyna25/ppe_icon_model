@@ -108,7 +108,7 @@ CONTAINS
     DO outer_iter=1,1000
       DO inner_iter=1,1000
         CALL tracer_diffusion_vertical_implicit( patch_3D, ocean_tracer, &
-          & physics_parameters%A_tracer_v(:,:,:, 1), operators_coefficients) !, residual)
+          & physics_parameters%A_tracer_v(:,:,:, 1)) !, residual)
       ENDDO
 
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, tracer'

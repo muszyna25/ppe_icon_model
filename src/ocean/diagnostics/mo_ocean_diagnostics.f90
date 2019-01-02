@@ -57,7 +57,8 @@ MODULE mo_ocean_diagnostics
     & agulhas_longer, &
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
-    & diagnose_for_horizontalVelocity, OceanReferenceDensity
+    & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
+    & eddydiag
   USE mo_sea_ice_nml,        ONLY: kice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -1101,6 +1102,27 @@ CONTAINS
 
 
       ENDIF
+
+
+
+      IF ( eddydiag .AND. &
+         ( isRegistered('uT') .OR. isRegistered('uS') .OR. isRegistered('uR') .OR. &
+           isRegistered('vT') .OR. isRegistered('vS') .OR. isRegistered('vR') .OR. &
+           isRegistered('wT') .OR. isRegistered('wS') .OR. isRegistered('wR') .OR. &
+           isRegistered('uu') .OR. isRegistered('uv') .OR. isRegistered('uw') .OR. &
+           isRegistered('vv') .OR. isRegistered('ww') .OR. isRegistered('vw') .OR. &
+           isRegistered('sigma0') ) &
+          ) THEN
+
+        CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w_prismcenter  &
+               ,tracers(:,:,:,1), tracers(:,:,:,2),p_diag%rhopot &
+               ,p_diag%uT, p_diag%uS, p_diag%uR, p_diag%uu    &
+               ,p_diag%vT, p_diag%vS, p_diag%vR, p_diag%vv    &
+               ,p_diag%wT, p_diag%wS, p_diag%wR, p_diag%ww    &
+               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 )
+
+      ENDIF
+
 
 
 
@@ -2444,6 +2466,84 @@ END SUBROUTINE diag_heat_tendency
       END DO ! cell
     END DO !block
   END SUBROUTINE calc_heat_content
+
+  
+  SUBROUTINE calc_eddydiag(patch_3d,u,v,w,T,S,R &
+               ,uT, uS, uR, uu    &
+               ,vT, vS, vR, vv    &
+               ,wT, wS, wR, ww, uv, uw, vw, sigma0)
+
+    TYPE(t_patch_3d), TARGET, INTENT(in)  :: patch_3d
+
+    REAL(wp), INTENT(IN)   :: u(:,:,:) !< zonal velocity at cell center
+    REAL(wp), INTENT(IN)   :: v(:,:,:) !< meridional velocity at cell center
+    REAL(wp), INTENT(IN)   :: w(:,:,:) !< vertical velocity at cell center
+    REAL(wp), INTENT(IN)   :: T(:,:,:) !< temerature
+    REAL(wp), INTENT(IN)   :: S(:,:,:) !< salinity
+    REAL(wp), INTENT(IN)   :: R(:,:,:) !< density
+
+
+    REAL(wp), INTENT(INOUT)  :: sigma0(:,:,:) !< density - 1000
+
+    REAL(wp), INTENT(INOUT)  :: uT(:,:,:) !< product of temperature and u-velocity
+    REAL(wp), INTENT(INOUT)  :: uS(:,:,:) !< product of salinity and u-velocity
+    REAL(wp), INTENT(INOUT)  :: uR(:,:,:) !< product of density and u-velocity
+    REAL(wp), INTENT(INOUT)  :: uu(:,:,:) !< square of u-velocity
+
+    REAL(wp), INTENT(INOUT)  :: vT(:,:,:) !< product of temperature and v-velocity
+    REAL(wp), INTENT(INOUT)  :: vS(:,:,:) !< product of salinity and v-velocity
+    REAL(wp), INTENT(INOUT)  :: vR(:,:,:) !< product of density and v-velocity  
+    REAL(wp), INTENT(INOUT)  :: vv(:,:,:) !< square of  v-velocity
+
+    REAL(wp), INTENT(INOUT)  :: wT(:,:,:) !< product of temperature and w-velocity
+    REAL(wp), INTENT(INOUT)  :: wS(:,:,:) !< product of salinity and w-velocity
+    REAL(wp), INTENT(INOUT)  :: wR(:,:,:) !< product of density and w-velocity
+    REAL(wp), INTENT(INOUT)  :: ww(:,:,:) !< square of w-velocity 
+
+    REAL(wp), INTENT(INOUT)  :: uv(:,:,:) !< product of u-velocity and w-velocity 
+    REAL(wp), INTENT(INOUT)  :: uw(:,:,:) !< product of v-velocity and w-velocity
+    REAL(wp), INTENT(INOUT)  :: vw(:,:,:) !< product of u-velocity and v-velocity
+
+
+    TYPE(t_subset_range), POINTER            :: subset
+
+    INTEGER  :: blk, cell, cellStart,cellEnd, level
+
+
+    subset => patch_3d%p_patch_2d(1)%cells%owned
+    DO blk = subset%start_block, subset%end_block
+      CALL get_index_range(subset, blk, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+
+        DO level=1,subset%vertical_levels(cell,blk)
+
+
+          sigma0(cell,level,blk) = R(cell,level,blk) -1000.0_wp
+          uT(cell,level,blk) = T(cell,level,blk) * u(cell,level,blk)
+          uS(cell,level,blk) = S(cell,level,blk) * u(cell,level,blk)
+          uR(cell,level,blk) = sigma0(cell,level,blk) * u(cell,level,blk)
+          uu(cell,level,blk) = u(cell,level,blk) * u(cell,level,blk)
+
+          vT(cell,level,blk) = T(cell,level,blk) * v(cell,level,blk)
+          vS(cell,level,blk) = S(cell,level,blk) * v(cell,level,blk)
+          vR(cell,level,blk) = sigma0(cell,level,blk) * v(cell,level,blk)
+          vv(cell,level,blk) = v(cell,level,blk) * v(cell,level,blk)
+
+          wT(cell,level,blk) = T(cell,level,blk) * w(cell,level,blk)
+          wS(cell,level,blk) = S(cell,level,blk) * w(cell,level,blk)
+          wR(cell,level,blk) = sigma0(cell,level,blk) * w(cell,level,blk)
+          ww(cell,level,blk) = w(cell,level,blk) * w(cell,level,blk)
+
+          uv(cell,level,blk) = u(cell,level,blk) * v(cell,level,blk)
+          uw(cell,level,blk) = u(cell,level,blk) * w(cell,level,blk)
+          vw(cell,level,blk) = v(cell,level,blk) * w(cell,level,blk)
+
+
+        END DO ! level
+      END DO ! cell
+    END DO !block
+
+  END SUBROUTINE calc_eddydiag
 
 
   SUBROUTINE reset_ocean_monitor(monitor)
