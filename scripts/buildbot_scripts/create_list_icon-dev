@@ -42,6 +42,12 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 ./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
 ./set_builder_flags Ocean             --builders MISTRAL_ocean_intel17  --list $listname
 
+#-----------------------------------------------------------
+# CSCS
+# different tests for GPU 
+
+$addexp exp.atm_amip_noforcing_validate_test exp.nh35_tri_jws_validate --builders DAINT_GPU_cce --runflags "cpu_time=00:30:00" --list $listname
+./set_builder_flags Active             --builders DAINT_GPU_cce  --list $listname
 
 #-----------------------------------------------------------
 # DWD
