@@ -51,7 +51,7 @@ export MD='rnmo'
 rundir=`pwd`
 cd checksuite.icon-dev
 
-./icon-dev.checksuite -m update -o no -r /pool/data/ICON/buildbot_data/aes/reference.18306/${BB_SYSTEM}_${BB_SLAVE}/
+./icon-dev.checksuite -m update -o no -r /pool/data/ICON/buildbot_data/aes/reference.19002/${BB_SYSTEM}_${BB_SLAVE}/
 STATUS=$?
 
 check_final_status $STATUS "$EXPERIMENT"
