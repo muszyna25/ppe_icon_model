@@ -1515,36 +1515,6 @@ CONTAINS
 
 !********************************************************************************
 
-!+ Module procedure canopy_source in "src_turbdiff" for calculation
-!+ of scalar source terms inside the model canopy
-
-SUBROUTINE canopy_source
-
-!_________________________________________________________________________________
-!
-! Description:
-!
-
-! Method:
-!
-!
-! Current Code Owner: DWD,
-!  phone:  +49  69  8062 2708
-!  fax:    +49  69  8236 1493
-!  email:  matthias.raschendorfer@dwd.de
-!
-! Code Description:
-! Language: Fortran 90.
-! Software Standards: "European Standards for Writing and
-! Documenting Exchangeable Fortran 90 Code".
-!=======================================================================
-
-IMPLICIT NONE
-
-END SUBROUTINE canopy_source
-
-!********************************************************************************
-
 !+ Module procedure turb_param in "src_turbdiff" for computing some deduced parameters
 !+ for turbulent transfer and - diffusion
 
