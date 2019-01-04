@@ -145,7 +145,11 @@ CONTAINS
     !> interpolation state
     TYPE(t_int_state), INTENT(IN) :: p_int_state
 
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -194,7 +198,11 @@ CONTAINS
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
 
-    REAL(wp), TARGET, INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_new(:,:,:,:)             !< at time level n+1 (after transport)
                                            !< [kg/kg]  
                                            !< dim: (nproma,nlev,nblks_c,ntracer)
