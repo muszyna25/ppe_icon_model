@@ -119,6 +119,16 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
 
   IF (ALLOCATED(aod_v_s)) THEN
 
+    ! skip shifting (and reading) of data if we have a turn of the year
+    ! but update control index. This assumes that read_bc_aeropt_stenchikov
+    ! is called with a sufficiently high period of less than half a month,
+    ! half of the time intervall at which data (here monthly) are provided.
+
+    IF ( inm2_time_interpolation == 13 .AND. tiw%month2_index == 1 ) THEN
+       inm2_time_interpolation=tiw%month2_index
+       RETURN
+    ENDIF
+
     CALL shift_months_bc_aeropt_stenchikov
     imonth(2)=tiw%month2_index
     iyear(2)=current_date%date%year
@@ -152,7 +162,6 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
     inm2_time_interpolation=tiw%month2_index
 
     DO imonths=1,nmonths
-
       CALL read_months_bc_aeropt_stenchikov (p_patch,                     &
                          'longitude',       'latitude',         'levels', &
                          imonth(imonths),    iyear(imonths),    imonths   )
@@ -221,7 +230,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)
- 
+
 ! It is assumed that the pressure levels of the climatology do not change with time but
 ! are unequally spaced. Since the pressure of each icon level may change with time,
 ! each specific icon level may have its centre in a different level of the climatology at
