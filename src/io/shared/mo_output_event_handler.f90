@@ -1085,7 +1085,7 @@ CONTAINS
     INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
     !> local list of output events
     TYPE(t_event_data_local),              INTENT(INOUT)  :: event_list_local(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
     !> length of local list of output events
@@ -1205,7 +1205,7 @@ CONTAINS
     TYPE(t_event_data_local), INTENT(INOUT) :: event_list_local(:)
     !> length of local list of output events
     INTEGER, INTENT(in) :: ievent_list_local
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
 
@@ -1842,7 +1842,7 @@ CONTAINS
   !---------------------------------------------------------------
   SUBROUTINE p_gatherv_event_data_1d1d(sbuf, rbuf, p_dest, counts, comm)
     TYPE(t_event_data_local), INTENT(in) :: sbuf(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: sbuf
 #endif
     TYPE(t_event_data_local), ALLOCATABLE, INTENT(inout) :: rbuf(:)

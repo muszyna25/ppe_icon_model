@@ -1766,7 +1766,7 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     INTEGER, INTENT(out) :: dom_sim_step_info_jstep0
     TYPE(t_event_data_local), INTENT(INOUT)  :: event_list_local(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
 
