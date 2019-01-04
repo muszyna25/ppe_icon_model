@@ -3084,7 +3084,7 @@ fi
 fi
 
 
-make_command="$make_command"
+make_command=${make_command-make}
 
 
 if test "$build" != "$host" ; then

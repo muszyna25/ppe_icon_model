@@ -281,7 +281,7 @@ AS_IF([test $use_mh_file = yes],
 dnl ######################################################################
 dnl if not set, select make for making (cannot use anything else anyway)
 
-make_command=m4_default(["$make_command"],["make"])
+make_command=${make_command-make}
 
 dnl ######################################################################
 dnl are we cross compiling?
