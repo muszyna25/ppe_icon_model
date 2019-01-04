@@ -485,7 +485,7 @@ sub ScanDirectory {
                     my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
                     $name = $bname . "_dsl4jsb" . $suffix ;                      # name of pre-processed JSBACH files
                     open F, '<', $iconppdir . "/" . $name
-                        or die("Cannot open file $name", $!);
+                        or die("Cannot open file ${iconppdir}/${name}", $!);
                 } else {
 		    open F, '<', $name
                         or die("Cannot open file $name", $!);
