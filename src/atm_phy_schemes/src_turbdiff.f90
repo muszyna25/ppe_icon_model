@@ -608,8 +608,6 @@ REAL (KIND=ireals), PARAMETER :: &
     z2d3=z2/z3     ,&
     z3d2=z3/z2
 
-REAL (KIND=ireals) :: xx
-
 INTEGER (KIND=iintegers) :: &
 !
     istat=0, ilocstat=0
