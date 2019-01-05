@@ -1205,7 +1205,7 @@ REAL (KIND=ireals), OPTIONAL, TARGET, INTENT(OUT) :: &
 !
      tkhm(:,:),         & ! horizontal diffusion coefficient for momentum ( m2/s )
      tkhh(:,:)            ! horizontal diffusion coefficient for scalars  ( m2/s )
- &
+
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
 !
      tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
