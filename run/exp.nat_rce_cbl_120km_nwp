@@ -133,6 +133,9 @@ cat >> ${atmo_namelist} << EOF
  inwp_gwd        = 0
  inwp_surface    = 0 ! 0: none; 1: TERRA
 /
+&les_nml
+ psfc             = 101540. ! val > 0. => fixed psfc, val <= 0. => dynamic (default)
+/
 &radiation_nml
  irad_o3    = 4 !should be the ozone clim for APE  
  izenith    = 0 ! Sun in zenith everywhere

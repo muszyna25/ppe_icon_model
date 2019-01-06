@@ -1,9 +1,9 @@
-#! /bin/ksh
+#! /bin/bash
 #
 # Warning: if you change the script's shell adapt the shell_in_use
 #          variable as well (for dash keep sh as shell in use)
 
-shell_in_use=ksh
+shell_in_use=bash
 
 #________________________________________________________________
 #

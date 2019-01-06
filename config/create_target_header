@@ -922,11 +922,13 @@ set_run_target_daint_cpu()
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
     tasks_per_node=1
+    SBATCH_nodes="SBATCH --nodes=1"
     SBATCH_ntasks_per_node=""
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=6"
+    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -941,10 +943,13 @@ set_run_target_daint_cpu()
      s_cpu_time="SBATCH --time=$use_cpu_time"
   fi
   if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
+    # this is buldbot, do not run more than 15 minutes on Daint (SLURM delays)
+    s_cpu_time="SBATCH --time=00:15:00"
   fi
   # ------------------------------------
+
+  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
 # =====================================
@@ -955,7 +960,7 @@ set_run_target_daint_cpu()
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 # #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
+#$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
@@ -1006,11 +1011,13 @@ set_run_target_daint_gpu()
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
     tasks_per_node=1
+    SBATCH_nodes="SBATCH --nodes=1"
     SBATCH_ntasks_per_node=""
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+    SBATCH_nodes="SBATCH --nodes=$use_nodes"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
   fi
 
   if [[ "x$BB_SYSTEM" != "x" ]]; then
@@ -1032,6 +1039,9 @@ set_run_target_daint_gpu()
 
   # ------------------------------------
 
+  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+
   cat >> $output_script << EOF
 # =====================================
 # daint batch job parameters
@@ -1041,7 +1051,7 @@ set_run_target_daint_gpu()
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
+#$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
@@ -1248,11 +1258,13 @@ set_run_target_kesch_cpu()
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
     tasks_per_node=1
+    SBATCH_nodes="SBATCH --nodes=1"
     SBATCH_ntasks_per_node=""
     SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
     SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
   fi
@@ -1274,6 +1286,9 @@ set_run_target_kesch_cpu()
   fi
   # ------------------------------------
 
+  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+
   cat >> $output_script << EOF
 # =====================================
 # kesch batch job parameters
@@ -1282,7 +1297,7 @@ set_run_target_kesch_cpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-#SBATCH --nodes=$use_nodes
+#$SBATCH_nodes
 #SBATCH --ntasks-per-core=1
 #$SBATCH_ntasks_per_node
 #$SBATCH_cpus_per_task
@@ -1335,10 +1350,12 @@ set_run_target_kesch_gpu()
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
     tasks_per_node=1
+    SBATCH_nodes="SBATCH --nodes=1"
     SBATCH_ntasks_per_node=""
   else
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
     SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
   fi
 
@@ -1359,6 +1376,9 @@ set_run_target_kesch_gpu()
     s_cpu_time="SBATCH --time=00:45:00"
   fi
 
+  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+
   # ------------------------------------
 
   cat >> $output_script << EOF
@@ -1371,7 +1391,7 @@ set_run_target_kesch_gpu()
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
+#$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 #========================================
