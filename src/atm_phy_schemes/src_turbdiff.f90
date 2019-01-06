@@ -1150,11 +1150,7 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
      tkvh            ! turbulent diffusion coefficient for heat      (m2/s )
                      ! (and other scalars)
 
-REAL (KIND=ireals), DIMENSION(:,:), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , INTENT(INOUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
 !
      rcld            ! standard deviation of the local oversaturation
                      ! (as input and output)
@@ -1197,14 +1193,14 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      ut_sso,       & ! u-tendency due to the SSO-Scheme              ( 1/s )
      vt_sso          ! v-tendency due to the SSO-Scheme              ( 1/s )
 
-REAL (KIND=ireals), OPTIONAL, TARGET, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(OUT) :: &
 !
-     edr(:,:),          & ! eddy dissipation rate of TKE (EDR)            (m2/s3)
-     tket_sso(:,:),     & ! TKE-tendency due to SSO wake production       (m2/s3)
-     tket_hshr(:,:),    & ! TKE-tendency due to separ. horiz. shear       (m2/s3)
+     edr,          & ! eddy dissipation rate of TKE (EDR)            (m2/s3)
+     tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
+     tket_hshr,    & ! TKE-tendency due to separ. horiz. shear       (m2/s3)
 !
-     tkhm(:,:),         & ! horizontal diffusion coefficient for momentum ( m2/s )
-     tkhh(:,:)            ! horizontal diffusion coefficient for scalars  ( m2/s )
+     tkhm,         & ! horizontal diffusion coefficient for momentum ( m2/s )
+     tkhh            ! horizontal diffusion coefficient for scalars  ( m2/s )
 
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
 !
@@ -1222,11 +1218,7 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
      u_10m,        & ! zonal wind in 10m                             ( m/s )
      v_10m           ! meridional wind in 10m                        ( m/s )
 
-REAL (KIND=ireals), DIMENSION(:), OPTIONAL, TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , INTENT(INOUT) :: &
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2)    (positive downward)
      lhfl_s,       & ! latent   heat flux at the surface             (W/m2)    (positive downward)
@@ -1238,12 +1230,6 @@ INTEGER (KIND=iintegers), INTENT(INOUT) :: ierrstat
 
 CHARACTER (LEN=*), INTENT(INOUT) :: eroutine
 CHARACTER (LEN=*), INTENT(INOUT) :: errormsg
-
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    CONTIGUOUS :: edr, epr, rho, tketens, tkvh, tvh, tvm, tkvm, qc, qv, &
-         qv_s, t_g, u, v, t_tens, qc_tens, v_tens, u_tens, c_sml, c_big, &
-         r_air, t, qv_tens
-#endif
 
 !-------------------------------------------------------------------------------
 !Local Parameters:
@@ -5879,9 +5865,6 @@ REAL (KIND=ireals), POINTER &
   temp(:,:), &  !corrected temperature
   qvap(:,:), &  !corrected water vapour content
   virt(:,:)     !reciprocal virtual factor
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     CONTIGUOUS :: qst_t, g_tet, g_h2o
-#endif
 
 INTEGER (KIND=iintegers) :: &
   i, k, &
@@ -6201,11 +6184,6 @@ REAL (KIND=ireals), DIMENSION(:,khi:), TARGET, OPTIONAL, INTENT(INOUT) :: &
 REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 !
   velmin ! location-dependent minimum velocity
-
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     CONTIGUOUS :: ft2, fm2
-#endif
-
 
 INTEGER (KIND=iintegers) :: &
 !
@@ -6785,11 +6763,7 @@ REAL (KIND=ireals), DIMENSION(:,khi:), TARGET, INTENT(IN) :: &
   prs,   & !atmospheric pressure
   t, qv    !temperature and water vapor content (spec. humidity)
 
-REAL (KIND=ireals), DIMENSION(:,khi:), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , OPTIONAL, INTENT(IN) :: &
+REAL (KIND=ireals), DIMENSION(:,khi:), TARGET, OPTIONAL, INTENT(IN) :: &
   qc,    & !cloud water content (if not present, 't' and 'qv' are conserved variables)
   rcld     !standard deviation of local oversaturation
 
@@ -6798,11 +6772,7 @@ REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
 
 ! Array arguments with intent(out):
 
-REAL (KIND=ireals), DIMENSION(:,khi:), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , INTENT(INOUT) :: &
+REAL (KIND=ireals), DIMENSION(:,khi:), TARGET, INTENT(INOUT) :: &
   clcv     ! stratiform subgrid-scale cloud cover
 
 REAL (KIND=ireals), DIMENSION(:,khi:), INTENT(OUT) :: &
@@ -7151,13 +7121,9 @@ LOGICAL, INTENT(INOUT) :: &
     leff_flux        ! calculation of effective flux density required
 
                   ! DIMENSION(ie,ke)
-REAL (KIND=ireals), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , INTENT(IN) :: &
+REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(IN) :: &
 !
-    rho(:,:)              ! air density at full levels                   (Kg/m3)
+    rho              ! air density at full levels                   (Kg/m3)
 
                   ! DIMENSION(ie,ke1)
 REAL (KIND=ireals), DIMENSION(:,:), INTENT(IN) :: &
@@ -7184,13 +7150,9 @@ REAL (KIND=ireals), DIMENSION(:,kcm-1:), OPTIONAL, TARGET, INTENT(IN) :: &
     r_air            ! log of air containing volume fraction
 
                   ! DIMENSION(ie,ke1)
-REAL (KIND=ireals), OPTIONAL &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , TARGET, INTENT(IN) :: &
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(IN) :: &
 !
-    rho_n(:,:)            ! air density at half levels                   (Kg/m3)
+    rho_n            ! air density at half levels                   (Kg/m3)
 
                   ! DIMENSION(ie)
 REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: &
@@ -7932,19 +7894,11 @@ INTEGER (KIND=iintegers), INTENT(IN) :: &
 
 TYPE (varprf) :: pvar(:) !used variable profiles to be interpolated
 
-REAL (KIND=ireals), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , OPTIONAL, INTENT(IN) :: &
+REAL (KIND=ireals), TARGET, OPTIONAL, INTENT(IN) :: &
 !
    depth(:,:)    !layer depth used for interpolation
 
-REAL (KIND=ireals), TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     , CONTIGUOUS &
-#endif
-     , OPTIONAL, INTENT(INOUT) :: &
+REAL (KIND=ireals), TARGET, OPTIONAL, INTENT(INOUT) :: &
 !
    rpdep(:,:), & !reciprocal depth of two consecutive layers
    auxil(:,:)    !target for layer depth, when 'depth' contains boundary level height
