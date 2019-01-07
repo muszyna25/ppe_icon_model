@@ -138,7 +138,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: central                    = 2  
   INTEGER, PARAMETER :: lax_friedrichs             = 3
   INTEGER, PARAMETER :: miura_order1               = 4
-  INTEGER, PARAMETER :: horz_flux_twisted_vec_recon                   = 5
+  INTEGER, PARAMETER :: horz_flux_twisted_vec_recon = 5
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
   INTEGER, PARAMETER :: fct_vert_minmod            = 8      
@@ -457,6 +457,8 @@ MODULE mo_ocean_nml
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
+  INTEGER  :: LeithViscosity_SmoothIterations = 0
+  REAL(wp) :: LeithViscosity_SpatialSmoothFactor = 0.5_wp
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -492,6 +494,8 @@ MODULE mo_ocean_nml
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
     &  LeithBiharmonicViscosity_scaling,        &
+    &  LeithViscosity_SmoothIterations,         &
+    &  LeithViscosity_SpatialSmoothFactor,      &
     &  TracerDiffusion_LeithWeight,             &     ! experimental, do not use!
     &  max_turbulenece_TracerDiffusion, &  ! experimental, do not use!
     & &
@@ -807,7 +811,11 @@ MODULE mo_ocean_nml
   INTEGER :: agulhas_long(100)           = -1
   INTEGER :: agulhas_longer(100)         = -1
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
-  
+
+  ! run eddy diagnostics
+  LOGICAL  :: eddydiag             = .FALSE.
+
+
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
     & florida_strait, &
     & denmark_strait, &
@@ -822,7 +830,8 @@ MODULE mo_ocean_nml
     & agulhas, &
     & agulhas_long, &
     & agulhas_longer, &
-    & diagnose_for_horizontalVelocity
+    & diagnose_for_horizontalVelocity, &
+    & eddydiag
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model

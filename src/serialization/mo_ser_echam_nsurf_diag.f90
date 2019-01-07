@@ -11,7 +11,7 @@ MODULE mo_ser_echam_nsurf_diag
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
   USE mo_echam_phy_memory,   ONLY: t_echam_phy_field
-  USE mo_run_config,         ONLY: nlev, nlevp1, iqv
+  USE mo_run_config,         ONLY: iqv
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .FALSE.
@@ -27,20 +27,18 @@ MODULE mo_ser_echam_nsurf_diag
 
   CONTAINS
 
-  SUBROUTINE serialize_input(jb, kproma, kbdim, ksfc_type, idx_lnd, field,     &
-                             pxm1_col, pcptgz_col, pcpt_tile, pbn_tile, pbhn_tile,     &
-                             pbh_tile, pbm_tile, pri_tile)
-    INTEGER, INTENT(IN)    :: jb, kproma
-    INTEGER, INTENT(INOUT) :: kbdim, ksfc_type, idx_lnd
+  SUBROUTINE serialize_input(jb, jcs, kproma, kbdim, klev, klevp1, ksfc_type, idx_lnd, field, &
+                             pxm1, pcptgz, pcpt_tile, pbn_tile, pbhn_tile, pbh_tile, pbm_tile, pri_tile)
+    INTEGER, INTENT(IN)    :: jb, jcs, kproma, kbdim, klev, klevp1, ksfc_type, idx_lnd
     TYPE(t_echam_phy_field),POINTER, INTENT(INOUT) :: field
     REAL(wp),INTENT(INOUT) :: &
-      pxm1_col(:),            &
-      pcptgz_col(:),          &
-      pcpt_tile(:,:),         &
-      pbn_tile(:,:),          &
-      pbhn_tile(:,:),         &
-      pbh_tile(:,:),          &
-      pbm_tile(:,:),          &
+      pxm1(:,:),        &
+      pcptgz(:,:),      &
+      pcpt_tile(:,:),   &
+      pbn_tile(:,:),    &
+      pbhn_tile(:,:),   &
+      pbh_tile(:,:),    &
+      pbm_tile(:,:),    &
       pri_tile(:,:)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -52,9 +50,9 @@ MODULE mo_ser_echam_nsurf_diag
     !$ser verbatim IF (serializeStepIn .and. writeIn) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('echam_nsurf_diag')
-    !$ser savepoint echam_nsurf_diag-input jb=jb kproma=kproma nlev=nlev nlevp1=nlevp1 iqv=iqv &
-    !$ser&          date=TRIM(date)
-#if defined SERIALIZE_CREATE_REFERENCE 
+    !$ser savepoint echam_nsurf_diag-input jb=jb jcs=jcs kproma=kproma kbdim=kbdim klev=klev klevp1=klevp1 &
+    !$ser&          ksfc_type=ksfc_type idx_lnd=idx_lnd iqv=iqv date=TRIM(date)
+#if defined SERIALIZE_CREATE_REFERENCE
     !$ser mode write
 #elif defined SERIALIZE_PERTURB_REFERENCE
     !$ser mode read-perturb
@@ -62,30 +60,27 @@ MODULE mo_ser_echam_nsurf_diag
     !$ser mode read
 #else
 #error SERIALIZATION MODE IS NOT SET
-#endif 
-    !$ser data kbdim=kbdim                                  &
-    !$ser&     ksfc_type=ksfc_type                          &
-    !$ser&     idx_lnd=idx_lnd                              &
-    !$ser&     pfrc=field%frac_tile(:,jb,:)                 &
-    !$ser&     pqm1_col=field%qtrc(:,nlev,jb,iqv)           &
-    !$ser&     ptm1_col=field%ta(:,nlev,jb)                 &
-    !$ser&     papm1_col=field%presm_old(:,nlev,jb)         &
-    !$ser&     paphm1_col=field%presi_old(:,nlevp1,jb)      &
-    !$ser&     pxm1_col=pxm1_col                            &
-    !$ser&     pum1_col=field%ua(:,nlev,jb)                 &
-    !$ser&     pvm1_col=field%va(:,nlev,jb)                 &
-    !$ser&     pocu=field%ocu(:,jb)                         &
-    !$ser&     pocv=field%ocv(:,jb)                         &
-    !$ser&     pzf_col=field%zf(:,nlev,jb)                  &
-    !$ser&     pzs_col=field%zh(:,nlev+1,jb)                &
-    !$ser&     pcptgz_col=pcptgz_col                        &
-    !$ser&     pcpt_tile=pcpt_tile                          &
-    !$ser&     pbn_tile=pbn_tile                            &
-    !$ser&     pbhn_tile=pbhn_tile                          &
-    !$ser&     pbh_tile=pbh_tile                            &
-    !$ser&     pbm_tile=pbm_tile                            &
-    !$ser&     pri_tile=pri_tile                            &
-    !$ser&     ptasmax=field%tasmax(:,jb)                   &
+#endif
+    !$ser data pfrc=field%frac_tile(:,jb,:)         &
+    !$ser&     pqm1_col=field%qtrc(:,klev,jb,iqv)       &
+    !$ser&     ptm1_col=field%ta(:,klev,jb)             &
+    !$ser&     papm1_col=field%presm_old(:,klev,jb)     &
+    !$ser&     paphm1_col=field%presi_old(:,klevp1,jb)  &
+    !$ser&     pxm1_col=pxm1(:,klev)                    &
+    !$ser&     pum1_col=field%ua(:,klev,jb)             &
+    !$ser&     pvm_col1=field%va(:,klev,jb)             &
+    !$ser&     pocu=field%ocu(:,jb)                 &
+    !$ser&     pocv=field%ocv(:,jb)                 &
+    !$ser&     pzf_col=field%zf(:,klev,jb)              &
+    !$ser&     pzs_col=field%zh(:,klev+1,jb)            &
+    !$ser&     pcptgz_col=pcptgz(:,klev)                &
+    !$ser&     pcpt_tile=pcpt_tile                  &
+    !$ser&     pbn_tile=pbn_tile                    &
+    !$ser&     pbhn_tile=pbhn_tile                  &
+    !$ser&     pbh_tile=pbh_tile                    &
+    !$ser&     pbm_tile=pbm_tile                    &
+    !$ser&     pri_tile=pri_tile                    &
+    !$ser&     ptasmax=field%tasmax(:,jb)           &
     !$ser&     ptasmin=field%tasmin(:,jb)
     !$ser verbatim writeIn = .FALSE.
     !$ser verbatim IF (singleStepIn) THEN
@@ -95,9 +90,8 @@ MODULE mo_ser_echam_nsurf_diag
 
   END SUBROUTINE serialize_input
 
-  SUBROUTINE serialize_output(jb, kproma, kbdim, ksfc_type, idx_lnd, field)
-    INTEGER, INTENT(IN)    :: jb, kproma
-    INTEGER, INTENT(INOUT) :: kbdim, ksfc_type, idx_lnd
+  SUBROUTINE serialize_output(jb, jcs, kproma, kbdim, ksfc_type, idx_lnd, field)
+    INTEGER, INTENT(IN)    :: jb, jcs, kproma, kbdim, ksfc_type, idx_lnd
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -108,12 +102,10 @@ MODULE mo_ser_echam_nsurf_diag
     !$ser verbatim IF (serializeStepOut .and. writeOut) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('echam_nsurf_diag')
-    !$ser savepoint echam_nsurf_diag-output jb=jb kproma=kproma date=TRIM(date)
+    !$ser savepoint echam_nsurf_diag-output jb=jb jcs=jcs kproma=kproma kbdim=kbdim &
+    !$ser&          ksfc_type=ksfc_type idx_lnd=idx_lnd date=TRIM(date)
     !$ser mode write
-    !$ser data kbdim=kbdim                                  &
-    !$ser&     ksfc_type=ksfc_type                          &
-    !$ser&     idx_lnd=idx_lnd                              &
-    !$ser&     psfcWind_gbm=field%sfcWind(:,jb)             &
+    !$ser data psfcWind_gbm=field%sfcWind(:,jb)             &
     !$ser&     ptas_gbm=field%tas(:,jb)                     &
     !$ser&     pdew2_gbm=field%dew2(:,jb)                   &
     !$ser&     puas_gbm=field%uas(:,jb)                     &

@@ -99,7 +99,7 @@ CONTAINS
       CALL calc_normal_velocity_ab_mimetic(patch_3D, ocean_state, operators_coefficients)
 
     ELSE
-      CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')
+      CALL finish ('calc_normal_velocity_ab: ',' Discreization type not supported !!')
     ENDIF
 
   END SUBROUTINE calc_normal_velocity_ab

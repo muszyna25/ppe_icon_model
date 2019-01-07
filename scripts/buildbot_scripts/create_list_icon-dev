@@ -19,6 +19,10 @@ $addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $listname
 $addexp "checksuite.icon-dev/check.atm_ape"        --list $listname
 # add concurrent ps_rad test 
 $addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $listname
+#-----------------------------------------------------------
+# Needs to be fixed gives an update error:
+# - can only be done by Monika!
+./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
 
 #-----------------------------------------------------------
 # OES
@@ -50,18 +54,15 @@ $addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-conf
 
 #-----------------------------------------------------------
 # ESM2 coupled tests, only with mpi
-# test aquaplanet run
-$addexp exp.couple_atmo-ocean --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:30:00" --list $listname
 # test fully coupled run - gcc excluded due to error
 $addexp exp.aloy_pre04_bb --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:30:00 no_of_nodes=4" --list $listname
 
-
 #-----------------------------------------------------------
 # Other tests
-#   torus test from Anurag
+#   torus test from Anurag : red, move to problems list
 $addexp checksuite.icon-dev/check.atm_rce_les  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
 #   old test from Anurag
-$addexp checksuite.icon-dev/check.atm_icoles_nested  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
+$addexp checksuite.icon-dev/check.atm_icoles_nested --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
 #   old test from Levi
 $addexp exp.nat_rce_cbl_120km_nwp  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
 #   very old test from Pilar
@@ -72,6 +73,10 @@ $addexp checksuite.infrastructure/memLog/exp.atm_memLog         --builders MISTR
 $addexp checksuite.infrastructure/memLog/exp.atm_memLog_AsyncIO --builders MISTRAL_intel_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
 $addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTRAL_intel_hybrid MISTRAL_intel17_hybrid MISTRAL_gcc --runflags "cpu_time=00:10:00 no_of_nodes=8" --list $listname
 #-----------------------------------------------------------
+#remove red setups
+./rmexp exp.test_nwp_R02B04N06_multifile_restart exp.test_nwp_R02B04N06multi2 checksuite.icon-dev/check.atm_icoles_nested exp.aloy_pre04_bb --builders MISTRAL_nag --list $listname
+#-----------------------------------------------------------
+
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------

@@ -3143,7 +3143,6 @@ CONTAINS
   SUBROUTINE async_io_send_handshake(jstep)
     INTEGER, INTENT(IN) :: jstep
     ! local variables
-    INTEGER :: msg
     TYPE(t_par_output_event), POINTER :: ev
 
     IF (ldebug) &
@@ -3154,8 +3153,7 @@ CONTAINS
     ! Note: We have to do this in a non-blocking fashion in order to
     !       receive "ready file" messages.
     CALL p_wait()
-    msg = msg_io_done
-    CALL p_isend(msg, 0, 0, comm=p_comm_work_2_io)
+    CALL p_isend(msg_io_done, 0, 0, comm=p_comm_work_2_io)
 
     ! --- I/O PE #0  :  take care of ready files
     IF(p_pe_work == 0) THEN

@@ -11,7 +11,7 @@ MODULE mo_ser_echam_update_surface
   USE mtime,                 ONLY: datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_time_config,        ONLY: time_config
   USE mo_echam_phy_memory,   ONLY: t_echam_phy_field
-  USE mo_run_config,         ONLY: nlev, nlevp1, iqv
+  USE mo_run_config,         ONLY: iqv
   IMPLICIT NONE
 
   LOGICAL :: writeIn = .FALSE.
@@ -27,23 +27,26 @@ MODULE mo_ser_echam_update_surface
 
   CONTAINS
 
-  SUBROUTINE serialize_input(jb, jg, kproma, kbdim, klev, ksfc_type,           &
-                             idx_wtr, idx_ice, idx_lnd, pdtime, field,         &
-                             pfac_sfc, aa, aa_btm, bb, bb_btm, pcpt_tile,      &
+  SUBROUTINE serialize_input(jb, jg, jcs, kproma, kbdim, klev, klevp1, ksfc_type, &
+                             idx_wtr, idx_ice, idx_lnd, pdtime, field,        &
+                             pcfh_tile, pcfm_tile, pfac_sfc, aa, aa_btm, bb,  &
+                             bb_btm, pcpt_tile, pqsat_tile, nblock,      &
                              pco2, pch_tile)
-    INTEGER, INTENT(IN)                 :: jb, jg, kproma
-    INTEGER, INTENT(INOUT)              :: kbdim
-    INTEGER, INTENT(INOUT)              :: klev, ksfc_type
-    INTEGER, INTENT(INOUT)              :: idx_wtr, idx_ice, idx_lnd
-    REAL(wp),INTENT(IN)                 :: pdtime
+    INTEGER, INTENT(IN)              :: jb, jg, jcs, kproma, kbdim, klev, klevp1, ksfc_type
+    INTEGER, INTENT(IN)              :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp),INTENT(IN)              :: pdtime
     TYPE(t_echam_phy_field),POINTER, INTENT(INOUT) :: field
+    REAL(wp),INTENT(INOUT)              :: pcfh_tile(:,:)
+    REAL(wp),INTENT(INOUT)              :: pcfm_tile(:,:)
     REAL(wp),INTENT(INOUT)              :: pfac_sfc(:)
     REAL(wp),INTENT(INOUT)              :: aa(:,:,:,:)
     REAL(wp),INTENT(INOUT)              :: aa_btm(:,:,:,:)
     REAL(wp),INTENT(INOUT)              :: bb(:,:,:)
     REAL(wp),INTENT(INOUT)              :: bb_btm(:,:,:)
     REAL(wp),INTENT(INOUT)              :: pcpt_tile(:,:)
-    REAL(wp),INTENT(INOUT)              :: pco2(:) 
+    REAL(wp),INTENT(INOUT)              :: pqsat_tile(:,:)
+    INTEGER,INTENT(IN)                  :: nblock
+    REAL(wp),INTENT(INOUT)              :: pco2(:)
     REAL(wp),INTENT(INOUT)              :: pch_tile(:,:)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -55,9 +58,10 @@ MODULE mo_ser_echam_update_surface
     !$ser verbatim IF (serializeStepIn .and. writeIn) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('echam_update_surface')
-    !$ser savepoint echam_update_surface-input jb=jb jg=jg kproma=kproma &
-    !$ser&          nlev=nlev nlevp1=nlevp1 iqv=iqv pdtime=pdtime date=TRIM(date)
-#if defined SERIALIZE_CREATE_REFERENCE 
+    !$ser savepoint echam_update_surface-input jb=jb jg=jg jcs=jcs kproma=kproma kbdim=kbdim &
+    !$ser&          kice=field%kice klev=klev klevp1=klevp1 ksfc_type=ksfc_type idx_wtr=idx_wtr &
+    !$ser&          idx_ice=idx_ice idx_lnd=idx_lnd pdtime=pdtime iqv=iqv date=TRIM(date)
+#if defined SERIALIZE_CREATE_REFERENCE
     !$ser mode write
 #elif defined SERIALIZE_PERTURB_REFERENCE
     !$ser mode read-perturb
@@ -65,17 +69,10 @@ MODULE mo_ser_echam_update_surface
     !$ser mode read
 #else
 #error SERIALIZATION MODE IS NOT SET
-#endif 
-    !$ser data kbdim=kbdim                                  &
-    !$ser&     kice=field%kice                              &
-    !$ser&     klev=klev                                    &
-    !$ser&     ksfc_type=ksfc_type                          &
-    !$ser&     idx_wtr=idx_wtr                              &
-    !$ser&     idx_ice=idx_ice                              &
-    !$ser&     idx_lnd=idx_lnd                              &
-    !$ser&     pfrc=field%frac_tile(:,jb,:)                 &
-    !$ser&     pcfh_tile=field%cfh_tile(:,jb,:)             &
-    !$ser&     pcfm_tile=field%cfm_tile(:,jb,:)             &
+#endif
+    !$ser data pfrc=field%frac_tile(:,jb,:)                 &
+    !$ser&     pcfh_tile=pcfh_tile                          &
+    !$ser&     pcfm_tile=pcfm_tile                          &
     !$ser&     pfac_sfc=pfac_sfc                            &
     !$ser&     pocu=field%ocu(:,jb)                         &
     !$ser&     pocv=field%ocv(:,jb)                         &
@@ -84,17 +81,16 @@ MODULE mo_ser_echam_update_surface
     !$ser&     bb=bb                                        &
     !$ser&     bb_btm=bb_btm                                &
     !$ser&     pcpt_tile=pcpt_tile                          &
-    !$ser&     pqsat_tile=field%qs_sfc_tile(:,jb,:)         &
+    !$ser&     pqsat_tile=pqsat_tile                        &
     !$ser&     ptsfc_tile=field%ts_tile(:,jb,:)             &
     !$ser&     plhflx_tile=field%lhflx_tile(:,jb,:)         &
     !$ser&     pshflx_tile=field%shflx_tile(:,jb,:)         &
-    !$ser&     pco2nat=field%fco2nat(:,jb)                  &
     !$ser&     lsm=field%lsmask(:,jb)                       &
     !$ser&     alake%field%alake(:,jb)                      &
-    !$ser&     pu=field%ua(:,nlev,jb)                       &
-    !$ser&     pv=field%va(:,nlev,jb)                       &
-    !$ser&     ptemp=field%ta(:,nlev,jb)                    &
-    !$ser&     pq=field%qtrc(:,nlev,jb,iqv)                 &
+    !$ser&     pu=field%ua(:,klev,jb)                       &
+    !$ser&     pv=field%va(:,klev,jb)                       &
+    !$ser&     ptemp=field%ta(:,klev,jb)                    &
+    !$ser&     pq=field%qtrc(:,klev,jb,iqv)                 &
     !$ser&     pco2=pco2                                    &
     !$ser&     prsfl=field%rsfl(:,jb)                       &
     !$ser&     prsfc=field%rsfc(:,jb)                       &
@@ -110,7 +106,7 @@ MODULE mo_ser_echam_update_surface
     !$ser&     rvds_dif=field%rvds_dif(:,jb)                &
     !$ser&     rpds_dif=field%rpds_dif(:,jb)                &
     !$ser&     rnds_dif=field%rnds_dif(:,jb)                &
-    !$ser&     ps=field%presi_old(:,nlevp1,jb)              &
+    !$ser&     ps=field%presi_old(:,klevp1,jb)              &
     !$ser&     pcosmu0=field%cosmu0(:,jb)                   &
     !$ser&     pch_tile=pch_tile                            &
     !$ser&     pcsat=field%csat(:,jb)                       &
@@ -139,8 +135,8 @@ MODULE mo_ser_echam_update_surface
     !$ser&     Qbot=field%Qbot(:,:,jb)                      &
     !$ser&     conc=field%conc(:,:,jb)                      &
     !$ser&     albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
-    !$ser&     albvisdif_ice=field%albnirdir_ice(:,:,jb)    &
-    !$ser&     albnirdir_ice=field%albvisdif_ice(:,:,jb)    &
+    !$ser&     albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
+    !$ser&     albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
     !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
     !$ser verbatim writeIn = .FALSE.
     !$ser verbatim IF (singleStepIn) THEN
@@ -150,20 +146,19 @@ MODULE mo_ser_echam_update_surface
 
   END SUBROUTINE serialize_input
 
-  SUBROUTINE serialize_output(jb, jg, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
+  SUBROUTINE serialize_output(jb, jg, jcs, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
                               idx_ice, idx_lnd, pdtime, field, aa, aa_btm, bb, &
-                              bb_btm, pcpt_tile, q_snocpymlt)
-    INTEGER, INTENT(IN)      :: jb, jg, kproma
-    INTEGER, INTENT(INOUT)   :: kbdim
-    INTEGER, INTENT(INOUT)   :: klev, ksfc_type
-    INTEGER, INTENT(INOUT)   :: idx_wtr, idx_ice, idx_lnd
-    REAL(wp), INTENT(IN)  :: pdtime
+                              bb_btm, pcpt_tile, pqsat_tile, q_snocpymlt)
+    INTEGER, INTENT(IN)       :: jb, jg, jcs, kproma, kbdim, klev, ksfc_type
+    INTEGER, INTENT(IN)       :: idx_wtr, idx_ice, idx_lnd
+    REAL(wp), INTENT(IN)      :: pdtime
     TYPE(t_echam_phy_field) ,POINTER, INTENT(INOUT) :: field
     REAL(wp), INTENT(INOUT)  :: aa(:,:,:,:)
     REAL(wp), INTENT(INOUT)  :: aa_btm(:,:,:,:)
     REAL(wp), INTENT(INOUT)  :: bb(:,:,:)
     REAL(wp), INTENT(INOUT)  :: bb_btm(:,:,:)
     REAL(wp), INTENT(INOUT)  :: pcpt_tile(:,:)
+    REAL(wp), INTENT(INOUT)  :: pqsat_tile(:,:)
     REAL(wp), INTENT(INOUT)  :: q_snocpymlt(:)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -174,22 +169,16 @@ MODULE mo_ser_echam_update_surface
     !$ser verbatim IF (serializeStepOut .and. writeOut) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('echam_update_surface')
-    !$ser savepoint echam_update_surface-output jb=jb jg=jg kproma=kproma      &
-    !$ser&          pdtime=pdtime date=TRIM(date)
+    !$ser savepoint echam_update_surface-output jb=jb jg=jg jcs=jcs kproma=kproma kbdim=kbdim &
+    !$ser&          kice=field%kice klev=klev ksfc_type=ksfc_type idx_wtr=idx_wtr &
+    !$ser&          idx_ice=idx_ice idx_lnd=idx_lnd pdtime=pdtime iqv=iqv date=TRIM(date)
     !$ser mode write
-    !$ser data kbdim=kbdim                                  &
-    !$ser&     kice=field%kice                              &
-    !$ser&     klev=klev                                    &
-    !$ser&     ksfc_type=ksfc_type                          &
-    !$ser&     idx_wtr=idx_wtr                              &
-    !$ser&     idx_ice=idx_ice                              &
-    !$ser&     idx_lnd=idx_lnd                              &
-    !$ser&     aa=aa                                        &
+    !$ser data aa=aa                                        &
     !$ser&     aa_btm=aa_btm                                &
     !$ser&     bb=bb                                        &
     !$ser&     bb_btm=bb_btm                                &
     !$ser&     pcpt_tile=pcpt_tile                          &
-    !$ser&     pqsat_tile=field%qs_sfc_tile(:,jb,:)         &
+    !$ser&     pqsat_tile=pqsat_tile                        &
     !$ser&     ptsfc_tile=field%ts_tile(:,jb,:)             &
     !$ser&     pu_stress_gbm=field%u_stress(:,jb)           &
     !$ser&     pv_stress_gbm=field%v_stress(:,jb)           &
@@ -232,8 +221,8 @@ MODULE mo_ser_echam_update_surface
     !$ser&     Qtop=field%Qtop(:,:,jb)                      &
     !$ser&     Qbot=field%Qbot(:,:,jb)                      &
     !$ser&     albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
-    !$ser&     albvisdif_ice=field%albnirdir_ice(:,:,jb)    &
-    !$ser&     albnirdir_ice=field%albvisdif_ice(:,:,jb)    &
+    !$ser&     albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
+    !$ser&     albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
     !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
     !$ser verbatim writeOut = .FALSE.
     !$ser verbatim IF (singleStepOut) THEN

@@ -309,6 +309,8 @@ CONTAINS
 
     INTEGER :: lb, ub, middle
 
+    !$ACC ROUTINE SEQ
+
     lb = 1
     ub = SIZE(array)
     middle = ub / 2
@@ -355,6 +357,8 @@ CONTAINS
 
     INTEGER :: temp
 
+    !$ACC ROUTINE SEQ
+
     IF (glb_index > glb2loc_index%global_size .OR. glb_index < 1) THEN
       get_local_index = 0
     ELSE
@@ -384,6 +388,8 @@ CONTAINS
     INTEGER :: get_valid_local_index_prev
 
     INTEGER :: temp
+
+    !$ACC ROUTINE SEQ
 
     IF (glb_index > glb2loc_index%global_size .OR. glb_index < 1) THEN
 
@@ -419,6 +425,8 @@ CONTAINS
     LOGICAL, INTENT(in) :: use_next
 
     INTEGER :: temp
+
+    !$ACC ROUTINE SEQ
 
     IF (glb_index > glb2loc_index%global_size .OR. &
       & glb_index < 1) THEN

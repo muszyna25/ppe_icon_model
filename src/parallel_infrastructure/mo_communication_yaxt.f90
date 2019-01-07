@@ -1673,10 +1673,10 @@ SUBROUTINE exchange_data_mult_mixprec(p_pat, nfields_dp, ndim2tot_dp, &
 
   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-    TYPE(t_ptr_3d), INTENT(in), OPTIONAL :: recv_dp(:)
-    TYPE(t_ptr_3d), INTENT(in), OPTIONAL :: send_dp(:)
-    TYPE(t_ptr_3d_sp), INTENT(in), OPTIONAL :: recv_sp(:)
-    TYPE(t_ptr_3d_sp), INTENT(in), OPTIONAL :: send_sp(:)
+    TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: recv_dp(:)
+    TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: send_dp(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in), OPTIONAL :: recv_sp(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in), OPTIONAL :: send_sp(:)
 
     INTEGER, INTENT(IN)           :: nfields_dp, ndim2tot_dp, &
       nfields_sp, ndim2tot_sp
