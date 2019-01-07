@@ -20,9 +20,8 @@ $addexp "checksuite.icon-dev/check.atm_ape"        --list $listname
 # add concurrent ps_rad test 
 $addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $listname
 #-----------------------------------------------------------
-# Needs to be fixed gives an update error:
-# - can only be done by Monika!
-./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
+# in case reference data are not available uncomment this line
+#./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
 
 #-----------------------------------------------------------
 # OES
