@@ -26,6 +26,12 @@ machine=mistral
 
 ./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
 
+#CSCS builders
+machine=daint
+./addmachine $machine --list $list
+./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
+./addbuilder DAINT_GPU_cce        --machine $machine --configureflags="--with-fortran=cray_gpu" --builderflags="Active"  --list $list
+
 #-----------------------------------------------------------
 # AES
 # add amip binary-identical test on mistral
