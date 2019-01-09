@@ -21,4 +21,6 @@ builder|MISTRAL_nag|--with-fortran=nag --with-yaxt|Active
 experiment|checksuite.icon-dev/check.atm_amip_update|queue=compute
 machine|daint|
 builder|DAINT_CPU_cce|--with-fortran=cray|Active
+experiment|checksuite.icon-dev/check.atm_amip_update|constraint=gpu
 builder|DAINT_GPU_cce|--with-fortran=cray_gpu|Active
+experiment|checksuite.icon-dev/check.atm_amip_update|constraint=gpu
