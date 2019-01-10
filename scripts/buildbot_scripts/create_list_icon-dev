@@ -60,19 +60,20 @@ $addexp exp.nh35_tri_jws_validate --builders DAINT_GPU_cce --runflags "cpu_time=
 #-----------------------------------------------------------
 # DWD
 # tests for nwp
-$addexp exp.test_nwp_R02B04N06multi exp.test_nwp_R02B04_R02B05_nest  --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=8"  --machines mistral --list $listname
+$addexp exp.test_nwp_R02B04N06multi exp.test_nwp_R02B04_R02B05_nest  --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=4"  --machines mistral --list $listname
 $addexp exp.test_nwp_R02B04N06_multifile_restart  --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=2"  --machines mistral --list $listname
 # this experiment runs only with-mpi and without openmp
-$addexp exp.test_nwp_R02B04N06multi2 --without-configureflags without-mpi with-openmp --machines mistral daint_cpu --runflags "cpu_time=00:45:00 no_of_nodes=4" --list $listname
+$addexp exp.test_nwp_R02B04N06multi2 --without-configureflags without-mpi with-openmp \
+--machines mistral daint_cpu --runflags "cpu_time=00:45:00 no_of_nodes=4" --list $listname
 
 #-----------------------------------------------------------
 # ESM2 coupled tests, only with mpi
 # test fully coupled run - gcc excluded due to error
-$addexp exp.aloy_pre04_bb --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:30:00 no_of_nodes=8" --list $listname
+$addexp exp.aloy_pre04_bb --without-configureflags without-mpi --machines mistral --runflags "cpu_time=00:30:00 no_of_nodes=4" --list $listname
 
 #-----------------------------------------------------------
 # Other tests
-#   torus test from Anurag
+#   torus test from Anurag : red, move to problems list
 $addexp checksuite.icon-dev/check.atm_rce_les  --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
 #   old test from Anurag
 $addexp checksuite.icon-dev/check.atm_icoles_nested --machines mistral  --runflags "cpu_time=00:30:00" --list $listname
