@@ -142,6 +142,8 @@ INTERFACE exchange_data
    MODULE PROCEDURE exchange_data_r2d
    MODULE PROCEDURE exchange_data_s2d
    MODULE PROCEDURE exchange_data_i2d
+   MODULE PROCEDURE exchange_data_l2d
+   MODULE PROCEDURE exchange_data_l3d
    MODULE PROCEDURE gather_r_2d_deblock
    MODULE PROCEDURE gather_r_1d_deblock
    MODULE PROCEDURE gather_s_1d_deblock
@@ -532,6 +534,16 @@ CONTAINS
 
   END SUBROUTINE exchange_data_i3d
 
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
+
+    CLASS(t_comm_pattern), POINTER :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+
+    CALL p_pat%exchange_data_l3d(recv, send)
+
+  END SUBROUTINE exchange_data_l3d
+
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
   !!
@@ -640,6 +652,17 @@ CONTAINS
     CALL p_pat%exchange_data_i2d(recv, send, add, l_recv_exists)
 
   END SUBROUTINE exchange_data_i2d
+
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    !
+    CLASS(t_comm_pattern), POINTER :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+
+    CALL p_pat%exchange_data_l2d(recv, send, l_recv_exists)
+
+  END SUBROUTINE exchange_data_l2d
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).

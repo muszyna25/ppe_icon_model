@@ -44,7 +44,7 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_redist_collection_new, xt_redist_s_exchange, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new, &
-  &             xt_mpi_comm_mark_exclusive, xt_int_kind
+  &             xt_mpi_comm_mark_exclusive, xt_int_kind, xt_slice_c_loc
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
 USE iso_c_binding, ONLY: c_int, c_loc, c_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
@@ -112,6 +112,8 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
     PROCEDURE :: exchange_data_r2d => exchange_data_r2d
     PROCEDURE :: exchange_data_s2d => exchange_data_s2d
     PROCEDURE :: exchange_data_i2d => exchange_data_i2d
+    PROCEDURE :: exchange_data_l2d => exchange_data_l2d
+    PROCEDURE :: exchange_data_l3d => exchange_data_l3d
     PROCEDURE :: exchange_data_mult => exchange_data_mult_dp
     PROCEDURE :: exchange_data_mult_mixprec => exchange_data_mult_mixprec
     PROCEDURE :: exchange_data_4de1 => exchange_data_4de1
@@ -1288,6 +1290,91 @@ CONTAINS
 
 END SUBROUTINE exchange_data_i3d
 
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+
+    LOGICAL, ALLOCATABLE :: send_(:,:,:)
+    TYPE(xt_redist) :: redist
+
+    INTEGER :: nlev(1, 2), n
+
+    IF(SIZE(recv,1) /= nproma) THEN
+      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
+    ENDIF
+
+    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
+      IF (activate_sync_timers) CALL timer_start(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+    ENDIF
+
+    start_sync_timer(timer_exch_data)
+
+    n = SIZE(recv, 2)
+
+    nlev(1, 1) = n
+    IF (PRESENT(send)) THEN
+      nlev(1, 2) = SIZE(send,2)
+    ELSE
+      nlev(1, 2) = n
+    END IF
+    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
+
+    IF (PRESENT(send)) THEN
+      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+    ELSE
+      IF (p_pat%inplace) THEN
+        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+      ELSE
+        ! make copy of recv
+        ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
+        send_ = recv
+        CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
+        DEALLOCATE(send_)
+      END IF
+    END IF
+
+    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+      IF (activate_sync_timers) CALL timer_start(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+    ENDIF
+
+    stop_sync_timer(timer_exch_data)
+
+  CONTAINS
+
+    ! this wrapper is needed because we have to ensure that the input array are in
+    ! contiguous memory (the keyword CONTIGUOUS is Fortran2008, which is not
+    ! required by ICON)
+    SUBROUTINE xt_redist_s_exchange1_contiguous(redist, send, recv)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+      LOGICAL, INTENT(IN), TARGET :: send(*)
+      TYPE(c_ptr) :: send_ptr, recv_ptr
+
+      CALL xt_slice_c_loc(send, send_ptr)
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+      TYPE(c_ptr) :: recv_ptr
+
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, recv_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_inplace
+
+  END SUBROUTINE exchange_data_l3d
+
 !>
 !! Does data exchange according to a communication pattern (in p_pat).
 !!
@@ -2365,6 +2452,35 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_i2d
+
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    !
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT), TARGET :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+
+    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
+    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+
+    !-----------------------------------------------------------------------
+
+    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+      tmp_recv(:,1,:) = .FALSE.
+    ELSE
+      tmp_recv(:,1,:) = recv(:,:)
+    ENDIF
+
+    IF (PRESENT(send)) THEN
+      CALL exchange_data_l3d(p_pat, tmp_recv, &
+           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+    ELSE
+      CALL exchange_data_l3d(p_pat, tmp_recv)
+    ENDIF
+
+    recv(:,:) = tmp_recv(:,1,:)
+
+  END SUBROUTINE exchange_data_l2d
 
 FUNCTION get_np_recv(comm_pat)
   CLASS(t_comm_pattern_yaxt), INTENT(IN) :: comm_pat

@@ -154,6 +154,8 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
     PROCEDURE :: exchange_data_r2d => exchange_data_r2d
     PROCEDURE :: exchange_data_s2d => exchange_data_s2d
     PROCEDURE :: exchange_data_i2d => exchange_data_i2d
+    PROCEDURE :: exchange_data_l2d => exchange_data_l2d
+    PROCEDURE :: exchange_data_l3d => exchange_data_l3d
     PROCEDURE :: exchange_data_mult => exchange_data_mult
     PROCEDURE :: exchange_data_mult_mixprec => exchange_data_mult_mixprec
     PROCEDURE :: exchange_data_4de1 => exchange_data_4de1
@@ -1991,6 +1993,218 @@ CONTAINS
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_i3d
+
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
+
+    CLASS(t_comm_pattern_orig), INTENT(INOUT) :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET            :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET     :: send(:,:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_i3d"
+    LOGICAL :: send_buf(SIZE(recv,2),p_pat%n_send), &
+      recv_buf(SIZE(recv,2),p_pat%n_recv)
+
+    LOGICAL, POINTER :: send_ptr(:,:,:)
+
+    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
+
+    IF(my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Not yet implemented!")
+    END IF
+
+    !-----------------------------------------------------------------------
+    start_sync_timer(timer_exch_data)
+
+    IF(my_process_is_mpi_seq()) &
+      CALL finish('exchange_data','must not be called on single PE/test PE')
+
+    IF(SIZE(recv,1) /= nproma) THEN
+      CALL finish('exchange_data','Illegal first dimension of data array')
+    ENDIF
+
+    ndim2 = SIZE(recv,2)
+
+!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+
+    IF (iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) THEN
+      ! Set up irecv's for receive buffers
+      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+        pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+        irs    = p_pat%recv_startidx(np)
+        icount = p_pat%recv_count(np)*ndim2
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ENDIF
+
+    ! Set up send buffer
+
+    IF(PRESENT(send)) THEN
+      send_ptr => send
+    ELSE
+      send_ptr => recv
+    ENDIF
+
+    IF (ndim2 == 1) THEN
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+      DO i = 1, p_pat%n_send
+        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
+      ENDDO
+!$ACC END PARALLEL
+    ELSE
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+      DO k = 1, ndim2
+!$ACC LOOP VECTOR
+        DO i = 1, p_pat%n_send
+          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+#else
+      DO i = 1, p_pat%n_send
+        send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
+          &                            p_pat%send_src_blk(i))
+      ENDDO
+#endif
+    ENDIF
+
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    ! Send our data
+    IF (iorder_sendrecv == 1) THEN
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+
+      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+        pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+        irs    = p_pat%recv_startidx(np)
+        icount = p_pat%recv_count(np)*ndim2
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ELSE IF (iorder_sendrecv >= 3) THEN ! use irecv/isend
+      DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+        pid    = p_pat%pelist_send(np) ! ID of sender PE
+        iss    = p_pat%send_startidx(np)
+        icount = p_pat%send_count(np)*ndim2
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
+
+      ENDDO
+    ENDIF
+
+    ! Wait for all outstanding requests to finish
+
+    CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+    ! Fill in receive buffer
+
+    IF (ndim2 == 1) THEN
+      k = 1
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+      DO i = 1, p_pat%n_pnts
+        recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+          recv_buf(k,p_pat%recv_src(i))
+      ENDDO
+!$ACC END PARALLEL
+    ELSE
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+      DO k = 1, ndim2
+!$ACC LOOP VECTOR
+        DO i = 1, p_pat%n_pnts
+          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+            recv_buf(k,p_pat%recv_src(i))
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+#else
+      DO i = 1, p_pat%n_pnts
+        recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
+          recv_buf(:,p_pat%recv_src(i))
+      ENDDO
+#endif
+    ENDIF
+!$ACC END DATA
+
+    stop_sync_timer(timer_exch_data)
+
+  END SUBROUTINE exchange_data_l3d
+
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    !
+    CLASS(t_comm_pattern_orig), INTENT(INOUT), TARGET :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_i2d"
+    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+
+    !-----------------------------------------------------------------------
+
+    ! special treatment for trivial communication patterns of
+    ! sequential runs
+    IF(my_process_is_mpi_seq()) THEN
+      CALL exchange_data_l2d_seq(p_pat, recv, send)
+      RETURN
+    END IF
+
+!$ACC DATA CREATE( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
+
+    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+!$ACC KERNELS PRESENT( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
+      tmp_recv(:,1,:) = .FALSE.
+!$ACC END KERNELS
+    ELSE
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
+      tmp_recv(:,1,:) = recv(:,:)
+!$ACC END KERNELS
+    ENDIF
+
+    IF (PRESENT(send)) THEN
+      CALL exchange_data_l3d(p_pat, tmp_recv, &
+        send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+    ELSE
+      CALL exchange_data_l3d(p_pat, tmp_recv)
+    ENDIF
+
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
+    recv(:,:) = tmp_recv(:,1,:)
+!$ACC END KERNELS
+
+!$ACC END DATA
+
+  END SUBROUTINE exchange_data_l2d
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -4066,6 +4280,49 @@ CONTAINS
 !$ACC END DATA
 
   END SUBROUTINE exchange_data_i2d_seq
+
+  SUBROUTINE exchange_data_l2d_seq(p_pat, recv, send)
+
+    CLASS(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_i2d_seq"
+    INTEGER :: i
+
+    ! consistency checks
+    ! ------------------
+
+    ! make sure that we are in sequential mode
+    IF (.NOT. my_process_is_mpi_seq()) THEN
+      CALL finish(routine, "Internal error: sequential routine called in parallel run!")
+    END IF
+    ! further tests
+    IF ( (p_pat%np_recv /= 1) .OR. (p_pat%np_send /= 1) ) THEN
+      CALL finish(routine, "Internal error: inconsistent no. send/receive peers!")
+    END IF
+    IF ( (p_pat%recv_limits(1) - p_pat%recv_limits(0)) /= (p_pat%send_limits(1) - p_pat%send_limits(0)) ) THEN
+      CALL finish(routine, "Internal error: inconsistent sender/receiver size!")
+    END IF
+    IF ( (p_pat%recv_limits(0) /= 0) .OR. (p_pat%send_limits(0) /= 0) ) THEN
+      CALL finish(routine, "Internal error: inconsistent sender/receiver start position!")
+    END IF
+    IF ( (p_pat%recv_limits(1) /= p_pat%n_recv) .OR. (p_pat%n_recv /= p_pat%n_send) ) THEN
+      CALL finish(routine, "Internal error: inconsistent counts for sender/receiver!")
+    END IF
+
+    ! "communication" (direct copy)
+    ! -----------------------------
+!$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+    DO i=1,p_pat%n_pnts
+      recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+        &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+        &       p_pat%send_src_blk(p_pat%recv_src(i)))
+    END DO
+!$ACC END PARALLEL
+
+  END SUBROUTINE exchange_data_l2d_seq
 
 
   !-------------------------------------------------------------------------

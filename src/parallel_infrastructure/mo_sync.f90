@@ -95,6 +95,8 @@ INTERFACE sync_patch_array
   MODULE PROCEDURE sync_patch_array_s3
   MODULE PROCEDURE sync_patch_array_i2
   MODULE PROCEDURE sync_patch_array_i3
+  MODULE PROCEDURE sync_patch_array_l2
+  MODULE PROCEDURE sync_patch_array_l3
 END INTERFACE
 
 INTERFACE check_patch_array
@@ -280,6 +282,27 @@ SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
    ENDIF
 END SUBROUTINE sync_patch_array_i3
 
+  SUBROUTINE sync_patch_array_l3(typ, p_patch, arr)
+    INTEGER,       INTENT(IN)    :: typ
+    TYPE(t_patch), INTENT(INOUT) :: p_patch
+    LOGICAL,       INTENT(INOUT) :: arr(:,:,:)
+
+    ! Boundary exchange for work PEs
+    IF(my_process_is_mpi_parallel()) THEN
+      IF(typ == SYNC_C) THEN
+        CALL exchange_data(p_patch%comm_pat_c, arr)
+      ELSE IF(typ == SYNC_E) THEN
+        CALL exchange_data(p_patch%comm_pat_e, arr)
+      ELSE IF(typ == SYNC_V) THEN
+        CALL exchange_data(p_patch%comm_pat_v, arr)
+      ELSE IF(typ == SYNC_C1) THEN
+        CALL exchange_data(p_patch%comm_pat_c1, arr)
+      ELSE
+        CALL finish('sync_patch_array','Illegal type parameter')
+      ENDIF
+    ENDIF
+  END SUBROUTINE sync_patch_array_l3
+
 
 !-------------------------------------------------------------------------
 !> Does boundary exchange for a 2-D REAL array.
@@ -319,6 +342,17 @@ SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
    CALL insert_dimension(arr3, arr, 2)
    CALL sync_patch_array_i3(typ, p_patch, arr3)
 END SUBROUTINE sync_patch_array_i2
+
+  SUBROUTINE sync_patch_array_l2(typ, p_patch, arr)
+    INTEGER,       INTENT(IN)    :: typ
+    TYPE(t_patch), INTENT(INOUT) :: p_patch
+    LOGICAL, TARGET, INTENT(INOUT) :: arr(:,:)
+    ! local variable
+    LOGICAL, POINTER :: arr3(:,:,:)
+
+    CALL insert_dimension(arr3, arr, 2)
+    CALL sync_patch_array_l3(typ, p_patch, arr3)
+  END SUBROUTINE sync_patch_array_l2
 
 
 !-------------------------------------------------------------------------
