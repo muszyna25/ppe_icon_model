@@ -231,17 +231,19 @@ SUBROUTINE sync_patch_array_s3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
    REAL(sp),      INTENT(INOUT) :: arr(:,:,:)
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
    CLASS(t_comm_pattern), POINTER :: p_pat
-
+   CHARACTER(len=4), SAVE, TARGET :: default_varname = 'sync'
+   CHARACTER(len=:), POINTER :: varname
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      IF(PRESENT(opt_varname)) THEN
-       CALL check_patch_array_sp(typ, p_patch, arr, opt_varname)
+       varname => opt_varname
      ELSE
-       CALL check_patch_array_sp(typ, p_patch, arr, 'sync')
+       varname => default_varname
      ENDIF
+     CALL check_patch_array_sp(typ, p_patch, arr, varname)
    ENDIF
 
    ! Boundary exchange for work PEs
@@ -580,7 +582,7 @@ SUBROUTINE check_patch_array_sp(typ, p_patch, arr, opt_varname)
 
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(sp), INTENT(IN) :: arr(:,:,:)
    REAL(wp) :: arr_wp(SIZE(arr,1),SIZE(arr,2),SIZE(arr,3))
@@ -610,7 +612,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(wp), INTENT(IN) :: arr(:,:,:)
 
@@ -893,7 +895,7 @@ SUBROUTINE check_patch_array_2(typ, p_patch, arr, opt_varname)
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN) :: p_patch
    REAL(wp), TARGET, INTENT(IN)    :: arr(:,:)
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(wp), POINTER :: arr3(:,:,:)
 !-----------------------------------------------------------------------
