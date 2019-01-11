@@ -438,7 +438,6 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    REAL(sp), OPTIONAL, INTENT(INOUT) ::  f3din1_sp(:,:,:), f3din2_sp(:,:,:), f3din3_sp(:,:,:), &
       &                                  f3din4_sp(:,:,:), f3din5_sp(:,:,:), f4din_sp(:,:,:,:)
 
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat
    CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
 
@@ -462,28 +461,14 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
-       ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
-!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
-!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
-         arr3(:,:,:) = f4din(:,:,:,i)
-!$ACC END KERNELS
-         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
+         CALL check_patch_array_3(typ, p_patch, f4din(:,:,:,i), opt_varname)
        ENDDO
-!$ACC END DATA
-       DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f4din_sp)) THEN
-       ALLOCATE(arr3(UBOUND(f4din_sp,1), UBOUND(f4din_sp,2), UBOUND(f4din_sp,3)))
-!$ACC DATA CREATE(arr3) IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din_sp,4)
-!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
-         arr3(:,:,:) = REAL(f4din_sp(:,:,:,i),wp)
-!$ACC END KERNELS
-         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
+         CALL check_patch_array_sp(typ, p_patch, f4din_sp(:,:,:,i), opt_varname)
        ENDDO
-!$ACC END DATA
-       DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, opt_varname)
      IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, opt_varname)
