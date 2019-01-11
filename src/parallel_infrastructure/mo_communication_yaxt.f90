@@ -1295,7 +1295,6 @@ END SUBROUTINE exchange_data_i3d
     LOGICAL, INTENT(INOUT), TARGET :: recv(:,:,:)
     LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
 
-    LOGICAL, ALLOCATABLE :: send_(:,:,:)
     TYPE(xt_redist) :: redist
 
     INTEGER :: nlev(1, 2), n
@@ -1329,10 +1328,7 @@ END SUBROUTINE exchange_data_i3d
         CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
       ELSE
         ! make copy of recv
-        ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
-        send_ = recv
-        CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-        DEALLOCATE(send_)
+        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
       END IF
     END IF
 
@@ -1372,6 +1368,21 @@ END SUBROUTINE exchange_data_i3d
       CALL xt_redist_s_exchange1(redist, recv_ptr, recv_ptr)
 
     END SUBROUTINE xt_redist_s_exchange1_contiguous_inplace
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      LOGICAL, INTENT(INOUT), TARGET :: recv(n)
+      LOGICAL, TARGET :: send(n)
+      TYPE(c_ptr) :: send_ptr, recv_ptr
+
+      send = recv
+      CALL xt_slice_c_loc(send, send_ptr)
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
   END SUBROUTINE exchange_data_l3d
 
