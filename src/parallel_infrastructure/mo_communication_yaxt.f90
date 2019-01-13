@@ -1835,7 +1835,6 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
 
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
-   REAL(dp), ALLOCATABLE :: send_(:,:,:,:)
    INTEGER :: data_type
    TYPE(xt_redist) :: redist
 
@@ -1903,10 +1902,7 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      IF (p_pat%inplace) THEN
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
-       ALLOCATE(send_(SIZE(recv,1),SIZE(recv,2),SIZE(recv,3),SIZE(recv,4)))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    ENDIF
 
@@ -1934,6 +1930,18 @@ CONTAINS
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+      REAL(dp), TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_4de1
 
