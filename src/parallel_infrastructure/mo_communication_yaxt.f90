@@ -976,7 +976,6 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
 
-   REAL(dp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1,2), m, n, o
@@ -1012,10 +1011,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(m, n, o))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
 
@@ -1072,6 +1068,19 @@ CONTAINS
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+      REAL(dp), TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+
 
 END SUBROUTINE exchange_data_r3d
 
