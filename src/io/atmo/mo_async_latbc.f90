@@ -1438,7 +1438,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
       INTEGER :: ierrstat, iv, jp, nlevs
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
-      LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
+      LOGICAL :: grp_vars_bool(latbc%buffer%ngrp_vars)
       LOGICAL :: is_work
       INTEGER :: grp_tlen(latbc%buffer%ngrp_vars)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
@@ -1446,7 +1446,6 @@ MODULE mo_async_latbc
       ! Get size and offset of the data for the input
       mem_size = 0_i8
 
-      ALLOCATE(grp_vars_bool(latbc%buffer%ngrp_vars))
       ALLOCATE(latbc%buffer%hgrid(latbc%buffer%ngrp_vars))
       DO jp = 1, latbc%buffer%ngrp_vars
         grp_tlen(jp) = LEN_TRIM(StrLowCasegrp(jp))
