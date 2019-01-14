@@ -49,7 +49,7 @@ USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
      &                             timer_exch_data_wait
-USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
+USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, t_ptr_2d
 USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
@@ -3175,16 +3175,8 @@ CONTAINS
     INTEGER           :: nsendtot ! total number of send points
     INTEGER           :: nrecvtot ! total number of receive points
 
-    TYPE t_fieldptr_recv
-      REAL(dp), POINTER :: fld(:,:,:)
-    END TYPE t_fieldptr_recv
-
-    TYPE t_fieldptr_send
-      REAL(dp), POINTER :: fld(:,:)
-    END TYPE t_fieldptr_send
-
-    TYPE(t_fieldptr_recv) :: recv(nfields)
-    TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat_coll%patterns))
+    TYPE(t_ptr_3d) :: recv(nfields)
+    TYPE(t_ptr_2d) :: send(nfields*SIZE(p_pat_coll%patterns))
 
     INTEGER        :: ndim2(nfields), noffset(nfields), &
       ioffset_s(SIZE(p_pat_coll%patterns)), &
@@ -3337,69 +3329,69 @@ CONTAINS
     ! Set pointers to input fields
     IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
       DO n = 1, nfields
-        recv(n)%fld => recv4d1(:,:,:,n)
+        recv(n)%p => recv4d1(:,:,:,n)
         DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
+          send(np+(n-1)*npats)%p => send4d1(:,:,np,n)
         ENDDO
       ENDDO
     ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
       n4d = nfields/2
       DO n = 1, n4d
-        recv(n)%fld => recv4d1(:,:,:,n)
+        recv(n)%p => recv4d1(:,:,:,n)
         DO np = 1, npats
-          send(np+(n-1)*npats)%fld => send4d1(:,:,np,n)
+          send(np+(n-1)*npats)%p => send4d1(:,:,np,n)
         ENDDO
       ENDDO
       DO n = 1, n4d
-        recv(n4d+n)%fld => recv4d2(:,:,:,n)
+        recv(n4d+n)%p => recv4d2(:,:,:,n)
         DO np = 1, npats
-          send(np+(n4d+n-1)*npats)%fld => send4d2(:,:,np,n)
+          send(np+(n4d+n-1)*npats)%p => send4d2(:,:,np,n)
         ENDDO
       ENDDO
     ELSE
       IF (PRESENT(recv1)) THEN
-        recv(1)%fld => recv1
+        recv(1)%p => recv1
         DO np = 1, npats
-          send(np)%fld => send1(:,:,np)
+          send(np)%p => send1(:,:,np)
         ENDDO
       ENDIF
       IF (PRESENT(recv2)) THEN
-        recv(2)%fld => recv2
+        recv(2)%p => recv2
         DO np = 1, npats
-          send(np+npats)%fld => send2(:,:,np)
+          send(np+npats)%p => send2(:,:,np)
         ENDDO
       ENDIF
       IF (PRESENT(recv3)) THEN
-        recv(3)%fld => recv3
+        recv(3)%p => recv3
         DO np = 1, npats
-          send(np+2*npats)%fld => send3(:,:,np)
+          send(np+2*npats)%p => send3(:,:,np)
         ENDDO
       ENDIF
       IF (PRESENT(recv4)) THEN
-        recv(4)%fld => recv4
+        recv(4)%p => recv4
         DO np = 1, npats
-          send(np+3*npats)%fld => send4(:,:,np)
+          send(np+3*npats)%p => send4(:,:,np)
         ENDDO
       ENDIF
       IF (PRESENT(recv5)) THEN
-        recv(5)%fld => recv5
+        recv(5)%p => recv5
         DO np = 1, npats
-          send(np+4*npats)%fld => send5(:,:,np)
+          send(np+4*npats)%p => send5(:,:,np)
         ENDDO
       ENDIF
       IF (PRESENT(recv6)) THEN
-        recv(6)%fld => recv6
+        recv(6)%p => recv6
         DO np = 1, npats
-          send(np+5*npats)%fld => send6(:,:,np)
+          send(np+5*npats)%p => send6(:,:,np)
         ENDDO
       ENDIF
     ENDIF
 
     noffset(1) = 0
-    ndim2(1)   = SIZE(recv(1)%fld,2)
+    ndim2(1)   = SIZE(recv(1)%p,2)
     DO n = 2, nfields
       noffset(n) = noffset(n-1)+ndim2(n-1)
-      ndim2(n)   = SIZE(recv(n)%fld,2)
+      ndim2(n)   = SIZE(recv(n)%p,2)
     ENDDO
 
     ioffset_r(1) = 0
@@ -3432,9 +3424,9 @@ CONTAINS
         DO i = 1, n_pnts
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld( tmp_recv_dst_idx(i), k, &
+              recv(n)%p( tmp_recv_dst_idx(i), k, &
                 tmp_recv_dst_blk(i) ) =            &
-                send(np+(n-1)*npats)%fld( k,                             &
+                send(np+(n-1)*npats)%p( k,                             &
                   idx_1d(tmp_send_src_idx(         &
                            tmp_recv_src(i)),       &
                          tmp_send_src_blk(           &
@@ -3452,9 +3444,9 @@ CONTAINS
         DO i = 1, p_pat(np)%p%n_pnts
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld( p_pat(np)%p%recv_dst_idx(i), k, &
+              recv(n)%p( p_pat(np)%p%recv_dst_idx(i), k, &
                 p_pat(np)%p%recv_dst_blk(i) ) =            &
-                send(np+(n-1)*npats)%fld( k,                             &
+                send(np+(n-1)*npats)%p( k,                             &
                   idx_1d(p_pat(np)%p%send_src_idx(         &
                            p_pat(np)%p%recv_src(i)),       &
                          p_pat(np)%p%send_src_blk(           &
@@ -3488,7 +3480,7 @@ CONTAINS
           DO k = 1, ndim2(n)
             DO i = 1, n_send
               send_buf(k+noffset(n),i+ioffset_s(np)) =                &
-                & send(np+(n-1)*npats)%fld(k, &
+                & send(np+(n-1)*npats)%p(k, &
                 &   idx_1d(tmp_send_src_idx(i), &
                 &          tmp_send_src_blk(i)))
             ENDDO
@@ -3513,7 +3505,7 @@ CONTAINS
           DO n = 1, nfields
             DO k = 1, ndim2(n)
               send_buf(k+noffset(n),i+ioffset_s(np)) = &
-                send(np+(n-1)*npats)%fld(k,jl)
+                send(np+(n-1)*npats)%p(k,jl)
             ENDDO
           ENDDO
         ENDDO
@@ -3733,7 +3725,7 @@ CONTAINS
 !CDIR UNROLL=6
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts
-              recv(n)%fld(tmp_recv_dst_idx(i),k, &
+              recv(n)%p(tmp_recv_dst_idx(i),k, &
                           tmp_recv_dst_blk(i)) =   &
                 recv_buf(k+noffset(n),tmp_recv_src(i)+ioffset_r(np))
             ENDDO
@@ -3754,7 +3746,7 @@ CONTAINS
           ik  = p_pat(np)%p%recv_src(i)+ioffset_r(np)
           DO n = 1, nfields
             DO k = 1, ndim2(n)
-              recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
+              recv(n)%p(jl,k,jb) = recv_buf(k+noffset(n),ik)
             ENDDO
           ENDDO
         ENDDO
