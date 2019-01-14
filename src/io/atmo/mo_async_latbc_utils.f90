@@ -54,7 +54,6 @@
     USE mo_util_phys,           ONLY: virtual_temp
     USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
       &                               compute_input_pressure_and_height
-    USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            newEvent, datetime, newDatetime,             &
@@ -879,21 +878,6 @@
       ! Read parameter qs
       CALL fetch_from_buffer(latbc, 'qs', latbc%latbc_data(tlev)%atm%qs)
 
-
-      ! boundary exchange for a 2-D and 3-D array to fill HALO region.
-      ! This addition by M.Pondkule, DWD (11/06/2014)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%temp)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm_in%u)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm_in%v)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%w)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%pres)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%qv)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%qc)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%qi)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%qr)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%qs)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%rho)
-      CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data(tlev)%atm%theta_v)
       !
       ! Convert u and v on cell points to vn at edge points
       !
@@ -915,8 +899,6 @@
            &                   latbc%latbc_data(tlev)%atm%rho,                                   &
            &                   latbc%latbc_data(tlev)%atm%exner,                                 &
            &                   latbc%latbc_data(tlev)%atm%theta_v )
-
-      CALL sync_patch_array(SYNC_E, p_patch, latbc%latbc_data(tlev)%atm%vn)
 
 #endif
     END SUBROUTINE compute_latbc_icon_data
@@ -1143,36 +1125,15 @@
       ! boundary exchange for a 2-D and 3-D array, needed because the
       ! vertical interpolation includes the halo region (otherwise, the
       ! syncs would have to be called after vert_interp)
-      CALL sync_patch_array_mult(SYNC_C,p_patch,3,                                  &
-        &                        latbc%latbc_data(tlev)%atm_in%w,                   &
-        &                        latbc%latbc_data(tlev)%atm_in%pres,                &
-        &                        latbc%latbc_data(tlev)%atm_in%temp)
-      CALL sync_patch_array_mult(SYNC_C,p_patch,5,latbc%latbc_data(tlev)%atm_in%qv, &
-        &                        latbc%latbc_data(tlev)%atm_in%qc,                  &
-        &                        latbc%latbc_data(tlev)%atm_in%qi,                  &
-        &                        latbc%latbc_data(tlev)%atm_in%qr,                  &
-        &                        latbc%latbc_data(tlev)%atm_in%qs)
-
-      IF (latbc%buffer%lread_vn) THEN
-         CALL sync_patch_array(SYNC_E,p_patch,latbc%latbc_data(tlev)%atm_in%vn)
-      ELSE
-         CALL sync_patch_array_mult(SYNC_C,p_patch,2,latbc%latbc_data(tlev)%atm_in%u, &
-           &                        latbc%latbc_data(tlev)%atm_in%v)
-      ENDIF
 
       IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
-        CALL sync_patch_array(SYNC_C, p_patch, phi_sfc)
-        CALL sync_patch_array(SYNC_C, p_patch, psfc)
-
         IF (latbc%patch_data%cells%n_own > 0) THEN
           CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, &
                latbc%latbc_data(tlev), latbc%patch_data%cell_mask)
         END IF
-
       END IF
 
       IF (latbc%buffer%lconvert_omega2w) THEN
-        CALL sync_patch_array(SYNC_C, p_patch, omega)
         ! (note that "convert_omega2w" requires the pressure field
         ! which has been computed before)
         IF (latbc%patch_data%cells%n_own > 0) THEN
@@ -1209,8 +1170,6 @@
         CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
           &    opt_use_vn=latbc%buffer%lread_vn, opt_latbcmode=.TRUE.)
       ENDIF
-
-      CALL sync_patch_array(SYNC_E,p_patch,latbc%latbc_data(tlev)%atm_in%vn)
 
 #endif
     END SUBROUTINE compute_latbc_intp_data
@@ -1301,12 +1260,6 @@
           ENDDO
         ENDDO
 !$OMP END PARALLEL DO
-
-        ! boundary exchange needed because the vertical interpolation 
-        ! includes the halo region (otherwise, the syncs would have to be 
-        ! called after vert_interp)
-        CALL sync_patch_array(SYNC_C, p_patch, latbc%latbc_data_const%z_mc_in)
-
 
         ! cleanup
         IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)

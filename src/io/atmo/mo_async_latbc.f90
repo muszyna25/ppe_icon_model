@@ -246,7 +246,6 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-    USE mo_sync,                      ONLY: sync_patch_array, SYNC_E, SYNC_C
 #ifdef YAC_coupling
     USE mo_coupling_config,           ONLY: is_coupled_run
     USE mo_io_coupling,               ONLY: construct_io_coupler, destruct_io_coupler
@@ -666,21 +665,11 @@ MODULE mo_async_latbc
               ' nudging points are filled by the LATBC READ-in.'
             CALL finish(routine, message_text)
           END IF
-          ! fixme: restrict transferred cells/edges to those owned to not trip up
-          ! reorder information
-          latbc%patch_data%cell_mask(:,:) &
-               =       latbc%patch_data%cell_mask &
-               & .AND. p_patch(1)%cells%decomp_info%owner_mask
-          latbc%patch_data%edge_mask(:,:) &
-               =       latbc%patch_data%edge_mask &
-               & .AND. p_patch(1)%edges%decomp_info%owner_mask
         END IF
       ELSE
-        ! fixme: this should be initialized to .true. so no extra data
-        ! needs to be exchanged via sync
         IF (is_work) THEN
-          latbc%patch_data%cell_mask(:,:) = p_patch(1)%cells%decomp_info%owner_mask
-          latbc%patch_data%edge_mask(:,:) = p_patch(1)%edges%decomp_info%owner_mask
+          latbc%patch_data%cell_mask(:,:) = .TRUE.
+          latbc%patch_data%edge_mask(:,:) = .TRUE.
         END IF
 
         CALL message(routine, "non-sparse LATBC read-in mode.")
@@ -695,8 +684,6 @@ MODULE mo_async_latbc
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
       IF (is_work) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
-        CALL sync_patch_array(sync_c, p_patch(1), latbc%patch_data%cell_mask)
-        CALL sync_patch_array(sync_e, p_patch(1), latbc%patch_data%edge_mask)
       ELSE IF (is_pref) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
       ENDIF
