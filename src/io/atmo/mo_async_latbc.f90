@@ -1279,19 +1279,19 @@ MODULE mo_async_latbc
            IF (nelems > 0) THEN
              ALLOCATE(p_var_list%p%first_list_element)
              element => p_var_list%p%first_list_element
-             DO n = 1, nelems
+             DO n = 1, nelems-1
                i2 = i2 + 1
 
                ! Set info structure from binary representation in info_storage
                element%field%info = TRANSFER(info_storage(:, n), info)
                patch_data%var_data(i2)%info = element%field%info
-               IF (n < nelems) THEN
-                 ALLOCATE(element%next_list_element)
-               ELSE
-                 NULLIFY(element%next_list_element)
-               ENDIF
+               ALLOCATE(element%next_list_element)
                element => element%next_list_element
              ENDDO
+             i2 = i2 + 1
+             element%field%info = TRANSFER(info_storage(:, nelems), info)
+             patch_data%var_data(i2)%info = element%field%info
+             NULLIFY(element%next_list_element)
            ELSE
              NULLIFY(p_var_list%p%first_list_element)
            END IF
