@@ -3736,7 +3736,7 @@ CONTAINS
 
   SUBROUTINE p_isend_int (t_buffer, p_destination, p_tag, p_count, comm, request)
 
-    INTEGER, INTENT(inout) :: t_buffer
+    INTEGER, INTENT(in) :: t_buffer
     INTEGER, INTENT(in) :: p_destination, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
     INTEGER,   INTENT(INOUT), OPTIONAL :: request

@@ -268,7 +268,10 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
-    les_config(jg)%psfc = psfc_in
+    IF ( les_config(jg)%psfc /= psfc_in ) THEN
+      CALL finish(TRIM(routine),'Value of psfc in les_nml is inconsistent with data in sounding file!')
+    END IF
+
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
