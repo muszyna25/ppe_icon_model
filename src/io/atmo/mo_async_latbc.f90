@@ -697,7 +697,7 @@ MODULE mo_async_latbc
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
         CALL sync_patch_array(sync_c, p_patch(1), latbc%patch_data%cell_mask)
         CALL sync_patch_array(sync_e, p_patch(1), latbc%patch_data%edge_mask)
-      ELSE IF ( my_process_is_pref() ) THEN
+      ELSE IF (is_pref) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
       ENDIF
 
@@ -745,9 +745,11 @@ MODULE mo_async_latbc
         &                                        jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars, &
         &                                        nlev_in, ncid, tlen
       INTEGER(KIND=i8)                        :: flen_latbc
-      LOGICAL                                 :: l_exist
+      LOGICAL                                 :: l_exist, is_work
       CHARACTER(LEN=:), ALLOCATABLE           :: latbc_filename, latbc_file
       CHARACTER(LEN=MAX_CHAR_LENGTH)          :: name, cdiErrorText, name_lc
+
+      is_work = my_process_is_work()
 
       ! allocating buffers containing name of variables
       ALLOCATE(grp_vars(MAX_NUM_GRPVARS))
@@ -780,15 +782,14 @@ MODULE mo_async_latbc
       ALLOCATE(latbc%buffer%varID(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-      IF (my_process_is_work() .AND. p_pe_work == p_work_pe0 &
-          .OR. latbc%buffer%lcompute_hhl_pres) THEN
+      IF (is_work .AND. p_pe_work == p_work_pe0 .OR. latbc%buffer%lcompute_hhl_pres) THEN
         ! generate file name
         latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level, &
              &                                  time_config%tc_exp_startdate,  &
              &                                  time_config%tc_exp_startdate))
         latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
       END IF
-      IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
+      IF (is_work .AND.  p_pe_work == p_work_pe0) THEN
 
         INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -895,7 +896,7 @@ MODULE mo_async_latbc
 
       ! allocate latbc buffer, use the maximum no. of vertical levels
       ! for any variable:
-      IF (my_process_is_work()) THEN
+      IF (is_work) THEN
         nlev_in = 0
         IF (p_pe_work == p_work_pe0) THEN
           ! set the maximum no. of levels to the size of the half
@@ -917,7 +918,7 @@ MODULE mo_async_latbc
 
       ! Re-open the file to read constant fields.
       !
-      IF (latbc%buffer%lcompute_hhl_pres .AND. my_process_is_work()) THEN
+      IF (latbc%buffer%lcompute_hhl_pres .AND. is_work) THEN
 
         CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
         CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
