@@ -22,6 +22,7 @@ cdo_diffn*.out
 experiments*
 run/*.run
 run/*.status
+run/*_status
 *#
 autom4te.cache
 externals/bin/
