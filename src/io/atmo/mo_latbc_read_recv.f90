@@ -70,7 +70,7 @@ CONTAINS
     INTEGER,                 INTENT(IN)  :: hgrid        !< stored variable location indication
     
     ! local constants:
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':prefetch_cdi_3d'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prefetch_cdi_3d'
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
       &                                jk, ierrstat, dimlen(2), nmiss
@@ -132,7 +132,7 @@ CONTAINS
     IF (dimlen(1) /= SIZE(read_buf)) THEN
        WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(tmp_buf), &
          &                           "nlev: ", nlevs
-       CALL message(TRIM(routine), message_text)
+       CALL message(routine, message_text)
        CALL finish(routine, "Incompatible dimensions!")
     END IF
 
