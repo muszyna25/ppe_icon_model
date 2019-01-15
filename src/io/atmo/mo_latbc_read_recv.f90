@@ -74,19 +74,15 @@ CONTAINS
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
       &                                jk, ierrstat, dimlen(2), nmiss
-    REAL(sp), ALLOCATABLE, TARGET   :: tmp_buf(:)  ! temporary local array (including interior)
+    REAL(sp), ALLOCATABLE :: read_buf(:) ! temporary local array for reading
 
     INTEGER                         :: nread
-    REAL(sp), POINTER               :: read_buf(:) ! temporary local array for reading
     TYPE(t_reorder_data), POINTER :: p_ri
 
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
     IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
 
-      ALLOCATE(tmp_buf(latbc_data%patch_data%n_patch_cells_g), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      
       IF (latbc_config%lsparse_latbc) THEN
         nread = SIZE(latbc_data%global_index%cells)
       ELSE
@@ -95,9 +91,6 @@ CONTAINS
       p_ri => latbc_data%patch_data%cells
 
     ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-
-      ALLOCATE(tmp_buf(latbc_data%patch_data%n_patch_edges_g), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       IF (latbc_config%lsparse_latbc) THEN
         nread = SIZE(latbc_data%global_index%edges)
@@ -109,15 +102,11 @@ CONTAINS
     ELSE
       CALL finish(routine, "invalid grid type")
     ENDIF
-    
-    ! allocate read buffer (which might be smaller than "tmp_buf", if
+
+    ! allocate read buffer (which might be smaller than domain, if
     ! only boudary rows are read from file.
-    IF (latbc_config%lsparse_latbc) THEN
-      ALLOCATE(read_buf(nread), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-      read_buf => tmp_buf
-    END IF
+    ALLOCATE(read_buf(nread), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! get var ID
     vlistID   = streamInqVlist(streamID)
@@ -130,7 +119,7 @@ CONTAINS
 
     ! Check variable dimensions:
     IF (dimlen(1) /= SIZE(read_buf)) THEN
-       WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(tmp_buf), &
+       WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(read_buf), &
          &                           "nlev: ", nlevs
        CALL message(routine, message_text)
        CALL finish(routine, "Incompatible dimensions!")
@@ -139,30 +128,14 @@ CONTAINS
     DO jk=1, nlevs
 
       ! read record as 1D field
-      CALL streamReadVarSliceF(streamID, varID, jk-1, read_buf(:), nmiss)
-      
-      ! --- "sparse latbc mode": read only data for boundary rows
-      !
-      IF (latbc_config%lsparse_latbc) THEN
-        IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
-          tmp_buf(latbc_data%global_index%cells(:)) = read_buf(:)
-        ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-          tmp_buf(latbc_data%global_index%edges(:)) = read_buf(:)
-        END IF
-      END IF
-      
+      CALL streamReadVarSliceF(streamID, varID, jk-1, read_buf, nmiss)
+
       ! send 2d buffer using MPI_PUT
-      CALL prefetch_proc_send(latbc_data%patch_data%mem_win%mpi_win, tmp_buf(:), 1, p_ri, ioff)
+      CALL prefetch_proc_send(latbc_data%patch_data%mem_win%mpi_win, read_buf, 1, p_ri, ioff)
     ENDDO ! jk=1,nlevs 
   
-    ! clean up
-    IF (latbc_config%lsparse_latbc) THEN
-      DEALLOCATE(tmp_buf, read_buf, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    ELSE
-      DEALLOCATE(tmp_buf, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(read_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 #endif
   
   END SUBROUTINE prefetch_cdi_3d

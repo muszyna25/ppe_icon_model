@@ -390,10 +390,12 @@ MODULE mo_async_latbc
     ! replicate data on prefetch proc
     ! ------------------------------------------------------------------------
 #ifndef NOMPI
-    SUBROUTINE set_patch_data(latbc, cell_mask, edge_mask, bcast_root, &
+    SUBROUTINE set_patch_data(latbc, cell_mask, cell_ro_idx, &
+         edge_mask, edge_ro_idx, bcast_root, &
          latbc_varnames_dict)
       TYPE (t_latbc_data), INTENT(INOUT) :: latbc
       LOGICAL, ALLOCATABLE, INTENT(in) :: cell_mask(:,:), edge_mask(:,:)
+      INTEGER, ALLOCATABLE, INTENT(in) :: cell_ro_idx(:), edge_ro_idx(:)
       INTEGER,             INTENT(IN)    :: bcast_root
       TYPE (t_dictionary), INTENT(IN)    :: latbc_varnames_dict
 
@@ -401,14 +403,25 @@ MODULE mo_async_latbc
 
       IF(.NOT. my_process_is_pref()) THEN
 
-         ! set reorder data on work PE
-         CALL set_reorder_data( p_patch(1)%n_patch_cells_g, p_patch(1)%n_patch_cells, &
-              cell_mask, p_patch(1)%cells%decomp_info%glb_index, &
-              latbc%patch_data%cells )
+        IF (ALLOCATED(cell_ro_idx)) THEN
+          CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
+            p_patch(1)%n_patch_cells, cell_mask, &
+            cell_ro_idx, latbc%patch_data%cells)
+        ELSE
+          CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
+            p_patch(1)%n_patch_cells, cell_mask, &
+            p_patch(1)%cells%decomp_info%glb_index, latbc%patch_data%cells)
+        END IF
 
-         CALL set_reorder_data( p_patch(1)%n_patch_edges_g, p_patch(1)%n_patch_edges, &
-              edge_mask, p_patch(1)%edges%decomp_info%glb_index, &
-              latbc%patch_data%edges )
+        IF (ALLOCATED(edge_ro_idx)) THEN
+          CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
+            p_patch(1)%n_patch_edges, edge_mask, &
+            edge_ro_idx, latbc%patch_data%edges)
+        ELSE
+          CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
+            p_patch(1)%n_patch_edges, edge_mask, &
+            p_patch(1)%edges%decomp_info%glb_index, latbc%patch_data%edges)
+        END IF
 
       ENDIF
 
@@ -431,25 +444,35 @@ MODULE mo_async_latbc
     !> prefetching PE: Create a local LOGICAL mask on each worker PE
     !> which is TRUE, when this entry is present in the index list.
     !
-    SUBROUTINE create_latbc_mask_work(n, mask, decomp_info)
+    SUBROUTINE create_latbc_mask_work(n, mask, ro_idx, decomp_info)
       INTEGER, INTENT(in) :: n
       LOGICAL, INTENT(out) :: mask(n)
+      INTEGER, ALLOCATABLE, INTENT(out) :: ro_idx(:)
       TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_latbc_mask"
-      INTEGER                   :: nr, m, ierror, nfound, dummy(1)
-      INTEGER, ALLOCATABLE      :: ranges(:,:)
+      INTEGER                   :: nr, rcnt, i, m, ierror, nfound, dummy(1)
+      INTEGER, ALLOCATABLE, TARGET :: ranges(:,:)
+      INTEGER, POINTER :: p_ranges(:,:)
 
       ! get number of ranges describing bc indices
       CALL p_bcast(nr, 0, comm=p_comm_work_2_pref)
       IF (nr > 0) THEN
-        ALLOCATE(ranges(nr,2), stat=ierror)
+        ALLOCATE(ro_idx(n), ranges(nr,3), stat=ierror)
         IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-        CALL p_bcast(ranges, 0, comm=p_comm_work_2_pref)
+        p_ranges => ranges(:,1:2)
+        CALL p_bcast(p_ranges, 0, comm=p_comm_work_2_pref)
         m = SIZE(decomp_info%glb_index)
         IF (m > 0) THEN
-          CALL mask_from_range_matches(mask, nr, ranges, decomp_info%glb_index,&
-               nfound)
+          ! construct partial sums so it becomes easier to compute
+          ! the actual position of an index in the read-in data
+          rcnt = 0
+          DO i = 1, nr
+            ranges(i, 3) = rcnt
+            rcnt = rcnt + ranges(i, 2) - ranges(i, 1) + 1
+          END DO
+          CALL mask_from_range_matches(mask, ro_idx, nr, ranges, &
+               decomp_info%glb_index, nfound)
           mask(m+1:n) = .FALSE.
         END IF
         dummy = p_reduce(MERGE(1, 0, nfound>0), mpi_sum, 0, comm=p_comm_work_2_pref)
@@ -459,11 +482,11 @@ MODULE mo_async_latbc
       END IF
     END SUBROUTINE create_latbc_mask_work
 
-    SUBROUTINE mask_from_range_matches(mask, nr, ranges, g_idx, nfound)
+    SUBROUTINE mask_from_range_matches(mask, ro_idx, nr, ranges, g_idx, nfound)
       LOGICAL, INTENT(out) :: mask(*)
       INTEGER, INTENT(in) :: nr
-      INTEGER, INTENT(in) :: ranges(nr,2), g_idx(:)
-      INTEGER, INTENT(out) :: nfound
+      INTEGER, INTENT(in) :: ranges(nr,3), g_idx(:)
+      INTEGER, INTENT(out) :: nfound, ro_idx(*)
 
       INTEGER :: n, ir, rs, re, jl, ig
 
@@ -478,10 +501,13 @@ MODULE mo_async_latbc
           IF (ig <= re) THEN
             mask(jl) = .TRUE.
             nfound = nfound + 1
+            ! in case of sparse latbc, global indices need to be remapped
+            ro_idx(jl) = ranges(ir, 3) + ig - rs + 1
             CYCLE g_idx_loop
           END IF
         END DO
         mask(jl) = .FALSE.
+        ro_idx(jl) = -1
       END DO g_idx_loop
     END SUBROUTINE mask_from_range_matches
 
@@ -573,6 +599,7 @@ MODULE mo_async_latbc
       INTEGER                       :: ierrstat, ic, idx_c, blk_c, cell_active_ranks, edge_active_ranks
       INTEGER                       :: tlen, covered
       LOGICAL                       :: is_pref, is_work
+      INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:)
 
       is_pref = my_process_is_pref()
       is_work = my_process_is_work()
@@ -645,9 +672,11 @@ MODULE mo_async_latbc
         ELSE
           CALL create_latbc_mask_work(SIZE(latbc%patch_data%cell_mask), &
             &                         latbc%patch_data%cell_mask, &
+            &                         cell_ro_idx, &
             &                         p_patch(1)%cells%decomp_info)
           CALL create_latbc_mask_work(SIZE(latbc%patch_data%edge_mask), &
             &                         latbc%patch_data%edge_mask, &
+            &                         edge_ro_idx, &
             &                         p_patch(1)%edges%decomp_info)
           ! consistency check: test if all nudging points are filled by
           ! the LATBC read-in
@@ -677,8 +706,9 @@ MODULE mo_async_latbc
       END IF ! lsparse_latbc
 
       ! create and transfer patch data
-      CALL set_patch_data(latbc, latbc%patch_data%cell_mask, &
-           latbc%patch_data%edge_mask, bcast_root, latbc_varnames_dict)
+      CALL set_patch_data(latbc, latbc%patch_data%cell_mask, cell_ro_idx, &
+           latbc%patch_data%edge_mask, edge_ro_idx, bcast_root, &
+           latbc_varnames_dict)
 
       ! open and read file containing information of prefetch variables
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
