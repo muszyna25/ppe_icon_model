@@ -1386,7 +1386,7 @@ MODULE mo_async_latbc
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       ! Gather the number of own points for every PE into p_reo%pe_own
-      CALL p_allgather(p_reo%n_own, p_reo%pe_own, p_comm_work)
+      CALL p_allgather(p_reo%n_own, p_reo%pe_own, comm=p_comm_work)
 
       ! Get global number of points for current (physical!) patch
       p_reo%n_glb = SUM(p_reo%pe_own(:))
@@ -1433,13 +1433,13 @@ MODULE mo_async_latbc
           accum = accum + p_reo%pe_own(i)
         ENDDO
         CALL p_allgatherv(dummy(1:0), p_reo%reorder_index, p_reo%pe_own, &
-             p_reo%pe_off, p_comm_work_2_pref)
+             p_reo%pe_off, comm=p_comm_work_2_pref)
       ELSE
         ALLOCATE(rcounts(num_prefetch_proc), STAT=ierrstat)
         rcounts = 0
         IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         CALL p_allgatherv(p_reo%reorder_index, dummy, rcounts, &
-             rcounts, p_comm_work_2_pref)
+             rcounts, comm=p_comm_work_2_pref)
       END IF
 
     END SUBROUTINE  transfer_reorder_data

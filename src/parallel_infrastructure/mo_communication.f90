@@ -1282,11 +1282,12 @@ CONTAINS
       comm = p_comm_work
     END IF
     ALLOCATE(collector_buffer_sizes(n_procs))
-    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, comm)
+    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, &
+         comm=comm)
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_r_1d_deblock", "invalid out_array size")
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
-      comm)
+      &               comm=comm)
 
     DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_r_1d_deblock
@@ -1338,7 +1339,8 @@ CONTAINS
       comm = p_comm_work
     END IF
     ALLOCATE(collector_buffer_sizes(n_procs))
-    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, comm)
+    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, &
+         comm=comm)
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_i_1d_deblock", "invalid out_array size")
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&

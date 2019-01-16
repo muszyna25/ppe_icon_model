@@ -2411,7 +2411,7 @@ CONTAINS
     END DO ! i
 
     ! Gather the number of own points for every PE into p_ri%pe_own
-    CALL p_allgather(n_own, patch_info_ll%ri%pe_own, p_comm_work)
+    CALL p_allgather(n_own, patch_info_ll%ri%pe_own, comm=p_comm_work)
 
     ! Get offset within result array
     n = 0

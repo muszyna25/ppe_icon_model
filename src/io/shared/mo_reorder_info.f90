@@ -152,7 +152,7 @@ CONTAINS
     CALL permute(ri%own_blk, permutation, buf)
     DEALLOCATE(buf, permutation)
     ! Gather the number of own points for every PE into ri%pe_own
-    CALL p_allgather(ri%n_own, ri%pe_own, group_comm)
+    CALL p_allgather(ri%n_own, ri%pe_own, comm=group_comm)
 
     ! Get offset within result array
     il = 0
