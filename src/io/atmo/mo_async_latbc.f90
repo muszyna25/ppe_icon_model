@@ -215,7 +215,8 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
-    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, t_latbc_data
+    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, &
+                                            t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: read_latbc_data, compute_init_latbc_data, async_init_latbc_data,&
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
@@ -1546,7 +1547,7 @@ MODULE mo_async_latbc
       ENDIF
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-      CALL allocate_mem_noncray(latbc%patch_data, MAX(mem_size,1_i8))
+      CALL create_win(latbc%patch_data%mem_win, MAX(mem_size,1_i8))
 #endif
 
     END SUBROUTINE init_remote_memory_window
@@ -1557,9 +1558,9 @@ MODULE mo_async_latbc
     !
     !  @note Implementation for non-Cray pointers
     !
-    SUBROUTINE allocate_mem_noncray(patch_data, mem_size)
+    SUBROUTINE create_win(mem_win, mem_size)
 
-      TYPE(t_patch_data),              INTENT(INOUT) :: patch_data
+      TYPE(t_mem_win), INTENT(INOUT) :: mem_win
 #ifdef NOMPI
       INTEGER,                         INTENT(IN)    :: mem_size
 #else
@@ -1592,15 +1593,15 @@ MODULE mo_async_latbc
 
       CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
 
-      CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, mem_win%mem_ptr_sp, (/ mem_size /) )
 
       ! Create memory window for communication
-      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, ierror )
+      mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
+        &                  p_comm_work_pref, mem_win%mpi_win, ierror )
       IF (ierror /= 0) CALL finish(routine, "MPI error!")
 #endif
 
-    END SUBROUTINE allocate_mem_noncray
+    END SUBROUTINE create_win
 
 END MODULE mo_async_latbc
