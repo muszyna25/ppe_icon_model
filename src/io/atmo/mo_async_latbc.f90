@@ -1456,10 +1456,10 @@ MODULE mo_async_latbc
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
       CHARACTER(LEN=VARNAME_LEN), INTENT(IN)    :: StrLowCasegrp(:) !< grp name in lower case letter
 
-      INTEGER :: ierrstat, iv, jp, nlevs
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
+      INTEGER :: ierror, iv, jp, nlevs, nblks, hgrid
+      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, lvlsz
       LOGICAL :: grp_vars_bool(latbc%buffer%ngrp_vars)
-      LOGICAL :: is_work
+      LOGICAL :: is_work, found_unknown_grid
       INTEGER :: grp_tlen(latbc%buffer%ngrp_vars)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
@@ -1473,61 +1473,55 @@ MODULE mo_async_latbc
       grp_vars_bool(1:latbc%buffer%ngrp_vars) = .FALSE.
 
       is_work = my_process_is_work()
+      found_unknown_grid = .FALSE.
       ! Go over all input variables
       DO iv = 1, SIZE(latbc%patch_data%var_data)
-         DO jp = 1, latbc%buffer%ngrp_vars
-            ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
-            IF (StrLowCasegrp(jp) == latbc%patch_data%var_data(iv)%info%name &
-              & .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == latbc%patch_data%var_data(iv)%info%name) THEN
+        DO jp = 1, latbc%buffer%ngrp_vars
+          ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
+          IF (StrLowCasegrp(jp) == latbc%patch_data%var_data(iv)%info%name &
+            & .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == latbc%patch_data%var_data(iv)%info%name) THEN
 
-               nlevs = 0
-               IF(.NOT. grp_vars_bool(jp))  THEN
-                  IF (latbc%patch_data%var_data(iv)%info%ndims == 2) THEN
-                     nlevs = 1
-                  ELSE
-                     nlevs = latbc%buffer%nlev(jp) 
-                  ENDIF
+            nlevs = 0
+            IF(.NOT. grp_vars_bool(jp))  THEN
+              IF (latbc%patch_data%var_data(iv)%info%ndims == 2) THEN
+                nlevs = 1
+              ELSE
+                nlevs = latbc%buffer%nlev(jp)
+              ENDIF
 
-                  IF (nlevs == 0) CYCLE
+              IF (nlevs /= 0) THEN
 
-                  SELECT CASE (latbc%patch_data%var_data(iv)%info%hgrid)
+                hgrid = latbc%patch_data%var_data(iv)%info%hgrid
 
-                  CASE (GRID_UNSTRUCTURED_CELL)
-                     mem_size = mem_size + INT(nlevs*latbc%patch_data%cells%n_own,i8)
+                SELECT CASE (hgrid)
+                CASE (GRID_UNSTRUCTURED_CELL)
+                  ! variable stored in cell center location
+                  lvlsz = INT(latbc%patch_data%cells%n_own,mpi_address_kind)
+                  nblks = latbc%patch_data%nblks_c
+                CASE (GRID_UNSTRUCTURED_EDGE)
+                  ! variable stored in edge center of a cell
+                  lvlsz = INT(latbc%patch_data%edges%n_own,mpi_address_kind)
+                  nblks = latbc%patch_data%nblks_e
+                CASE DEFAULT
+                  found_unknown_grid = .TRUE.
+                  EXIT
+                END SELECT
 
-                     IF(is_work)THEN
-                        ! allocate the buffer sizes for variables on compute processors
-                        ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, &
-                          &      latbc%patch_data%nblks_c), STAT=ierrstat)
-                        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-                     ENDIF
+                mem_size = mem_size + INT(nlevs, mpi_address_kind) * lvlsz
+                IF(is_work)THEN
+                  ! allocate the buffer sizes for variables on compute processors
+                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, nblks), STAT=ierror)
+                  IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+                ENDIF
+                latbc%buffer%hgrid(jp) = hgrid
+                grp_vars_bool(jp) = .TRUE.
 
-                     ! variable stored in cell center location
-                     latbc%buffer%hgrid(jp) = latbc%patch_data%var_data(iv)%info%hgrid
-
-                  CASE (GRID_UNSTRUCTURED_EDGE)
-                     mem_size = mem_size + INT(nlevs*latbc%patch_data%edges%n_own,i8)
-
-                     IF(is_work)THEN
-                        ! allocate the buffer sizes for variables on compute processors
-                        ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, &
-                          &      latbc%patch_data%nblks_e), STAT=ierrstat)
-                        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-                     ENDIF
-
-                     ! variable stored in edge center of a cell
-                     latbc%buffer%hgrid(jp) = latbc%patch_data%var_data(iv)%info%hgrid
-
-                  CASE DEFAULT
-                     CALL finish(routine,'Unknown grid type!')
-                  END SELECT
-
-                  grp_vars_bool(jp) = .TRUE.
-
-               ENDIF
+              ENDIF
             ENDIF
-         ENDDO
+          END IF
+        ENDDO
       ENDDO ! vars
+      IF (found_unknown_grid) CALL finish(routine,'Unknown grid type found!')
 
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
          DO jp = 1, latbc%buffer%ngrp_vars
@@ -1538,8 +1532,8 @@ MODULE mo_async_latbc
 
                IF(is_work)THEN
                   ! allocate the buffer sizes for variable 'GEOSP' on compute processors
-                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierrstat)
-                  IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierror)
+                  IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
                ENDIF
 
                ! variable GEOSP is stored in cell center location
