@@ -10058,23 +10058,33 @@ CONTAINS
 #endif
    END SUBROUTINE p_scatterv_single1D1D
 
-   SUBROUTINE p_allgather_int_0d1d(sendbuf, recvbuf, comm)
+   SUBROUTINE p_allgather_int_0d1d(sendbuf, recvbuf, sendcount, recvcount, comm)
      INTEGER,           INTENT(inout) :: recvbuf(:)
      INTEGER,           INTENT(in) :: sendbuf
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     INTEGER, OPTIONAL, INTENT(in) :: sendcount, recvcount, comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_allgather_int_0d1d"
-     INTEGER :: p_comm
+     INTEGER :: p_comm, nsend, nrecv
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
+     IF (PRESENT(sendcount)) THEN
+       nsend = sendcount
+     ELSE
+       nsend = 1
+     END IF
+     IF (PRESENT(recvcount)) THEN
+       nrecv = recvcount
+     ELSE
+       nrecv = 1
+     END IF
 
-     CALL mpi_allgather(sendbuf, 1, mpi_integer, &
-          &             recvbuf, 1, mpi_integer, &
+     CALL mpi_allgather(sendbuf, nsend, mpi_integer, &
+          &             recvbuf, nrecv, mpi_integer, &
           &             p_comm, p_error)
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in mpi_allgather operation!')
 #else
@@ -10082,23 +10092,32 @@ CONTAINS
 #endif
    END SUBROUTINE p_allgather_int_0d1d
 
-   SUBROUTINE p_allgather_int_1d2d(sendbuf, recvbuf, comm)
+   SUBROUTINE p_allgather_int_1d2d(sendbuf, recvbuf, sendcount, recvcount, comm)
      INTEGER,           INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: sendbuf(:)
-     INTEGER, OPTIONAL, INTENT(in) :: comm
+     INTEGER, OPTIONAL, INTENT(in) :: sendcount, recvcount, comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_allgather_int_1d2d"
-     INTEGER :: p_comm, n
+     INTEGER :: p_comm, nrecv, nsend
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
-     n = SIZE(sendbuf)
-     CALL mpi_allgather(sendbuf, n, mpi_integer, &
-          &             recvbuf, n, mpi_integer, &
+     IF (PRESENT(sendcount)) THEN
+       nsend = sendcount
+     ELSE
+       nsend = SIZE(sendbuf)
+     END IF
+     IF (PRESENT(recvcount)) THEN
+       nrecv = recvcount
+     ELSE
+       nrecv = SIZE(recvbuf, 1)
+     END IF
+     CALL mpi_allgather(sendbuf, nsend, mpi_integer, &
+          &             recvbuf, nrecv, mpi_integer, &
           &             p_comm, p_error)
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in mpi_allgather operation!')
 #else
