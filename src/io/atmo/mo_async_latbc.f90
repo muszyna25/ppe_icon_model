@@ -1381,15 +1381,8 @@ MODULE mo_async_latbc
          ENDIF
       ENDDO
 
-      ! Gather the number of own points for every PE into p_reo%pe_own
-      ALLOCATE(p_reo%pe_own(0:p_n_work-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      ! Gather the number of own points for every PE into p_reo%pe_own
-      CALL p_allgather(p_reo%n_own, p_reo%pe_own, comm=p_comm_work)
-
       ! Get global number of points for current (physical!) patch
-      p_reo%n_glb = SUM(p_reo%pe_own(:))
+      p_reo%n_glb = -1
 
     END SUBROUTINE set_reorder_data
 
@@ -1403,13 +1396,14 @@ MODULE mo_async_latbc
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo
 
       ! local variables
-      INTEGER                             :: ierrstat, dummy(1), i, accum
+      INTEGER                             :: ierrstat, dummy(1), i, accum, &
+           root_pref2work
       LOGICAL                             :: is_pref
       INTEGER, ALLOCATABLE                :: rcounts(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
-      !transfer the global number of points, this is not known on prefetching PE
-      CALL p_bcast(p_reo%n_glb, bcast_root, p_comm_work_2_pref)
+
+      ! Gather the number of own points for every PE into p_reo%pe_own
 
       is_pref = my_process_is_pref()
       IF (is_pref) THEN
@@ -1419,25 +1413,35 @@ MODULE mo_async_latbc
 
         ! pe_own must be allocated for num_work_procs, not for p_n_work
         ALLOCATE(p_reo%pe_own(0:num_work_procs-1), &
-             p_reo%reorder_index(p_reo%n_glb), &
              p_reo%pe_off(0:num_work_procs-1), STAT=ierrstat)
-        IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       ENDIF
 
-      CALL p_bcast(p_reo%pe_own,        bcast_root, p_comm_work_2_pref)
       IF (is_pref) THEN
+        root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
+        ! Gather the number of own points for every PE into p_reo%pe_own
+        CALL p_allgather(dummy(1), p_reo%pe_own, sendcount=0, recvcount=1, &
+             comm=p_comm_work_2_pref)
+
         ! Get offset within result array
         accum = 0
         DO i = 0, num_work_procs-1
           p_reo%pe_off(i) = accum
           accum = accum + p_reo%pe_own(i)
         ENDDO
+        p_reo%n_glb = accum
+        ALLOCATE(p_reo%reorder_index(accum), STAT=ierrstat)
+        IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
         CALL p_allgatherv(dummy(1:0), p_reo%reorder_index, p_reo%pe_own, &
              p_reo%pe_off, comm=p_comm_work_2_pref)
       ELSE
+        root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
+        CALL p_allgather(p_reo%n_own, dummy, sendcount=1, recvcount=0, &
+             comm=p_comm_work_2_pref)
         ALLOCATE(rcounts(num_prefetch_proc), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         rcounts = 0
-        IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         CALL p_allgatherv(p_reo%reorder_index, dummy, rcounts, &
              rcounts, comm=p_comm_work_2_pref)
       END IF
