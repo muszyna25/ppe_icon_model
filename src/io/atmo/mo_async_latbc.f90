@@ -216,6 +216,7 @@ MODULE mo_async_latbc
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, &
+                                            t_buffer, t_var_data, &
                                             t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: read_latbc_data, compute_init_latbc_data, async_init_latbc_data,&
@@ -599,8 +600,9 @@ MODULE mo_async_latbc
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
       INTEGER                       :: ierrstat, ic, idx_c, blk_c, cell_active_ranks, edge_active_ranks
       INTEGER                       :: tlen, covered
+      INTEGER(mpi_address_kind)     :: mem_size
       LOGICAL                       :: is_pref, is_work
-      INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:)
+      INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:), var_buf_map(:)
 
       is_pref = my_process_is_pref()
       is_work = my_process_is_work()
@@ -722,9 +724,24 @@ MODULE mo_async_latbc
       ! destroy variable name dictionaries:
       CALL dict_finalize(latbc_varnames_dict)
 
+      CALL match_var_data_to_buffer(var_buf_map, latbc%buffer, &
+           latbc%patch_data%var_data, StrLowCasegrp)
+      CALL infer_buffer_hgrid(latbc%buffer, latbc%patch_data%var_data, &
+           var_buf_map)
+
       ! initialize the memory window for communication
-      IF (.NOT. my_process_is_mpi_test()) &
-           CALL init_remote_memory_window(latbc, StrLowCasegrp)
+      IF (.NOT. my_process_is_mpi_test()) THEN
+        IF (is_work) THEN
+          CALL create_client_buffers(latbc%buffer, latbc%patch_data%var_data,&
+            latbc%patch_data%cells%n_own, latbc%patch_data%nblks_c, &
+            latbc%patch_data%edges%n_own, latbc%patch_data%nblks_e, &
+            var_buf_map, mem_size)
+        ELSE IF (is_pref) THEN
+          mem_size = 1_mpi_address_kind
+        END IF
+        ! allocate amount of memory needed with MPI_Alloc_mem
+        CALL create_win(latbc%patch_data%mem_win, mem_size)
+      END IF
 
       DEALLOCATE(StrLowCasegrp)
 
@@ -1448,104 +1465,142 @@ MODULE mo_async_latbc
 
     END SUBROUTINE  transfer_reorder_data
 
+    SUBROUTINE match_var_data_to_buffer(map, buffer, var_data, StrLowCasegrp)
+      TYPE(t_buffer), INTENT(in) :: buffer
+      INTEGER, ALLOCATABLE, INTENT(out) :: map(:)
+      CHARACTER(LEN=varname_len), INTENT(in) :: StrLowCasegrp(buffer%ngrp_vars)
+      TYPE(t_var_data), INTENT(in) :: var_data(:)
 
+      LOGICAL :: grp_vars_bool(buffer%ngrp_vars)
+      INTEGER :: grp_tlen(buffer%ngrp_vars)
+      INTEGER :: iv, jp, nlevs, ndims
+
+      ALLOCATE(map(buffer%ngrp_vars))
+      map = -1
+      DO jp = 1, buffer%ngrp_vars
+        grp_tlen(jp) = LEN_TRIM(StrLowCasegrp(jp))
+      END DO
+      grp_vars_bool = .FALSE.
+
+      DO iv = 1, SIZE(var_data)
+        ndims = var_data(iv)%info%ndims
+        DO jp = 1, buffer%ngrp_vars
+          ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
+          IF (       .NOT. grp_vars_bool(jp) &
+               .AND. (StrLowCasegrp(jp) == var_data(iv)%info%name &
+               &      .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == var_data(iv)%info%name)) THEN
+            nlevs = MERGE(1, buffer%nlev(jp), ndims == 2)
+            IF (nlevs /= 0) THEN
+              map(jp) = iv
+              grp_vars_bool(jp) = .TRUE.
+            END IF
+          END IF
+        END DO
+      END DO
+    END SUBROUTINE match_var_data_to_buffer
+
+    SUBROUTINE infer_buffer_hgrid(buffer, var_data, map)
+      TYPE(t_buffer), INTENT(inout) :: buffer
+      TYPE(t_var_data), INTENT(in) :: var_data(:)
+      INTEGER, INTENT(in) :: map(buffer%ngrp_vars)
+
+      INTEGER :: jp, iv
+
+      ALLOCATE(buffer%hgrid(buffer%ngrp_vars))
+      DO jp = 1, buffer%ngrp_vars
+        iv = map(jp)
+        IF (iv /= -1) THEN
+          buffer%hgrid(jp) = var_data(iv)%info%hgrid
+        ELSE
+          buffer%hgrid(jp) = -1
+        END IF
+      END DO
+      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
+        DO jp = 1, buffer%ngrp_vars
+          IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+            ! variable GEOSP is stored in cell center location
+            buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
+          END IF
+        END DO
+      END IF
+    END SUBROUTINE infer_buffer_hgrid
     !------------------------------------------------------------------------------------------------
     !> Initializes the remote memory window for asynchronous prefetch.
     !
-    SUBROUTINE init_remote_memory_window(latbc, StrLowCasegrp)
-      TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
-      CHARACTER(LEN=VARNAME_LEN), INTENT(IN)    :: StrLowCasegrp(:) !< grp name in lower case letter
+    SUBROUTINE create_client_buffers(buffer, var_data, n_own_cells, nblks_c, &
+         n_own_edges, nblks_e, map, mem_size)
+      TYPE(t_buffer), INTENT(inout) :: buffer
+      TYPE(t_var_data), INTENT(in) :: var_data(:)
+      INTEGER, INTENT(in) :: n_own_cells, n_own_edges, nblks_c, nblks_e, map(:)
+      INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(out) :: mem_size
 
       INTEGER :: ierror, iv, jp, nlevs, nblks, hgrid
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, lvlsz
-      LOGICAL :: grp_vars_bool(latbc%buffer%ngrp_vars)
+      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size_, lvlsz
       LOGICAL :: is_work, found_unknown_grid
-      INTEGER :: grp_tlen(latbc%buffer%ngrp_vars)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
       ! Get size and offset of the data for the input
-      mem_size = 0_i8
-
-      ALLOCATE(latbc%buffer%hgrid(latbc%buffer%ngrp_vars))
-      DO jp = 1, latbc%buffer%ngrp_vars
-        grp_tlen(jp) = LEN_TRIM(StrLowCasegrp(jp))
-      END DO
-      grp_vars_bool(1:latbc%buffer%ngrp_vars) = .FALSE.
+      mem_size_ = 0_i8
 
       is_work = my_process_is_work()
       found_unknown_grid = .FALSE.
-      ! Go over all input variables
-      DO iv = 1, SIZE(latbc%patch_data%var_data)
-        DO jp = 1, latbc%buffer%ngrp_vars
-          ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
-          IF (StrLowCasegrp(jp) == latbc%patch_data%var_data(iv)%info%name &
-            & .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == latbc%patch_data%var_data(iv)%info%name) THEN
+      DO jp = 1, buffer%ngrp_vars
+        iv = map(jp)
+        IF (iv /= -1) THEN
+          IF (var_data(iv)%info%ndims == 2) THEN
+            nlevs = 1
+          ELSE
+            nlevs = buffer%nlev(jp)
+          ENDIF
 
-            nlevs = 0
-            IF(.NOT. grp_vars_bool(jp))  THEN
-              IF (latbc%patch_data%var_data(iv)%info%ndims == 2) THEN
-                nlevs = 1
-              ELSE
-                nlevs = latbc%buffer%nlev(jp)
-              ENDIF
+          IF (nlevs /= 0) THEN
 
-              IF (nlevs /= 0) THEN
+            hgrid = buffer%hgrid(jp)
 
-                hgrid = latbc%patch_data%var_data(iv)%info%hgrid
+            SELECT CASE (hgrid)
+            CASE (GRID_UNSTRUCTURED_CELL)
+              ! variable stored in cell center location
+              lvlsz = INT(n_own_cells, mpi_address_kind)
+              nblks = nblks_c
+            CASE (GRID_UNSTRUCTURED_EDGE)
+              ! variable stored in edge center of a cell
+              lvlsz = INT(n_own_edges, mpi_address_kind)
+              nblks = nblks_e
+            CASE DEFAULT
+              found_unknown_grid = .TRUE.
+              EXIT
+            END SELECT
 
-                SELECT CASE (hgrid)
-                CASE (GRID_UNSTRUCTURED_CELL)
-                  ! variable stored in cell center location
-                  lvlsz = INT(latbc%patch_data%cells%n_own,mpi_address_kind)
-                  nblks = latbc%patch_data%nblks_c
-                CASE (GRID_UNSTRUCTURED_EDGE)
-                  ! variable stored in edge center of a cell
-                  lvlsz = INT(latbc%patch_data%edges%n_own,mpi_address_kind)
-                  nblks = latbc%patch_data%nblks_e
-                CASE DEFAULT
-                  found_unknown_grid = .TRUE.
-                  EXIT
-                END SELECT
-
-                mem_size = mem_size + INT(nlevs, mpi_address_kind) * lvlsz
-                IF(is_work)THEN
-                  ! allocate the buffer sizes for variables on compute processors
-                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, nlevs, nblks), STAT=ierror)
-                  IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-                ENDIF
-                latbc%buffer%hgrid(jp) = hgrid
-                grp_vars_bool(jp) = .TRUE.
-
-              ENDIF
+            mem_size_ = mem_size_ + INT(nlevs, mpi_address_kind) * lvlsz
+            IF(is_work)THEN
+              ! allocate the buffer sizes for variables on compute processors
+              ALLOCATE(buffer%vars(jp)%buffer(nproma, nlevs, nblks), STAT=ierror)
+              IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
             ENDIF
-          END IF
-        ENDDO
+          ENDIF
+        ENDIF
       ENDDO ! vars
       IF (found_unknown_grid) CALL finish(routine,'Unknown grid type found!')
 
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-         DO jp = 1, latbc%buffer%ngrp_vars
-            IF (latbc%buffer%mapped_name(jp) == latbc%buffer%geop_ml_var) THEN
-               ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
-               ! as the variable GEOSP doesn't exist in metadata
-               mem_size = mem_size + INT(1*latbc%patch_data%cells%n_own,i8)
+        DO jp = 1, buffer%ngrp_vars
+          IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+            ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
+            ! as the variable GEOSP doesn't exist in metadata
+            mem_size_ = mem_size_ + INT(1*n_own_cells,i8)
 
-               IF(is_work)THEN
-                  ! allocate the buffer sizes for variable 'GEOSP' on compute processors
-                  ALLOCATE(latbc%buffer%vars(jp)%buffer(nproma, 1, latbc%patch_data%nblks_c), STAT=ierror)
-                  IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-               ENDIF
-
-               ! variable GEOSP is stored in cell center location
-               latbc%buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
+            IF(is_work)THEN
+              ! allocate the buffer sizes for variable 'GEOSP' on compute processors
+              ALLOCATE(buffer%vars(jp)%buffer(nproma, 1, nblks_c), STAT=ierror)
+              IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
             ENDIF
-         ENDDO
+
+          ENDIF
+        ENDDO
       ENDIF
+      mem_size = mem_size_
 
-      ! allocate amount of memory needed with MPI_Alloc_mem
-      CALL create_win(latbc%patch_data%mem_win, MAX(mem_size,1_i8))
-
-    END SUBROUTINE init_remote_memory_window
+    END SUBROUTINE create_client_buffers
 
 
     !------------------------------------------------------------------------------------------------
