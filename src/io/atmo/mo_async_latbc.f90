@@ -1447,7 +1447,6 @@ MODULE mo_async_latbc
       END IF
 
     END SUBROUTINE  transfer_reorder_data
-#endif
 
 
     !------------------------------------------------------------------------------------------------
@@ -1457,7 +1456,6 @@ MODULE mo_async_latbc
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
       CHARACTER(LEN=VARNAME_LEN), INTENT(IN)    :: StrLowCasegrp(:) !< grp name in lower case letter
 
-#ifndef NOMPI
       INTEGER :: ierrstat, iv, jp, nlevs
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL :: grp_vars_bool(latbc%buffer%ngrp_vars)
@@ -1552,7 +1550,6 @@ MODULE mo_async_latbc
 
       ! allocate amount of memory needed with MPI_Alloc_mem
       CALL create_win(latbc%patch_data%mem_win, MAX(mem_size,1_i8))
-#endif
 
     END SUBROUTINE init_remote_memory_window
 
@@ -1565,9 +1562,6 @@ MODULE mo_async_latbc
     SUBROUTINE create_win(mem_win, mem_size)
 
       TYPE(t_mem_win), INTENT(INOUT) :: mem_win
-#ifdef NOMPI
-      INTEGER,                         INTENT(IN)    :: mem_size
-#else
       INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
 
       ! local variables
@@ -1604,8 +1598,8 @@ MODULE mo_async_latbc
       CALL MPI_Win_create( mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
         &                  p_comm_work_pref, mem_win%mpi_win, ierror )
       IF (ierror /= 0) CALL finish(routine, "MPI error!")
-#endif
 
     END SUBROUTINE create_win
+#endif
 
 END MODULE mo_async_latbc
