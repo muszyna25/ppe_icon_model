@@ -992,7 +992,7 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-!   cell_center => patch_2d%cells%center
+    cell_center => patch_2d%cells%center
 !   vertex_cartesian => patch_2d%verts%cartesian
 !   vertex_lonlat => patch_2d%verts%vertex
 
