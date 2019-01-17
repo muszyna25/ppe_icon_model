@@ -106,18 +106,18 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data)
-!   & operators_coeff)
+  SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data, &
+    & operators_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_external_data)                   :: external_data
-!   TYPE(t_operator_coeff), TARGET          :: operators_coeff
+    TYPE(t_operator_coeff), TARGET          :: operators_coeff
 
 !   TYPE(t_patch),POINTER                   :: patch_2d
 !     REAL(wp), ALLOCATABLE                   :: check_temp(:,:,:), check_salinity(:,:,:)
 
-    !this_operators_coeff => operators_coeff
-    !patch_2d => patch_3d%p_patch_2d(1)
+    this_operators_coeff => operators_coeff
+    ! patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
     

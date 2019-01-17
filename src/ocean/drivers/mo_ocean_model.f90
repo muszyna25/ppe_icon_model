@@ -443,7 +443,7 @@ MODULE mo_ocean_model
     CALL init_ho_params(ocean_patch_3d, v_params, p_as%fu10)
 
 !    IF (.not. isRestart()) &
-    CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1))
+    CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1), operators_coefficients)
       
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
