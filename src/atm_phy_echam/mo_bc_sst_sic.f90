@@ -200,17 +200,26 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, mask_lnd, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, tsw, seaice, siced, p_patch, mask, l_init)
     
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
-    LOGICAL        , INTENT(in)  :: mask_lnd(:,:)  !< logical land-sea mask, .TRUE. means there is no fraction of ocean/sea-ice 
-    REAL(dp)       , INTENT(out) :: tsw(:,:) 
+    REAL(dp)       , INTENT(inout) :: tsw(:,:) 
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
     TYPE(t_patch)  , INTENT(in)  :: p_patch
+    LOGICAL        , INTENT(in)  :: mask(:,:)  !< logical mask, indicating where to apply tsw and sea ice/depth
+    LOGICAL        , INTENT(in)  :: l_init     !< switch for first call at initialization
+    ! If l_init=.FALSE., tsw is only computed where mask==.TRUE (this is used
+    ! at all time steps in the time loop). If l_init=.TRUE., tsw is computed 
+    ! everywhere (this is used during initialization in order to initialize ts_tile(:,:,iwtr)
+    ! also over land/lakes). 
+    ! Note that lakes and ocean/sea ice are mutually exclusive, i.e. a cell cannot
+    ! contain both lake and ocean/sea ice.
+
 
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
+    REAL(dp) :: ztsw(SIZE(tsw,1),SIZE(tsw,2))
 
     INTEGER  :: jg
 
@@ -221,26 +230,22 @@ CONTAINS
 
     !TODO: missing siced needs to be added
 
-    ! mask_lnd = .TRUE. means grid box is completely covered by land or lake.
-    ! Note that lakes and ocean/sea ice are mutually exclusive, i.e. a cell cannot contain both lake and ocean/sea ice.
-    WHERE (mask_lnd(:,:))
-      seaice(:,:) = 0._dp
-      !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
-      tsw(:,:) = zts(:,:)
-    ELSE WHERE
+    seaice(:,:) = 0._dp
+    WHERE (mask(:,:))
       seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
-      ! seaice(:,:) = MAX(0.0_dp, MIN(0.99_dp, zic(:,:)))
-      seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
-      ! IF (seaice(:,:) <= 0.01_dp) seaice(:,:) = 0.0_dp
-      seaice(:,:) = MERGE(0.0_dp, seaice(:,:), seaice(:,:) <= 0.01_dp)
-      ! IF (seaice(:,:) > 0.0_dp) THEN           ! ice
-      !   tsw(:,:)=tf_salt              
-      ! ELSE                                     ! water
-      !   tsw(:,:)=MAX(zts(:,:), tf_salt)
-      ! END IF
-      tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
     END WHERE
-    
+    seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
+    seaice(:,:) = MERGE(0.0_dp, seaice(:,:), seaice(:,:) <= 0.01_dp)
+
+    ztsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
+    IF (l_init) THEN
+      tsw(:,:) = ztsw(:,:)
+    ELSE
+      WHERE (mask(:,:))
+        tsw(:,:) = ztsw(:,:)
+      END WHERE
+    END IF
+
     WHERE (seaice(:,:) > 0.0_dp)
       siced(:,:) = MERGE(2._dp, 1._dp, p_patch%cells%center(:,:)%lat > 0.0_dp)
     ELSEWHERE
