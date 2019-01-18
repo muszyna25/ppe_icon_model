@@ -31,7 +31,8 @@ MODULE mo_latbc_read_recv
   USE mo_mpi,                ONLY: p_pe_work,  &
     &                              num_work_procs, p_real_sp               
   USE mo_util_cdi,           ONLY: get_cdi_varID
-  USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data, t_latbc_data
+  USE mo_async_latbc_types,  ONLY: t_patch_data, t_latbc_data
+  USE mo_reorder_info,       only: t_reorder_info
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarZaxis, vlistInqVarGrid, gridInqSize, zaxisInqSize, &
                                  & streamReadVarSliceF
   USE mo_limarea_config,     ONLY: latbc_config
@@ -77,7 +78,7 @@ CONTAINS
     REAL(sp), ALLOCATABLE :: read_buf(:) ! temporary local array for reading
 
     INTEGER                         :: nread
-    TYPE(t_reorder_data), POINTER :: p_ri
+    TYPE(t_reorder_info), POINTER :: p_ri
 
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
@@ -176,7 +177,7 @@ CONTAINS
     REAL(sp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER(i8),         INTENT(INOUT) :: eoff
     TYPE(t_patch_data),  TARGET, INTENT(IN)   :: patch_data
-    TYPE(t_reorder_data), POINTER             :: p_ri
+    TYPE(t_reorder_info), POINTER             :: p_ri
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':compute_data_receive'
@@ -229,7 +230,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: win
     REAL(sp),                   INTENT(IN) :: var1_sp(:)
     INTEGER,                    INTENT(IN) :: nlevs
-    TYPE(t_reorder_data), INTENT(in) :: p_ri
+    TYPE(t_reorder_info), INTENT(in) :: p_ri
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::prefetch_proc_send'
     INTEGER                        :: voff(0:num_work_procs-1) 

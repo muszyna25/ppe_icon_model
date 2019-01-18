@@ -28,6 +28,7 @@ MODULE mo_async_latbc_types
   USE mo_initicon_types,        ONLY: t_init_state, t_init_state_const
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_exception,             ONLY: finish, message
+  USE mo_reorder_info,          ONLY: t_reorder_info, release_reorder_info
 #ifndef NOMPI
   USE mpi
 #endif
@@ -41,7 +42,6 @@ MODULE mo_async_latbc_types
   ! derived data types:
   PUBLIC :: t_latbc_data
   PUBLIC :: t_patch_data
-  PUBLIC :: t_reorder_data
   PUBLIC :: t_var_data
   PUBLIC :: t_mem_win
   PUBLIC :: t_buffer
@@ -52,23 +52,6 @@ MODULE mo_async_latbc_types
   !------------------------------------------------------------------------------------------------
   ! DERIVED DATA TYPES
   !------------------------------------------------------------------------------------------------
-
-
-  TYPE t_reorder_data
-     INTEGER              :: n_glb ! Global number of points per physical patch
-     INTEGER              :: n_own ! Number of own points, only belonging to physical patch
-     INTEGER, ALLOCATABLE :: reorder_index(:)
-     ! Index how to reorder the contributions of all compute PEs
-     ! into the global array (set on all PEs)
-     ! Only set on compute PEs, set to 0 on prefetching PE
-     INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
-     ! n_own, gathered for all compute PEs (set on all PEs)
-     INTEGER, ALLOCATABLE :: pe_own(:)
-     ! offset of contributions of PEs (set on all PEs)
-     INTEGER, ALLOCATABLE :: pe_off(:)
- CONTAINS
-    PROCEDURE :: finalize => t_reorder_data_finalize   !< destructor
-  END TYPE t_reorder_data
 
 
 #ifdef NOMPI
@@ -150,8 +133,8 @@ MODULE mo_async_latbc_types
 
   ! TYPE p_patch_info contains the ordering info for cells, edges and verts
   TYPE t_patch_data
-     TYPE(t_reorder_data) :: cells
-     TYPE(t_reorder_data) :: edges
+     TYPE(t_reorder_info) :: cells
+     TYPE(t_reorder_info) :: edges
      LOGICAL, ALLOCATABLE :: cell_mask(:,:), edge_mask(:,:)
      TYPE(t_var_data), ALLOCATABLE :: var_data(:)
 
@@ -258,9 +241,9 @@ CONTAINS
     !CALL message("", 't_patch_data_finalize')
 
     IF (ALLOCATED(patch_data%var_data))             DEALLOCATE(patch_data%var_data)
-    CALL patch_data%cells%finalize()
+    CALL release_reorder_info(patch_data%cells)
     IF (ALLOCATED(patch_data%cell_mask)) DEALLOCATE(patch_data%cell_mask)
-    CALL patch_data%edges%finalize()
+    CALL release_reorder_info(patch_data%edges)
     IF (ALLOCATED(patch_data%edge_mask)) DEALLOCATE(patch_data%edge_mask)
 #ifndef NOMPI
     ! note: we do not touch the MPI window pointer here:
@@ -275,19 +258,6 @@ CONTAINS
     END IF
 #endif
   END SUBROUTINE t_patch_data_finalize
-
-
-  SUBROUTINE t_reorder_data_finalize(reorder_data)
-    CLASS(t_reorder_data), INTENT(INOUT) :: reorder_data
-
-    !CALL message("", 't_reorder_data_finalize')
-
-    IF (ALLOCATED(reorder_data%reorder_index)) DEALLOCATE(reorder_data%reorder_index)
-    IF (ALLOCATED(reorder_data%own_idx))       DEALLOCATE(reorder_data%own_idx)
-    IF (ALLOCATED(reorder_data%own_blk))       DEALLOCATE(reorder_data%own_blk)
-    IF (ALLOCATED(reorder_data%pe_own))        DEALLOCATE(reorder_data%pe_own)
-    IF (ALLOCATED(reorder_data%pe_off))        DEALLOCATE(reorder_data%pe_off)
-  END SUBROUTINE t_reorder_data_finalize
 
 
   SUBROUTINE t_buffer_finalize(buffer)

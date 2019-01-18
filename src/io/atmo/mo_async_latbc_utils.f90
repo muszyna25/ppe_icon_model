@@ -36,7 +36,8 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data, t_buffer
+    USE mo_async_latbc_types,   ONLY: t_latbc_data, t_buffer
+    USE mo_reorder_info,        ONLY: t_reorder_info
     USE mo_kind,                ONLY: wp, i8
     USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma
@@ -944,7 +945,7 @@
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_latbc_intp_data"
       INTEGER(i8)                         :: eoff
-      TYPE(t_reorder_data), POINTER       :: p_ri
+      TYPE(t_reorder_info), POINTER       :: p_ri
       INTEGER                             :: jc, jk, jb, j, jv, nlev_in, nblks_c, ierrstat
       REAL(wp)                            :: log_exner, tempv
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
@@ -1646,11 +1647,11 @@
       TYPE(t_latbc_data), INTENT(IN), TARGET :: latbc             !< contains read buffer
       CHARACTER(LEN=*),   INTENT(IN)         :: name              !< variable name
       REAL(wp),           INTENT(INOUT)      :: target_buf(:,:)   !< target buffer
-      TYPE(t_reorder_data), POINTER, OPTIONAL, INTENT(IN) :: opt_p_ri         !< patch indices (cells, edges)
+      TYPE(t_reorder_info), POINTER, OPTIONAL, INTENT(IN) :: opt_p_ri         !< patch indices (cells, edges)
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_2D"
       INTEGER :: jm, j, jb, jl
-      TYPE(t_reorder_data), POINTER :: p_ri !< patch indices (cells, edges)
+      TYPE(t_reorder_info), POINTER :: p_ri !< patch indices (cells, edges)
 
       p_ri => latbc%patch_data%cells
       IF (PRESENT(opt_p_ri))  p_ri => opt_p_ri
@@ -1681,7 +1682,7 @@
       TYPE(t_latbc_data),   INTENT(IN), TARGET :: latbc             !< contains read buffer
       CHARACTER(LEN=*),     INTENT(IN)         :: name              !< variable name
       REAL(wp),             INTENT(INOUT)      :: target_buf(:,:,:) !< target buffer
-      TYPE(t_reorder_data), INTENT(IN)         :: p_ri              !< patch indices (cells, edges)
+      TYPE(t_reorder_info), INTENT(IN)         :: p_ri              !< patch indices (cells, edges)
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_3D_generic"
       INTEGER :: jm, jk, j, jb, jl

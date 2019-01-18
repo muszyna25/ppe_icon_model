@@ -215,7 +215,8 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
-    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, &
+    USE mo_reorder_info,              ONLY: t_reorder_info
+    USE mo_async_latbc_types,         ONLY: t_patch_data, &
                                             t_buffer, t_var_data, &
                                             t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
@@ -1363,7 +1364,7 @@ MODULE mo_async_latbc
       INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
       LOGICAL, INTENT(IN) :: owner_mask(n_points) ! owner_mask for logical patch
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
-      TYPE(t_reorder_data), INTENT(INOUT) :: p_reo ! Result: reorder info
+      TYPE(t_reorder_info), INTENT(INOUT) :: p_reo ! Result: reorder info
 
       ! local variables
       INTEGER :: i, n, ierrstat
@@ -1410,7 +1411,7 @@ MODULE mo_async_latbc
     !
     SUBROUTINE transfer_reorder_data(bcast_root, p_reo)
       INTEGER,              INTENT(IN)    :: bcast_root
-      TYPE(t_reorder_data), INTENT(INOUT) :: p_reo
+      TYPE(t_reorder_info), INTENT(INOUT) :: p_reo
 
       ! local variables
       INTEGER                             :: ierrstat, dummy(1), i, accum, &
