@@ -211,7 +211,7 @@ MODULE mo_async_latbc
     ! MPI Process type intrinsics
     USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
-    USE mo_mpi,                       ONLY: num_work_procs, p_n_work
+    USE mo_mpi,                       ONLY: num_work_procs
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
@@ -397,40 +397,38 @@ MODULE mo_async_latbc
     ! replicate data on prefetch proc
     ! ------------------------------------------------------------------------
 #ifndef NOMPI
-    SUBROUTINE set_patch_data(patch_data, cell_ro_idx, edge_ro_idx, &
-         bcast_root)
+    SUBROUTINE set_patch_data(patch_data, cell_ro_idx, edge_ro_idx)
       TYPE(t_patch_data), INTENT(INOUT) :: patch_data
       INTEGER, ALLOCATABLE, INTENT(in) :: cell_ro_idx(:), edge_ro_idx(:)
-      INTEGER,             INTENT(IN)    :: bcast_root
 
       IF(.NOT. my_process_is_pref()) THEN
 
         IF (ALLOCATED(cell_ro_idx)) THEN
-          CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
-            p_patch(1)%n_patch_cells, patch_data%cell_mask, &
-            cell_ro_idx, patch_data%cells)
+          CALL set_reorder_data(p_patch(1)%n_patch_cells, &
+            patch_data%cell_mask, cell_ro_idx, &
+            patch_data%cells)
         ELSE
-          CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
-            p_patch(1)%n_patch_cells, patch_data%cell_mask, &
-            p_patch(1)%cells%decomp_info%glb_index, patch_data%cells)
+          CALL set_reorder_data(p_patch(1)%n_patch_cells, &
+            patch_data%cell_mask, p_patch(1)%cells%decomp_info%glb_index, &
+            patch_data%cells)
         END IF
 
         IF (ALLOCATED(edge_ro_idx)) THEN
-          CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
-            p_patch(1)%n_patch_edges, patch_data%edge_mask, &
-            edge_ro_idx, patch_data%edges)
+          CALL set_reorder_data(p_patch(1)%n_patch_edges, &
+            patch_data%edge_mask, edge_ro_idx, &
+            patch_data%edges)
         ELSE
-          CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
-            p_patch(1)%n_patch_edges, patch_data%edge_mask, &
-            p_patch(1)%edges%decomp_info%glb_index, patch_data%edges)
+          CALL set_reorder_data(p_patch(1)%n_patch_edges, &
+            patch_data%edge_mask, p_patch(1)%edges%decomp_info%glb_index, &
+            patch_data%edges)
         END IF
 
       ENDIF
 
       IF(.NOT. my_process_is_mpi_test()) THEN
          ! transfer reorder data to prefetch PE
-         CALL transfer_reorder_data(bcast_root, patch_data%cells)
-         CALL transfer_reorder_data(bcast_root, patch_data%edges)
+         CALL transfer_reorder_data(patch_data%cells)
+         CALL transfer_reorder_data(patch_data%edges)
       ENDIF
 
     END SUBROUTINE set_patch_data
@@ -707,8 +705,7 @@ MODULE mo_async_latbc
       IF (.NOT. is_test) CALL replicate_data_on_pref_proc(var_data, bcast_root)
 
       ! create and transfer patch data
-      CALL set_patch_data(latbc%patch_data, &
-        &                 cell_ro_idx, edge_ro_idx, bcast_root)
+      CALL set_patch_data(latbc%patch_data, cell_ro_idx, edge_ro_idx)
 
       ! subroutine to read const (height level) data and to check
       ! whether some variable is specified in input file and setting
@@ -1368,9 +1365,8 @@ MODULE mo_async_latbc
     !             (i.e. not on prefetching PEs)
     !             The arguments don't make sense on the prefetching PE anyways
     !
-    SUBROUTINE set_reorder_data(n_points_g, n_points, owner_mask, glb_index, ri)
+    SUBROUTINE set_reorder_data(n_points, owner_mask, glb_index, ri)
 
-      INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
       INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
       LOGICAL, INTENT(IN) :: owner_mask(n_points) ! owner_mask for logical patch
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
@@ -1419,13 +1415,11 @@ MODULE mo_async_latbc
     !
     ! Transfers reorder data to restart PEs.
     !
-    SUBROUTINE transfer_reorder_data(bcast_root, ri
-      INTEGER,              INTENT(IN)    :: bcast_root
+    SUBROUTINE transfer_reorder_data(ri)
       TYPE(t_reorder_info), INTENT(INOUT) :: ri
 
       ! local variables
-      INTEGER                             :: ierrstat, dummy(1), i, accum, &
-           root_pref2work
+      INTEGER                             :: ierrstat, dummy(1), i, accum
       LOGICAL                             :: is_pref
       INTEGER, ALLOCATABLE                :: rcounts(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
