@@ -1739,7 +1739,6 @@ MODULE mo_solve_nonhydro
 !$ACC END PARALLEL
 
         ELSE IF (itime_scheme >= 5) THEN
-          PRINT *, "ITIME_SCHEME >= 5 !!!!!!!!!!!!!!!!"
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
