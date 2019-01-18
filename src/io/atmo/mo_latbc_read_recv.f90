@@ -126,6 +126,7 @@ CONTAINS
        CALL finish(routine, "Incompatible dimensions!")
     END IF
 
+    ! fixme: send more than 1 level at a time
     DO jk=1, nlevs
 
       ! read record as 1D field
@@ -220,6 +221,7 @@ CONTAINS
   !  @note This subroutine is called by prefetch PE only.
   !  Initial revision by M. Pondkule, DWD (2014-05-27) 
   !
+  ! fixme: allow actually using more than nlevs = 1
   SUBROUTINE prefetch_proc_send(win, var1_sp, nlevs, p_ri, ioff)
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
@@ -291,6 +293,7 @@ CONTAINS
 
        nval = p_ri%pe_own(np)*nlevs
 
+       ! fixme: use mpi_win_lock_all here
        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, lock_assert, win, mpi_error)
          
        ! consistency check:

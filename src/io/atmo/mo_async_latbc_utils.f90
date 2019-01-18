@@ -545,6 +545,8 @@
          CALL finish(routine, "File not found: "//TRIM(latbc_filename))
       ENDIF
 
+      ! fixme: the program should try to keep an already open file,
+      ! and only close+open if a new name needs to be used
       ! opening and reading file
       latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
@@ -951,6 +953,10 @@
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
         &                                    w_ifc(:,:,:), omega(:,:,:)
 
+      ! fixme: this routine opens and closes altogether too many
+      ! OpenMP parallel regions, extending the already present regions
+      ! and explicitly synchronizing in the few points actually needed
+      ! seems promising
 
       nblks_c = p_patch%nblks_c
       nlev_in = latbc%latbc_data(tlev)%atm_in%nlev
@@ -969,6 +975,10 @@
           latbc%buffer%vars(jv)%buffer, eoff, latbc%patch_data)
       ENDDO
 
+      ! fixme: by moving this down to the end of the subroutine one
+      ! could obviously eliminate the buffer arrays, since that would
+      ! save on the most precious resource, memory bandwidth, that
+      ! seems a promising approach.
       ! Reading the next time step
       IF (my_process_is_work()) CALL compute_start_async_pref()
 
@@ -1126,7 +1136,10 @@
       ! boundary exchange for a 2-D and 3-D array, needed because the
       ! vertical interpolation includes the halo region (otherwise, the
       ! syncs would have to be called after vert_interp)
-
+      ! fixme: how is this not controlled by the same predicate as the
+      ! preceding allocation and initialization of phi_sfc and psfc?
+      ! compute_input_pressure_and_height must not be called if either
+      ! of the two is not allocated
       IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
         IF (latbc%patch_data%cells%n_own > 0) THEN
           CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, &
