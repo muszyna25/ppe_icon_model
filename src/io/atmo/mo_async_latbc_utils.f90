@@ -1263,7 +1263,7 @@
 !$OMP END PARALLEL DO
 
         ! cleanup
-        IF (ALLOCATED(z_ifc_in)) DEALLOCATE(z_ifc_in)
+        DEALLOCATE(z_ifc_in)
       END IF
 
 #endif
