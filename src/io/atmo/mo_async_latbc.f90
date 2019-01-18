@@ -773,7 +773,7 @@ MODULE mo_async_latbc
       LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
 #ifndef NOMPI
       ! local variables
-      CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
+      CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_lc(:)
       ! dictionary which maps prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
       INTEGER                                 :: ierrstat, vlistID, nvars, varID, zaxisID,  &
@@ -808,7 +808,6 @@ MODULE mo_async_latbc
       ! allocate the number of vertical levels and other fields with
       ! the same size as number of variables
       ALLOCATE(latbc%buffer%nlev(ngrp_prefetch_vars),        &
-        &      latbc%buffer%grp_vars(ngrp_prefetch_vars),    &
         &      latbc%buffer%mapped_name(ngrp_prefetch_vars), &
         &      latbc%buffer%internal_name(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -845,14 +844,17 @@ MODULE mo_async_latbc
            CALL finish(routine, "Unknown file type")
          END IF
 
+         ALLOCATE(grp_vars_lc(ngrp_prefetch_vars), stat=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
          IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
            ! Search name mapping for name in file
            DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp))
+             grp_vars_lc(jp) = tolower(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
            ENDDO
          ELSE
            DO jp= 1, ngrp_prefetch_vars
-             latbc%buffer%grp_vars(jp) = grp_vars(jp)
+             grp_vars_lc(jp) = tolower(grp_vars(jp))
            ENDDO
          ENDIF
 
@@ -880,7 +882,7 @@ MODULE mo_async_latbc
 
             name_lc = tolower(name)
             DO jp = 1, ngrp_prefetch_vars !latbc%buffer%ngrp_vars
-               IF(name_lc == tolower(latbc%buffer%grp_vars(jp))) THEN
+               IF (name_lc == grp_vars_lc(jp)) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
 
@@ -907,9 +909,12 @@ MODULE mo_async_latbc
             ENDDO
          END DO LOOP
 
+         DEALLOCATE(grp_vars_lc, STAT=ierrstat)
+         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
          ! closes the open dataset
          CALL streamClose(fileID_latbc)
-      
+
        END IF
 
       CALL p_bcast(latbc%buffer%nlev(:),          p_comm_work_pref_compute_pe0, p_comm_work_pref)

@@ -79,7 +79,6 @@ MODULE mo_async_latbc_types
      INTEGER                                     :: ngrp_vars          ! Number of variables for prefetching
      CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: mapped_name(:)     ! name of mapped dictionary variables
      CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: internal_name(:)   ! corresponding internal name of variables
-     CHARACTER(LEN=VARNAME_LEN),     ALLOCATABLE :: grp_vars(:)        ! name of variables for prefetching
      INTEGER,                        ALLOCATABLE :: nlev(:)            ! Size of variables for prefetching
      TYPE(t_size),                   ALLOCATABLE :: vars(:)
      INTEGER,                        ALLOCATABLE :: varID(:)           ! ID for variable to be read from file
@@ -268,7 +267,6 @@ CONTAINS
 
     IF (ALLOCATED(buffer%mapped_name))    DEALLOCATE(buffer%mapped_name)
     IF (ALLOCATED(buffer%internal_name))  DEALLOCATE(buffer%internal_name)
-    IF (ALLOCATED(buffer%grp_vars))       DEALLOCATE(buffer%grp_vars)
     IF (ALLOCATED(buffer%nlev))           DEALLOCATE(buffer%nlev)
     IF (ALLOCATED(buffer%vars)) THEN
       DO i=1,SIZE(buffer%vars)
