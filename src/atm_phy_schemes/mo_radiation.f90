@@ -672,7 +672,7 @@ CONTAINS
     END DO
     DO jl = 1, jce
       tk_hl(jl,klevp1) = tk_sfc(jl)
-      tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
+      tk_hl(jl,1)      = tk_fl(jl,1)+(pp_hl(jl,1)-pp_fl(jl,1))*(tk_fl(jl,1) - tk_hl(jl,2))  &
         &                / (pp_fl(jl,1)-pp_hl(jl,2))
     END DO
     !
