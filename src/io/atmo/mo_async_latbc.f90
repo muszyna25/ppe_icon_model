@@ -394,52 +394,43 @@ MODULE mo_async_latbc
     ! replicate data on prefetch proc
     ! ------------------------------------------------------------------------
 #ifndef NOMPI
-    SUBROUTINE set_patch_data(latbc, cell_mask, cell_ro_idx, &
-         edge_mask, edge_ro_idx, bcast_root, &
-         latbc_varnames_dict)
-      TYPE (t_latbc_data), INTENT(INOUT) :: latbc
-      LOGICAL, ALLOCATABLE, INTENT(in) :: cell_mask(:,:), edge_mask(:,:)
+    SUBROUTINE set_patch_data(patch_data, cell_ro_idx, edge_ro_idx, &
+         bcast_root)
+      TYPE(t_patch_data), INTENT(INOUT) :: patch_data
       INTEGER, ALLOCATABLE, INTENT(in) :: cell_ro_idx(:), edge_ro_idx(:)
       INTEGER,             INTENT(IN)    :: bcast_root
-      TYPE (t_dictionary), INTENT(IN)    :: latbc_varnames_dict
 
-      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
+      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
         IF (ALLOCATED(cell_ro_idx)) THEN
           CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
-            p_patch(1)%n_patch_cells, cell_mask, &
-            cell_ro_idx, latbc%patch_data%cells)
+            p_patch(1)%n_patch_cells, patch_data%cell_mask, &
+            cell_ro_idx, patch_data%cells)
         ELSE
           CALL set_reorder_data(p_patch(1)%n_patch_cells_g, &
-            p_patch(1)%n_patch_cells, cell_mask, &
-            p_patch(1)%cells%decomp_info%glb_index, latbc%patch_data%cells)
+            p_patch(1)%n_patch_cells, patch_data%cell_mask, &
+            p_patch(1)%cells%decomp_info%glb_index, patch_data%cells)
         END IF
 
         IF (ALLOCATED(edge_ro_idx)) THEN
           CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
-            p_patch(1)%n_patch_edges, edge_mask, &
-            edge_ro_idx, latbc%patch_data%edges)
+            p_patch(1)%n_patch_edges, patch_data%edge_mask, &
+            edge_ro_idx, patch_data%edges)
         ELSE
           CALL set_reorder_data(p_patch(1)%n_patch_edges_g, &
-            p_patch(1)%n_patch_edges, edge_mask, &
-            p_patch(1)%edges%decomp_info%glb_index, latbc%patch_data%edges)
+            p_patch(1)%n_patch_edges, patch_data%edge_mask, &
+            p_patch(1)%edges%decomp_info%glb_index, patch_data%edges)
         END IF
 
       ENDIF
 
       IF(.NOT. my_process_is_mpi_test()) THEN
          ! transfer reorder data to prefetch PE
-         CALL transfer_reorder_data(bcast_root, latbc%patch_data%cells)
-         CALL transfer_reorder_data(bcast_root, latbc%patch_data%edges)
+         CALL transfer_reorder_data(bcast_root, patch_data%cells)
+         CALL transfer_reorder_data(bcast_root, patch_data%edges)
       ENDIF
-
-      ! subroutine to read const (height level) data and to check
-      ! whether some variable is specified in input file and setting
-      ! flag for its further usage
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT)  CALL check_variables(latbc, latbc_varnames_dict)
-
 
     END SUBROUTINE set_patch_data
 
@@ -711,9 +702,15 @@ MODULE mo_async_latbc
       END IF ! lsparse_latbc
 
       ! create and transfer patch data
-      CALL set_patch_data(latbc, latbc%patch_data%cell_mask, cell_ro_idx, &
-           latbc%patch_data%edge_mask, edge_ro_idx, bcast_root, &
-           latbc_varnames_dict)
+      CALL set_patch_data(latbc%patch_data, cell_ro_idx, edge_ro_idx, &
+           bcast_root)
+
+      ! subroutine to read const (height level) data and to check
+      ! whether some variable is specified in input file and setting
+      ! flag for its further usage
+      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
+        CALL check_variables(latbc, latbc_varnames_dict)
+
 
       ! open and read file containing information of prefetch variables
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
