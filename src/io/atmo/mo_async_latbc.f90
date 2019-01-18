@@ -244,7 +244,8 @@ MODULE mo_async_latbc
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  streamClose, streamInqFiletype,                    &
-         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
+         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
+         &                                  cdi_max_name
     USE mo_read_interface,            ONLY: nf
     USE mo_io_util,                   ONLY: read_netcdf_int_1d, t_netcdf_att_int
     USE mo_util_file,                 ONLY: util_filesize
@@ -783,7 +784,8 @@ MODULE mo_async_latbc
       INTEGER(KIND=i8)                        :: flen_latbc
       LOGICAL                                 :: l_exist, is_work
       CHARACTER(LEN=:), ALLOCATABLE           :: latbc_filename, latbc_file
-      CHARACTER(LEN=MAX_CHAR_LENGTH)          :: name, cdiErrorText, name_lc
+      CHARACTER(LEN=CDI_MAX_NAME)             :: name, name_lc
+      CHARACTER(LEN=MAX_CHAR_LENGTH)          :: cdiErrorText
 
       is_work = my_process_is_work()
 
