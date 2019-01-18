@@ -709,7 +709,8 @@ MODULE mo_async_latbc
       ! whether some variable is specified in input file and setting
       ! flag for its further usage
       IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
-        CALL check_variables(latbc, latbc_varnames_dict)
+        CALL check_variables(latbc%buffer, latbc%patch_data, &
+        &                    latbc_varnames_dict)
 
 
       ! open and read file containing information of prefetch variables
@@ -969,9 +970,10 @@ MODULE mo_async_latbc
     !  a variable or its alternative variable is provided as input and
     !  setting flag for its further usage.
     !
-    SUBROUTINE check_variables(latbc, latbc_dict)
-      TYPE(t_latbc_data),  INTENT(INOUT) :: latbc
-      TYPE (t_dictionary), INTENT(IN)    :: latbc_dict
+    SUBROUTINE check_variables(buffer, patch_data, latbc_dict)
+      TYPE(t_buffer), INTENT(inout) :: buffer
+      TYPE(t_patch_data), INTENT(in) :: patch_data
+      TYPE(t_dictionary), INTENT(in) :: latbc_dict
 
 #ifndef NOMPI
       ! local variables
@@ -984,9 +986,9 @@ MODULE mo_async_latbc
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! prefetch processor opens the file and checks if variables are present
-      IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
+      IF (my_process_is_work() .AND. p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          ! generate file name
-         latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level,&
+         latbc_filename = TRIM(generate_filename(nroot, patch_data%level,&
               &                                  time_config%tc_exp_startdate, &
               &                                  time_config%tc_exp_startdate))
          latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
@@ -1004,16 +1006,16 @@ MODULE mo_async_latbc
          ENDIF
 
          ! Check if rain water (QR) is provided as input
-         latbc%buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
+         buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
 
          ! Check if snow water (QS) is provided as input
-         latbc%buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QS', latbc_dict) /= -1)
+         buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QS', latbc_dict) /= -1)
 
 
          ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
 
          ! Check if vertical velocity (or OMEGA) is provided as input
-         latbc%buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
+         buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
 
          ! Check if surface pressure (VN) is provided as input
          lhave_vn = (test_cdi_varID(fileID_latbc, 'VN', latbc_dict) /= -1)
@@ -1031,7 +1033,7 @@ MODULE mo_async_latbc
          lhave_hhl =  .FALSE.
          IF (test_cdi_varID(fileID_latbc, 'Z_IFC', latbc_dict) /= -1) THEN
            lhave_hhl = .TRUE.
-           latbc%buffer%hhl_var   = 'Z_IFC'
+           buffer%hhl_var   = 'Z_IFC'
          END IF
 
          !
@@ -1040,10 +1042,10 @@ MODULE mo_async_latbc
          lhave_ps = .FALSE.
          IF (test_cdi_varID(fileID_latbc, 'PS', latbc_dict) /= -1) THEN
             lhave_ps = .TRUE.
-            latbc%buffer%psvar    = 'PS'
+            buffer%psvar    = 'PS'
          ELSE IF (test_cdi_varID(fileID_latbc, 'LNPS', latbc_dict) /= -1) THEN
             lhave_ps = .TRUE.
-            latbc%buffer%psvar    = 'LNPS'
+            buffer%psvar    = 'LNPS'
          ENDIF
 
          !
@@ -1052,10 +1054,10 @@ MODULE mo_async_latbc
          lhave_geop = .FALSE.
          IF (test_cdi_varID(fileID_latbc, 'GEOSP', latbc_dict) /= -1) THEN
             lhave_geop  = .TRUE.
-            latbc%buffer%geop_ml_var = 'GEOSP'
+            buffer%geop_ml_var = 'GEOSP'
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML', latbc_dict) /= -1) THEN
             lhave_geop  = .TRUE.
-            latbc%buffer%geop_ml_var = 'GEOP_ML'
+            buffer%geop_ml_var = 'GEOP_ML'
          ELSE IF (.NOT. lhave_theta_rho .AND. .NOT. lhave_hhl) THEN
             CALL finish(routine,'Could not find model-level sfc geopotential')
          ENDIF
@@ -1072,24 +1074,24 @@ MODULE mo_async_latbc
 
          ! --- DEFINE WHICH VARIABLES SHALL BE READ FROM FILE ---
 
-         latbc%buffer%lread_hhl         = .FALSE.
-         latbc%buffer%lread_theta_rho   = .FALSE.
-         latbc%buffer%lread_pres        = .FALSE.
-         latbc%buffer%lread_temp        = .FALSE.
-         latbc%buffer%lread_ps_geop     = .FALSE.
-         latbc%buffer%lconvert_omega2w  = .FALSE.
-         latbc%buffer%lcompute_hhl_pres = .FALSE.
+         buffer%lread_hhl         = .FALSE.
+         buffer%lread_theta_rho   = .FALSE.
+         buffer%lread_pres        = .FALSE.
+         buffer%lread_temp        = .FALSE.
+         buffer%lread_ps_geop     = .FALSE.
+         buffer%lconvert_omega2w  = .FALSE.
+         buffer%lcompute_hhl_pres = .FALSE.
 
          IF (lhave_hhl) THEN
 
            IF (lhave_theta_rho) THEN
-             latbc%buffer%lread_hhl       = .TRUE.
-             latbc%buffer%lread_theta_rho = .TRUE.
+             buffer%lread_hhl       = .TRUE.
+             buffer%lread_theta_rho = .TRUE.
              !
            ELSE IF (lhave_pres .AND. lhave_temp) THEN
-             latbc%buffer%lread_hhl       = .TRUE.
-             latbc%buffer%lread_pres      = .TRUE.
-             latbc%buffer%lread_temp      = .TRUE.
+             buffer%lread_hhl       = .TRUE.
+             buffer%lread_pres      = .TRUE.
+             buffer%lread_temp      = .TRUE.
              !
            ELSE
              CALL finish(routine, "Non-hydrostatic LATBC data set, but neither RHO+THETA_V nor P,T provided!")
@@ -1098,23 +1100,23 @@ MODULE mo_async_latbc
          ELSE
            
            IF (lhave_ps_geop .AND. lhave_temp) THEN
-             latbc%buffer%lread_temp        = .TRUE.
-             latbc%buffer%lread_ps_geop     = .TRUE.
-             latbc%buffer%lconvert_omega2w  = .TRUE.
-             latbc%buffer%lcompute_hhl_pres = .TRUE.
+             buffer%lread_temp        = .TRUE.
+             buffer%lread_ps_geop     = .TRUE.
+             buffer%lconvert_omega2w  = .TRUE.
+             buffer%lcompute_hhl_pres = .TRUE.
            ELSE
              CALL finish(routine, "Hydrostatic LATBC data set, but PS,GEOP,T not provided!")
            END IF
 
          END IF
 
-         latbc%buffer%lread_vn  = .FALSE.
-         latbc%buffer%lread_u_v = .FALSE.
+         buffer%lread_vn  = .FALSE.
+         buffer%lread_u_v = .FALSE.
          IF (lhave_vn) THEN
-           latbc%buffer%lread_vn = .TRUE.
+           buffer%lread_vn = .TRUE.
          ELSE
            IF (lhave_u .AND. lhave_v) THEN
-             latbc%buffer%lread_u_v = .TRUE.
+             buffer%lread_u_v = .TRUE.
            ELSE
              CALL finish(routine, "No VN or U&V available in LATBC data set!")
            END IF
@@ -1124,7 +1126,7 @@ MODULE mo_async_latbc
          !
          ! Consistency checks
          ! 
-         IF (latbc_config%init_latbc_from_fg .AND. .NOT. latbc%buffer%lread_hhl) THEN
+         IF (latbc_config%init_latbc_from_fg .AND. .NOT. buffer%lread_hhl) THEN
            CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
          END IF
 
@@ -1132,53 +1134,53 @@ MODULE mo_async_latbc
          !
          ! Write some status output:
          !
-         IF (latbc%buffer%lread_theta_rho) THEN
+         IF (buffer%lread_theta_rho) THEN
            CALL message(routine,'Prognostic thermodynamic variables (RHO and THETA_V) are read from file.')
          ENDIF
 
-         IF (.NOT. latbc%buffer%lread_qr) THEN
+         IF (.NOT. buffer%lread_qr) THEN
            CALL message(routine,'Rain water (QR) not available in input data.')
          ENDIF
 
-         IF (.NOT. latbc%buffer%lread_qs) THEN
+         IF (.NOT. buffer%lread_qs) THEN
             CALL message(routine,'Snow water (QS) not available in input data.')
          ENDIF
 
-         IF (latbc%buffer%lread_hhl) THEN
+         IF (buffer%lread_hhl) THEN
             CALL message(routine,'Input levels (HHL) are read from file.')
          ELSE
             CALL message(routine,'Input levels (HHL) are computed from sfc geopotential.')
          ENDIF
 
-         IF (.NOT. latbc%buffer%lread_w) THEN
+         IF (.NOT. buffer%lread_w) THEN
            CALL message(routine, "Neither W nor OMEGA provided! W is set to zero at LBCs")
-         ELSE IF (latbc%buffer%lconvert_omega2w) THEN
+         ELSE IF (buffer%lconvert_omega2w) THEN
             CALL message(routine,'Compute W from OMEGA.')
          ENDIF
 
-         IF (latbc%buffer%lread_ps_geop) THEN
+         IF (buffer%lread_ps_geop) THEN
            CALL message(routine,'PS and GEOP are read from file.')
          ELSE IF (lhave_ps_geop) THEN
            CALL message(routine,'PS and GEOP are ignored.')
          END IF
 
-         IF (latbc%buffer%lcompute_hhl_pres) THEN
+         IF (buffer%lcompute_hhl_pres) THEN
            CALL message(routine,'HHL and PRES are computed based on PS and GEOP.')
          END IF
 
-         IF (latbc%buffer%lread_pres) THEN
+         IF (buffer%lread_pres) THEN
            CALL message(routine,'PRES is read from file.')
          ELSE
            CALL message(routine,'PRES is diagnosed.')
          END IF
 
-         IF (latbc%buffer%lread_temp) THEN
+         IF (buffer%lread_temp) THEN
            CALL message(routine,'TEMP is read from file.')
          ELSE
            CALL message(routine,'TEMP is diagnosed.')
          END IF
 
-         IF (latbc%buffer%lread_vn) THEN
+         IF (buffer%lread_vn) THEN
            CALL message(routine,'VN is read from file.')
          ELSE
            CALL message(routine,'U,V are read from file.')
@@ -1188,22 +1190,22 @@ MODULE mo_async_latbc
 
       ! broadcast data to prefetching and compute PE's
       ! public constant: p_comm_work_pref_compute_pe0
-      CALL p_bcast(latbc%buffer%psvar,                    p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%geop_ml_var,              p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%hhl_var,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_qs,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_qr,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_vn,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_u_v,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_w,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%psvar,                    p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%geop_ml_var,              p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%hhl_var,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_qs,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_qr,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_vn,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_u_v,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_w,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
-      CALL p_bcast(latbc%buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_ps_geop,            p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_pres,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lread_temp,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lconvert_omega2w,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%lcompute_hhl_pres,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_ps_geop,            p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_pres,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lread_temp,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lconvert_omega2w,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(buffer%lcompute_hhl_pres,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
 #endif
 
     END SUBROUTINE check_variables
