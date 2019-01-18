@@ -42,7 +42,6 @@ MODULE mo_async_latbc_types
   ! derived data types:
   PUBLIC :: t_latbc_data
   PUBLIC :: t_patch_data
-  PUBLIC :: t_var_data
   PUBLIC :: t_mem_win
   PUBLIC :: t_buffer
   PUBLIC :: t_size
@@ -125,17 +124,11 @@ MODULE mo_async_latbc_types
   END TYPE t_buffer
 
 
-  TYPE t_var_data
-     TYPE(t_var_metadata) :: info  ! Info structure for variable
-  END TYPE t_var_data
-
-
   ! TYPE p_patch_info contains the ordering info for cells, edges and verts
   TYPE t_patch_data
      TYPE(t_reorder_info) :: cells
      TYPE(t_reorder_info) :: edges
      LOGICAL, ALLOCATABLE :: cell_mask(:,:), edge_mask(:,:)
-     TYPE(t_var_data), ALLOCATABLE :: var_data(:)
 
      ! used for async prefetching only
      TYPE(t_mem_win) :: mem_win  !< data structure containing variables for MPI memory window
@@ -239,7 +232,6 @@ CONTAINS
 
     !CALL message("", 't_patch_data_finalize')
 
-    IF (ALLOCATED(patch_data%var_data))             DEALLOCATE(patch_data%var_data)
     CALL release_reorder_info(patch_data%cells)
     IF (ALLOCATED(patch_data%cell_mask)) DEALLOCATE(patch_data%cell_mask)
     CALL release_reorder_info(patch_data%edges)

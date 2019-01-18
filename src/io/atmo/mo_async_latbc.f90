@@ -216,8 +216,7 @@ MODULE mo_async_latbc
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
     USE mo_reorder_info,              ONLY: t_reorder_info
-    USE mo_async_latbc_types,         ONLY: t_patch_data, &
-                                            t_buffer, t_var_data, &
+    USE mo_async_latbc_types,         ONLY: t_patch_data, t_buffer, &
                                             t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: read_latbc_data, compute_init_latbc_data, async_init_latbc_data,&
@@ -280,6 +279,10 @@ MODULE mo_async_latbc
     
     ! max. number of LATBC group variables
     INTEGER,          PARAMETER :: MAX_NUM_GRPVARS = 200
+
+  TYPE t_var_data
+    TYPE(t_var_metadata), POINTER :: info  ! Info structure for variable
+  END TYPE t_var_data
 
   CONTAINS
 
@@ -399,8 +402,6 @@ MODULE mo_async_latbc
       TYPE(t_patch_data), INTENT(INOUT) :: patch_data
       INTEGER, ALLOCATABLE, INTENT(in) :: cell_ro_idx(:), edge_ro_idx(:)
       INTEGER,             INTENT(IN)    :: bcast_root
-
-      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
@@ -594,11 +595,13 @@ MODULE mo_async_latbc
       INTEGER                       :: ierrstat, ic, idx_c, blk_c, cell_active_ranks, edge_active_ranks
       INTEGER                       :: tlen, covered
       INTEGER(mpi_address_kind)     :: mem_size
-      LOGICAL                       :: is_pref, is_work
+      LOGICAL                       :: is_pref, is_work, is_test
       INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:), var_buf_map(:)
+      TYPE(t_var_data), ALLOCATABLE :: var_data(:)
 
       is_pref = my_process_is_pref()
       is_work = my_process_is_work()
+      is_test = my_process_is_mpi_test()
       ! Set broadcast root for intercommunicator broadcasts
       IF (is_pref) THEN
          ! Root is proc 0 on the prefetch PE
@@ -701,9 +704,11 @@ MODULE mo_async_latbc
 
       END IF ! lsparse_latbc
 
+      IF (.NOT. is_test) CALL replicate_data_on_pref_proc(var_data, bcast_root)
+
       ! create and transfer patch data
-      CALL set_patch_data(latbc%patch_data, cell_ro_idx, edge_ro_idx, &
-           bcast_root)
+      CALL set_patch_data(latbc%patch_data, &
+        &                 cell_ro_idx, edge_ro_idx, bcast_root)
 
       ! subroutine to read const (height level) data and to check
       ! whether some variable is specified in input file and setting
@@ -725,14 +730,13 @@ MODULE mo_async_latbc
       CALL dict_finalize(latbc_varnames_dict)
 
       CALL match_var_data_to_buffer(var_buf_map, latbc%buffer, &
-           latbc%patch_data%var_data, StrLowCasegrp)
-      CALL infer_buffer_hgrid(latbc%buffer, latbc%patch_data%var_data, &
-           var_buf_map)
+           var_data, StrLowCasegrp)
+      CALL infer_buffer_hgrid(latbc%buffer, var_data, var_buf_map)
 
       ! initialize the memory window for communication
-      IF (.NOT. my_process_is_mpi_test()) THEN
+      IF (.NOT. is_test) THEN
         IF (is_work) THEN
-          CALL create_client_buffers(latbc%buffer, latbc%patch_data%var_data,&
+          CALL create_client_buffers(latbc%buffer, var_data,&
             latbc%patch_data%cells%n_own, latbc%patch_data%nblks_c, &
             latbc%patch_data%edges%n_own, latbc%patch_data%nblks_e, &
             var_buf_map, mem_size)
@@ -1223,8 +1227,8 @@ MODULE mo_async_latbc
     !  This routine has to be called by all PEs (work and prefetch)
     !
 #ifndef NOMPI
-    SUBROUTINE replicate_data_on_pref_proc(patch_data, bcast_root)
-      TYPE(t_patch_data),  INTENT(INOUT) :: patch_data
+    SUBROUTINE replicate_data_on_pref_proc(var_data, bcast_root)
+      TYPE(t_var_data), ALLOCATABLE, INTENT(out) :: var_data(:)
       INTEGER,             INTENT(IN) :: bcast_root
 
       ! local variables
@@ -1271,7 +1275,7 @@ MODULE mo_async_latbc
       IF (all_nvars <= 0) RETURN
 
       ! allocate the array of variables
-      ALLOCATE(patch_data%var_data(all_nvars))
+      ALLOCATE(var_data(all_nvars))
 
       i2 = 0
       ! For each var list, get its components
@@ -1317,7 +1321,7 @@ MODULE mo_async_latbc
             nelems = 0
             DO WHILE (ASSOCIATED(element))
                i2 = i2 + 1
-               patch_data%var_data(i2)%info = element%field%info
+               var_data(i2)%info => element%field%info
                nelems = nelems+1
                info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
                element => element%next_list_element
@@ -1339,13 +1343,13 @@ MODULE mo_async_latbc
 
                ! Set info structure from binary representation in info_storage
                element%field%info = TRANSFER(info_storage(:, n), info)
-               patch_data%var_data(i2)%info = element%field%info
+               var_data(i2)%info => element%field%info
                ALLOCATE(element%next_list_element)
                element => element%next_list_element
              ENDDO
              i2 = i2 + 1
              element%field%info = TRANSFER(info_storage(:, nelems), info)
-             patch_data%var_data(i2)%info = element%field%info
+             var_data(i2)%info => element%field%info
              NULLIFY(element%next_list_element)
            ELSE
              NULLIFY(p_var_list%p%first_list_element)
