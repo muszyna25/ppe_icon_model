@@ -394,6 +394,7 @@ case "$ac_sitename" in
                             gpu*)
                                 config_target = daint_gpu
                                 FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
+                                LDFLAGS     = -Wl,--allow-multiple-definition
                                 ;;
                             *)
                                 config_target = daint_cpu
