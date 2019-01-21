@@ -33,26 +33,24 @@ MODULE mo_sea_ice
   !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, ltimer
+  USE mo_run_config,          ONLY: dtime
   USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_dynamics_config,     ONLY: nold, nnew
+  USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D, t_patch_vert
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
-  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL,      &
-    &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
-    &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf,    &
-    &                               fr_fac, mu, alf, alv, clw, cpd, zemiss_def, rd, &
-    &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf,                    &
+    &                               fr_fac, mu, alf, alv, clw, cpd, zemiss_def, rd,     &
+    &                               stbo, tmelt, Cd_ia, sice, alb_sno_vis, alb_sno_nir, &
     &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
-  USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, limit_seaice, seaice_limit
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, albi, albim, albsm, albs, albedoW_sim, &
-    &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
-    &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
-    &                               init_analytic_conc_param, init_analytic_hi_param, &
+  USE mo_sea_ice_nml,         ONLY: i_ice_dyn, hnull, hmin, albi, albim, albsm, albs, albedoW_sim, &
+    &                               i_ice_albedo, leadclose_1, leadclose_2n,                       &
+    &                               use_IceInitialization_fromTemperature,                         &
+    &                               use_constant_tfreez, use_calculated_ocean_stress, t_heat_base, &
+    &                               init_analytic_conc_param, init_analytic_hi_param,              &
     &                               init_analytic_hs_param, init_analytic_temp_under_ice
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_state,         ONLY: v_base, ocean_restart_list, ocean_default_list
@@ -60,7 +58,7 @@ MODULE mo_sea_ice
   USE mo_var_groups,          ONLY: groups
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_cf_convention
-  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_grib2,               ONLY: grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
   USE mo_zaxis_type,          ONLY: ZA_GENERIC_ICE, ZA_SURFACE
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_sea_ice_budgets
@@ -68,13 +66,8 @@ MODULE mo_sea_ice
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_ice_fem_interface,   ONLY: ice_fem_interface
-  USE mo_ice_advection,       ONLY: ice_advection_upwind, ice_advection_upwind_einar
-  USE mo_ice_fem_icon_init,   ONLY: init_fem_wgts, destruct_fem_wgts, ice_fem_grid_init, ice_fem_grid_post
+  USE mo_ice_fem_icon_init,   ONLY: ice_fem_grid_init, ice_fem_grid_post
   USE mo_ice_fem_init,        ONLY: ice_init_fem
-!  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_timer,               ONLY: timer_start, timer_stop
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
@@ -96,7 +89,6 @@ MODULE mo_sea_ice
 !  PUBLIC :: set_ice_albedo
 !  PUBLIC :: sum_fluxes
 !  PUBLIC :: ave_fluxes
-  PUBLIC :: upper_ocean_TS
   PUBLIC :: ice_conc_change
   PUBLIC :: ice_ocean_stress
   PUBLIC :: ice_clean_up_thd, ice_clean_up_dyn
@@ -174,7 +166,7 @@ CONTAINS
     INTEGER,               INTENT(IN)    :: i_no_ice_thick_class
     ! Local variables
     INTEGER :: ibits = DATATYPE_PACK16
-    INTEGER :: alloc_cell_blocks, ist
+    INTEGER :: alloc_cell_blocks
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_atmos_fluxes'
     INTEGER :: datatype_flt
@@ -1140,327 +1132,6 @@ CONTAINS
 
   END SUBROUTINE set_ice_albedo
 
-
-
-  !-------------------------------------------------------------------------------
-  !
-  !
-  !>
-  !! ! upper_ocean_TS: Adjusts the temperature and salinity of the upper ocean grid
-  !!                 cell according to atmospheric heat and fresh-water fluxes,
-  !!                 surface melting, ice growth, etc. The upper ocean temperature
-  !!                 is also changed in subroutine ice_conc_change and at the
-  !!                beginning of subroutine ice_growth
-  !!
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
-  !! Dirk Notz, following MPI-OM. Code transfered to ICON.
-  !!
-  SUBROUTINE upper_ocean_TS(p_patch, p_patch_vert, ice, p_os, atmos_fluxes)
-    TYPE(t_patch),TARGET,             INTENT(IN)    :: p_patch
-    TYPE(t_patch_vert),        INTENT(IN)    :: p_patch_vert
-    TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
-    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
-
-    !Local Variables
-    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) ::   &
-      & zUnderIceOld,  &! water in upper ocean grid cell below ice (prev. time)   [m]
-      & heatOceI,      &! heat flux into ocean through formerly ice covered areas [W/m^2]
-      & heatOceW,      &! heat flux into ocean through open water areas           [W/m^2]
-      & Delhice,       &! average change in ice thickness within a grid cell      [m]
-      & Delhsnow,      &! average change in snow thickness within a grid cell     [m]
-      & snowiceave,    &! average snow to ice conversion within a grid cell       [m]
-      & Tfw,           &! sea surface freezing temperature                        [C]
-      & csst,          &! sea surface temperature - approx. after cooling (input) [C]
-      & sss,           &! sea surface salinity (input only)                       [psu]
-      & preci,         &! solid precipitation rate                                [m/s]
-      & precw           ! liquid precipitation rate                               [m/s]
-      !& evap,          &! evaporated water                                       [psu]
-
-    REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks) :: h1,h2,h3,snowmelted,xheat,xnewice
-
-    TYPE(t_subset_range), POINTER :: subset
-    INTEGER :: block, cell, cellStart,cellEnd
-
-    zUnderIceOld(:,:) = 0.0_wp
-    heatOceI    (:,:) = 0.0_wp
-    heatOceW    (:,:) = 0.0_wp
-    Delhice     (:,:) = 0.0_wp
-    Delhsnow    (:,:) = 0.0_wp
-    snowiceave  (:,:) = 0.0_wp
-    Tfw         (:,:) = 0.0_wp
-    csst        (:,:) = 0.0_wp
-    sss         (:,:) = 0.0_wp
-    preci       (:,:) = 0.0_wp
-    precw       (:,:) = 0.0_wp
-    h1          (:,:) = 0.0_wp
-    h2          (:,:) = 0.0_wp
-    h3          (:,:) = 0.0_wp
-    snowmelted  (:,:) = 0.0_wp
-    xheat       (:,:) = 0.0_wp
-    xnewice     (:,:) = 0.0_wp
-
-    !-------------------------------------------------------------------------------
-    CALL dbg_print('UpperOcTS beg: hi',   ice%hi,                              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: hs',   ice%hs,                              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: conc', ice%conc,                            str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: zUnderIce', ice%zUnderIce,                  str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: h',    p_os%p_prog(nold(1))%h,              str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: SST',  p_os%p_prog(nold(1))%tracer(:,1,:,1),str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOcTS beg: SSS',  p_os%p_prog(nold(1))%tracer(:,1,:,2),str_module, 4, in_subset=p_patch%cells%owned)
-    !-------------------------------------------------------------------------------
-
-    !TODOram: openmp
-    subset => p_patch%cells%all
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, cellStart, cellEnd)
-      DO cell = cellStart, cellEnd
-        IF (subset%vertical_levels(cell,block) < 1) CYCLE
-        ! #eoo# What is swsum?
-        ! swsum = 0.0_wp
-        !sao_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
-
-        ! Ocean points only
-        ! Calculate change in water level 'zo' from liquid and solid precipitation and
-        ! evaporation
-        sss             (cell,block)   = p_os%p_prog(nold(1))%tracer(cell,1,block,2)
-        precw           (cell,block)   = atmos_fluxes% rprecw (cell,block)
-        preci           (cell,block)   = atmos_fluxes% rpreci (cell,block)
-        !evap            (cell,block)   = (atmos_fluxes% latw(cell,block)/ alv * dtime * &
-        !  &                       sum(ice%conc(cell,1,block), 2) +          &
-        !  &                       sum(ice%evapwi(cell,1,block) * ice% conc(cell,1,block), 2)) /rho_ref
-
-        ! Calculate the sea surface freezing temperature                        [C]
-        IF ( no_tracer < 2 .OR. use_constant_tfreez ) THEN
-          Tfw(cell,block) = Tf
-        ELSE
-          Tfw(cell,block) = -mu*sss(cell,block)
-        ENDIF
-
-        ! TODO: No temperature change due to precip yet. Should not be done here
-
-        ! Calculate average draft and thickness of water underneath ice in upper ocean grid box
-        !  - changes in hi and hs from sbrt ice_growth are included here
-        zUnderIceOld    (cell,block)   = ice%zUnderIce(cell,block)   !  not needed anymore
-      ! ice%draft       (cell,:,block) = (rhos * ice%hs(cell,:,block) + rhoi * ice%hi(cell,:,block)) / rho_ref
-      ! ice%draftave    (cell,block)   = sum(ice%draft(cell,:,block) * ice%conc(cell,:,block))
-        ice%totalsnowfall(cell,block) =  atmos_fluxes%rpreci(cell,block)*dtime*ice%conc(cell,1,block)
-      ! ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
-      !   &                            + p_os%p_prog(nold(1))%h(cell,block)                &
-      !   &                            - ice%draftave(cell,block)
-        !  #slo# 2015-01: bugfix - totalsnowfall was added to zunderice - inconsistent to zui=h-draftave
-        ! &                            + ice%totalsnowfall(cell,block)
-
-        ! Calculate average change in ice thickness and the snow-to-ice conversion with respect to whole grid area
-        ! #slo# 2015-01: could be expressed as water equivalent here
-        Delhice   (cell,block) = SUM( ( ice%hi(cell,:,block) - ice%hiold(cell,:,block) )*ice%conc(cell,:,block))
-        Delhsnow  (cell,block) = SUM( ( ice%hs(cell,:,block) - ice%hsold(cell,:,block) )*ice%conc(cell,:,block))
-
-        ! snowiceave in averaged ice thickness (m)
-        !snowiceave(cell,block) = SUM( ice%snow_to_ice(cell,:,block)*ice% conc(cell,:,block))
-        ! snowiceave now in water equivalent, snow_to_ice has snow density
-        snowiceave(cell,block) = SUM( ice%snow_to_ice(cell,:,block)*ice% conc(cell,:,block))*rhos/rho_ref
-
-        ! Adjust change in snow and ice thickness for snow-ice formation, which is dealt with separately in the fresh-water balance
-        !!Delhsnow  (cell,block) = Delhsnow(cell, block) + snowiceave (cell, block)  
-
-        ! Calculate heat input through formerly ice covered and through open water areas
-        ! #slo# 2014-12: bugfix for qio3: heatOceI is for the whole grid area
-        !                heat needs scaling with concentration to be valid for whole area in all cases
-      ! IF (3 == i_Qio_type) THEN
-      !   ! If the whole heat from the ice is used to melt the ice, the scaling
-      !   ! with the ice concentration has to be skipped here
-      !   heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
-      ! ELSE
-      !   heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block) * ice% conc(cell,:,block))
-      ! END IF
-        ! #slo# 2014-12: rescaling of melting/growing energy with concentration is done before
-        !                in ice_slow to use energy for SST change
-        heatOceI(cell,block)   = sum(ice% heatOceI(cell,:,block))
-        heatOceW(cell,block) = ( atmos_fluxes%SWnetw(cell,block) &
-          &                    + atmos_fluxes%LWnetw(cell,block) &
-          &                    + atmos_fluxes%sensw(cell,block)  &
-          &                    + atmos_fluxes%latw(cell,block) ) &
-                               *(1.0_wp-sum(ice%conc(cell,:,block)))
-
-        ! Calculate possible super-cooling of the surface layer by heatOceW
-        !  #slo# 2014-12-11: heatOceW is part of heat flux over open water, supercooled sst is calculated over whole grid area
-        xheat(cell,block)= heatocew(cell,block)
-        csst(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,1) &
-          &                + dtime*heatOceW(cell,block)/( clw*rho_ref*ice%zUnderIce(cell,block) )
-
-        ! #slo# 2015-01: control calculation of newice directly from heat flux heatOceW
-        !  - check effect of supercooling is required
-        !  - newice is in ice thickness
-      ! IF (p_os%p_prog(nold(1))%tracer(cell,1,block,1)< Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
-      !   xnewice(cell,block) = - heatOceW(cell,block)*dtime/(alf*rhoi)
-      !   heatOceW(cell,block) = 0.0_wp
-      ! ELSE
-      !   xnewice(cell,block) = 0.0_wp
-      ! ENDIF
-
-        ! #slo# 2014-11: wrong comment, energy not yet added to SST, but must be added to heatOceW or heatOceI
-        !                part of heatOceW used for forming newice is added here
-        ! Add energy for new-ice formation due to supercooled ocean to ocean temperature, form new ice
-        IF ( csst(cell,block) < Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
-          ! New ice forming over open water due to super cooling
-          ! Fixed 2. April (2014) - newice is now the volume of ice formed over open water
-          ! #slo# 2014-12: bugfix: heatOceW is already reduced to (1-conc)*heat,
-          !                        therefore newice is value for whole grid area, not multiplied by 1-conc
-          !                        results in larger sea ice growth
-          !  Attention: in ice_concentration_change as well, newice must not be multiplied by 1-conc
-          !ice%newice(cell,block) = (1._wp-ice%concSum(cell,block))*( Tfw(cell,block) - csst(cell,block) ) &
-          ice%newice(cell,block) = ( Tfw(cell,block) - csst(cell,block) ) &
-             &                     * ice%zUnderIce(cell,block)*clw*rho_ref/( alf*rhoi )
-          ! Flux required to warm the ocean to the freezing point
-          ! #slo# 2015-01: bugfix for supercooled ocean: whole grid area is cooled below freezing point,
-          !                no multiplication by 1-conc is required to calculate the part of heatOceW due to supercooling
-          !                but check: doubled supercooling, since it is already taken into account in oce_ice_heatflx?
-          heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
-            &                      *ice%zUnderIce(cell,block)*clw*rho_ref/dtime
-         !  &                      *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
-
-          ! #slo# 2014-11: bugfix: value of newice was kept from last timestep!
-        ELSE
-          ice%newice(cell,block) = 0.0_wp
-        ENDIF
-
-        ! test
-      ! ice%newice(cell,block) = xnewice(cell,block)
-
-        ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes variables - no flux under ice:
-        atmos_fluxes%HeatFlux_ShortWave(cell,block) = atmos_fluxes%SWnetw(cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
-        atmos_fluxes%HeatFlux_LongWave (cell,block) = atmos_fluxes%LWnetw(cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
-        atmos_fluxes%HeatFlux_Sensible (cell,block) = atmos_fluxes%sensw (cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
-        atmos_fluxes%HeatFlux_Latent   (cell,block) = atmos_fluxes%latw  (cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
-
-        ! #slo# 2013-06
-        ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
-        !  - HeatFlux_Total is calculated here, provided to tracer eq. using topBoundCond_Temp_vdiff, calculated in update_sfcflx
-        !  - topBoundCond_Temp_vdiff is 
-        !p_os%p_prog(nold(1))%tracer(cell,1,block,1) = p_os%p_prog(nold(1))%tracer(cell,1,block,1)&
-        !  &                                    + dtime*(heatOceI + heatOceW) /               &
-        !  &                                    (clw*rho_ref * ice%zUnderIce)
-        ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(cell,block) ) ?
-        !p_oce_sfc%TopBC_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
-        atmos_fluxes%HeatFlux_Total(cell,block) = heatOceI(cell,block) + heatOceW(cell,block)
-
-        ! TODO:
-        ! Temperature change of upper ocean grid cell due  to melt-water inflow and
-        ! precipitation
-        !p_os%p_prog(nold(1))%tracer(cell,1,block,1) = (p_os%p_prog(nold(1))%tracer(cell,1,block,1) &
-        !  &                      *zUnderIceOld                                       &
-        !  &                      + precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-        !  &                        sum(ice%surfmeltT(cell,1,block) * ice%surfmelt * ice%conc(cell,1,block),2)) / &
-        !  &                        (zUnderIceOld + sum(ice%surfmelt*ice%conc(cell,1,block),2) +    &
-        !  &                        precw + preci)
-        !
-        ! Change salinity of upper ocean grid box from ice growth/melt, snowice
-        ! formation and precipitation
-        !p_os%p_prog(nold(1))%tracer(cell,1,block,2) = p_os%p_prog(nold(1))%tracer(cell,1,block,2)  &
-        !  &                                    + (Delhice(cell,block)*rhoi - snowiceave(cell,block)*rhos)/rho_ref *  &
-        !  &                                    MIN(Sice, sao_top(cell,block)) / ice%zUnderIce(cell,block)
-
-        ! #slo# 2013-06
-        ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
-        !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
-        !atmos_fluxes%forc_fwsice(cell,block) = -Delhice(cell,block)*rhoi - snowiceave(cell,block)*rhos)/(rho_ref*dtime)
-
-        ! Volmue flux
-        ! Fixed 27. March
-        ! unit: m/s
-        ! TODO: VolumeFlux_UnderIce only from rain
-        atmos_fluxes%FrshFlux_VolumeIce(cell,block) = precw(cell,block)*ice%concSum(cell,block)   !& ! Rain goes through
-
-        ! Tracer flux
-        ! Fixed 27. March
-        ! -->> snow growth (Delhsnow > 0) does NOT change tracers, but snow melt does
-        ! -->> rain is only included in the volumeice, totalice now only contains
-        !      fluxes that do not change the total fresh-water volume in the grid cell
-        !  #slo# 2015-01: better reformulate with ice-change, snowmelt, snoiceave - assign variables in sbrt icegrowth!
-        IF (v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
-          atmos_fluxes%FrshFlux_TotalIce(cell,block) = &
-        &        - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt and growth
-        &            - MERGE(&
-        &         (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime), &
-        &         0.0_wp, &
-        &         Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) &  ! snow melt ONLY
-        &        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! new ice formation over open water
-
-          ! divide three processes:
-          ! ice melt and growth including snow_to_ice conversion proportional to salt difference of water and ice
-          h1(cell,block)= - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)
-          ! snow melt only, without snow_to_ice conversion, in m water equivalent
-          snowmelted(cell,block) = (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/rho_ref &
-            &                      + snowiceave(cell,block)
-          ! snow melt only, without snow_to_ice conversion, in m water equivalent
-          IF (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) THEN
-            h2(cell,block) = -(Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime)
-          !IF (snowmelted(cell,block) < 0.0_wp) THEN
-          !  h2(cell,block) = -snowmelted(cell,block)/dtime
-          ELSE
-            h2(cell,block) = 0.0_wp
-          ENDIF
-          ! new ice formation
-          h3(cell,block) =-(1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)
-          
-          ! test the new total ice flux:
-          !atmos_fluxes%FrshFlux_TotalIce(cell,block) = h1(cell,block) + h2(cell,block) + h3(cell,block)
-
-        ENDIF
-
-        !heatabs         (cell,block)   = swsum * atmos_fluxes% SWin(cell,block) * (1 - ice%concsum)
-
-        ! set to zero on land points
-        IF (v_base%lsm_c(cell,1,block) > sea_boundary ) THEN
-          atmos_fluxes%HeatFlux_Total    (cell,block) = 0.0_wp
-          atmos_fluxes%HeatFlux_ShortWave(cell,block) = 0.0_wp
-          atmos_fluxes%HeatFlux_LongWave (cell,block) = 0.0_wp
-          atmos_fluxes%HeatFlux_Sensible (cell,block) = 0.0_wp
-          atmos_fluxes%HeatFlux_Latent   (cell,block) = 0.0_wp
-        END IF
-
-      END DO
-    END DO
-
-    CALL dbg_print('UpperOceTS: hi       ', ice%hi       ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: hiold    ', ice%hiold    ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: hs       ', ice%hs       ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: hsold    ', ice%hsold    ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: Delhice  ', Delhice      ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: Delhsnow ', Delhsnow     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: draft    ', ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: draftave ', ice%draftave ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: zUndIceOld',zUnderIceOld, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: csst-cooled', csst       ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: SSS      ', sss          ,str_module, 5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: xnewice  ', xnewice      ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: OceW beg ', xheat        ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: heatOceI ', heatOceI     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: SnIceAveWE', snowiceave  ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: totalsnowfall',ice%totalsnowfall           , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: snowmelted'   ,snowmelted                  , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: SWnetw   ', atmos_fluxes%SWnetw            , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: LWnetw   ', atmos_fluxes%LWnetw            , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: sensw    ', atmos_fluxes%sensw             , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: latw     ', atmos_fluxes%latw              , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: ShortWave', atmos_fluxes%HeatFlux_ShortWave, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: LongWave ', atmos_fluxes%HeatFlux_LongWave , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: Sensible ', atmos_fluxes%HeatFlux_Sensible , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: Latent   ', atmos_fluxes%HeatFlux_Latent   , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: TotalHeat', atmos_fluxes%HeatFlux_Total    , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: TotalIce ', atmos_fluxes%FrshFlux_TotalIce , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: VolumeIce', atmos_fluxes%FrshFlux_VolumeIce, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: h1       ', h1                             , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: h2       ', h2                             , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpperOceTS: h3       ', h3                             , str_module, 4, in_subset=p_patch%cells%owned)
-
-  END SUBROUTINE upper_ocean_TS
-
   !-------------------------------------------------------------------------
   !
   !> Calculate the stress the ocean sees because of the precence of ice
@@ -1733,7 +1404,7 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
     ! For wind-stress ramping
-    REAL(wp) :: ramp = 1.0_wp
+    ! REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -1983,7 +1654,7 @@ CONTAINS
     REAL(wp) :: aw,bw,cw,dw,AAw,BBw,CCw,alpha,beta
     REAL(wp) :: fvisdir, fvisdif, fnirdir, fnirdif
     ! For wind-stress ramping
-    REAL(wp) :: ramp = 1.0_wp
+    ! REAL(wp) :: ramp = 1.0_wp
 
     TYPE(t_subset_range), POINTER :: all_cells
 

@@ -367,7 +367,6 @@ CONTAINS
     REAL(wp) :: tblmax         ! max. value of t in lowest 100 hPa
     REAL(wp) :: tdbl, tdblmax  ! value/max. value of td in lowest 100 hPa
     REAL(wp) :: rfbl, rfblmax  ! value/max. value of rf in lowest 100 hPa
-    REAL(wp) :: dt_ke          ! spread in lowest model level
     REAL(wp) :: vbl            ! mean value of wind speed in lowest 35 hPa
     REAL(wp) :: neb_i          ! Nebulae-Index
     REAL(wp) :: zfrac, qvmin   ! variables used in determination of dew point temperature
@@ -376,18 +375,11 @@ CONTAINS
     REAL(wp) :: e_s            ! saturation vapour pressure
     INTEGER  :: igfb, irrb, isprb
     LOGICAL  :: test_fog
-    REAL(wp) :: dhour
     LOGICAL  :: lconvb, lsnb
 
     REAL(wp), PARAMETER :: rkogrenz = 1._wp          ! limit for rko
     REAL(wp), PARAMETER :: ms_kn = 1._wp/0.51444_wp  ! factor to convert numbers in m/s to knots
 
-! preset some constants for calculation of TD and for conversion
-#ifdef ONLYWW
-    dhour = time_diff
-#else
-    dhour = time_diff%day*24._wp + time_diff%hour + REAL(time_diff%minute,wp)/60._wp
-#endif
 
     DO i = i_startidx, i_endidx
       iww(i) = -9
@@ -592,7 +584,7 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
           zfrac   = LOG( pf(i,k)*qvmin/(b1*(rdv+O_m_rdv*qvmin)))
           tdbl    = MIN( (b2w*b3-b4w*zfrac)/(b2w-zfrac), t(i,k) )
           tdblmax = MAX( tdbl, tdblmax)
-!.... calculate rf for k=ke-1 and k=ke instead of using dt_ke
+!.... calculate rf for k=ke-1 and k=ke
           IF (k >= ke-1) THEN
             e_s = sat_pres_water(t(i,k))
             e   = sat_pres_water(tdbl)
@@ -603,7 +595,6 @@ WW_PRECIP: IF (rgdiff < rgdiff_th1) THEN
           ENDIF
         ENDDO
         neb_i = ( t_2m(i)-tblmax) + ( t_2m(i)-tdblmax) + ms_kn*vbl
-        dt_ke = t(i,ke) - tdbl
 
         IF ( clc(i,ke) > clc_fog .OR.  clc(i,ke-1) > clc_fog       &
      &  .OR. neb_i     < 5._wp   .AND. rfblmax     > rf_fog ) THEN

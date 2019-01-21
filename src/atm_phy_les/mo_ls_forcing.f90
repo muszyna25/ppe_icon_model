@@ -27,17 +27,15 @@
 MODULE mo_ls_forcing
 
   USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: filename_max, find_next_free_unit
+  USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_impl_constants,      ONLY: success, max_char_length
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
+  USE mo_loopindices,         ONLY: get_indices_c
   USE mo_les_utilities
   USE mo_ls_forcing_nml
-  USE mo_physical_constants,  ONLY: rd, cpd, alv, cvd
   USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
@@ -302,18 +300,15 @@ MODULE mo_ls_forcing
     REAL(wp), DIMENSION(p_patch%nlev)  :: inv_dz, exner_gb
     REAL(wp), DIMENSION(p_patch%nlev)  :: z_ddt_t_rad, z_ugeo, z_vgeo
 
-    REAL(wp), DIMENSION(p_patch%nlev)  :: nudg_tend_u,nudg_tend_v,nudg_tend_qv,nudg_tend_temp !,z_wsub
-
     REAL(wp) :: int_weight
-    INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, jb, jc
+    INTEGER  :: i_startblk, i_endblk, jk, nlev, jb, jc
     INTEGER  :: n_curr, n_next, i_startidx, i_endidx
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     nlev      = p_patch%nlev
     inv_no_gb_cells = 1._wp / REAL(p_patch%n_patch_cells_g,wp)
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     !0) Initialize all passed ddt's to 0
 !$OMP PARALLEL
@@ -336,11 +331,11 @@ MODULE mo_ls_forcing
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL global_hor_mean(p_patch, p_diag%u, u_gb, inv_no_gb_cells, i_nchdom)
-    CALL global_hor_mean(p_patch, p_diag%v, v_gb, inv_no_gb_cells, i_nchdom)
-    CALL global_hor_mean(p_patch, varin   , temp_gb, inv_no_gb_cells, i_nchdom)
-    CALL global_hor_mean(p_patch, qv, qv_gb, inv_no_gb_cells, i_nchdom)
-    CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
+    CALL global_hor_mean(p_patch, p_diag%u, u_gb, inv_no_gb_cells)
+    CALL global_hor_mean(p_patch, p_diag%v, v_gb, inv_no_gb_cells)
+    CALL global_hor_mean(p_patch, varin   , temp_gb, inv_no_gb_cells)
+    CALL global_hor_mean(p_patch, qv, qv_gb, inv_no_gb_cells)
+    CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells)
 
     IF(is_subsidence_moment.OR.is_subsidence_heat) &
       inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(1,:,1)

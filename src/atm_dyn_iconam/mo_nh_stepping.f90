@@ -375,8 +375,6 @@ MODULE mo_nh_stepping
              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
              &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
              &                      p_nh_state(jg)%diag,                    & !in
-             &                      p_lnd_state(jg)%diag_lnd,               & !in
-             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
              &                      prm_diag(jg)                            ) !inout
 
          END IF!is_les_phy
@@ -895,8 +893,6 @@ MODULE mo_nh_stepping
               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
               &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
               &                      p_nh_state(jg)%diag,                    & !in
-              &                      p_lnd_state(jg)%diag_lnd,               & !in
-              &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
               &                      prm_diag(jg)                            ) !inout
 
           END IF!is_les_phy
@@ -1667,7 +1663,6 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
-              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1676,8 +1671,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf) ) !inout
 
           ELSE ! is_les_phy
 
@@ -2322,7 +2316,6 @@ MODULE mo_nh_stepping
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout
         &                  prm_nwp_tend(jg)                ,   &
@@ -2330,8 +2323,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf) ) !inout
 
     ELSE ! is_les_phy
 

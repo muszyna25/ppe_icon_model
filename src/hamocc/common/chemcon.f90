@@ -41,13 +41,13 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   !! Local variables
 
   INTEGER ::  jc, k, kldtday, kpke, js
-  REAL(wp) :: t, q, s, log_t, log_q, sqrt_s, ti, qi, q2, tc2
+  REAL(wp) :: t, q, s, log_t, log_q, sqrt_s, ti, qi, q2
   REAL(wp) :: cek0, ckb, ck1, ck2, ckw, oxy, ani
   REAL(wp) :: ak1, ak2, akb, akw, ak0, aksp0, log10ksp
   REAL(wp) :: p, cp, tc,tt,ts,ts2,ts3,ts4,ts5
   REAL(wp) :: pis, pis2, rs,s2,deltav,deltak,lnkpk0(11)
   REAL(wp) :: aksi, cksi, aks, cks, akf, ckf, free2sws,total2sws
-  REAL(wp) :: ck1p,ck2p,ck3p, ak1p,ak2p,ak3p, total2sws_0,total2free
+  REAL(wp) :: ck1p,ck2p,ck3p, ak1p,ak2p,ak3p, total2free
   REAL(wp) :: sti, fti, total2free_0p, free2SWS_0p, total2SWS_0p,SWS2total 
 
   !     -----------------------------------------------------------------
@@ -74,8 +74,8 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 !HAMOCC_OMP            cek0,ak0,oxy,ani,ck1,ck2,ckb,ckw,ak1,ak2,&
 !HAMOCC_OMP            akw,akb, pis, pis2,aksi,cksi,aks,cks,akf,ckf,&
 !HAMOCC_OMP            ck1p,ck2p,ck3p,ak1p,ak2p,ak3p,rs, sti, fti, s2,&
-!HAMOCC_OMP            total2free_0p, free2SWS_0p, total2SWS_0, SWS2total,&
-!HAMOCC_OMP            tt,ts,ts2,ts3,ts4,ts5,lnkpk0,tc,tc2) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP            total2free_0p, free2SWS_0p, total2SWS_0p, SWS2total,&
+!HAMOCC_OMP            tt,ts,ts2,ts3,ts4,ts5,lnkpk0,tc) HAMOCC_OMP_DEFAULT_SCHEDULE
 
  DO jc = start_idx, end_idx
 
@@ -310,7 +310,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   IF ( kldtday == 1 ) THEN
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(jc,kpke,p,t,ti,log_t,q,log_q,qi,s,sqrt_s,&
-!HAMOCC_OMP            oxy,ck1,ck2,ckb,ak1,ak2,akb,akw,cp,tc,tc2,&
+!HAMOCC_OMP            oxy,ck1,ck2,ckb,ak1,ak2,akb,akw,cp,tc,&
 !HAMOCC_OMP            log10ksp,aksp0,ckw,s2,tt,ts,ts2,ts3,ts4,ts5,&
 !HAMOCC_OMP            pis,pis2,cksi,aksi,cks,aks,ckf,akf,&
 !HAMOCC_OMP            ck1p,ck2p,ck3p,ak1p,ak2p,ak3p,deltav,deltak,&
@@ -474,7 +474,6 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
            TC = ptho(jc,k)
 
-           tc2 = tc*tc
 
            !
            !       FORMULA FOR CP

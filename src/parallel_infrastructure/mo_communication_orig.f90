@@ -613,7 +613,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: msg, limits, recv_src
 #endif
-      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      INTEGER :: nmsg, i, sz, msg_rank, jls, jl, jle
       nmsg = SIZE(msg)
       DO i = 1, nmsg
         msg_rank = msg(i)%rank
@@ -3592,7 +3592,7 @@ CONTAINS
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
+      CALL exchange_data_r2d_seq(p_pat, recv, send, add)
       RETURN
     END IF
 
@@ -3708,13 +3708,12 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
+  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add)
 
     CLASS(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    LOGICAL, OPTIONAL :: l_recv_exists
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_r2d_seq"
     INTEGER :: i
@@ -4114,7 +4113,7 @@ CONTAINS
 
     REAL(dp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 
@@ -4170,7 +4169,7 @@ CONTAINS
 
     REAL(sp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 
@@ -4228,7 +4227,7 @@ CONTAINS
 
     INTEGER :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 

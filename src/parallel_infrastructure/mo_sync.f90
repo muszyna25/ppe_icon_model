@@ -56,7 +56,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  get_np_send, get_pelist_recv, exchange_data_mult_mixprec
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum!, timer_omp_ordglb_sum
 USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
 
 IMPLICIT NONE
@@ -594,9 +594,8 @@ END SUBROUTINE check_patch_array_sp
 
 
 !>
-!! In a verification run, this routine checks the consistency of an array, i.
-!!
-!! e. if the parts on the worker PEs are identical with the data on
+!! In a verification run, this routine checks the consistency of an array,
+!! i.e. if the parts on the worker PEs are identical with the data on
 !! the verification PE.
 !! For a non-verification run it just does nothing.
 !!

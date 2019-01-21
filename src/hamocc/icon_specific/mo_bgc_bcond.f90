@@ -27,33 +27,29 @@ USE mo_kind,               ONLY: wp
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
-    &                              p_comm_work_test, p_comm_work
-  USE mo_parallel_config,    ONLY: p_test_run
+  USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
 
   USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, add_ref,            &
+    &                              add_var,             &
     &                              new_var_list,                &
     &                              delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, &
-    &                              t_stream_id, nf, read_2D, read_2D_int, &
+    &                              t_stream_id, nf,  &
     &                              read_3D
   USE mo_util_string,        ONLY: t_keyword_list,  &
-    &                              associate_keyword, with_keywords
+    &                              associate_keyword
   USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_SURFACE
 
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
-  USE mtime,                 ONLY: datetime, &
-       &                           getDayOfYearFromDateTime, &
-       &                           getNoOfDaysInYearDateTime
+  USE mtime,                 ONLY: datetime
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &                         
     &                              GRID_CELL
 
@@ -144,11 +140,9 @@ CONTAINS
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
-      &        nblks_e       !< number of edge blocks to allocate
+    INTEGER :: nblks_c    !< number of cell blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape3d_c(3)
-    INTEGER :: idim_omip
+    INTEGER :: shape2d_c(2),  shape3d_c(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
 
@@ -157,17 +151,13 @@ CONTAINS
 
     !determine size of arrays
     nblks_c = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
 
 
     ibits = 16   ! "entropy" of horizontal slice
 
     ! predefined array shapes
     shape2d_c = (/ nproma, nblks_c /)
-    shape2d_e = (/ nproma, nblks_e /)
 
-    ! OMIP/NCEP or other flux forcing data on cell centers
-    idim_omip = 1 ! or now only dust is read in
 
     shape3d_c = (/ nproma, 12, nblks_c/)
 
@@ -210,7 +200,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE destruct_bgc_ext_data
 
-    INTEGER :: jg, errstat
+    INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_bgc_bcond:destruct_bgc_ext_data'
     !-------------------------------------------------------------------------
@@ -248,10 +238,9 @@ CONTAINS
     CHARACTER(filename_max) :: dust_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, no_cells, no_verts, no_tst
+    INTEGER :: jg,  no_cells,  no_tst
     INTEGER :: ncid, dimid
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: mpi_comm
 
     REAL(wp):: z_flux(nproma,12,p_patch(1)%alloc_cell_blocks)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
@@ -264,7 +253,6 @@ CONTAINS
 
     jg = 1
 
-    i_lev       = p_patch(jg)%level
     z_flux(:,:,:) = 0.0_wp
 
     CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
@@ -317,11 +305,6 @@ CONTAINS
 
       stream_id = openInputFile(dust_file, p_patch(jg))
       
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
       no_tst = 12
       !-------------------------------------------------------
       !
@@ -390,11 +373,6 @@ CONTAINS
 
       stream_id = openInputFile(dust_file, p_patch(jg))
       
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
       no_tst = 12
       !-------------------------------------------------------
       !
@@ -417,34 +395,22 @@ CONTAINS
   !--------------------------------------------------
 !<Optimize:inUse>
 
-   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, jstep, this_datetime)
+   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, this_datetime)
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hamocc_bcond)                        :: bgc_ext
-    INTEGER, INTENT(IN)                         :: jstep
     TYPE(datetime), INTENT(INOUT)               :: this_datetime
 
   
  ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_bgc_bcond:update_bgc_bcond'
-    CHARACTER(LEN=max_char_length)::check_text 
-    INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
+    INTEGER  :: jmon, jdmon, jmon1, jmon2
     REAL(wp) :: rday1, rday2
-    REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
-    TYPE(t_patch), POINTER:: p_patch 
-    !TYPE(t_subset_range), POINTER :: all_cells
-   !   CALL message( TRIM(routine),'start', io_stdo_bgc )
-
-    !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    !-------------------------------------------------------------------------
 
 
     !  calculate day and month
     jmon  = this_datetime%date%month         ! integer current month
     jdmon = this_datetime%date%day           ! integer day in month
-    yday  = getDayOfYearFromDateTime(this_datetime)
-    ylen  = getNoOfDaysInYearDateTime(this_datetime)
     
 
       jmon1=jmon-1

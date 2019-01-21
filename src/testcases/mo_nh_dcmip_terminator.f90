@@ -271,7 +271,6 @@ CONTAINS
     REAL(wp) :: zlon, zlat                 ! lat/lon of cell circumcenter
     LOGICAL :: chem_event_isactive, cpl_event_isactive
 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
 
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format

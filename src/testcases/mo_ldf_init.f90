@@ -28,7 +28,7 @@
 MODULE mo_ldf_init
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, ildf_echam
+  USE mo_impl_constants,      ONLY: ildf_echam
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_physical_constants,  ONLY: rgrav, rd, tmelt,vtmpc1 !!new vtmpc1
   USE mo_model_domain,        ONLY: t_patch
