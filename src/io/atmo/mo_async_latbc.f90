@@ -728,6 +728,7 @@ MODULE mo_async_latbc
 
       CALL match_var_data_to_buffer(var_buf_map, latbc%buffer, &
            var_data, StrLowCasegrp)
+      DEALLOCATE(StrLowCasegrp)
       CALL infer_buffer_hgrid(latbc%buffer, var_data, var_buf_map)
 
       ! initialize the memory window for communication
@@ -744,7 +745,6 @@ MODULE mo_async_latbc
         CALL create_win(latbc%patch_data%mem_win, mem_size)
       END IF
 
-      DEALLOCATE(StrLowCasegrp)
 
 
       ! allocate input data for lateral boundary nudging
