@@ -1368,13 +1368,13 @@ MODULE mo_async_latbc
     !             (i.e. not on prefetching PEs)
     !             The arguments don't make sense on the prefetching PE anyways
     !
-    SUBROUTINE set_reorder_data(n_points_g, n_points, owner_mask, glb_index, p_reo)
+    SUBROUTINE set_reorder_data(n_points_g, n_points, owner_mask, glb_index, ri)
 
       INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
       INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
       LOGICAL, INTENT(IN) :: owner_mask(n_points) ! owner_mask for logical patch
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
-      TYPE(t_reorder_info), INTENT(INOUT) :: p_reo ! Result: reorder info
+      TYPE(t_reorder_info), INTENT(INOUT) :: ri ! Result: reorder info
 
       ! local variables
       INTEGER :: i, n, ierrstat
@@ -1385,32 +1385,32 @@ MODULE mo_async_latbc
       IF(my_process_is_pref()) CALL finish(routine, 'Must not be called on Prefetching PE')
 
       ! Get number of owned cells/edges/verts (without halos, physical patch only)
-      p_reo%n_own = COUNT(owner_mask(:))
+      ri%n_own = COUNT(owner_mask(:))
 
-      !   WRITE(*,*) 'set_reorder_data p_pe_work ', p_pe_work , ' p_reo%n_own ', p_reo%n_own, ' n_points ', n_points
+      !   WRITE(*,*) 'set_reorder_data p_pe_work ', p_pe_work , ' ri%n_own ', ri%n_own, ' n_points ', n_points
 
       ! Set index arrays to own cells/edges/verts
-      ALLOCATE(p_reo%own_idx(p_reo%n_own), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ALLOCATE(p_reo%own_blk(p_reo%n_own), STAT=ierrstat)
+      ALLOCATE(ri%own_idx(ri%n_own), &
+        &      ri%own_blk(ri%n_own), &
+        &      STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       ! Global index of my own points
-      ALLOCATE(p_reo%reorder_index(p_reo%n_own), STAT=ierrstat)
+      ALLOCATE(ri%reorder_index(ri%n_own), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       n = 0
       DO i = 1, n_points
          IF(owner_mask(i)) THEN
             n = n+1
-            p_reo%own_idx(n) = idx_no(i)
-            p_reo%own_blk(n) = blk_no(i)
-            p_reo%reorder_index(n)  = glb_index(i)
+            ri%own_idx(n) = idx_no(i)
+            ri%own_blk(n) = blk_no(i)
+            ri%reorder_index(n)  = glb_index(i)
          ENDIF
       ENDDO
 
       ! Get global number of points for current (physical!) patch
-      p_reo%n_glb = -1
+      ri%n_glb = -1
 
     END SUBROUTINE set_reorder_data
 
@@ -1419,9 +1419,9 @@ MODULE mo_async_latbc
     !
     ! Transfers reorder data to restart PEs.
     !
-    SUBROUTINE transfer_reorder_data(bcast_root, p_reo)
+    SUBROUTINE transfer_reorder_data(bcast_root, ri
       INTEGER,              INTENT(IN)    :: bcast_root
-      TYPE(t_reorder_info), INTENT(INOUT) :: p_reo
+      TYPE(t_reorder_info), INTENT(INOUT) :: ri
 
       ! local variables
       INTEGER                             :: ierrstat, dummy(1), i, accum, &
@@ -1431,46 +1431,44 @@ MODULE mo_async_latbc
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
 
-      ! Gather the number of own points for every PE into p_reo%pe_own
+      ! Gather the number of own points for every PE into ri%pe_own
 
       is_pref = my_process_is_pref()
       IF (is_pref) THEN
 
         ! on prefetch PE: n_own=0, own_ide and own_blk are not allocated
-        p_reo%n_own = 0
+        ri%n_own = 0
 
         ! pe_own must be allocated for num_work_procs, not for p_n_work
-        ALLOCATE(p_reo%pe_own(0:num_work_procs-1), &
-             p_reo%pe_off(0:num_work_procs-1), STAT=ierrstat)
+        ALLOCATE(ri%pe_own(0:num_work_procs-1), &
+             ri%pe_off(0:num_work_procs-1), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
       ENDIF
 
       IF (is_pref) THEN
-        root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
-        ! Gather the number of own points for every PE into p_reo%pe_own
-        CALL p_allgather(dummy(1), p_reo%pe_own, sendcount=0, recvcount=1, &
+        ! Gather the number of own points for every PE into ri%pe_own
+        CALL p_allgather(dummy(1), ri%pe_own, sendcount=0, recvcount=1, &
              comm=p_comm_work_2_pref)
 
         ! Get offset within result array
         accum = 0
         DO i = 0, num_work_procs-1
-          p_reo%pe_off(i) = accum
-          accum = accum + p_reo%pe_own(i)
+          ri%pe_off(i) = accum
+          accum = accum + ri%pe_own(i)
         ENDDO
-        p_reo%n_glb = accum
-        ALLOCATE(p_reo%reorder_index(accum), STAT=ierrstat)
+        ri%n_glb = accum
+        ALLOCATE(ri%reorder_index(accum), STAT=ierrstat)
         IF(ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-        CALL p_allgatherv(dummy(1:0), p_reo%reorder_index, p_reo%pe_own, &
-             p_reo%pe_off, comm=p_comm_work_2_pref)
+        CALL p_allgatherv(dummy(1:0), ri%reorder_index, ri%pe_own, &
+             ri%pe_off, comm=p_comm_work_2_pref)
       ELSE
-        root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
-        CALL p_allgather(p_reo%n_own, dummy, sendcount=1, recvcount=0, &
+        CALL p_allgather(ri%n_own, dummy, sendcount=1, recvcount=0, &
              comm=p_comm_work_2_pref)
         ALLOCATE(rcounts(num_prefetch_proc), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         rcounts = 0
-        CALL p_allgatherv(p_reo%reorder_index, dummy, rcounts, &
+        CALL p_allgatherv(ri%reorder_index, dummy, rcounts, &
              rcounts, comm=p_comm_work_2_pref)
       END IF
 
