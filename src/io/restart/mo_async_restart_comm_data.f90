@@ -16,7 +16,7 @@ MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
 
-  USE ISO_C_BINDING,           ONLY: C_PTR, C_INTPTR_T, C_F_POINTER
+  USE ISO_C_BINDING,           ONLY: C_PTR, C_F_POINTER
   USE mo_async_restart_packer, ONLY: t_AsyncRestartPacker
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_decomposition_tools,  ONLY: t_grid_domain_decomp_info
@@ -363,24 +363,6 @@ CONTAINS
     ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(doubleCount, 1_i8)*INT(nbytes_real, i8)
     ! allocate amount of memory needed with MPI_Alloc_mem
-    ! 
-    ! Depending on wether the Fortran 2003 C interoperability features
-    ! are available, one needs to use non-standard language extensions
-    ! for calls from Fortran, namely Cray Pointers, since
-    ! MPI_Alloc_mem wants a C pointer argument.
-    !
-    ! see, for example: http://www.lrz.de/services/software/parallel/mpi/onesided/
-    ! TYPE(C_PTR) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least C_INTPTR_T and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(C_PTR) does not have the size indicated
-    ! by C_INTPTR_T since the standard only requires C_INTPTR_T is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If C_INTPTR_T<=0, this type is not defined and we can't do this check, of course.
-    IF(C_INTPTR_T > 0 .AND. C_INTPTR_T /= MPI_ADDRESS_KIND) THEN
-        CALL finish(routine, 'C_INTPTR_T /= MPI_ADDRESS_KIND, too dangerous to proceed!')
-    END IF
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpi_error)
     CALL ar_checkmpi(mpi_error, routine, 'MPI_Alloc_mem returned error '//TRIM(int2string(mpi_error)))
     NULLIFY(mem_ptr_dp)

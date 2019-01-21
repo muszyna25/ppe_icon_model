@@ -18,7 +18,7 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
@@ -3323,18 +3323,6 @@ CONTAINS
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
-
-    ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(c_ptr) does not have the size indicated
-    ! by c_intptr_t since the standard only requires c_intptr_t is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
-
-    IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
 
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
