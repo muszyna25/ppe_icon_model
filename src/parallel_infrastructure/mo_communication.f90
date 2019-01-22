@@ -39,15 +39,13 @@ USE mo_impl_constants,       ONLY: SUCCESS
 USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,                 ONLY: dp, sp
 USE mo_exception,            ONLY: finish
-USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
+USE mo_mpi,                  ONLY: p_send, p_recv, &
      &                             p_comm_work, p_pe_work, p_n_work, p_gatherv, &
      &                             p_alltoallv, p_alltoall, process_mpi_root_id, &
      &                             p_bcast, p_comm_is_intercomm, &
      &                             p_comm_remote_size, p_allgather, &
      &                             p_allgatherv, MPI_COMM_NULL
-USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d, nproma, &
-     & comm_pattern_type_orig, comm_pattern_type_yaxt, default_comm_pattern_type
-USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup
+USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d, nproma
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
@@ -56,8 +54,8 @@ USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
-USE mo_communication_types, ONLY: t_comm_pattern, t_comm_pattern_collection, &
-  & t_p_comm_pattern, xfer_list
+USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
+  &                                t_p_comm_pattern, xfer_list
 
 
 IMPLICIT NONE
@@ -478,7 +476,6 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-
 
   SUBROUTINE delete_comm_allgather_pattern(allgather_pattern)
     TYPE(t_comm_allgather_pattern), INTENT(INOUT) :: allgather_pattern

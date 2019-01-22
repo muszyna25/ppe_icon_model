@@ -32,8 +32,7 @@ MODULE mo_nh_dcmip_gw
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
    USE mo_nh_init_utils,        ONLY: hydro_adjust
    USE mo_math_constants,       ONLY: pi, deg2rad
-   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH, &
-     &                                SUCCESS
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH
    USE mo_parallel_config,      ONLY: nproma
    USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
    USE mo_model_domain,         ONLY: t_patch
@@ -44,7 +43,7 @@ MODULE mo_nh_dcmip_gw
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_math_utilities,       ONLY: rotate_latlon
    USE mo_math_divrot,          ONLY: div
-   USE mo_exception,            ONLY: message, finish, message_text
+   USE mo_exception,            ONLY: finish
 
 
    IMPLICIT NONE
@@ -431,8 +430,6 @@ CONTAINS
     INTEGER  :: iorient
     REAL(wp) :: phic                  !< Lat of perturbation center       [rad]
     REAL(wp) :: zomega                !< earth angular velocity in the case gw_u0/=0
-
-    INTEGER  :: ist                   !< status
 
     ! test case parameters
     !

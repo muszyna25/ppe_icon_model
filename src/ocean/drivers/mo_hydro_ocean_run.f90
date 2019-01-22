@@ -359,7 +359,7 @@ CONTAINS
         CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
              & current_time, operators_coefficients)
 
-        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, current_time)
+        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
         stop_timer(timer_upd_flx,3)
 
         start_detail_timer(timer_extra22,4)

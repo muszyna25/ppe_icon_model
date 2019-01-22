@@ -29,8 +29,6 @@ MODULE mo_ice_diagnostics
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_ocean_state,         ONLY: v_base
 
-  USE mo_statistics,          ONLY: add_fields
-
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, clw, alf, sice, tf
   USE mo_sea_ice_nml,         ONLY: t_heat_base
   USE mo_sea_ice_types,       ONLY: t_sea_ice
@@ -199,8 +197,6 @@ CONTAINS
         END SELECT
       END DO
     END DO
-
-    CALL dbg_print(TRIM(my_info), energy, str_module, my_dbg_lev, in_subset=all_cells)
 
   END FUNCTION energy_in_surface
 

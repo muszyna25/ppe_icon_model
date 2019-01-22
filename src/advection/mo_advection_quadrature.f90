@@ -267,8 +267,7 @@ CONTAINS
   !!
   SUBROUTINE prep_gauss_quadrature_l_list( p_patch, p_coords_dreg_v, falist, &
     &                                 p_quad_vector_sum, p_dreg_area,        &
-    &                                 opt_rlstart, opt_rlend, opt_slev,      &
-    &                                 opt_elev )
+    &                                 opt_rlstart, opt_rlend                 )
 
     IMPLICIT NONE
 
@@ -295,12 +294,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
    ! local variables
     REAL(wp) ::                &       !< coordinates of gaussian quadrature points
       &  z_gauss_pts_1, z_gauss_pts_2  !< in physical space
@@ -314,7 +307,6 @@ CONTAINS
     INTEGER  :: ie                  !< index list loop counter
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
-    INTEGER  :: slev, elev          !< vertical start and end level
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN :64 :: z_x,z_y
@@ -327,18 +319,6 @@ CONTAINS
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = p_patch%nlev
-    END IF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE
@@ -633,9 +613,8 @@ CONTAINS
   !!
   !!
   SUBROUTINE prep_gauss_quadrature_q_list( p_patch, p_coords_dreg_v, falist, &
-    &                                 p_quad_vector_sum, p_dreg_area,   &
-    &                                 opt_rlstart, opt_rlend, opt_slev, &
-    &                                 opt_elev )
+    &                                 p_quad_vector_sum, p_dreg_area,        &
+    &                                 opt_rlstart, opt_rlend                 )
 
     IMPLICIT NONE
 
@@ -662,12 +641,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
    ! local variables
     REAL(wp) ::                        &    !< coordinates of gaussian quadrature points
       &  z_gauss_pts(falist%npoints,4,2)    !< in physical space
@@ -686,7 +659,6 @@ CONTAINS
     INTEGER  :: ie                  !< index list loop counter
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
-    INTEGER  :: slev, elev          !< vertical start and end level
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
@@ -699,18 +671,6 @@ CONTAINS
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
    ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = p_patch%nlev
-    END IF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE
@@ -1341,9 +1301,8 @@ CONTAINS
   !!
   !!
   SUBROUTINE prep_gauss_quadrature_c_list( p_patch, p_coords_dreg_v, falist, &
-    &                                 p_quad_vector_sum, p_dreg_area,   &
-    &                                 opt_rlstart, opt_rlend, opt_slev, &
-    &                                 opt_elev                          )
+    &                                 p_quad_vector_sum, p_dreg_area,        &
+    &                                 opt_rlstart, opt_rlend                 )
 
     IMPLICIT NONE
 
@@ -1370,11 +1329,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
 
    ! local variables
     REAL(wp) ::                        &    !< coordinates of gaussian quadrature points
@@ -1394,7 +1348,6 @@ CONTAINS
     INTEGER  :: ie                  !< index list loop counter
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
-    INTEGER  :: slev, elev          !< vertical start and end level
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN :64 :: z_gauss_pts,wgt_t_detjac,z_quad_vector,z_x,z_y
 !DIR$ ATTRIBUTES ALIGN :64 :: z_wgt,z_eta
@@ -1406,18 +1359,6 @@ CONTAINS
 !$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = p_patch%nlev
-    END IF
-
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
     ELSE

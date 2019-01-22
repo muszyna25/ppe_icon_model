@@ -26,7 +26,7 @@ MODULE mo_ice_fem_interface
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum, timer_ice_interp, timer_ice_advection
 
-!  USE mo_grid_config,         ONLY: l_limited_area, n_dom   ! for now sea-ice works on global domain-only
+! USE mo_grid_config,         ONLY: l_limited_area, n_dom   ! for now sea-ice works on global domain-only
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -43,7 +43,7 @@ MODULE mo_ice_fem_interface
   USE mo_math_types,          ONLY: t_cartesian_coordinates
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
-  USE mo_icon_interpolation_scalar, ONLY: verts2cells_scalar !, cells2verts_scalar
+  USE mo_icon_interpolation_scalar, ONLY: verts2cells_scalar
   USE mo_ice_fem_interpolation, ONLY: map_edges2verts, map_verts2edges,                 &
                                       gvec2cvec_c_2d, cvec2gvec_c_2d,                   &
                                       rotate_cvec_v, gvec2cvec_v_fem, cvec2gvec_v_fem,  &
@@ -78,7 +78,6 @@ CONTAINS
 !
   SUBROUTINE ice_fem_interface( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff)
 
-    USE mo_ice_fem_icon_init, ONLY: c2v_wgt
     USE mo_ice_fem_types,     ONLY: sigma11, sigma12, sigma22
     USE mo_ice_fem_evp,       ONLY: EVPdynamics
 !    USE mo_ice_fem_evp_old,  ONLY: EVPdynamics_old ! non-optimized, original version of the solver

@@ -79,8 +79,7 @@ CONTAINS
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
 
 
-    INTEGER               :: nblks_e, nblks_c, npromz_e, npromz_c,  &
-                             nlen
+    INTEGER               :: nblks_c, npromz_c, nlen
     INTEGER               :: nlev                 !< number of full levels
     INTEGER               :: jk, jb  ! loop variables
 
@@ -95,8 +94,6 @@ CONTAINS
 
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
-    nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     nlev = ptr_patch%nlev
 

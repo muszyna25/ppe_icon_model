@@ -84,6 +84,16 @@ CONTAINS
               &      (1._wp-field%lsmask(jc,jb)-field%alake(jc,jb))*(1._wp-field%seaice(jc,jb))       & ! ocean
               &     +field%alake(jc,jb)                            *(1._wp-field%lake_ice_frc(jc,jb)) & ! lakes
               &     ,1._wp),0._wp)
+         !
+         ! security for water temperature with changing ice mask
+         ! (over lakes; over ocean this is not an issue since, over ocean,
+         ! ts_tile(iwtr) is overwritten again with SST from ocean in 
+         ! coupling interface after update_surface)
+         IF (zfrw(jc) > 0._wp .AND. field%ts_tile(jc,jb,iwtr) == cdimissval) THEN
+           ! lake was completely frozen in previous time step but only partially 
+           ! frozen in current time step
+           field%ts_tile(jc,jb,iwtr) = tmelt
+         END IF
       ELSE
          zfrw(jc) = 0._wp
       END IF

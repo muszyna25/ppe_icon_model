@@ -263,7 +263,7 @@ CONTAINS
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
 
-    INTEGER  :: nlev, nlevp1      !< number of full and half levels
+    INTEGER  :: nlev              !< number of full and half levels
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
@@ -284,7 +284,6 @@ CONTAINS
 
     ! number of vertical levels
     nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg  = p_patch%id

@@ -127,11 +127,12 @@ CONTAINS
             CALL read_bc_sst_sic(mtime_old%date%year, patch)
           END IF
           CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights    , &
-            &                                prm_field(patch%id)%sftlf  (:,:) > 1._wp - 10._wp*EPSILON(1._wp), &
             &                                prm_field(patch%id)%ts_tile(:,:,iwtr) , &
             &                                prm_field(patch%id)%seaice (:,:)      , &
             &                                prm_field(patch%id)%siced  (:,:)      , &
-            &                                patch                                  )
+            &                                patch                                 , &
+            &                                prm_field(patch%id)%sftof(:,:) > 0._wp, &
+            &                                .FALSE. )
 
           ! The ice model should be able to handle different thickness classes, 
           ! but for AMIP we only use one ice class.

@@ -1512,7 +1512,6 @@ REAL(wp) :: z_idwwgt(6)      ! IDW weighting factors
 INTEGER :: jg, jb, je, jcd, jgc, &
            iie1, ibe1, je1, iiec, ibec
 INTEGER :: istencil              ! number of edges for the stencil
-INTEGER :: ist                   ! status variable
 INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
@@ -1540,7 +1539,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
   i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
-!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb, i_startidx, i_endidx)
+!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,jb, i_startidx, i_endidx)
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &

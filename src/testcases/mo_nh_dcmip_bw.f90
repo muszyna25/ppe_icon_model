@@ -366,9 +366,9 @@ CONTAINS
     !   Pressure and temperature
     !------------------------------------------------
     if (zcoords .eq. 1) then
-       CALL evaluate_pressure_temperature(deep, X, lon, lat, z, p, t)
+       CALL evaluate_pressure_temperature(deep, X, lat, z, p, t)
     else
-       CALL evaluate_z_temperature(deep, X, lon, lat, p, z, t)
+       CALL evaluate_z_temperature(deep, X, lat, p, z, t)
     end if
 
     !-----------------------------------------------------
@@ -504,13 +504,12 @@ CONTAINS
   !-----------------------------------------------------------------------
   !    Calculate pointwise pressure and temperature
   !-----------------------------------------------------------------------
-  SUBROUTINE evaluate_pressure_temperature(deep, X, lon, lat, z, p, t)
+  SUBROUTINE evaluate_pressure_temperature(deep, X, lat, z, p, t)
 
     INTEGER, INTENT(IN)  :: deep ! Deep (1) or Shallow (0) test case
 
     REAL(wp), INTENT(IN)  :: &
          X,          & ! Earth scaling ratio
-         lon,        & ! Longitude (radians)
          lat,        & ! Latitude (radians)
          z             ! Altitude (m)
 
@@ -577,13 +576,12 @@ CONTAINS
   !-----------------------------------------------------------------------
   !    Calculate pointwise z and temperature given pressure
   !-----------------------------------------------------------------------
-  SUBROUTINE evaluate_z_temperature(deep, X, lon, lat, p, z, t)
+  SUBROUTINE evaluate_z_temperature(deep, X, lat, p, z, t)
 
     INTEGER, INTENT(IN)  :: deep ! Deep (1) or Shallow (0) test case
 
     REAL(wp), INTENT(IN)  :: &
          X,          & ! Earth scaling ratio
-         lon,        & ! Longitude (radians)
          lat,        & ! Latitude (radians)
          p             ! Pressure (Pa)
 
@@ -599,13 +597,13 @@ CONTAINS
     z0 = 0.d0
     z1 = 10000.d0
 
-    CALL evaluate_pressure_temperature(deep, X, lon, lat, z0, p0, t)
-    CALL evaluate_pressure_temperature(deep, X, lon, lat, z1, p1, t)
+    CALL evaluate_pressure_temperature(deep, X, lat, z0, p0, t)
+    CALL evaluate_pressure_temperature(deep, X, lat, z1, p1, t)
 
     DO ix = 1, 100
        z2 = z1 - (p1 - p) * (z1 - z0) / (p1 - p0)
 
-       CALL evaluate_pressure_temperature(deep, X, lon, lat, z2, p2, t)
+       CALL evaluate_pressure_temperature(deep, X, lat, z2, p2, t)
 
        IF (ABS((p2 - p)/p) .lt. 1.0d-13) THEN
           EXIT
@@ -620,7 +618,7 @@ CONTAINS
 
     z = z2
 
-    CALL evaluate_pressure_temperature(deep, X, lon, lat, z, p0, t)
+    CALL evaluate_pressure_temperature(deep, X, lat, z, p0, t)
 
   END SUBROUTINE evaluate_z_temperature
 

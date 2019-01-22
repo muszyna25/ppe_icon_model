@@ -161,7 +161,7 @@ case "$fortran_compiler" in
         DEFCOPT     = -D
         MODOPT      = -I
         MODDIR      = -module 
-        WLFLAG      = -Wl        
+        WLFLAG      = -Wl
         ;;
     cray*)
         config_compiler  = cray
@@ -394,6 +394,7 @@ case "$ac_sitename" in
                             gpu*)
                                 config_target = daint_gpu
                                 FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -hacc_model=deep_copy -O2
+                                LDFLAGS     = -Wl,--allow-multiple-definition
                                 ;;
                             *)
                                 config_target = daint_cpu
@@ -972,23 +973,25 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     pgi*)
-                        load_modules    = pgi/16.7 intelmpi/5.1.2.150 ${load_modules}
+                        load_modules    = /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 ${load_modules}
                         config_compiler = pgi
                         CC              = pgcc
-                        CFLAGS          = -O0 -g -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF -DHAVE_LIBSZ -DpgiFortran
-                        FFLAGS          = -O0 -g -Mpreprocess -Mrecursive -Mallocatable=03
+                        CFLAGS          = -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF -DHAVE_LIBSZ -DpgiFortran
+                        FFLAGS          = -O -Mpreprocess -Mrecursive -Mallocatable=03
 
-                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-pgi16
-                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.4.0-gcc48
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.4-pgi18.10
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.6.1-gcc64
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
-
-                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
+                        SZIPROOT    = $software_tree/sys/libaec-1.0.2-gcc64
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
+                        LDFLAGS     = ${LDFLAGS} $WLFLAG,-rpath,$NETCDFFROOT/lib $WLFLAG,-rpath,$NETCDFROOT/lib $WLFLAG,-rpath,$HDF5ROOT/lib $WLFLAG,-rpath,$SZIPROOT/lib
 
-                        #MPIROOT    = /opt/mpi/bullxmpi_mlx/1.2.8.3 -> mpi.mod just for intel-14.0 compiler !!!
-                        MPIROOT     = $software_tree/intel/impi/5.1.2.150/compilers_and_libraries/linux/mpi/intel64
-                        MPI_LIB     = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread -lmpipgf
+                        MPIROOT     = $software_tree/mpi/openmpi-2.0.2p2_hpcx-pgi18.10
+                        MPI_LIB     = -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                        # for pure CPU version
+                        FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
+                        LDFLAGS     = ${LDFLAGS} -tp=haswell -Mnorpath
                         ;;
                     *)
                         echo

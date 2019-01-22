@@ -23,7 +23,7 @@
 MODULE mo_decomposition_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: i8, wp
-  USE mo_exception,          ONLY: message_text, message, finish, warning
+  USE mo_exception,          ONLY: finish
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_math_utilities
   USE mo_util_sort,          ONLY: quicksort
@@ -423,10 +423,15 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index
     INTEGER :: get_valid_local_index_next
     LOGICAL, INTENT(in) :: use_next
-
     INTEGER :: temp
 
+
     !$ACC ROUTINE SEQ
+
+    IF (.NOT. use_next) THEN
+      get_valid_local_index_next = get_valid_local_index_prev(glb2loc_index, glb_index)
+      RETURN
+    ENDIF
 
     IF (glb_index > glb2loc_index%global_size .OR. &
       & glb_index < 1) THEN
@@ -946,8 +951,7 @@ CONTAINS
     INTEGER, INTENT(in) :: nparts
     TYPE(extent), INTENT(in) :: set_interval
     INTEGER, INTENT(in) :: part_idx
-    INTEGER :: start, part_offset, sym_part_idx
-    INTEGER(i8) :: sym_size
+    INTEGER :: start, part_offset
 
     part_offset = INT((INT(extent_size(set_interval), i8) &
          &             * INT(part_idx - 1, i8)) / INT(nparts, i8))

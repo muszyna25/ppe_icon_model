@@ -85,7 +85,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
-  INTEGER :: i_nchdom                !< domain index
 
   ! Local scalars:
   INTEGER :: jc,jk,jb,jg      !loop indices
@@ -98,7 +97,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   nlev   = p_patch%nlev
 
   ! local variables related to the blocking
-  i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
 
   IF (msg_level >= 15) CALL message('mo_les_turb_interface:', 'turbulence')
@@ -112,7 +110,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
     IF (les_config(jg)%les_metric) THEN
       CALL drive_subgrid_diffusion_m(p_sim_time,   & !in (Christopher Moseley)
                                      p_prog,       & !inout for w (it is updated inside)
-                                     p_prog_rcf,   & !in
                                      p_diag,       & !inout
                                      p_metrics,    & !in
                                      p_patch,      & !in
@@ -129,7 +126,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
     ELSE
       CALL drive_subgrid_diffusion(p_sim_time,   & !in (Christopher Moseley)
                                    p_prog,       & !inout for w (it is updated inside)
-                                   p_prog_rcf,   & !in
                                    p_diag,       & !inout
                                    p_metrics,    & !in
                                    p_patch,      & !in
@@ -150,8 +146,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   rl_start = grf_bdywidth_c+1
   rl_end   = min_rlcell_int
 
-  i_startblk = p_patch%cells%start_blk(rl_start,1)
-  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = p_patch%cells%start_block(rl_start)
+  i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
