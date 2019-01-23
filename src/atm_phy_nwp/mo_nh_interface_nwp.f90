@@ -1424,25 +1424,15 @@ CONTAINS
                                                     ((1._wp-wfac)*sqrt_ri(jc) + wfac)
           ENDDO
         ENDDO
-#ifdef __INTEL_COMPILER
+
         DO jk = 1, nlev
 !DIR$ IVDEP
-           DO jc = i_startidx, i_endidx
-        z_ddt_temp(jc,jk) =                                                      &
-   &                                       prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
+          DO jc = i_startidx, i_endidx
+            z_ddt_temp(jc,jk) = prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) + prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
+              &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) + prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
           ENDDO
         ENDDO
-#else
-!DIR$ IVDEP
-        z_ddt_temp(i_startidx:i_endidx,:) =                                                      &
-   &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
-#endif
+
 
         IF (kstart_moist(jg) > 1) THEN
           z_qsum(:,1:kstart_moist(jg)-1)      = 0._wp
@@ -1486,36 +1476,15 @@ CONTAINS
         ! in the current time step, but the radiation time step should be a multiple
         ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
         IF (l_any_slowphys) THEN
-#ifdef __INTEL_COMPILER
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              z_ddt_u_tot(jc,jk,jb) =                   &
-   &              prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
-   &            + zddt_u_raylfric            (jc,jk)    &
-   &            + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) &
-   &            + prm_nwp_tend%ddt_u_pconv   (jc,jk,jb)
-              z_ddt_v_tot(jc,jk,jb) =                   &
-   &              prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
-   &            + zddt_v_raylfric            (jc,jk)    &
-   &            + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) &
-   &            + prm_nwp_tend%ddt_v_pconv   (jc,jk,jb)
+              z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) + zddt_u_raylfric(jc,jk)  &
+                &     + prm_nwp_tend%ddt_u_sso(jc,jk,jb)  + prm_nwp_tend%ddt_u_pconv(jc,jk,jb)
+              z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_gwd(jc,jk,jb) + zddt_v_raylfric(jc,jk)  &
+                &     + prm_nwp_tend%ddt_v_sso(jc,jk,jb)  + prm_nwp_tend%ddt_v_pconv(jc,jk,jb)
+            ENDDO
           ENDDO
-        ENDDO
-#else
-!DIR$ IVDEP
-          z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
-   &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + zddt_u_raylfric            (i_startidx:i_endidx,:)    &
-   &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
-!DIR$ IVDEP
-          z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
-   &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
-   &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
-#endif
         ELSE IF (is_ls_forcing) THEN
           z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
@@ -1560,26 +1529,11 @@ CONTAINS
 
         ! combine convective and EDMF rain and snow
         IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-#ifdef __INTEL_COMPILER
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_diag%rain_con_rate          (jc,       jb) = &
-              &   prm_diag%rain_con_rate_3d (jc,nlevp1,jb)   &
-              & + prm_diag%rain_edmf_rate_3d(jc,nlevp1,jb)
-            prm_diag%snow_con_rate          (jc,       jb) = &
-              &   prm_diag%snow_con_rate_3d (jc,nlevp1,jb)   &
-              & + prm_diag%snow_edmf_rate_3d(jc,nlevp1,jb)
+            prm_diag%rain_con_rate(jc,jb) = prm_diag%rain_con_rate_3d (jc,nlevp1,jb) + prm_diag%rain_edmf_rate_3d(jc,nlevp1,jb)
+            prm_diag%snow_con_rate(jc,jb) = prm_diag%snow_con_rate_3d (jc,nlevp1,jb) + prm_diag%snow_edmf_rate_3d(jc,nlevp1,jb)
           ENDDO
-#else
-!DIR$ IVDEP
-          prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
-            & + prm_diag%rain_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
-!DIR$ IVDEP
-          prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
-            & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
-#endif
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx

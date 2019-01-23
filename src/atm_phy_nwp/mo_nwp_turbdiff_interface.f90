@@ -130,15 +130,15 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
 
-  INTEGER :: ncloud_offset                          !< offset for ptr-indexing in ART 
-                                                    !< interface due to additionally 
-                                                    !< diffused cloud fields
-  LOGICAL  :: ltwomoment                            !< using 2mom microphysics?
+  INTEGER :: ncloud_offset                  !< offset for ptr-indexing in ART 
+                                            !< interface due to additionally 
+                                            !< diffused cloud fields
+  LOGICAL  :: ltwomoment                    !< using 2mom microphysics?
   REAL(wp), TARGET      :: & 
-    &  ddt_turb_qnc(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qnc
-    &  ddt_turb_qni(nproma,p_patch%nlev,p_patch%nblks_c), & !< tendendy field for qni
-    &  ddt_turb_qs (nproma,p_patch%nlev,p_patch%nblks_c), & !< tendency field for qs 
-    &  ddt_turb_qns(nproma,p_patch%nlev,p_patch%nblks_c)    !< tendendy field for qns
+    &  ddt_turb_qnc(nproma,p_patch%nlev), & !< tendency field for qnc
+    &  ddt_turb_qni(nproma,p_patch%nlev), & !< tendendy field for qni
+    &  ddt_turb_qs (nproma,p_patch%nlev), & !< tendency field for qs 
+    &  ddt_turb_qns(nproma,p_patch%nlev)    !< tendendy field for qns
 
   ! EDMF variables:
   ! (attention: if no block index - p_patch%nblks_c - variables need to be declared private)
@@ -201,10 +201,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ltwomoment = .FALSE.
   END SELECT
 
-  ddt_turb_qnc(:,:,:) = 0.0_wp
-  ddt_turb_qni(:,:,:) = 0.0_wp
-  ddt_turb_qs (:,:,:) = 0.0_wp
-  ddt_turb_qns(:,:,:) = 0.0_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs, &
@@ -213,8 +209,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !$OMP            pdifts   , pdiftq  , pdiftl  , pdifti  , pstrtu  , pstrtv , pkh , pkm ,   &
 !$OMP            z_omega_p, zchar   , zucurr  , zvcurr  , zsoteu  , zsotev , zsobeta   ,   &
 !$OMP            zz0m     , zz0h    , zae     , ztskrad , zsigflt ,                        &
-!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t, rho_sfc, tempv_sfc)    &
-!$OMP ICON_OMP_GUIDED_SCHEDULE
+!$OMP            shfl_s_t , evap_s_t, tskin_t , ustr_s_t, vstr_s_t, rho_sfc, tempv_sfc,    &
+!$OMP            ddt_turb_qnc, ddt_turb_qni, ddt_turb_qs, ddt_turb_qns)  ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
 
@@ -296,9 +292,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (ltwomoment) THEN
         ! register cloud droplet number for turbulent diffusion
         ncloud_offset = ncloud_offset+1
-        ddt_turb_qnc(:,:,jb) = 0.0_wp
+        ddt_turb_qnc(:,:) = 0.0_wp
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqnc)
-        ptr(ncloud_offset)%at => ddt_turb_qnc(:,:,jb)
+        ptr(ncloud_offset)%at => ddt_turb_qnc(:,:)
         ptr(ncloud_offset)%sv => NULL()
       ENDIF ! ltwomoment
 
@@ -312,9 +308,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         IF (ltwomoment) THEN
           ! register cloud ice number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          ddt_turb_qni(:,:,jb) = 0.0_wp
+          ddt_turb_qni(:,:) = 0.0_wp
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqni)
-          ptr(ncloud_offset)%at => ddt_turb_qni(:,:,jb)
+          ptr(ncloud_offset)%at => ddt_turb_qni(:,:)
           ptr(ncloud_offset)%sv => NULL()
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qi
@@ -322,16 +318,16 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       IF (turbdiff_config(jg)%ldiff_qs) THEN
         ! register snow mass for turbulent diffusion
         ncloud_offset = ncloud_offset + 1
-        ddt_turb_qs (:,:,jb) = 0.0_wp
+        ddt_turb_qs (:,:) = 0.0_wp
         ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqs )
-        ptr(ncloud_offset)%at => ddt_turb_qs (:,:,jb)
+        ptr(ncloud_offset)%at => ddt_turb_qs (:,:)
         ptr(ncloud_offset)%sv => NULL()
         IF (ltwomoment) THEN
           ! register snow number for turbulent diffusion
           ncloud_offset = ncloud_offset + 1
-          ddt_turb_qns(:,:,jb) = 0.0_wp
+          ddt_turb_qns(:,:) = 0.0_wp
           ptr(ncloud_offset)%av => p_prog_rcf%tracer(:,:,jb,iqns)
-          ptr(ncloud_offset)%at => ddt_turb_qns(:,:,jb)
+          ptr(ncloud_offset)%at => ddt_turb_qns(:,:)
           ptr(ncloud_offset)%sv => NULL()
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qs
@@ -719,7 +715,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqnc) &
             &                              + tcall_turb_jg                                & 
-            &                              * ddt_turb_qnc(jc,jk,jb))
+            &                              * ddt_turb_qnc(jc,jk))
         ENDDO
       ENDDO
     ENDIF ! ltwomoment
@@ -740,7 +736,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,iqni) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqni) &
               &                              + tcall_turb_jg                                & 
-              &                              * ddt_turb_qni(jc,jk,jb))
+              &                              * ddt_turb_qni(jc,jk))
           ENDDO
         ENDDO
       ENDIF ! ltwomoment
@@ -753,7 +749,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         DO jc = i_startidx, i_endidx
           p_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqs) &
             &                             + tcall_turb_jg                               & 
-            &                             * ddt_turb_qs(jc,jk,jb))
+            &                             * ddt_turb_qs(jc,jk))
         ENDDO
       ENDDO
       IF (ltwomoment) THEN
@@ -763,7 +759,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,iqns) = MAX(0.0_wp, p_prog_rcf%tracer(jc,jk,jb,iqns) &
               &                              + tcall_turb_jg                                &
-              &                              * ddt_turb_qns(jc,jk,jb))
+              &                              * ddt_turb_qns(jc,jk))
           ENDDO
         ENDDO
       ENDIF ! ltwomoment

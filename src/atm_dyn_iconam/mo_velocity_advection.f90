@@ -481,11 +481,6 @@ MODULE mo_velocity_advection
 
       ENDIF
 
-!
-! WS: This array syntax yields poor performance on GPUs for large nproma; replace with explicit for loops
-!
-!!!      z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
-!!!      z_w_con_c(:,nlevp1) = 0._wp
 
 !$ACC PARALLEL PRESENT( p_prog ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)

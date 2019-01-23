@@ -376,11 +376,8 @@ CONTAINS
             !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
           ! integration of mass continuity equation
-              ptr_delp_mc_new(jc,jk,jb) =                      &
-            &              ptr_delp_mc_now(jc,jk,jb)       &
-            &              - pdtime_mod                                         &
-            &              * ( p_mflx_contra_v(jc,jk+1,jb) &
-            &              - p_mflx_contra_v(jc,jk,jb) )
+              ptr_delp_mc_new(jc,jk,jb) =  ptr_delp_mc_now(jc,jk,jb) - pdtime_mod  &
+              &   * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -490,11 +487,8 @@ CONTAINS
             DO jk = 1, nlev
               !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
-                ptr_delp_mc_new(jc,jk,jb) =                   &
-              &          p_delp_mc_new(jc,jk,jb)          &
-              &          + pdtime_mod                                          &
-              &          * ( p_mflx_contra_v(jc,jk+1,jb)  &
-              &          - p_mflx_contra_v(jc,jk,jb) )
+                ptr_delp_mc_new(jc,jk,jb) = p_delp_mc_new(jc,jk,jb) + pdtime_mod    &
+                &       * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
               ENDDO
             ENDDO
 !$ACC END PARALLEL
@@ -548,12 +542,8 @@ CONTAINS
           DO jk = 1, nlev
             !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
-              ptr_delp_mc_new(jc,jk,jb) =                        &
-            &       MAX(0.1_wp*p_delp_mc_new(jc,jk,jb),      &
-            &                  p_delp_mc_new(jc,jk,jb)       &
-            &                + pdtime_mod                                         &
-            &                * ( p_mflx_contra_v(jc,jk+1,jb) &
-            &                - p_mflx_contra_v(jc,jk,jb) )   )
+              ptr_delp_mc_new(jc,jk,jb) = MAX(0.1_wp*p_delp_mc_new(jc,jk,jb), p_delp_mc_new(jc,jk,jb) &
+            &    + pdtime_mod*( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )  )
             ENDDO
           ENDDO
 !$ACC END PARALLEL

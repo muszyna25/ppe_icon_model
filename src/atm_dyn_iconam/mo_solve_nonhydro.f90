@@ -1976,7 +1976,7 @@ MODULE mo_solve_nonhydro
               ! COMMENT: this optimization yields drastically better performance in an OpenACC context
               ! Interpolate contravariant correction to cell centers...
               z_w_concorr_mc_m1 =  &
-                P_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
+                p_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
                 p_int%e_bln_c_s(jc,2,jb)*z_w_concorr_me(ieidx(jc,jb,2),jk-1,ieblk(jc,jb,2)) + &
                 p_int%e_bln_c_s(jc,3,jb)*z_w_concorr_me(ieidx(jc,jb,3),jk-1,ieblk(jc,jb,3))
               z_w_concorr_mc_m0 =  &
@@ -2793,22 +2793,26 @@ MODULE mo_solve_nonhydro
 #ifdef __MIXED_PRECISION
             CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, opt_varname="w_nnew and z_dwdz_dd")
 #else
-!!!            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="w_nnew and z_dwdz_dd")
-            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner,opt_varname="exner_nnew")
-            CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%rho,opt_varname="rho_nnew")
+#ifndef _OPENACC
+            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="w_nnew and z_dwdz_dd")
+#else
             CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,opt_varname="w_nnew")
             CALL sync_patch_array(SYNC_C,p_patch,z_dwdz_dd,opt_varname="z_dwdz_dd")
+#endif
 #endif
           ELSE
             ! Only w needs to be synchronized
             CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w,opt_varname="w_nnew")
           ENDIF
         ELSE ! istep = 2: synchronize all prognostic variables
-!!!          CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
-!!!            p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w,opt_varname="rho, exner, w_nnew")
+#ifndef _OPENACC
+          CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
+            p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w,opt_varname="rho, exner, w_nnew")
+#else
           CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%rho, opt_varname="rho_nnew istep=2")
           CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner, opt_varname="exner_nnew istep=2")
           CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w, opt_varname="w_nnew istep=2")
+#endif
         ENDIF
       ENDIF
 
