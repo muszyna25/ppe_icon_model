@@ -299,9 +299,9 @@ CONTAINS
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2
     ktopm2=2
     DO jk=ktdia-1+ktopm2,klev
-!DIR$ IVDEP
 !OCL NOVREC
       ikb=MIN(jk+1,klev)
+!DIR$ IVDEP
       DO jl=kidia,kfdia
         pmflxr(jl,jk)=0.0_JPRB
         pmflxs(jl,jk)=0.0_JPRB

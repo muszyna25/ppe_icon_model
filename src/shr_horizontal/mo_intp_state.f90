@@ -169,7 +169,8 @@ USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               scalar_int_coeff, bln_int_coeff_e2c
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
-  &                               setup_comm_pattern, delete_comm_pattern, exchange_data
+  &                               delete_comm_pattern, exchange_data
+  USE mo_communication_factory, ONLY: setup_comm_pattern
 ! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 USE mo_dist_dir,            ONLY: dist_dir_get_owners

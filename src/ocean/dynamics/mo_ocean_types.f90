@@ -27,18 +27,24 @@ MODULE mo_ocean_types
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d
+  USE mo_ocean_tracer_transport_types
+
+  USE mtime, ONLY: datetime
+  USE mo_time_config, ONLY: t_time_config
+  USE mo_name_list_output_types, ONLY: t_output_file  
 
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
+  PUBLIC :: t_ocean_checkpoint
+  PUBLIC :: t_ocean_adjoint
   PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
   PUBLIC :: t_oce_config
-  PUBLIC :: t_ocean_tracer
+  PUBLIC :: t_verticalAdvection_ppm_coefficients
   
 
-  PUBLIC :: t_verticalAdvection_ppm_coefficients
   PUBLIC :: t_operator_coeff
   PUBLIC :: t_solverCoeff_singlePrecision
 
@@ -55,6 +61,25 @@ MODULE mo_ocean_types
     onEdges_HalfLevels :: p  ! pointer to 3D array
   END TYPE t_onEdges_HalfLevels_Pointer_wp
   
+  !-------------------------------------------------------------------------------
+  TYPE t_verticalAdvection_ppm_coefficients
+    !  coefficients for the upwind_vflux_ppm vertical advection
+    !  these are allocated in a block mode (ie each block allocates its own coefficients)
+    !  all dimensions are (nproma, levels),
+    !  although not all the levels are actually used
+    onCellsBlock ::  cellHeightRatio_This_toBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisBelow
+    onCellsBlock ::  cellHeight_2xBelow_x_RatioThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisAboveBelow
+    onCellsBlock ::  cellHeightRatio_2xAboveplusThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_2xBelowplusThis_toThisAbove
+    onCellsBlock ::  cellHeightRatio_ThisAbove_to2xThisplusBelow
+    onCellsBlock ::  cellHeightRatio_ThisBelow_to2xThisplusAbove
+    onCellsBlock ::  cellHeight_inv_ThisAboveBelow2Below
+
+  END TYPE t_verticalAdvection_ppm_coefficients
+  !-------------------------------------------------------------------------------
+
 !   TYPE t_pointer_2d_wp
 !     REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
 !   END TYPE t_pointer_2d_wp
@@ -140,11 +165,6 @@ MODULE mo_ocean_types
     
   END TYPE t_hydro_ocean_base
   
-  TYPE t_ocean_tracer
-    onCells :: concentration
-!     REAL(wp),POINTER :: concentration_x_height(:,:,:) not used any more 
-  END TYPE t_ocean_tracer
-
   !----------------------------------------------
   ! prognostic variables
   TYPE t_hydro_ocean_prog
@@ -156,7 +176,7 @@ MODULE mo_ocean_types
      !   1) pot_temp:= potential temperature, Unit: [deg C]
      !   2) salinity:= salinity, Unit [psu]
     
-    TYPE(t_ocean_tracer), ALLOCATABLE :: ocean_tracers(:)
+    TYPE(t_tracer_collection) :: tracer_collection
     
     TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_hydro_ocean_prog
@@ -164,7 +184,7 @@ MODULE mo_ocean_types
 
   TYPE t_hydro_ocean_diag
 
-    onCells ::                 &
+    onCells ::          &
       & rho            ,& ! density. Unit: [kg/m^3]
       & rhopot         ,& ! potential density. Unit: [kg/m^3]
       & rho_GM         ,& ! potential density. Unit: [kg/m^3]      
@@ -177,8 +197,8 @@ MODULE mo_ocean_types
       & kin            ,& ! kinetic energy. Unit [m/s].
 !       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
-      & temp_insitu    ,&
-      & t,s            ,& ! dummy pointer for output variabless
+!       & temp_insitu    ,&
+      & t,s          ,& ! dummy pointer for output variabless
       & Buoyancy_Freq  ,&
       & Richardson_Number,            &
       & osaltGMRedi,           &
@@ -192,6 +212,24 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
+      & delta_thetao, & 
+      & uT, &  !< product of temperature and u-velocity
+      & uS, &  !< product of salinity and u-velocity
+      & uR, &  !< product of density and u-velocity
+      & uu, &  !< square of u-velocity
+      & vT, &  !< product of temperature and v-velocity
+      & vS, &  !< product of salinity and v-velocity
+      & vR, &  !< product of density and v-velocity  
+      & vv, &  !< square of  v-velocity
+      & wT, &  !< product of temperature and w-velocity
+      & wS, &  !< product of salinity and w-velocity
+      & wR, &  !< product of density and w-velocity
+      & ww, &  !< square of w-velocity 
+      & uw, &  !< product of u-velocity and w-velocity 
+      & vw, &  !< product of v-velocity and w-velocity
+      & uv, &  !< product of u-velocity and v-velocity
+      & sigma0, &  !< potential density anomaly (desitity - 1000)
+      & heat_content_liquid_water,    &
       & odensitytend
 
 
@@ -201,13 +239,24 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
+      & heat_content_snow ,&
+      & heat_content_seaice ,&
+      & delta_ice, & 
+      & delta_snow, &
+      & heat_content_total ,&
       & zos_square     ,&
-      & Rossby_Radius    ,&      
+      & Rossby_Radius    ,&
       & Wavespeed_baroclinic ,&
       & global_moc       ,& ! MOC global
-      & atlantic_moc     ,& ! MOC atantic
-      & pacific_moc         ! MOC pacific
-      
+      & atlantic_moc     ,& ! MOC atlantic
+      & pacific_moc      ,& ! MOC pacific
+      & global_hfl       ,& ! implied ocean heat transport global
+      & atlantic_hfl     ,& ! implied ocean heat transport atlantic
+      & pacific_hfl      ,& ! implied ocean heat transport pacific
+      & global_hfbasin   ,& ! northward ocean heat transport global
+      & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
+      & pacific_hfbasin     ! northward ocean heat transport pacific
+
    onCells_2D :: &
       & northernHemisphere ,&
       & southernHemisphere
@@ -226,7 +275,7 @@ MODULE mo_ocean_types
       & w              ,& ! vertical velocity. Unit [m/s].
       & w_old          ,& ! vertical velocity from previous timestep. Unit [m/s].
 !       & w_prev         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
-      & w_time_weighted,& ! predicted normal velocity vector at cells
+!       & w_time_weighted,& ! predicted normal velocity vector at cells
       & cfl_vert          ! vertical cfl values
 
     onEdges_tracers :: &
@@ -247,7 +296,7 @@ MODULE mo_ocean_types
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
       & cfl_horz       ,& ! horizontal cfl values
-      & zlim           ,& ! zalesak limiter factor
+!       & zlim           ,& ! zalesak limiter factor
       & vn_bolus  
       
 !     onEdges_HalfLevels :: &
@@ -257,8 +306,7 @@ MODULE mo_ocean_types
       & vort            ! vorticity at triangle vertices. Unit [1/s]
       
     onVertices_Type(t_cartesian_coordinates) :: &
-      & p_vn_dual,   &    ! reconstructed velocity at vertex in cartesian coordinates
-      & p_vn_mean         ! reconstructed velocity at vertex in cartesian coordinates
+      & p_vn_dual
     
     onEdges_2D :: &
       & h_e              ,& ! surface height at cell edges. Unit [m].
@@ -316,16 +364,7 @@ MODULE mo_ocean_types
       
     onCells_2D_Type(t_cartesian_coordinates) :: bc_top_veloc_cc
     
-    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
-    
-    ! Variables for 3-dim tracer relaxation:
-    onCells :: &
-      & data_3dimRelax_Temp, & ! 3-dim temperature relaxation data (T*)
-      & forc_3dimRelax_Temp, & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
-      & data_3dimRelax_Salt, & ! 3-dim salinity relaxation data (T*)
-      & forc_3dimRelax_Salt, &    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
-      & relax_3dim_coefficient ! 3-dim relaxation coefficient when the relaxation varies
 
     onCells_Type(t_cartesian_coordinates) :: &
       & slopes              ! neutral slopes at cell center in cartesian coordinates
@@ -367,23 +406,6 @@ MODULE mo_ocean_types
 
 
   !-------------------------------------------------------------------------------
-  TYPE t_verticalAdvection_ppm_coefficients
-    !  coefficients for the upwind_vflux_ppm vertical advection
-    !  these are allocated in a block mode (ie each block allocates its own coefficients)
-    !  all dimensions are (nproma, levels),
-    !  although not all the levels are actually used
-    onCellsBlock ::  cellHeightRatio_This_toBelow
-    onCellsBlock ::  cellHeightRatio_This_toThisBelow
-    onCellsBlock ::  cellHeight_2xBelow_x_RatioThis_toThisBelow
-    onCellsBlock ::  cellHeightRatio_This_toThisAboveBelow
-    onCellsBlock ::  cellHeightRatio_2xAboveplusThis_toThisBelow
-    onCellsBlock ::  cellHeightRatio_2xBelowplusThis_toThisAbove
-    onCellsBlock ::  cellHeightRatio_ThisAbove_to2xThisplusBelow
-    onCellsBlock ::  cellHeightRatio_ThisBelow_to2xThisplusAbove
-    onCellsBlock ::  cellHeight_inv_ThisAboveBelow2Below
-
-  END TYPE t_verticalAdvection_ppm_coefficients
-
   TYPE t_operator_coeff
 
     ! 1) precomputed 3D-factors for mathematical operators (for efficiency).
@@ -451,16 +473,6 @@ MODULE mo_ocean_types
     mapEdgesToVertices_3D_Type(t_cartesian_coordinates) :: edge2vert_vector_cc
 
     onCells :: fixed_vol_norm
-!     REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
-!     REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
-
-    !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
-    ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
-!     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
-    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
-    onEdges_3D_Type(t_cartesian_coordinates) :: edge_position_cc
-    onEdges_3D_Type(t_cartesian_coordinates) :: moved_edge_position_cc
-    onEdges_3D_Type(t_cartesian_coordinates) :: upwind_cell_position_cc
 
     blockList_Type(t_verticalAdvection_ppm_coefficients) :: verticalAdvectionPPMcoeffs
 
@@ -474,6 +486,42 @@ MODULE mo_ocean_types
 
   END TYPE t_operator_coeff
     
+  TYPE t_ocean_checkpoint
+    onCells_2D :: h, h0
+    onCells_3D :: t, t0, s, s0, w
+    onEdges_3D :: vn, vn0, g_nm1
+    onCells_3D :: hi, hs, conc, Tsurf, T1, T2,albvisdir, albvisdif, albnirdir, albnirdif
+    onCells_3D :: E1, E2,vol,vols,draft,Qtop,Qbot,alb,zHeatOceI,heatOceI,hiold,hsold
+    onCells_3D :: SWnet , lat, sens, LWnet, dlatdT, dsensdT, dLWdT, surfmelt, surfmeltT,evapwi,zgrad_rho
+
+    onCells_2D :: Wind_Speed_10m, HeatFlux_Total, HeatFlux_Shortwave, HeatFlux_LongWave 
+    onCells_2D :: HeatFlux_Sensible,HeatFlux_Latent,concSum,Tfw,heatOceW,newice
+    onCells_2D :: FrshFlux_Precipitation, FrshFlux_Evaporation, FrshFlux_SnowFall, FrshFlux_Runoff
+
+    onCells_2D :: zUnderIce,albvisdirw, albvisdifw, albnirdirw, albnirdifw,draftave
+    onCells_2D :: SaltFlux_Relax, FrshFlux_Relax, HeatFlux_Relax, TempFlux_Relax 
+!   onCells_2D :: u,v,u_prog,v_prog,vn_e
+!   onCells_2D :: atmos_fluxes_stress_x, atmos_fluxes_stress_y
+!   onCells_2D :: atmos_fluxes_stress_xw, atmos_fluxes_stress_yw
+
+
+
+    TYPE(datetime) :: datetime
+    TYPE(t_time_config) :: time_config
+!    TYPE(t_output_file), ALLOCATABLE   :: output_file(:)
+    TYPE(t_hydro_ocean_prog), POINTER :: prog_old, prog_new 
+
+  END TYPE t_ocean_checkpoint
+
+  TYPE t_ocean_adjoint
+    onCells_2D :: h
+    onCells_3D :: t, s
+    onEdges_3D :: vn,foo
+    onCells_3D :: hi, hs, conc, Tsurf, T1, T2
+    onCells_2D :: zUnderIce
+  END TYPE t_ocean_adjoint
+
+  
   TYPE t_solverCoeff_singlePrecision
     ! the same as in t_operator_coeff in single precision for using in the solver
     onEdges_2D_RealPrecision(sp) :: grad_coeff                  ! as in t_operator_coeff for the 1st level
@@ -495,6 +543,8 @@ MODULE mo_ocean_types
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux
     TYPE(t_operator_coeff), POINTER :: operator_coeff
+    TYPE(t_ocean_checkpoint), POINTER :: p_check(:)
+    TYPE(t_ocean_adjoint) :: p_adjoint
 
   END TYPE t_hydro_ocean_state
   

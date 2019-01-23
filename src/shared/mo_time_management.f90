@@ -45,7 +45,8 @@ MODULE mo_time_management
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
     &                                    set_calendar, set_is_relative_time,               &
-    &                                    set_tc_dt_model, calendar_index2string
+    &                                    set_tc_dt_model, set_tc_dt_dyn,                   &
+    &                                    calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
@@ -184,7 +185,8 @@ CONTAINS
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
     ! --------------------------------------------------------------
 
-    CALL set_tc_dt_model(dtime_string)
+    CALL set_tc_dt_model(dtime_string) ! dyn. time step  on the global grid
+    CALL set_tc_dt_dyn                 ! dyn. time steps on all grids
     IF (dtime_real > 0._wp) THEN
       ! In case that we came from the REAL-valued namelist setting of
       ! the time step we try to avoid rounding errors in floating
@@ -209,7 +211,14 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Model time step          : ', TRIM(dtime_string)
     CALL message('',message_text)
     CALL message('','')
-    
+    DO jg=1,n_dom
+       dtime1 => time_config%tc_dt_dyn(jg)
+       CALL timedeltaToString  (dtime1, dtime_string)
+       WRITE(message_text,'(a,i2.2,a,a,a,f8.3,a)') '- Time step on grid jg=',jg,': ', &
+         &   TRIM(dtime_string),' = ',time_config%dt_dyn_sec(jg),' sec'
+       CALL message('',message_text)
+    END DO
+
   END SUBROUTINE compute_timestep_settings
 
   !---------------------------------------------------------------------------------------
@@ -446,7 +455,7 @@ CONTAINS
       &                                       mtime_td
     TYPE(divisionquotienttimespan)        ::  mtime_quotient
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
-      &                                       errno
+      &                                       errno, tlen1, tlen2
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
     TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
 #ifndef __NO_ICON_ATMO__
@@ -469,12 +478,17 @@ CONTAINS
     ! with concurrent namelist settings of the calendar (mtime):
     calendar1 = calendar_index2string(time_nml_icalendar)
     calendar2 = TRIM(master_nml_calendar)
-    IF (TRIM(calendar1) /= "")  calendar = calendar1
-    IF (TRIM(calendar2) /= "")  calendar = calendar2
-    IF ((TRIM(calendar1) /= "") .AND. (TRIM(calendar2) /= "")) THEN
-      ! both settings were used; we need to test for equality
-      IF (TRIM(tolower(calendar1)) /= TRIM(tolower(calendar2)))  &
-        &  CALL finish(routine, "Inconsistent setting of calendar")
+    tlen1 = LEN_TRIM(calendar1)
+    tlen2 = LEN_TRIM(calendar2)
+    IF (tlen2 /= 0) THEN
+      calendar = calendar2
+      IF (tlen1 /= 0) THEN
+        ! both settings were used; we need to test for equality
+        IF (tolower(calendar1) /= tolower(calendar2))  &
+             &  CALL finish(routine, "Inconsistent setting of calendar")
+      END IF
+    ELSE IF (tlen1 /= 0) THEN
+      calendar = calendar1
     END IF
     SELECT CASE (toLower(calendar))
     CASE ('julian gregorian')

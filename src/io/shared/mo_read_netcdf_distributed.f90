@@ -28,15 +28,20 @@ MODULE mo_read_netcdf_distributed
     & deallocate_glb2loc_index_lookup, &
     & uniform_partition, partidx_of_elem_uniform_deco
   USE mo_communication, ONLY: t_comm_pattern, idx_no, blk_no, &
-    & setup_comm_pattern, delete_comm_pattern, &
-    & exchange_data
+    & delete_comm_pattern, exchange_data
   USE mo_parallel_config, ONLY: nproma, &
        config_io_process_stride => io_process_stride, &
        config_io_process_rotate => io_process_rotate
+  USE mo_communication_factory, ONLY: setup_comm_pattern
+#ifndef NOMPI
+  USE mpi, ONLY: MPI_INFO_NULL, MPI_UNDEFINED, MPI_Comm_split, MPI_COMM_NULL
+#endif
 
   IMPLICIT NONE
 
   PRIVATE
+
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_read_netcdf_distributed'
 
   PUBLIC :: distrib_read
   PUBLIC :: distrib_nf_open
@@ -286,9 +291,64 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
+#ifdef HAVE_PARALLEL_NETCDF
+    INTEGER              :: myColor, ierr, nvars, i
+    INTEGER, ALLOCATABLE :: varids(:)
+    INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
+    LOGICAL, SAVE        :: isCommReady = .FALSE.
+    LOGICAL              :: exists, use_par_access
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::distrib_nf_open'
+#endif
+
+    CALL message ("distrib_nf_open:",path)
+
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+#ifdef HAVE_PARALLEL_NETCDF
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      myColor = 1
+    ELSE
+      myColor = MPI_UNDEFINED
+    ENDIF
+    IF (.NOT. isCommReady) THEN
+      ! This communicator is "lost" and is to be cleaned up eventually
+      ! by MPI_Finalize. Things were better if distrib_nf_open returned some
+      ! kind of object.
+      CALL MPI_Comm_split(p_comm_work, myColor, 0, comm_dist_nfpar, ierr)
+      isCommReady = .TRUE.
+    ENDIF
+#endif
+
+
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+#ifdef HAVE_PARALLEL_NETCDF
+      ierr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
+        & MPI_INFO_NULL, distrib_nf_open)
+
+      ! We do our own error handling here to give the filename to the user if
+      ! a file does not exist.
+      IF (ierr == nf_noerr) THEN
+        ! Switch all vars to collective. Hopefully this is sufficient.
+        CALL nf(nf_inq_nvars(distrib_nf_open, nvars))
+        ALLOCATE(varids(nvars))
+        CALL nf(nf_inq_varids(distrib_nf_open, nvars, varids))
+        DO i = 1,nvars
+          CALL nf(nf_var_par_access(distrib_nf_open, varids(i), NF_COLLECTIVE))
+        ENDDO
+      ELSE
+        INQUIRE(file=path, exist=exists)
+        IF (.NOT. exists) THEN
+          CALL finish("mo_read_netcdf_distributed", "File "//TRIM(path)//" does not exist.")
+        ELSE
+          ! If file exists just do the usual thing.
+          CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+          CALL message(routine, 'warning: falling back to serial semantics for&
+               & opening netcdf file '//path)
+        ENDIF
+      ENDIF
+
+#else
       CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
+#endif
     ELSE
       distrib_nf_open = -1
     END IF
@@ -328,10 +388,12 @@ CONTAINS
 
     n = SIZE(decomp_info%glb_index)
 
-    ALLOCATE(owner(n))
+    ALLOCATE(owner(MAX(1,n)))
 
-    CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
-      & owner(:), basic_io_data)
+    IF (n .GT. 0) THEN
+      CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
+        & owner(:), basic_io_data)
+    END IF
     n_inner = SIZE(basic_io_data%glb2loc_index%inner_glb_index, 1)
     CALL setup_comm_pattern(n, owner(:), decomp_info%glb_index(:), &
       & basic_io_data%glb2loc_index, n_inner, &
@@ -1020,10 +1082,10 @@ CONTAINS
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message('mo_read_netcdf_distributed netCDF error', &
+        CALL message(modname//' netCDF error', &
           &          nf_strerror(STATUS), level=em_warn)
       ELSE
-        CALL finish('mo_read_netcdf_distributed netCDF error', &
+        CALL finish(modname//' netCDF error', &
           &         nf_strerror(STATUS))
       ENDIF
     ENDIF

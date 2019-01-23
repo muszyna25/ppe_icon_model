@@ -65,7 +65,6 @@ MODULE mo_ext_data_state
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
   USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle
-  USE mo_echam_rad_config,   ONLY: echam_rad_config
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
@@ -362,18 +361,18 @@ CONTAINS
       &           isteptype=TSTEP_CONSTANT )
 
 
-    ! ozone mixing ratio
-    !
-    ! o3            p_ext_atm%o3(nproma,nlev,nblks_c)
-    cf_desc    = t_cf_var('ozone mixing ratio', 'kg kg-1', &
-      &                   'ozone mixing ratio', datatype_flt)
-    grib2_desc = grib2_var( 0, 14, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
-      &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,              &
-      &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
-
-
     IF ( iforcing == inwp ) THEN
+
+      ! ozone mixing ratio
+      !
+      ! o3            p_ext_atm%o3(nproma,nlev,nblks_c)
+      cf_desc    = t_cf_var('ozone mixing ratio', 'kg kg-1', &
+        &                   'ozone mixing ratio', datatype_flt)
+      grib2_desc = grib2_var( 0, 14, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,              &
+        &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
+
       ! external parameter for NWP forcing
 
       ! land sea mask for cells (LOGICAL)
@@ -1244,12 +1243,13 @@ CONTAINS
     !--------------------------------
 
 
+    IF (iforcing == inwp) THEN
+
     ! ozone on pressure levels
     ! ATTENTION: a GRIB2 number will go to
     ! the ozone mass mixing ratio...
     !
-    IF (                           irad_o3 == io3_clim .OR.                      irad_o3 == io3_ape &
-       & .OR. echam_rad_config(jg)%irad_o3 == io3_clim .OR. echam_rad_config(jg)%irad_o3 == io3_ape ) THEN
+    IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape ) THEN
 
       CALL message(routine, 'generate ext ozone field')
 
@@ -1286,8 +1286,6 @@ CONTAINS
         &           grib2_desc, ldims=shape4d_c, loutput=.FALSE.  )
 
     END IF ! irad_o3
-
-    IF (iforcing == inwp) THEN
 
     ! Black carbon aerosol
     !

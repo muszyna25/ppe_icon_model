@@ -29,7 +29,7 @@
 MODULE mo_sgs_turbmetric
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish,message_text, debug_messages_on
+  USE mo_exception,           ONLY: message
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -38,20 +38,17 @@ MODULE mo_sgs_turbmetric
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: iqv, iqc, msg_level
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
-                                    min_rledge_int, min_rlcell_int, min_rlvert_int
-  USE mo_math_constants,      ONLY: dbl_eps, pi
+  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
+  USE mo_impl_constants    ,  ONLY: min_rlcell, min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_math_utilities,      ONLY: tdma_solver
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
+  USE mo_physical_constants,  ONLY: cpd, rcvd, rcpd, alv
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_surface_les,         ONLY: surface_conditions
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbulent_diagnostic,ONLY: is_sampling_time, idx_sgs_th_flx, &
                                     idx_sgs_qv_flx, idx_sgs_qc_flx,   &
                                     idx_sgs_u_flx, idx_sgs_v_flx
@@ -98,12 +95,11 @@ MODULE mo_sgs_turbmetric
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!   - include turbulent metric terms
-  SUBROUTINE drive_subgrid_diffusion_m(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion_m(p_sim_time, p_nh_prog, p_nh_diag, p_nh_metrics, &
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
-    TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state
     TYPE(t_nh_diag),   INTENT(inout)     :: p_nh_diag     !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch       !< single patch
@@ -114,15 +110,16 @@ MODULE mo_sgs_turbmetric
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
+    REAL(wp),          INTENT(in)        :: p_sim_time    !current sim time
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
     REAL(wp), DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_e) :: &
          D_11_ie, D_12_ie, D_13_ie
 
     INTEGER :: nlev, nlevp1
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, jg
+    INTEGER :: jb, jc, jg
 
 
     !CALL debug_messages_on
@@ -134,7 +131,6 @@ MODULE mo_sgs_turbmetric
 
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
 
 
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v)           )
@@ -176,8 +172,8 @@ MODULE mo_sgs_turbmetric
 
     rl_start   = 1
     rl_end     = min_rlcell
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
@@ -199,9 +195,9 @@ MODULE mo_sgs_turbmetric
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_prog_lnd_now,        &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
-                            p_nh_prog%tracer(:,:,:,iqv))
+                            p_nh_prog%tracer(:,:,:,iqv), p_sim_time)
 
     !Calculate Brunt Vaisala Frequency
     CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
@@ -219,19 +215,19 @@ MODULE mo_sgs_turbmetric
     CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
                                prm_diag%tkvm, prm_nwp_tend%ddt_w_turb, dt)
 
-    CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
-                        prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
-                        prm_diag, p_nh_prog%rho, dt, tracer_theta)
+    CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, prm_nwp_tend%ddt_temp_turb,  &
+                        p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, tracer_theta)
+                        
 
     !For qv and qc: implement for qr as well
     IF(.NOT.les_config(jg)%is_dry_cbl)THEN
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
-                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, tracer_qv)
+                          prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv), p_nh_prog%exner,  &
+                          prm_diag, p_nh_prog%rho, dt, tracer_qv)
 
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqc), p_nh_metrics, p_patch, p_int, &
-                          p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, tracer_qc)
+                          prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc), p_nh_prog%exner,  &
+                          prm_diag, p_nh_prog%rho, dt, tracer_qc)
     ELSE
 !$OMP PARALLEL
       CALL init(prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv))
@@ -294,7 +290,7 @@ MODULE mo_sgs_turbmetric
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end, jg
     INTEGER :: jk, jb, jc, je
 
@@ -308,7 +304,6 @@ MODULE mo_sgs_turbmetric
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
 
     !Allocation
     ALLOCATE( mech_prod_e(nproma,nlev,p_patch%nblks_e),     &
@@ -349,8 +344,8 @@ MODULE mo_sgs_turbmetric
     rl_start = 2
     rl_end   = min_rledge_int-3
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -411,8 +406,8 @@ MODULE mo_sgs_turbmetric
     rl_start = 4
     rl_end   = min_rledge_int-2
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_vert1,vn_vert2,vn_vert3,vn_vert4,  &
 !$OMP            vt_vert1,vt_vert2,vt_vert3,vt_vert4,w_full_c1,w_full_c2,w_full_v1,  &
@@ -521,8 +516,8 @@ MODULE mo_sgs_turbmetric
     !except top and bottom boundaries
     rl_start = 3
     rl_end   = min_rlcell_int-1
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -551,8 +546,8 @@ MODULE mo_sgs_turbmetric
     !div_of_stress from edge to cell-scalar interpolation
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int-1 !-1 for its use in hor diffusion
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -588,8 +583,8 @@ MODULE mo_sgs_turbmetric
 
     rl_start = 3
     rl_end   = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -628,8 +623,8 @@ MODULE mo_sgs_turbmetric
     !4a) visc at cell center
     rl_start = grf_bdywidth_c
     rl_end   = min_rlcell_int-1
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -720,7 +715,7 @@ MODULE mo_sgs_turbmetric
     REAL(wp) :: flux_up_e, flux_dn_e, flux_up_v, flux_dn_v, flux_up_c, &
                 flux_dn_c, vflux_up, vflux_dn
     REAL(wp) :: norm_metr, tang_metr, vert_metr, div_of_stress, div_of_stress_p1
-    REAL(wp) :: stress_c1n, stress_c2n, aje, cje
+    REAL(wp) :: stress_c1n, stress_c2n
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt, dwdn, inv_dt, &
                 vn_vert1i, vn_vert1i_p1, vn_vert2i, vn_vert2i_p1, &
                 vn_vert3i, vn_vert4i, vn_vert3i_p1, vn_vert4i_p1, &
@@ -734,10 +729,9 @@ MODULE mo_sgs_turbmetric
 
     REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs
     REAL(wp), DIMENSION(p_patch%nlev) :: var_new, outvar
-    REAL(wp) :: stress_c1t, stress_c2t
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, je, jcn, jbn, jvn, jc
     INTEGER :: nlev, jg, nlevp1
@@ -751,7 +745,6 @@ MODULE mo_sgs_turbmetric
     ! number of vertical levels
     nlev     = p_patch%nlev
     nlevp1   = nlev+1
-    i_nchdom = MAX(1,p_patch%n_childdom)
 
     inv_dt  = 1._wp / dt
 
@@ -778,8 +771,8 @@ MODULE mo_sgs_turbmetric
                             opt_rlstart=rl_start, opt_rlend=rl_end)
 
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
     ! compute inv_rho
     ! compute D_11, D_12 on interface edges
@@ -1203,7 +1196,7 @@ MODULE mo_sgs_turbmetric
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,a,b,c,rhs,var_new,&
-!$OMP    flux_dn_e,stress_c1t,stress_c2t,stress_c1n,stress_c2n,dwdn,aje,cje)
+!$OMP    flux_dn_e,stress_c1n,stress_c2n,dwdn)
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
@@ -1214,10 +1207,6 @@ MODULE mo_sgs_turbmetric
          DO jk = 2, nlev-1
            DO je = i_startidx, i_endidx
 #endif
-             aje   = -visc_smag_ie(je,jk,jb)*&
-               p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb)*&
-               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)*inv_rhoe(je,jk,jb)
-
              a(je,jk)   = -visc_smag_ie(je,jk,jb)*&
                (z_4by3*p_nh_metrics%ddxn_z_half_e(je,jk,jb)*p_nh_metrics%ddxn_z_full(je,jk,jb)+&
                p_nh_metrics%ddxt_z_half_e(je,jk,jb)*p_nh_metrics%ddxt_z_full(je,jk,jb)+&
@@ -1228,10 +1217,6 @@ MODULE mo_sgs_turbmetric
                (z_4by3*p_nh_metrics%ddxn_z_half_e(je,jk+1,jb)*p_nh_metrics%ddxn_z_full(je,jk,jb)+&
                p_nh_metrics%ddxt_z_half_e(je,jk+1,jb)*p_nh_metrics%ddxt_z_full(je,jk,jb)+&
                1._wp)*p_nh_metrics%inv_ddqz_z_half_e(je,jk+1,jb)*&
-               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)*inv_rhoe(je,jk,jb)
-
-             cje   = -visc_smag_ie(je,jk+1,jb)*&
-               p_nh_metrics%inv_ddqz_z_half_e(je,jk+1,jb)*&
                p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)*inv_rhoe(je,jk,jb)
 
              b(je,jk)   =  inv_dt - a(je,jk) - c(je,jk)
@@ -1303,20 +1288,6 @@ MODULE mo_sgs_turbmetric
                         prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
                         p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-           !Get net shear stress in the direction of vt at surface
-           !needed for metric terms
-           !
-           !shear stress in normal direction from cell 1
-           stress_c1t = prm_diag%umfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
-                        p_patch%edges%dual_normal_cell(je,jb,1)%v1     + &
-                        prm_diag%vmfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
-                        p_patch%edges%dual_normal_cell(je,jb,1)%v2
-
-           !shear stress in normal direction from cell 2
-           stress_c2t = prm_diag%umfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
-                        p_patch%edges%dual_normal_cell(je,jb,2)%v1     + &
-                        prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
-                        p_patch%edges%dual_normal_cell(je,jb,2)%v2
 
            !Net stress at the edge
            flux_dn_e    = stress_c1n * p_int%c_lin_e(je,1,jb) + stress_c2n * p_int%c_lin_e(je,2,jb)
@@ -1370,8 +1341,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -1408,8 +1379,8 @@ MODULE mo_sgs_turbmetric
 
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,stress_c1n,stress_c2n)
       DO jb = i_startblk,i_endblk
@@ -1522,7 +1493,7 @@ MODULE mo_sgs_turbmetric
     REAL(wp) :: inv_rho_ic(nproma,2:p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end, jg
     INTEGER :: jk, jb, je, jc, jcn, jbn, jvn, jcb
     INTEGER  :: nlev
@@ -1535,7 +1506,6 @@ MODULE mo_sgs_turbmetric
 
     ! number of vertical levels
     nlev     = p_patch%nlev
-    i_nchdom = MAX(1,p_patch%n_childdom)
 
     inv_dt  = 1._wp / dt
 
@@ -1566,8 +1536,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
@@ -1594,8 +1564,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_e
     rl_end   = min_rledge_int-1
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,jcn,jcb,dvn1,dvn2,flux_up_c,flux_dn_c,&
@@ -1759,8 +1729,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -1960,14 +1930,13 @@ MODULE mo_sgs_turbmetric
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!  - include metric terms
-  SUBROUTINE diffuse_scalar(var, p_nh_metrics, p_patch, p_int, p_nh_diag, tot_tend,  &
+  SUBROUTINE diffuse_scalar(var, p_nh_metrics, p_patch, p_int, tot_tend,  &
                             exner, prm_diag, rho, dt, scalar_name)
 
     REAL(wp),          INTENT(in)        :: var(:,:,:)   !input scalar
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_patch), INTENT(inout), TARGET :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
     REAL(wp),        INTENT(inout)       :: tot_tend(:,:,:)!<total tendency
     REAL(wp),          INTENT(in)        :: exner(:,:,:)   !
     REAL(wp),          INTENT(in)        :: rho(:,:,:)     !density at cell center
@@ -1991,7 +1960,7 @@ MODULE mo_sgs_turbmetric
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iecidx, iecblk, ieidx, &
       &                                    ieblk, ievidx, ievblk
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, je, jc, jg, jbn, jvn, jcn
     INTEGER  :: nlev, nlevp1
@@ -2001,8 +1970,7 @@ MODULE mo_sgs_turbmetric
       var_ic        (nproma, p_patch%nlevp1, p_patch%nblks_c),  &
       var_ie        (nproma, p_patch%nlevp1, p_patch%nblks_e),  &
       var_iv        (nproma, p_patch%nlevp1, p_patch%nblks_v),  &
-      metric_tend_e (nproma, p_patch%nlev,   p_patch%nblks_e),  &
-      metric_tend   (nproma, p_patch%nlev,   p_patch%nblks_c)
+      metric_tend_e (nproma, p_patch%nlev,   p_patch%nblks_e)
 
     IF (msg_level >= 18) &
          CALL message(inmodule, 'diffuse_scalar')
@@ -2013,7 +1981,6 @@ MODULE mo_sgs_turbmetric
     ! number of vertical levels
     nlev = p_patch%nlev
     nlevp1 = nlev+1
-    i_nchdom   = MAX(1,p_patch%n_childdom)
     inv_dt  = 1._wp / dt
 
     iecidx => p_patch%edges%cell_idx
@@ -2053,8 +2020,8 @@ MODULE mo_sgs_turbmetric
       rl_start = grf_bdywidth_e
       rl_end   = min_rledge_int-1
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(je,jb,jk,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
@@ -2089,8 +2056,8 @@ MODULE mo_sgs_turbmetric
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
@@ -2124,8 +2091,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_c
     rl_end   = min_rlcell_int-1
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -2167,8 +2134,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     !Special boundary treatment for different scalars
 
@@ -2242,8 +2209,8 @@ MODULE mo_sgs_turbmetric
         rl_start = grf_bdywidth_e
         rl_end   = min_rledge_int-1
 
-        i_startblk = p_patch%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch%edges%start_block(rl_start)
+        i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,norm_metr,tang_metr,jcn,jvn,jbn)
         DO jb = i_startblk,i_endblk
@@ -2299,8 +2266,8 @@ MODULE mo_sgs_turbmetric
     rl_start = grf_bdywidth_e
     rl_end   = min_rledge_int-1
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
@@ -2334,8 +2301,8 @@ MODULE mo_sgs_turbmetric
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
 
-        i_startblk = p_patch%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch%cells%start_block(rl_start)
+        i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
@@ -2370,8 +2337,8 @@ MODULE mo_sgs_turbmetric
        rl_start = grf_bdywidth_c+1
        rl_end   = min_rlcell_int
 
-       i_startblk = p_patch%cells%start_blk(rl_start,1)
-       i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+       i_startblk = p_patch%cells%start_block(rl_start)
+       i_endblk   = p_patch%cells%end_block(rl_end)
 
 
        SELECT CASE(les_config(jg)%vert_scheme_type)

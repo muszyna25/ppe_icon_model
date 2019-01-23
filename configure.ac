@@ -104,6 +104,14 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+AC_ARG_ENABLE([psrad],
+              AS_HELP_STRING([--enable-psrad],[Use psrad model component.]),
+              [],[enable_psrad=yes])
+
+AC_ARG_ENABLE([mixed],
+              AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
+              [],[enable_mixed=no])
+
 dnl ######################################################################
 dnl Serialbox2 serialization setup
 
@@ -190,6 +198,14 @@ AS_IF([test "x$with_yac" = "xno"],
       [use_yac="yes"])
 
 dnl selects DLR's MESSy
+
+AC_ARG_ENABLE([cdi-pio],
+  [AS_HELP_STRING([--enable-cdi-pio],
+    [enable experimental use of parallel output via CDI-PIO])],,
+    [enable_cdi_pio=no])
+AS_IF([test "x$enable_cdi_pio" != "xyes" -o $use_yaxt != yes],
+      [enable_cdi_pio=no],
+      [enable_cdi_pio=yes])
 
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
@@ -342,6 +358,12 @@ AS_IF([test "x$enable_ocean" = "xno"],
 
 AS_IF([test "x$enable_testbed" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
+AS_IF([test "x$enable_psrad" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"])
+
+AS_IF([test "x$enable_mixed" = "xyes"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__MIXED_PRECISION ${DEFOPT}__MIXED_PRECISION_2"])
 
 dnl #####################################################################
 dnl add local flags
@@ -963,7 +985,7 @@ if test -n "$SCTROOT" ; then
   fi
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+  CFLAGS="${CFLAGS} -D__SCT__"
 
   AS_CASE([$ac_hostname],
           [mlogin*|btc*],
@@ -1134,7 +1156,7 @@ dnl Checks for header files.
 if test -z "$CROSS" ; then
 
    AC_HEADER_STDC
-   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h )
+   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h link.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
    AC_C_CONST
@@ -1520,7 +1542,10 @@ if test x${MPI_LAUNCH+set} != xset ; then
   fi
 fi
        FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
-       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
+       FCFLAGS_sub=${FCFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       FFLAGS_sub=${FFLAGS/-fmodule-private/}
+       FFLAGS_sub=${FFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS_sub' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
        ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
        ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
        AC_CONFIG_SUBDIRS([externals/yaxt])
@@ -1541,7 +1566,17 @@ AC_SUBST([YAXT_LIB])
 AC_SUBST([YAXT_INCLUDE])
 AC_SUBST([YAXT_VERSION])
 
-
+AS_IF([test $enable_cdi_pio = yes],
+  [AS_IF([test -n "$CDIROOT" -a x"$YAXTROOT" != xexternals/yaxt],
+     [PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
+      AS_IF([pkg-config --exists cdipio],
+        [CDI_LIB=`pkg-config --libs cdipio`
+         AS_CASE([$host],[*-*-linux-*],
+           [CDI_LIB=`echo "$CDI_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/g'`])
+         CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
+         FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"],
+        [AC_MSG_ERROR([Cannot find cdipio pkg-conf description.])])],
+     [AC_MSG_ERROR([Unsupported YAXT/CDI-PIO configuration.])])])
 dnl ######################################################################
 
 AC_SUBST(SRCDIRS,$ac_srcdirs)
@@ -1762,6 +1797,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
                    [
+                    CDIROOT="${CDIROOT}"
+                    export CDIROOT
                     build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"

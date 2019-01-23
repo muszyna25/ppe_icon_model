@@ -1,12 +1,9 @@
 !>
-!! @brief Subroutine omp_loop_cell/edge_par/dia calls a generic subroutine in an
+!! @brief Subroutine omp_loop_cell_prog/diag calls a generic subroutine in an
 !!  OMP parallelized loop over all blocks of a given patch of the grid.
 !!
-!!  omp_loop_cell/edge_par passes indices and time control arguments.
-!!  omp_loop_cell/edge_dia passes only indices.
-!!
-!!$!!  omp_loop_cell_par/dia works on cells of a patch
-!!$!!  omp_loop_edge_par/dia works on edges of a patch
+!!  omp_loop_cell_prog passes more arguments, as needed for parameterizations
+!!  omp_loop_cell_diag passes fewer arguments, sufficient for diagnostics
 !!
 !! @author Marco Giorgetta, MPI-M
 !!
@@ -28,26 +25,28 @@
 
 MODULE mo_omp_loop
 
-  USE mo_kind           ,ONLY: wp
-  USE mtime             ,ONLY: datetime
-  USE mo_parallel_config,ONLY: nproma
-  USE mo_model_domain   ,ONLY: t_patch
-  USE mo_loopindices    ,ONLY: get_indices_c
-  USE mo_impl_constants ,ONLY: min_rlcell_int, grf_bdywidth_c
+  USE mo_kind               ,ONLY: wp
+  USE mtime                 ,ONLY: datetime
+  USE mo_parallel_config    ,ONLY: nproma
+  USE mo_run_config         ,ONLY: ntracer
+  USE mo_model_domain       ,ONLY: t_patch
+  USE mo_loopindices        ,ONLY: get_indices_c
+  USE mo_impl_constants     ,ONLY: min_rlcell_int
+  USE mo_impl_constants_grf ,ONLY: grf_bdywidth_c
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC  :: omp_loop_cell, omp_loop_cell_tc
+  PUBLIC  :: omp_loop_cell_diag, omp_loop_cell_prog
 
 CONTAINS
 
 
-  SUBROUTINE omp_loop_cell_tc(patch                ,&
-       &                      routine              ,&
-       &                      is_in_sd_ed_interval ,&
-       &                      is_active            ,&
-       &                      datetime_old         ,&
-       &                      pdtime               )
+  SUBROUTINE omp_loop_cell_prog(patch                ,&
+       &                        routine              ,&
+       &                        is_in_sd_ed_interval ,&
+       &                        is_active            ,&
+       &                        datetime_old         ,&
+       &                        pdtime               )
 
     ! Arguments
     !
@@ -56,7 +55,7 @@ CONTAINS
     INTERFACE
        !
        SUBROUTINE routine(jg,jb,jcs,jce        ,&
-            &             nproma,nlev          ,& 
+            &             nproma,nlev,ntracer  ,& 
             &             is_in_sd_ed_interval ,&
             &             is_active            ,&
             &             datetime_old         ,&
@@ -65,7 +64,7 @@ CONTAINS
          IMPORT :: wp, datetime
          !
          INTEGER        ,INTENT(in) :: jg,jb,jcs,jce
-         INTEGER        ,INTENT(in) :: nproma,nlev
+         INTEGER        ,INTENT(in) :: nproma,nlev,ntracer
          LOGICAL        ,INTENT(in) :: is_in_sd_ed_interval
          LOGICAL        ,INTENT(in) :: is_active
          TYPE(datetime) ,POINTER    :: datetime_old
@@ -105,9 +104,10 @@ CONTAINS
     DO jb = jbs,jbe
        !
        CALL get_indices_c(patch,jb,jbs,jbe,jcs,jce,rls,rle)
+       IF (jcs>jce) CYCLE
        !
        CALL routine(jg,jb,jcs,jce        ,&
-            &       nproma,nlev          ,&
+            &       nproma,nlev,ntracer  ,&
             &       is_in_sd_ed_interval ,&
             &       is_active            ,&
             &       datetime_old         ,&
@@ -116,11 +116,11 @@ CONTAINS
     END DO
 !$OMP END PARALLEL DO 
 
-  END SUBROUTINE omp_loop_cell_tc
+  END SUBROUTINE omp_loop_cell_prog
 
 
-  SUBROUTINE omp_loop_cell(patch  ,&
-       &                   routine)
+  SUBROUTINE omp_loop_cell_diag(patch  ,&
+       &                        routine)
 
     ! Arguments
     !
@@ -163,6 +163,7 @@ CONTAINS
     DO jb = jbs,jbe
        !
        CALL get_indices_c(patch,jb,jbs,jbe,jcs,jce,rls,rle)
+       IF (jcs>jce) CYCLE
        !
        CALL routine(jg,jb,jcs,jce ,&
             &       nproma,nlev   )
@@ -170,6 +171,6 @@ CONTAINS
     END DO
 !$OMP END PARALLEL DO 
 
-  END SUBROUTINE omp_loop_cell
+  END SUBROUTINE omp_loop_cell_diag
 
 END MODULE mo_omp_loop

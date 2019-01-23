@@ -93,6 +93,14 @@ CONTAINS
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colch4:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
 
 !     write(0,*) "icount=",icount
     laytrop_min = MINVAL(k_laytrop(1:icount))
@@ -270,6 +278,14 @@ CONTAINS
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colco2:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -477,6 +493,14 @@ CONTAINS
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colch4:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -655,6 +679,14 @@ CONTAINS
     REAL(wp) ::  z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colco2:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -831,6 +863,14 @@ CONTAINS
     INTEGER :: ig, ind0, ind1, inds, indf, i_lay, i_nlayers, i_laysolfr(kbdim)
     REAL(wp) :: z_tauray
     INTEGER :: laytrop_min, laytrop_max
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_colh2o:64,p_colch4:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
 
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
@@ -988,6 +1028,14 @@ CONTAINS
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm,  z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colco2:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -1199,6 +1247,14 @@ CONTAINS
          &      z_o2cont
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colmol:64,p_colo2:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -1387,6 +1443,14 @@ CONTAINS
     INTEGER :: ig, ind0, ind1, inds, indf, i_lay, i_nlayers, i_laysolfr(kbdim)
     REAL(wp) ::  z_tauray
     INTEGER :: laytrop_min, laytrop_max
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_colh2o:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
 
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
@@ -1522,6 +1586,14 @@ CONTAINS
     REAL(wp) ::  z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colh2o:64,p_colmol:64,p_colo2:64,p_colo3:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -1698,6 +1770,13 @@ CONTAINS
     REAL(wp) ::  z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64
+!DIR$ ASSUME_ALIGNED p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_colh2o:64,p_colmol:64,p_colo3:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -1795,6 +1874,12 @@ CONTAINS
     INTEGER :: ig, i_lay, i_nlayers, i_laysolfr(kbdim)
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_laytrop:64
+!DIR$ ASSUME_ALIGNED p_colmol:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 
@@ -1876,6 +1961,13 @@ CONTAINS
     INTEGER :: ig, ind0, ind1, i_lay, i_nlayers, i_laysolfr(kbdim)
     REAL(wp) :: z_tauray
     INTEGER :: laytrop_min, laytrop_max
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64
+!DIR$ ASSUME_ALIGNED p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_colo3:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
 
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
@@ -1997,6 +2089,13 @@ CONTAINS
     INTEGER :: ig, ind0, ind1, js, i_lay, i_nlayers, i_laysolfr(kbdim)
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64
+!DIR$ ASSUME_ALIGNED p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_oneminus:64,p_colmol:64,p_colo2:64,p_colo3:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
 
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
@@ -2179,6 +2278,14 @@ CONTAINS
     REAL(wp) ::  z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+#ifdef __INTEL_COMPILER
+!DIR$ ASSUME_ALIGNED k_jp:64,k_jt:64,k_jt1:64,k_laytrop:64,k_indself:64
+!DIR$ ASSUME_ALIGNED k_indfor:64,p_fac00:64,p_fac01:64,p_fac10:64,p_fac11:64
+!DIR$ ASSUME_ALIGNED p_colh2o:64,p_colco2:64,p_colmol:64
+!DIR$ ASSUME_ALIGNED p_selffac:64,p_selffrac:64,p_forfac:64,p_forfrac:64
+!DIR$ ASSUME_ALIGNED p_sfluxzen:64,p_taug:64,p_taur:64
+!DIR$ ATTRIBUTES ALIGN : 64 :: i_laysolfr
+#endif
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
 

@@ -51,10 +51,12 @@ USE mo_parallel_config,     ONLY: nproma
   USE mo_mpi,                  ONLY: p_pe_work
 
 USE mo_communication,       ONLY: t_p_comm_pattern, blk_no, idx_no, idx_1d, &
-  &                               setup_comm_pattern, delete_comm_pattern, &
+  &                               delete_comm_pattern, &
   &                               exchange_data, t_comm_pattern_collection, &
-  &                               t_comm_pattern, setup_comm_pattern_collection, &
+  &                               t_comm_pattern, &
   &                               delete_comm_pattern_collection
+  USE mo_communication_factory, ONLY: setup_comm_pattern, &
+    &                                 setup_comm_pattern_collection
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_valid_local_index, &

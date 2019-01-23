@@ -281,8 +281,26 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)           :: in_str    ! input string
     CHARACTER(len=*), INTENT(IN)           :: arg(:)
     ! local variables:
-    INTEGER :: i, in_str_tlen, arg_tlen
+    INTEGER :: i, n, in_str_tlen, arg_tlen
+    CHARACTER(len=len_trim(in_str)) :: in_str_upper
 
+#ifndef _CRAYFTN
+    one_of = -1
+    n = SIZE(arg)
+    IF (n > 0) THEN
+      in_str_upper = toupper(in_str)
+      in_str_tlen = LEN_TRIM(in_str)
+      DO i=1,n
+        arg_tlen = LEN_TRIM(arg(i))
+        IF (arg_tlen == in_str_tlen) THEN
+          IF (in_str_upper == toupper(arg(i))) THEN
+            one_of=i
+            EXIT
+          ENDIF
+        END IF
+      END DO
+    END IF
+#else ! The crap compiler is to brain-dead to compile and USE the above code.
     one_of = -1
     IF (SIZE(arg) > 0) THEN
       in_str_tlen = LEN_TRIM(in_str)
@@ -296,6 +314,7 @@ CONTAINS
         END IF
       END DO
     END IF
+#endif
   END FUNCTION one_of
 
 
@@ -479,29 +498,22 @@ CONTAINS
     INTEGER,                   INTENT(INOUT) :: nitems
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems
 
-    iwrite = 1
-    DO iread=1,nitems
+    iwrite = 0
+    ITEM_LOOP: DO iread=1,nitems
       ! check if item already in string list (1:iwrite-1):
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,(iwrite-1)
-        IF (TRIM(str_list(i)) == TRIM(str_list(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list(iwrite) = str_list(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
-    nitems = iwrite-1
+      DO i=1,iwrite
+        IF (str_list(i) == str_list(iread)) CYCLE item_loop
+      END DO
+      iwrite = iwrite + 1
+      IF (iwrite /= iread) str_list(iwrite) = str_list(iread)
+    END DO ITEM_LOOP
+    nitems = iwrite
 
     ! clear the rest of the list
-    DO iwrite=(nitems+1),nitems_old
+    DO iwrite = iwrite+1, nitems_old
       str_list(iwrite) = ' '
     END DO
   END SUBROUTINE remove_duplicates
@@ -519,29 +531,23 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nitems2
     ! local variables
     INTEGER :: iwrite, iread, nitems_old, i
-    LOGICAL :: l_duplicate
 
     nitems_old = nitems1
 
     iwrite = 1
-    DO iread=1,nitems1
+    ITEM1_LOOP: DO iread=1,nitems_old
       ! check if item is in string list 2:
-      l_duplicate = .FALSE.
-      CHECK_LOOP : DO i=1,nitems2
-        IF (TRIM(str_list2(i)) == TRIM(str_list1(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list1(iwrite) = str_list1(iread)
-        iwrite = iwrite + 1
-      END IF
-    END DO
+      DO i=1,nitems2
+        IF (str_list2(i) == str_list1(iread)) CYCLE ITEM1_LOOP
+      END DO
+      ! can only be reached for non-duplicate entries
+      IF (iwrite /= iread) str_list1(iwrite) = str_list1(iread)
+      iwrite = iwrite + 1
+    END DO ITEM1_LOOP
     nitems1 = iwrite-1
 
     ! clear the rest of the list
-    DO iwrite=(nitems1+1),nitems_old
+    DO iwrite=iwrite,nitems_old
       str_list1(iwrite) = ' '
     END DO
   END SUBROUTINE difference
@@ -650,22 +656,28 @@ CONTAINS
     CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
     CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
-    INTEGER :: i,j,k
+    INTEGER :: i,j,k,m,ngroups
+    CHARACTER(len=LEN_TRIM(group_name)) :: group_name_uc
 
     k=0
-    DO i=1,SIZE(varlist)
-      IF (varlist(i) == ' ') EXIT
-      IF (TRIM(toupper(varlist(i))) == TRIM(toupper(group_name))) THEN
-        DO j=1,SIZE(group_list)
+    ngroups = SIZE(group_list)
+    m = SIZE(varlist)
+    IF (m > 0) THEN
+      group_name_uc = toupper(group_name)
+      DO i=1,m
+        IF (varlist(i) == ' ') EXIT
+        IF (toupper(varlist(i)) == group_name_uc) THEN
+          DO j=1,ngroups
+            k = k+1
+            result_list(k) = group_list(j)
+          END DO
+        ELSE
           k = k+1
-          result_list(k) = TRIM(group_list(j))
-        END DO
-      ELSE
-        k = k+1
-        result_list(k) = TRIM(varlist(i))
-      END IF
-    END DO
-    CALL remove_duplicates(result_list, k )
+          result_list(k) = varlist(i)
+        END IF
+      END DO
+      CALL remove_duplicates(result_list, k )
+    END IF
     DO i=k+1,n
       result_list(i) = " "
     END DO
@@ -728,8 +740,7 @@ CONTAINS
     END DO
     ! build the result string:
     i = 1
-    DO
-      IF (i>N) EXIT
+    DO WHILE (i <= n)
       IF (nnext(i) > 1) THEN
         IF (nnext(i) == 2) THEN
           dst = TRIM(dst)//TRIM(int2string(list(i)))//","//TRIM(int2string(list(i+1)))

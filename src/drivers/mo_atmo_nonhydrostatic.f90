@@ -15,11 +15,9 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
-USE mtime,                   ONLY: datetimeToString, timeDelta, newTimeDelta,               &
-  &                                getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
-  &                                deallocateTimedelta, OPERATOR(>)
+USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, VARNAME_LEN
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
@@ -45,12 +43,13 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_nh_testcases,         ONLY: init_nh_testcase
-USE mo_ls_forcing_nml,       ONLY: is_ls_forcing
+USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
+USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
+     &                             is_plane_torus, l_limited_area
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -96,7 +95,7 @@ USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 
 ! ECHAM physics
 USE mo_echam_phy_memory,    ONLY: construct_echam_phy_state
-USE mo_psrad_memory,        ONLY: construct_psrad_forcing_list
+USE mo_psrad_forcing_memory, ONLY: construct_psrad_forcing_list
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
@@ -107,7 +106,6 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
   USE mo_jsb_model_init,    ONLY: jsbach_init_after_restart
 #endif
 
-USE mtime,                  ONLY: datetimeToString
 USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
@@ -115,6 +113,7 @@ USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc_types,   ONLY: t_latbc_data
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
+USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
@@ -124,6 +123,12 @@ USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 
 !-------------------------------------------------------------------------
+#ifdef HAVE_CDI_PIO
+  USE mo_impl_constants,      ONLY: pio_type_cdipio
+  USE mo_parallel_config,     ONLY: pio_type
+  USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
+  USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
+#endif
 
 IMPLICIT NONE
 PRIVATE
@@ -388,7 +393,8 @@ CONTAINS
           &                   ext_data        ,&
           &                   ntl=2           )
         !
-        IF (is_ls_forcing) CALL init_ls_forcing(p_nh_state(1)%metrics)
+        IF(is_ls_forcing .OR. is_nudging) &
+          CALL init_ls_forcing(p_nh_state(1)%metrics)
         !
       ELSE
         !
@@ -544,7 +550,7 @@ CONTAINS
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights(lonlat_grids)
+    CALL compute_lonlat_area_weights(lonlat_grids, p_nh_state_lists)
 
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
@@ -700,6 +706,10 @@ CONTAINS
 
 
     INTEGER :: jg, ist
+    
+#ifdef HAVE_CDI_PIO
+    INTEGER :: prev_cdi_namespace
+#endif
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
@@ -745,17 +755,28 @@ CONTAINS
     ENDIF
 
     ! call close name list prefetch
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-      CALL close_prefetch()
-      CALL latbc%finalize()
+    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+      IF (num_prefetch_proc >= 1) THEN
+        CALL close_prefetch()
+        CALL latbc%finalize()
+      ELSE
+        CALL deallocate_latbc_data()
+      END IF
     END IF
-    
+
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
       CALL finish_mean_stream()
     END IF
-
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      prev_cdi_namespace = namespaceGetActive()
+      CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+      CALL pioFinalize
+      CALL namespaceSetActive(prev_cdi_namespace)
+    END IF
+#endif
     ! finalize meteogram output
     IF (output_mode%l_nml) THEN
       DO jg = 1, n_dom

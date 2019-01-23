@@ -122,7 +122,7 @@
       SUBROUTINE update_bgc(start_index, end_index, &
 &             klevs,pddpo,jb,ptracer,pco2mr,p_diag,p_sed,p_tend)
 
-      USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
+      USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend,  &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
  &                         satn2, satn2o, solco2,kbo,bolay,&
 &                          atm
@@ -131,8 +131,8 @@
  &                             ipowaic, ipowaal, ipowaph, &
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipowasi, ipowafe, kn2b,    &
- &                             kh2ob, korginp, ksilinp,   &
-&                              kcalinp,keuexp, ipowh2s, &
+ &                             kh2ob,    &
+&                              ipowh2s, &
 &                              iatmco2 
 
 
@@ -217,9 +217,9 @@
 &             klevs,pddpo,jb,p_tend, p_diag, p_sed)
 
       
-      USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
+      USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, sedfluxo, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
- &                         satn2o, solco2, bolay,atm
+ &                         satn2o, solco2, atm
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -255,7 +255,6 @@
 
 
       INTEGER :: jc, jk, kpke
-      INTEGER :: itrac
 
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(jc,jk,kpke) HAMOCC_OMP_DEFAULT_SCHEDULE
@@ -367,9 +366,9 @@
              p_sed%pwn2b(jc,jk,jb) = pown2bud(jc,jk)
 
              ! tendencies
-             p_tend%sedro2(jc,ks,jb) = sedtend(jc,jk,isremino) 
-             p_tend%sedrn(jc,ks,jb)  = sedtend(jc,jk,isreminn) 
-             p_tend%sedrs(jc,ks,jb)  = sedtend(jc,jk,isremins) 
+             p_tend%sedro2(jc,jk,jb) = sedtend(jc,jk,isremino) 
+             p_tend%sedrn(jc,jk,jb)  = sedtend(jc,jk,isreminn) 
+             p_tend%sedrs(jc,jk,jb)  = sedtend(jc,jk,isremins) 
              
         ENDDO
       ENDIF
@@ -459,21 +458,17 @@
 
   SUBROUTINE print_bgc_parameters
   USE mo_memory_bgc, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
-       &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
-       &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
-       &                     drempoc,                                      &
-       &                     dremopal, dremn2o, sulfate_reduction,         &
-       &                     dremcalc, n2_fixation, ro2ut, rcar, rnit,     &
-       &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
-       &                     perc_diron, riron, fesoly, relaxfe,     &
-       &                     denitrification,             rn2,             &
-       &                     cycdec, pi_alpha_cya,cya_growth_max,          &
+       &                     grazra, bkphy, bkzoo, bkopal,                      &
+       &                     drempoc,dremopal,sulfate_reduction,                &
+       &                     dremcalc, n2_fixation,                             &
+       &                     ropal, perc_diron, riron, fesoly, relaxfe,         &
+       &                     denitrification, pi_alpha_cya,                     &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
-       &                     buoyancyspeed_cya, &
-       &                     doccya_fac, thresh_aerob, thresh_sred 
+       &                     buoyancyspeed_cya,                                 &
+       &                     doccya_fac, thresh_aerob, thresh_sred
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
-      &                 sinkspeed_opal, sinkspeed_calc
+      &                 sinkspeed_opal, sinkspeed_calc, cycdec
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
@@ -614,7 +609,7 @@ SUBROUTINE to_bgcout_real(cname,val)
   CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
 
   cpara_name=cname
-  IF(abs(val)<100._wp.and.abs(val)>0.1)then
+  IF(abs(val)<100._wp.and.abs(val)>0.1_wp)then
     write(cpara_val, '(f9.2)') val
   ELSE
     write(cpara_val, '(ES22.15)') val

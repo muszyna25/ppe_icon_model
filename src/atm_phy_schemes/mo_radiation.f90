@@ -159,6 +159,9 @@ CONTAINS
     TYPE(timedelta), POINTER :: td => NULL()
     CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
         
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: zsinphi,zcosphi,zeitrad,z_cosmu0,n_cosmu0pos
+#endif
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -410,6 +413,9 @@ CONTAINS
     TYPE(datetime), POINTER :: current => NULL()
     TYPE(timedelta), POINTER :: td => NULL()
     CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: zsinphi,zcosphi,zeitrad,czra,szra,csang,ssang,csazi,ssazi
+#endif
 
     IF (islope_rad > 0 .AND. .NOT. (PRESENT(slope_ang) .AND. PRESENT(slope_azi) .AND. PRESENT(cosmu0_slp)) ) THEN
       CALL finish('pre_radiation_nwp','I/O fields for slope-dependent radiation are missing')
@@ -650,6 +656,14 @@ CONTAINS
       &  flx_lw_net_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
       &  flx_sw_net_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: pp_sfc,tk_hl,xq_vap,xq_liq,xq_ice,cld_frc_sec
+!DIR$ ATTRIBUTES ALIGN : 64 :: xm_co2,xm_o2,xm_ch4,xm_cfc11,xm_cfc12
+!DIR$ ATTRIBUTES ALIGN : 64 :: xm_n2o
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_uplw_sfc_clr,flx_upsw_sfc_clr,flx_upsw_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_upsw_toa,flx_dnsw_diff_sfc,flx_par_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_sw_net,flx_lw_net_clr,flx_sw_net_clr
+#endif
 
     IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -1077,6 +1091,20 @@ CONTAINS
     INTEGER, PARAMETER    :: rng_seed_size = 4
     INTEGER :: rnseeds(kbdim,rng_seed_size)
     REAL(WP) :: per_band_flux(KBDIM,nbndsw,3), bnd_wght(nbndsw)
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: icldlyr,zsemiss,ppd_hl,pm_sfc
+!DIR$ ATTRIBUTES ALIGN : 64 :: col_dry_vr,pm_fl_vr,pm_hl_vr,tk_fl_vr,tk_hl_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: cdnc_vr,cld_frc_vr,ziwgkg_vr,ziwc_vr,ziwp_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: zlwgkg_vr,zlwp_vr,zlwc_vr,wkl_vr,wx_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: cld_tau_lw_vr,cld_tau_sw_vr,cld_cg_sw_vr,cld_piz_sw_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: aer_tau_lw_vr,aer_tau_sw_vr,aer_cg_sw_vr,aer_piz_sw_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_uplw_vr,flx_uplw_clr_vr,flx_dnlw_vr
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_dnlw_clr_vr,flx_upsw,flx_upsw_clr,flx_dnsw
+!DIR$ ATTRIBUTES ALIGN : 64 :: flx_dnsw_clr
+!DIR$ ATTRIBUTES ALIGN : 64 :: tune_dust,laland,laglac,rnseeds
+!DIR$ ATTRIBUTES ALIGN : 64 :: re_drop,re_cryst,aux_out,zmu0,zdayfrc
+!DIR$ ATTRIBUTES ALIGN : 64 :: per_band_flux,bnd_wght
+#endif
 
     ratio => actual_ratio
     scaleminorn2 => actual_scaleminorn2
@@ -1255,7 +1283,8 @@ CONTAINS
         &                         aer_cg_sw_vr)
     CASE (13)
       CALL set_bc_aeropt_kinne( current_date                        ,&
-        & jce              ,kbdim                 ,klev             ,&
+        & jg                                                        ,&
+        & 1, jce           ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1267,7 +1296,7 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
+      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1276,13 +1305,14 @@ CONTAINS
         & aer_tau_lw_vr                                              )
     CASE (15)
       CALL set_bc_aeropt_kinne( current_date                        ,&
-        & jce              ,kbdim                 ,klev             ,&
+        & jg                                                        ,&
+        & 1,   jce         ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
+      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
@@ -1294,9 +1324,10 @@ CONTAINS
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
+
     IF (lrad_aero_diag) THEN
-      CALL rad_aero_diag (                                  &
-      & jg              ,jb              ,jce             , &
+      CALL rad_aero_diag (                jg              , &
+      & jb              ,1               ,jce             , &
       & kbdim           ,klev            ,jpband          , &
       & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
@@ -1655,6 +1686,12 @@ CONTAINS
 
     LOGICAL  :: l_nh_corr, lcalc_trsolclr
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zflxswclr,zflxlwclr,zconv,tqv
+!DIR$ ATTRIBUTES ALIGN : 64 :: dlwem_o_dtg,lwfac1,lwfac2,intclw,intcli
+!DIR$ ATTRIBUTES ALIGN : 64 :: dlwflxall_o_dtg,swfac1,swfac2,dflxsw_o_dalb
+!DIR$ ATTRIBUTES ALIGN : 64 :: trsolclr,logtqv,slope_corr
+#endif
     IF ( PRESENT(opt_nh_corr) ) THEN
       l_nh_corr = opt_nh_corr
       IF (l_nh_corr .AND. .NOT.(PRESENT(pqc).AND.PRESENT(pqi).AND.PRESENT(ppres_ifc))) THEN

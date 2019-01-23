@@ -1,0 +1,185 @@
+% ------------------------------------------------------------------------------------------
+% DOCUMENTATION: Fortran dependency generator
+%
+% 11/2016: F. Prill, DWD
+% ------------------------------------------------------------------------------------------
+\documentclass[DIV16]{scrartcl}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{color}
+
+% ------------------------------------------------------------------------------------------
+\title{Fortran dependency generator}
+\author{F.\ Prill, DWD}
+\date{11/2016}
+% ------------------------------------------------------------------------------------------
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+  This text describes the dependency generator which can be applied to
+  the Fortran source files during the ICON \texttt{configure}
+  process. The tool recognizes a subset of preprocessor directives and
+  implies a few code conventions.
+\end{abstract}
+
+
+% ------------------------------------------------------------------------------------------
+\section{General description}
+% ------------------------------------------------------------------------------------------
+
+The generator tool provides a list of source files, containing all
+dependencies of a given ``root'' file or module.
+%
+Technically, this is a tokenizer for Fortran files. It filters
+\texttt{USE} dependencies depending on preprocessor
+\texttt{\#ifdef}'s, \texttt{\#define}, and \texttt{\#undefine}.
+
+
+% ------------------------------------------------------------------------------------------
+\subsection{Usage}
+% ------------------------------------------------------------------------------------------
+
+The general options for the command-line tool are
+\begin{verbatim}
+    ./usedep_parser <root> "<defined symbols>" "<filenames>" \
+                    [-v] [-m] [-objprefix=xxx]
+\end{verbatim}
+Each list item is given in a separate line.
+
+Usually, the \texttt{<root>} argument is the file name of the program
+source file \texttt{icon.f90}.  Alternatively, the tool may generate
+the dependencies of a specific module.
+
+The argument \texttt{"<defined symbols>"} is a space-separated list of
+defined preprocessor symbols.
+
+The \texttt{"<filenames>"} argument is a space-separated list of files
+(full path, without wildcards) where to search for dependencies.
+Dependency modules which are not defined in this set of files are not
+listed in the output.
+
+The optional argument \texttt{-v} enables some additional output,
+e.\,g.\ dependencies which are outside of the search scope.
+
+The optional argument \texttt{-m} enables output of all (direct)
+dependencies for each of the dependent files as it is required by a
+\texttt{Make} process. In this case, all file names are translated
+into object file names \texttt{\%.o} and (optionally) a prefix string
+is added which can be set through the command-line argument
+\texttt{-objprefix=\textit{xxx}}.
+
+
+% ------------------------------------------------------------------------------------------
+\subsubsection{Example}
+% ------------------------------------------------------------------------------------------
+
+First, a list of files where to search for dependencies must be generated, e.\,g.
+\begin{verbatim}
+export FILELIST=$(ls ~/trunk/icon-nwp-dev/src/*/*f90)
+\end{verbatim}
+Then the Fortran dependency generator may be invoked by
+\begin{verbatim}
+ ./usedep_parser mo_intp_rbf "__ICON__ __NO_JSBACH__ __NO_ICON_OCEAN__" "$FILELIST"
+\end{verbatim}
+
+
+% ------------------------------------------------------------------------------------------
+\section{Recognized preprocessor directives}
+% ------------------------------------------------------------------------------------------
+
+The tool recognizes only a subset of preprocessor directives (see
+below).  These limitations imply some code conventions which must be
+met by the preprocessed source files.
+
+
+% ------------------------------------------------------------------------------------------
+\subsection{(Known) Limitations and necessary code conventions}
+% ------------------------------------------------------------------------------------------
+
+\begin{itemize}
+\item Line breaks: only single-line \texttt{\#if} conditions. No line
+  break before "xxx" in "USE xxx".
+\item \texttt{\#define} directives: for simplicity setting of values is
+  ignored, only (non-)existence matters.
+\item USE dependencies must not be dynamically generated through
+  preprocessor macros.
+\end{itemize}
+
+Of course, the tool performs only static analysis; it does not inspect
+if dependencies are actually applied. INTRINSIC modules are not
+treated as dependencies.
+
+
+% ------------------------------------------------------------------------------------------
+\subsection{Recognized grammar}
+% ------------------------------------------------------------------------------------------
+
+\noindent\emph{Preprocessor ifdef pattern.}
+nested ifdef's are handled via semantic conditions:
+
+{\small\begin{verbatim}
+  hash        = '#' ' '*
+  condition   = (alnum | [()&\-| _><!])+   
+  open_ifdef  = (hash 'ifdef' | '#if' space) space* condition
+  open_ifndef = hash 'ifndef' space* condition
+  open_elif   = hash 'elif'   space* condition
+  close_ifdef = ( hash 'endif' when { ilevel > 0 } ) 
+  else_ifdef  = hash 'else' 
+\end{verbatim}}
+
+\noindent\emph{MODULE/END MODULE name pattern.}
+
+{\small\begin{verbatim}
+  valid_name  = (alpha|[_]) (alnum | [_])* 
+  module      = space* /MODULE/i space+ valid_name [ ]* '\n'
+  endmodule   = space* /END/i [ \t]* /MODULE/i space+ valid_name [ ]* '\n'
+\end{verbatim}}
+
+\noindent\emph{USE dependency pattern.}
+
+{\small\begin{verbatim}
+  comment     = '!' [^\n]* 
+  use_spec    = (',' space* [^\n]*)
+  usedep      = space* /USE/i space+ valid_name space* (comment|use_spec)? '\n'
+\end{verbatim}}
+
+\noindent\emph{INCLUDE dependency pattern.}
+
+{\small\begin{verbatim}
+  filename    = alpha (alnum | [._])* 
+  includedep  = hash 'include' space* ['"] filename ['"]
+\end{verbatim}}
+
+\noindent\emph{DEFINE/UNDEFINE pattern.}
+
+{\small\begin{verbatim}
+  define       = hash 'define' space+ valid_name
+  undefine     = hash 'undef'  space+ valid_name
+  cmplx_define = hash 'define' space+ valid_name'(' alnum+ ')' space+ hash 
+\end{verbatim}}
+
+\noindent\emph{Code pattern (the rest).}
+
+{\small\begin{verbatim}
+  string_literal = (('"' [^"]* '"') |  ("'" [^']* "'"))
+  code           = (([^\n#!'"]) | string_literal )*  comment?  '\n'
+\end{verbatim}}
+
+
+% ------------------------------------------------------------------------------------------
+\section{Technical details}
+% ------------------------------------------------------------------------------------------
+
+The program contains two different parsers. First, a top-level
+scanner/parser separates \texttt{\#ifdef}'s and \texttt{USE}
+dependencies from the remaing content. A second-level scanner/parser
+then constructs an expression-syntax tree for each \texttt{\#ifdef}
+condition.
+
+The program is implemented in C++11. Its parser is generated by the
+Ragel State Machine Compiler\footnote{see \texttt{http://www.colm.net/open-source/ragel/}}.
+
+\end{document}

@@ -31,7 +31,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
 
 
-  USE mo_memory_bgc, ONLY         : bgctra, sedfluxo, satoxy, bgctend, &
+  USE mo_memory_bgc, ONLY         : bgctra, sedfluxo,  &
   &                                 kbo, bolay
 
   USE mo_sedmnt, ONLY         : sedict, seddzi, seddw, &
@@ -43,7 +43,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                             ipowno3, ipowasi, iphosph, iano3, &
   &                             isilica, ipowafe, iiron, ialkali, &  
   &                             isco212, igasnit, ipowaph, ipowaal, &
-  &                             ipown2, ipowaic, kaou 
+  &                             ipown2, ipowaic 
 
   IMPLICIT NONE
 

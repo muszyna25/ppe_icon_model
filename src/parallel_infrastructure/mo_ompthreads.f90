@@ -18,10 +18,8 @@
 !!
 MODULE mo_ompthreads
 
-  USE mo_exception,            ONLY: message, warning, finish !message_tex
-  USE mo_run_config,           ONLY: msg_level
 #ifdef _OPENMP
- USE omp_lib,       ONLY: omp_get_thread_num, omp_get_max_threads, &
+  USE omp_lib,       ONLY: omp_get_thread_num, omp_get_max_threads, &
                           omp_in_parallel, omp_get_num_threads
 !                          omp_get_dynamic, omp_set_dynamic
 #endif
@@ -99,9 +97,11 @@ CONTAINS
   TYPE(t_ompthread) FUNCTION new_ompthread()
 
     INTEGER :: thread_id
+#ifdef _OPENMP
 !$ IF (omp_in_parallel()) THEN
 !$   CALL finish("new_ompthread","cannot be called from an omp parallel region")
 !$  ENDIF
+#endif
     DO thread_id=1, max_ompthreads
       IF (ompthread_of(thread_id)%status == ompthread_notused) THEN
         ompthread_of(thread_id)%status           = ompthread_ready

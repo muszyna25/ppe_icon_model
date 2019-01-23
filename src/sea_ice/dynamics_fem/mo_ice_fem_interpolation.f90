@@ -22,9 +22,8 @@ MODULE mo_ice_fem_interpolation
   !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_exception,           ONLY: finish,message
 
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
+  USE mo_impl_constants,      ONLY: min_rlvert
   USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_v
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
@@ -33,7 +32,7 @@ MODULE mo_ice_fem_interpolation
   USE mo_math_types,          ONLY: t_cartesian_coordinates
   USE mo_math_utilities,      ONLY: cc_norm, gvec2cvec, cvec2gvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_impl_constants,      ONLY: sea_boundary, boundary
+  USE mo_impl_constants,      ONLY: sea_boundary
 
   IMPLICIT NONE
 

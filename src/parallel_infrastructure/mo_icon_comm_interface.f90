@@ -17,16 +17,11 @@
 !!
 MODULE mo_icon_comm_interface
 
-  USE mo_kind,            ONLY: wp
-  USE mo_io_units,        ONLY: filename_max
-  USE mo_exception,       ONLY: message_text, message, finish
-  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, p_test_run, use_icon_comm
-  USE mo_grid_config,     ONLY: n_dom
+  USE mo_parallel_config, ONLY: p_test_run, use_icon_comm
   USE mo_model_domain,    ONLY: t_patch
 !  USE mo_icoham_dyn_memory,ONLY: p_hydro_state
-  USE mo_mpi,             ONLY: my_process_is_mpi_seq, my_process_is_mpi_parallel, &
-    & work_mpi_barrier, my_process_is_mpi_test, p_barrier,        &
-    & p_comm_work_test, p_comm_work, get_my_mpi_all_id
+  USE mo_mpi,             ONLY: my_process_is_mpi_parallel, &
+    & p_barrier, p_comm_work_test, p_comm_work
   USE mo_icon_comm_lib
 
 #ifdef _OPENMP

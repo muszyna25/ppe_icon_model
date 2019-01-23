@@ -8,11 +8,11 @@ MODULE mo_carchm
 !!
 #include "hamocc_omp_definitions.inc"
 
-USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend,&
+USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra,&
        &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,rrrcl, dremcalc
 
 USE mo_kind, ONLY           : wp
-USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
+USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs
 
 IMPLICIT NONE
 

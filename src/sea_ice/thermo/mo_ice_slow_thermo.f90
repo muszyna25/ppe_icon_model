@@ -100,6 +100,14 @@ CONTAINS
 
     REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck
 
+    ! energy_in_surface below only returns something useful if energyCheck_dbg_lev
+    ! is greater than 3. We therefore set the debug level for the following
+    ! dbg_print calls to 4. To get output set energyCheck_dbg_lev to 4 and set the
+    ! debug level in the namelist accordingly.
+
+    INTEGER, PARAMETER :: energyCheck_dbg_lev   = 3
+    INTEGER, PARAMETER :: energyCheck_dbg_print = 4
+
     !-----------------------------------------------------------------------
     p_patch => p_patch_3D%p_patch_2D(1)
 
@@ -119,6 +127,9 @@ CONTAINS
     ! totalsnowfall is applied in ice_growth_*
     ice%totalsnowfall(:,:) =  atmos_fluxes%rpreci(:,:) * dtime
     ! thick ice growth/melt (K-classes): calculates ice%hs, ice%hi, ice%heatOceI
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: befZero: totalSnF', ice%totalsnowfall, str_module, 4, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
     SELECT CASE (i_ice_therm)
     CASE (1,3)
         CALL ice_growth_zerolayer (p_patch, ice)
@@ -128,6 +139,9 @@ CONTAINS
     ! for historical reasons, ice%totalsnowfall represents cell-average, when applied in mo_ocean_surface*
     ! ToDo: should not be done this way
     ice%totalsnowfall(:,:) =  ice%totalsnowfall(:,:) * ice%concSum(:,:)
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: aftZero: totalSnF', ice%totalsnowfall, str_module, 3, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
 
     ! Flooding (snow to ice conversion)
     ! Calculates ice%snow_to_ice and updates ice%draft, ice%draftave
@@ -139,8 +153,12 @@ CONTAINS
     CALL ice_open_ocean(p_patch, ice, atmos_fluxes, sst)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. Growth')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, &
+         &                          dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. Growth', energyCheck, str_module, &
+         &          energyCheck_dbg_print, in_subset=p_patch%cells%all)
+
     !---------------------------------------------------------------------
 
     ! updates fluxes that ocean will receive
@@ -153,8 +171,12 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. ConcChange')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, &
+         &                          dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. ConcChange', energyCheck, str_module, &
+         &         energyCheck_dbg_print, in_subset= p_patch%cells%all)
+ 
     !---------------------------------------------------------------------
 
     ! limits ice thinkness, adjust p_oce_sfc fluxes and calculates the final freeboard
@@ -164,8 +186,12 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=1, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. ThickLimiter')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=1, &
+                                    dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. ThickLimiter', energyCheck, str_module, &
+         &         energyCheck_dbg_print, in_subset= p_patch%cells%all)
+
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
@@ -292,7 +318,7 @@ CONTAINS
 
     ! Loop indices
     TYPE(t_subset_range), POINTER :: all_cells
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+    INTEGER :: jb, jc, i_startidx_c, i_endidx_c
 
     !-------------------------------------------------------------------------------------------
     all_cells   => p_patch%cells%all

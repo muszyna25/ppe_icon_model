@@ -57,7 +57,6 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
 ! apply nitrogen deposition
   USE mo_memory_bgc, ONLY     : bgctra, bgctend
   USE mo_param1_bgc, ONLY     : iano3, ialkali, kn2b
-  USE mo_control_bgc, ONLY    : dtb
   USE mo_bgc_constants, ONLY  : rmnit
 
 
@@ -268,7 +267,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            ! Surface flux of laughing gas (same piston velocity as for O2 and N2)
            ! (Meiner-Reimer et. al, 2005, Eq. 76)
 
-           nlaughflux = kwo2 * dtbgc * (bgctra(j,1,ian2o)              &
+           nlaughflux = kwn2o * dtbgc * (bgctra(j,1,ian2o)              &
                 &     - satn2o(j))  
 
            bgctra(j,1,ian2o) = bgctra(j,1,ian2o)                     &
@@ -307,7 +306,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
          !
            pco2=  bgctra(j,k,isco212)  /((1._wp + aksurf(j,1) * (1._wp + aksurf(j,2)/hi(j,k))/hi(j,k)) * solco2(j))
 
-           fluxd=atm(j,iatmco2)*kwco2*dtbgc*solco2(j) ! 
+           fluxd=atco2*kwco2*dtbgc*solco2(j) ! 
            fluxu=pco2 *kwco2*dtbgc*solco2(j) ! 
 
 !         ! new concentrations ocean (kmol/m3 -->ppm)

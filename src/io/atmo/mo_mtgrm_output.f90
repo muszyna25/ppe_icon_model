@@ -1431,7 +1431,8 @@ CONTAINS
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
       i_startidx = 1
-      i_endidx   = MERGE(nproma, meteogram_data%npromz, jb /= meteogram_data%nblks)
+      i_endidx   = MERGE(nproma, meteogram_data%npromz, &
+           jb /= meteogram_data%nblks)
 
       DO jc=i_startidx,i_endidx
         iidx  = meteogram_data%station(jc,jb)%tri_idx_local(1)

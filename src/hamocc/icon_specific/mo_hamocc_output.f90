@@ -39,8 +39,10 @@
    
       USE mo_zaxis_type
 
-      USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, &
-   &                                    DATATYPE_PACK16, DATATYPE_INT8, &
+      USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+        &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+        &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+        &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
    &                                    GRID_LONLAT, GRID_UNSTRUCTURED
 
       USE mo_cf_convention
@@ -125,7 +127,7 @@
     TYPE(t_hydro_ocean_prog), INTENT(inout)    :: ocean_state_prog
     CHARACTER(LEN=4), intent(in)               :: var_suffix
     INTEGER, INTENT(in)                        :: last_ocean_code
-    INTEGER :: alloc_cell_blocks, nblks_e, datatype_flt
+    INTEGER :: alloc_cell_blocks,  datatype_flt
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hamocc_output:construct_haaamocc_state_prog'
@@ -134,7 +136,6 @@
 
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
-    nblks_e = patch_2d%nblks_e
 
     CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'dic'//TRIM(var_suffix),        &
@@ -324,14 +325,12 @@
 
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
+    INTEGER :: alloc_cell_blocks,  datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_diag'
 
      ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
-    nblks_e = patch_2d%nblks_e
-    nblks_v = patch_2d%nblks_v
 
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
@@ -362,14 +361,10 @@
     
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
+    INTEGER ::  datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_tend'
 
-     ! determine size of arrays
-    alloc_cell_blocks = patch_2d%alloc_cell_blocks
-    nblks_e = patch_2d%nblks_e
-    nblks_v = patch_2d%nblks_v
 
     ! set correct output data type
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
@@ -735,6 +730,19 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_tendency_list, 'HAMOCC_remin_of_det_by_S', hamocc_state_moni%remins , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('remin_of_det_by_S', &
+      &          'GtC s-1', &
+      &          'remineralization_of_detritus_by_S', &
+      &          datatype_flt, &
+      &          'remin_of_det_by_S'), &
+      & grib2_var(255, 255, 545, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('remin_of_det_by_S','GtC yr-1','remin_of_det_by_S', &
+      &  datatype_flt)))
+
   END SUBROUTINE 
 
 
@@ -748,16 +756,12 @@
     
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
+    INTEGER :: alloc_cell_blocks, datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_moni'
 
-    CHARACTER(LEN=max_char_length) :: msg
 
-     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
-    nblks_e           = patch_2d%nblks_e
-    nblks_v           = patch_2d%nblks_v
 
     ! set correct output data type
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
@@ -1021,7 +1025,7 @@
       & t_cf_var('co2mr','ppm','co2 mixing ratio', datatype_flt), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.FALSE.)
+      & loutput=.TRUE., lrestart=.FALSE.)
 
 
     CALL add_var(hamocc_tendency_list, 'HAMOCC_co2flux',hamocc_state_tend%cflux,    &
@@ -1331,16 +1335,14 @@
     
     ! local variables
     
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, datatype_flt
+    INTEGER :: alloc_cell_blocks,  datatype_flt
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_sed'
 
      ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
-    nblks_e = patch_2d%nblks_e
-    nblks_v = patch_2d%nblks_v
 
-    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt, lnetcdf_flt64_output)
+    datatype_flt = MERGE(DATATYPE_FLT64, datatype_flt32, lnetcdf_flt64_output)
 
     CALL message(TRIM(routine), 'start to construct hamocc sed state')
   
@@ -1508,7 +1510,6 @@
     
     ! local variables
     
-    INTEGER :: jg
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:destruct_hydro_ocean_state'
@@ -1522,38 +1523,12 @@
     CALL delete_var_list(hamocc_tendency_list)
     CALL delete_var_list(hamocc_sediment_list)
     
-!     DO jg = 1, n_dom
-!       CALL destruct_hamocc_diag(hamocc_state(jg)%p_diag)
-!       
-!       
-!     END DO
-!     
     CALL message(TRIM(routine),'destruction of hamocc state finished')
     CALL close_bgcout 
 
    
   END SUBROUTINE 
 
-!================================================================================== 
- 
-!  SUBROUTINE destruct_hamocc_diag(hamocc_diag)
-!     
-!     TYPE(t_hamocc_diag), INTENT(inout) :: hamocc_diag
-!     
-!     ! local variables
-!     
-!     INTEGER :: ist
-!     
-!     CHARACTER(LEN=max_char_length), PARAMETER :: &
-!       & routine = 'mo_bgc_icon_comm:destruct_hamocc_diag'
-!     
-!     DEALLOCATE(hamocc_diag%p_vn, stat=ist)
-!     IF (ist/=success) THEN
-!       CALL finish(TRIM(routine), 'deallocation for hamocc_diag failed')
-!     END IF
-!     
-!   END SUBROUTINE
-!================================================================================== 
 
     SUBROUTINE construct_hamocc_var_lists(patch_2d)
 

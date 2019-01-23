@@ -83,9 +83,9 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp,          &
     & smooth_onCells, div_oce_2D_general_onBlock, div_oce_2D_general_onBlock_sp,  &
     & div_oce_3D_general_onBlock
-  USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
+  USE mo_ocean_velocity_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
-  USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
+  USE mo_ocean_velocity_diffusion,  ONLY: velocity_diffusion,&
     & velocity_diffusion_vertical_implicit_onBlock
   USE mo_ocean_types,               ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
@@ -545,8 +545,9 @@ CONTAINS
       !---------------------------------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, idt_src,in_subset=owned_edges)
-      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
+      CALL dbg_print('aft ocean_gmres: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src,in_subset=owned_cells)
 
+      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
 !          CALL finish(method_name, "height below min_top_height")
@@ -1954,7 +1955,7 @@ CONTAINS
     INTEGER :: start_index, end_index
     REAL(wp) :: z_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_abort
-    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells, cells_owned
     REAL(wp) ::  minmaxmean(3)
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp),  POINTER  :: vertical_velocity(:,:,:)
@@ -1962,6 +1963,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain  => patch_2D%cells%in_domain
+    cells_owned      => patch_2D%cells%owned
     all_cells        => patch_2D%cells%all
     edges_in_domain  => patch_2D%edges%in_domain
     vertical_velocity=> ocean_state%p_diag%w
@@ -2071,8 +2073,9 @@ CONTAINS
     ENDIF
 
     CALL sync_patch_array(sync_c,patch_2D,vertical_velocity)
-    
-    !CALL map_scalar_prismtop2center(patch_3d, vertical_velocity, op_coeffs, ocean_state%p_diag%w_prismcenter)
+
+    ! w_prismcenter is used in ther eddy diagnostic
+    CALL map_scalar_prismtop2center(patch_3d, vertical_velocity, op_coeffs, ocean_state%p_diag%w_prismcenter)
     
     !-----------------------------------------------------
     IF (use_continuity_correction) THEN
@@ -2091,14 +2094,13 @@ CONTAINS
 
       !---------------------------------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('Vert veloc: w', &
-        & vertical_velocity, str_module,idt_src, in_subset=cells_in_domain)
-      
+      ! slo - cells_owned for correct global mean
+      CALL dbg_print('Vert veloc: w', vertical_velocity, str_module,idt_src, in_subset=cells_owned)
       CALL dbg_print('after cont-correct: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, &
-        & in_subset=cells_in_domain)
+        & in_subset=cells_owned)
       CALL dbg_print('after cont-correct: vol_h', &
         & patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:), &
-        & str_module,idt_src, in_subset=cells_in_domain)
+        & str_module,idt_src, in_subset=cells_owned)
 !      minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=cells_in_domain)
 !      IF (my_process_is_stdio()) THEN
 !        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &

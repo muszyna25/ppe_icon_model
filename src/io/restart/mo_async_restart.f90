@@ -36,7 +36,7 @@ MODULE mo_async_restart
 #ifdef DEBUG
   USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive
 #endif
-  USE mo_parallel_config,           ONLY: restart_chunk_size
+  USE mo_parallel_config,           ONLY: config_restart_chunk_size => restart_chunk_size
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -92,6 +92,7 @@ MODULE mo_async_restart
     PROCEDURE          :: construct         => asyncPatchData_construct   ! override
     PROCEDURE          :: writeData         => asyncPatchData_writeData   ! override
     PROCEDURE          :: destruct          => asyncPatchData_destruct    ! override
+    PROCEDURE          :: dummy_sync        => asyncPatchData_dummy_sync
   END TYPE t_AsyncPatchData
 
   ! This IS the actual INTERFACE to the restart writing code (apart
@@ -143,6 +144,19 @@ CONTAINS
         CALL finish(routine, "assertion failed: mismatch of global edge count")
     END IF
   END SUBROUTINE asyncPatchData_construct
+
+  SUBROUTINE asyncPatchData_dummy_sync(me, mode)
+    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
+    LOGICAL, INTENT(IN) :: mode
+    IF(p_pe - p_restart_pe0 == MOD(me%description%id-1, process_mpi_restart_size)) THEN
+      CALL me%commData%sync(.true., mode)
+    ELSE
+      IF (.NOT.mode) THEN
+        CALL me%commData%sync(.true., .false.)
+        CALL me%commData%sync(.true., .true.)
+      END IF
+    END IF
+  END SUBROUTINE asyncPatchData_dummy_sync
 
   SUBROUTINE asyncPatchData_destruct(me)
     CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
@@ -280,6 +294,7 @@ CONTAINS
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     INTEGER :: idx
+    TYPE(t_asyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_restartWriteAsyncRestart'
 
@@ -295,7 +310,15 @@ CONTAINS
 
     ! do the restart output
     DO idx = 1, SIZE(me%patchData)
+        asyncPatchData => toAsyncPatchData(me%patchData(idx))
+        CALL asyncPatchData%dummy_sync(.false.)
+    END DO
+    DO idx = 1, SIZE(me%patchData)
         CALL restart_write_patch(restart_args, me%patchData(idx), restartAttributes, me%modelType)
+    END DO
+    DO idx = 1, SIZE(me%patchData)
+        asyncPatchData => toAsyncPatchData(me%patchData(idx))
+        CALL asyncPatchData%dummy_sync(.true.)
     END DO
 
     CALL restartAttributes%destruct()
@@ -493,6 +516,8 @@ CONTAINS
     REAL(wp) :: msg
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_wait_for_restart'
+    CHARACTER(LEN=1024) :: my_msg
+    REAL(dp) :: time_start, time_wait
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
@@ -502,8 +527,12 @@ CONTAINS
 
     ! first compute PE receives message from restart leader
     IF(p_pe_work == 0) THEN
+      time_start = p_mpi_wtime()
       CALL message(routine, "Waiting for restart to finish (might take a while)")
       CALL p_recv(msg, p_restart_pe0, 0)
+      time_wait = p_mpi_wtime() - time_start
+      WRITE(my_msg, '(a,e10.3,a)') 'restart writing done... waited ',time_wait,' seconds'
+      CALL message(routine, my_msg)
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7)routine,' p_pe=',p_pe, &
         & ' p_recv got msg=',INT(msg),' from pe=',p_restart_pe0
@@ -671,6 +700,7 @@ CONTAINS
     REAL(dp), ALLOCATABLE           :: buffer_dp(:,:)
     REAL(sp), ALLOCATABLE           :: buffer_sp(:,:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end
+    INTEGER                         :: restart_chunk_size, max_nlevs
 
     ! For timing
     REAL(dp) :: t_get, t_write
@@ -702,7 +732,23 @@ CONTAINS
     ! TODO[FP] avoid allocating two of these buffers , e.g. by looping
     ! twice over the variables, first over double precision, then over
     ! single precision.
-    ! 
+    !
+    max_nlevs = 0
+    VAR_NLEV_LOOP : DO iv = 1, SIZE(me%varData)
+      IF(me%varData(iv)%info%ndims == 2) THEN
+        nlevs = 1
+      ELSE
+        nlevs = me%varData(iv)%info%used_dimensions(2)
+      ENDIF
+      max_nlevs = MAX(max_nlevs, nlevs)
+    END DO VAR_NLEV_LOOP
+
+    IF (config_restart_chunk_size > 0) THEN
+      restart_chunk_size = MIN(config_restart_chunk_size, max_nlevs)
+    ELSE
+      restart_chunk_size = max_nlevs
+    END IF
+
     ALLOCATE(buffer_dp(nval,restart_chunk_size), &
       &      buffer_sp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, "memory allocation failure")
@@ -782,6 +828,7 @@ CONTAINS
 #endif
     ENDDO VAR_LOOP
 
+
     IF (ALLOCATED(buffer_dp)) THEN
       DEALLOCATE(buffer_dp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed!')
@@ -791,7 +838,7 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed!')
     END IF
 
-    IF (msg_level >= 12) THEN
+    IF (msg_level >= 7) THEN
       WRITE (0,'(10(a,f10.3))') ' Restart: Got ', REAL(bytesGet, dp)*1.d-6, ' MB, time get: ', t_get, ' s [', &
            & REAL(bytesGet, dp)*1.d-6/MAX(1.e-6_wp, t_get), ' MB/s], time write: ', t_write, ' s [', &
            & REAL(bytesWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
@@ -829,7 +876,7 @@ CONTAINS
 
     ! offset in RMA window for async restart
     offset = 0
-
+    CALL asyncPatchData%commData%sync(.false., .false.)
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
 #ifdef DEBUG
@@ -860,6 +907,8 @@ CONTAINS
           ! allocation
         END IF
     END DO
+    CALL asyncPatchData%commData%sync(.false., .true.)
+
   END SUBROUTINE compute_write_var_list
 
 #endif

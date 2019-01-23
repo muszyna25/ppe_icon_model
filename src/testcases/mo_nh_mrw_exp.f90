@@ -35,7 +35,7 @@ MODULE mo_nh_mrw_exp
    USE mo_model_domain,        ONLY: t_patch
    USE mo_parallel_config,     ONLY: nproma
    USE mo_math_constants,      ONLY: pi
-   USE mo_physical_constants,  ONLY: rd, cpd, cvd_o_rd, grav, p0ref
+   USE mo_physical_constants,  ONLY: rd, cpd, grav
    USE mo_extpar_config,       ONLY: itopo
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 
@@ -45,7 +45,7 @@ MODULE mo_nh_mrw_exp
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_run_config,          ONLY: iqv
    USE mo_intp_data_strc,      ONLY: t_int_state
-   USE mo_exception,           ONLY: message, message_text, finish
+   USE mo_exception,           ONLY: finish
    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH,inwp
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -175,7 +175,7 @@ MODULE mo_nh_mrw_exp
 
 
    INTEGER                            :: je, jc, jk, jb, nlen, &
-                                       & nblks_e, npromz_e,  nblks_c, npromz_c
+                                       & nblks_e, nblks_c, npromz_c
    INTEGER                            :: i_startidx, i_endidx, i_startblk
    INTEGER                            :: nlev        !< number of full levels
    REAL(wp)                           :: bruntvaissq, kappa, zhelp1, zhelp2, &
@@ -211,8 +211,6 @@ MODULE mo_nh_mrw_exp
    nblks_c   = ptr_patch%nblks_c
    npromz_c  = ptr_patch%npromz_c
    nblks_e   = ptr_patch%nblks_e
-   npromz_e  = ptr_patch%npromz_e
-
 
 
 !$OMP PARALLEL
@@ -370,7 +368,7 @@ MODULE mo_nh_mrw_exp
 
 
    INTEGER                            :: je, jc, jk, jb, nlen, &
-                                       & nblks_e, npromz_e,  nblks_c, npromz_c
+                                       & nblks_e, nblks_c, npromz_c
    INTEGER                            :: i_startidx, i_endidx, i_startblk, icount
    INTEGER                            :: nlev        !< number of full levels
    REAL(wp)                           :: bruntvaissq_i,bruntvaissq_u, kappa, &
@@ -401,7 +399,6 @@ MODULE mo_nh_mrw_exp
   nblks_c   = ptr_patch%nblks_c
   npromz_c  = ptr_patch%npromz_c
   nblks_e   = ptr_patch%nblks_e
-  npromz_e  = ptr_patch%npromz_e
 
   ! number of vertical levels
   nlev   = ptr_patch%nlev

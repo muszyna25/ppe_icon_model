@@ -20,14 +20,27 @@ MODULE mo_atmo_model
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size
+#ifdef HAVE_CDI_PIO
+  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
+#endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,&
-    &                                   num_io_procs, num_prefetch_proc
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
+    &                                   num_io_procs,                                         &
+    &                                   num_prefetch_proc, pio_type
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
+  USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
+#ifdef HAVE_CDI_PIO
+  USE yaxt,                       ONLY: xt_initialize, xt_initialized
+  USE mo_cdi,                     ONLY: namespacegetactive
+  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
+    &                                   cdi_base_namespace, &
+    &                                   nml_io_cdi_pio_client_comm, &
+    &                                   nml_io_cdi_pio_conf_handle
+#endif
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -66,6 +79,7 @@ MODULE mo_atmo_model
   USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
   USE mo_jsb_model_final,         ONLY: jsbach_finalize
 #endif
+  USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -115,6 +129,10 @@ MODULE mo_atmo_model
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
+#ifdef HAVE_CDI_PIO
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
+  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
+#endif
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
@@ -128,6 +146,9 @@ MODULE mo_atmo_model
 
   IMPLICIT NONE
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: atmo_model, construct_atmo_model, destruct_atmo_model
 
@@ -259,7 +280,7 @@ CONTAINS
 
 
     ! complete initicon config-state
-    CALL configure_initicon(dtime)
+    CALL configure_initicon()
 
 
     !-------------------------------------------------------------------
@@ -268,7 +289,8 @@ CONTAINS
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe)
+         &                          num_prefetch_proc, num_test_pe,      &
+         &                          pio_type, opt_comp_id=atmo_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -306,14 +328,12 @@ CONTAINS
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
-      IF (my_process_is_pref()) THEN
-        CALL prefetch_main_proc
-      ENDIF
+      IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
-    IF (process_mpi_io_size > 0) THEN
+    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
@@ -351,6 +371,26 @@ CONTAINS
         CALL stop_mpi
         STOP
       ENDIF
+    ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
+      ! initialize parallel output via CDI-PIO
+#ifdef HAVE_CDI_PIO
+      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
+      cdi_base_namespace = namespaceGetActive()
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postcommsetup, init_cdipio_cb)
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postwritebatch, write_ready_files_cdipio)
+      nml_io_cdi_pio_client_comm = &
+        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
+        &              nml_io_cdi_pio_namespace)
+      IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
+        ! todo: terminate program cleanly here
+        CALL stop_mpi
+        STOP
+      END IF
+#else
+      CALL finish(routine, 'CDI-PIO requested but unavailable')
+#endif
     ELSE
       ! -----------------------------------------
       ! non-asynchronous I/O (performed by PE #0)
@@ -374,6 +414,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
     IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
+
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.

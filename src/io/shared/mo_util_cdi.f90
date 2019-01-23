@@ -30,15 +30,6 @@ MODULE mo_util_cdi
   USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
-  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars,        &
-    &                              vlistInqVarDatatype, vlistInqVarIntKey, vlistInqVarZaxis,                   &
-    &                              vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64,                 &
-    &                              DATATYPE_INT32, streamInqTimestep, streamReadVarSliceF, streamReadVarSlice, &
-    &                              vlistInqVarName, vlistInqVarSubtype, subtypeInqSize, subtypeDefActiveIndex, &
-    &                              DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError, vlistDefVar,              &
-    &                              cdiEncodeParam, FILETYPE_GRB2, vlistDefVarName, vlistDefVarLongname,        &
-    &                              vlistDefVarStdname, vlistDefVarUnits, vlistDefVarParam, vlistDefVarMissval, &
-    &                              vlistDefVarDatatype, vlistDefVarIntKey, vlistDefVarDblKey
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_gribout_config,     ONLY: t_gribout_config
@@ -48,6 +39,19 @@ MODULE mo_util_cdi
     &                              set_GRIB2_synsat_keys, set_GRIB2_chem_keys
   USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2, trivial_tile_att
 
+  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
+                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, zaxisInqNlevRef, &
+                                 & vlistInqVarGrid, gridInqSize, zaxisInqSize, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32, &
+                                 & streamInqTimestep, &
+                                 & vlistInqVarTsteptype, TSTEP_CONSTANT, TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis, &
+                                 & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
+                                 & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
+                                 & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
+                                 & subtypeDefActiveIndex, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, cdiStringError, &
+                                 & FILETYPE_GRB2, vlistDefVar, cdiEncodeParam, &
+                                 & vlistDefVarName, vlistDefVarLongname,        &
+    &                              vlistDefVarStdname, vlistDefVarUnits, vlistDefVarParam, vlistDefVarMissval, &
+    &                              vlistDefVarDatatype, vlistDefVarIntKey, vlistDefVarDblKey
 
   IMPLICIT NONE
   PRIVATE
@@ -280,8 +284,10 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END FUNCTION makeInputParameters
 
-  ! This function is only a workaround for a compiler bug on the blizzard. May be reintegrated into inputParametersFindVarId() once we are not concerned about xlf anymore.
-  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(resultVar)
+  ! This function is only a workaround for a compiler bug on the
+  ! blizzard. May be reintegrated into inputParametersFindVarId() once
+  ! we are not concerned about xlf anymore.
+  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(resultvar)
     CHARACTER(LEN = *), INTENT(IN) :: name1, name2
     INTEGER, VALUE :: idx1, att1, idx2, att2
 
@@ -717,12 +723,12 @@ CONTAINS
     END IF
 
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            ! XXX: Broadcasting CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 IN the
             !      first place.
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
@@ -1002,12 +1008,12 @@ CONTAINS
       & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            ! XXX: Broadcasting CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 IN the
             !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
@@ -1120,12 +1126,12 @@ CONTAINS
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            ! XXX: Broadcasting CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as CDI_DATATYPE_PACK1..CDI_DATATYPE_PACK22 IN the
             !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
@@ -1155,16 +1161,17 @@ CONTAINS
 
   SUBROUTINE cdiGetStringError(errorId, outErrorString)
     INTEGER(C_INT), VALUE :: errorId
-    CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: outErrorString
+    CHARACTER(KIND = C_CHAR, LEN=*), INTENT(INOUT) :: outErrorString
     CHARACTER(KIND = C_CHAR), dimension(:), POINTER :: cString
-    INTEGER :: i
+    INTEGER :: i, n
 
     cString => cdiStringError(errorId)
     outErrorString = ""
     IF(ASSOCIATED(cString)) THEN
-        DO i = 1, MIN(LEN(outErrorString), SIZE(cString, 1))
-            outErrorString(i:i) = cString(i)
-        END DO
+      n = MIN(LEN(outErrorString), SIZE(cString, 1))
+      DO i = 1, n
+        outErrorString(i:i) = cString(i)
+      END DO
     END IF
   END SUBROUTINE cdiGetStringError
 

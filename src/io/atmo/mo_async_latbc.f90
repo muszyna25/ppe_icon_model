@@ -449,22 +449,26 @@ MODULE mo_async_latbc
 
       TYPE(t_latbc_data),   INTENT(INOUT), TARGET :: latbc
       TYPE(t_reorder_data), INTENT(INOUT) :: p_ri           ! reorder info data structure
-      INTEGER,              INTENT(IN)    :: glb_indices(:)
+      INTEGER, ALLOCATABLE, INTENT(IN)    :: glb_indices(:)
       INTEGER,              INTENT(IN)    :: nindices_g     ! global no. of indices
       INTEGER,              INTENT(IN)    :: hgrid_type     ! grid type (CELL/EDGE)
 #ifndef NOMPI
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::create_latbc_mask"
       INTEGER                   :: nblks, sync_type, ierrstat
+      LOGICAL                   :: is_pref
       INTEGER(i8)               :: eoff
       INTEGER(i8), ALLOCATABLE  :: ioff(:)
       REAL(sp),   ALLOCATABLE   :: var_out(:,:,:), tmp_buf(:)
 
-      IF (my_process_is_pref()) THEN
+      is_pref = my_process_is_pref()
+      IF (is_pref) THEN
         ALLOCATE(p_ri%pe_skip(0:num_work_procs-1+num_prefetch_proc), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         p_ri%pe_skip(:) = .FALSE.
       ELSE
+        ALLOCATE(p_ri%pe_skip(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         SELECT CASE(hgrid_type)
         CASE (GRID_UNSTRUCTURED_CELL)
           nblks     = p_patch(1)%nblks_c
@@ -482,7 +486,7 @@ MODULE mo_async_latbc
       ! 
       ! Set a "1.0" on all LATBC points and send them to the compute
       ! PEs ...
-      IF (my_process_is_pref()) THEN
+      IF (is_pref) THEN
         
         ALLOCATE(ioff(0:num_work_procs+num_prefetch_proc-1), tmp_buf(nindices_g), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -493,11 +497,11 @@ MODULE mo_async_latbc
         DEALLOCATE(ioff, tmp_buf, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
         
-      END IF ! my_process_is_pref()
+      END IF ! is_pref
 
       CALL p_barrier(p_comm_work_pref)
       
-      IF (.NOT. my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
         ALLOCATE(var_out(nproma, 1, nblks), STAT=ierrstat)
         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
         var_out        = 0.0_sp
@@ -516,13 +520,17 @@ MODULE mo_async_latbc
         IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
       END IF
 
-      IF (.NOT. my_process_is_pref()) THEN
+      IF (.NOT. is_pref) THEN
         p_ri%this_skip = .NOT. ANY(p_ri%read_mask(:,:))
       ELSE
         p_ri%this_skip = .TRUE.
       END IF
 
       CALL p_gather(p_ri%this_skip, p_ri%pe_skip, process_work_pref0, p_comm_work_pref)
+      IF (.NOT. is_pref) THEN
+        DEALLOCATE(p_ri%pe_skip, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      END IF
 #endif
     END SUBROUTINE create_latbc_mask
 
@@ -1438,8 +1446,6 @@ MODULE mo_async_latbc
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
-      latbc%patch_data%mem_win%mpi_win = MPI_WIN_NULL
-
       ! Get size and offset of the data for the input
       mem_size = 0_i8
 
@@ -1544,12 +1550,12 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
       TYPE(c_ptr)                     :: c_mem_ptr
-      INTEGER                         :: mpierr
+      INTEGER                         :: ierror
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, typeLB, nbytes_real
 
       ! Get the amount of bytes per REAL*4 variable (as used in MPI
       ! communication)
-      CALL MPI_TYPE_GET_EXTENT(p_real_sp, typeLB, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_sp, typeLB, nbytes_real, ierror)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
       mem_bytes = mem_size*nbytes_real
@@ -1566,16 +1572,16 @@ MODULE mo_async_latbc
       IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
            & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
 
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
+      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
 
-      NULLIFY(patch_data%mem_win%mem_ptr_sp)
       CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ mem_size /) )
 
       ! Create memory window for communication
       patch_data%mem_win%mem_ptr_sp(:) = 0._sp
+
       CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
-        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
-      IF (mpierr /= 0) CALL finish(routine, "MPI error!")
+        &                  p_comm_work_pref, patch_data%mem_win%mpi_win, ierror )
+      IF (ierror /= 0) CALL finish(routine, "MPI error!")
 #endif
 
     END SUBROUTINE allocate_mem_noncray

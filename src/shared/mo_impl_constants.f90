@@ -345,7 +345,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_interact =  1
   INTEGER, PARAMETER :: io3_clim     =  2
   INTEGER, PARAMETER :: io3_ape      =  4
-  INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
   INTEGER, PARAMETER :: io3_art      =  10
 
@@ -508,6 +507,8 @@ MODULE mo_impl_constants
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
+  INTEGER, PARAMETER :: pio_type_async = 1, &
+       pio_type_cdipio = 2
 
   !----------------------!
   !  VARIABLE DATA TYPES !

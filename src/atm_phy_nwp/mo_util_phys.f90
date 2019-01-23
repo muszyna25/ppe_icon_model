@@ -1216,6 +1216,7 @@ CONTAINS
     END IF
 
 
+
     ! Diagnose convective precipitation amount
     IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 !DIR$ IVDEP
@@ -1230,7 +1231,6 @@ CONTAINS
         prm_diag%prec_con(jc,jb) = prm_diag%rain_con(jc,jb) + prm_diag%snow_con(jc,jb)
 
       ENDDO
-
     ENDIF
 
 

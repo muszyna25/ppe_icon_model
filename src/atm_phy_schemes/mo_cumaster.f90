@@ -657,9 +657,9 @@ ENDDO
 !*                 sub-cloud layer (ignores present of downdraughts)
 !                  ------------------------------------------
 
-!DIR$ IVDEP
 !OCL NOVREC
 IF (lmfwstar) THEN
+!DIR$ IVDEP
   DO jl=kidia,kfdia
     IF (ldcum(jl)) THEN
       ikb=kcbot(jl)

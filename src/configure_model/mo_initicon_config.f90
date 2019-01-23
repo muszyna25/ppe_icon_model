@@ -186,22 +186,38 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
-  LOGICAL :: lread_tke = .FALSE. !< control variable that specifies if TKE has been found in the input (used for MODE_ICONVREMAP only)
-  LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
+  !> control variable that specifies if u/v or vn are read as wind
+  !  field input
+  LOGICAL :: lread_vn  = .FALSE.
 
-  INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
+  !> control variable that specifies if TKE has been found in the
+  !  input (used for MODE_ICONVREMAP only)
+  LOGICAL :: lread_tke = .FALSE.
 
-  LOGICAL :: is_iau_active = .FALSE.  !< determines whether IAU is active at current time
+  !> logical switch, if sea surface temperature is provided as input
+  LOGICAL :: l_sst_in  = .TRUE.
 
-  LOGICAL :: lcalc_avg_fg           !< determines whether temporally averaged first guess fields are computed
+  !> initialization mode of soil model (coldstart, warmstart,
+  !  warmstart+IAU)
+  INTEGER :: init_mode_soil
+
+  !> determines whether IAU is active at current time
+  LOGICAL :: is_iau_active = .FALSE.
+
+  !> determines whether temporally averaged first guess fields are
+  !  computed
+  LOGICAL :: lcalc_avg_fg
 
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
-  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+  !> registers if aerosol fields have been read from the first-guess
+  !  data
+  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE.
 
-  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
+  !> registers if SST and sea ice fraction data have been read from
+  !  analysis
+  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
@@ -218,9 +234,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
-  SUBROUTINE configure_initicon(dtime)
-    !
-    REAL(wp), INTENT(IN)        :: dtime       ! advection/fast physics time step
+  SUBROUTINE configure_initicon()
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !

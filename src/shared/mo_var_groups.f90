@@ -56,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(59) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(60) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -91,6 +91,7 @@ MODULE mo_var_groups
     &  "MODE_COSMO_IN         ",  &  ! Input fields for MODE_COSMO
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
+    &  "OCE_EDDY              ",  &
     &  "OCE_DEFAULT           ",  &
     &  "OCEAN_MOC             ",  &  ! meant o hold all kinds of overturning fields (atl, pac, global,...)
     &  "OCEAN_FLOWS           ",  &  ! meant o hold all through flows

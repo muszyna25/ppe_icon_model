@@ -68,7 +68,8 @@ CONTAINS
   !>
   !!
   SUBROUTINE cover (         jg                                                    & !in
-    &                      , kproma,   kbdim, klev, klevp1                         & !in
+    &                      , jb                                                    & !in
+    &                      , jcs,      kproma,   kbdim, klev, klevp1               & !in
     &                      , ktype,    pfrw,     pfri                              & !in
     &                      , zf                                                    & !in
     &                      , paphm1,   papm1                                       & !in
@@ -79,7 +80,8 @@ CONTAINS
     !---------------------------------------------------------------------------------
     !
     INTEGER, INTENT(in)    :: jg
-    INTEGER, INTENT(in)    :: kbdim, klevp1, klev, kproma
+    INTEGER, INTENT(in)    :: jb                    !< number of block
+    INTEGER, INTENT(in)    :: kbdim, klevp1, klev, jcs, kproma
     INTEGER, INTENT(in)    :: ktype(kbdim)          !< type of convection
     REAL(wp),INTENT(in)    :: pfrw(kbdim)         ,&!< water mask
       &                       pfri(kbdim)           !< ice mask
@@ -92,10 +94,10 @@ CONTAINS
     REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
     REAL(wp),INTENT(out)   :: printop(kbdim)
 
-    INTEGER :: jl, jk, jb
+    INTEGER :: jl, jk, jbm
     INTEGER :: locnt, nl, ilev
     REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
-    INTEGER :: itv1(kproma*klev), itv2(kproma*klev)
+    INTEGER :: itv1(kproma), itv2(kproma)
 
     !
     !   Temporary arrays
@@ -138,19 +140,19 @@ CONTAINS
     !   Initialize variables
     !
     DO jk = 1,jks-1
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
          paclc(jl,jk) = 0.0_wp
       END DO
     END DO
     !
-    DO jl = 1,kproma
+    DO jl = jcs,kproma
       zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
       zknvb(jl)  = 1.0_wp
       printop(jl)= 0.0_wp
     END DO
     !
     DO jk = jks,klev
-      DO jl = 1,kproma
+      DO jl = jcs,kproma
          zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
       END DO
     END DO
@@ -158,27 +160,27 @@ CONTAINS
     !       1.3   Checking occurrence of low-level inversion
     !             (below 2000 m, sea points only, no convection)
     !
-    locnt = 0
-    DO jl = 1,kproma
+    locnt = jcs-1
+    DO jl = jcs,kproma
       IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
         locnt = locnt + 1
         loidx(locnt) = jl
       END IF
     END DO
 
-    IF (locnt.GT.0) THEN
+    IF (locnt.GT.jcs-1) THEN
       DO jk = klev,jbmin,-1
 
 !IBM* ASSERT(NODEPS)
 !IBM* novector
-        DO nl = 1,locnt
+        DO nl = jcs,locnt
           jl = loidx(nl)
           ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
         END DO
 
         zjk = REAL(jk,wp)
 !IBM* ASSERT(NODEPS)
-        DO nl = 1,locnt
+        DO nl = jcs,locnt
           jl = loidx(nl)
           zdtdz       = MIN(0.0_wp, ztmp(nl))
           zknvb(jl)   = FSEL(zdtmin(jl)-zdtdz,zknvb(jl),zjk)
@@ -186,7 +188,7 @@ CONTAINS
         END DO
       END DO
     END IF
-    knvb(1:kproma) = INT(zknvb(1:kproma))
+    knvb(jcs:kproma) = INT(zknvb(jcs:kproma))
     !
     !       1.   Calculate the saturation mixing ratio
     !
@@ -194,15 +196,19 @@ CONTAINS
 
       DO jk = jks,klev
 
-        CALL prepare_ua_index_spline(jg,'cover (2)',kproma,ptm1(1,jk),itv1(1),       &
-                                         za(1),pxim1(1,jk),nphase,zphase,itv2)
-        CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
+        CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(1,jk),itv1(1),   &
+                                         za(1),pxim1(1,jk),nphase,zphase,itv2,       &
+                                         klev=jk,kblock=jb,kblock_size=kbdim)
+        ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
+        CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
+        ! output: ua
 
 !IBM* novector
-        DO jl = 1,kproma
+
+        DO jl = jcs,kproma
           zqsm1(jl) = MIN(ua(jl)*zpapm1i(jl,jk),0.5_wp)
           zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl))
-          zqsm1(jl) = zqsm1(jl)*zcor
+          zqsm1(jl) = zqsm1(jl)*zcor  ! qsat
         END DO
         !
         !       Threshold relative humidity, qsat and cloud cover
@@ -210,24 +216,24 @@ CONTAINS
         !       cloud cover, based on relative humidity
         !       (Lohmann and Roeckner, Clim. Dyn.  96)
         !
-        DO jl = 1,kproma
+        DO jl = jcs,kproma
         !
           zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
           zsat=1._wp
-          jb=knvb(jl)
-          lao=(jb.GE.jbmin .AND. jb.LE.jbmax)
-          lao1=(jk.EQ.jb)
+          jbm=knvb(jl)
+          lao=(jbm.GE.jbmin .AND. jbm.LE.jbmax)
+          lao1=(jk.EQ.jbm)
           ilev=klev
           IF (lao .AND. lao1) THEN
-          !  ilev=klevp1-jb
+          !  ilev=klevp1-jbm
             ilev=100
             printop(jl)=REAL(ilev,wp)
-            zdtdz = (ptm1(jl,jb-1)-ptm1(jl,jb))/(zf(jl,jk-1)-zf(jl,jk))
+            zdtdz = (ptm1(jl,jbm-1)-ptm1(jl,jbm))/(zf(jl,jk-1)-zf(jl,jk))
             zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
             zsat  = MIN(1.0_wp,csatsc+zgam)
           END IF
-          zqr=pqm1(jl,jk)/(zqsm1(jl)*zsat)
-          paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc)
+          zqr=pqm1(jl,jk)/(zqsm1(jl)*zsat)      ! r in Lohmann-scheme (grid-mean rel hum)
+          paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc) ! b_o in Lohman-scheme
           paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp)
           paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
         END DO !jl

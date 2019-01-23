@@ -94,6 +94,7 @@ MODULE mo_nh_stepping
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
@@ -165,7 +166,7 @@ MODULE mo_nh_stepping
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_sync_latbc,               ONLY: prepare_latbc_data,                    &
     &                                    read_latbc_data_sync=>read_latbc_data, &
-    &                                    deallocate_latbc_data, p_latbc_data,   &
+    &                                    p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev,      &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
@@ -214,6 +215,8 @@ MODULE mo_nh_stepping
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
 
+  USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -371,8 +374,6 @@ MODULE mo_nh_stepping
              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
              &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
              &                      p_nh_state(jg)%diag,                    & !in
-             &                      p_lnd_state(jg)%diag_lnd,               & !in
-             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
              &                      prm_diag(jg)                            ) !inout
 
          END IF!is_les_phy
@@ -447,7 +448,9 @@ MODULE mo_nh_stepping
     END DO
 
     !AD: Also output special diagnostics for LES on torus
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
+    IF (atm_phy_nwp_config(1)%is_les_phy &
+      .AND. sampl_freq_step>0 &
+      .AND. is_ls_forcing)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -515,8 +518,7 @@ MODULE mo_nh_stepping
 
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
-  TYPE(datetime), POINTER              :: eventRefDate      => NULL(), &
-       &                                  eventStartDate    => NULL(), &
+  TYPE(datetime), POINTER              :: eventStartDate    => NULL(), &
        &                                  eventEndDate      => NULL()
   TYPE(datetime), POINTER              :: checkpointRefDate => NULL(), &
        &                                  restartRefDate    => NULL()
@@ -617,7 +619,6 @@ MODULE mo_nh_stepping
 
   CALL message('','')
 
-  eventRefDate   => time_config%tc_exp_refdate
   eventStartDate => time_config%tc_exp_startdate
   eventEndDate   => time_config%tc_exp_stopdate
 
@@ -697,6 +698,7 @@ MODULE mo_nh_stepping
 !$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
 
   CALL refresh_convenience_pointers( )
+  i_am_accel_node = .false.    ! Dectivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -890,8 +892,6 @@ MODULE mo_nh_stepping
               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
               &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
               &                      p_nh_state(jg)%diag,                    & !in
-              &                      p_lnd_state(jg)%diag_lnd,               & !in
-              &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
               &                      prm_diag(jg)                            ) !inout
 
           END IF!is_les_phy
@@ -1064,6 +1064,11 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
+
+    IF (mtime_current >= time_config%tc_stopdate) THEN
+      ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
+      CALL finalize_atmo_radation()
+    ENDIF
 
     IF (lwrite_checkpoint) THEN
 
@@ -1658,7 +1663,6 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
-              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1667,8 +1671,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf) ) !inout
 
           ELSE ! is_les_phy
 
@@ -1931,9 +1934,15 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
-                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
-                & p_grf_state(n_dom_start:n_dom), prm_diag, jgc, jg, dt_loc)
+              IF (iforcing==inwp) THEN
+                CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                  & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                  & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc, prm_diag)
+              ELSE
+                CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                  & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                  & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
+              END IF
             ENDIF
             IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
               CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
@@ -2182,10 +2191,16 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, dt_dyn)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
@@ -2294,7 +2309,6 @@ MODULE mo_nh_stepping
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout
         &                  prm_nwp_tend(jg)                ,   &
@@ -2302,8 +2316,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf) ) !inout
 
     ELSE ! is_les_phy
 
@@ -2784,14 +2797,6 @@ MODULE mo_nh_stepping
   IF (ist /= SUCCESS) THEN
     CALL finish ( modname//': perform_nh_stepping',    &
       &    'deallocation for linit_dyn failed' )
-  ENDIF
-
-  IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
-    IF (num_prefetch_proc >= 1) THEN
-      CALL latbc%finalize()
-    ELSE
-      CALL deallocate_latbc_data()
-    ENDIF
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping

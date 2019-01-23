@@ -6,42 +6,42 @@
 MODULE mo_ini_bgc
 
   USE mo_kind, ONLY        : wp
-  USE mo_memory_bgc, ONLY   : hi, co3, totarea, bgctra, atdifv, atm, &
+  USE mo_memory_bgc, ONLY   : hi, co3, bgctra,  atm, &
        &                     atmacon, atmacmol,    &
        &                     atcoa, ozkoa,ralk, ro2ut_cya, cyamin,    &
        &                     wpoc, calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
-       &                     drempoc, dremdoc,            &
+       &                     drempoc,             &
        &                     dremopal, dremn2o, sulfate_reduction,         &
        &                     dremcalc, n2_fixation, ro2ut, rcar, rnit,     &
        &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
-       &                     gutc, perc_diron, riron, fesoly, relaxfe,     &
+       &                     perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
-       &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
-       &                     cycdec, pi_alpha_cya,cya_growth_max,          &
+       &                     wdust, thresh_o2,   &
+       &                     pi_alpha_cya,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
        &                     buoyancyspeed_cya, bkh2sox, rh2sox, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
        &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
-       &                     o2ut, rno3, claydens, sred_sed, silsat, &
+       &                     o2ut, rno3, sred_sed, silsat, &
                              o2thresh 
 
-  USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_cyadyn, l_diffat, i_settling, &
-       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc, ks,&
+  USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_diffat, i_settling, &
+       &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
+       &                     ks,cycdec,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
        &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
 
 
   USE mo_control_bgc, ONLY : ldtbgc, dtb, dtbgc, rmasko, rmasks, &
-       &                     bgc_gin, bgc_arctic, bgc_lab, & 
-       &                     bgc_natl, bgc_atl, bgc_tatl, &
-       &                     bgc_tropac, &
-       &                     bgc_land, bgc_ind, &
-       &                     bgc_soce, bgc_npac, bgc_carb, &
+       &                     bgc_gin,  & 
+       &                     bgc_tatl, &
+       &                     bgc_land,  &
+       &                     bgc_soce, bgc_npac,  &
        &                     bgc_nproma, bgc_zlevs
 
   USE mo_param1_bgc, ONLY  : ialkali, ian2o, iatmco2, iatmn2,     &
@@ -135,9 +135,7 @@ CONTAINS
 
 ! ------ cyanobacteria
     buoyancyspeed_cya = 1._wp   ! daily buoyancy speed of cya  
-    cycdec            = 0.1_wp 
     pi_alpha_cya      = 0.03_wp      ! m2 W-1 d-1
-    cya_growth_max    = 0.2_wp      ! d-1
     Topt_cya          = 28._wp       ! deg C
     T1_cya            = 5.5_wp       ! deg C
     T2_cya            = 1._wp        ! deg C

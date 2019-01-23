@@ -63,12 +63,12 @@ MODULE mo_parallel_nml
     & config_num_dist_array_replicas => num_dist_array_replicas, &
     & config_io_process_stride => io_process_stride,          &
     & config_io_process_rotate => io_process_rotate,          &
+    & comm_pattern_type_orig,                                 &
     & config_default_comm_pattern_type => default_comm_pattern_type
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
-  INTEGER :: tmp_nproma
 
 
   CONTAINS
@@ -279,7 +279,7 @@ MODULE mo_parallel_nml
     ! MPI gather to output processes in DOUBLE PRECISION
     use_dp_mpi2io = .FALSE.
 
-    restart_chunk_size = 1
+    restart_chunk_size = -1
 
     io_proc_chunk_size = -1
 
@@ -287,11 +287,7 @@ MODULE mo_parallel_nml
 
     io_process_stride = -1
     io_process_rotate = 0
-#ifdef HAVE_YAXT
-    default_comm_pattern_type = 2
-#else
-    default_comm_pattern_type = 1
-#endif
+    default_comm_pattern_type = comm_pattern_type_orig
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above

@@ -3603,6 +3603,57 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       ENDIF
       phy_tend%ddt_tracer_ls = 0._wp
  
+      ! Added by Christopher Moseley: 7 output variables for LS tendencies
+      
+      ALLOCATE(phy_tend%ddt_temp_subs_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_temp_subs_ls failed')
+      ENDIF
+      phy_tend%ddt_temp_subs_ls = 0._wp
+      
+      ALLOCATE(phy_tend%ddt_qv_subs_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_qv_subs_ls failed')
+      ENDIF
+      phy_tend%ddt_qv_subs_ls = 0._wp
+      
+      ALLOCATE(phy_tend%ddt_temp_adv_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_temp_adv_ls failed')
+      ENDIF
+      phy_tend%ddt_temp_adv_ls = 0._wp
+      
+      ALLOCATE(phy_tend%ddt_qv_adv_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_qv_adv_ls failed')
+      ENDIF
+      phy_tend%ddt_qv_adv_ls = 0._wp
+      
+      ALLOCATE(phy_tend%ddt_temp_nud_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_temp_nud_ls failed')
+      ENDIF
+      phy_tend%ddt_temp_nud_ls = 0._wp
+      
+      ALLOCATE(phy_tend%ddt_qv_nud_ls(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%ddt_qv_nud_ls failed')
+      ENDIF
+      phy_tend%ddt_qv_nud_ls = 0._wp
+      
+      ALLOCATE(phy_tend%wsub(klev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nwp_phy_state:construct_nwp_phy_tend', &
+                    'allocation for phy_tend%wsub failed')
+      ENDIF
+      phy_tend%wsub = 0._wp
+
     END IF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_tend', &

@@ -100,8 +100,6 @@ CONTAINS
                             & p_prog,                     & !in
                             & p_prog_rcf,                 & !in
                             & p_diag,                     & !in
-                            & p_diag_land,                & !in
-                            & p_prog_land,                & !in
                             & prm_diag                    ) !inout    
 
     !>
@@ -111,8 +109,6 @@ CONTAINS
     TYPE(t_phy_params)     , INTENT(IN)   :: phy_params
 
     TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
-    TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
-    TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
@@ -130,23 +126,21 @@ CONTAINS
     INTEGER :: found_cltop, found_clbas
     INTEGER :: nlev, nlevp1
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom, jg            !< domain index
-    INTEGER :: jc,jk,jb                !block index
+    INTEGER :: jg,jc,jk,jb             !< domian and block index
     INTEGER :: mtop_min
     LOGICAL :: mlab(nproma)
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
@@ -370,7 +364,6 @@ CONTAINS
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
     INTEGER :: jc,jk,jb,jg             !block index
     INTEGER :: nvar, n, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3
     CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:calculate_turbulent_diagnostics'
@@ -389,12 +382,10 @@ CONTAINS
               theta(nproma,nlev,p_patch%nblks_c),  w_mc(nproma,nlev,p_patch%nblks_c), &
               outvar(nlevp1) )
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
-
     rl_start   = grf_bdywidth_c
     rl_end     = min_rlcell_int-1  !for wthsfs
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     !Get w and theta at full levels
 !$OMP PARALLEL 
@@ -417,8 +408,8 @@ CONTAINS
     !For diagnostics
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !======================================================================================
                  !Some vertical profiles
@@ -863,6 +854,21 @@ CONTAINS
        IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
          CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
+     ! Large-scale forcing tendencies
+     CASE('dthls_w')
+       outvar(1:nlev) = phy_tend%ddt_temp_subs_ls(1:nlev)
+     CASE('dqls_w ')
+       outvar(1:nlev) = phy_tend%ddt_qv_subs_ls(1:nlev)
+     CASE('dthls_h')
+       outvar(1:nlev) = phy_tend%ddt_temp_adv_ls(1:nlev)
+     CASE('dqls_h ')
+       outvar(1:nlev) = phy_tend%ddt_qv_adv_ls(1:nlev)
+     CASE('nt_thl ')
+       outvar(1:nlev) = phy_tend%ddt_temp_nud_ls(1:nlev)
+     CASE('nt_qt  ')
+       outvar(1:nlev) = phy_tend%ddt_qv_nud_ls(1:nlev)
+     CASE('wfls   ')
+       outvar(1:nlev) = phy_tend%wsub(1:nlev)
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -980,7 +986,7 @@ CONTAINS
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds
-    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
     !Write profiles
     inv_ncount = 1._wp / REAL(ncount,wp)
@@ -1021,7 +1027,7 @@ CONTAINS
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
     
     ! calculate elapsed simulation time in seconds
-    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+    sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
     !Write time series
     nvar = SIZE(turb_tseries_list,1)
@@ -1068,7 +1074,7 @@ CONTAINS
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
-   p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_startdate) 
+   p_sim_time = getElapsedSimTimeInSeconds(this_datetime, anchor_datetime=time_config%tc_exp_startdate)
 
    jg = p_patch%id
 
@@ -1260,6 +1266,28 @@ CONTAINS
      CASE('dt_t_mc') 
        longname = 'microphysics temp tendency'
        unit     = 'K/s'
+     ! large scale forcing tendency output
+     CASE('dthls_w') 
+       longname = 'Tend. of vert. temperature adv. from LS forcing'
+       unit     = 'K/s'
+     CASE('dthls_h') 
+       longname = 'Tend. of horiz. temperature adv. from LS forcing'
+       unit     = 'K/s'
+     CASE('dqls_w') 
+       longname = 'Tend. of vert. moisture adv. from LS forcing'
+       unit     = 'kg/kg/s'
+     CASE('dqls_h') 
+       longname = 'Tend. of horiz. moisture adv. from LS forcing'
+       unit     = 'kg/kg/s'
+     CASE('nt_thl') 
+       longname = 'Nudging tendency of temperature'
+       unit     = 'K/s'
+     CASE('nt_qt') 
+       longname = 'Nudging tendency of moisture'
+       unit     = 'kg/kg/s'
+     CASE('wfls') 
+       longname = 'LS subsidence velocity'
+       unit     = 'm/s'
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')

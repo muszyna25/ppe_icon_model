@@ -21,7 +21,6 @@
 MODULE mo_ensemble_pert_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml

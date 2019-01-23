@@ -66,6 +66,13 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
+#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+
+#ifdef __INTEL_COMPILER
+#define USE_LAXFR_MACROS
+#define laxfr_upflux LAXFR_UPFLUX_MACRO
+#endif
 
 MODULE mo_advection_hflux
 
@@ -95,7 +102,10 @@ MODULE mo_advection_hflux
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
-  USE mo_advection_utils,     ONLY: laxfr_upflux, t_list2D
+#ifndef USE_LAXFR_MACROS
+  USE mo_advection_utils,     ONLY: laxfr_upflux
+#endif
+  USE mo_advection_utils,     ONLY: t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
     &                               prep_gauss_quadrature_q,                    &
@@ -247,6 +257,9 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_real_vt
+#endif
     ! get patch ID
     jg = p_patch%id
 
@@ -768,30 +781,28 @@ CONTAINS
     iibc => p_patch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
-#ifdef _OPENACC
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, iilc, iibc, p_cc, p_mass_flx_e, p_upflux ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), &
+!$ACC       PRESENT( p_patch, iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=6
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 #endif
           !
@@ -802,22 +813,20 @@ CONTAINS
           ! div operator
           !
           p_upflux(je,jk,jb) =  &
-            &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                             p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
 
         END DO  ! end loop over edges
 
       END DO  ! end loop over levels
+!$ACC END PARALLEL
 
     END DO  ! end loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST( p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE upwind_hflux_up
 
@@ -925,21 +934,21 @@ CONTAINS
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c
+    INTEGER  :: i, i_rlstart, i_rlend, i_nchdom, i_rlend_c
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_lin           !< Instance of p_int_state%lsq_lin
-    lsq_lin = p_int%lsq_lin
-#else
     TYPE(t_lsq), POINTER :: lsq_lin  !< pointer to p_int_state%lsq_lin
     lsq_lin => p_int%lsq_lin
-#endif
 
    !-------------------------------------------------------------------------
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, btraj ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), &
+!$ACC       PRESENT( p_patch, btraj%cell_idx, btraj%cell_blk), IF( i_am_accel_node .AND. acc_on)
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, btraj, p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff
+#endif
+
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -993,7 +1002,14 @@ CONTAINS
 
     IF (p_test_run) THEN
 !$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
+#ifdef __INTEL_COMPILER
+!$OMP PARALLEL DO SCHEDULE(STATIC)
+      DO i = 1,SIZE(z_grad,4)
+        z_grad(:,:,:,i) = 0._wp
+      ENDDO
+#else
       z_grad(:,:,:,:) = 0._wp
+#endif
 !$ACC END KERNELS
     ENDIF
 
@@ -1057,9 +1073,7 @@ CONTAINS
     !    linear approximation). Only the reconstruction for the local cell
     !    is taken into account.
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
 
     ! Before starting, preset halo edges that are not processed with zero's in order
     ! to avoid access of uninitialized array elements in subsequent routines
@@ -1070,9 +1084,7 @@ CONTAINS
       i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
       CALL init(p_out_e(:,:,i_startblk:i_endblk))
-#ifndef _OPENACC
 !$OMP BARRIER
-#endif
     ENDIF
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -1081,21 +1093,10 @@ CONTAINS
     ! initialize also nest boundary points with zero
     IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
       CALL init(p_out_e(:,:,1:i_startblk))
-#ifndef _OPENACC
 !$OMP BARRIER
-#endif
     ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, btraj%cell_idx, btraj%cell_blk, z_grad, btraj%distv_bary ), &
-!$ACC PRESENT( p_out_e ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1103,9 +1104,11 @@ CONTAINS
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1120,12 +1123,15 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ELSE IF (use_zlsq) THEN
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1141,12 +1147,15 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ELSE
 
-!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jk = slev, elev
+          !$ACC LOOP VECTOR PRIVATE(ilc0,ibc0)
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -1162,20 +1171,14 @@ CONTAINS
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
+!$ACC END PARALLEL
 
       ENDIF
 
     ENDDO    ! loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
-
-! 2015_09_22 WS: This line might be needed because debugging is on in hflx_limiter_mo
-
-!!! !$ACC UPDATE HOST( p_out_e ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !
     ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
@@ -1324,13 +1327,12 @@ CONTAINS
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_lin                   !< Instance of p_int_state%lsq_lin
-    lsq_lin  = p_int%lsq_lin
-#else
     TYPE(t_lsq), POINTER :: lsq_lin          !< Pointer to p_int_state%lsq_lin
-    lsq_lin => p_int%lsq_lin
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad,z_lsq_coeff,z_tracer_mflx,z_rhofluxdiv_c
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_fluxdiv_c,z_tracer,z_rho
 #endif
+    lsq_lin => p_int%lsq_lin
 
    !-------------------------------------------------------------------------
 
@@ -1815,13 +1817,8 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
 
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -2332,13 +2329,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -2885,13 +2877,19 @@ CONTAINS
       &  patch1_cell_idx(:,:),   patch1_cell_blk(:,:),   & !< dim: (npoints,p_patch%nblks_e)
       &  patch2_cell_idx(:,:),   patch2_cell_blk(:,:)
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_lsq_coeff,dreg_patch0,dreg_patch1,dreg_patch2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_quad_vector_sum0,z_quad_vector_sum1,z_quad_vector_sum2
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_dreg_area
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_idx,patch1_cell_idx,patch2_cell_idx
+!DIR$ ATTRIBUTES ALIGN : 64 :: patch0_cell_blk,patch1_cell_blk,patch2_cell_blk
+#endif
 
     TYPE(t_list2D), SAVE ::   &    !< list with points for which a local
       &  falist                    !< polynomial approximation is insufficient
                                    !< and a piecewise approximation is needed,
                                    !< instead
 
-    LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: npoints            !< number of points per block for ndex list allocation
     INTEGER  :: slev, elev         !< vertical start and end level
@@ -2904,13 +2902,8 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
 
-#ifdef __OPENACC_BUG_TYPES_1
-    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
-    lsq_high = p_int%lsq_high
-#else
     TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
     lsq_high => p_int%lsq_high
-#endif
 
    !-------------------------------------------------------------------------
 
@@ -2942,12 +2935,6 @@ CONTAINS
     ELSE
       elev_ti = nlev
     END IF
-
-    IF ( PRESENT(opt_lconsv) ) THEN
-     l_consv = opt_lconsv
-    ELSE
-     l_consv = .FALSE. ! non-conservative reconstruction
-    ENDIF
 
     IF ( PRESENT(opt_lout_edge) ) THEN
       l_out_edgeval = opt_lout_edge
@@ -3050,8 +3037,7 @@ CONTAINS
         &                   dreg_patch0, dreg_patch1, dreg_patch2,     &! out
         &                   patch1_cell_idx, patch1_cell_blk,          &! out
         &                   patch2_cell_idx, patch2_cell_blk,          &! out
-        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,  &! in
-        &                   opt_slev=slev_ti, opt_elev=elev_ti         )! in
+        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend   )! in
 
       ! maps quadrilateral onto the standard rectangle of edge length 2.
       ! provides quadrature points and the corresponding determinant of the
@@ -3067,13 +3053,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ELSE IF (lsq_high_ord == 2) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -3085,13 +3069,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -3103,13 +3085,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ENDIF
 

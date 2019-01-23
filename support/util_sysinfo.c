@@ -1,11 +1,13 @@
 #define _GNU_SOURCE
+#ifdef HAVE_LINK_H
 #include <link.h>
+#include <mcheck.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <pwd.h>
-#include <mcheck.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -159,7 +161,7 @@ void util_compiler_release(char *release_str, int *rstr_len)
   return;
 }
 
-
+#ifdef HAVE_LINK_H
 static int dump_dl(struct dl_phdr_info *info, size_t size, void *data)
 {
 	FILE *f = (FILE *)data;
@@ -223,6 +225,7 @@ void util_unset_mtrace(void)
 {
   muntrace();
 }
+#endif
 
 
 void util_c_getpid(long int* pid)

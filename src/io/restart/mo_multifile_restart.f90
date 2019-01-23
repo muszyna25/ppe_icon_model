@@ -5,6 +5,7 @@
 !!
 !! Initial implementation: Nathanael Huebbe
 !! Refactoring (point-to-point comm. replaced by one-sided comm.): F. Prill
+!! 2018-08: Major revision / revamp / refactoring : Harald Braun (Atos SE)
 !!
 !! @par Copyright and License
 !!
@@ -30,15 +31,6 @@
 !!   * restartFile.mfr/attributes.nc: 
 !!     NetCDF file that contains the restart attributes and serialized
 !!     namelists, this contains the domain count
-!!
-!!   * restartFile.mfr/patch<JG>_metadata: 
-!!     Full description for each patch. This especially includes the
-!!     info in t_RestartPatchDescription.
-!!
-!!     TODO: While this is currently written, it appears pointless as
-!!     I have not had any need to read it back in. Consequently, this
-!!     should be removed as it only complicates the code. Note that
-!!     removing this also allows removing mo_serialized_data entirely.
 !!
 !!   * restartFile.mfr/patch<JG>_<N>.nc: 
 !!     Data, stored as 2D or 3D arrays of doubles/singles. Each
@@ -203,759 +195,469 @@
 !!
 
 MODULE mo_multifile_restart
-    USE ISO_C_BINDING,                   ONLY: C_INT
-    USE mo_async_restart_packer,         ONLY: restartBcastRoot
-    USE mo_c_restart_util,               ONLY: createEmptyMultifileDir
-    USE mo_cdi,                          ONLY: streamOpenWrite, vlistCreate, streamDefVlist, streamClose, &
-      &                                        vlistDestroy, FILETYPE_NC4, streamDefRecord,               &
-      &                                        gridCreate, GRID_GENERIC, zaxisCreate, ZAXIS_GENERIC,      &
-      &                                        vlistDefVar, TSTEP_CONSTANT, gridDestroy, zaxisDestroy
-    USE mo_cdi_ids,                      ONLY: t_CdiIds
-    USE mo_exception,                    ONLY: finish
-    USE mo_grid_config,                  ONLY: n_dom
-    USE mo_impl_constants,               ONLY: SUCCESS, MAX_CHAR_LENGTH
-    USE mo_io_config,                    ONLY: restartWritingParameters
-    USE mo_kind,                         ONLY: dp, i8
-    USE mtime,                           ONLY: datetime
-    USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
-      &                                        p_comm_work_2_restart, p_pe_work, p_comm_work, p_barrier,  &
-      &                                        p_mpi_wtime, p_comm_work_restart,                          &
-      &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op
-    USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
-    USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
-      &                                        multifileMetadataPath
-    USE mo_packed_message,               ONLY: t_PackedMessage, kPackOp, kUnpackOp
-    USE mo_restart_attributes,           ONLY: t_RestartAttributeList, RestartAttributeList_make
-    USE mo_restart_descriptor,           ONLY: t_RestartDescriptor
-    USE mo_restart_namelist,             ONLY: t_NamelistArchive, namelistArchive
-    USE mo_restart_util,                 ONLY: t_restart_args, workProcCount, dedicatedRestartProcCount,   &
-      &                                        restartProcCount, isDedicatedProcMode, restartWriterId,     &
-      &                                        my_process_is_restart_master, my_process_is_restart_writer, &
-      &                                        restartWorkProcId, restartWorkProcId2Rank, getRestartFilename
-    USE mo_serialized_data,              ONLY: t_SerializedData
-    USE mo_timer,                        ONLY: timer_start, timer_stop, timer_write_restart,               &
-      &                                        timer_write_restart_communication, timer_write_restart_io,  &
-      &                                        timers_level, timer_write_restart_setup
-    USE mo_util_cdi,                     ONLY: cdiGetStringError
-    USE mo_util_file,                    ONLY: putFile
-    USE mo_util_string,                  ONLY: int2string, real2string
+  USE mo_async_restart_packer,         ONLY: restartBcastRoot
+  USE mo_c_restart_util,               ONLY: createEmptyMultifileDir
+  USE mo_cdi,                          ONLY: streamOpenWrite, vlistCreate, streamDefVlist, streamClose, &
+    &                                        vlistDestroy, FILETYPE_NC4, streamDefRecord,               &
+    &                                        gridCreate, GRID_GENERIC, zaxisCreate, ZAXIS_GENERIC,      &
+    &                                        vlistDefVar, TSTEP_CONSTANT, gridDestroy, zaxisDestroy
+  USE mo_cdi_ids,                      ONLY: t_CdiIds
+  USE mo_exception,                    ONLY: finish, message, message_text
+  USE mo_grid_config,                  ONLY: n_dom
+  USE mo_impl_constants,               ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_io_config,                    ONLY: restartWritingParameters
+  USE mo_kind,                         ONLY: dp, i8
+  USE mtime,                           ONLY: datetime
+  USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
+    &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
+    &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
+    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op, p_barrier
+  USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
+  USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
+    &                                        isAsync, rBuddy, rGroup,            &
+    &                                        iAmRestartMaster, iAmRestartWriter, restartProcCount
+  USE mo_packed_message,               ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_restart_attributes,           ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_restart_descriptor,           ONLY: t_RestartDescriptor
+  USE mo_restart_namelist,             ONLY: t_NamelistArchive, namelistArchive
+  USE mo_restart_util,                 ONLY: t_restart_args, getRestartFilename
+  USE mo_timer,                        ONLY: timer_start, timer_stop, timer_write_restart,               &
+    &                                        timer_write_restart_communication, timer_write_restart_io,  &
+    &                                        timers_level, timer_write_restart_setup,                    &
+    &                                        timer_write_restart_wait
+  USE mo_util_cdi,                     ONLY: cdiGetStringError
+  USE mo_util_string,                  ONLY: int2string, real2string
 
-    IMPLICIT NONE
+  IMPLICIT NONE
 
-    PUBLIC :: t_MultifileRestartDescriptor
-    PUBLIC :: multifileRestart_mainLoop
+  PUBLIC :: t_MultifileRestartDescriptor
+  PUBLIC :: multifileRestart_mainLoop
 
-    PRIVATE
+  PRIVATE
 
-    TYPE, EXTENDS(t_RestartDescriptor) :: t_MultifileRestartDescriptor
-        !this IS for measuring the throughput
-        REAL(dp)    :: startTime
-        INTEGER(i8) :: bytesWritten
+  TYPE, EXTENDS(t_RestartDescriptor) :: t_MultifileRestartDescriptor
+  CONTAINS
+    PROCEDURE :: construct => multifileRestartDescriptor_construct
+    PROCEDURE :: writeRestart => multifileRestartDescriptor_writeRestart
+    PROCEDURE :: destruct => multifileRestartDescriptor_destruct
+    PROCEDURE, PRIVATE :: updatePatchData => multifileRestartDescriptor_updatePatchData
+    PROCEDURE, PRIVATE :: writeRestartInternal => multifileRestartDescriptor_writeRestartInternal
+    PROCEDURE, PRIVATE :: writeAttributeFile => multifileRestartDescriptor_writeAttributeFile
+  END TYPE t_MultifileRestartDescriptor
 
-        ! When using the restart write mode "dedicated proc mode", it
-        ! is possible to split the restart output into several files,
-        ! as if "nrestart_streams" * "num_io_procs" restart processes
-        ! were involved. This speeds up the read-in process, since all
-        ! the files may then be read in parallel.
-        INTEGER     :: nrestart_streams
-
-    CONTAINS
-      ! override, collective across both work AND restart procs
-        PROCEDURE :: construct => multifileRestartDescriptor_construct
-
-        PROCEDURE :: writeRestart => multifileRestartDescriptor_writeRestart    ! override
-
-        PROCEDURE, PRIVATE :: patchDataPacker => multifileRestartDescriptor_patchDataPacker
-
-        ! collective across both work AND restart procs
-        PROCEDURE, PRIVATE :: updatePatchData => multifileRestartDescriptor_updatePatchData
-
-        ! collective across both work AND restart procs
-        PROCEDURE, PRIVATE :: writeRestartInternal => multifileRestartDescriptor_writeRestartInternal
-
-        ! ONLY executed by the restart master
-        PROCEDURE, PRIVATE :: writeAttributeFile => multifileRestartDescriptor_writeAttributeFile
-
-        ! non-collective, executed once by a single PE for each patch
-        PROCEDURE, PRIVATE :: writeMetadataFile => multifileRestartDescriptor_writeMetadataFile
-
-        ! collective across both work AND restart procs
-        PROCEDURE, PRIVATE :: openPayloadFile => multifileRestartDescriptor_openPayloadFile
-
-        ! no communication
-        PROCEDURE, PRIVATE :: closePayloadFile => multifileRestartDescriptor_closePayloadFile
-
-        PROCEDURE :: destruct => multifileRestartDescriptor_destruct    ! override
-    END TYPE t_MultifileRestartDescriptor
-
-    !Constants for communicating the current operation to the restart processes.
-    ENUM, BIND(C)
-        ENUMERATOR :: kIllegalOp = 1, kWriteRestartOp, kShutdownOp
-    END ENUM
-
-    CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart"
+  !Constants for communicating the current operation to the restart processes.
+  ENUM, BIND(C)
+    ENUMERATOR :: kIllegalOp = 1, kWriteRestartOp, kShutdownOp
+  END ENUM
+  CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart"
 
 CONTAINS
 
-    !Multifile restart initialization. This IS called at the very
-    !beginning via mo_restart:createRestartDescriptor().
-    !
-    !This initializes the restart writers, assigning their roles IN
-    !the joint procs case, AND creates the restart patch DATA
-    !structures.
-    SUBROUTINE multifileRestartDescriptor_construct(me, modelType)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        CHARACTER(*), INTENT(IN) :: modelType
-
-        CHARACTER(*), PARAMETER             :: routine = modname//":multifileRestartDescriptor_construct"
-        LOGICAL                             :: lDedicatedProcMode, lthis_pe_active
-        INTEGER, ALLOCATABLE                :: sourceRanks(:)
-        TYPE(t_MultifilePatchData), POINTER :: patchData
-        INTEGER                             :: error, jg, myProcId, writerCount, writerProcId, writerRank,  &
-          &                                    i, sourceRank_start, sourceRank_end, jg0, chunksize,         &
-          &                                    jfile, nrestart_streams, this_proc, start_, end_, size_, j
-
-        IF(.NOT.my_process_is_work() .AND. .NOT.my_process_is_restart()) RETURN
-
-        IF(timers_level >= 5) CALL timer_start(timer_write_restart)
-
-        CALL me%restartDescriptor_construct(modelType)
-
-        CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode, &
-          &                           opt_nrestart_streams   = nrestart_streams)
-        IF(lDedicatedProcMode) CALL me%transferGlobalParameters()
-
-        !set some local variables describing the communication that needs to be done
-        myProcId = restartWorkProcId()
-        writerCount = restartProcCount()
-        !TODO: It might be better to use a different scheme here to
-        !      get adjacent processes into the same restart writing
-        !      group.  It would be ideal if we could guarantee that
-        !      all compute nodes housed the same amount of writer
-        !      processes.  In either case, restartWriteId(),
-        !      restartWorkProcId(), restartWorkProcId2Rank(),
-        !      my_process_is_restart_master(), and
-        !      my_process_is_restart_writer() in mo_restart_util would
-        !      need to be adapted accordingly.
-        writerProcId = MODULO(myProcId, writerCount)
-        writerRank = restartWorkProcId2Rank(writerProcId)
-
-        ! little workaround for replacing {{{
-        ! sourceRanks = [(restartWorkProcId2Rank(i), &
-        !  &             i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount)]
-        start_ = writerProcId
-        end_   = workProcCount() + dedicatedRestartProcCount() - 1
-        size_  = 1+(end_-start_)/writerCount
-
-        ! just to make sure to exit asap
-        IF ( end_ < start_ ) CALL finish(routine,"Bad config for multifile restart &
-            &(workProcCount:"//TRIM(int2string(workProcCount()))//" ,&
-            &RestartProcCount:"//TRIM(int2string(dedicatedRestartProcCount()))//")")
-
-        ALLOCATE(sourceRanks(size_))
-        j = 1
-        DO i = writerProcId, workProcCount() + dedicatedRestartProcCount() - 1, writerCount
-          sourceRanks(j) = restartWorkProcId2Rank(i)
-          j = j + 1
-        ENDDO
-        ! }}}
-
-
-        ! Each work can send its data only to one restart
-        ! PE. Therefore it is not possible to have more restart files
-        ! than source PEs.
-        IF (nrestart_streams > SIZE(sourceRanks)) THEN
-          CALL finish(routine, "You have requested more horizontal multifile chunks than there are worker ranks!&
-          &nrestart_streams: "//TRIM(int2string(nrestart_streams))//" sourceRanks: "//TRIM(int2string(SIZE(sourceRanks))))
-        END IF
-
-        ! allocate patch data structure
-        me%nrestart_streams = nrestart_streams
-        ALLOCATE(t_MultifilePatchData :: me%patchData(n_dom*nrestart_streams), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-
-        ! Partition the sourceRanks array into "nrestart_streams" parts. This
-        ! way it is possible to write on "n" dedicated procs and to
-        ! read on "m" processors where m>>n.
-
-        chunksize = (SIZE(sourceRanks) + me%nrestart_streams - 1)/me%nrestart_streams
-        DO jfile=1,me%nrestart_streams
-          
-          sourceRank_start = (jfile-1)*chunksize + 1
-          sourceRank_end   = jfile*chunksize
-          sourceRank_end   = MIN(SIZE(sourceRanks), sourceRank_end)
-
-          ! restart writer #writerRank: putting ranks
-          ! sourceRank_start:sourceRank_end into a separate file.
-                    
-          jg0 = (jfile-1)*n_dom
-          DO jg = 1, n_dom
-            patchData => toMultifilePatchData(me%patchData(jg0+jg))
-            CALL patchData%construct(me%modelType, jg)
-            
-            ! initialize the patch DATA structures
-            IF (.NOT.my_process_is_restart_writer()) THEN 
-              this_proc = restartWorkProcId2Rank(myProcId)
-              lthis_pe_active = ANY(this_proc == sourceRanks(sourceRank_start:sourceRank_end))
-              CALL patchData%createCollectors(writerRank, sourceRanks(1:0), lthis_pe_active)
-            ELSE
-              CALL patchData%createCollectors(writerRank, sourceRanks, .TRUE.)
-            END IF
-            
-          END DO
-
-        END DO
-
-        IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
-    END SUBROUTINE multifileRestartDescriptor_construct
-
-    !This creates the restartArgs object, communicating it to the dedicated restart processes as appropriate.
-    !On the restart side, this IS paired with a CALL to createRestartArgs_restart().
-    FUNCTION createRestartArgs_compute(modelType, this_datetime, jstep, opt_output_jfile) RESULT(resultVar)
-        TYPE(t_restart_args) :: resultVar
-        CHARACTER(*), INTENT(IN) :: modelType
-        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
-        INTEGER, INTENT(IN) :: jstep
-        INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-
-        LOGICAL :: lDedicatedProcMode
-        TYPE(t_PackedMessage) :: packedMessage
-        CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_compute"
-
-        CALL resultVar%construct(this_datetime, jstep, modelType, opt_output_jfile)
-
-        !In the CASE of dedicated proc mode, we need to inform the restart processes.
-        CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode)
-        IF(lDedicatedProcMode) THEN
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            CALL packedMessage%construct()
-            CALL packedMessage%pack(kWriteRestartOp)
-            CALL resultVar%packer(kPackOp, packedMessage)
-            CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-            CALL packedMessage%destruct()
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-        END IF
-    END FUNCTION createRestartArgs_compute
-
-    !This sends the stop message to the dedicated restart processes.
-    !Like createRestartArgs_compute(), this also pairs with a CALL to createRestartArgs_restart().
-    SUBROUTINE sendStopToRestart()
-        LOGICAL :: lDedicatedProcMode
-        TYPE(t_PackedMessage) :: packedMessage
-        CHARACTER(*), PARAMETER :: routine = modname//":sendStopToRestart"
-
-        CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode)
-        IF(lDedicatedProcMode) THEN
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            CALL packedMessage%construct()
-            CALL packedMessage%pack(kShutdownOp)
-            CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-            CALL packedMessage%destruct()
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-        END IF
-    END SUBROUTINE sendStopToRestart
-
-    ! This creates the restartArgs object by receiving it from the
-    ! compute processes.
-    !
-    ! This pairs with either a CALL to createRestartArgs_compute() OR
-    ! sendStopToRestart() on the work processes' side, which CALL it
-    ! was paired with IS returned IN out_restartOp.
-    !
-    ! Important: In the CASE of a kShutdownOp, the RESULT IS NOT
-    ! constructed, so out_restartOp must be analyzed before the
-    ! FUNCTION RESULT IS used!
-    FUNCTION createRestartArgs_restart(out_restartOp) RESULT(resultVar)
-        TYPE(t_restart_args) :: resultVar
-        INTEGER, INTENT(OUT) :: out_restartOp
-
-        TYPE(t_PackedMessage) :: packedMessage
-        CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_restart"
-
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-
-        !receive the message from the work processes
-        CALL packedMessage%construct()
-        CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-
-        !unpack it
-        out_restartOp = kIllegalOp
-        CALL packedMessage%unpack(out_restartOp)
-        IF(out_restartOp == kWriteRestartOp) CALL resultVar%packer(kUnpackOp, packedMessage)
-        CALL packedMessage%destruct()
-
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-    END FUNCTION createRestartArgs_restart
-
-    !The entry point to restart writing for the work processes.
-    SUBROUTINE multifileRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
-        INTEGER, INTENT(IN) :: jstep
-        INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-
-        TYPE(t_restart_args) :: restartArgs
-
-        IF(timers_level >= 5) CALL timer_start(timer_write_restart)
-
-        restartArgs = createRestartArgs_compute(me%modelType, this_datetime, jstep, opt_output_jfile)
-        !This CALL IS entered by work AND restart processes IN lockstep:
-        CALL me%writeRestartInternal(restartArgs)
-        CALL restartArgs%destruct()
-
-        IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
-    END SUBROUTINE multifileRestartDescriptor_writeRestart
-
-    !Serialization of the patchData array.
-    SUBROUTINE multifileRestartDescriptor_patchDataPacker(me, operation, packedMessage)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        INTEGER, VALUE :: operation
-        TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
-
-        INTEGER :: i
-
-        DO i = 1, SIZE(me%patchData)
-          CALL me%patchData(i)%description%packer(operation, packedMessage)
-        END DO
-    END SUBROUTINE multifileRestartDescriptor_patchDataPacker
-
-    ! Ensure that all processes have full up-to-date knowledge of all patches.
-    ! 
-    ! This IS done by first letting the respective subset masters send
-    ! their current state to the work master, AND THEN broadcasting
-    ! that information to both work AND restart processes.
-    !
-    ! Collective across work AND restart PEs.
-    SUBROUTINE multifileRestartDescriptor_updatePatchData(me)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-
-        INTEGER :: i
-        TYPE(t_PackedMessage) :: packedMessage
-        LOGICAL :: lDedicatedProcMode
-
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_setup)
-
-        CALL restartWritingParameters(opt_lDedicatedProcMode = lDedicatedProcMode)
-
-        !Make sure that the master has full up-to-date knowledge of all patches.
-        IF (.NOT. lDedicatedProcMode .OR. .NOT. my_process_is_restart()) THEN
-          DO i = 1, SIZE(me%patchData)
-            CALL me%patchData(i)%description%updateOnMaster()
-          END DO
-        END IF
-
-        !Create a packedMessage with the full description on the master.
-        CALL packedMessage%construct()
-        IF(p_pe_work == 0) CALL me%patchDataPacker(kPackOp, packedMessage)
-
-        !Distribute among workers.
-        IF(my_process_is_work()) CALL packedMessage%bcast(0, p_comm_work)
-
-        !Distribute to the dedicated restart processes (IF we have them).
-        IF(lDedicatedProcMode) CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-
-        !Unpack everywhere.
-        CALL me%patchDataPacker(kUnpackOp, packedMessage)
-        CALL packedMessage%destruct()
-
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
-
-        !Update the vgrids.
-        DO i = 1, SIZE(me%patchData)
-          CALL me%patchData(i)%description%updateVGrids()
-        END DO
-    END SUBROUTINE multifileRestartDescriptor_updatePatchData
-
-    ! This method IS entered by all work AND restart processes IN
-    ! lockstep.
-    !
-    ! It first transfers all the DATA synchronously to the respective
-    ! restart processes, THEN creates the directory AND metadata
-    ! files, AND finally writes the payload DATA.
-    SUBROUTINE multifileRestartDescriptor_writeRestartInternal(me, restartArgs)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        TYPE(t_restart_args), INTENT(IN) :: restartArgs
-
-        CHARACTER(*), PARAMETER               :: routine = ":multifileRestartDescriptor_writeRestartInternal"
-        INTEGER                               :: jg, myFirstPatch, dummy, n_dom_active, jfile, iindex
-        INTEGER(i8)                           :: totalBytesWritten
-        REAL(dp)                              :: gibibytesWritten, elapsedTime
-        CHARACTER(:), ALLOCATABLE             :: filename
-        TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-        TYPE(t_NamelistArchive), POINTER      :: namelists
-        TYPE(t_CdiIds)                        :: cdiIds(SIZE(me%patchData))
-        TYPE(t_MultifilePatchData), POINTER   :: patchData
-
-        namelists => namelistArchive()
-
-        !start the timer
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-        CALL p_barrier(p_comm_work_restart)
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-        me%startTime = p_mpi_wtime()
-        me%bytesWritten = 0_i8
-
-        !ensure that all processes have up-to-date patch DATA
-        CALL me%updatePatchData()
-
-        !create the multifile directory
-        filename = getRestartFilename('multifile', 0, restartArgs)
-        IF(my_process_is_restart_master()) THEN
-            IF(createEmptyMultifileDir(filename) /= SUCCESS) CALL finish(routine, "error creating restart multifile")
-        END IF
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-        !ensure that the other processes DO NOT continue before the
-        !directory has been created:
-        CALL p_bcast(dummy, restartWorkProcId2Rank(0), p_comm_work_restart) 
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-
-        !WRITE the attributes.nc file
-        IF(my_process_is_restart_master()) THEN
-            restartAttributes => RestartAttributeList_make()
-
-            !this IS for checking the completeness of the multifile
-            !when loading the restart:
-            CALL restartAttributes%setInteger('multifile_file_count', me%nrestart_streams*restartProcCount())
-
-            ! when domains are inactive, then the restart dataset may
-            ! contain fewer domains than "n_dom":
-            n_dom_active = 0
-            DO jg = 1, SIZE(me%patchData)
-              patchData => toMultifilePatchData(me%patchData(jg))
-              IF (patchData%description%l_dom_active) THEN
-                n_dom_active = n_dom_active + 1
-              END IF
-            END DO
-            CALL restartAttributes%setInteger('multifile_n_dom_active', n_dom_active)
-
-            CALL me%defineRestartAttributes(restartAttributes, restartArgs)
-
-            CALL me%writeAttributeFile(filename, restartAttributes, namelists)
-
-            CALL restartAttributes%destruct()
-            DEALLOCATE(restartAttributes)
-        END IF
-
-        !WRITE the patchN_metadata files
-        IF(my_process_is_restart_writer()) THEN
-            ! This does NOT USE the straight-forward
-            ! `restartWriterId() + 1` because that would cause the
-            ! restart master to also be the first process to WRITE a
-            ! _metadata file.  The way, we DO it here, puts the
-            ! restart master at the END of the line of processes to
-            ! WRITE a _metadata file, allowing all the _metadata files
-            ! to be written IN parallel to the attributes.nc file IN
-            ! the normal CASE where we have more restart processes
-            ! than patches.
-            myFirstPatch = restartWriterId()    ! 0 ... restartProcCount-1
-            IF(myFirstPatch == 0) myFirstPatch = restartProcCount() ! 1 ... restartProcCount
-            DO jg = myFirstPatch, n_dom, restartProcCount()
-              patchData => toMultifilePatchData(me%patchData(jg))
-              IF (patchData%description%l_dom_active) THEN
-                CALL me%writeMetadataFile(filename, jg)
-              END IF
-            END DO
-        END IF
-
-        ! COLLECT the payload files
-        !
-
-        DO jg = 1, SIZE(me%patchData)
-          patchData => toMultifilePatchData(me%patchData(jg))
-          IF (patchData%description%l_dom_active) THEN
-            CALL patchData%start_local_access()
-          END IF
-        END DO
-
-        DO jg = 1, SIZE(me%patchData)
-          patchData => toMultifilePatchData(me%patchData(jg))
-          IF (patchData%description%l_dom_active) THEN
-            cdiIds(jg) = me%openPayloadFile(filename, jg, restartArgs%restart_datetime)
-          END IF
-        END DO
-
-        IF (my_process_is_work()) THEN
-          DO jg = 1, SIZE(me%patchData)
-            patchData => toMultifilePatchData(me%patchData(jg))
-            IF (patchData%description%l_dom_active) THEN
-              CALL patchData%exposeData()
-            END IF
-          END DO
-        END IF
-
-        ! WRITE the payload files
-        !
-        DO jg = 1, SIZE(me%patchData)
-          patchData => toMultifilePatchData(me%patchData(jg))
-          IF (patchData%description%l_dom_active) THEN
-            CALL patchData%start_remote_access()
-          END IF
-        END DO
-        
-        DO jg = 1, SIZE(me%patchData)
-          patchData => toMultifilePatchData(me%patchData(jg))
-          IF (patchData%description%l_dom_active) THEN
-            CALL me%closePayloadFile(jg, cdiIds(jg))
-          END IF
-        END DO
-
-        IF(my_process_is_restart_master()) CALL createMultifileRestartLink(filename, TRIM(restartArgs%modelType))
-
-        !stop the timer AND print the resulting speed
-        !
-        !While this code could be compiled AND run IN the NOMPI CASE,
-        !it would print nonsense since p_mpi_wtime() always returns
-        !zero IN this CASE.
-#ifndef NOMPI
-        IF(isDedicatedProcMode().AND.my_process_is_work()) THEN
-          !IN dedicated proc mode we must avoid blocking the work
-          !processes
-
-            !dedicated proc mode: work processes
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            CALL p_barrier(p_comm_work)
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            !the previous CALL has synchronized us, so now it's safe
-            !to stop the timer
-            elapsedTime = p_mpi_wtime() - me%startTime
-            IF(my_process_is_mpi_workroot()) THEN
-                WRITE(0,*) "restart: finished streaming of data to restart processes, took "//TRIM(real2string(elapsedTime))//"s"
-            END IF
+  !Multifile restart initialization. This IS called at the very
+  !beginning via mo_restart:createRestartDescriptor().
+  !
+  !This initializes the restart writers, assigning their roles IN
+  !the joint procs case, AND creates the restart patch DATA
+  !structures.
+  SUBROUTINE multifileRestartDescriptor_construct(me, modelType)
+    CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
+    CHARACTER(*), INTENT(IN) :: modelType
+    CHARACTER(*), PARAMETER             :: routine = modname//":multifileRestartDescriptor_construct"
+    LOGICAL                             :: lthis_pe_active
+    INTEGER, ALLOCATABLE                :: srcRanks(:)
+    TYPE(t_MultifilePatchData), POINTER :: patchData
+    INTEGER                             :: error, jg, myProcId, myWrt, i, sRStrt, sREnd, jg0, &
+      &                                    jfile, nStreams, nSrcRanks, ckSize
+
+    IF(.NOT.my_process_is_work() .AND. .NOT.my_process_is_restart()) RETURN
+    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+    CALL me%restartDescriptor_construct(modelType)
+    CALL restartWritingParameters(opt_nrestart_streams = nStreams)
+    IF(isAsync()) CALL me%transferGlobalParameters()
+    !set some local variables describing the communication that needs to be done
+    myProcId = p_comm_rank(p_comm_work_restart)
+    myWrt  = rBuddy() 
+    nSrcRanks = COUNT((/(rBuddy(pe_in=i) == myWrt, i = 0, num_work_procs -1)/))
+    ALLOCATE(srcRanks(nSrcRanks))
+    srcRanks = PACK((/(i, i=0,num_work_procs-1)/), &
+                     (/(rBuddy(pe_in=i)==myWrt, i=0,num_work_procs-1)/))
+    IF (nStreams > nSrcRanks) &
+      CALL finish(routine, "more horizontal multifile chunks than worker ranks requested!")
+    ! allocate patch data structure
+    ALLOCATE(t_MultifilePatchData :: me%patchData(n_dom*nStreams), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    ckSize = (nSrcRanks + nStreams - 1)/nStreams
+    DO jfile = 1, nStreams
+      sRStrt = (jfile-1)*ckSize + 1
+      sREnd  = MIN(nSrcRanks, jfile*ckSize)
+      ! restart writer #writerRank: putting ranks
+      ! sourceRank_start:sourceRank_end into a separate file.
+      jg0 = (jfile-1)*n_dom
+      DO jg = 1, n_dom
+        patchData => toMultifilePatchData(me%patchData(jg0+jg))
+        CALL patchData%construct(me%modelType, jg)
+        ! initialize the patch DATA structures
+        IF (.NOT.iAmRestartWriter()) THEN 
+          lthis_pe_active = ANY(myProcId == srcRanks(sRStrt:sREnd))
+          CALL patchData%createCollectors(myWrt, srcRanks(1:0), lthis_pe_active)
+          ! too keep mo_timer happy
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
         ELSE
-            IF(timers_level >= 7) CALL timer_start(timer_write_restart_communication)
-            IF(my_process_is_restart()) THEN
-              !dedicated proc mode: restart processes
-              totalBytesWritten = p_reduce(me%bytesWritten, p_sum_op(), 0, p_comm_work)
-            ELSE
-              !joint proc mode: all processes
-              totalBytesWritten = p_reduce(me%bytesWritten, p_sum_op(), 0, p_comm_work_restart)
-            END IF
-            IF(timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
-            !the previous CALL has synchronized us, so now it's safe
-            !to stop the timer
-            elapsedTime = p_mpi_wtime() - me%startTime
-            IF(my_process_is_restart_master()) THEN
-                gibibytesWritten = REAL(totalBytesWritten, dp)/1024.0_dp/1024.0_dp/1024.0_dp
-                WRITE(0,*) "restart: finished writing, "//TRIM(real2string(gibibytesWritten))//"GiB of data in "//&
-                           &TRIM(real2string(elapsedTime))//"s ("//TRIM(real2string(gibibytesWritten/elapsedTime))//"GiB/s)"
-            END IF
+          CALL patchData%createCollectors(myWrt, srcRanks(sRStrt:sREnd), .TRUE.)
         END IF
+      END DO
+    END DO
+    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
+  END SUBROUTINE multifileRestartDescriptor_construct
+
+  !This creates the restartArgs object, communicating it to the dedicated restart processes as appropriate.
+  !On the restart side, this IS paired with a CALL to createRestartArgs_restart().
+  FUNCTION createRestartArgs_compute(modelType, this_datetime, jstep, opt_output_jfile) &
+    & RESULT(resultVar)
+    TYPE(t_restart_args) :: resultVar
+    CHARACTER(*), INTENT(IN) :: modelType
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
+    INTEGER, INTENT(IN) :: jstep
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+    TYPE(t_PackedMessage) :: packedMessage
+    CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_compute"
+    REAL(KIND=dp) :: time_start, time_end
+
+    CALL resultVar%construct(this_datetime, jstep, modelType, opt_output_jfile)
+    !In the CASE of dedicated proc mode, we need to inform the restart processes.
+    IF(.NOT.isAsync()) RETURN
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
+    CALL packedMessage%construct()
+    CALL packedMessage%pack(kWriteRestartOp)
+    CALL resultVar%packer(kPackOp, packedMessage)
+    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
+    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    CALL packedMessage%destruct()
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
+    IF(my_process_is_mpi_workroot()) THEN
+      WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
+                                        ' sec for dedicated restart procs to be ready...'
+      CALL message(routine, message_text)             
+    END IF
+  END FUNCTION createRestartArgs_compute
+
+  !This sends the stop message to the dedicated restart processes.
+  !Like createRestartArgs_compute(), this also pairs with a CALL to createRestartArgs_restart().
+  SUBROUTINE sendStopToRestart()
+    TYPE(t_PackedMessage) :: packedMessage
+    CHARACTER(*), PARAMETER :: routine = modname//":sendStopToRestart"
+    REAL(KIND=dp) :: time_start, time_end
+
+    IF(.NOT.isAsync()) RETURN
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
+    CALL packedMessage%construct()
+    CALL packedMessage%pack(kShutdownOp)
+    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
+    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    CALL packedMessage%destruct()
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
+    IF(my_process_is_mpi_workroot()) THEN
+      WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
+                                        ' sec for dedicated restart procs to finish...'
+      CALL message(routine, message_text)
+    END IF
+  END SUBROUTINE sendStopToRestart
+
+  ! This creates the restartArgs object by receiving it from the
+  ! compute processes.
+  !
+  ! This pairs with either a CALL to createRestartArgs_compute() OR
+  ! sendStopToRestart() on the work processes' side, which CALL it
+  ! was paired with IS returned IN out_restartOp.
+  !
+  ! Important: In the CASE of a kShutdownOp, the RESULT IS NOT
+  ! constructed, so out_restartOp must be analyzed before the
+  ! FUNCTION RESULT IS used!
+  FUNCTION createRestartArgs_restart(out_restartOp) RESULT(resultVar)
+    TYPE(t_restart_args) :: resultVar
+    INTEGER, INTENT(OUT) :: out_restartOp
+    TYPE(t_PackedMessage) :: packedMessage
+    CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_restart"
+    REAL(KIND=dp) :: time_start, time_end
+
+    !receive the message from the work processes
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
+    CALL packedMessage%construct()
+    IF(iAmRestartMaster()) time_start = p_mpi_wtime()
+    CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
+    IF(iAmRestartMaster()) time_end = p_mpi_wtime()
+    !unpack it
+    out_restartOp = kIllegalOp
+    CALL packedMessage%unpack(out_restartOp)
+    IF(out_restartOp == kWriteRestartOp) CALL resultVar%packer(kUnpackOp, packedMessage)
+    CALL packedMessage%destruct()
+    IF(iAmRestartMaster()) THEN
+      WRITE(message_text, "(a,e9.2,a)") 'dedicated restart procs waited ', &
+                                       time_end-time_start, &
+                                     ' sec for next event triggered by computes...'
+      CALL message(routine, message_text)
+    END IF
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
+  END FUNCTION createRestartArgs_restart
+
+  !The entry point to restart writing for the work processes.
+  SUBROUTINE multifileRestartDescriptor_writeRestart(me, this_datetime, jstep, opt_output_jfile)
+    CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
+    INTEGER, INTENT(IN) :: jstep
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+    TYPE(t_restart_args) :: restartArgs
+
+    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+    restartArgs = createRestartArgs_compute(me%modelType, this_datetime, jstep, opt_output_jfile)
+    !This CALL IS entered by work AND restart processes IN lockstep:
+    CALL me%writeRestartInternal(restartArgs)
+    CALL restartArgs%destruct()
+    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
+  END SUBROUTINE multifileRestartDescriptor_writeRestart
+
+  ! Ensure that all processes have full up-to-date knowledge of all patches.
+  ! 
+  ! This IS done by first letting the respective subset masters send
+  ! their current state to the work master, AND THEN broadcasting
+  ! that information to both work AND restart processes.
+  !
+  ! Collective across work AND restart PEs.
+  SUBROUTINE multifileRestartDescriptor_updatePatchData(me)
+    CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
+    INTEGER :: i
+    TYPE(t_PackedMessage) :: packedMessage
+
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_setup)
+    !Make sure that the master has full up-to-date knowledge of all patches.
+    IF (.NOT.isAsync() .OR. .NOT. my_process_is_restart()) THEN
+      DO i = 1, SIZE(me%patchData)
+        CALL me%patchData(i)%description%updateOnMaster()
+      END DO
+    END IF
+    !Create a packedMessage with the full description on the master.
+    CALL packedMessage%construct()
+    IF(my_process_is_mpi_workroot()) THEN
+       DO i = 1, SIZE(me%patchData)
+         CALL me%patchData(i)%description%packer(kPackOp, packedMessage)
+       END DO
+    END IF
+    !Distribute among workers.
+    IF(my_process_is_work()) CALL packedMessage%bcast(0, p_comm_work)
+    !Distribute to the dedicated restart processes (IF we have them).
+    IF(isAsync()) CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
+    !Unpack everywhere.
+    DO i = 1, SIZE(me%patchData)
+       CALL me%patchData(i)%description%packer(kUnpackOp, packedMessage)
+    END DO
+    CALL packedMessage%destruct()
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_setup)
+    !Update the vgrids.
+    DO i = 1, SIZE(me%patchData)
+      CALL me%patchData(i)%description%updateVGrids()
+    END DO
+  END SUBROUTINE multifileRestartDescriptor_updatePatchData
+
+  ! This method IS entered by all work AND restart processes IN
+  ! lockstep.
+  !
+  ! It first transfers all the DATA synchronously to the respective
+  ! restart processes, THEN creates the directory AND metadata
+  ! files, AND finally writes the payload DATA.
+  SUBROUTINE multifileRestartDescriptor_writeRestartInternal(me, restartArgs)
+    CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
+    TYPE(t_restart_args), INTENT(IN) :: restartArgs
+    CHARACTER(*), PARAMETER               :: routine = ":multifileRestartDescriptor_writeRestartInternal"
+    INTEGER                               :: jg, dummy, n_dom_active, nrestart_streams, findex
+    INTEGER(i8)                           :: totBWritten, bWritten
+    REAL(dp)                              :: gbWritten, dpTime
+    CHARACTER(:), ALLOCATABLE             :: filename
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_NamelistArchive), POINTER      :: namelists
+    TYPE(t_CdiIds)                        :: cdiIds(SIZE(me%patchData))
+    TYPE(t_MultifilePatchData), POINTER   :: patchData
+
+    namelists => namelistArchive()
+    dpTime = p_mpi_wtime()
+    bWritten = 0_i8
+    CALL restartWritingParameters(opt_nrestart_streams=nrestart_streams)
+    CALL me%updatePatchData()
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) &
+        & CALL patchData%start_local_access()
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        IF (my_process_is_work()) &
+          & CALL patchData%exposeData()
+      END IF
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        CALL patchData%start_remote_access()
+      END IF
+    END DO
+    IF(iAmRestartMaster()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      IF (createEmptyMultifileDir(filename) /= SUCCESS) &
+        & CALL finish(routine, "error creating multifile-dir")
+      CALL p_barrier(p_comm_work)
+      restartAttributes => RestartAttributeList_make()
+      CALL restartAttributes%setInteger('multifile_file_count', &
+        & nrestart_streams*restartProcCount())
+      n_dom_active = 0
+      DO jg = 1, SIZE(me%patchData)
+        patchData => toMultifilePatchData(me%patchData(jg))
+        IF (patchData%description%l_dom_active) THEN
+          n_dom_active = n_dom_active + 1
+        END IF
+      END DO
+      CALL restartAttributes%setInteger('multifile_n_dom_active', n_dom_active)
+      CALL me%defineRestartAttributes(restartAttributes, restartArgs)
+      CALL me%writeAttributeFile(filename, restartAttributes, namelists)
+      CALL restartAttributes%destruct()
+      DEALLOCATE(restartAttributes)
+    ELSE IF(.NOT.isAsync().OR.iAmRestartWriter()) THEN
+      CALL p_barrier(p_comm_work)
+    ELSE 
+      dpTime = p_mpi_wtime() - dpTime
+      IF(my_process_is_mpi_workroot()) THEN
+        WRITE(message_text, *) "restart: preparing checkpoint-data took " &
+          & //TRIM(real2string(dpTime))//"s"
+        CALL message(routine, message_text)
+      END IF
+    END IF
+    IF (iAmRestartWriter()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      DO jg = 1, SIZE(me%patchData)
+        patchData => toMultifilePatchData(me%patchData(jg))
+        IF (patchData%description%l_dom_active .AND. ASSOCIATED(patchData%varData)) THEN
+          findex = nrestart_streams*rGroup() + (jg-1)/n_dom
+          cdiIds(jg) = patchData%openPayloadFile(filename, findex, &
+            & restartArgs%restart_datetime, bWritten)
+          CALL patchData%collectData(cdiIds(jg)%fHndl, bWritten)
+          CALL cdiIds(jg)%closeAndDestroyIds()
+        END IF
+      END DO
+    END IF
+    IF(iAmRestartMaster()) CALL createMultifileRestartLink(filename, TRIM(restartArgs%modelType))
+#ifndef NOMPI
+    IF(.NOT.(isAsync().AND.my_process_is_work())) THEN
+      IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
+      IF(my_process_is_restart()) THEN
+        !dedicated proc mode: restart processes
+        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work)
+      ELSE
+        !joint proc mode: all processes
+        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work_restart)
+      END IF
+      IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
+      dpTime = p_mpi_wtime() - dpTime
+      IF(iAmRestartMaster()) THEN
+        gbWritten = REAL(totBWritten, dp)/1024.0_dp/1024.0_dp/1024.0_dp
+        WRITE(message_text,*) "restart: finished: "//TRIM(real2string(gbWritten))//"GB of data in "//&
+                   &TRIM(real2string(dpTime))//"s ("//TRIM(real2string(gbWritten/dpTime))//"GB/s)"
+        CALL message(routine, message_text, all_print=.true.)
+      END IF
+    END IF
 #endif
-    END SUBROUTINE multifileRestartDescriptor_writeRestartInternal
+  END SUBROUTINE multifileRestartDescriptor_writeRestartInternal
 
-    !This dumps the restart attributes AND the namelist archive into
-    !the restartFile.mfr/attributes.nc file.  Should ONLY be called on
-    !a single process.
-    SUBROUTINE multifileRestartDescriptor_writeAttributeFile(me, filename, restartAttributes, namelists)
-        CLASS(t_MultifileRestartDescriptor), INTENT(IN) :: me
-        CHARACTER(*), INTENT(IN) :: filename
-        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-        TYPE(t_NamelistArchive), INTENT(INOUT) :: namelists
+  SUBROUTINE multifileRestartDescriptor_writeAttributeFile(me, filename, restartAttributes, namelists)
+    CLASS(t_MultifileRestartDescriptor), INTENT(IN) :: me
+    CHARACTER(*), INTENT(IN) :: filename
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+    TYPE(t_NamelistArchive), INTENT(INOUT) :: namelists
+    INTEGER :: metaFile, grid, zaxis, variable, vlist
+    CHARACTER(:), ALLOCATABLE :: effectiveFilename
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_writeAttributeFile"
 
-        INTEGER :: file, grid, zaxis, variable, vlist
-        CHARACTER(:), ALLOCATABLE :: effectiveFilename
-        CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_writeAttributeFile"
+    IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
+    CALL multifileAttributesPath(filename, effectiveFilename)
+    metaFile = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
+    CALL checkCdiId(metaFile, "error opening file '"//effectiveFilename//"' for writing")
+    vlist = vlistCreate()
+    CALL checkCdiId(vlist, "error creating CDI vlist")
+    ! to keep CDI happy ...
+    grid = gridCreate(GRID_GENERIC, 1)
+    CALL checkCdiId(grid, "error creating CDI grid")
+    zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
+    CALL checkCdiId(zaxis, "error creating CDI zaxis")
+    variable = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
+    CALL checkCdiId(variable, "error creating CDI variable")
+    CALL namelists%writeToCdiVlist(vlist)
+    CALL restartAttributes%writeToCdiVlist(vlist)
+    CALL streamDefVlist(metaFile, vlist)
+    CALL streamDefRecord(metaFile, variable, 0)
+    CALL streamClose(metaFile)
+    CALL vlistDestroy(vlist)
+    CALL gridDestroy(grid)
+    CALL zaxisDestroy(zaxis)
+    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
+  CONTAINS
 
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
+   SUBROUTINE checkCdiId(cdiId, errorMessage)
+     INTEGER, VALUE :: cdiId
+     CHARACTER(*), INTENT(IN) :: errorMessage
+     CHARACTER(MAX_CHAR_LENGTH) :: cdiErrorText
 
-        effectiveFilename = multifileAttributesPath(filename)
+     IF(cdiId < 0) THEN
+       CALL cdiGetStringError(cdiId, cdiErrorText)
+       CALL finish(routine, errorMessage//": "//TRIM(cdiErrorText))
+     END IF
+   END SUBROUTINE checkCdiId
+  END SUBROUTINE multifileRestartDescriptor_writeAttributeFile
 
-        !open the file as a CDI stream AND create a vlist to carry our attributes
-        file = streamOpenWrite(effectiveFilename, FILETYPE_NC4)
-        CALL checkCdiId(file, "error opening file '"//effectiveFilename//"' for writing")
+  !Shuts down the dedicated restart writers IF they exist. And does some cleanup.
+  SUBROUTINE multifileRestartDescriptor_destruct(me)
+      CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
+      INTEGER :: i
+      CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_destruct"
 
-        vlist = vlistCreate()
-        CALL checkCdiId(vlist, "error creating CDI vlist")
+      IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+      IF(my_process_is_work()) CALL sendStopToRestart()
+      DO i = 1, SIZE(me%patchData)
+        CALL me%patchData(i)%destruct()
+      END DO
+      DEALLOCATE(me%patchData)
+      IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
+  END SUBROUTINE multifileRestartDescriptor_destruct
 
-        !XXX: Unfortunately, CDI does NOT WRITE attributes to the file
-        !     unless we at least define a record, for which we need at
-        !     least a variable, for which we need at least a grid AND
-        !     a zaxis. So we need to create some dummy objects here.
-        !     The alternative would have been to bypass the CDI layer
-        !     AND USE NetCDF directly, however that would have
-        !     resulted IN duplicating roughly 150 lines of code IN
-        !     mo_restart_attributes AND mo_restart_namelists because
-        !     we still need the CDI-based attribute writing for the
-        !     legacy restart modules.  So, WHILE it feels really wrong
-        !     to USE CDI AND THEN work around the problems that
-        !     creates, I guess it's still the sensible thing to DO.
-        grid = gridCreate(GRID_GENERIC, 1)
-        CALL checkCdiId(grid, "error creating CDI grid")
+  ! This IS ONLY called on dedicated restart writers. It's an event
+  ! loop that's driven by the messages from the compute processes.
+  SUBROUTINE multifileRestart_mainLoop()
+    TYPE(t_MultifileRestartDescriptor) :: restartDescriptor
+    INTEGER :: restartOp
+    TYPE(t_restart_args) :: restartArgs
+    CHARACTER(*), PARAMETER :: routine = modname//":multifileRestart_mainLoop"
+    LOGICAL :: atService
 
-        zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
-        CALL checkCdiId(zaxis, "error creating CDI zaxis")
-
-        variable = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
-        CALL checkCdiId(variable, "error creating CDI variable")
-
-        !write the restart attributes AND the namelist archive to the vlist attributes
-        CALL namelists%writeToCdiVlist(vlist)
-        CALL restartAttributes%writeToCdiVlist(vlist)
-        CALL streamDefVlist(file, vlist)
-        !this IS the point where we actually convince CDI to output
-        !the attributes
-        CALL streamDefRecord(file, variable, 0)
-
-        !cleanup
-        CALL streamClose(file)
-        CALL vlistDestroy(vlist)
-        CALL gridDestroy(grid)
-        CALL zaxisDestroy(zaxis)
-
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-
-    CONTAINS
-
-        !check whether the given ID IS valid, calling finish with both
-        !the given error message AND the error message retrieved from
-        !CDI IN CASE of error
-        SUBROUTINE checkCdiId(cdiId, errorMessage)
-            INTEGER, VALUE :: cdiId
-            CHARACTER(*), INTENT(IN) :: errorMessage
-
-            CHARACTER(MAX_CHAR_LENGTH) :: cdiErrorText
-
-            IF(cdiId < 0) THEN
-                CALL cdiGetStringError(cdiId, cdiErrorText)
-                CALL finish(routine, errorMessage//": "//TRIM(cdiErrorText))
-            END IF
-        END SUBROUTINE checkCdiId
-
-    END SUBROUTINE multifileRestartDescriptor_writeAttributeFile
-
-    !This dumps the contents of a patchData entry into the
-    !restartFile.mfr/patch<JG>_metadata file.
-    SUBROUTINE multifileRestartDescriptor_writeMetadataFile(me, baseFilename, jg)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        CHARACTER(*), INTENT(IN) :: baseFilename
-        INTEGER, VALUE :: jg
-
-        CHARACTER(:), ALLOCATABLE :: effectiveFilename
-        TYPE(t_SerializedData) :: metadataPack
-        CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_writeMetadataFile"
-
-        IF(timers_level >= 7) CALL timer_start(timer_write_restart_io)
-
-        effectiveFilename = multifileMetadataPath(baseFilename, jg)
-        CALL metadataPack%construct()
-        CALL me%patchData(jg)%description%packer(kPackOp, metadataPack)
-        IF(0 /= putFile(effectiveFilename, metadataPack%getData(), INT(o'640', C_INT))) THEN
-            CALL finish(routine, "error while writing metadata file at '"//effectiveFilename//"'")
-        END IF
-        CALL metadataPack%destruct()
-
-        IF(timers_level >= 7) CALL timer_stop(timer_write_restart_io)
-    END SUBROUTINE multifileRestartDescriptor_writeMetadataFile
-
-    !Collective CALL to create a batch of
-    !restartFile.mfr/patch<JG>_<N>.nc files.  In the joint procs CASE,
-    !this also writes the payload DATA; with dedicated writer
-    !processes, this ONLY collects the DATA into buffers on the writer
-    !PEs.
-    FUNCTION multifileRestartDescriptor_openPayloadFile(me, filename, jg, this_datetime) RESULT(cdiIds)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        CHARACTER(*),                        INTENT(IN)    :: filename
-        INTEGER,                             INTENT(IN)    :: jg
-        TYPE(datetime), POINTER,             INTENT(IN)    :: this_datetime
-
-        CHARACTER(*), PARAMETER             :: routine = modname//":multifileRestartDescriptor_openPayloadFile"
-        TYPE(t_MultifilePatchData), POINTER :: patchData
-        TYPE(t_CdiIds)                      :: cdiIds
-        INTEGER                             :: iindex, jfile
-
-        patchData => toMultifilePatchData(me%patchData(jg))
-        IF(.NOT.ASSOCIATED(patchData%varData)) RETURN !no variables to WRITE for this patch -> no restart file
-
-        ! For the case that this restart writer writes more than one
-        ! file for the same patch: generate a global index as if the
-        ! data were created by separate processes.
-        !
-        ! The logic here corresponds to the loop logic in
-        ! "multifileRestartDescriptor_construct"
-        jfile = (jg-1)/n_dom
-        iindex = me%nrestart_streams*restartWorkProcId() + jfile
-
-        !the writer procs open a CDI stream AND WRITE the global index
-        !arrays to it
-        IF(my_process_is_restart_writer()) THEN
-            cdiIds = patchData%openPayloadFile(filename, iindex, this_datetime, me%bytesWritten)
-        END IF
-
-      END FUNCTION multifileRestartDescriptor_openPayloadFile
-
-    ! Communication free CALL to finish writing a batch of
-    ! restartFile.mfr/patch<JG>_<N>.nc files.  If the process IS a
-    ! dedicated restart writer, this actually writes the payload DATA
-    ! from the IN-memory buffers to the file.  On the work processes,
-    ! this IS basically a NOOP, so that they may resume their work
-    ! immediately WHILE the dedicated restart writers perform the
-    ! actual writing.
-    SUBROUTINE multifileRestartDescriptor_closePayloadFile(me, jg, cdiIds)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-        INTEGER, VALUE :: jg
-        TYPE(t_CdiIds) :: cdiIds
-
-        TYPE(t_MultifilePatchData), POINTER :: patchData
-
-        patchData => toMultifilePatchData(me%patchData(jg))
-
-        IF(my_process_is_restart_writer()) THEN
-          CALL patchData%collectData(cdiIds%file, me%bytesWritten)
-          CALL cdiIds%closeAndDestroyIds()
-        END IF
-    END SUBROUTINE multifileRestartDescriptor_closePayloadFile
-
-    !Shuts down the dedicated restart writers IF they exist. And does some cleanup.
-    SUBROUTINE multifileRestartDescriptor_destruct(me)
-        CLASS(t_MultifileRestartDescriptor), INTENT(INOUT) :: me
-
-        INTEGER :: i
-        CHARACTER(*), PARAMETER :: routine = modname//":multifileRestartDescriptor_destruct"
-
-        IF(timers_level >= 5) CALL timer_start(timer_write_restart)
-
-        IF(my_process_is_work()) CALL sendStopToRestart()
-
-        DO i = 1, SIZE(me%patchData)
-          CALL me%patchData(i)%destruct()
-        END DO
-        DEALLOCATE(me%patchData)
-
-        IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
-    END SUBROUTINE multifileRestartDescriptor_destruct
-
-    ! This IS ONLY called on dedicated restart writers. It's an event
-    ! loop that's driven by the messages from the compute processes.
-    SUBROUTINE multifileRestart_mainLoop()
-        TYPE(t_MultifileRestartDescriptor) :: restartDescriptor
-        INTEGER :: restartOp
-        TYPE(t_restart_args) :: restartArgs
-        CHARACTER(*), PARAMETER :: routine = modname//":multifileRestart_mainLoop"
-
-        IF(.NOT.my_process_is_restart()) CALL finish(routine, "assertion failed: routine entered by wrong process")
-
-        CALL restartDescriptor%construct('')    !the model TYPE will be supplied by the work processes
-
-        DO
-            !get the next restart command
-            restartOp = kIllegalOp
-            restartArgs = createRestartArgs_restart(restartOp)
-            SELECT CASE(restartOp)
-                CASE(kWriteRestartOp)
-                    IF(timers_level >= 5) CALL timer_start(timer_write_restart)
-                    CALL restartDescriptor%writeRestartInternal(restartArgs)
-                    IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
-
-                CASE(kShutdownOp)
-                    CALL restartDescriptor%destruct()
-                    RETURN
-
-                CASE DEFAULT
-                    CALL finish(routine, "assertion failed: illegal restart operation received from work processes (the received &
-                                         &value is "//TRIM(int2string(restartOp))//")")
-
-            END SELECT
-        END DO
-    END SUBROUTINE multifileRestart_mainLoop
+    IF(.NOT.my_process_is_restart()) CALL finish(routine, "should not be here")
+    CALL restartDescriptor%construct('')    !the model TYPE will be supplied by the work processes
+    atService = .true.
+    DO WHILE(atService)
+      !get the next restart command
+      restartOp = kIllegalOp
+      restartArgs = createRestartArgs_restart(restartOp)
+      SELECT CASE(restartOp)
+        CASE(kWriteRestartOp)
+          IF(timers_level >= 5) CALL timer_start(timer_write_restart)
+          CALL restartDescriptor%writeRestartInternal(restartArgs)
+          IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
+        CASE(kShutdownOp)
+          CALL restartDescriptor%destruct()
+          atService = .false.
+        CASE DEFAULT
+          CALL finish(routine, "illegal restart operation received from work processes (the received &
+                               &value is "//TRIM(int2string(restartOp))//")")
+      END SELECT
+    END DO
+  END SUBROUTINE multifileRestart_mainLoop
 
 END MODULE mo_multifile_restart

@@ -150,7 +150,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nlevp1_rg, nst, nstart, nend
+  INTEGER :: nshift, nlevp1_rg, nst
   REAL(wp) :: exdist_h, exdist_f
 
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -177,10 +177,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   ! Parameters used in case of latm_above_top = .TRUE.:
-  !
-  ! start and end levels for parent to local parent copying in case of vertical nesting
-  nstart = p_patch(jgp)%nlev - nlev_rg + 1
-  nend   = p_patch(jgp)%nlev - nlev_rg + nshift
   !
   ! extrapolation distances for passive layer above model top (m) if there is no vertical nesting
   exdist_h = 1.5_wp*(vct_a(nst+1)-vct_a(nst+2))

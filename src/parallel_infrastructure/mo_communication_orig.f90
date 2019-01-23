@@ -18,7 +18,7 @@
 ! (GZ, 2013-08-30): So far, the Cray compiler is the only one for which an OpenMP parallelization
 ! of copying data into / back from the MPI-buffer seems to give a benefit. Further compilers may
 ! be added here once the OpenMP implementation is sufficiently efficient
-#if (defined(_CRAYFTN) && !defined(_OPENACC) )
+#if ((defined(_CRAYFTN) && !defined(_OPENACC)) || defined(__INTEL_COMPILER))
 #define __OMPPAR_COPY__
 #endif
 
@@ -182,9 +182,6 @@ TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_orig
 END TYPE t_comm_pattern_collection_orig
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NO_ACC
-! OpenACC Not currently enabled
-#define __COMMUNICATION_NOACC
 #if defined(__COMMUNICATION_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
@@ -378,9 +375,6 @@ CONTAINS
 
     ENDDO
 
-    irs = p_pat%recv_limits(comm_rank)+1   ! Start index in global_recv_index
-    ire = p_pat%recv_limits(comm_rank+1)   ! End   index in global_recv_index
-
     DEALLOCATE(num_rcv)
     ! Allocate and set up the send_limits array
     ALLOCATE(p_pat%send_limits(0:comm_size))
@@ -408,6 +402,8 @@ CONTAINS
         IF (nr /= comm_rank) THEN
           CALL p_recv(send_src(iss), nr, 1, p_count=ise-iss+1, comm=p_pat%comm)
         ELSE
+          irs = p_pat%recv_limits(comm_rank)+1   ! Start index in global_recv_index
+          ire = p_pat%recv_limits(comm_rank+1)   ! End   index in global_recv_index
           send_src(iss:ise) = global_recv_index(irs:ire)
         ENDIF
       END IF
@@ -424,11 +420,23 @@ CONTAINS
     DO i = 1, p_pat%n_send
 
       np = get_local_index(send_glb2loc_index, send_src(i))
+      IF (np <= 0) THEN
+        WRITE (0, '(3(a,i0))') 'problem at i=', i, &
+          ', send_src(i)=', send_src(i), &
+          ', np=', np
+      END IF
       any_np_le_0 = any_np_le_0 .OR. np <= 0
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
     ENDDO
-    IF (any_np_le_0) CALL finish(routine, 'Got illegal index')
+    IF (any_np_le_0) THEN
+      WRITE (0, '(a)') 'send_glb2loc_index%outer_glb_index'
+      WRITE (0, '(10(i0," "))') send_glb2loc_index%outer_glb_index
+      WRITE (0, '(a)') 'send_glb2loc_index%inner_glb_index'
+      WRITE (0, '(10(i0," "))') send_glb2loc_index%inner_glb_index
+      FLUSH(0)
+      CALL finish(routine, 'Got illegal index')
+    END IF
     ! Finally, compute lists of processors for send and receive operations
 
     num_send = 0
@@ -605,7 +613,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: msg, limits, recv_src
 #endif
-      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      INTEGER :: nmsg, i, sz, msg_rank, jls, jl, jle
       nmsg = SIZE(msg)
       DO i = 1, nmsg
         msg_rank = msg(i)%rank
@@ -916,9 +924,14 @@ CONTAINS
     REAL(dp), INTENT(IN), OPTIONAL, TARGET    :: send(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET    :: add (:,:,:)
 
-    REAL(dp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
-      recv_buf(SIZE(recv,2),p_pat%n_recv)
-
+    REAL(dp)  :: send_buf(SIZE(recv,2),p_pat%n_send), recv_buf(SIZE(recv,2),p_pat%n_recv)
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
     REAL(dp), POINTER :: send_ptr(:,:,:)
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
@@ -946,7 +959,20 @@ CONTAINS
 
     ndim2 = SIZE(recv,2)
 
-!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf, recv_buf ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF (iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) THEN
       ! Set up irecv's for receive buffers
@@ -969,21 +995,28 @@ CONTAINS
     ENDIF
 
     IF (ndim2 == 1) THEN
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO i = 1, n_send
+        send_buf(1,i) = send_ptr(tmp_send_src_idx(i),1,tmp_send_src_blk(i))
+      ENDDO
+!$ACC END PARALLEL
+#else
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
-!$ACC END PARALLEL
+#endif
     ELSE
+
 #if defined( __SX__ ) || defined( _OPENACC )
 !CDIR UNROLL=6
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
-        DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
+        DO i = 1, n_send
+          send_buf(k,i) = send_ptr(tmp_send_src_idx(i),k,tmp_send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1081,25 +1114,33 @@ CONTAINS
     IF(PRESENT(add)) THEN
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+            recv_buf(k,tmp_recv_src(i)) +                       &
+            add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
             add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
-              recv_buf(k,p_pat%recv_src(i)) +                       &
-              add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+              recv_buf(k,tmp_recv_src(i)) +                       &
+              add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1120,23 +1161,30 @@ CONTAINS
     ELSE
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+            recv_buf(k,tmp_recv_src(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
-              recv_buf(k,p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+              recv_buf(k,tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1156,7 +1204,6 @@ CONTAINS
     ENDIF
 
 !$ACC END DATA
-
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_r3d
@@ -1185,7 +1232,13 @@ CONTAINS
 
     REAL(sp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
       recv_buf(SIZE(recv,2),p_pat%n_recv)
-
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
     REAL(sp), POINTER :: send_ptr(:,:,:)
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
@@ -1213,7 +1266,21 @@ CONTAINS
 
     ndim2 = SIZE(recv,2)
 
-!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf, recv_buf ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
+
 
     IF (iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) THEN
       ! Set up irecv's for receive buffers
@@ -1236,21 +1303,27 @@ CONTAINS
     ENDIF
 
     IF (ndim2 == 1) THEN
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO i = 1, n_send
+        send_buf(1,i) = send_ptr(tmp_send_src_idx(i),1,tmp_send_src_blk(i))
+      ENDDO
+!$ACC END PARALLEL
+#else
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
-!$ACC END PARALLEL
+#endif
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
 !CDIR UNROLL=6
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
-        DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
+        DO i = 1,n_send
+          send_buf(k,i) = send_ptr(tmp_send_src_idx(i),k,tmp_send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1348,25 +1421,33 @@ CONTAINS
     IF(PRESENT(add)) THEN
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+            recv_buf(k,tmp_recv_src(i)) +                       &
+            add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
             add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
-              recv_buf(k,p_pat%recv_src(i)) +                       &
-              add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+              recv_buf(k,tmp_recv_src(i)) +                       &
+              add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1387,23 +1468,30 @@ CONTAINS
     ELSE
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+            recv_buf(k,tmp_recv_src(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
-              recv_buf(k,p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+              recv_buf(k,tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1440,6 +1528,13 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_r3d_seq"
     INTEGER :: i, ndim2
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     ! consistency checks
     ! ------------------
@@ -1482,8 +1577,29 @@ CONTAINS
     !       array_out( recv_dst_idx(i), recv_dst_blk(i) ) = recv_buf(recv_src(i))
     !     END DO
 
+#ifdef _OPENACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+!$ACC UPDATE DEVICE( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
     IF(PRESENT(add)) THEN
-!$ACC KERNELS PRESENT( p_pat, add, send, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( add, send, recv ), IF( i_am_accel_node .AND. acc_on )
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), 1:ndim2, tmp_recv_dst_blk(i) )  =                    &
+          &  add( tmp_recv_dst_idx(i), 1:ndim2, tmp_recv_dst_blk(i) )                +  &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       1:ndim2,                                                                  &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END KERNELS
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )                +  &
@@ -1491,16 +1607,25 @@ CONTAINS
           &       1:ndim2,                                                                  &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END KERNELS
+#endif
     ELSE
-!$ACC KERNELS PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( send, recv ), IF( i_am_accel_node .AND. acc_on )
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), 1:ndim2, tmp_recv_dst_blk(i) )  =                    &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       1:ndim2,                                                                  &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END KERNELS
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END KERNELS
+#endif
     END IF
 
   END SUBROUTINE exchange_data_r3d_seq
@@ -1517,6 +1642,13 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_s3d_seq"
     INTEGER :: i, ndim2
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     ! consistency checks
     ! ------------------
@@ -1544,6 +1676,17 @@ CONTAINS
 
     ndim2 = SIZE(recv,2)
 
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
     ! The next piece of code is a condensed version of the following
     ! (under the assumptions asserted above):
     !
@@ -1560,7 +1703,17 @@ CONTAINS
     !     END DO
 
     IF(PRESENT(add)) THEN
-!$ACC KERNELS PRESENT( p_pat, add, send, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( add, send, recv ), IF( i_am_accel_node .AND. acc_on )
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), 1:ndim2, tmp_recv_dst_blk(i) )  =                    &
+          &  add( tmp_recv_dst_idx(i), 1:ndim2, tmp_recv_dst_blk(i) )                +  &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       1:ndim2,                                                                  &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END KERNELS
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )                +  &
@@ -1568,16 +1721,25 @@ CONTAINS
           &       1:ndim2,                                                                  &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END KERNELS
+#endif
     ELSE
-!$ACC KERNELS PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-      DO i=1,p_pat%n_pnts
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( send, recv ), IF( i_am_accel_node .AND. acc_on )
+      DO i=1,n_pnts
         recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       1:ndim2,                                                                  &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END KERNELS
+#else
+      DO i=1,p_pat%n_pnts
+        recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
+          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+          &       1:ndim2,                                                                  &
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
+      END DO
+#endif
     END IF
 
   END SUBROUTINE exchange_data_s3d_seq
@@ -1600,6 +1762,13 @@ CONTAINS
     INTEGER, POINTER :: send_ptr(:,:,:)
 
     INTEGER :: i, k, np, irs, iss, pid, icount, ndim2
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     IF(my_process_is_mpi_seq()) THEN
       CALL finish(routine, "Not yet implemented!")
@@ -1617,7 +1786,20 @@ CONTAINS
 
     ndim2 = SIZE(recv,2)
 
-!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf, recv_buf ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF (iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) THEN
       ! Set up irecv's for receive buffers
@@ -1640,21 +1822,27 @@ CONTAINS
     ENDIF
 
     IF (ndim2 == 1) THEN
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#if _OPENACC
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO i = 1, n_send
+        send_buf(1,i) = send_ptr(tmp_send_src_idx(i),1,tmp_send_src_blk(i))
+      ENDDO
+!$ACC END PARALLEL
+#else
       DO i = 1, p_pat%n_send
         send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i))
       ENDDO
-!$ACC END PARALLEL
+#endif
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
       DO k = 1, ndim2
 !$ACC LOOP VECTOR
-        DO i = 1, p_pat%n_send
-          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
+        DO i = 1, n_send
+          send_buf(k,i) = send_ptr(tmp_send_src_idx(i),k,tmp_send_src_blk(i))
         ENDDO
       ENDDO
 !$ACC END PARALLEL
@@ -1721,25 +1909,33 @@ CONTAINS
     IF(PRESENT(add)) THEN
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+            recv_buf(k,tmp_recv_src(i)) +                       &
+            add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
             recv_buf(k,p_pat%recv_src(i)) +                       &
             add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
-              recv_buf(k,p_pat%recv_src(i)) +                       &
-              add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) =   &
+              recv_buf(k,tmp_recv_src(i)) +                       &
+              add(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1754,23 +1950,30 @@ CONTAINS
     ELSE
       IF (ndim2 == 1) THEN
         k = 1
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+            recv_buf(k,tmp_recv_src(i))
+        ENDDO
+!$ACC END PARALLEL
+#else
         DO i = 1, p_pat%n_pnts
           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
         ENDDO
-!$ACC END PARALLEL
+#endif
       ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
-              recv_buf(k,p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv(tmp_recv_dst_idx(i),k,tmp_recv_dst_blk(i)) = &
+              recv_buf(k,tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -1817,6 +2020,13 @@ CONTAINS
     INTEGER :: nfields
     INTEGER :: i, k, kshift(SIZE(recv)), jb,ik, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     !-----------------------------------------------------------------------
 
@@ -1837,7 +2047,20 @@ CONTAINS
       kshift = 0
     ENDIF
 
-!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf, recv_buf ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
       & .NOT. my_process_is_mpi_seq()) THEN
@@ -1881,14 +2104,14 @@ CONTAINS
       IF ( lsend ) THEN
         DO n = 1, nfields
           send_ptr => send(n)%p   ! Refactoring for OpenACC
-!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( send_ptr, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
           DO k = 1, ndim2(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf(k+noffset(n),i) = &
-                send(n)%p(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
+                send_ptr(tmp_send_src_idx(i),k+kshift(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -1897,14 +2120,14 @@ CONTAINS
         ! Send and receive arrays are identical (for boundary exchange)
         DO n = 1, nfields
           recv_ptr => recv(n)%p
-!$ACC PARALLEL PRESENT( p_pat, recv_ptr, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( recv_ptr, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
           DO k = 1, ndim2(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf(k+noffset(n),i) = &
-                recv(n)%p(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
+                recv_ptr(tmp_send_src_idx(i),k+kshift(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -1912,7 +2135,7 @@ CONTAINS
       ENDIF
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl)
+!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
       DO i = 1, p_pat%n_send
         jb = p_pat%send_src_blk(i)
@@ -2017,21 +2240,21 @@ CONTAINS
       DO n = 1, nfields
         recv_ptr => recv(n)%p
 !$ACC PARALLEL &
-!$ACC PRESENT( p_pat, recv_buf, recv_ptr ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PRESENT( recv_buf, recv_ptr ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2(n)
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv(n)%p(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
-              recv_buf(k+noffset(n),p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv_ptr(tmp_recv_dst_idx(i),k+kshift(n),tmp_recv_dst_blk(i)) =  &
+              recv_buf(k+noffset(n),tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
       ENDDO
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
 #endif
       DO i = 1, p_pat%n_pnts
         jb = p_pat%recv_dst_blk(i)
@@ -2091,6 +2314,13 @@ CONTAINS
     INTEGER :: i, k, kshift_dp(nfields_dp), kshift_sp(nfields_sp), &
          jb, ik, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     !-----------------------------------------------------------------------
 
@@ -2112,7 +2342,20 @@ CONTAINS
       kshift_sp = 0
     ENDIF
 
-!$ACC DATA CREATE( send_buf_dp, recv_buf_dp, send_buf_sp, recv_buf_sp ) IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf_dp, recv_buf_dp, send_buf_sp, recv_buf_sp ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
       & .NOT. my_process_is_mpi_seq()) THEN
@@ -2179,26 +2422,26 @@ CONTAINS
       IF ( lsend ) THEN
         DO n = 1, nfields_dp
           send_fld_dp => send_dp(n)%p   ! Refactoring for OpenACC
-!$ACC PARALLEL PRESENT(p_pat,send_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
+!$ACC PARALLEL PRESENT(send_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
 !$ACC LOOP GANG
           DO k = 1, ndim2_dp(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf_dp(k+noffset_dp(n),i) = &
-                send_dp(n)%p(p_pat%send_src_idx(i),k+kshift_dp(n),p_pat%send_src_blk(i))
+                send_fld_dp(tmp_send_src_idx(i),k+kshift_dp(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
         ENDDO
         DO n = 1, nfields_sp
           send_fld_sp => send_sp(n)%p   ! Refactoring for OpenACC
-!$ACC PARALLEL PRESENT(p_pat,send_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
+!$ACC PARALLEL PRESENT(send_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
 !$ACC LOOP GANG
           DO k = 1, ndim2_sp(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf_sp(k+noffset_sp(n),i) = &
-                send_sp(n)%p(p_pat%send_src_idx(i),k+kshift_sp(n),p_pat%send_src_blk(i))
+                send_fld_sp(tmp_send_src_idx(i),k+kshift_sp(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -2207,28 +2450,28 @@ CONTAINS
         ! Send and receive arrays are identical (for boundary exchange)
         DO n = 1, nfields_dp
           recv_fld_dp => recv_dp(n)%p
-!$ACC PARALLEL PRESENT(p_pat,recv_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
+!$ACC PARALLEL PRESENT(recv_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
 !$ACC LOOP GANG
 !CDIR UNROLL=6
           DO k = 1, ndim2_dp(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf_dp(k+noffset_dp(n),i) = &
-                recv_dp(n)%p(p_pat%send_src_idx(i),k+kshift_dp(n),p_pat%send_src_blk(i))
+                recv_fld_dp(tmp_send_src_idx(i),k+kshift_dp(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
         ENDDO
         DO n = 1, nfields_sp
           recv_fld_sp => recv_sp(n)%p
-!$ACC PARALLEL PRESENT(p_pat,recv_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
+!$ACC PARALLEL PRESENT(recv_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
 !$ACC LOOP GANG
 !CDIR UNROLL=6
           DO k = 1, ndim2_sp(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_send
+            DO i = 1, n_send
               send_buf_sp(k+noffset_sp(n),i) = &
-                recv_sp(n)%p(p_pat%send_src_idx(i),k+kshift_sp(n),p_pat%send_src_blk(i))
+                recv_fld_sp(tmp_send_src_idx(i),k+kshift_sp(n),tmp_send_src_blk(i))
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -2236,7 +2479,7 @@ CONTAINS
       ENDIF
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl)
+!$OMP PARALLEL DO PRIVATE(jb,jl,n,k)
 #endif
       DO i = 1, p_pat%n_send
         jb = p_pat%send_src_blk(i)
@@ -2365,14 +2608,14 @@ CONTAINS
       DO n = 1, nfields_dp
         recv_fld_dp => recv_dp(n)%p
 !$ACC PARALLEL &
-!$ACC PRESENT( p_pat, recv_buf_dp, recv_fld_dp ), COPYIN( kshift_dp, noffset_dp, ndim2_dp ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PRESENT( recv_buf_dp, recv_fld_dp ), COPYIN( kshift_dp, noffset_dp, ndim2_dp ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2_dp(n)
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv_dp(n)%p(p_pat%recv_dst_idx(i),k+kshift_dp(n),p_pat%recv_dst_blk(i)) =  &
-              recv_buf_dp(k+noffset_dp(n),p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv_fld_dp(tmp_recv_dst_idx(i),k+kshift_dp(n),tmp_recv_dst_blk(i)) =  &
+              recv_buf_dp(k+noffset_dp(n),tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
@@ -2380,21 +2623,21 @@ CONTAINS
       DO n = 1, nfields_sp
         recv_fld_sp => recv_sp(n)%p
 !$ACC PARALLEL &
-!$ACC PRESENT( p_pat, recv_buf_sp, recv_fld_sp ), COPYIN( kshift_sp, noffset_sp, ndim2_sp ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PRESENT( recv_buf_sp, recv_fld_sp ), COPYIN( kshift_sp, noffset_sp, ndim2_sp ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
         DO k = 1, ndim2_sp(n)
 !$ACC LOOP VECTOR
-          DO i = 1, p_pat%n_pnts
-            recv_sp(n)%p(p_pat%recv_dst_idx(i),k+kshift_sp(n),p_pat%recv_dst_blk(i)) =  &
-              recv_buf_sp(k+noffset_sp(n),p_pat%recv_src(i))
+          DO i = 1, n_pnts
+            recv_fld_sp(tmp_recv_dst_idx(i),k+kshift_sp(n),tmp_recv_dst_blk(i)) =  &
+              recv_buf_sp(k+noffset_sp(n),tmp_recv_src(i))
           ENDDO
         ENDDO
 !$ACC END PARALLEL
       ENDDO
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,n,k)
 #endif
       DO i = 1, p_pat%n_pnts
         jb = p_pat%recv_dst_blk(i)
@@ -2450,6 +2693,13 @@ CONTAINS
 
     INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     !-----------------------------------------------------------------------
 
@@ -2473,7 +2723,20 @@ CONTAINS
 
     ndim2 = SIZE(recv,3)
 
-!$ACC DATA CREATE( send_buf, recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA CREATE( send_buf, recv_buf ), &
+!$ACC      COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3)) THEN
       ! Set up irecv's for receive buffers
@@ -2487,13 +2750,36 @@ CONTAINS
       ENDDO
     ENDIF
 
-#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
-!$OMP PARALLEL DO PRIVATE(jb,jl,koffset)
-#else
+#ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_pat, send, recv, send_buf ), &
+!$ACC PRESENT( send, recv, send_buf ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
+    DO i = 1, n_send
+      jb = tmp_send_src_blk(i)
+      jl = tmp_send_src_idx(i)
+      IF ( lsend ) THEN
+!$ACC LOOP VECTOR
+        DO k = 1, ndim2
+          koffset = (k-1)*nfields
+          DO n = 1, nfields
+            send_buf(n+koffset,i) = send(n,jl,k,jb)
+          ENDDO
+        ENDDO
+      ELSE
+!$ACC LOOP VECTOR
+        DO k = 1, ndim2
+          koffset = (k-1)*nfields
+          DO n = 1, nfields
+            send_buf(n+koffset,i) = recv(n,jl,k,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+    ENDDO
+!$ACC END PARALLEL
+#else
+#ifdef __OMPPAR_COPY__ 
+!$OMP PARALLEL DO PRIVATE(jb,jl,koffset,k,n)
 #endif
     DO i = 1, p_pat%n_send
       jb = p_pat%send_src_blk(i)
@@ -2514,10 +2800,10 @@ CONTAINS
         ENDDO
       ENDIF
     ENDDO
-#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
+#ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
-#else
-!$ACC END PARALLEL
+#endif
+
 #endif
 
 #ifndef __USE_G2G
@@ -2597,18 +2883,15 @@ CONTAINS
     ENDIF
 
     ! Fill in receive buffer
-#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset)
-#else
+#ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_pat, recv_buf, recv ), &
+!$ACC PRESENT( recv_buf, recv ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
-#endif
-    DO i = 1, p_pat%n_pnts
-      jb = p_pat%recv_dst_blk(i)
-      jl = p_pat%recv_dst_idx(i)
-      ik  = p_pat%recv_src(i)
+    DO i = 1, n_pnts
+      jb = tmp_recv_dst_blk(i)
+      jl = tmp_recv_dst_idx(i)
+      ik  = tmp_recv_src(i)
 !$ACC LOOP VECTOR
       DO k = 1, ndim2
         koffset = (k-1)*nfields
@@ -2617,10 +2900,26 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
-!$OMP END PARALLEL DO
-#else
 !$ACC END PARALLEL
+#else
+#if defined( __OMPPAR_COPY__ )
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset,k,n)
+#endif
+    DO i = 1, p_pat%n_pnts
+      jb = p_pat%recv_dst_blk(i)
+      jl = p_pat%recv_dst_idx(i)
+      ik  = p_pat%recv_src(i)
+      DO k = 1, ndim2
+        koffset = (k-1)*nfields
+        DO n = 1, nfields
+          recv(n,jl,k,jb) = recv_buf(n+koffset,ik)
+        ENDDO
+      ENDDO
+    ENDDO
+#if defined( __OMPPAR_COPY__ )
+!$OMP END PARALLEL DO
+#endif
+
 #endif
 
 !$ACC END DATA
@@ -2684,6 +2983,14 @@ CONTAINS
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
       comm_size
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
+
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER, ALLOCATABLE   :: tmp_send_src_idx(:), tmp_send_src_blk(:)
+    INTEGER, ALLOCATABLE   :: tmp_recv_dst_idx(:), tmp_recv_dst_blk(:)
+    INTEGER, ALLOCATABLE   :: tmp_recv_src(:)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
 
@@ -2782,7 +3089,8 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-!$ACC DATA CREATE( send_buf, recv_buf, auxs_buf, auxr_buf), IF ( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( send_buf, recv_buf, auxs_buf, auxr_buf), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     ! Set up irecv's for receive buffers
     ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
@@ -2890,11 +3198,43 @@ CONTAINS
 
     IF (my_process_is_mpi_seq()) THEN
 
-!$ACC PARALLEL &
-!$ACC PRESENT( p_pat, send, recv ), COPYIN( ndim2 ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
       DO np = 1, npats
-!$ACC LOOP VECTOR
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+        n_pnts           = p_pat(np)%p%n_pnts
+        n_send           = p_pat(np)%p%n_send
+        ALLOCATE( tmp_send_src_idx(n_send), tmp_send_src_blk(n_send), &
+                  tmp_recv_dst_idx(n_pnts), tmp_recv_dst_blk(n_pnts), tmp_recv_src(n_pnts) )
+        tmp_send_src_idx = p_pat(np)%p%send_src_idx
+        tmp_send_src_blk = p_pat(np)%p%send_src_blk
+        tmp_recv_dst_idx = p_pat(np)%p%recv_dst_idx
+        tmp_recv_dst_blk = p_pat(np)%p%recv_dst_blk
+        tmp_recv_src     = p_pat(np)%p%recv_src
+!$ACC DATA COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src )
+
+!$ACC PARALLEL &
+!$ACC PRESENT( send, recv ), COPYIN( ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+        DO i = 1, n_pnts
+          DO n = 1, nfields
+            DO k = 1, ndim2(n)
+              recv(n)%fld( tmp_recv_dst_idx(i), k, &
+                tmp_recv_dst_blk(i) ) =            &
+                send(np+(n-1)*npats)%fld( k,                             &
+                  idx_1d(tmp_send_src_idx(         &
+                           tmp_recv_src(i)),       &
+                         tmp_send_src_blk(           &
+                           tmp_recv_src(i))))
+            ENDDO
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
+
+!$ACC END DATA
+        DEALLOCATE( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src )
+      ENDDO
+#else
+      DO np = 1, npats
         DO i = 1, p_pat(np)%p%n_pnts
           DO n = 1, nfields
             DO k = 1, ndim2(n)
@@ -2909,38 +3249,49 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$ACC END PARALLEL
+#endif
 
-    ELSE    ! WS: removed RETURN statement to allow for OpenACC DATA region
+    ELSE
 
 
       ! Set up send buffer
 #if defined( __SX__ ) || defined( _OPENACC )
+      DO np = 1, npats
+
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+        n_send           = p_pat(np)%p%n_send
+        tmp_send_src_idx = p_pat(np)%p%send_src_idx
+        tmp_send_src_blk = p_pat(np)%p%send_src_blk
+        ALLOCATE( tmp_send_src_idx(n_send), tmp_send_src_blk(n_send) )
+!$ACC DATA COPYIN( tmp_send_src_idx, tmp_send_src_blk )
+
 !$ACC PARALLEL &
 !$ACC PRESENT( p_pat, send, send_buf ), COPYIN( ndim2, noffset ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-      DO n = 1, nfields
-!$ACC LOOP VECTOR
-        DO np = 1, npats
+!$ACC LOOP SEQ
+        DO n = 1, nfields
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=6
           DO k = 1, ndim2(n)
-            DO i = 1, p_pat(np)%p%n_send
+            DO i = 1, n_send
               send_buf(k+noffset(n),i+ioffset_s(np)) =                &
                 & send(np+(n-1)*npats)%fld(k, &
-                &   idx_1d(p_pat(np)%p%send_src_idx(i), &
-                &          p_pat(np)%p%send_src_blk(i)))
+                &   idx_1d(tmp_send_src_idx(i), &
+                &          tmp_send_src_blk(i)))
             ENDDO
           ENDDO
         ENDDO
-      ENDDO
 !$ACC END PARALLEL
+!$ACC END DATA 
+        DEALLOCATE( tmp_send_src_idx, tmp_send_src_blk )
+      ENDDO
 #else
+
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL
 #endif
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jl)
+!$OMP DO PRIVATE(jl,n,k)
 #endif
         DO i = 1, p_pat(np)%p%n_send
           jl = idx_1d(p_pat(np)%p%send_src_idx(i), &
@@ -2959,6 +3310,7 @@ CONTAINS
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL
 #endif
+
 #endif
 
       IF (iorder_sendrecv <= 1) THEN
@@ -3051,7 +3403,7 @@ CONTAINS
         ENDDO
       ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL PRIVATE(ioffset,pid,isum,iss,ise,isum1)
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,iss,ise,isum1,np,n,i)
 #endif
         ioffset = 0
         DO np = 1, num_send ! loop over PEs where to send the data
@@ -3111,7 +3463,7 @@ CONTAINS
       ! Copy exchanged data back to receive buffer
 
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1)
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1,n,i)
 #endif
 
       ioffset = 0
@@ -3151,26 +3503,36 @@ CONTAINS
 #endif
 
 #if defined( __SX__ ) || defined( _OPENACC )
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), COPYIN( ndim2, noffset, ioffset_r ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-      DO n = 1, nfields
-        DO np = 1, npats
-!$ACC LOOP VECTOR
+      DO np = 1, npats
+
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+        n_pnts           = p_pat(np)%p%n_pnts
+        ALLOCATE( tmp_recv_dst_idx(n_pnts), tmp_recv_dst_blk(n_pnts), tmp_recv_src(n_pnts) )
+        tmp_recv_dst_idx = p_pat(np)%p%recv_dst_idx
+        tmp_recv_dst_blk = p_pat(np)%p%recv_dst_blk
+        tmp_recv_src     = p_pat(np)%p%recv_src
+!$ACC DATA COPYIN( tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src )
+
+!$ACC PARALLEL PRESENT( recv_buf, recv ), COPYIN( ndim2, noffset, ioffset_r ), IF( i_am_accel_node .AND. acc_on )
+        DO n = 1, nfields
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=6
           DO k = 1, ndim2(n)
-            DO i = 1, p_pat(np)%p%n_pnts
-              recv(n)%fld(p_pat(np)%p%recv_dst_idx(i),k, &
-                          p_pat(np)%p%recv_dst_blk(i)) =   &
-                recv_buf(k+noffset(n),p_pat(np)%p%recv_src(i)+ioffset_r(np))
+            DO i = 1, n_pnts
+              recv(n)%fld(tmp_recv_dst_idx(i),k, &
+                          tmp_recv_dst_blk(i)) =   &
+                recv_buf(k+noffset(n),tmp_recv_src(i)+ioffset_r(np))
             ENDDO
           ENDDO
         ENDDO
-      ENDDO
 !$ACC END PARALLEL
+!$ACC END DATA
+        DEALLOCATE( tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src )
+      ENDDO
 #else
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jb,jl,ik)
+!$OMP DO PRIVATE(jb,jl,ik,n,k)
 #endif
         DO i = 1, p_pat(np)%p%n_pnts
           jb = p_pat(np)%p%recv_dst_blk(i)
@@ -3195,7 +3557,6 @@ CONTAINS
     ENDIF  ! .NOT. my_process_is_mpi_seq()
 
 !$ACC END DATA
-
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_grf
@@ -3231,7 +3592,7 @@ CONTAINS
     ! special treatment for trivial communication patterns of
     ! sequential runs
     IF(my_process_is_mpi_seq()) THEN
-      CALL exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
+      CALL exchange_data_r2d_seq(p_pat, recv, send, add)
       RETURN
     END IF
 
@@ -3347,16 +3708,22 @@ CONTAINS
 
   ! SEQUENTIAL version of subroutine "exchange_data_r3d"
   !
-  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, l_recv_exists)
+  SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add)
 
     CLASS(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
-    LOGICAL, OPTIONAL :: l_recv_exists
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_r2d_seq"
     INTEGER :: i
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     ! consistency checks
     ! ------------------
@@ -3382,26 +3749,59 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
+
     IF(PRESENT(add)) THEN
+#ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )  =                    &
+          &  add( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )                +  &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END PARALLEL
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END PARALLEL
+#endif
     ELSE
-!$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )  =                    &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END PARALLEL
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END PARALLEL
+#endif
     END IF
+
+!$ACC END DATA
 
   END SUBROUTINE exchange_data_r2d_seq
 
@@ -3418,6 +3818,13 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_s2d_seq"
     INTEGER :: i
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     ! consistency checks
     ! ------------------
@@ -3443,26 +3850,59 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
+
     IF(PRESENT(add)) THEN
-!$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send, add, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )  =                    &
+          &  add( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )                +  &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END PARALLEL
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END PARALLEL
+#endif
     ELSE
-!$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send, recv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
-      DO i=1,p_pat%n_pnts
+      DO i=1,n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
 !$ACC END PARALLEL
+#else
+      DO i=1,p_pat%n_pnts
+        recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+          &       p_pat%send_src_blk(p_pat%recv_src(i)))
+      END DO
+#endif
     END IF
+
+!$ACC END DATA
 
   END SUBROUTINE exchange_data_s2d_seq
 
@@ -3540,6 +3980,13 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":exchange_data_i2d_seq"
     INTEGER :: i
+#ifdef _OPENACC
+! This is an embarrassing temporary hack to circumvent the OPENACC problems from the "EXTEND" of comm_pattern
+    INTEGER   :: tmp_send_src_idx(p_pat%n_send), tmp_send_src_blk(p_pat%n_send)
+    INTEGER   :: tmp_recv_dst_idx(p_pat%n_pnts), tmp_recv_dst_blk(p_pat%n_pnts)
+    INTEGER   :: tmp_recv_src(p_pat%n_pnts)
+    INTEGER   :: n_pnts, n_send
+#endif
 
     ! consistency checks
     ! ------------------
@@ -3565,26 +4012,58 @@ CONTAINS
     ! "communication" (direct copy)
     ! -----------------------------
 
+#ifdef _OPENACC
+! 2018.11.13  Part of nasty hack to avoid the t_comm_pattern "EXTEND" problem for OpenACC
+   n_pnts           = p_pat%n_pnts
+   n_send           = p_pat%n_send
+   tmp_send_src_idx = p_pat%send_src_idx
+   tmp_send_src_blk = p_pat%send_src_blk
+   tmp_recv_dst_idx = p_pat%recv_dst_idx
+   tmp_recv_dst_blk = p_pat%recv_dst_blk
+   tmp_recv_src     = p_pat%recv_src
+#endif
+
+!$ACC DATA COPYIN( tmp_send_src_idx, tmp_send_src_blk, tmp_recv_dst_idx, tmp_recv_dst_blk, tmp_recv_src ), &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
+
     IF(PRESENT(add)) THEN
-!$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+#ifdef _OPENACC
+!$ACC PARALLEL PRESENT( send, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )  =                    &
+          &  add( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )                +  &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END PARALLEL
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END PARALLEL
+#endif
     ELSE
+#ifdef _OPENACC
 !$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
+!$ACC LOOP GANG VECTOR
+      DO i=1,n_pnts
+        recv( tmp_recv_dst_idx(i), tmp_recv_dst_blk(i) )  =                    &
+          &  send(tmp_send_src_idx(tmp_recv_src(i)),                                    &
+          &       tmp_send_src_blk(tmp_recv_src(i)))
+      END DO
+!$ACC END PARALLEL
+#else
       DO i=1,p_pat%n_pnts
         recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
           &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
           &       p_pat%send_src_blk(p_pat%recv_src(i)))
       END DO
-!$ACC END PARALLEL
+#endif
     END IF
+!$ACC END DATA
 
   END SUBROUTINE exchange_data_i2d_seq
 
@@ -3634,7 +4113,7 @@ CONTAINS
 
     REAL(dp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 
@@ -3690,7 +4169,7 @@ CONTAINS
 
     REAL(sp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 
@@ -3748,7 +4227,7 @@ CONTAINS
 
     INTEGER :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
 
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
+    INTEGER :: i, il, np, irs, iss, pid, icount
 
     !-----------------------------------------------------------------------
 

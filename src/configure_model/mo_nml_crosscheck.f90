@@ -32,8 +32,8 @@ MODULE mo_nml_crosscheck
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
     &                              lnetcdf_flt64_output
-  USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
-    &                              num_io_procs, itype_comm, num_restart_procs, &
+  USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
+    &                              num_io_procs, itype_comm,                         &
     &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
   USE mo_master_config,      ONLY: isRestart
@@ -64,7 +64,8 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
+    &                              nroot, is_plane_torus
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -73,11 +74,14 @@ MODULE mo_nml_crosscheck
   USE mo_event_manager,      ONLY: initEventManager
   USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
     &                              newDatetime, deallocateDatetime
-  USE mo_gridref_config
+  USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
-  USE mo_grid_config
   USE mo_nudging_nml,        ONLY: check_nudging
+
+#ifdef __ICON_ART
+  USE mo_grid_config,        ONLY: lredgrid_phys
+#endif
 
   IMPLICIT NONE
 
@@ -867,23 +871,21 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
     CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:land_crosscheck'
+    INTEGER  :: jg
 
 #ifdef __NO_JSBACH__
     IF (ANY(echam_phy_config(:)%ljsb)) THEN
       CALL finish(routine, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsb=.FALSE.")
     ENDIF
 #else
-    IF (ANY(echam_phy_config(:)%ljsb)) THEN
-      IF (num_restart_procs > 0) THEN
-        CALL finish(routine, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
+    DO jg=1,n_dom
+      IF (.NOT.echam_phy_config(jg)%ljsb) THEN
+         IF (echam_phy_config(jg)%llake) THEN
+            CALL message(routine, 'Setting llake = .FALSE. since ljsb = .FALSE.')
+            echam_phy_config(jg)%llake = .FALSE.
+         END IF
       END IF
-      IF (num_io_procs > 0) THEN
-        CALL message(routine, "JSBACH output currently doesn't work with asynchronous parallel output !")
-      END IF
-    ELSE IF (ANY(echam_phy_config(:)%llake)) THEN
-      CALL message(routine, 'Setting llake = .FALSE. since ljsb = .FALSE.')
-      echam_phy_config(:)%llake = .FALSE.
-    END IF
+    END DO
 #endif
 
   END SUBROUTINE land_crosscheck

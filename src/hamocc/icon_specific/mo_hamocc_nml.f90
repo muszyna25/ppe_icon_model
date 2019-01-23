@@ -17,7 +17,7 @@ MODULE mo_hamocc_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
-  USE mo_exception,           ONLY: finish, message
+  USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -55,9 +55,11 @@ MODULE mo_hamocc_nml
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
   LOGICAL, PUBLIC :: l_dynamic_pi      = .FALSE.    ! Depth dependent pi_alpha 
-  LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
+  LOGICAL, PUBLIC :: l_PDM_settling    = .FALSE.   ! PDM scheme for particle settling
+  LOGICAL, PUBLIC :: l_init_bgc  = .FALSE.   ! initialise state variables with cold start values
 
   REAL(wp), PUBLIC :: denit_sed, disso_po
+  REAL(wp), PUBLIC :: cycdec, cya_growth_max
 
   !LOGICAL, PUBLIC :: l_avflux         = .TRUE.   ! flux redistribution
   
@@ -86,7 +88,10 @@ MODULE mo_hamocc_nml
     &  l_up_sedshi, &
     &  l_implsed,  &
     &  l_dynamic_pi, &
-    &  l_PDM_settling
+    &  l_PDM_settling, &
+    &  cycdec, &
+    &  cya_growth_max, &
+    &  l_init_bgc
 
 CONTAINS
   !>
@@ -165,6 +170,8 @@ CONTAINS
    inpw(11) = 0.64_wp
    inpw(12) = 0.62_wp
 
+   cycdec = 0.1_wp 
+   cya_growth_max= 0.2_wp      ! d-1
 
 
 

@@ -75,7 +75,9 @@ contains
     real(wp), parameter :: expeps = 1.e-20_wp   ! Smallest value for exponential table
 
     ! GZ, 2013-12-04: Turn off vectorization and inlining for the Cray compiler. It generates incorrect code otherwise.
+#ifdef _CRAYFTN
 !DIR$ NOINLINE,NOVECTOR
+#endif
 
     ! ------- Definitions -------
     !     Arrays for 10000-point look-up tables:

@@ -285,7 +285,6 @@ SUBROUTINE organize_lhn ( &
   LOGICAL  :: &
     scale_fac_index(nproma,pt_patch%nblks_c)
 
-
   LOGICAL :: ltoold
   INTEGER :: izlocstat        ! error status on allocation of fields
 

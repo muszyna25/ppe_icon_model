@@ -691,6 +691,7 @@ CONTAINS
             ELSE IF (z3d_out(jc,jk,jb) <= z3d_in(jc,nlevs_in,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in
+              IF (jk == 1)  bot_idx(jc,jb) = 0
             ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
               idx0(jc,jk,jb) = 1
               IF (l_extrap) THEN

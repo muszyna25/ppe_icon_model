@@ -354,6 +354,7 @@ MODULE mo_adjust
 
      REAL(KIND=jprb) :: z1s, z2s, zcond,zcond1, zcor,      &
        &                zoealfa, zqmax, zqsat, ztarg, zqp
+     REAL(kind=jprb) :: pt1, pq1
 !     REAL(KIND=jprb) :: zfoeewi, zfoeewl
 
      REAL(KIND=jprb) :: zl, zi, zf
@@ -519,9 +520,9 @@ MODULE mo_adjust
       
       IF(kcall == 5) THEN  ! Same as 4 but with LDFLAG all true
         
-!DIR$ IVDEP
 !OCL NOVREC
         IF(n_vmass <= 0)  THEN ! Not using Vector MASS
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=foeewm(pt(jl,kk))*zqp
@@ -540,6 +541,7 @@ MODULE mo_adjust
             pq(jl,kk)=pq(jl,kk)-zcond1
           ENDDO
         ELSE ! Using Vector VMASS
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             ztmp1(jl-kidia+1)=r3les*(pt(jl,kk)-rtt)
             ztmp2(jl-kidia+1)=r3ies*(pt(jl,kk)-rtt)
@@ -552,6 +554,7 @@ MODULE mo_adjust
           CALL vexp(ztmp2,ztmp6,jlen)
           CALL vrec(ztmp5,ztmp3,jlen)
           CALL vrec(ztmp6,ztmp4,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=r2es*(foealfa(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -578,6 +581,7 @@ MODULE mo_adjust
           CALL vexp(ztmp2,ztmp6,jlen)
           CALL vrec(ztmp5,ztmp3,jlen)
           CALL vrec(ztmp6,ztmp4,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp  = ztmp0(jl-kidia+1)
             zqsat=r2es*(foealfa(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -598,27 +602,28 @@ MODULE mo_adjust
       
       IF(kcall == 3) THEN
 
-!DIR$ IVDEP 
 !OCL NOVREC
         IF(n_vmass <=  0)  THEN ! Not using Vector MASS
+!DIR$ IVDEP
            DO jl=kidia,kfdia
-              zqp    =1.0_JPRB/psp(jl)
+             zqp    =1.0_JPRB/psp(jl)
               zqsat=foeewmcu(pt(jl,kk))*zqp
               zqsat=MIN(0.5_JPRB,zqsat)
               zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
               zqsat=zqsat*zcor
             zcond1=(pq(jl,kk)-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt(jl,kk)))
-            pt(jl,kk)=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
-            pq(jl,kk)=pq(jl,kk)-zcond1
-            zqsat=foeewmcu(pt(jl,kk))*zqp
+            pt1=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
+            pq1=pq(jl,kk)-zcond1
+            zqsat=foeewmcu(pt1)*zqp
             zqsat=MIN(0.5_JPRB,zqsat)
             zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
             zqsat=zqsat*zcor
-            zcond1=(pq(jl,kk)-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt(jl,kk)))
-            pt(jl,kk)=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
-            pq(jl,kk)=pq(jl,kk)-zcond1
+            zcond1=(pq1-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt1))
+            pt(jl,kk)=pt1+foeldcpmcu(pt1)*zcond1
+            pq(jl,kk)=pq1-zcond1
           ENDDO
         ELSE
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             ztmp1(jl-kidia+1)=r3les*(pt(jl,kk)-rtt)
             ztmp2(jl-kidia+1)=r3ies*(pt(jl,kk)-rtt)
@@ -629,6 +634,7 @@ MODULE mo_adjust
           CALL vdiv(ztmp6,ztmp2,ztmp4,jlen)
           CALL vexp(ztmp1,ztmp5,jlen)
           CALL vexp(ztmp2,ztmp6,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp    =1.0_JPRB/psp(jl)
             zqsat=r2es*(foealfcu(pt(jl,kk))*ztmp1(jl-kidia+1)+&
@@ -648,6 +654,7 @@ MODULE mo_adjust
           CALL vdiv(ztmp6,ztmp2,ztmp4,jlen)
           CALL vexp(ztmp1,ztmp5,jlen)
           CALL vexp(ztmp2,ztmp6,jlen)
+!DIR$ IVDEP
           DO jl=kidia,kfdia
             zqp  = ztmp0(jl-kidia+1)
             zqsat=r2es*(foealfcu(pt(jl,kk))*ztmp1(jl-kidia+1)+&

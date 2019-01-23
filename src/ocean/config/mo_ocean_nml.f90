@@ -138,7 +138,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: central                    = 2  
   INTEGER, PARAMETER :: lax_friedrichs             = 3
   INTEGER, PARAMETER :: miura_order1               = 4
-  INTEGER, PARAMETER :: horz_flux_twisted_vec_recon                   = 5
+  INTEGER, PARAMETER :: horz_flux_twisted_vec_recon = 5
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
   INTEGER, PARAMETER :: fct_vert_minmod            = 8      
@@ -303,6 +303,13 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
   LOGICAL  :: createSolverMatrix  = .FALSE.
 
+  ! adjoint run setup
+  ! number of checkpoints
+  INTEGER :: ncheckpoints           = -1
+  INTEGER, PARAMETER :: RUN_FORWARD            = 0
+  INTEGER, PARAMETER :: RUN_ADJOINT            = 1
+  INTEGER :: run_mode               = 0
+
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
     &                 ab_const                     , &
@@ -349,7 +356,9 @@ MODULE mo_ocean_nml
     &                 KineticEnergy_type           , &
     &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
-    &                 use_smooth_ocean_boundary,     &
+    &                 use_smooth_ocean_boundary    , &
+    &                 run_mode                     , &
+    &                 ncheckpoints                 , &
     &                 createSolverMatrix
 
 
@@ -386,7 +395,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: Tracer_HorizontalDiffusion_PTP_coeff       = 1.0E+3_wp  ! horizontal mixing coefficient for ptp 
 
   REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
-  REAL(wp) :: max_turbulenece_TracerDiffusion_amplification = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
+  REAL(wp) :: max_turbulenece_TracerDiffusion = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
 
   ! tracer vertical diffusion
   INTEGER, PARAMETER  :: PPscheme_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
@@ -421,28 +430,35 @@ MODULE mo_ocean_nml
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion coeffcient for the velocity. See usage in
                                                  ! mo_pp_scheme.f90
+
   REAL(wp) :: BiharmonicViscosity_background = 0.0_wp
-  REAL(wp) :: BiharmonicViscosity_reference  = 1.0E-2_wp
-  INTEGER  :: BiharmonicViscosity_scaling = 6
+  REAL(wp) :: BiharmonicViscosity_reference  = 0.0_wp ! 1.0E-2_wp
+  INTEGER  :: BiharmonicViscosity_scaling = 1         ! 6
+  REAL(wp) :: BiharmonicVort_weight = 1.0_wp
+  REAL(wp) :: BiharmonicDiv_weight = 1.0_wp
 
   REAL(wp) :: HarmonicViscosity_background = 0.0_wp
-  REAL(wp) :: HarmonicViscosity_reference  = 4.0E-2_wp
-  INTEGER  :: HarmonicViscosity_scaling = 2
+  REAL(wp) :: HarmonicViscosity_reference  = 0.0_wp ! 4.0E-2_wp
+  INTEGER  :: HarmonicViscosity_scaling = 1         ! 2
+  REAL(wp) :: HarmonicVort_weight = 1.0_wp
+  REAL(wp) :: HarmonicDiv_weight = 1.0_wp
 
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
-  REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithHarmonicViscosity_scaling = 6
+  REAL(wp) :: LeithHarmonicViscosity_reference = 0.0_wp   !3.82E-12_wp
+  INTEGER  :: LeithHarmonicViscosity_scaling = 1          ! 6
   REAL(wp) :: LeithBiharmonicViscosity_background = 0.0_wp
-  REAL(wp) :: LeithBiharmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithBiharmonicViscosity_scaling = 6
+  REAL(wp) :: LeithBiharmonicViscosity_reference  = 0.0_wp   ! 3.82E-12_wp
+  INTEGER  :: LeithBiharmonicViscosity_scaling = 1           ! 6
   INTEGER  :: LeithClosure_order = 0 ! 1=laplacian, 2= biharmonc, 21 =laplacian+biharmonc
   INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
 !   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
+  INTEGER  :: LeithViscosity_SmoothIterations = 0
+  REAL(wp) :: LeithViscosity_SpatialSmoothFactor = 0.5_wp
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -453,8 +469,12 @@ MODULE mo_ocean_nml
     &  HarmonicViscosity_scaling,       & ! the scaling type for the harmonic viscosity
     &  HarmonicViscosity_background,    & ! the harmonic viscosity background value (not scaled)
     &  HarmonicViscosity_reference,     & ! the harmonic viscosity parameter for scaling
+    &  HarmonicVort_weight,             &
+    &  HarmonicDiv_weight,              &
     &  BiharmonicViscosity_background,  & ! the biharmonic viscosity background value (not scaled)
     &  BiharmonicViscosity_reference,   & ! the biharmonic viscosity parameter for scaling
+    &  BiharmonicVort_weight,           &
+    &  BiharmonicDiv_weight,            &
     &  HorizontalViscosity_SmoothIterations,      & ! smoothing iterations for the scaled viscosity (both harmonic and biharmonic)
     &  HorizontalViscosity_SpatialSmoothFactor,   & ! the weight of the neigbors during the smoothing
     & &
@@ -474,8 +494,10 @@ MODULE mo_ocean_nml
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
     &  LeithBiharmonicViscosity_scaling,        &
+    &  LeithViscosity_SmoothIterations,         &
+    &  LeithViscosity_SpatialSmoothFactor,      &
     &  TracerDiffusion_LeithWeight,             &     ! experimental, do not use!
-    &  max_turbulenece_TracerDiffusion_amplification, &  ! experimental, do not use!
+    &  max_turbulenece_TracerDiffusion, &  ! experimental, do not use!
     & &
     & & ! other
     & Tracer_HorizontalDiffusion_PTP_coeff
@@ -600,6 +622,8 @@ MODULE mo_ocean_nml
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
+  REAL(wp) :: forcing_frequency                    = 86400.0_wp
+  REAL(wp) :: sw_scaling_factor                    = 1.0_wp
   LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
@@ -655,6 +679,8 @@ MODULE mo_ocean_nml
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
+    &                 forcing_frequency                   , &
+    &                 sw_scaling_factor                   , &
     &                 forcing_windStress_u_amplitude      , &
     &                 forcing_windStress_v_amplitude      , &
 !DR    &                 forcing_windstress_meridional_waveno, &
@@ -785,7 +811,11 @@ MODULE mo_ocean_nml
   INTEGER :: agulhas_long(100)           = -1
   INTEGER :: agulhas_longer(100)         = -1
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
-  
+
+  ! run eddy diagnostics
+  LOGICAL  :: eddydiag             = .FALSE.
+
+
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
     & florida_strait, &
     & denmark_strait, &
@@ -800,7 +830,8 @@ MODULE mo_ocean_nml
     & agulhas, &
     & agulhas_long, &
     & agulhas_longer, &
-    & diagnose_for_horizontalVelocity
+    & diagnose_for_horizontalVelocity, &
+    & eddydiag
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model
@@ -1175,7 +1206,7 @@ MODULE mo_ocean_nml
     str_proc_tst =  (/  & 
       &  'all', &  ! initiate print messages in all method_names
       &  'abm', &  ! main timestepping method_names       in mo_ocean_ab_timestepping (mimetic/rbf)
-      &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
+      &  'vel', &  ! velocity advection and diffusion in mo_ocean_velocity_advection
       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
       &  '   ', &  ! ...
@@ -1198,8 +1229,8 @@ MODULE mo_ocean_nml
     tracer_threshold_max(1) = threshold_max_T
     tracer_threshold_min(2) = threshold_min_S
     tracer_threshold_max(2) = threshold_max_S
-    namelist_tracer_name(1)          = "Temperature"
-    namelist_tracer_name(2)          = "Salinity"
+    namelist_tracer_name(1) = "Temperature"
+    namelist_tracer_name(2) = "Salinity"
      
     use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )

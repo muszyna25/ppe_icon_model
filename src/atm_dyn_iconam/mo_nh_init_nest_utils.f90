@@ -39,7 +39,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
-  USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_exception,             ONLY: message, message_text
   USE mo_mpi,                   ONLY: my_process_is_mpi_parallel
   USE mo_communication,         ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                  ONLY: sync_patch_array, sync_patch_array_mult, &

@@ -214,6 +214,7 @@ cat > ${atm_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &dynamics_nml
  iequations       = 3           ! 3: ICONAM dynamics
@@ -281,7 +282,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_co2   =  2
  echam_rad_config(1)%irad_ch4   =  2
  echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  8
+ echam_rad_config(1)%irad_o3    =  2
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
@@ -376,7 +377,7 @@ fi
 # II.2.1 Model files
 # ------------------
 
-add_link_file ${basedir}/data/lsdata.nc                               ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # II.2.2 Namelist files
@@ -399,7 +400,7 @@ INDATA=${icon_data_poolFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc    ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=$grids_folder/Land

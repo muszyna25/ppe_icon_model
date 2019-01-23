@@ -25,7 +25,6 @@ MODULE mo_ocean_output
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d, t_subset_range, t_patch_vert
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
@@ -44,8 +43,7 @@ MODULE mo_ocean_output
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & destruct_oce_diagnostics, calc_moc, calc_psi
+  USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, destruct_oce_diagnostics, calc_moc, calc_psi
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio

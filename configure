@@ -789,12 +789,15 @@ enable_atmo
 enable_jsbach
 enable_ocean
 enable_testbed
+enable_psrad
+enable_mixed
 enable_serialization
 enable_mh_file
 with_fortran
 with_openmp
 with_yaxt
 with_yac
+enable_cdi_pio
 with_messy
 with_flags
 with_art
@@ -1454,9 +1457,13 @@ Optional Features:
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
+  --enable-psrad          Use psrad model component.
+  --enable-mixed          Use mixed precision dycore.
   --enable-serialization  Enable Serialbox2 serialization. Three modes are
                           available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
+  --enable-cdi-pio        enable experimental use of parallel output via
+                          CDI-PIO
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1868,6 +1875,7 @@ ac_header_list="$ac_header_list sys/param.h"
 ac_header_list="$ac_header_list sys/time.h"
 ac_header_list="$ac_header_list sys/unistd.h"
 ac_header_list="$ac_header_list sys/utsname.h"
+ac_header_list="$ac_header_list link.h"
 # Check that the precious variables saved in the cache have kept the same
 # value.
 ac_cache_corrupted=false
@@ -2400,6 +2408,22 @@ else
 fi
 
 
+# Check whether --enable-psrad was given.
+if test "${enable_psrad+set}" = set; then
+  enableval=$enable_psrad;
+else
+  enable_psrad=yes
+fi
+
+
+# Check whether --enable-mixed was given.
+if test "${enable_mixed+set}" = set; then
+  enableval=$enable_mixed;
+else
+  enable_mixed=no
+fi
+
+
 
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then
@@ -2498,6 +2522,20 @@ else
   use_yac="yes"
 fi
 
+
+
+# Check whether --enable-cdi-pio was given.
+if test "${enable_cdi_pio+set}" = set; then
+  enableval=$enable_cdi_pio;
+else
+  enable_cdi_pio=no
+fi
+
+if test "x$enable_cdi_pio" != "xyes" -o $use_yaxt != yes; then
+  enable_cdi_pio=no
+else
+  enable_cdi_pio=yes
+fi
 
 
 
@@ -2889,6 +2927,16 @@ fi
 
 if test "x$enable_testbed" = "xno"; then
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
+fi
+
+
+if test "x$enable_psrad" = "xno"; then
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"
+fi
+
+
+if test "x$enable_mixed" = "xyes"; then
+  FFLAGS="${FFLAGS} ${DEFOPT}__MIXED_PRECISION ${DEFOPT}__MIXED_PRECISION_2"
 fi
 
 
@@ -4913,7 +4961,7 @@ if test -n "$SCTROOT" ; then
   fi
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+  CFLAGS="${CFLAGS} -D__SCT__"
 
   case $ac_hostname in
   mlogin*|btc*) case $FC in
@@ -5813,6 +5861,10 @@ _ACEOF
 fi
 
 done
+
+
+
+
 
 
 
@@ -7567,6 +7619,7 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
       SUBROUTINE f(x)
       REAL, CONTIGUOUS, TARGET, INTENT(IN) :: x(:, :)
       REAL, CONTIGUOUS, POINTER :: p(:, :)
+      INTEGER :: i, j
       p => x
       DO j = 1, SIZE(p, 2)
       DO i = 1, SIZE(p, 1)
@@ -7917,7 +7970,10 @@ if test x${MPI_LAUNCH+set} != xset ; then
   fi
 fi
        FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
-       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
+       FCFLAGS_sub=${FCFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       FFLAGS_sub=${FFLAGS/-fmodule-private/}
+       FFLAGS_sub=${FFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
+       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS_sub' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
        ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
        ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
        subdirs="$subdirs externals/yaxt"
@@ -7953,6 +8009,30 @@ fi
 
 
 
+if test $enable_cdi_pio = yes; then
+  if test -n "$CDIROOT" -a x"$YAXTROOT" != xexternals/yaxt; then
+  PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
+      if pkg-config --exists cdipio; then
+  CDI_LIB=`pkg-config --libs cdipio`
+         case $host in
+  *-*-linux-*) CDI_LIB=`echo "$CDI_LIB" | sed -e 's/-L\([^ ]*\)/-L\1 '"$WLFLAG"',-rpath,\1/g'` ;;
+esac
+
+         CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
+         FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"
+else
+  { { $as_echo "$as_me:$LINENO: error: Cannot find cdipio pkg-conf description." >&5
+$as_echo "$as_me: error: Cannot find cdipio pkg-conf description." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+else
+  { { $as_echo "$as_me:$LINENO: error: Unsupported YAXT/CDI-PIO configuration." >&5
+$as_echo "$as_me: error: Unsupported YAXT/CDI-PIO configuration." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+fi
 
 
 SRCDIRS=$ac_srcdirs
@@ -8792,6 +8872,8 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # INIT-COMMANDS
 #
 
+                    CDIROOT="${CDIROOT}"
+                    export CDIROOT
                     build_host="${build_host}"
                     my_srcdirs="${my_srcdirs}"
                     my_iconsrcdir="${my_iconsrcdir}"

@@ -31,12 +31,13 @@ MODULE mo_name_list_output_types
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid_types,       ONLY: t_uuid
-  USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
-  USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
   USE mo_level_selection_types, ONLY: t_level_selection
   USE mo_name_list_output_zaxes_types,ONLY: t_verticalAxisList
+  USE mo_output_event_types,    ONLY: t_par_output_event, t_sim_step_info, &
+    &                                 MAX_EVENT_NAME_STR_LEN
+  USE mo_reorder_info,          ONLY: t_reorder_info
 
   IMPLICIT NONE
 
@@ -67,6 +68,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_var_desc
   PUBLIC :: t_fname_metadata
   PUBLIC :: t_output_file
+  PUBLIC :: t_event_data_local
   ! global variables
   PUBLIC :: all_events
   ! utility subroutines
@@ -78,9 +80,9 @@ MODULE mo_name_list_output_types
   !------------------------------------------------------------------------------------------------
 
   ! prefix for group identifier in output namelist
-  CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  CHARACTER(len=*), PARAMETER :: GRP_PREFIX = "group:"
   ! prefix for tile-group identifier in output namelist
-  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
+  CHARACTER(len=*), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
@@ -108,6 +110,7 @@ MODULE mo_name_list_output_types
   ! describe the grid coordinates. These fields are ignored by most
   ! output routines and only used by "set_grid_info_grb2":
   CHARACTER(LEN=5), PARAMETER :: GRB2_GRID_INFO = "GRID:"
+  CHARACTER(LEN=LEN(grb2_grid_info)), PARAMETER :: grb2_grid_info_lc = 'grid:'
   CHARACTER(LEN=9), PARAMETER :: GRB2_GRID_INFO_NAME(0:3,2) = &
     &  RESHAPE( (/ "GRID:RLON", "GRID:CLON", "GRID:ELON", "GRID:VLON", &
     &              "GRID:RLAT", "GRID:CLAT", "GRID:ELAT", "GRID:VLAT" /), (/4,2/) )
@@ -123,49 +126,17 @@ MODULE mo_name_list_output_types
     REAL(wp), ALLOCATABLE :: lon   (:), lat   (:)
     REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
 
+    !> Global number of points in the associated logical patch
+    INTEGER :: n_log
     ! only used when copying grid info from file (grid_info_mode = GRID_INFO_FILE):
-    INTEGER,  ALLOCATABLE :: log_dom_index(:)
+    INTEGER,  ALLOCATABLE :: log_dom_starts(:), log_dom_counts(:)
     ! Index where a point of the physical domains is in the logical domain
   END TYPE t_grid_info
 
-
-  !------------------------------------------------------------------------------------------------
-  ! TYPE t_reorder_info describes how local cells/edges/verts
-  ! have to be reordered to get the global array.
-  ! Below, "points" refers to either cells, edges or verts.
-  !
-  ! TODO[FP] Note that the "reorder_info" contains fields of *global*
-  !          size (reorder_index). On the compute PEs these fields
-  !          could be deallocated after the call to
-  !          "transfer_reorder_info" in the setup phase!
-
-  TYPE t_reorder_info
-    INTEGER                    :: n_glb  ! Global number of points per physical patch
-    INTEGER                    :: n_log  ! Global number of points in the associated logical patch
-    INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
-    ! Only set on compute PEs, set to 0 on IO PEs
-    INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
-    ! dest idx and blk for own points, only set on sequential/test PEs
-    INTEGER, ALLOCATABLE       :: pe_own(:)
-    ! n_own, gathered for all compute PEs (set on all PEs)
-    INTEGER, ALLOCATABLE       :: pe_off(:)
-    ! offset of contributions of PEs (set on all PEs)
-    INTEGER, ALLOCATABLE       :: reorder_index(:)
-    ! Index how to reorder the contributions of all compute PEs
-    ! into the global array (set on all PEs)
-
-    ! grid information: geographical locations of cells, edges, and
-    ! vertices which is first collected on working PE 0 - from where
-    ! it will be broadcasted to the pure I/O PEs.
-    TYPE (t_grid_info)         :: grid_info
-  END TYPE t_reorder_info
-
-
   ! TYPE t_patch_info contains the reordering info for cells, edges and verts
   TYPE t_patch_info
-    TYPE(t_reorder_info)                 :: cells
-    TYPE(t_reorder_info)                 :: edges
-    TYPE(t_reorder_info)                 :: verts
+    TYPE(t_reorder_info)                 :: ri(3)
+    TYPE(t_grid_info)                    :: grid_info(3)
     INTEGER                              :: log_patch_id
 
     ! pointer to communication pattern for GATHER operation;
@@ -188,6 +159,9 @@ MODULE mo_name_list_output_types
     ! Number of grid used (provided by grid file)
     INTEGER                              :: number_of_grid_used
 
+    ! URI to (horizontal) ICON grid file
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: ICON_grid_file_uri
+
     ! mode how to collect grid information (for output)
     INTEGER                              :: grid_info_mode
 
@@ -200,6 +174,7 @@ MODULE mo_name_list_output_types
   !> Reordering info for regular (lon-lat) grids
   TYPE t_patch_info_ll
     TYPE(t_reorder_info)                 :: ri
+    TYPE(t_grid_info)                    :: grid_info
     ! mode how to collect grid information (for output)
     INTEGER                              :: grid_info_mode
   END TYPE t_patch_info_ll
@@ -341,15 +316,27 @@ MODULE mo_name_list_output_types
   TYPE t_mem_win
     INTEGER                               :: mpi_win                          !< MPI window for data communication
     INTEGER                               :: mpi_win_metainfo                 !< MPI window for metadata
-    REAL(dp), POINTER                     :: mem_ptr_dp(:)                    !< Pointer to memory window (REAL*8)
-    REAL(sp), POINTER                     :: mem_ptr_sp(:)                    !< Pointer to memory window (REAL*4)
+    !> Pointer to memory window (REAL*8)
+    REAL(dp), POINTER  &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         , CONTIGUOUS &
+#endif
+         :: mem_ptr_dp(:)
+    !> Pointer to memory window (REAL*4)
+    REAL(sp), POINTER  &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         , CONTIGUOUS &
+#endif
+         :: mem_ptr_sp(:)
     INTEGER,  POINTER                     :: mem_ptr_metainfo_pe0(:)          !< Pointer to variable meta-info.
   END TYPE t_mem_win
 
 
   !> Data structure containing additional meta-data for generating
   !> an output filename.
-  !
+  !!
+  !! When changing this type, mo_output_event_handler::create_fname_metadata_dt
+  !! needs to be adjusted accordingly!
   TYPE t_fname_metadata
     INTEGER                               :: steps_per_file                   !< (optional:) no. of output steps per file
     LOGICAL                               :: steps_per_file_inclfirst         !< Flag. Do not count first step in files count
@@ -428,6 +415,27 @@ MODULE mo_name_list_output_types
 
   END TYPE t_output_file
 
+  !> event meta-data: data for construction during event setup is kept in
+  !! an array of this type
+  !!
+  !! When changing this type, mo_output_event_handler::create_event_data_dt
+  !! needs to be adjusted accordingly!
+  TYPE t_event_data_local
+    !> output event name
+    CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: name
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: begin_str(max_time_intervals)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: end_str(max_time_intervals)
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: intvl_str(max_time_intervals)
+    !> this event's MPI tag
+    INTEGER                               :: i_tag
+    !> Flag. If .TRUE. the last step is always written
+    LOGICAL                               :: l_output_last
+    !> definitions for conversion "time stamp -> simulation step"
+    TYPE(t_sim_step_info)                 :: sim_step_info
+    !> additional meta-data for generating output filename
+    TYPE(t_fname_metadata)                :: fname_metadata
+  END TYPE t_event_data_local
+
   ! "all_events": The root I/O MPI rank "ROOT_OUTEVENT" asks all
   ! participating I/O PEs for their output event info and generates a
   ! unified output event, indicating which PE performs a write process
@@ -447,7 +455,7 @@ CONTAINS
     ! local variables
     INTEGER :: idx
 
-    idx = INDEX(TRIM(varname), TRIM(tolower(GRB2_GRID_INFO)))
+    idx = INDEX(varname, grb2_grid_info_lc)
     is_grid_info_var = (idx > 0)
   END FUNCTION is_grid_info_var
 

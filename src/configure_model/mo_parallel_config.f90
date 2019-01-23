@@ -16,7 +16,7 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish, warning
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
+  USE mo_impl_constants,     ONLY: max_dom, max_num_io_procs, pio_type_async
   USE mo_util_string,        ONLY: int2string
 
   IMPLICIT NONE
@@ -24,7 +24,7 @@ MODULE mo_parallel_config
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma
-
+!
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
        &  l_log_checks, l_fast_sum,   &
@@ -111,7 +111,7 @@ MODULE mo_parallel_config
   LOGICAL :: use_async_restart_output = .FALSE.
 
   ! Type of parallel I/O
-  INTEGER :: pio_type = 1
+  INTEGER :: pio_type = pio_type_async
 
   INTEGER :: num_io_procs = 0
 
@@ -301,11 +301,17 @@ CONTAINS
   ! Trying to invert the above and catching cases with blk_no < 1
   !-------------------------------------------------------------------------
   ELEMENTAL INTEGER FUNCTION blk_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     blk_no = MAX((ABS(j)-1)/nproma + 1, 1) ! i.e. also 1 for j=0, nproma=1
   END FUNCTION blk_no
 
   ELEMENTAL INTEGER FUNCTION idx_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     IF(j==0) THEN
       idx_no = 0
@@ -315,6 +321,9 @@ CONTAINS
   END FUNCTION idx_no
 
   ELEMENTAL INTEGER FUNCTION idx_1d(jl,jb)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: jl, jb
     IF(jb<=0) THEN
       idx_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1

@@ -90,44 +90,6 @@ int util_file_is_writable(char *filename)
   return 0;
 }
 
-int putFile(const char* path, size_t dataSize, const char* data, int fileMode)
-{
-  errno = 0;
-  int file = open(path, O_CREAT | O_TRUNC | O_WRONLY, fileMode);
-  if(file < 0)
-    {
-      fprintf(stderr, "error opening file at \"%s\" for writing: \"%s\"\n", path, strerror(errno));
-      return -1;
-    }
-
-  while(dataSize)
-    {
-      errno = 0;
-      ssize_t writtenBytes = write(file, data, dataSize);
-      if(writtenBytes > 0)
-        {
-          dataSize -= writtenBytes;
-          data += writtenBytes;
-        }
-      else
-        {
-          switch(errno)
-            {
-              case 0:	//fallthrough
-              case EAGAIN:	//fallthrough
-              case EINTR:
-                  break;	//not fatal, just incomplete. Retry.
-
-              default:
-                  fprintf(stderr, "error while writing file at \"%s\": error code %d \"%s\"\n", path, errno, strerror(errno));
-                  return -1;
-            }
-        }
-    }
-
-  return close(file);
-}
-
 //This wrapper to symlink() does not fail if there is already a symlink at linkName; it will simply overwrite the existing symlink.
 //However, if something exists at linkName which is not a symlink, the error EEXIST is returned.
 //

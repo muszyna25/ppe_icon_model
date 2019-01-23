@@ -33,6 +33,13 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+
+#ifdef __INTEL_COMPILER
+#define USE_LAXFR_MACROS
+#define laxfr_upflux LAXFR_UPFLUX_MACRO
+#endif
 !----------------------------
 MODULE mo_advection_limiter
 
@@ -48,8 +55,10 @@ MODULE mo_advection_limiter
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell
-  USE mo_advection_utils,     ONLY: laxfr_upflux, ptr_delp_mc_now,         &
-    &                               ptr_delp_mc_new
+#ifndef USE_LAXFR_MACROS
+  USE mo_advection_utils,     ONLY: laxfr_upflux
+#endif
+  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
 #ifdef _OPENACC
   USE mo_sync,                ONLY: check_patch_array
   USE mo_mpi,                 ONLY: i_am_accel_node
@@ -199,12 +208,17 @@ CONTAINS
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: z_mflx_low,z_anti,z_mflx_anti_in,z_mflx_anti_out
+!DIR$ ATTRIBUTES ALIGN :64 :: z_fluxdiv_c,z_tracer_new_low,z_tracer_max,z_tracer_min
+!DIR$ ATTRIBUTES ALIGN :64 :: r_p,r_m,z_min,z_max
+#endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( z_mflx_low,  z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),         &
-!$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max ),&
+!$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),         &
+!$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max, z_fluxdiv_c ),&
 !$ACC      PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_mflx_tracer_h ),                          &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_patch,  iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Set default values
@@ -259,29 +273,24 @@ CONTAINS
     i_startblk   = ptr_patch%edges%start_blk(i_rlstart_e,1)
     i_endblk     = ptr_patch%edges%end_blk(i_rlend_e,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cc, p_mass_flx_e, iilc, iibc, p_mflx_tracer_h ), &
-!$ACC PRESENT( z_mflx_low, z_anti ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart_e, i_rlend_e)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=5
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 #endif
           !
@@ -292,8 +301,7 @@ CONTAINS
           ! div operator
           !
           z_mflx_low(je,jk,jb) =  &
-            &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                                        p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
 
 
           ! calculate antidiffusive flux for each edge
@@ -305,51 +313,37 @@ CONTAINS
 
         END DO  ! end loop over edges
       END DO  ! end loop over levels
+!$ACC END PARALLEL
 
     END DO  ! end loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
-
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
-#endif
 
     i_rlstart_c  = grf_bdywidth_c - 1
     i_rlend_c    = min_rlcell_int - 1
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
     i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, ptr_delp_mc_new, z_anti, iidx, iblk, z_mflx_low ), &
-!$ACC PRESENT( z_mflx_anti_in, z_mflx_anti_out, z_tracer_new_low, z_tracer_max, z_tracer_min ),  &
-!$ACC PRIVATE( z_fluxdiv_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_fluxdiv_c,z_mflx_anti_1,z_mflx_anti_2,z_mflx_anti_3 ) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-! 2015_09_22 WS: note that COLLAPSE(2) in the following directive gives non-trivial differences
-!                COLLAPSE should work fine on this loop; this might suggest a compiler bug
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
 !DIR$ IVDEP,PREFERVECTOR
       DO jc = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=4
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
@@ -410,17 +404,20 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
 
         ! Due to the lack of dynamic consistency between mass fluxes and cell mass changes
         ! in the boundary interpolation zone, the low-order advected tracer fields may be
         ! nonsense and therefore need artificial limitation
-!$ACC LOOP WORKER
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
         DO jc = i_startidx, i_endidx
           IF (ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c-1 .OR. &
               ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c) THEN
-!$ACC LOOP VECTOR
+            !$ACC LOOP VECTOR
             DO jk = slev, elev
               z_tracer_new_low(jc,jk,jb) = MAX(0.9_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
               z_tracer_new_low(jc,jk,jb) = MIN(1.1_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
@@ -429,15 +426,13 @@ CONTAINS
             ENDDO
           ENDIF
         ENDDO
+!$ACC END PARALLEL
 
       ENDIF
 
     ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
+
 !$OMP END DO
-#endif
 
     ! Additional initialization of lateral boundary points is needed 
     ! for limited-area mode
@@ -448,9 +443,9 @@ CONTAINS
 
       CALL init(r_m(:,:,i_startblk:i_endblk))
       CALL init(r_p(:,:,i_startblk:i_endblk))
-#ifndef _OPENACC
+
 !$OMP BARRIER
-#endif
+
     ENDIF
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
@@ -461,29 +456,22 @@ CONTAINS
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
     i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, z_tracer_max, z_tracer_min, iilnc, iibnc ), &
-!$ACC PRESENT( z_tracer_new_low, z_mflx_anti_in, z_mflx_anti_out ),   &
-!$ACC PRIVATE( z_max, z_min ),                                        &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,z_min) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=2
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
@@ -502,10 +490,13 @@ CONTAINS
             &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
-! TODO (WS):  is the benefit of fusing this loop not worth sacrificing the __LOOP_EXCHANGE
-!$ACC LOOP VECTOR COLLAPSE(2)
+! TODO (WS):  is the benefit of fusing this loop not worth sacrificing the __LOOP_EXCHANGE?
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! fraction which must multiply all fluxes out of cell jc to guarantee no
@@ -522,20 +513,16 @@ CONTAINS
 
         ENDDO
       ENDDO
-    ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+    ENDDO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
     ! Synchronize r_m and r_p and determine i_rlstart/i_rlend
     !
-!$ACC UPDATE HOST( r_m, r_p ), IF( i_am_accel_node .AND. acc_on )
-    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
-!$ACC UPDATE DEVICE( r_m, r_p ), IF ( i_am_accel_node .AND. acc_on )
 
+    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
 
     !
     ! 5. Now loop over all edges and determine the minimum fraction which must
@@ -551,17 +538,8 @@ CONTAINS
 
 
 
-#ifdef _OPENACC
-!$ACC PARALLEL                                                     &
-!$ACC PRESENT( ptr_patch, r_m, r_p, p_mflx_tracer_h, iilc, iibc ), &
-!$ACC PRESENT( z_mflx_low, z_anti, p_mflx_tracer_h ),              &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,                &
@@ -570,13 +548,16 @@ CONTAINS
       !
       ! compute final limited fluxes
       !
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=3
       DO jk = slev, elev
+        !$ACC LOOP VECTOR PRIVATE(z_signum,r_frac)
         DO je = i_startidx, i_endidx
 #endif
 
@@ -597,14 +578,11 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO  ! jb
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
@@ -670,9 +648,13 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
+#ifndef __INTEL_COMPILER
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
       &  z_mflx(nproma,slev:elev,3) !< [kg m^-3]
 
+#else
+     REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
+#endif
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
       &  r_m(nproma,slev:elev,ptr_patch%nblks_c) !< of cell jc to guarantee
@@ -680,9 +662,13 @@ CONTAINS
 
     REAL(wp) :: z_signum                     !< sign of mass flux
                                              !< >0: out; <0: in
+#ifndef __INTEL_COMPILER
     REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
                                              !< [kg m^-3]
 
+#else
+    REAL(wp) :: p_m(nproma,slev:elev)
+#endif
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
 
@@ -696,11 +682,13 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: p_m,r_m
+#endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( z_mflx, r_m ), &
-!$ACC      PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ), &
+!$ACC      PRESENT( ptr_patch, ptr_int, iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! set default values
@@ -739,9 +727,7 @@ CONTAINS
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
 
-#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
-#endif
 
 
     ! Additional initialization of lateral boundary points is needed for limited-area mode
@@ -751,9 +737,7 @@ CONTAINS
       i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
 
       CALL init(r_m(:,:,i_startblk:i_endblk))
-#ifndef _OPENACC
 !$OMP BARRIER
-#endif
     ENDIF
 
     i_rlstart_c = grf_bdywidth_c
@@ -769,31 +753,32 @@ CONTAINS
     !    z_mflx < 0: inward
     !
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, ptr_int, p_mflx_tracer_h, iidx, iblk ), &
-!$ACC PRIVATE( z_mflx ),                                          &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
+#ifdef __INTEL_COMPILER
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m, &
+!$OMP            z_mflx1,z_mflx2,z_mflx3) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m,z_mflx) ICON_OMP_DEFAULT_SCHEDULE
+
 #endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=4
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
+#ifndef __INTEL_COMPILER
           z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
@@ -805,15 +790,18 @@ CONTAINS
   
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
-! TODO (WS):  is the benefit of fusing this loop not worth sacrificing the __LOOP_EXCHANGE
+! TODO (WS):  is the benefit of fusing this loop not worth sacrificing the __LOOP_EXCHANGE?
 
       !
       ! 2. Compute total outward mass
       !
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev, elev
 !DIR$ IVDEP
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! Sum of all outgoing fluxes out of cell jc
@@ -827,21 +815,42 @@ CONTAINS
           r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
             &                        /(p_m + dbl_eps) )
 
+#else
+          z_mflx1 = ptr_int%geofac_div(jc,1,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+          z_mflx2 = ptr_int%geofac_div(jc,2,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+          z_mflx3 = ptr_int%geofac_div(jc,3,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+          ! Sum of all outgoing fluxes out of cell jc
+          p_m(jc,jk) = MAX(0._wp,z_mflx1) + &
+            &          MAX(0._wp,z_mflx2) + &
+            &          MAX(0._wp,z_mflx3)
         ENDDO
       ENDDO
-    ENDDO
-#ifdef _OPENACC
+      DO jk = slev, elev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          ! fraction which must multiply all fluxes out of cell jc to guarantee
+          ! no
+          ! undershoot
+          ! Nominator: maximum allowable decrease of \rho q
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+            &                        /(p_m(jc,jk) + dbl_eps) )
+
+          
+#endif
+        ENDDO
+      ENDDO
 !$ACC END PARALLEL
-#else
+    ENDDO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
     ! synchronize r_m
-!$ACC UPDATE HOST( r_m ), IF( i_am_accel_node .AND. acc_on )
-    CALL sync_patch_array(SYNC_C1,ptr_patch,r_m)
-!$ACC UPDATE DEVICE( r_m ), IF( i_am_accel_node .AND. acc_on )
 
+    CALL sync_patch_array(SYNC_C1,ptr_patch,r_m)
 
     !
     ! 3. Limit outward fluxes
@@ -850,32 +859,25 @@ CONTAINS
     i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, r_m, p_mflx_tracer_h, iilc, iibc ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_signum) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
 #ifdef __LOOP_EXCHANGE
-!$ACC LOOP WORKER
       DO je = i_startidx, i_endidx
         ! this is potentially needed for calls from miura_cycl
         IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
-!$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=5
-!$ACC LOOP VECTOR, COLLAPSE(2)
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
           IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
 #endif
@@ -890,13 +892,11 @@ CONTAINS
   
         ENDDO
       ENDDO
-    ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+    ENDDO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_mflx_tracer_h ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -970,10 +970,13 @@ CONTAINS
     INTEGER  :: jk, jb, jc     !< index of edge, vert level, block, cell
     INTEGER  :: jkp1, jkm1
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m,p_m
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_patch, ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
@@ -1005,25 +1008,18 @@ CONTAINS
 
 
     IF (p_test_run) THEN
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
       r_m = 0._wp
+!$ACC END KERNELS
     ENDIF
 
 
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart,1)
     i_endblk     = ptr_patch%cells%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cc, p_mflx_tracer_v, ptr_delp_mc_now ), &
-!$ACC PRIVATE( r_m ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,&
 !$OMP z_signum) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1032,9 +1028,12 @@ CONTAINS
       !
       ! 1. Compute total outward mass
       !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev, elev
         jkp1 = jk+1
 
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! Sum of all outgoing fluxes out of cell jk
@@ -1050,13 +1049,17 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       !
       ! 2. Limit outward fluxes (loop over half levels)
       !    Choose r_m depending on the sign of p_mflx_tracer_v
       !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev+1, elev
         jkm1 = jk-1
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! NH:
@@ -1071,13 +1074,11 @@ CONTAINS
   
         ENDDO
       ENDDO
-    ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+    ENDDO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
@@ -1152,10 +1153,13 @@ CONTAINS
     INTEGER  :: jk, jb, jc     !< index of edge, vert level, block, cell
     INTEGER  :: jkp1, jkm1
 
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN :64 :: r_m
+#endif
   !-------------------------------------------------------------------------
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_patch, ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
@@ -1194,18 +1198,8 @@ CONTAINS
     i_startblk  = ptr_patch%cells%start_blk(i_rlstart,1)
     i_endblk    = ptr_patch%cells%end_blk(i_rlend,i_nchdom)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cc, ptr_delp_mc_now ),                &
-!$ACC PRESENT( p_mflx_tracer_v ),                               &
-!$ACC PRIVATE( r_m ),                                           &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,z_signum) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,    &
@@ -1214,7 +1208,11 @@ CONTAINS
       !
       ! 1. Compute total outward mass
       !
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev, elev
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           jkp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
@@ -1231,13 +1229,18 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
       !
       ! 2. Limit outward fluxes (loop over half levels)
       !    Choose r_m depending on the sign of p_mflx_tracer_v
       !
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = slev+1, elev
         jkm1 = jk-1
+        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! HA:
@@ -1251,13 +1254,11 @@ CONTAINS
   
         ENDDO
       ENDDO
-    ENDDO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+    ENDDO
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 !$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA

@@ -4343,12 +4343,17 @@ SUBROUTINE turbdiff
          END DO
 
          DO n=1,nmvar
+#ifdef __INTEL_COMPILER
+            FORALL(k=2:ke,i=istartpar:iendpar) &
+               vari(i,k,n)=(vari(i,k-1,n)-vari(i,k,n))*hlp(i,k)
+#else
             DO k=ke,2,-1
 !DIR$ IVDEP
                DO i=istartpar,iendpar
                   vari(i,k,n)=(vari(i,k-1,n)-vari(i,k,n))*hlp(i,k)
                END DO
             END DO
+#endif
          END DO
 
       END IF
@@ -5158,12 +5163,12 @@ SUBROUTINE turbdiff
                   frm(i,k)=(frh(i,k)+frh(i,k-1))/(len_scale(i,k)+len_scale(i,k-1)) !interpolierte Flussdichte auf HF
                END DO
             END DO
-!DIR$ IVDEP
 
 !Achtung: In COSMO-Version ist "imode_tkediff=1".
 !Da 'frh' bereits durch 'tke' dividiert wurde, muss fuer die exakte COSMO-Version der 'tke'-Faktor in 'dicke'
 !wieder beseitigt werden:
             k=2
+!DIR$ IVDEP
             DO i=istartpar,iendpar
                upd_prof(i,k)=sav_prof(i,k)+frm(i,k+1)/dicke(i,k)
 !upd_prof(i,k)=sav_prof(i,k)+frm(i,k+1)*tke(i,k,ntur)/dicke(i,k)
@@ -5191,6 +5196,11 @@ SUBROUTINE turbdiff
             ! (oder q-Profile bei "imode_tkediff=1")
 
             !Zuschlag durch Volumenterm aus der Divergenzbildung:
+#ifdef __INTEL_COMPILER
+            FORALL(k=kcm:ke, i=istartpar:iendpar) &
+               upd_prof(i,k)=upd_prof(i,k)+frh(i,k)*z1d2*(rair(i,k-1)-rair(i,k+1)) &
+                                                           /(len_scale(i,k)*dicke(i,k))
+#else
             DO k=ke,kcm,-1 !innerhalb der Rauhigkeitsschicht
 !DIR$ IVDEP
                DO i=istartpar,iendpar
@@ -5202,6 +5212,7 @@ SUBROUTINE turbdiff
                END DO
             END DO
 
+#endif
             !Bereucksichtige Zirkulations-Tendenz:
              itndcon=1 !indem 'upd_prof' auf rechter Seite der impliz. Diff.-Gl. benutzt wird.
 !Achtung: Um die COSMO-Version exakt nachzubilden, darf die Zirkulationstendenz nicht bei der
@@ -5367,12 +5378,17 @@ SUBROUTINE turbdiff
       DO i=istartpar,iendpar
          rcld(i,1)=rcld(i,2)
       END DO
+#ifdef __INTEL_COMPILER
+      FORALL(k=2:kem-1, i=istartpar:iendpar) &
+        rcld(i,k)=(rcld(i,k)+rcld(i,k+1))*z1d2
+#else
       DO k=2,kem-1
 !DIR$ IVDEP
          DO i=istartpar,iendpar
             rcld(i,k)=(rcld(i,k)+rcld(i,k+1))*z1d2
          END DO
       END DO
+#endif
 !     Fuer die unterste Hauptflaeche (k=ke) wird bei kem=ke
 !     der Wert auf der entspr. Nebenflaeche beibehalten.
 
@@ -7557,8 +7573,8 @@ INTEGER (KIND=iintegers) :: &
          END DO
       END DO
    ELSE !without preconditioning
-!DIR$ IVDEP
       k=k_tp+1
+!DIR$ IVDEP
       DO i=i_st, i_en
          invs_mom(i,k)=z1/(disc_mom(i,k)+impl_mom(i,k+1))
       END DO

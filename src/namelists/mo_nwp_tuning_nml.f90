@@ -233,19 +233,41 @@ CONTAINS
     tune_v0snow      = 25.0_wp      ! previous ICON value was 20
     tune_zvz0i       = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     tune_icesedi_exp = 0.33_wp      ! exponent for density correction of cloud ice sedimentation
+
     !
     ! convection
-    tune_entrorg     = 1.95e-3_wp   ! entrainment parameter for deep convection
-    tune_rprcon      = 1.4e-3_wp    ! coefficient for conversion of cloud water into precipitation
-    tune_rdepths     = 2.e4_wp      ! maximum shallow convection depth (Pa)
-    tune_capdcfac_et = 0.5_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
-    tune_capdcfac_tr = 0.5_wp       ! fraction of CAPE diurnal cycle correction applied in the tropics
-    tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
-    tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
-    tune_rcucov      = 0.05_wp      ! Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)
-    tune_texc        = 0.125_wp     ! Excess value for temperature used in test parcel ascent (K) (original IFS value 0.2 K)
-    tune_qexc        = 1.25e-2_wp   ! Excess fraction of grid-scale QV used in test parcel ascent (original IFS value 0.1 g/kg 
-                                    ! independent of grid-scale QV))
+    !
+
+    !> entrainment parameter for deep convection:
+    tune_entrorg     = 1.95e-3_wp   
+
+    !> coefficient for conversion of cloud water into precipitation
+    tune_rprcon      = 1.4e-3_wp
+
+    !> maximum shallow convection depth (Pa)
+    tune_rdepths     = 2.e4_wp
+
+    !> fraction of CAPE diurnal cycle correction applied in the extratropics
+    tune_capdcfac_et = 0.5_wp
+
+    !> fraction of CAPE diurnal cycle correction applied in the tropics
+    tune_capdcfac_tr = 0.5_wp
+
+    !> RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
+    tune_rhebc_land  = 0.75_wp
+
+    !> RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
+    tune_rhebc_ocean = 0.85_wp
+
+    !> Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)
+    tune_rcucov      = 0.05_wp
+
+    !> Excess value for temperature used in test parcel ascent (K) (original IFS value 0.2 K)
+    tune_texc        = 0.125_wp
+
+    !> Excess fraction of grid-scale QV used in test parcel ascent
+    !  (original IFS value 0.1 g/kg independent of grid-scale QV))
+    tune_qexc        = 1.25e-2_wp
 
     ! The following switches allow separate tuning for evaporation below cloud base in the tropics
     tune_rhebc_land_trop  = 0.70_wp

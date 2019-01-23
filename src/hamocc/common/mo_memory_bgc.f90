@@ -100,7 +100,7 @@ MODULE mo_memory_bgc
   REAL(wp) :: dremn3o, ro2bal
   REAL(wp) :: dustd1, dustd2, dustd3, dustsink
 
-  REAL(wp) :: cycdec, pi_alpha_cya,cya_growth_max,Topt_cya,T1_cya,T2_cya ! (namelist parameter)
+  REAL(wp) :: pi_alpha_cya,cya_growth_max,Topt_cya,T1_cya,T2_cya ! (namelist parameter)
   REAL(wp) :: bkcya_P, bkcya_fe, bkcya_N, doccya_fac           ! (namelist parameter)
   REAL(wp) :: buoyancyspeed_cya      
   REAL(wp) :: ralk, cyamin, ro2ut_cya

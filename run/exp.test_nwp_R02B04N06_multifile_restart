@@ -62,7 +62,8 @@ cd checksuite.icon-dev
 ./icon-dev.checksuite
 STATUS=$?
 
-echo $STATUS > $rundir/exp.$EXPNAME.run.status
+check_final_status $STATUS "$EXPERIMENT"
+
 
 #--------------------------------------------------------------------------------
 exit
