@@ -522,7 +522,7 @@ CONTAINS
     INTEGER :: edge_3_of_cell_idx, edge_3_of_cell_blk
     INTEGER :: i_no_t, i
     REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
-!   REAL(wp):: ssh_global_mean !TODO
+!   REAL(wp):: ssh_global_mean ! - is in calc_fast_oce_diagnostics
     INTEGER :: reference_timestep
     TYPE(t_patch), POINTER :: patch_2d
     REAL(wp) :: sflux
@@ -808,7 +808,7 @@ CONTAINS
       &        total_fresh_water_flux,total_evaporation_flux, atmos_snowfall_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
-      &        global_mean_potEnstrophy,global_heat_content, &
+      &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
 !   REAL(wp) :: sflux
 
@@ -1083,8 +1083,8 @@ CONTAINS
       ENDIF
 
       IF ( isRegistered('heat_content_liquid_water') .OR. isRegistered('heat_content_seaice') &
-           .OR. isRegistered('heat_content_snow') .OR.  isRegistered('heat_content_total') &
-           .OR. isRegistered('global_heat_content') ) THEN
+           .OR. isRegistered('heat_content_snow')   .OR. isRegistered('heat_content_total') &
+           .OR. isRegistered('global_heat_content') .OR. isRegistered('global_heat_content_solid') ) THEN
 
         CALL calc_heat_content(patch_3d, prism_thickness, ice, tracers, &
              p_diag%heat_content_liquid_water, &
@@ -1093,11 +1093,18 @@ CONTAINS
              p_diag%heat_content_total )
 
         ! global_heat_content for monitoring
-
         IF (isRegistered('global_heat_content')) THEN
           global_heat_content = 0.0_wp
           global_heat_content = global_sum_array(patch_2d%cells%area(:,:) * p_diag%heat_content_total(:,:) )
           monitor%global_heat_content = global_heat_content
+        END IF
+
+        ! global_heat_content_solid (snow and ice heat content) for monitoring
+        IF (isRegistered('global_heat_content_solid')) THEN
+          global_heat_content_solid = 0.0_wp
+          global_heat_content_solid = global_sum_array( patch_2d%cells%area(:,:)* &
+            &                      (p_diag%heat_content_seaice(:,:) + p_diag%heat_content_snow(:,:)) )
+          monitor%global_heat_content_solid = global_heat_content_solid
         END IF
 
 

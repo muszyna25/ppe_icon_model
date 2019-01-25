@@ -239,7 +239,7 @@
 &                              kopex1000,kopex2000,kcalex1000,&
 &                              kcalex2000, kaou, kcTlim, kcLlim, &
 &                              kcPlim, kcFlim, ipowh2s,kh2sprod, &   
-&                              kh2sloss,iatmco2
+&                              kh2sloss,iatmco2,kpco2
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -262,6 +262,7 @@
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
         p_tend%co2mr(jc,jb) = atm(jc,iatmco2)
         p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
+        p_tend%pco2(jc,jb)  = bgcflux(jc,kpco2)
         p_tend%oflux(jc,jb) = bgcflux(jc,koflux)
         p_tend%nflux(jc,jb) = bgcflux(jc,knflux)
         p_tend%dmsflux(jc,jb) = bgcflux(jc,kdmsflux)
@@ -458,7 +459,7 @@
 
   SUBROUTINE print_bgc_parameters
   USE mo_memory_bgc, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
-       &                     grazra, bkphy, bkzoo, bkopal,                      &
+       &                      bkphy, bkzoo, bkopal,                      &
        &                     drempoc,dremopal,sulfate_reduction,                &
        &                     dremcalc, n2_fixation,                             &
        &                     ropal, perc_diron, riron, fesoly, relaxfe,         &
@@ -468,7 +469,7 @@
        &                     doccya_fac, thresh_aerob, thresh_sred
 
    USE mo_hamocc_nml, ONLY: i_settling, l_cyadyn, denit_sed, disso_po, &
-      &                 sinkspeed_opal, sinkspeed_calc, cycdec
+      &                 sinkspeed_opal, sinkspeed_calc,grazra, cycdec
 
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed

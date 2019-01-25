@@ -8,7 +8,7 @@
    USE mo_kind, ONLY           : wp
    
    USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
-       &                        fpar, bkphy,grazra, bkzoo, epsher,         &
+       &                        fpar, bkphy, bkzoo, epsher,         &
        &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
        &                        rcar, dremopal, relaxfe, fesoly,            &
@@ -32,6 +32,7 @@
        &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy,kaou,&
        &                         kh2sprod, kh2sloss
 
+    USE mo_hamocc_nml, ONLY    : grazra
 
 
     IMPLICIT NONE

@@ -801,6 +801,12 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
+    CALL add_var(ocean_default_list, 'global_heat_content_solid', ocean_state_diag%monitor%global_heat_content_solid , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_heat_content_solid', 'J', 'global_heat_content_solid', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'ssh_global', ocean_state_diag%monitor%ssh_global , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('ssh_global', 'm', 'ssh_global', datatype_flt),&

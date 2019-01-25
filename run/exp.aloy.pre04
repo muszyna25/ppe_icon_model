@@ -893,12 +893,12 @@ if [[ "$output_oce_min" == "yes" ]]; then
   m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
   operation        = "mean"
-  ml_varlist       =  'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
+  ml_varlist       =  'Qtop', 'Qbot','Qbot_slow', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
                       'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
                       'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
                       'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
                       'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
-                      'FrshFlux_TotalOcean', 'Wind_Speed_10m'
+                      'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m'
 /
 &output_nml
   filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2

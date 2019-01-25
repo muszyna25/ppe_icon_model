@@ -120,7 +120,7 @@
     USE mo_param1_bgc,  ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
         &                     iphy, izoo, icya, ioxygen, isilica, idoc, &
         &                     ian2o, idet, iiron, icalc, iopal,&
-        &                     idust, idms, ih2s
+        &                     idust, idms, ih2s, iagesc
 
     TYPE(t_var_list), INTENT(inout):: ocean_restart_list
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -130,7 +130,7 @@
     INTEGER :: alloc_cell_blocks,  datatype_flt
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_hamocc_output:construct_haaamocc_state_prog'
+      & routine = 'mo_hamocc_output:construct_hamocc_state_prog'
 
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
@@ -285,6 +285,15 @@
           & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
           & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
  
+    CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
+          & 'agesc'//TRIM(var_suffix),        &
+          & ocean_state_prog%tracer_ptr(no_tracer+iagesc)%p,                         &
+          & grid_unstructured_cell, za_depth_below_sea,                  &
+          & t_cf_var('agesc','','linear age', DATATYPE_FLT64,'agesc'), &
+          & grib2_var(255, 255, last_ocean_code+iagesc, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
+          & lrestart_cont=.TRUE.,in_group=groups("HAMOCC_BASE"))
+
     CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
           & 'calc'//TRIM(var_suffix),        &
           & ocean_state_prog%tracer_ptr(no_tracer+icalc)%p,                         &
@@ -1031,6 +1040,13 @@
     CALL add_var(hamocc_tendency_list, 'HAMOCC_co2flux',hamocc_state_tend%cflux,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('co2flux','kmol C m-2 s-1','co2 flux (positive upward)', datatype_flt,'co2flux'), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'HAMOCC_pco2',hamocc_state_tend%pco2,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('pco2','ppm','co2 ocean partical pressure', datatype_flt,'pco2'), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)

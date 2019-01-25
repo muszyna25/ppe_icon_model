@@ -684,10 +684,8 @@ CONTAINS
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
           ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
-          !frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-          frac_oce(n,i_blk)=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-          ! test: not yet fully tested
-          !frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+          !  - lake part is included in land part, must be subtracted as well
+          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
 
           !IF (frac_oce <= 0.0_wp) THEN
           IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
@@ -895,9 +893,16 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_coupling_1stget)
     ENDIF
 
-    !buffer(:,:) = 0.0_wp
-    ! buffer for tsfc in Kelvin
-    buffer(:,:) = 199.99_wp
+    ! Workaround for lake-points on land that are not ocean:
+    !  > no preset (via buffer) to avoid update of ts_wtr over land - land points are untouched
+    !  > to avoid errors with SST over lakes (not ocean) the untouched land-points should be set to undef 
+    !  > the latter would require a discrimination of temperature between ocean water and lake points
+
+    ! This was wrong:
+    ! buffer for tsfc in Kelvin (>0)
+    !!! buffer(:,:) = 199.99_wp
+    ! buffer set to undefined to enforce error on unintended lake grid-points
+    !!! buffer(:,:) = -99.999_wp  ! this aborts with lookup table overflow, since lake-points are affected
 
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
@@ -926,11 +931,25 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            ! Workaround for missing discrimination between tile_wtr and tile_lake:
+            !   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
+            !     by default values (buffer_wtr) from ocean
+            !   > ts_tile(wtr) is set over ocean (not lake) points only
+            IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            !  for dbg_print only
+            IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+              IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
+                scr(n,i_blk) = buffer(nn+n,1)
+              ELSE
+                scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+              ENDIF
+            ENDIF
           ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
+        &  CALL dbg_print('EchOce: SSToce-cpl',scr,str_module,4,in_subset=p_patch%cells%owned)
       !
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ts_tile(:,:,iwtr))
     END IF

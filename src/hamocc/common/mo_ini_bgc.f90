@@ -11,7 +11,7 @@ MODULE mo_ini_bgc
        &                     atcoa, ozkoa,ralk, ro2ut_cya, cyamin,    &
        &                     wpoc, calcinp,orginp,silinp, &
        &                     phytomi, grami, remido, dyphy, zinges,        &
-       &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
+       &                     epsher,  spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
        &                     drempoc,             &
        &                     dremopal, dremn2o, sulfate_reduction,         &
@@ -32,7 +32,7 @@ MODULE mo_ini_bgc
 
   USE mo_hamocc_nml, ONLY  : l_diffat, l_cpl_co2, l_diffat, i_settling, &
        &                     sinkspeed_poc, sinkspeed_opal, sinkspeed_calc,&
-       &                     ks,cycdec,&
+       &                     ks,cycdec,cya_growth_max,grazra,&
        &                     mc_fac, sinkspeed_martin_ez, mc_depth, denit_sed, disso_po, &
        &                     atm_co2, atm_o2, atm_n2, deltacalc, deltaorg, deltasil     
 
@@ -46,7 +46,7 @@ MODULE mo_ini_bgc
 
   USE mo_param1_bgc, ONLY  : ialkali, ian2o, iatmco2, iatmn2,     &
        &                     iano3, iatmo2, icalc, idet, idoc, igasnit,   &
-       &                     iopal, ioxygen, idust,                       &
+       &                     iopal, ioxygen, idust,iagesc,                &
        &                     iphosph, iphy, ipowaal, ipowaic, ipowaox,    &
        &                     ipowaph, ipowasi, ipown2, ipowno3,           &
        &                     isco212, isilica, isssc12, issso12, issssil, &
@@ -105,7 +105,6 @@ CONTAINS
     dyphy    = 0.008_wp     ! 1/d -mortality rate of phytoplankton
     zinges   = 0.6_wp            ! dimensionless fraction -assimilation efficiency of zooplankton
     epsher   = 0.8_wp            ! dimensionless fraction - (1-epsher)=fraction of grazing egested
-    grazra   = 1.0_wp       ! 1/d -grazing rate [emr: 0.6-0.9]
     spemor   = 3.e6_wp      ! 1/d -mortality rate of zooplankton
     gammap   = 0.03_wp      ! 1/d -exudation rate
     gammaz   = 0.06_wp      ! 1/d -excretion rate
@@ -321,6 +320,7 @@ CONTAINS
                 bgctra(j,k,iphosph) = phosmed
                 bgctra(j,k,ioxygen) = oxymed
                 bgctra(j,k,isilica) = silmed
+                bgctra(j,k,iagesc) = 0._wp
                 bgctra(j,k,igasnit)= 1e-10_wp
                 bgctra(j,k,idoc)   = 1.e-10_wp
                 bgctra(j,k,iphy)   = 1.e-8_wp
