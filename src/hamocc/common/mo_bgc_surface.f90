@@ -16,7 +16,7 @@ MODULE mo_bgc_surface
 
 contains
 
-SUBROUTINE update_linage ( start_idx,end_idx, pddpo)
+SUBROUTINE update_linage ( klev,start_idx,end_idx, pddpo)
 
 ! update linear age tracer
   USE mo_memory_bgc, ONLY     : bgctra
@@ -27,23 +27,23 @@ SUBROUTINE update_linage ( start_idx,end_idx, pddpo)
  
   INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
   INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+  INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
 
   REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
 
-  INTEGER :: jc
-  REAL(wp) :: fac001
+  INTEGER :: jc,k
+  REAL(wp) :: fac001, kpke
 
   fac001 = dtbgc/(86400._wp*365._wp) 
-
   DO jc = start_idx, end_idx
-
-    if(pddpo(jc,1) > 0.5_wp) then
-
-         bgctra(jc,:,iagesc) = bgctra(jc,:,iagesc) + fac001
-         bgctra(jc,1,iagesc) = 0._wp
-
-    endif
+     kpke=klev(jc)
+     DO k = 2, kpke
+      if(pddpo(jc,k) > 0.5_wp) then
+         bgctra(jc,k,iagesc) = bgctra(jc,k,iagesc) + fac001
+      endif
+     ENDDO
+     if(pddpo(jc,1) > 0.5_wp) bgctra(jc,1,iagesc) = 0._wp
   ENDDO
 
 

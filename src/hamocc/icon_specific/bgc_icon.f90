@@ -117,7 +117,7 @@ ENDIF
         stop_detail_timer(timer_bgc_swr,5)
 
        ! Linear age
-        CALL update_linage(start_index, end_index,  & ! index range, levels, salinity
+        CALL update_linage(levels, start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))! cell thickness (check for z0)
 
        ! Biogeochemistry

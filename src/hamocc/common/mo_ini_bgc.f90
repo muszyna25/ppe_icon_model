@@ -351,6 +351,7 @@ CONTAINS
                    bgctra(j,k,iano3)  = rnit*bgctra(j,k,iphosph)
                 endif
                 if(m.eq.bgc_land)then
+                   bgctra(j,k,iagesc)  = rmasko
                    bgctra(j,k,iphosph) = rmasko
                    bgctra(j,k,isilica) = rmasko
                    bgctra(j,k,ioxygen) = rmasko
