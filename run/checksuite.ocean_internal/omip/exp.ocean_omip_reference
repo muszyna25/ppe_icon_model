@@ -242,6 +242,8 @@ cat > ${ocean_namelist} << EOF
   limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file

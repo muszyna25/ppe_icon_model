@@ -670,6 +670,11 @@ MODULE mo_ocean_nml
   REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
 !   INTEGER  :: windstress_smoothIterations          = 0
 !   REAL(wp) :: windstress_smoothWeight              = 0.0_wp
+
+  ! include slp_pressure forcing in horizontal pressure gradient
+  LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
+  LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
+
                                                               
 
   NAMELIST/ocean_forcing_nml/&
@@ -727,7 +732,9 @@ MODULE mo_ocean_nml
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
     &                 forcing_windStress_weight           , &
-    &                 use_new_forcing                    
+    &                 use_new_forcing                     , &
+    &                 atm_pressure_included_in_icedyn     , &
+    &                 atm_pressure_included_in_ocedyn
   ! } END FORCING
 
   !----------------------------------------------------------------------------

@@ -63,7 +63,7 @@ MODULE mo_ocean_diagnostics
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice, rho_ref, rho_ref, clw, alf
+  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice, rho_ref, clw, alf
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &

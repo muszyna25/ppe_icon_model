@@ -64,7 +64,7 @@ cat > ${ocean_namelist} << EOF
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
+ profiling_output     = 1
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
@@ -252,6 +252,8 @@ cat > ${ocean_namelist} << EOF
   limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
