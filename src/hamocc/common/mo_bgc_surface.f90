@@ -32,8 +32,8 @@ SUBROUTINE update_linage ( klev,start_idx,end_idx, pddpo)
   REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
 
-  INTEGER :: jc,k
-  REAL(wp) :: fac001, kpke
+  INTEGER :: jc,k, kpke
+  REAL(wp) :: fac001
 
   fac001 = dtbgc/(86400._wp*365._wp) 
   DO jc = start_idx, end_idx
