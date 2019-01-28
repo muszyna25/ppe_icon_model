@@ -1078,24 +1078,51 @@ case "$ac_sitename" in
             ;;
             fh2*)
                case "$fortran_compiler" in
-                    intel*)
+                    intel)
+                      echo -e " \n please specify your intel compiler version "
+                      exit
+                      ;;
+                    intel17*)
+                             load_modules = compiler/intel/17.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 ${load_modules}
+                             NETCDFROOT  = /software/all/lib/netcdf/4.6_intel_17.0_openmpi_3.0
+                             NETCDFFROOT = /software/all/lib/netcdf-fortran/4.4_intel_17.0_openmpi_3.0
+                             HDF5ROOT    = /software/all/lib/hdf5/1.10_intel_17.0_openmpi_3.0
+                             SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
+                             ZLIBROOT    = /usr
+                             MPIROOT     = /software/all/mpi/openmpi/3.0_intel_17.0
+                             XML2ROOT    = /usr
+                             GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                             GRIB_API = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                             MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                             CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
+                             STD_FLAGS = $STD_FLAGS -standard-semantics               
+                             config_target=fh2
+                             make_command=make -j 16
+                             submit=sbatch
+                             mpi_startrun=/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun 
+                         ;;
+                          intel19|intel19.*)
+                             load_modules = compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 ${load_modules}
+                             load_profile = /opt/lmod/lmod/init/sh
 
-                      NETCDFROOT  = /opt/netcdf/4.4_serial/
-                      NETCDFFROOT = /opt/netcdf-fortran/4.4_serial
-                      HDF5ROOT    = /opt/hdf5/1.8_serial/
-                      SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
-                      ZLIBROOT    = /usr
-                      MPIROOT     = /software/all/mpi/openmpi/3.0_intel_17.0
-                      XML2ROOT    = /usr
-                      GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
-                      GRIB_API = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
-                      MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                      CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
-                      STD_FLAGS = $STD_FLAGS -standard-semantics               
-                      config_target=fh2
-                      make_command=make -j 16
-                      submit=msub
-                      mpi_startrun=/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun 
+
+                             NETCDFROOT  = /opt/netcdf/4.4_serial/
+                             NETCDFFROOT = /opt/netcdf-fortran/4.4_serial
+                             HDF5ROOT    = /opt/hdf5/1.8_serial/
+                             SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
+                             ZLIBROOT    = /usr
+                             MPIROOT     = /software/all/mpi/openmpi/3.0_intel_19.0
+                             XML2ROOT    = /usr
+                             GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                             GRIB_API = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                             MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                             CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
+                             STD_FLAGS = $STD_FLAGS -standard-semantics               
+                             config_target=fh2
+                             make_command=make -j 16
+                             submit=sbatch
+                             mpi_startrun=/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun 
+
                ;;
                      gcc*)
                       NETCDFROOT  = /opt/netcdf/4.4_serial/

@@ -10,13 +10,15 @@ function set_cluster {
      input_folder="/pfs/imk/ICON/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	 icon_data_poolFolder=
+	 icon_data_poolFolder=/pfs/work6/workspace/scratch/ln1297-AMIP_release2.5-0/MISTRAL
      ;;
    xfh2*) :
      echo "...FH2  at KIT"; CENTER="IMK"
      input_folder="/pfs/imk/ICON/TESTSUITE/"
 	 FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
+	 icon_data_poolFolder=/pfs/work6/workspace/scratch/ln1297-AMIP_release2.5-0/MISTRAL
+
      ;;
    xxce*) :
      echo "...XCE at DWD"; CENTER="DWD"
@@ -85,6 +87,35 @@ for line in `awk '{print $1}' $1`; do
   script[$i]=$line
   i=`expr $i + 1`
 done
+
+i=0
+for line in `awk '{print $3}' $1`; do
+  config[$i]=$line
+  i=`expr $i + 1`
+done
+
+i=0
+for line in `awk '{print $4}' $1`; do
+  walltime[$i]=$line
+  i=`expr $i + 1`
+done
+
+
+i=0
+for line in `awk '{print $5}' $1`; do
+  queue[$i]=$line
+  i=`expr $i + 1`
+done
+
+
+i=0
+for line in `awk '{print $6}' $1`; do
+  nodes[$i]=$line
+  i=`expr $i + 1`
+done
+
+
+
 number_of_experiments=$i
 
  }
@@ -101,10 +132,14 @@ number_of_experiments=$i
 function create_header
 {
 d=`date -d today +%Y%m%d`
-complete_output_folder=${output_folder}/${d}/${exp_name}
+complete_output_folder=${output_folder}/${d}/$1
 OUTDIR=$complete_output_folder
 OUTDIR_PREFIX=`dirname ${OUTDIR}`
 output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+OUTDIR=$complete_output_folder
+icon_data_poolFolder=$icon_data_poolFolder
+EXPERIMENT=$1
+lart=$lart
 
 cat > $output_script << EOF
 #!/bin/bash
@@ -115,10 +150,16 @@ EXPNAME=atm_amip_test_kit
 OUTDIR=$complete_output_folder
 ICONFOLDER=$ICON_FOLDER
 ARTFOLDER=$ART_FOLDER
+INDIR=$input_folder
+EXP=$EXPERIMENT
+lart=$lart
+
 FILETYPE=4
 COMPILER=intel
 restart=.False.
 read_restart_namelists=.False.
+
+
 
 # Remove folder ${EXP} from OUTDIR for postprocessing output
 OUTDIR_PREFIX=`dirname ${OUTDIR}`
@@ -131,12 +172,6 @@ fi
 
 cd $OUTDIR
 
-ln -sf $ICON_FOLDER/data/rrtmg_lw.nc rrtmg_lw.nc
-ln -sf $ICON_FOLDER/data/ECHAM6_CldOptProps.nc ECHAM6_CldOptProps.nc
-
-ln -sf ${ARTFOLDER}/runctrl_examples/init_ctrl/mozart_coord.nc ${OUTDIR}/mozart_coord.nc
-ln -sf ${ARTFOLDER}/runctrl_examples/init_ctrl/Linoz2004Br.dat ${OUTDIR}/Linoz2004Br.dat
-ln -sf ${ARTFOLDER}/runctrl_examples/init_ctrl/Simnoy2002.dat ${OUTDIR}/Simnoy2002.dat
 
 EOF
 
@@ -148,10 +183,11 @@ output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
 cat >> $output_script << EOF
 	
 cp -p $ICON_FOLDER/build/x86_64-unknown-linux-gnu/bin/icon ./icon.exe
+EOF
+ case x"$HPC" in #(
+      xjuwels*)
+cat >> $output_script << EOF
 	
-echo $CENTER
-	case x"$CENTER" in
-      xFZJ*)
 cat > job_ICON << ENDFILE
 #!/bin/bash -x
 #SBATCH --nodes=4
@@ -173,14 +209,115 @@ ENDFILE
 
 chmod +x job_ICON
 sbatch job_ICON
-;;
-	esac
 
 EOF
+;;
+
+   xfh2*)
+cat >> $output_script << EOF
+	   
+cat > job_ICON << ENDFILE
+#!/bin/bash -x
+#SBATCH --$3
+#SBATCH --time=$2
+#SBATCH --ntasks-per-node=20
+#SBATCH --partition=$4
+
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/pfs/imk/ICON/LIBRARIES_IFORT16/grib-api/lib
+
+$5 
+
+mpirun --bind-to core --map-by core --report-bindings ./icon.exe
+
+ENDFILE
+
+chmod +x job_ICON
+sbatch job_ICON
+
+EOF
+;;
+esac
+
+
+chmod +x $output_script
 }
 function create_body
 
 {
- cat ${ART_FOLDER}/runctrl_examples/run_scripts//exp.testsuite.amip_base >> $output_script
+ cat ${ART_FOLDER}/$1 >> $output_script
 }
+
+
+function create_lart_loop_start
+{
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+cat >> $output_script << EOF
+	
+for iter in 1 2 ; do
+
+
+if [ \$iter -eq 1 ] ; then
+
+lart=.False.
+if [ ! -d $OUTDIR/wo_ART ]; then
+    mkdir -p $OUTDIR/wo_ART
+fi
+
+cd $OUTDIR/wo_ART
+OUTDIR=$OUTDIR/wo_ART
+else
+
+lart=.True.
+if [ ! -d $OUTDIR/w_ART ]; then
+    mkdir -p $OUTDIR/w_ART
+fi
+
+cd $OUTDIR/w_ART
+
+OUTDIR=$OUTDIR/w_ART
+
+fi
+
+EOF
+}
+
+function create_lart_loop_end
+{
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+cat >> $output_script << EOF
+
+done
+
+EOF
+}
+
+function check_action
+{
+output_script=$2.run
+	
+	case x"$1" in 
+		xrun*)
+          ./$output_script
+		  ;;
+		*none*)
+		  ;;
+  esac
+}
+
+function read_configure
+{
+ . ./${pwd}/../../config/set-up.info
+
+output="module load ${use_load_modules}"
+#i=0
+#for element in $(echo ${use_load_modules}|sed -e " ");do
+#   module_str[$i]="module load ${element}"
+#  i=`expr $i + 1`
+#done
+#
+#for item in ${!module_str[*]};do
+#	 printf " %s \n" "${module_str[${item}]}"
+#done
+
+ }
 
