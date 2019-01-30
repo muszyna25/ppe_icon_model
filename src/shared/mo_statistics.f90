@@ -751,6 +751,9 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp), INTENT(out), OPTIONAL :: mean(:)   ! mean for each level
 
+    ! fixme: this uses a hand-written reduction over threads without
+    ! any assertion to be faster/better than the reduction clause of
+    ! OpenMP
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
@@ -932,6 +935,9 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp), OPTIONAL, INTENT(out) :: mean(:), sumLevelWeights(:)   ! the sum of the weights in each level
 
+    ! fixme: this uses a hand-written reduction over threads without
+    ! any assertion to be faster/better than the reduction clause of
+    ! OpenMP
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
@@ -1146,6 +1152,9 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(out)   :: mean
 
 
+    ! fixme: this uses a hand-written reduction over threads without
+    ! any assertion to be faster/better than the reduction clause of
+    ! OpenMP
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
     REAL(wp):: total_weight, total_sum
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
