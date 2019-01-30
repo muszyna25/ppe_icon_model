@@ -68,9 +68,11 @@ MODULE mo_turbulent_diagnostic
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
   INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
-  
-  CHARACTER(len=*), PARAMETER :: tname = 'time'
-  CHARACTER(len=*), PARAMETER :: tlongname = 'Time'
+
+  CHARACTER(len=*), PARAMETER :: tname = 'time', &
+       tlongname = 'Time', &
+       modname = 'mo_turbulent_diagnostic'
+
 
   PRIVATE
 
@@ -369,7 +371,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: jc,jk,jb,jg             !block index
     INTEGER :: nvar, n, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:calculate_turbulent_diagnostics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':calculate_turbulent_diagnostics'
 
     IF(msg_level>18) & 
       CALL message(routine,'Start!')
@@ -1069,7 +1071,7 @@ CONTAINS
    REAL(wp), ALLOCATABLE                     :: dimvalues(:,:)
    INTEGER :: n, nlev, nvar, jg, dimsize(2)
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
-   CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
+   CHARACTER(len=*), PARAMETER :: routine = modname//':init_les_turbulent_output'
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
