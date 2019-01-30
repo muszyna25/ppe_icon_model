@@ -289,9 +289,9 @@ CONTAINS
   ! Returns the min max mean in a 3D array in a given range subset
   ! The results are over all levels
   SUBROUTINE print_2Dvalue_location(values, seek_value, in_subset)
-    REAL(wp) :: values(:,:)
-    REAL(wp) :: seek_value
-    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), INTENT(in) :: values(:,:)
+    REAL(wp), INTENT(in) :: seek_value
+    TYPE(t_subset_range), TARGET, INTENT(in) :: in_subset
     
     INTEGER :: block, start_index, end_index, idx
     TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
@@ -331,10 +331,10 @@ CONTAINS
   ! Returns the min max mean in a 3D array in a given range subset
   ! The results are over all levels
   SUBROUTINE print_3Dvalue_location(values, seek_value, in_subset, start_level, end_level)
-    REAL(wp) :: values(:,:,:)
-    REAL(wp) :: seek_value
-    TYPE(t_subset_range), TARGET :: in_subset
-    INTEGER, OPTIONAL :: start_level, end_level
+    REAL(wp), INTENT(in) :: values(:,:,:)
+    REAL(wp), INTENT(in) :: seek_value
+    TYPE(t_subset_range), TARGET, INTENT(in) :: in_subset
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
@@ -408,8 +408,8 @@ CONTAINS
   !>
   ! Returns the l2 norm for a 2D array in a given range subset
   FUNCTION LInfNorm_2D_InRange(values, in_subset) result(lInfnorm)
-    REAL(wp) :: values(:,:) ! INTENT(in)
-    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), INTENT(in) :: values(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: lInfnorm
     
     REAL(wp) :: minmaxmean(3)
@@ -424,8 +424,8 @@ CONTAINS
   !>
   ! Returns the l2 norm for a 2D array in a given range subset
   FUNCTION L2Norm_2D_InRange(values, in_subset) result(l2norm)
-    REAL(wp) :: values(:,:) ! INTENT(in)
-    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), INTENT(in) :: values(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: l2norm
     
     REAL(wp) :: sumOfSquares
@@ -472,8 +472,8 @@ CONTAINS
   !>
   ! Returns the min max mean in a 2D array in a given range subset
   FUNCTION MinMaxMean_2D_InRange(values, in_subset) result(minmaxmean)
-    REAL(wp) :: values(:,:) ! INTENT(in)
-    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), INTENT(in) :: values(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value
@@ -531,9 +531,9 @@ CONTAINS
   ! Returns the min max mean in a 3D array in a given range subset
   ! The results are over all levels
   FUNCTION MinMaxMean_3D_AllLevels_InRange(values, in_subset, start_level, end_level) result(minmaxmean)
-    REAL(wp) :: values(:,:,:) ! INTENT(in)
-    TYPE(t_subset_range), TARGET :: in_subset
-    INTEGER, OPTIONAL :: start_level, end_level
+    REAL(wp), INTENT(in) :: values(:,:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
@@ -621,11 +621,11 @@ CONTAINS
   ! The sum is over all levels.
   FUNCTION Sum_3D_AllLevels_3Dweights_InIndexed(values, indexed_subset, start_level, end_level, weights, &
     & subset_indexed_weights) result(total_sum)
-    REAL(wp) :: values(:,:,:)
-    TYPE(t_subset_indexed), TARGET :: indexed_subset
-    INTEGER,  OPTIONAL :: start_level, end_level
-    REAL(wp), OPTIONAL :: weights(:,:,:)
-    REAL(wp), OPTIONAL :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
+    REAL(wp), INTENT(in) :: values(:,:,:)
+    TYPE(t_subset_indexed), INTENT(in) :: indexed_subset
+    INTEGER,  OPTIONAL, INTENT(in) :: start_level, end_level
+    REAL(wp), OPTIONAL, INTENT(in) :: weights(:,:,:)
+    REAL(wp), OPTIONAL, INTENT(in) :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
     ! dim: (vertical_levels, indexed_subset%size)
     REAL(wp) :: total_sum
     
@@ -706,9 +706,9 @@ CONTAINS
   SUBROUTINE AccumulateMean_3D_EachLevel_InRange_2Dweights(values, weights, in_subset, accumulated_mean, start_level, end_level)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: accumulated_mean(:)   ! accumulated mean for each level
-    INTEGER, OPTIONAL :: start_level, end_level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(inout) :: accumulated_mean(:)   ! accumulated mean for each level
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
 
     REAL(wp) :: mean(SIZE(accumulated_mean))
     INTEGER :: block, level, start_vertical, end_vertical
@@ -746,10 +746,10 @@ CONTAINS
   SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights(values, weights, in_subset, total_sum, start_level, end_level, mean)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: total_sum(:)   ! mean for each level
-    INTEGER, OPTIONAL :: start_level, end_level
-    REAL(wp), TARGET, INTENT(inout), OPTIONAL :: mean(:)   ! mean for each level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(out) :: total_sum(:)   ! mean for each level
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
+    REAL(wp), INTENT(out), OPTIONAL :: mean(:)   ! mean for each level
 
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
@@ -866,9 +866,9 @@ CONTAINS
   SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
-    INTEGER, OPTIONAL :: start_level, end_level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(out) :: mean(:)   ! mean for each level
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
 
     REAL(wp) :: total_sum(SIZE(mean))
 
@@ -886,8 +886,8 @@ CONTAINS
 
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    INTEGER, OPTIONAL :: start_level, end_level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
 
     REAL(wp) :: levelWeights(SIZE(values, VerticalDim_Position)), &
          levelWeightedSum(SIZE(values, VerticalDim_Position))
@@ -927,10 +927,10 @@ CONTAINS
     & start_level, end_level, mean, sumLevelWeights)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: total_sum(:)   ! mean for each level
-    INTEGER, OPTIONAL :: start_level, end_level
-    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: mean(:), sumLevelWeights(:)   ! the sum of the weights in each level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(inout) :: total_sum(:)   ! mean for each level
+    INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
+    REAL(wp), OPTIONAL, INTENT(out) :: mean(:), sumLevelWeights(:)   ! the sum of the weights in each level
 
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
@@ -1047,10 +1047,10 @@ CONTAINS
   SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(out) :: mean(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
-    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: sumLevelWeights(:)   ! the sum of the weights in each level
+    REAL(wp), OPTIONAL, INTENT(out) :: sumLevelWeights(:)   ! the sum of the weights in each level
 
     REAL(wp) :: sumLevels(SIZE(mean))
 
@@ -1063,9 +1063,9 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   REAL(wp)  FUNCTION Sum_2D_InRange(values, in_subset, mean) 
-    REAL(wp), INTENT(in) :: values(:,:) ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), OPTIONAL   :: mean  ! in
+    REAL(wp), INTENT(in) :: values(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), OPTIONAL, INTENT(out)   :: mean
 
 
     REAL(wp), ALLOCATABLE :: sum_value(:)
@@ -1140,10 +1140,10 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   REAL(wp)  FUNCTION Sum_2D_2Dweights_InRange(values, weights, in_subset, mean) 
-    REAL(wp), INTENT(in) :: values(:,:) ! in
-    REAL(wp), INTENT(in) :: weights(:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), OPTIONAL   :: mean  ! in
+    REAL(wp), INTENT(in) :: values(:,:)
+    REAL(wp), INTENT(in) :: weights(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), OPTIONAL, INTENT(out)   :: mean
 
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
@@ -1231,10 +1231,10 @@ CONTAINS
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
   SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
-    REAL(wp), INTENT(in) :: values(:,:) ! in
-    REAL(wp), INTENT(in) :: weights(:,:)  ! in
-    TYPE(t_subset_range), TARGET :: in_subset
-    REAL(wp), TARGET, INTENT(inout) :: mean   ! mean for each level
+    REAL(wp), INTENT(in) :: values(:,:)
+    REAL(wp), INTENT(in) :: weights(:,:)
+    TYPE(t_subset_range), INTENT(in) :: in_subset
+    REAL(wp), INTENT(out) :: mean   ! mean for each level
 
     REAL(wp) :: WeightedSum
 
@@ -1247,7 +1247,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE init_min_max(min_value, max_value)
-    REAL(wp), INTENT(inout) :: min_value, max_value
+    REAL(wp), INTENT(out) :: min_value, max_value
     
     min_value = 1.e16_wp         ! some large value
     max_value = -1.e16_wp        ! some small value
@@ -1259,7 +1259,7 @@ CONTAINS
   SUBROUTINE gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
     REAL(wp), INTENT(in) :: min_value, max_value, sum_value
     INTEGER, INTENT(in) :: number_of_values
-    REAL(wp), INTENT(inout) :: minmaxmean(3)
+    REAL(wp), INTENT(out) :: minmaxmean(3)
     
     REAL(wp) :: global_number_of_values
     INTEGER :: communicator
@@ -1883,8 +1883,8 @@ CONTAINS
   SUBROUTINE add_fields_2d_nosubset(sum_field,field,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)
     REAL(wp),INTENT(in)             :: field(:,:)
-    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
-    REAL(wp), INTENT(IN), OPTIONAL :: missval
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
     
     INTEGER :: jb,jc,start_index,end_index
     LOGICAL :: my_has_missvals
