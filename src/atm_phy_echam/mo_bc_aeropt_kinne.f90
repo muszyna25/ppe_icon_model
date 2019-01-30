@@ -484,7 +484,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   TYPE(t_stream_id)              :: stream_id
   REAL(wp), POINTER              :: zvar(:,:,:,:)
   REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
-  CHARACTER(LEN=32)              :: cimnthb, cimnthe
   CHARACTER(LEN=256)             :: cfname2, cfnameyear, cyear
 
   INTEGER                        :: jg
@@ -492,9 +491,11 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   jg = p_patch%id
 
   IF (imnthb < 0 .OR. imnthe < imnthb .OR. imnthe > 13 ) THEN
-    CALL finish ('read_months_bc_aeropt_kinne in mo_bc_aeropt_kinne', &
-                 'months to be read outside valid range 0<=imnthb<=imnthe<=13, '// &
-                 'imnthb='//TRIM(ADJUSTL(cimnthb))//', imnthe='//TRIM(ADJUSTL(cimnthe))) 
+    WRITE (message_text, '(a,2(a,i0))') &
+         'months to be read outside valid range 0<=imnthb<=imnthe<=13, ', &
+         'imnthb=', imnthb, ', imnthe=', imnthe
+    CALL finish('read_months_bc_aeropt_kinne in mo_bc_aeropt_kinne', &
+      &         message_text)
   END IF
   ilen_cfname=LEN_TRIM(cfname)
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_coa') THEN
