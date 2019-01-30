@@ -1066,11 +1066,10 @@ CONTAINS
    LOGICAL, INTENT(IN), OPTIONAL         :: ldelete
    LOGICAL, INTENT(IN), OPTIONAL         :: l_rh  !if rh to be output or not
   
-   CHARACTER (40), ALLOCATABLE, DIMENSION(:) :: dimname, dimlongname, dimunit
+   CHARACTER (40), DIMENSION(2) :: dimname, dimlongname, dimunit
    CHARACTER (LEN=80)                        :: longname, unit
    REAL(wp), ALLOCATABLE                     :: dimvalues(:,:)
-   INTEGER,  ALLOCATABLE                     :: dimsize(:)
-   INTEGER :: n, nlev, nvar, jg
+   INTEGER :: n, nlev, nvar, jg, dimsize(2)
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
@@ -1098,7 +1097,7 @@ CONTAINS
    nlev   = p_patch%nlev
 
    !Dimensions
-   ALLOCATE( dimname(2), dimlongname(2), dimunit(2), dimsize(2), dimvalues(nlev+1,2) )
+   ALLOCATE(dimvalues(nlev+1,2))
 
    !Calculate average height
    CALL levels_horizontal_mean(p_metrics%z_mc, p_patch%cells%area, p_patch%cells%owned,  z_mc_avg)
@@ -1302,12 +1301,14 @@ CONTAINS
      IF(is_at_full_level(n))THEN
       dimname(1) = 'zf'
       dimlongname(1) = 'Full level height'
-      dimsize = (/nlev,0/)
+      dimsize(1) = nlev
+      dimsize(2) = 0
       dimvalues(1:nlev,1) = z_mc_avg(1:nlev)     
      ELSE
       dimname(1) = 'zh'
       dimlongname(1) = 'Half level height'
-      dimsize = (/nlev+1,0/)
+      dimsize(1) = nlev+1
+      dimsize(2) = 0
       dimvalues(1:nlev+1,1) = z_ic_avg(1:nlev+1)
      END IF
 
@@ -1319,8 +1320,7 @@ CONTAINS
     
 
     !deallocate
-    DEALLOCATE( dimname, dimlongname, dimunit, dimsize, dimvalues )
-    ALLOCATE( dimname(1), dimlongname(1), dimunit(1) )
+    DEALLOCATE(dimvalues)
 
 
    !open time series file
@@ -1401,11 +1401,9 @@ CONTAINS
      dimunit(1) = 's'
      IF( my_process_is_stdio() ) &
         CALL addvar_nc(fileid_tseries, TRIM(turb_tseries_list(n)), TRIM(longname), TRIM(unit), &
-                       dimname, dimlongname, dimunit)
+                       dimname(1:1), dimlongname(1:1), dimunit(1:1))
 
    END DO!nvar
-
-   DEALLOCATE( dimname, dimlongname, dimunit )
 
    IF(msg_level>18)CALL message(routine,'Over!')
 
