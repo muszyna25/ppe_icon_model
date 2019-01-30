@@ -484,7 +484,12 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   TYPE(t_stream_id)              :: stream_id
   REAL(wp), POINTER              :: zvar(:,:,:,:)
   REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
-  CHARACTER(LEN=256)             :: cfname2, cfnameyear, cyear
+  ! optional space for _DOM99 suffix
+  CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
+  ! optional space for _YYYY.nc suffix
+  CHARACTER(LEN=LEN(cfname)+6+12+4) :: cfnameyear
+  CHARACTER(len=12)              :: cyear
+  INTEGER :: cfname2_tlen
 
   INTEGER                        :: jg
 
@@ -520,9 +525,11 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   ! Add domain index if more than 1 grid is used
   IF (n_dom > 1) THEN
-     WRITE(cfname2,'(a,a,i2.2)') cfname,'_DOM',jg
+    WRITE(cfname2,'(a,a,i2.2)') cfname,'_DOM',jg
+    cfname2_tlen = LEN_TRIM(cfname2)
   ELSE
-     cfname2=cfname
+    cfname2=cfname
+    cfname2_tlen = ilen_cfname
   END IF
 
   WRITE(message_text,'(a,i2,a,i2)') ' Reading Kinne aerosols for months ', imnthb, ' to ', imnthe
@@ -532,14 +539,13 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   IF (imnthb == 0) THEN
 
-    WRITE(cyear,*) iyear-1
-
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+      WRITE(cyear,'(i0)') iyear-1
+      cfnameyear=cfname2(1:cfname2_tlen)//'_'//TRIM(cyear)//'.nc'
     ELSE
-      cfnameyear=TRIM(cfname2)//'.nc'
+      cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
@@ -639,15 +645,14 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   ! Read data for first month of next year
 
   IF (imnthe == 13) THEN
-    
-    WRITE(cyear,*) iyear+1
 
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+      WRITE(cyear,'(i0)') iyear+1
+      cfnameyear=cfname2(1:cfname2_tlen)//'_'//TRIM(cyear)//'.nc'
     ELSE
-      cfnameyear=TRIM(cfname2)//'.nc'
+      cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
