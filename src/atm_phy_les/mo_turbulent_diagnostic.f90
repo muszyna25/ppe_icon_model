@@ -124,7 +124,7 @@ CONTAINS
     REAL(wp):: ztp(nproma), zqp(nproma)
 
     LOGICAL :: found_cltop, found_clbas
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -133,7 +133,6 @@ CONTAINS
     LOGICAL :: mlab(nproma)
 
     nlev      = p_patch%nlev 
-    nlevp1    = p_patch%nlev+1 
 
     jg        = p_patch%id
 
@@ -259,13 +258,13 @@ CONTAINS
        DO jc = i_startidx, i_endidx 
          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
-          &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+          &                p_metrics%z_ifc(jc,nlev+1,jb) + 3000._wp )
            IF ( prm_diag%locum(jc,jb)) THEN
              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
             &                               prm_diag%hbas_con(jc,jb) )
            END IF
          ELSE
-           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlev+1,jb) )
          END IF
        ENDDO
        ! 
@@ -364,7 +363,7 @@ CONTAINS
 
     ! Local array bounds:
 
-    INTEGER :: nlev, nlevp1            !< number of full levels
+    INTEGER :: nlev            !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -379,12 +378,11 @@ CONTAINS
 
     jg         = p_patch%id
     nlev       = p_patch%nlev
-    nlevp1     = nlev + 1
     
     !allocation
-    ALLOCATE( var3df(nproma,nlev,p_patch%nblks_c), var3dh(nproma,nlevp1,p_patch%nblks_c), &
+    ALLOCATE( var3df(nproma,nlev,p_patch%nblks_c), var3dh(nproma,nlev+1,p_patch%nblks_c), &
               theta(nproma,nlev,p_patch%nblks_c),  w_mc(nproma,nlev,p_patch%nblks_c), &
-              outvar(nlevp1) )
+              outvar(nlev+1) )
 
     rl_start   = grf_bdywidth_c
     rl_end     = min_rlcell_int-1  !for wthsfs
@@ -750,25 +748,25 @@ CONTAINS
 
      CASE('kh')
 
-       CALL levels_horizontal_mean(prm_diag%tkvh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%tkvh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev+1))
 
      CASE('km')
 
-       CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev+1))
 
      CASE('bruvais')
 
-       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlev+1))
        outvar(1)      = outvar(2) 
-       outvar(nlevp1) = outvar(nlev) 
+       outvar(nlev+1) = outvar(nlev)
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2
        CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
        outvar = outvar * 0.5_wp          
        outvar(1)      = outvar(2) 
-       outvar(nlevp1) = outvar(nlev) 
+       outvar(nlev+1) = outvar(nlev)
 
      CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
 
@@ -832,11 +830,11 @@ CONTAINS
      CASE('lwf')
        IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
      CASE('swf')
        IF(atm_phy_nwp_config(jg)%inwp_radiation>0)THEN
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
        outvar0d = 0._wp
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
@@ -883,7 +881,7 @@ CONTAINS
      IF(is_at_full_level(n))THEN
        prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)
      ELSE
-       prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)
+       prm_diag%turb_diag_1dvar(1:nlev+1,n) = prm_diag%turb_diag_1dvar(1:nlev+1,n)+outvar(1:nlev+1)
      END IF
 
     END DO!nvar
@@ -1072,7 +1070,7 @@ CONTAINS
    CHARACTER (LEN=80)                        :: longname, unit
    REAL(wp), ALLOCATABLE                     :: dimvalues(:,:)
    INTEGER,  ALLOCATABLE                     :: dimsize(:)
-   INTEGER :: n, nlev, nlevp1, nvar, jg
+   INTEGER :: n, nlev, nvar, jg
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
@@ -1098,10 +1096,9 @@ CONTAINS
    is_rh_out = l_rh
 
    nlev   = p_patch%nlev
-   nlevp1 = nlev + 1
 
    !Dimensions
-   ALLOCATE( dimname(2), dimlongname(2), dimunit(2), dimsize(2), dimvalues(nlevp1,2) )
+   ALLOCATE( dimname(2), dimlongname(2), dimunit(2), dimsize(2), dimvalues(nlev+1,2) )
 
    !Calculate average height
    CALL levels_horizontal_mean(p_metrics%z_mc, p_patch%cells%area, p_patch%cells%owned,  z_mc_avg)
@@ -1310,8 +1307,8 @@ CONTAINS
      ELSE
       dimname(1) = 'zh'
       dimlongname(1) = 'Half level height'
-      dimsize = (/nlevp1,0/)
-      dimvalues(1:nlevp1,1) = z_ic_avg(1:nlevp1)     
+      dimsize = (/nlev+1,0/)
+      dimvalues(1:nlev+1,1) = z_ic_avg(1:nlev+1)
      END IF
 
      IF( my_process_is_stdio() ) &
