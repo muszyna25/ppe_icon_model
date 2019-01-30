@@ -196,7 +196,6 @@ cat > ${ocean_namelist} << EOF
   lambda_wind                     = 0.03
   tracer_TopWindMixing            = 1.0E-5
   velocity_TopWindMixing          = 1.0E-5
-  Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
