@@ -1106,9 +1106,9 @@ case "$ac_sitename" in
                              load_profile = /opt/lmod/lmod/init/sh
 
 
-                             NETCDFROOT  = /opt/netcdf/4.4_serial/
-                             NETCDFFROOT = /opt/netcdf-fortran/4.4_serial
-                             HDF5ROOT    = /opt/hdf5/1.8_serial/
+                             NETCDFROOT  = /software/all/lib/netcdf/4.6_intel_19.0_openmpi_3.0
+                             NETCDFFROOT = /software/all/lib/netcdf-fortran/4.4_intel_19.0_openmpi_3.0
+                             HDF5ROOT    = /software/all/lib/hdf5/1.10_intel_19.0_openmpi_3.0
                              SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16/szip
                              ZLIBROOT    = /usr
                              MPIROOT     = /software/all/mpi/openmpi/3.0_intel_19.0
