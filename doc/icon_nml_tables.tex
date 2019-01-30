@@ -6042,7 +6042,8 @@ Height below which the layer thickness does not exceed max\_lay\_thckn &
 itype\_laydistr&
 I& 1& &
 Type of analytical function used to specify the distribution of the vertical coordinate surfaces \\
-1: transformed cosine, 2: third-order polynomial &
+1: transformed cosine, 2: third-order polynomial; in this case, stretch\_fac should be less than 1,
+particularly for large numbers of model levels; the algorithm always works for stretch\_fac=0.5 &
 \tabularnewline
 
 
