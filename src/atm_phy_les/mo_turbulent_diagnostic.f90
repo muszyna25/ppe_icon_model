@@ -1289,8 +1289,10 @@ CONTAINS
        longname = 'LS subsidence velocity'
        unit     = 'm/s'
      CASE DEFAULT 
-         WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
-         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
+       WRITE(message_text,'(3a)') 'Variable ', &
+         TRIM(turb_profile_list(n)), &
+         ' is not listed in les_nml'
+       CALL finish(routine,message_text)
      END SELECT
 
      dimname(2) = tname
@@ -1391,11 +1393,13 @@ CONTAINS
      CASE('precp_i')
        longname = 'gridscale ice rate'
        unit     = 'mm/day'
-     CASE DEFAULT 
-         WRITE(message_text,'(a)')TRIM(turb_tseries_list(n))
-         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
-     END SELECT  
-  
+     CASE DEFAULT
+       WRITE(message_text,'(3a)') 'Variable ', &
+            TRIM(turb_tseries_list(n)), &
+            ' is not listed in les_nml'
+       CALL finish(routine,message_text)
+     END SELECT
+
      dimname(1) = tname
      dimlongname(1) = tlongname
      dimunit(1) = 's'
