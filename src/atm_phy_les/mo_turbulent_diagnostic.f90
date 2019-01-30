@@ -363,7 +363,7 @@ CONTAINS
 
     ! Local array bounds:
 
-    INTEGER :: nlev            !< number of full levels
+    INTEGER :: nlev, ub            !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -878,11 +878,9 @@ CONTAINS
      END SELECT
 
      !Calculate time mean
-     IF(is_at_full_level(n))THEN
-       prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)
-     ELSE
-       prm_diag%turb_diag_1dvar(1:nlev+1,n) = prm_diag%turb_diag_1dvar(1:nlev+1,n)+outvar(1:nlev+1)
-     END IF
+     ub = MERGE(nlev, nlev+1, is_at_full_level(n))
+     prm_diag%turb_diag_1dvar(1:ub,n) = prm_diag%turb_diag_1dvar(1:ub,n) &
+                                        + outvar(1:ub)
 
     END DO!nvar
 
