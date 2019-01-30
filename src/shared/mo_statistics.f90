@@ -759,7 +759,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalSum_3D_InRange_2Dweights'
 
     IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
 
@@ -944,7 +944,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: sum_value(:,:), sum_weight(:,:), total_weight(:)
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalSum_3D_InRange_2Dweights'
 
     IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
 
