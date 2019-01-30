@@ -43,6 +43,7 @@
 #                             https://software.ecmwf.int/wiki/display/FCST/Relationship+between+spectral+truncation+and+grid+point+resolution
 #   Helmut Frank    20181128  New option -a for area. swvl* is always retrieved on archived grid.
 #                             Use MARS_CALL_OPTION to call mars with an option (e.g. -m)
+#   Helmut Frank    20190129  Always set rainsnow='/crwc/cswc' for era5 data (thanks to G. Pante, IMK)
 # ------------------------------------------------------------------------------
 
 typeset    area
@@ -201,6 +202,7 @@ case ${class_mars} in
     ea|era5)    class_mars='ea'
                 levs=${levs:-137}
                 sr='fsr'
+                rainsnow="/crwc/cswc"
                 ;;
     e4|era40)   class_mars='e4'
                 levs=${levs:-60}
