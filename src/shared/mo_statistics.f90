@@ -710,14 +710,11 @@ CONTAINS
     REAL(wp), TARGET, INTENT(inout) :: accumulated_mean(:)   ! accumulated mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
 
-    REAL(wp), ALLOCATABLE :: mean(:)
+    REAL(wp) :: mean(SIZE(accumulated_mean))
     INTEGER :: block, level, start_vertical, end_vertical
-    INTEGER :: allocated_levels, no_of_threads, myThreadNo
+    INTEGER :: no_of_threads, myThreadNo
 
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':AccumulateMean_3D_EachLevel_InRange_2Dweights'
-
-    allocated_levels = SIZE(accumulated_mean)
-    ALLOCATE(  mean(allocated_levels) )
 
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -739,8 +736,6 @@ CONTAINS
       ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
       accumulated_mean(level) = accumulated_mean(level) + mean(level)
     ENDDO
-
-    DEALLOCATE(  mean )
 
   END SUBROUTINE AccumulateMean_3D_EachLevel_InRange_2Dweights
   !-----------------------------------------------------------------------
@@ -875,13 +870,11 @@ CONTAINS
     REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
 
-    REAL(wp), ALLOCATABLE :: total_sum(:)
-    ALLOCATE( total_sum(SIZE(mean)))
-    
+    REAL(wp) :: total_sum(SIZE(mean))
+
     CALL LevelHorizontalSum_3D_InRange_2Dweights(values=values, weights=weights, in_subset=in_subset, &
       & total_sum=total_sum, start_level=start_level, end_level=end_level, mean=mean)
-    
-    DEALLOCATE( total_sum)
+
   END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
@@ -896,9 +889,10 @@ CONTAINS
     TYPE(t_subset_range), TARGET :: in_subset
     INTEGER, OPTIONAL :: start_level, end_level
 
-    REAL(wp), ALLOCATABLE, TARGET :: levelWeights(:), levelWeightedSum(:)
+    REAL(wp) :: levelWeights(SIZE(values, VerticalDim_Position)), &
+         levelWeightedSum(SIZE(values, VerticalDim_Position))
     REAL(wp) ::  totalWeight, totalSum
-    INTEGER :: level, start_vertical, end_vertical, allocated_levels
+    INTEGER :: level, start_vertical, end_vertical
 
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -910,8 +904,6 @@ CONTAINS
     ELSE
       end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
-    allocated_levels = SIZE(values, VerticalDim_Position)
-    ALLOCATE( levelWeights(allocated_levels), levelWeightedSum(allocated_levels) )
 
     CALL LevelHorizontalSum_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
       & total_sum=levelWeightedSum, start_level=start_level, end_level=end_level, sumLevelWeights=levelWeights)
@@ -924,7 +916,6 @@ CONTAINS
     ENDDO
 
     TotalWeightedMean_3D_InRange_3Dweights = totalSum / totalWeight
-    DEALLOCATE(levelWeights, levelWeightedSum)
 
   END FUNCTION TotalWeightedMean_3D_InRange_3Dweights
   !-----------------------------------------------------------------------
@@ -1061,14 +1052,11 @@ CONTAINS
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: sumLevelWeights(:)   ! the sum of the weights in each level
 
-    REAL(wp), ALLOCATABLE :: sumLevels(:)
-    ALLOCATE( sumLevels(SIZE(mean)))
-    
+    REAL(wp) :: sumLevels(SIZE(mean))
+
     CALL LevelHorizontalSum_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
       & total_sum=sumLevels, start_level=start_level, end_level=end_level, mean=mean, sumLevelWeights=sumLevelWeights)
 
-    DEALLOCATE( sumLevels)
-    
   END SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights
   !-----------------------------------------------------------------------
 
