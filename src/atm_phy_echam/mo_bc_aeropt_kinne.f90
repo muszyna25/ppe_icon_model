@@ -59,7 +59,7 @@ MODULE mo_bc_aeropt_kinne
      REAL(wp), ALLOCATABLE :: z_km_aer_c_mo(:,:,:,:)
   END TYPE t_ext_aeropt_kinne
 
-  TYPE(t_ext_aeropt_kinne), ALLOCATABLE, TARGET :: ext_aeropt_kinne(:)
+  TYPE(t_ext_aeropt_kinne), ALLOCATABLE :: ext_aeropt_kinne(:)
 
   INTEGER(i8), SAVE                :: pre_year(max_dom)=-HUGE(1)
   INTEGER, PARAMETER               :: lev_clim=40
@@ -243,14 +243,22 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
 
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%ssa_c_s,                   &
+                     ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%z_km_aer_c_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+                     imonthe,          iyear,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+    ! for the coarse mode, the altitude distribution is wavelength independent and
+    ! therefore for solar and long wave spectrum the same
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)% ssa_c_f,                  &
+                     ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)% z_km_aer_c_mo,            &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          iyear,    'bc_aeropt_kinne_lw_b16_coa', p_patch             )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
+                     ext_aeropt_kinne(jg)%aod_f_s, ext_aeropt_kinne(jg)%ssa_f_s,                   &
+                     ext_aeropt_kinne(jg)%asy_f_s, ext_aeropt_kinne(jg)%z_km_aer_f_mo,             &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_fin', p_patch             )
 
@@ -458,6 +466,7 @@ END SUBROUTINE set_bc_aeropt_kinne
 !!
 SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   caod,             cssa,             casy,               caer_ex,         &
+  zaod,             zssa,             zasy,               zaer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
   imnthe,           iyear,            cfname,             p_patch          )
 !
@@ -481,7 +490,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   TYPE(t_patch), INTENT(in) :: p_patch
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
-  REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
+  REAL(wp), INTENT(out)          :: zaod(:,:,:,0:), zssa(:,:,:,0:), zasy(:,:,:,0:), zaer_ex(:,:,:,0:)
   ! optional space for _DOM99 suffix
   CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
   ! optional space for _YYYY.nc suffix
@@ -501,25 +510,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
       &         message_text)
   END IF
   ilen_cfname=LEN_TRIM(cfname)
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_coa') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_c_s
-    zssa    => ext_aeropt_kinne(jg)% ssa_c_s
-    zasy    => ext_aeropt_kinne(jg)% asy_c_s
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_c_mo
-  END IF
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_lw_b16_coa') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_c_f
-    zssa    => ext_aeropt_kinne(jg)% ssa_c_f
-    zasy    => ext_aeropt_kinne(jg)% asy_c_f
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_c_mo ! for the coarse mode, the altitude distribution is wavelength independent and
-                                                   ! therefore for solar and long wave spectrum the same
-  END IF
-  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin') THEN
-    zaod    => ext_aeropt_kinne(jg)% aod_f_s
-    zssa    => ext_aeropt_kinne(jg)% ssa_f_s
-    zasy    => ext_aeropt_kinne(jg)% asy_f_s
-    zaer_ex => ext_aeropt_kinne(jg)% z_km_aer_f_mo
-  END IF
 
   ! Add domain index if more than 1 grid is used
   IF (n_dom > 1) THEN
