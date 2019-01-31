@@ -7922,7 +7922,7 @@ REAL (KIND=ireals), TARGET &
 #if defined HAVE_FC_ATTRIBUTE_CONTIGUOUS && (!defined _CRAYFTN || _RELEASE > 8 || (_RELEASE == 8 && _RELEASE_MINOR > 4))
      , CONTIGUOUS &
 #endif
-     , OPTIONAL, INTENT(INOUT) :: &
+     , OPTIONAL, INTENT(OUT) :: &
 !
    rpdep(:,:), & !reciprocal depth of two consecutive layers
    auxil(:,:)    !target for layer depth, when 'depth' contains boundary level height
