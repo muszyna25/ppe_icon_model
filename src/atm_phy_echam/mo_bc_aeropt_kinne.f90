@@ -482,7 +482,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
   TYPE(t_stream_id)              :: stream_id
-  REAL(wp), POINTER              :: zvar(:,:,:,:)
   REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
   ! optional space for _DOM99 suffix
   CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
@@ -551,99 +550,69 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
    &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caod, &
+           &          fill_array=zaod(:,:,:,0:0), &
+           &          start_timestep=12, end_timestep=12, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zaod(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaod(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=cssa, &
+           &          fill_array=zssa(:,:,:,0:0), &
+           &          start_timestep=12, end_timestep=12, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zssa(:,:,:,0:0)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zssa(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=casy, &
+           &          fill_array=zasy(:,:,:,0:0), &
+           &          start_timestep=12, end_timestep=12, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zasy(:,:,:,0:0)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zasy(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-           &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caer_ex, &
+           &          fill_array=zaer_ex(:,:,:,0:0), &
+           &          start_timestep=12, end_timestep=12, &
            &          levelsDimName=clevdim)
-    CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaer_ex(:,:,:,0)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
     CALL closeFile(stream_id)
   END IF
 
-  ! Read data for current year
 
-  WRITE(cyear,*) iyear
-    
+  ! Read data for current year
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
      ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
     &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-      cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    WRITE(cyear,*) iyear
+    cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
   ENDIF
-
   CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
    &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-
   stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
   kmonthb=MAX(1,imnthb)
   kmonthe=MIN(12,imnthe)
-
-  nmonths = kmonthe-kmonthb+1
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zaod(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zssa(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=cwldim)
-  CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
-                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zasy(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-         &          levelsDimName=clevdim)
-  CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-  zaer_ex(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
-  DEALLOCATE(zvar)
-
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+       &            variable_name=caod, &
+       &            fill_array=zaod(:,:,:,kmonthb:kmonthe), &
+       &            start_timestep=kmonthb, end_timestep=kmonthe, &
+       &            levelsDimName=cwldim)
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+       &            variable_name=cssa, &
+       &            fill_array=zssa(:,:,:,kmonthb:kmonthe), &
+       &            start_timestep=kmonthb, end_timestep=kmonthe, &
+       &            levelsDimName=cwldim)
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+       &            variable_name=casy, &
+       &            fill_array=zasy(:,:,:,kmonthb:kmonthe), &
+       &            start_timestep=kmonthb, end_timestep=kmonthe, &
+       &            levelsDimName=cwldim)
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+       &            variable_name=caer_ex, &
+       &            fill_array=zaer_ex(:,:,:,kmonthb:kmonthe), &
+       &            start_timestep=kmonthb, end_timestep=kmonthe, &
+       &            levelsDimName=clevdim)
   CALL closeFile(stream_id)
 
   ! Read data for first month of next year
-
   IF (imnthe == 13) THEN
 
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
@@ -660,37 +629,26 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
 
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caod, &
+           &          fill_array=zaod(:,:,:,13:13), &
+           &          start_timestep=1, end_timestep=1, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zaod(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')    
-    zaod(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=cssa, &
+           &          fill_array=zssa(:,:,:,13:13), &
+           &          start_timestep=1, end_timestep=1, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zssa(:,:,:,13:13)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zssa(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=casy, &
+           &          fill_array=zasy(:,:,:,13:13), &
+           &          start_timestep=1, end_timestep=1, &
            &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zasy(:,:,:,13:13)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zasy(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-           &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caer_ex, &
+           &          fill_array=zaer_ex(:,:,:,13:13), &
+           &          start_timestep=1, end_timestep=1, &
            &          levelsDimName=clevdim)
-    CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaer_ex(:,:,:,13)=zvar(:,:,:,1)
-    DEALLOCATE(zvar)
     CALL closeFile(stream_id)
 
   END IF
@@ -703,32 +661,4 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   CALL closeFile(ifile_id)
 
   END SUBROUTINE read_months_bc_aeropt_kinne
-!-------------------------------------------------------------------------
-! 
-!> SUBROUTINE size_check_zerofields -- checks the shape of the shape of the 
-!! fields read into the icon program
-
-  SUBROUTINE shape_check_fields(kdim_icon,kdim_file,cfname,cvarname,croutine_name,cmodule_name)
-    INTEGER,INTENT(in)            :: kdim_icon(:), kdim_file(:)
-    CHARACTER(LEN=*), INTENT(in)  :: cfname, cvarname, croutine_name, cmodule_name
-    INTEGER                       :: idim
-    CHARACTER(LEN=2)              :: cidim 
-    CHARACTER(LEN=32)             :: cidim_len_file, cidim_len_icon
-    IF (SIZE(kdim_icon) /= SIZE(kdim_file)) THEN
-      CALL finish(TRIM(ADJUSTL(croutine_name))//' of '//TRIM(ADJUSTL(cmodule_name )), &
-                  'variable '//TRIM(ADJUSTL(cvarname))//' has wrong number of dimensions in file ' &
-                  //TRIM(ADJUSTL(cfname)))
-    END IF
-    DO idim=1,SIZE(kdim_icon)
-      IF (kdim_icon(idim) /= kdim_file(idim)) THEN
-        WRITE(cidim,'(i2)') idim
-        WRITE(cidim_len_icon,'(i32)') kdim_icon(idim)
-        WRITE(cidim_len_file,'(i32)') kdim_file(idim)
-        CALL finish(TRIM(ADJUSTL(croutine_name))//' of '//TRIM(ADJUSTL(cmodule_name )), &
-                  'variable '//TRIM(ADJUSTL(cvarname))//' has wrong length in dimension ' &
-                  //TRIM(ADJUSTL(cidim))//' length in icon model: '//TRIM(ADJUSTL(cidim_len_icon)) &
-                  //' but length in file '//TRIM(ADJUSTL(cfname))//' is '//TRIM(ADJUSTL(cidim_len_file)))
-      END IF
-    END DO
-  END SUBROUTINE shape_check_fields
 END MODULE mo_bc_aeropt_kinne
