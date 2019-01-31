@@ -481,7 +481,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   TYPE(t_patch), INTENT(in) :: p_patch
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
-  TYPE(t_stream_id)              :: stream_id
   REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
   ! optional space for _DOM99 suffix
   CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
@@ -547,32 +546,12 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
-    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=caod, &
-           &          fill_array=zaod(:,:,:,0:0), &
-           &          start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=cssa, &
-           &          fill_array=zssa(:,:,:,0:0), &
-           &          start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=casy, &
-           &          fill_array=zasy(:,:,:,0:0), &
-           &          start_timestep=12, end_timestep=12, &
-           &          levelsDimName=cwldim)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=caer_ex, &
-           &          fill_array=zaer_ex(:,:,:,0:0), &
-           &          start_timestep=12, end_timestep=12, &
-           &          levelsDimName=clevdim)
-    CALL closeFile(stream_id)
+    CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+         p_patch, caod, cssa, casy, caer_ex, &
+         zaod=zaod(:,:,:,0:0), zssa=zssa(:,:,:,0:0), &
+         zasy=zasy(:,:,:,0:0), zaer_ex=zaer_ex(:,:,:,0:0), &
+         start_timestep=12, end_timestep=12, &
+         cwldim=cwldim, clevdim=clevdim)
   END IF
 
 
@@ -585,32 +564,14 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
   ENDIF
-  CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-  stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
   kmonthb=MAX(1,imnthb)
   kmonthe=MIN(12,imnthe)
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-       &            variable_name=caod, &
-       &            fill_array=zaod(:,:,:,kmonthb:kmonthe), &
-       &            start_timestep=kmonthb, end_timestep=kmonthe, &
-       &            levelsDimName=cwldim)
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-       &            variable_name=cssa, &
-       &            fill_array=zssa(:,:,:,kmonthb:kmonthe), &
-       &            start_timestep=kmonthb, end_timestep=kmonthe, &
-       &            levelsDimName=cwldim)
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-       &            variable_name=casy, &
-       &            fill_array=zasy(:,:,:,kmonthb:kmonthe), &
-       &            start_timestep=kmonthb, end_timestep=kmonthe, &
-       &            levelsDimName=cwldim)
-  CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-       &            variable_name=caer_ex, &
-       &            fill_array=zaer_ex(:,:,:,kmonthb:kmonthe), &
-       &            start_timestep=kmonthb, end_timestep=kmonthe, &
-       &            levelsDimName=clevdim)
-  CALL closeFile(stream_id)
+  CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+       p_patch, caod, cssa, casy, caer_ex, &
+       zaod=zaod(:,:,:,kmonthb:kmonthe), zssa=zssa(:,:,:,kmonthb:kmonthe), &
+       zasy=zasy(:,:,:,kmonthb:kmonthe), zaer_ex=zaer_ex(:,:,:,kmonthb:kmonthe), &
+       start_timestep=kmonthb, end_timestep=kmonthe, &
+       cwldim=cwldim, clevdim=clevdim)
 
   ! Read data for first month of next year
   IF (imnthe == 13) THEN
@@ -624,33 +585,12 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
 
-    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
-
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=caod, &
-           &          fill_array=zaod(:,:,:,13:13), &
-           &          start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=cssa, &
-           &          fill_array=zssa(:,:,:,13:13), &
-           &          start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=casy, &
-           &          fill_array=zasy(:,:,:,13:13), &
-           &          start_timestep=1, end_timestep=1, &
-           &          levelsDimName=cwldim)
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
-           &          variable_name=caer_ex, &
-           &          fill_array=zaer_ex(:,:,:,13:13), &
-           &          start_timestep=1, end_timestep=1, &
-           &          levelsDimName=clevdim)
-    CALL closeFile(stream_id)
-
+    CALL read_single_month_bc_aeropt_kinne(cfnameyear, &
+         p_patch, caod, cssa, casy, caer_ex, &
+         zaod=zaod(:,:,:,13:13), zssa=zssa(:,:,:,13:13), &
+         zasy=zasy(:,:,:,13:13), zaer_ex=zaer_ex(:,:,:,13:13), &
+         start_timestep=1, end_timestep=1, &
+         cwldim=cwldim, clevdim=clevdim)
   END IF
 
   ! we assume here that delta_z (aka dz_clim) does not vary over the files
@@ -660,5 +600,40 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
   CALL closeFile(ifile_id)
 
-  END SUBROUTINE read_months_bc_aeropt_kinne
+END SUBROUTINE read_months_bc_aeropt_kinne
+
+  SUBROUTINE read_single_month_bc_aeropt_kinne(cfnameyear, p_patch, &
+       caod, cssa, casy, caer_ex, zaod, zssa, zasy, zaer_ex, &
+       start_timestep, end_timestep, cwldim, clevdim)
+    CHARACTER(len=*), INTENT(in) :: cfnameyear, caod, cssa, casy, caer_ex, &
+         cwldim, clevdim
+    TYPE(t_patch), INTENT(in) :: p_patch
+    INTEGER, INTENT(in) :: start_timestep, end_timestep
+    REAL(wp), INTENT(out) :: zaod(:,:,:,:), zssa(:,:,:,:), &
+         zasy(:,:,:,:), zaer_ex(:,:,:,:)
+    TYPE(t_stream_id)              :: stream_id
+
+    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
+     &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
+    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
+
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caod, fill_array=zaod, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=cssa, fill_array=zssa, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=casy, fill_array=zasy, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=cwldim)
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
+           &          variable_name=caer_ex, fill_array=zaer_ex, &
+           &          start_timestep=start_timestep, end_timestep=end_timestep, &
+           &          levelsDimName=clevdim)
+    CALL closeFile(stream_id)
+
+  END SUBROUTINE read_single_month_bc_aeropt_kinne
 END MODULE mo_bc_aeropt_kinne
