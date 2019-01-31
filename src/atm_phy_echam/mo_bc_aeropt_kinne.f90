@@ -495,7 +495,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   CHARACTER(LEN=LEN(cfname)+6)   :: cfname2
   ! optional space for _YYYY.nc suffix
   CHARACTER(LEN=LEN(cfname)+6+12+4) :: cfnameyear
-  CHARACTER(len=12)              :: cyear
   INTEGER :: cfname2_tlen
 
   INTEGER                        :: jg
@@ -530,8 +529,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-      WRITE(cyear,'(i0)') iyear-1
-      cfnameyear=cfname2(1:cfname2_tlen)//'_'//TRIM(cyear)//'.nc'
+      WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear-1, '.nc'
     ELSE
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
@@ -549,8 +547,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
      ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
     &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-    WRITE(cyear,*) iyear
-    cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear, '.nc'
   ELSE
     cfnameyear=TRIM(cfname2)//'.nc'
   ENDIF
@@ -569,8 +566,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
        ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
       &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
-      WRITE(cyear,'(i0)') iyear+1
-      cfnameyear=cfname2(1:cfname2_tlen)//'_'//TRIM(cyear)//'.nc'
+      WRITE(cfnameyear,'(2a,i0,a)') cfname2(1:cfname2_tlen), '_', iyear+1, '.nc'
     ELSE
       cfnameyear=cfname2(1:cfname2_tlen)//'.nc'
     ENDIF
