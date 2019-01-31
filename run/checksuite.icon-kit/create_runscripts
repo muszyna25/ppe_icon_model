@@ -20,6 +20,7 @@ case $PARAM in
 		;;
   --log_file)
     log_file=$VALUE
+    ;;
      -h | --help)
        usage
        exit
