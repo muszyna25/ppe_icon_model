@@ -135,7 +135,7 @@ d=`date -d today +%Y%m%d`
 complete_output_folder=${output_folder}/${d}/$1
 OUTDIR=$complete_output_folder
 OUTDIR_PREFIX=`dirname ${OUTDIR}`
-output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 OUTDIR=$complete_output_folder
 icon_data_poolFolder=$icon_data_poolFolder
 EXPERIMENT=$1
@@ -178,7 +178,7 @@ EOF
 }
 function create_footer
 {
-output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 
 cat >> $output_script << EOF
 	
@@ -250,7 +250,7 @@ function create_body
 
 function create_lart_loop_start
 {
-output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 cat >> $output_script << EOF
 	
 for iter in 1 2 ; do
@@ -283,7 +283,7 @@ EOF
 
 function create_lart_loop_end
 {
-output_script=$ICON_FOLDER/run/checksuite.icon-kit/$1.run
+output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 cat >> $output_script << EOF
 
 done
@@ -293,7 +293,7 @@ EOF
 
 function check_action
 {
-output_script=$2.run
+output_script=runscripts/$2.run
 	
 	case x"$1" in 
 		xrun*)
