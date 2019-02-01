@@ -22,6 +22,9 @@ function set_cluster {
      ;;
    xxce*) :
      echo "...XCE at DWD"; CENTER="DWD"
+         . /opt/modules/3.2.10.3/init/ksh
+         input_folder="${SCRATCH}/TESTSUITE_INPUT/"
+         output_folder="${WORK}/TESTSUITE_OUTPUT" 
 	 FILETYPE="4" 
 	 if [[ ":${PE_ENV}" != ':CRAY' ]] ; then
           module unload libdwd grib_api
@@ -33,7 +36,6 @@ function set_cluster {
           esac
           module swap ${prgenv_} PrgEnv-cray
        fi
-       module swap cce cce/${compiler_version}
        module load cray-netcdf perftools stat
        module load libdwd
        module load grib_api
@@ -236,6 +238,44 @@ sbatch job_ICON
 
 EOF
 ;;
+
+  xxce*)
+cat >> $output_script << EOF
+PBS_O_WORKDIR='\${PBS_O_WORKDIR}'
+cat > icon.job <<ENDFILEDWD
+#!/bin/ksh
+#-----------------------------------------------------------------------------
+#PBS -q xc_norm_h
+#PBS -l select=6:ompthreads=4
+#PBS -l place=scatter
+#PBS -l walltime=00:60:00
+#PBS -j oe
+# ----------------------------------------------------------------------
+set -x
+
+ export OMP_SCHEDULE="static"
+ export OMP_DYNAMIC="false"
+#export OMP_STACKSIZE=256M
+ export ATP_ENABLED=1
+ export MPICH_RMA_OVER_DMAPP=1
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+ if [[ -n "\${PBS_O_WORKDIR}" ]] ; then
+    cd "\${PBS_O_WORKDIR}"
+ fi
+
+# run ICON
+ aprun  -n 72 -N 12 -j 2 -d 4 -m 3g icon.exe
+
+ENDFILEDWD
+
+      # submit the job
+      qsub icon.job
+
+      ##       
+EOF
+
 esac
 
 

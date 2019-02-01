@@ -1,4 +1,3 @@
-runctrl_examples/run_scripts/exp.testsuite.amip_base AMIP none 00:15:00 develop nodes=4
 runctrl_examples/run_scripts/exp.testsuite.chem0_base CHEM0 none 00:15:00 develop nodes=4
 runctrl_examples/run_scripts/exp.testsuite.chem0.emiss_base CHEM0_EMISS none 00:15:00 develop nodes=4
 runctrl_examples/run_scripts/exp.testsuite.wooART_base CHEM0 lART 01:00:00 normal nodes=10
