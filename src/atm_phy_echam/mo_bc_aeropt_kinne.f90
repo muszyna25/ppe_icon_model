@@ -23,19 +23,22 @@ MODULE mo_bc_aeropt_kinne
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
   USE mo_psrad_general,        ONLY: nbndlw, nbndsw
-  USE mo_exception,            ONLY: finish, message
+  USE mo_exception,            ONLY: finish, message, message_text
   USE mo_io_config,            ONLY: default_read_method
+  USE mo_time_config,          ONLY: time_config
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
-  USE mo_echam_phy_config,     ONLY: echam_phy_config
-  USE mtime,                   ONLY: datetime 
+  USE mo_echam_rad_config,     ONLY: echam_rad_config
+  USE mtime,                   ONLY: datetime
+
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
-  
+
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC                           :: read_bc_aeropt_kinne, set_bc_aeropt_kinne 
+  PUBLIC                           :: read_bc_aeropt_kinne, &
+    &                                 set_bc_aeropt_kinne
 
   TYPE t_ext_aeropt_kinne
      ! Fine mode SW
@@ -58,12 +61,18 @@ MODULE mo_bc_aeropt_kinne
 
   TYPE(t_ext_aeropt_kinne), ALLOCATABLE, TARGET :: ext_aeropt_kinne(:)
 
-  INTEGER(i8), SAVE                :: pre_year(max_dom)=-999999
-  INTEGER, PARAMETER               :: lev_clim=40, nmonths=12
+  INTEGER(i8), SAVE                :: pre_year(max_dom)=-HUGE(1)
+  INTEGER, PARAMETER               :: lev_clim=40
   REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
 
+  INTEGER                            :: nyears
+  TYPE(t_time_interpolation_weights) :: tiw_beg
+  TYPE(t_time_interpolation_weights) :: tiw_end
+  LOGICAL                            :: lend_of_year
+
 CONTAINS
+  !>
   !>
   !! SUBROUTINE su_bc_aeropt_kinne -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
@@ -73,23 +82,56 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
 
   INTEGER                         :: jg
   INTEGER                         :: nblks_len, nblks
+  INTEGER                         :: imonth_beg, imonth_end
 
   jg = p_patch%id
 
   nblks=p_patch%nblks_c
   nblks_len=nproma
+
+  ! Check after merging icon-aes-link-echam-bc
+
+  tiw_beg = calculate_time_interpolation_weights(time_config%tc_startdate)
+  tiw_end = calculate_time_interpolation_weights(time_config%tc_stopdate)
+
+  lend_of_year = ( time_config%tc_stopdate%date%month  == 1  .AND. &
+    &              time_config%tc_stopdate%date%day    == 1  .AND. &
+    &              time_config%tc_stopdate%time%hour   == 0  .AND. &
+    &              time_config%tc_stopdate%time%minute == 0  .AND. &
+    &              time_config%tc_stopdate%time%second == 0 ) 
+
+  nyears = time_config%tc_stopdate%date%year - time_config%tc_startdate%date%year + 1
+  IF ( lend_of_year ) nyears = nyears - 1
+
+  ! ----------------------------------------------------------------------
+
+  IF ( nyears > 1 .OR. lend_of_year ) THEN
+    imonth_beg = 0
+    imonth_end = 13  
+  ELSE
+    imonth_beg = tiw_beg%month1_index
+    imonth_end = tiw_end%month2_index
+  ENDIF
+
+  WRITE(message_text,'(a,i2,a,i2)') &
+     & ' Allocating Kinne aerosols for months ', imonth_beg, ' to ', imonth_end
+  CALL message('mo_bc_aeropt_kinne:su_bc_aeropt_kinne', message_text)
+
+! on first call allocate structure for all grids
+  IF ( jg == 1 ) ALLOCATE(ext_aeropt_kinne(n_dom))
+
 ! allocate memory for optical properties on grid jg
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_f_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_f_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_f_s(nblks_len,nbndsw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_f(nblks_len,nbndlw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_f(nblks_len,nbndlw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_f(nblks_len,nbndlw,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_c_mo(nblks_len,lev_clim,nblks,0:nmonths+1))
-  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_f_mo(nblks_len,lev_clim,nblks,0:nmonths+1))
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_f_s(nblks_len,nbndsw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% aod_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% ssa_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% asy_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_c_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
+  ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_f_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
 ! initialize with zero
   ext_aeropt_kinne(jg)% aod_c_s(:,:,:,:) = 0._wp
   ext_aeropt_kinne(jg)% aod_f_s(:,:,:,:) = 0._wp
@@ -115,6 +157,10 @@ SUBROUTINE shift_months_bc_aeropt_kinne(p_patch)
 
   jg = p_patch%id
 
+  IF ( .NOT. ALLOCATED(ext_aeropt_kinne) ) &
+     &  CALL finish('mo_bc_aeropt_kinne:shift_months_bc_aeropt_kinne', &
+     &              'ext_aeropt_kinne is not allocated')
+
   ext_aeropt_kinne(jg)% aod_c_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% aod_c_s(:,:,:,12:13)
   ext_aeropt_kinne(jg)% aod_f_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% aod_f_s(:,:,:,12:13)
   ext_aeropt_kinne(jg)% ssa_c_s(:,:,:,0:1) = ext_aeropt_kinne(jg)% ssa_c_s(:,:,:,12:13)
@@ -128,46 +174,72 @@ SUBROUTINE shift_months_bc_aeropt_kinne(p_patch)
 END SUBROUTINE shift_months_bc_aeropt_kinne
 
   !> SUBROUTINE read_bc_aeropt_kinne -- read the aerosol optical properties 
-  !! of the Kinne aerosols
+  !! of the Kinne aerosols for the whole run at the beginning of the run
+  !! before entering the time loop
 
-SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
+SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
   
-  INTEGER(i8), INTENT(in)       :: year
-  TYPE(t_patch), INTENT(in)     :: p_patch
-
+  TYPE(datetime), POINTER, INTENT(in) :: mtime_current
+  TYPE(t_patch), INTENT(in)           :: p_patch
+ 
   !LOCAL VARIABLES
+  INTEGER(I8)                   :: iyear
   INTEGER                       :: imonthb, imonthe
   INTEGER                       :: jg
 
   jg = p_patch%id
 
-  ! allocate once only structure for all grids
-  IF (.NOT. ALLOCATED(ext_aeropt_kinne)) ALLOCATE(ext_aeropt_kinne(n_dom))
+  iyear = mtime_current%date%year
 
-  IF (year > pre_year(jg)) THEN
-    IF (ALLOCATED(ext_aeropt_kinne(jg)%aod_c_s)) THEN
+  IF (iyear > pre_year(jg)) THEN
+
+    ! beginning of job or change of year
+
+    IF ( pre_year(jg) > -HUGE(1) ) THEN
       CALL shift_months_bc_aeropt_kinne(p_patch)
-      imonthb=2
-      imonthe=13
     ELSE
       CALL su_bc_aeropt_kinne(p_patch)
-      imonthb=0
-      imonthe=13
     ENDIF
+
+    ! Restrict reading of data to those months that are needed
+
+    IF ( nyears > 1 ) THEN
+
+      IF ( pre_year(jg) > -HUGE(1) ) THEN
+        ! second and following years of current run
+        imonthb = 2
+        imonthe = 13
+      ELSE
+        ! first year of current run
+        imonthb = 0
+        imonthe = 13
+      ENDIF
+
+    ELSE
+
+      ! only less or equal one year in current run
+      imonthb = tiw_beg%month1_index
+      imonthe = tiw_end%month2_index
+      IF ( lend_of_year ) imonthe = 13
+
+    ENDIF
+
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_coa', p_patch             )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_lw_b16_coa', p_patch             )
+                     imonthe,          iyear,    'bc_aeropt_kinne_lw_b16_coa', p_patch             )
     CALL read_months_bc_aeropt_kinne ( &
                      'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
-                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch             )
-    rdz_clim=1._wp/dz_clim
-    pre_year(jg)=year
+                     imonthe,          iyear,    'bc_aeropt_kinne_sw_b14_fin', p_patch             )
+
+    rdz_clim = 1._wp/dz_clim
+    pre_year(jg) = mtime_current%date%year
+
   END IF    
 END SUBROUTINE read_bc_aeropt_kinne
 !-------------------------------------------------------------------------
@@ -175,7 +247,7 @@ END SUBROUTINE read_bc_aeropt_kinne
 !! set aerosol optical properties for all wave length bands (solar and IR)
 !! in the case of the climatology of optical properties compiled by S.Kinne.
 !! The height profile is taken into account.
-!!
+   !!
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2009-11-03) for echam6
 !! adapted to icon by J.S. Rast (2013-08-28)
@@ -213,7 +285,7 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
 
 ! !LOCAL VARIABLES
   
-  INTEGER                     :: jl,jk,jwl
+  INTEGER                           :: jl,jk,jwl
   REAL(wp), DIMENSION(kbdim,klev)   :: zh_vr, &
                                        zdeltag_vr
   REAL(wp), DIMENSION(kbdim)        :: zq_int ! integral height profile
@@ -233,13 +305,14 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
   TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)
-  
+
 ! (i) calculate altitude above NN and layer thickness in 
 !     echam for altitude profiles
      DO jk=1,klev
         zdeltag_vr(jcs:kproma,jk)=dz(jcs:kproma,klev-jk+1)
         zh_vr(jcs:kproma,jk)=zf(jcs:kproma,klev-jk+1)
      END DO
+
 ! (ii) calculate height profiles on echam grid for coarse and fine mode
      zq_aod_f(jcs:kproma,1:klev)=0._wp
      zq_aod_c(jcs:kproma,1:klev)=0._wp
@@ -297,7 +370,8 @@ SUBROUTINE set_bc_aeropt_kinne (    current_date,                         &
                  tiw%weight2*ext_aeropt_kinne(jg)% aod_c_f(jcs:kproma,jwl,krow,tiw%month2_index)) 
         END DO
      END DO
-! (iii) solar radiation
+
+! (iv) solar radiation
 ! time interpolated single scattering albedo (omega_f, omega_c)
      zs_c(jcs:kproma,1:nb_sw) = tiw%weight1*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month1_index) + &
                                 tiw%weight2*ext_aeropt_kinne(jg)% ssa_c_s(jcs:kproma,1:nb_sw,krow,tiw%month2_index)
@@ -360,27 +434,31 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
   imnthe,           iyear,            cfname,             p_patch          )
 !
-  CHARACTER(len=*), INTENT(in)   :: caod,    &! name of variable containing optical depth of column
-                                    cssa,    &! name of variable containing single scattering albedo 
-                                    casy,    &! name of variable containing asymmetry factor
-                                              ! ssa and asy are assumed to be constant over column
-                                    caer_ex, &! name of variable containing altitude dependent extinction
-                                              ! aer_ex is normed to 1 (total over column is equal to 1)
-                                    cdz_clim,&! layer thickness of climatology in meters
-                                    cwldim,  &! name of wavelength dimension
-                                    clevdim   ! name of level dimension in climatology
-  INTEGER, INTENT(in)            :: imnthb, imnthe !begin and end month to be read
-  INTEGER(i8), INTENT(in)        :: iyear ! base year. if month=0, month 12 of previous year is read, if month=13, month 1
-                                          ! of subsequent year is read
-  CHARACTER(len=*), INTENT(in)   :: cfname   ! file name containing variables
+  CHARACTER(len=*), INTENT(in)   :: caod,    & ! name of variable containing optical depth of column
+                                    cssa,    & ! name of variable containing single scattering albedo 
+                                    casy,    & ! name of variable containing asymmetry factor
+                                               ! ssa and asy are assumed to be constant over column
+                                    caer_ex, & ! name of variable containing altitude dependent extinction
+                                               ! aer_ex is normed to 1 (total over column is equal to 1)
+                                    cdz_clim,& ! layer thickness of climatology in meters
+                                    cwldim,  & ! name of wavelength dimension
+                                    clevdim    ! name of level dimension in climatology
+
+  INTEGER, INTENT(in)            :: imnthb,  & ! begin and ...
+                                    imnthe     ! ... end month to be read
+
+  INTEGER(i8), INTENT(in)        :: iyear      ! base year. if month=0, month 12 of previous year is read,
+                                               ! if month=13, month 1 of subsequent year is read
+  CHARACTER(len=*), INTENT(in)   :: cfname     ! file name containing variables
+
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 
-  INTEGER                        :: ifile_id, kmonthb, kmonthe, ilen_cfname
+  INTEGER                        :: ifile_id, kmonthb, kmonthe, nmonths, ilen_cfname
   TYPE(t_stream_id)              :: stream_id
   REAL(wp), POINTER              :: zvar(:,:,:,:)
   REAL(wp), POINTER              :: zaod(:,:,:,:), zssa(:,:,:,:), zasy(:,:,:,:), zaer_ex(:,:,:,:)
   CHARACTER(LEN=32)              :: cimnthb, cimnthe
-  CHARACTER(LEN=512)             :: cfname2,cfnameyear,cyear
+  CHARACTER(LEN=256)             :: cfname2, cfnameyear, cyear
 
   INTEGER                        :: jg
 
@@ -419,11 +497,19 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
      cfname2=cfname
   END IF
 
+  WRITE(message_text,'(a,i2,a,i2)') ' Reading Kinne aerosols for months ', imnthb, ' to ', imnthe
+  CALL message('mo_bc_aeropt_kinne:read_months_bc_aeropt_kinne', message_text)
+
+  ! Read data for last month of previous year
+
   IF (imnthb == 0) THEN
+
     WRITE(cyear,*) iyear-1
 
-    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
-      cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
+       ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
+      &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
+        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
     ELSE
       cfnameyear=TRIM(cfname2)//'.nc'
     ENDIF
@@ -431,7 +517,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
    &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-!    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
+
     CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
            &          return_pointer=zvar, start_timestep=12, end_timestep=12, &
            &          levelsDimName=cwldim)
@@ -465,64 +551,81 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     DEALLOCATE(zvar)
     CALL closeFile(stream_id)
   END IF
-  IF (imnthe > 0) THEN
-    WRITE(cyear,*) iyear
 
-    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+  ! Read data for current year
+
+  WRITE(cyear,*) iyear
+    
+  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
+     ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
+    &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
       cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
-    ELSE
-      cfnameyear=TRIM(cfname2)//'.nc'
-    ENDIF
+  ELSE
+    cfnameyear=TRIM(cfname2)//'.nc'
+  ENDIF
 
-    stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-    kmonthb=MAX(1,imnthb)
-    kmonthe=MIN(12,imnthe)
-!    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
+  CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
+   &            'reading from file '//TRIM(ADJUSTL(cfnameyear)))
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
-           &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaod(:,:,:,kmonthb:kmonthe)=zvar
-    DEALLOCATE(zvar)
+  stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
-           &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zssa(:,:,:,kmonthb:kmonthe)=zvar
-    DEALLOCATE(zvar)
+  kmonthb=MAX(1,imnthb)
+  kmonthe=MIN(12,imnthe)
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
-           &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-           &          levelsDimName=cwldim)
-    CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zasy(:,:,:,kmonthb:kmonthe)=zvar
-    DEALLOCATE(zvar)
+  nmonths = kmonthe-kmonthb+1
 
-    CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
-           &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
-           &          levelsDimName=clevdim)
-    CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
+         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
+         &          levelsDimName=cwldim)
+  CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
+                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
+  zaod(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
+  DEALLOCATE(zvar)
+
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=cssa, &
+         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
+         &          levelsDimName=cwldim)
+  CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
+                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
+  zssa(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
+  DEALLOCATE(zvar)
+
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=casy, &
+         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
+         &          levelsDimName=cwldim)
+  CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
+                                'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
+  zasy(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
+  DEALLOCATE(zvar)
+
+  CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caer_ex, &
+         &          return_pointer=zvar, start_timestep=kmonthb, end_timestep=kmonthe, &
+         &          levelsDimName=clevdim)
+  CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
-    zaer_ex(:,:,:,kmonthb:kmonthe)=zvar
-    DEALLOCATE(zvar)
-    CALL closeFile(stream_id)
-  END IF
+  zaer_ex(:,:,:,kmonthb:kmonthe)=zvar(:,:,:,1:nmonths)
+  DEALLOCATE(zvar)
+
+  CALL closeFile(stream_id)
+
+  ! Read data for first month of next year
+
   IF (imnthe == 13) THEN
+    
     WRITE(cyear,*) iyear+1
 
-    IF ( echam_phy_config(p_patch%id)%lamip ) THEN
-      cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin' .AND. &
+       ( echam_rad_config(p_patch%id)%irad_aero == 13 .OR.          &
+      &  echam_rad_config(p_patch%id)%irad_aero == 15 ) ) THEN
+        cfnameyear=TRIM(cfname2)//'_'//TRIM(ADJUSTL(cyear))//'.nc'
     ELSE
       cfnameyear=TRIM(cfname2)//'.nc'
     ENDIF
 
+    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
+   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
+
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
-!    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
 
     CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &
            &          return_pointer=zvar, start_timestep=1, end_timestep=1, &
@@ -556,10 +659,16 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
     zaer_ex(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     CALL closeFile(stream_id)
-    ifile_id = openInputFile(cfnameyear)
-    dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
-    CALL closeFile(ifile_id)
+
   END IF
+
+  ! we assume here that delta_z (aka dz_clim) does not vary over the files
+  ! thus it does not matter from which file we get these values:
+
+  ifile_id = openInputFile(cfnameyear)
+  dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
+  CALL closeFile(ifile_id)
+
   END SUBROUTINE read_months_bc_aeropt_kinne
 !-------------------------------------------------------------------------
 ! 

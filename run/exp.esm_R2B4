@@ -839,21 +839,11 @@ add_link_file ${datadir}/bc_ozone_cariolle.nc                           ./cariol
 #
 add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
 #
-#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
-#   accessing all the same data of 1850:
+#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
 #   Here we use revised data (r0002) based on work by Sebastian Rast
 #
 datadir=${icon_data_poolFolder}/${atmos_gridID}/aerosol_kinne/r0002
-year=1849
-while [[ $year -le 1851 ]]
-do
-  add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc           ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-  (( year = year+1 ))
-done
-#
 add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
@@ -872,8 +862,6 @@ do
   fi
   (( year = year+1 ))
 done
-#
-add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc        ./bc_aeropt_stenchikov_lw_b16_sw_b14.nc
 #
 # - sst and sic
 #

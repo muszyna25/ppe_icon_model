@@ -211,7 +211,7 @@ CONTAINS
       !
       ! tropospheric aerosol optical properties
       IF (irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(mtime_old%date%year, patch)
+        CALL read_bc_aeropt_kinne(mtime_old, patch)
       END IF
       !
       ! stratospheric aerosol optical properties
@@ -221,14 +221,14 @@ CONTAINS
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (mtime_old%date%year, patch)
+        CALL read_bc_aeropt_kinne     (mtime_old, patch)
         CALL read_bc_aeropt_stenchikov(mtime_old, patch)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (1850_i8, patch)
+        CALL read_bc_aeropt_kinne     (mtime_old, patch)
         CALL read_bc_aeropt_stenchikov(mtime_old, patch)
       END IF
       !
