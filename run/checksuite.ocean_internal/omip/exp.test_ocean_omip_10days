@@ -285,11 +285,22 @@ EOF
 
 
 #-----------------------------------------------------------------------------
-# add standard atmo_non-hydrostatic_files
-#. ${thisdir}/add_required_ocean_files
-
-add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OceanOnly_Icos_0158km_etopo40-40levels.nc initial_state.nc
-add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OceanOnly_Icos_0158km_etopo40.nc ocean-flux.nc
-add_link_file $ocean_data_InputFolder/omipRelaxSurface-OceanOnly_Icos_0158km_etopo40.nc ocean-relax.nc
-
+. ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
+. ${thisdir}/exec.iconrun
+#-----------------------------------------------------------------------------
+#  compare with reference
+if [[ x$BB_SYSTEM != x ]]; then
+  rm -f ${final_status_file}
+. ${thisdir}/postFunx.sh
+  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  cd ${dataPath}
+  slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
+  refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
+
+  directoryDiff ${refDir} .
+  check_final_status $? "DIFFCHECK for exp: ${EXPNAME}"
+  cd -
+fi
+
+exit
