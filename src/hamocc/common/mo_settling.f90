@@ -146,7 +146,7 @@ CONTAINS
 !>
 !! @file settling.f90
 !! @brief compute settling of debris
-      SUBROUTINE settling_pdm (klev,start_idx, end_idx,pddpo,za)
+      SUBROUTINE settling_pdm (klev,start_idx, end_idx,pddpo)
   ! using explicit P2-PDM limiter scheme (=ULTIMATE QUICKEST in Leonard 1991:
   ! The ULTIMATE conservative difference scheme applied to unsteady
   ! one-dimensional advection.
@@ -182,7 +182,6 @@ CONTAINS
       INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
       REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
-      REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
 
 
       ! Local variables

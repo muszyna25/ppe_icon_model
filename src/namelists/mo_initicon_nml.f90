@@ -136,7 +136,10 @@ CONTAINS
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
-  REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
+
+  !> Allows IAU runs to start earlier than the nominal simulation start
+  ! date without showing up in the output metadata:
+  REAL(wp) :: dt_shift
 
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat

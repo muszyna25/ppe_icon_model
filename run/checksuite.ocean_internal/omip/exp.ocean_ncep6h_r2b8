@@ -21,7 +21,7 @@ monthly="P1M"
 file_interval="P1M"
 
 modelTimeStep="PT240S"
-#restartSemaphoreFilename='isRestartRun.sem'
+restartSemaphoreFilename='isRestartRun.sem'
 #if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
 #  modelTimeStep="PT150S"
 #fi
@@ -34,7 +34,7 @@ iforc=12
 
 YEAR="1948"
 if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-    YEAR_=$(cdo -s showyear ../experiments/${EXPNAME}/restart_oce_DOM01.nc)
+    YEAR_=$(cdo -s showyear ../experiments/${EXPNAME}/multifile_restart_oce.mfr/patch1_1.nc)
     YEAR=$(echo $YEAR_ | xargs echo -n )
 fi
 NCEP_FORCING=/work/mh0033/m211054/projects/icon/forcing_ncep/forcing_ncep6h_r2b8/${YEAR}_ncep_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_forcing.nc
@@ -57,6 +57,7 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ io_process_stride = 6
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -70,7 +71,7 @@ cat > ${ocean_namelist} << EOF
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
+ profiling_output     = 1
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
@@ -89,7 +90,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default', 'group:oce_eddy'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -273,6 +274,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -281,6 +284,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 &ocean_diagnostics_nml
   diagnostics_level            = 1
   diagnose_for_horizontalVelocity = .false.
+  eddydiag = .true.
 /
 &io_nml
   restart_file_type = 5
@@ -298,7 +302,7 @@ EOF
 #. ${thisdir}/add_required_ocean_files
 
 add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
-add_link_file $NCEP_FORCINGocean-flux.nc
+add_link_file $NCEP_FORCING ocean-flux.nc
 add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
 
 #-----------------------------------------------------------------------------

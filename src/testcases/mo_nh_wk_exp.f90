@@ -108,10 +108,7 @@ MODULE mo_nh_wk_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_wk( ptr_patch, topo_c, nblks_c, npromz_c )
-
-    TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
-      &  ptr_patch
+  SUBROUTINE init_nh_topo_wk( topo_c, nblks_c, npromz_c )
 
     INTEGER,  INTENT (IN) ::  nblks_c, npromz_c
     REAL(wp), INTENT(INOUT) :: topo_c    (nproma,nblks_c)

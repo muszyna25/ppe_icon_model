@@ -69,7 +69,6 @@ MODULE mo_parallel_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
-  INTEGER :: tmp_nproma
 
 
   CONTAINS

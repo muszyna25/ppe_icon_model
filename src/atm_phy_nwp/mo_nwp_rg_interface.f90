@@ -18,7 +18,7 @@
 MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_exception,            ONLY: message,  finish
+  USE mo_exception,            ONLY: message
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
 
@@ -32,10 +32,8 @@ MODULE mo_nwp_rg_interface
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
   USE mo_radiation_config,     ONLY: vmr_co2
   USE mo_radiation_rg,         ONLY: fesft
-  USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_nwp_rrtm_interface,   ONLY: nwp_ozon_aerosol
   USE mo_satad,                ONLY: qsat_rho
   USE mtime,                   ONLY: datetime

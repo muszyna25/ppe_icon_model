@@ -167,10 +167,12 @@ MODULE mo_mpi
 
   USE mo_kind, ONLY: i4, i8, dp, sp, wp
   USE mo_io_units,       ONLY: nerr
-  USE mo_impl_constants, ONLY: success, pio_type_async, pio_type_cdipio
+  USE mo_impl_constants, ONLY: pio_type_async, pio_type_cdipio
   USE mtime,             ONLY: datetime, max_datetime_str_len, datetimeToString, &
     &                          newDatetime, deallocateDatetime
+#ifdef HAVE_CDI_PIO
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
+#endif
 !  USE mo_impl_constants, ONLY: SUCCESS
 
   IMPLICIT NONE
@@ -385,7 +387,6 @@ MODULE mo_mpi
 
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
-  LOGICAL :: is_openmp_test_run = .false.
 
   ! this is the local work communicator (computation, i/o, etc)
 !   INTEGER :: process_mpi_local_comm     ! communicator in the work group
@@ -1092,11 +1093,15 @@ CONTAINS
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
     INTEGER :: sizeof_prefetch_processes, pio_type_
+#ifdef HAVE_CDI_PIO
     INTEGER :: my_cdi_pio_role, grib_mode_for_cdi_pio
+#endif
     INTEGER :: num_component, i
     INTEGER, ALLOCATABLE :: root_buffer(:)
     INTEGER :: comp_id
     CHARACTER(len=1000) :: message_text = ''
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'::set_mpi_work_communicators'
 
     IF (PRESENT(num_prefetch_proc)) THEN
       sizeof_prefetch_processes = num_prefetch_proc
@@ -1341,10 +1346,10 @@ CONTAINS
       ELSE
         p_comm_io = mpi_comm_null
       END IF
-#ifdef HAVE_CDI_PIO
       IF (pio_type_ == pio_type_cdipio &
         & .AND. (     my_mpi_function == work_mpi_process &
         &        .OR. my_mpi_function == io_mpi_process)) THEN
+#ifdef HAVE_CDI_PIO
         grib_mode_for_cdi_pio = pio_mpi_fw_at_all
         nml_io_cdi_pio_conf_handle = cdiPioConfCreate()
         ! todo: cdiPioCSRLastN needs to match assignment of mpi function
@@ -1354,8 +1359,10 @@ CONTAINS
         CALL cdiPioConfSetIOMode(nml_io_cdi_pio_conf_handle, &
           &                      grib_mode_for_cdi_pio)
         CALL cdiPioConfSetCSRole(nml_io_cdi_pio_conf_handle, my_cdi_pio_role)
-      END IF
+#else
+        CALL finish(routine, "ICON was compiled without CDI-PIO")
 #endif
+      END IF
     ELSE IF (     my_mpi_function == work_mpi_process &
       &      .OR. my_mpi_function == test_mpi_process) THEN
       p_comm_work_io = my_function_comm
@@ -1569,9 +1576,6 @@ CONTAINS
       WRITE (nerr,'(a,a,i5)') method_name, ' my_mpi_function=', my_mpi_function
 #endif
 
-    ! fill my  parameters
-    is_openmp_test_run = l_test_openmp
-
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
 
@@ -1636,7 +1640,6 @@ CONTAINS
     process_mpi_restart_size    = 0
     process_mpi_pref_size       = 0
     p_comm_work_pref_compute_pe0 = 0
-    is_openmp_test_run = .false.
 
 !     process_mpi_local_comm  = process_mpi_all_comm
 !     process_mpi_local_size  = process_mpi_all_size
@@ -3862,15 +3865,9 @@ CONTAINS
 !$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
 #endif
 
-    IF (PRESENT(p_count)) THEN
-       CALL p_inc_request
-       CALL MPI_ISEND (t_buffer, p_count, p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
-    ELSE
-       CALL p_inc_request
-       CALL MPI_ISEND (t_buffer, SIZE(t_buffer), p_int, p_destination, p_tag, &
-            p_comm, p_request(p_irequest), p_error)
-    END IF
+    CALL p_inc_request
+    CALL MPI_ISEND (t_buffer, icount, p_int, p_destination, p_tag, &
+         p_comm, p_request(p_irequest), p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
@@ -6153,7 +6150,7 @@ CONTAINS
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize, ilength
+    INTEGER :: p_comm, ilength
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -9837,10 +9834,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
-     ! FIXME: this should probably use comm instead of p_comm_work
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+       &              p_real_dp, p_dest, comm, p_error)     ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
      recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9863,7 +9859,7 @@ CONTAINS
 
     CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
       &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-      &              p_int, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+      &              p_int, p_dest, comm, p_error)         ! recvtype, root, comm, error
     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
     recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9883,10 +9879,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_gatherv_real2D1D"
      INTEGER :: p_error
 
-     ! FIXME: this should probably use comm instead of p_comm_work
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
-       &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
+       &              p_real_dp, p_dest, comm, p_error)     ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
 #else
      recvbuf(:) = RESHAPE(sendbuf, (/ SIZE(recvbuf) /) )
@@ -9906,11 +9901,9 @@ CONTAINS
      CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D2D"
      INTEGER :: p_error
 
-     ! FIXME: I may be wrong, but this looks like a bug to me:
-     !        This call *ignores* the communicator that is passed in and uses p_comm_work instead.
-     CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
-       &               p_real_dp, recvbuf, recvcount, &           ! sendtype, recvbuf, recvcounts,
-       &               p_real_dp, p_dest, p_comm_work, p_error)   ! recvtype, root, comm, error
+     CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &    ! sendbuf, sendcount, displs
+       &               p_real_dp, recvbuf, recvcount, &    ! sendtype, recvbuf, recvcounts,
+       &               p_real_dp, p_dest, comm, p_error)   ! recvtype, root, comm, error
      IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_SCATTERV operation!')
 #else
      recvbuf(:,:) = RESHAPE(sendbuf, (/ SIZE(recvbuf,1), SIZE(recvbuf,2) /))
@@ -10074,7 +10067,7 @@ CONTAINS
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = modname//"::p_allgatherv_int_1d"
-     INTEGER :: p_comm, sendcount, comm_size, i
+     INTEGER :: p_comm, sendcount, comm_size
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -10111,7 +10104,7 @@ CONTAINS
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: &
           routine = modname//"::p_allgatherv_int_1d_contiguous"
-     INTEGER :: p_comm, sendcount, comm_size, i, n
+     INTEGER :: p_comm, comm_size, i, n
      INTEGER, ALLOCATABLE :: displs(:)
 
      IF (PRESENT(comm)) THEN
@@ -10132,7 +10125,6 @@ CONTAINS
        n = n + recvcounts(i)
      END DO
 
-     sendcount = SIZE(sendbuf)
      CALL p_allgatherv(sendbuf, recvbuf, recvcounts, displs, p_comm)
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in mpi_allgatherv operation!')

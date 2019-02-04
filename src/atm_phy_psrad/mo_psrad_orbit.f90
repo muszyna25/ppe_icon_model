@@ -46,7 +46,7 @@ MODULE mo_psrad_orbit
        &                        deg2rad         ! pi/180
   USE mo_exception,      ONLY : finish, message, message_text, em_param, warning, print_value
   USE mtime,             ONLY : julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
-       &                        datetime, no_of_ms_in_a_day
+       &                        newDateTime, deallocateDateTime, datetime, no_of_ms_in_a_day
 
   IMPLICIT NONE
   PRIVATE 
@@ -825,11 +825,14 @@ CONTAINS
   !! @brief Returns orbit time
   !
   SUBROUTINE get_orbit_times( current_datetime,  &
+                           & lyr_perp, yr_perp,  &
 !!$    lrad_date,          lyr_perp,    &
 !!$  & nmonth,        yr_perp,          &
                            & time_of_day, orbit_date    )
 
     TYPE(datetime), POINTER, INTENT(IN) :: current_datetime
+    LOGICAL, INTENT(in) :: lyr_perp
+    INTEGER, INTENT(in) :: yr_perp
 !!$    LOGICAL, INTENT (IN)    :: lrad_date, lyr_perp
 !!$    INTEGER, INTENT (IN)    :: nmonth, yr_perp
     REAL (wp), INTENT (OUT) :: time_of_day, orbit_date
@@ -837,11 +840,15 @@ CONTAINS
     TYPE(julianday), POINTER :: jd 
 !!$    TYPE(julian_date) :: date_now, date_pal
 !!$    TYPE(ly360_date)  :: idate_format
-!!$    TYPE(datetime), POINTER  :: valid_date
+    TYPE(datetime), POINTER  :: valid_datetime
 !!$
 !!$    INTEGER  :: iyr, imo, idy, isec
 !!$    REAL(wp) :: rsec, daylen, zdy, zdy_mar0, zscr
 
+       valid_datetime => newDateTime(current_datetime)
+       IF (lyr_perp) THEN
+         valid_datetime%date%year = yr_perp
+       END IF
 !!$    if (lrad_date) then
 !!$      valid_date = datetime
 !!$    else
@@ -899,11 +906,12 @@ CONTAINS
 !!$    END IF
 
     jd => newJulianday(0_i8, 0_i8)
-    CALL getJulianDayFromDatetime(current_datetime, jd) 
+    CALL getJulianDayFromDatetime(valid_datetime, jd) 
     orbit_date = REAL(jd%day,wp) + REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)
     time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*2.0_wp*pi
     CALL deallocateJulianday(jd)
-    
+    CALL deallocateDateTime(valid_datetime)
+
   END SUBROUTINE get_orbit_times
 
 END MODULE mo_psrad_orbit

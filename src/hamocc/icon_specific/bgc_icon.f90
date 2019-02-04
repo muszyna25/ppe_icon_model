@@ -18,8 +18,6 @@
 
 SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
 
-  USE mo_kind,                ONLY: wp
-  USE mo_ocean_nml,           ONLY: n_zlev, nbgctra, no_tracer, l_partial_cells
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
 
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
@@ -27,19 +25,19 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
 
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
        &                            set_bgc_tendencies_output
-  USE mo_dynamics_config,     ONLY: nold, nnew
+  USE mo_dynamics_config,     ONLY: nold 
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
-  USE mo_control_bgc,         ONLY: dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
-       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs,bgc_nproma
+  USE mo_control_bgc,         ONLY: ndtdaybgc,  &
+       &                        ldtrunbgc, bgc_nproma
 
   USE mo_cyano,               ONLY: cyano, cyadyn
-  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, nitrogen_deposition
+  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, &
+&                                   nitrogen_deposition, update_linage
   USE mo_bgc_bcond,           ONLY: ext_data_bgc
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories, get_omz
+  USE mo_hamocc_diagnostics,  ONLY: get_inventories, get_omz
   USE mo_exception, ONLY: message
   USE mo_carchm,              ONLY: calc_dissol 
   USE mo_powach,              ONLY: powach, powach_impl
@@ -48,7 +46,6 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
     &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
     &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
     &                           timer_bgc_tend, timer_start, timer_stop, timers_level
-  USE mo_run_config, ONLY    : ltimer
   USE mo_settling,   ONLY    : settling, settling_pdm
 
   IMPLICIT NONE
@@ -59,7 +56,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   TYPE(t_sea_ice)                        :: p_ice
 
   ! Local variables
-  INTEGER :: jc, jk, jb, itest
+  INTEGER ::  jb
   INTEGER :: start_index, end_index
   INTEGER :: itrig_chemcon
   !INTEGER, POINTER :: levels(:)
@@ -119,6 +116,10 @@ ENDIF
 
         stop_detail_timer(timer_bgc_swr,5)
 
+       ! Linear age
+        CALL update_linage(levels, start_index, end_index,  & ! index range, levels, salinity
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))! cell thickness (check for z0)
+
        ! Biogeochemistry
 
         start_detail_timer(timer_bgc_wea,5)
@@ -170,8 +171,7 @@ ENDIF
          ! particle settling 
         IF (l_pdm_settling)then
          CALL settling_pdm(levels,start_index, end_index, &
-   &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-   &                   p_os%p_prog(nold(1))%h(:,jb))                   ! surface height
+   &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb)) ! cell thickness
  
         ELSE
          CALL settling(levels,start_index, end_index, &

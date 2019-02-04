@@ -64,7 +64,7 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine &
              = modname//":costructScatterPatternScatter"
-        INTEGER :: comm_size, ierr, pt_shape(2)
+        INTEGER :: ierr, pt_shape(2)
         INTEGER, ALLOCATABLE :: myIndices(:)
         LOGICAL :: l_write_debug_info
 

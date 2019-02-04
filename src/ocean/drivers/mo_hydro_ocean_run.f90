@@ -359,7 +359,7 @@ CONTAINS
         CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
              & current_time, operators_coefficients)
 
-        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, current_time)
+        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
         stop_timer(timer_upd_flx,3)
 
         start_detail_timer(timer_extra22,4)
@@ -401,7 +401,7 @@ CONTAINS
         ! solve for new free surface
         start_timer(timer_solve_ab,1)
         CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
-          & p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
+          & p_as, p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
         IF (return_status /= 0) THEN
          CALL output_ocean(              &
            & patch_3d=patch_3d,          &

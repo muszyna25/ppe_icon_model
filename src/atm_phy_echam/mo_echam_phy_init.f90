@@ -374,26 +374,42 @@ CONTAINS
 
         ! land, glacier and lake masks
         !
-        WRITE(message_text,'(2a)') 'Read land, glac and lake from file ', TRIM(land_frac_fn)
+        WRITE(message_text,'(2a)') 'Read notsea, glac and lake from file ', TRIM(land_frac_fn)
         CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
         !
         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
         CALL read_2D(stream_id=stream_id, location=on_cells,&
-             &          variable_name='land',               &
+             &          variable_name='notsea',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
         CALL read_2D(stream_id=stream_id, location=on_cells, &
              &          variable_name='glac',               &
              &          fill_array=prm_field(jg)% glac(:,:))
-        CALL read_2D(stream_id=stream_id, location=on_cells, &
-             &          variable_name='lake',               &
-             &          fill_array=prm_field(jg)% alake(:,:))
+        IF (echam_phy_config(jg)%llake) THEN
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
+               &          variable_name='lake',               &
+               &          fill_array=prm_field(jg)% alake(:,:))
+        ELSE
+          ! If running without lakes, set lake fraction to zero.
+          prm_field(jg)%alake(:,:) = 0._wp
+        END IF
         CALL closeFile(stream_id)
+
+        ! For security
+        prm_field(jg)%lsmask(:,:) = MERGE(1._wp, prm_field(jg)%lsmask(:,:), &
+                                          prm_field(jg)%lsmask(:,:) > 1._wp - 10._wp*EPSILON(1._wp))
         !
-        ! At this point, %lsmask is the fraction of land (incl. glacier, but not lakes) in the grid box.
-        ! If running without lakes, add lake mask to %lsmask to remove lakes and set %alake to zero.
-        IF (.NOT. echam_phy_config(jg)%llake) THEN
-          prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
-          prm_field(jg)%alake (:,:) = 0._wp
+        ! At this point, %lsmask is the fraction of land (incl. glacier and
+        ! lakes) in the grid box.
+        !
+        IF (echam_phy_config(jg)%llake) THEN
+          !
+          ! Substract lake fraction from %lsmask at inner land points (no ocean fraction, %lsmask==1).
+          ! Elsewhere (fractional coastal points and ocean points), set alake to zero.
+          WHERE (prm_field(jg)%lsmask(:,:) >= 1._wp) ! Inner land point
+            prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) - prm_field(jg)%alake(:,:)
+          ELSE WHERE
+            prm_field(jg)%alake(:,:) = 0._wp
+          END WHERE
         END IF
 
         ! roughness length and background albedo
@@ -515,12 +531,12 @@ CONTAINS
             CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
             !
             CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
-                 &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)  &
-                 &                             > 1._wp - 10._wp*EPSILON(1._wp)                      ,&
                  &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
                  &                             prm_field(jg)%seaice (:,:)                           ,&
                  &                             prm_field(jg)%siced  (:,:)                           ,&
-                 &                             p_patch(jg)                                          )
+                 &                             p_patch(jg)                                          ,&
+                 &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) < 1._wp ,&
+                 &                             .TRUE. )
             !
           END IF
           !

@@ -30,7 +30,7 @@ MODULE mo_async_restart_comm_data
   USE mo_timer,                ONLY: timer_start, timer_stop, timer_write_restart_communication, timers_level
   USE mo_util_string,          ONLY: int2string
   USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_WIN_NULL, MPI_SUCCESS, MPI_INTEGER, &
-    &                                MPI_REQUEST_NULL, MPI_MODE_NOPUT, MPI_STATUS_IGNORE, MPI_UNDEFINED
+    &                                MPI_REQUEST_NULL, MPI_STATUS_IGNORE, MPI_UNDEFINED
 #ifdef DEBUG
   USE mo_mpi,                  ONLY: p_pe
 #endif
@@ -61,8 +61,7 @@ MODULE mo_async_restart_comm_data
     INTEGER                   :: in_use, domain, win
     INTEGER                   :: req_pool(max_inflight)
     TYPE(inbuffer_t)          :: inbuffers(max_inflight)
-    INTEGER                   :: server_group, client_group
-    LOGICAL                   :: handshaked, hello, is_init
+    LOGICAL                   :: handshaked, is_init
   CONTAINS
     PROCEDURE         :: prepare   => asyncRestartCommData_inbuffer_prepare
     PROCEDURE         :: clear     => asyncRestartCommData_inbuffer_clear
@@ -70,7 +69,6 @@ MODULE mo_async_restart_comm_data
     PROCEDURE         :: waitall   => asyncRestartCommData_inbuffer_waitall
     PROCEDURE         :: apply     => asyncRestartCommData_inbuffer_apply
     PROCEDURE         :: iterate   => asyncRestartCommData_inbuffer_iterate
-    PROCEDURE         :: handshake => asyncRestartCommData_inbuffer_handshake
     PROCEDURE         :: sync      => asyncRestartCommData_inbuffer_sync
   END TYPE inbufhandler_t
 
@@ -312,7 +310,7 @@ CONTAINS
     ENDIF
     this%win        = win_in
     this%in_use     = 0
-    this%handshaked = .false.
+    this%handshaked = .true.
     this%domain     = domain
     DO i = 1, max_inflight
       this%req_pool(i) = MPI_REQUEST_NULL
@@ -320,7 +318,6 @@ CONTAINS
       NULLIFY(this%inbuffers(i)%inbuffer)
     ENDDO
     this%is_init = .true.
-    this%hello   = .true.
   END SUBROUTINE asyncRestartCommData_inbuffer_prepare
 
   SUBROUTINE asyncRestartCommData_inbuffer_clear(this)
@@ -472,7 +469,6 @@ CONTAINS
     ALLOCATE(me%inbufhandler)
     me%inbufhandler%is_init = .false.
     CALL me%inbufhandler%prepare(me%win,jg)
-    CALL me%inbufhandler%handshake(.NOT.my_process_is_work())
   END SUBROUTINE asyncRestartCommData_construct
 
   INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(resultVar)
@@ -618,115 +614,31 @@ CONTAINS
   SUBROUTINE asyncRestartCommData_inbuffer_sync(this, i_are_baboon, after_update, goodbye)
     CLASS(inbufhandler_t),         INTENT(INOUT) :: this
     LOGICAL,                       INTENT(IN)    :: i_are_baboon, after_update, goodbye
-    INTEGER                                      :: err, assert
-    LOGICAL                                      :: hello_l
+    INTEGER                                      :: err
     CHARACTER(LEN=*), PARAMETER                  :: procedure_name = &
      &                          modname//'::inbufferhandler_sync'
     CHARACTER(LEN=64)                            :: occasion
+
     WRITE(occasion,'(a,i2)') 'DOM', this%domain
-    hello_l = .false.
     IF (goodbye) THEN
       occasion = TRIM(occasion)//'<last>'
     ENDIF
-    IF (this%hello) THEN
-      hello_l = .true.
-      occasion = TRIM(occasion)//'<first>'
-      this%hello = .false.
-    ELSE
-      hello_l = .false.
-    ENDIF
-    assert = MPI_MODE_NOPUT
     IF (i_are_baboon .AND. .NOT.goodbye) THEN
       occasion = TRIM(occasion)//'<server>'
-      IF (after_update .AND. .NOT. hello_l) THEN
+      IF (after_update) THEN
         occasion = TRIM(occasion)//'<ready_for_unexpose>'
-        CALL MPI_Win_complete(this%win, err)
+        CALL MPI_Win_unlock_all(this%win, err)
         CALL ar_checkmpi(err, procedure_name, ': MPI_Win_complete('//TRIM(occasion)//') failed')
       ELSE
         occasion = TRIM(occasion)//'<ready_for_expose>'
-        CALL MPI_Win_start(this%client_group, assert, this%win, err)
+        CALL MPI_Win_lock_all(0, this%win, err)
         CALL ar_checkmpi(err, procedure_name, ': MPI_Win_start('//TRIM(occasion)//') failed')
-        this%hello = .false.
-      ENDIF
-    ELSE IF (.NOT. i_are_baboon) THEN
-      occasion = TRIM(occasion)//'<client>'
-      IF (after_update) THEN
-        occasion = TRIM(occasion)//'<window_expose>'
-        IF (.NOT.goodbye) THEN
-          CALL MPI_Win_post(this%server_group, assert, this%win, err)
-          CALL ar_checkmpi(err, procedure_name, ': MPI_Win_post('//TRIM(occasion)//') failed')
-          this%hello = .false.
-        ENDIF
-      ELSE
-        occasion = TRIM(occasion)//'<window_unexpose>'
-        IF (.NOT.hello_l) THEN
-          CALL MPI_Win_wait(this%win, err)
-          CALL ar_checkmpi(err, procedure_name, ': MPI_Win_wait('//TRIM(occasion)//') failed')
-        ENDIF
       ENDIF
     ENDIF
     IF (goodbye) THEN
-      CALL MPI_Group_free(this%client_group, err)
-      CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
-      CALL MPI_Group_free(this%server_group, err)
-      CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
       this%handshaked = .false.
     ENDIF
   END SUBROUTINE asyncRestartCommData_inbuffer_sync
-
-  SUBROUTINE asyncRestartCommData_inbuffer_handshake(this, i_are_baboon)
-    CLASS(inbufhandler_t), INTENT(INOUT) :: this
-    LOGICAL,               INTENT(IN)    :: i_are_baboon
-    INTEGER, ALLOCATABLE, DIMENSION(:)   :: flags
-    INTEGER                              :: my_flags(2), err, wgrp, &
-      &                                     wgrp_size, wgrp_rank
-    CHARACTER(LEN=*), PARAMETER                  :: procedure_name =      &
-     &                          modname//'::handshake'
-    IF (.NOT.this%is_init) THEN
-      CALL ar_checkmpi(-99, procedure_name, ": window+buffers not initialized!")
-    ENDIF
-    CALL MPI_Win_get_group(this%win, wgrp, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Win_get_group failed")
-    CALL MPI_Group_size(wgrp, wgrp_size, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_size failed")
-    CALL MPI_Group_rank(wgrp, wgrp_rank, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_rank failed")
-    my_flags(1) = MERGE(wgrp_rank, MPI_UNDEFINED, i_are_baboon)
-    my_flags(2) = MERGE(wgrp_rank, MPI_UNDEFINED, my_process_is_work())
-    ALLOCATE(flags(wgrp_size*2))
-    CALL MPI_Allgather(my_flags,  2, MPI_INTEGER, flags,  2, MPI_INTEGER, &
-     &                 p_comm_work_restart, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Allgather failed")
-    IF (0 .NE. COUNT((flags(1::2).NE.MPI_UNDEFINED)  .AND. &
-                     (flags(2::2).NE.MPI_UNDEFINED)) ) THEN
-      CALL ar_checkmpi(-99, procedure_name, ": roles not consistent")
-    ENDIF
-    this%server_group = create_tgrp(1)
-    this%client_group = create_tgrp(2)
-    CALL MPI_Group_free(wgrp, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Group_free failed")
-    this%handshaked = .true.
-  CONTAINS
-
-    INTEGER FUNCTION create_tgrp(switch) RESULT(tgrp)
-      INTEGER, INTENT(IN)  :: switch
-      INTEGER              :: i, ii, tgrp_size
-      INTEGER, ALLOCATABLE :: ranks_list(:)
-
-      tgrp_size = COUNT(flags(switch::2).NE.MPI_UNDEFINED)
-      ALLOCATE(ranks_list(tgrp_size))
-      i = 0
-      DO ii = 1, wgrp_size
-        IF ( flags(switch + (ii - 1) * 2) .NE. MPI_UNDEFINED) THEN
-          i = i + 1
-          ranks_list(i) = flags(switch + (ii - 1) * 2)
-        ENDIF
-      ENDDO
-      CALL MPI_Group_incl(wgrp, tgrp_size, ranks_list, tgrp, err)
-      CALL ar_checkmpi(err, procedure_name, ": MPI_Group_incl failed")
-      DEALLOCATE(ranks_list)
-    END FUNCTION create_tgrp
-  END SUBROUTINE asyncRestartCommData_inbuffer_handshake
 
 #endif
 END MODULE mo_async_restart_comm_data

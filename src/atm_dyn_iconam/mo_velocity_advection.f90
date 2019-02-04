@@ -141,7 +141,7 @@ MODULE mo_velocity_advection
     REAL(vp) :: cfl_w_limit, vcfl, maxvcfl, vcflmax(p_patch%nblks_c)
     REAL(wp) :: w_con_e, scalfac_exdiff, difcoef, max_vcfl_dyn
                 
-    INTEGER  :: ic, ie, nrdmax_jg, nflatlev_jg
+    INTEGER  :: ie, nrdmax_jg, nflatlev_jg
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 
@@ -412,7 +412,7 @@ MODULE mo_velocity_advection
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, ic, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

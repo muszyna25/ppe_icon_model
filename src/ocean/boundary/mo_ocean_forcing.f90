@@ -50,6 +50,7 @@ MODULE mo_ocean_forcing
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
+  USE mo_physical_constants,  ONLY: sfc_press_pascal
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
@@ -444,7 +445,7 @@ CONTAINS
     p_as%co2  (:,:)                     = 0.0_wp
     p_as%co2flx  (:,:)                  = 0.0_wp
     p_as%fswr  (:,:)                    = 0.0_wp
-    p_as%pao   (:,:)                    = 0.0_wp
+    p_as%pao   (:,:)                    = sfc_press_pascal  ! initialize with reference pressure
     p_as%u     (:,:)                    = 0.0_wp
     p_as%v     (:,:)                    = 0.0_wp
 !    p_as%precip(:,:)                    = 0.0_wp

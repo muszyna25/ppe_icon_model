@@ -300,6 +300,7 @@ sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.    ! implicit sediment formulation
+l_init_bgc                        =.TRUE.
 /
 EOF3
 fi

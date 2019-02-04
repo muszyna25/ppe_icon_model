@@ -288,7 +288,7 @@ CONTAINS
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_restart_list, 'Qbot', p_ice%Qbot ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('Qbot', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
+      &          t_cf_var('Qbot', 'W/m^2', 'Conductive heat flux at ice-ocean interface', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'alb', p_ice%alb ,&
@@ -298,6 +298,11 @@ CONTAINS
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     ! thermodynamics, slow
+    CALL add_var(ocean_default_list, 'Qbot_slow', p_ice%Qbot_slow ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
+      &          t_cf_var('Qbot_slow', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'zHeatOceI', p_ice%zHeatOceI,GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('zHeatOceI', 'W/m^2', 'Oceanic Heat flux', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
@@ -312,11 +317,6 @@ CONTAINS
       &          t_cf_var('heatOceW', 'W/m^2', 'Heat flux to ocean from the atmosphere', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list, 'CondHeat', p_ice%CondHeat ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
-      &          t_cf_var('CondHeat', 'W/m^2', 'Conductive heat flux through ice', datatype_flt),&
-      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_diag"))
     CALL add_var(ocean_default_list, 'snow_to_ice', p_ice%snow_to_ice ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, &
       &          t_cf_var('snow_to_ice', 'm', 'amount of snow that is transformed to ice', &

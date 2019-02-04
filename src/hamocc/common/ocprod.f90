@@ -8,16 +8,16 @@
    USE mo_kind, ONLY           : wp
    
    USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
-       &                        fpar, bkphy,grazra, bkzoo, epsher,         &
+       &                        fpar, bkphy, bkzoo, epsher,         &
        &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
-       &                        rcalc, rcar, dremopal, relaxfe, fesoly,            &
+       &                        rcar, dremopal, relaxfe, fesoly,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
        &                        thresh_sred, dmsp, calmax, &
        &                        satoxy, meanswr, ralk, bkh2sox, rh2sox,&
-       &                        bgctra, swr_frac, bgctend
+       &                        bgctra, bgctend
 
 
    USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
@@ -32,6 +32,7 @@
        &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy,kaou,&
        &                         kh2sprod, kh2sloss
 
+    USE mo_hamocc_nml, ONLY    : grazra
 
 
     IMPLICIT NONE

@@ -27,10 +27,9 @@ MODULE mo_complete_subdivision
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_valid_local_index, &
     &                              t_glb2loc_index_lookup, &
-    &                              uniform_partition_start, &
     &                              partidx_of_elem_uniform_deco, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
+  USE mo_mpi,                ONLY: proc_split, p_sum
   USE mo_util_string,        ONLY: int2string
 #ifndef NOMPI
   USE mpi
@@ -39,8 +38,8 @@ MODULE mo_complete_subdivision
   USE ppm_extents,           ONLY: extent
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
-    & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_pe, p_n_work, p_bcast, &
+    & my_process_is_mpi_seq, &
+    & p_pe_work, p_n_work, p_bcast, &
     & p_comm_work_2_test, num_test_procs, p_comm_remote_size, &
     & p_isend, p_irecv, p_wait
 
@@ -52,7 +51,7 @@ MODULE mo_complete_subdivision
   USE mo_communication_factory, ONLY: setup_comm_pattern, setup_comm_pattern2
 
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
-    & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
+    & grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
   USE mo_dist_dir,            ONLY: dist_dir_get_owners
@@ -66,7 +65,7 @@ MODULE mo_complete_subdivision
        dist_mult_array_get, dist_mult_array_local_ptr, &
        dist_mult_array_expose
   USE mo_kind, ONLY: wp
-  USE mo_sync, ONLY: sync_c, sync_e, sync_v, sync_patch_array
+  USE mo_sync, ONLY: sync_c, sync_patch_array
   IMPLICIT NONE
 
   PRIVATE
@@ -770,8 +769,7 @@ CONTAINS
     TYPE(xfer_list), ALLOCATABLE :: list_recv(:), list_send(:)
     TYPE(extent) :: glob_range, local_range(1,1)
     INTEGER :: rank, jl, n_l, part_idx, p_n_send, ierror, dummy, &
-         ofs, rcount, scount, syncmode, coord(1), np_recv, np_send, i, &
-         n_owned
+         ofs, rcount, scount, syncmode, coord(1), np_recv, np_send, i
     INTEGER, POINTER :: rowner_dist(:)
     CHARACTER(len=*), PARAMETER :: routine &
          = "mo_complete_subdivision::create_work2test_pattern"
@@ -830,7 +828,7 @@ CONTAINS
       ! stored on this rank
       n_l = SIZE(decomp_info%owner_local)
       DEALLOCATE(rowned) ; ALLOCATE(rowner(n_l), rowned(n_l))
-      n_owned = 0
+      
       DO jl = 1, n_l
         IF (decomp_info%owner_local(jl) == p_pe_work) THEN
           coord(1) = decomp_info%glb_index(jl)

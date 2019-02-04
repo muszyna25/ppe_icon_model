@@ -1782,7 +1782,7 @@ CONTAINS
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
     ! Indices
-    INTEGER :: jb, jc, jk, js, i_nchdom, i_chidx, i_rlend_c, &
+    INTEGER :: jb, jc, jk, js, i_chidx, i_rlend_c, &
       i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom_p
 
     INTEGER :: nlev_c            ! number of full levels (child dom)
@@ -1816,7 +1816,6 @@ CONTAINS
     nshift = p_pc%nshift
     js     = nshift
 
-    i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
     i_nchdom_p = MAX(1,p_patch(jgp)%n_childdom)
 

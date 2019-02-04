@@ -144,6 +144,8 @@ ICON_BASE_PATH=$basedir
 export ICON_BASE_PATH
 RUNSCRIPT_NAME=`basename $0`
 ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+. ${thisdir}/../config/set-up.info
 
 #-----------------------------------------------------------------------------
 # set default data paths

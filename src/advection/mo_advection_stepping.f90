@@ -145,7 +145,11 @@ CONTAINS
     !> interpolation state
     TYPE(t_int_state), INTENT(IN) :: p_int_state
 
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -194,7 +198,11 @@ CONTAINS
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
 
-    REAL(wp), TARGET, INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_new(:,:,:,:)             !< at time level n+1 (after transport)
                                            !< [kg/kg]  
                                            !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -255,7 +263,7 @@ CONTAINS
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
 
-    INTEGER  :: nlev, nlevp1      !< number of full and half levels
+    INTEGER  :: nlev              !< number of full and half levels
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
@@ -276,7 +284,6 @@ CONTAINS
 
     ! number of vertical levels
     nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg  = p_patch%id

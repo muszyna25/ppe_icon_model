@@ -961,10 +961,26 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                POINTER,    OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
-    REAL(sp),                POINTER,    OPTIONAL :: p5_s(:,:,:,:,:)              ! provided pointer
-    INTEGER,                 POINTER,    OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
-    LOGICAL,                 POINTER,    OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
+    REAL(wp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
+    REAL(sp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5_s(:,:,:,:,:)              ! provided pointer
+    INTEGER,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
+    LOGICAL,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1168,7 +1184,11 @@ CONTAINS
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1228,7 +1248,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1288,7 +1312,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1347,7 +1375,11 @@ CONTAINS
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1406,7 +1438,11 @@ CONTAINS
     REAL(sp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1466,7 +1502,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1526,7 +1566,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1585,7 +1629,11 @@ CONTAINS
     REAL(sp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),                TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1644,7 +1692,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1703,7 +1755,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1762,7 +1818,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1821,7 +1881,11 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1879,7 +1943,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1938,7 +2006,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1997,7 +2069,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -2056,7 +2132,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,                 TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS &
+#endif
+      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs

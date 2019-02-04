@@ -94,7 +94,6 @@ CONTAINS
            ! frozen in current time step
            field%ts_tile(jc,jb,iwtr) = tmelt
          END IF
-
       ELSE
          zfrw(jc) = 0._wp
       END IF
