@@ -29,7 +29,7 @@ MODULE mo_atm_phy_nwp_config
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf,  &
-    &                               SUCCESS
+    &                               iprog, SUCCESS
   USE mo_math_constants,      ONLY: dbl_eps, pi_2, deg2rad
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
@@ -305,7 +305,7 @@ CONTAINS
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
     
-      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
+      IF(ANY( (/ismag,iprog/)  == atm_phy_nwp_config(jg)%inwp_turb ) )THEN
         CALL configure_les(jg,dtime)
         atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
       END IF 

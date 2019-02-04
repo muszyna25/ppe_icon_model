@@ -122,6 +122,7 @@ CONTAINS
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
                             & pt_prog,                             & !inout
+                            & pt_prog_now_rcf,                     & !inout
                             & pt_prog_rcf,                         & !inout
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend, lnd_diag,    &
@@ -147,6 +148,7 @@ CONTAINS
     TYPE(t_external_data),       INTENT(inout):: ext_data
     TYPE(t_nh_diag), TARGET, INTENT(inout)    :: pt_diag       !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog       !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog_now_rcf !<old state for sgs-tke equation
     TYPE(t_nh_prog), TARGET, INTENT(inout)    :: pt_prog_rcf   !<the RCF prognostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
@@ -484,6 +486,7 @@ CONTAINS
                             & pt_patch, p_metrics,              & !>in
                             & pt_int_state,                     & !>in
                             & pt_prog,                          & !>in
+                            & pt_prog_now_rcf,                  & !>inout                            
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
                             & prm_diag,prm_nwp_tend,            & !>inout
@@ -783,6 +786,9 @@ CONTAINS
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
 &              qs     = pt_prog_rcf%tracer   (:,:,jb,iqs) ,       & !! in:  snow
 &              qtvar  = qtvar                             ,       & !! in:  qtvar !ONLY for inwp_turb==iedmf
+! &              dz_full= p_metrics%ddqz_z_full(:,:,jb)     ,       & !! in:  vertical grid spacing
+! &              area   = pt_patch%cells%area  (:,jb)       ,       & !! in:  triangle area
+! &              e      = pt_prog_rcf%tke      (:,:,jb)     ,       & !! in:  SGS-TKE
 &              cc_tot = prm_diag%clc         (:,:,jb)     ,       & !! out: cloud cover
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
@@ -1409,7 +1415,7 @@ CONTAINS
         &		       p_nh_state(jg)%diag,		       & !in
         &		       prm_diag 			       ) !inout
 
-    IF( is_sampling_time .AND. is_ls_forcing)THEN
+    IF( is_sampling_time )THEN
 
       CALL calculate_turbulent_diagnostics(                 &
                               & pt_patch,                   & !in

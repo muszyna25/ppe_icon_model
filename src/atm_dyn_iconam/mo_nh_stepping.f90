@@ -450,8 +450,7 @@ MODULE mo_nh_stepping
 
     !AD: Also output special diagnostics for LES on torus
     IF (atm_phy_nwp_config(1)%is_les_phy &
-      .AND. sampl_freq_step>0 &
-      .AND. is_ls_forcing)THEN
+      .AND. sampl_freq_step>0)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -1663,6 +1662,7 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout              
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1693,7 +1693,7 @@ MODULE mo_nh_stepping
                 &                  ext_data(jg)           ,            & !in
                 &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
                 &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-                &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+                &                  p_nh_state(jg)%prog(n_new_rcf),     & !inout
                 &                  p_nh_state(jg)%diag ,               & !inout
                 &                  prm_diag  (jg),                     & !inout
                 &                  prm_nwp_tend(jg),                   &
@@ -2315,6 +2315,7 @@ MODULE mo_nh_stepping
         &                  p_patch(jgp),                       & !in
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout         
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout

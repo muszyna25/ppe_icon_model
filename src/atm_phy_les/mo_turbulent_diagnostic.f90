@@ -55,6 +55,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_time_config,        ONLY: time_config
   USE mo_util_phys,          ONLY: cal_cape_cin
   USE mo_nwp_parameters,     ONLY: t_phy_params
+  USE mo_ls_forcing_nml,     ONLY: is_ls_forcing  
  
   IMPLICIT NONE
 
@@ -825,6 +826,9 @@ CONTAINS
        IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqh), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
+     CASE('tke')
+         CALL levels_horizontal_mean(p_prog_rcf%tke, p_patch%cells%area,  &
+                                     p_patch%cells%owned, outvar(1:nlevp1))
      CASE('lwf')
        IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
@@ -854,26 +858,32 @@ CONTAINS
        IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
          CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
-     ! Large-scale forcing tendencies
-     CASE('dthls_w')
-       outvar(1:nlev) = phy_tend%ddt_temp_subs_ls(1:nlev)
-     CASE('dqls_w ')
-       outvar(1:nlev) = phy_tend%ddt_qv_subs_ls(1:nlev)
-     CASE('dthls_h')
-       outvar(1:nlev) = phy_tend%ddt_temp_adv_ls(1:nlev)
-     CASE('dqls_h ')
-       outvar(1:nlev) = phy_tend%ddt_qv_adv_ls(1:nlev)
-     CASE('nt_thl ')
-       outvar(1:nlev) = phy_tend%ddt_temp_nud_ls(1:nlev)
-     CASE('nt_qt  ')
-       outvar(1:nlev) = phy_tend%ddt_qv_nud_ls(1:nlev)
-     CASE('wfls   ')
-       outvar(1:nlev) = phy_tend%wsub(1:nlev)
+
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
        
      END SELECT
+
+     ! Large-scale forcing tendencies
+     IF (is_ls_forcing) THEN
+      SELECT CASE (TRIM(turb_profile_list(n)))
+        CASE('dthls_w')
+          outvar(1:nlev) = phy_tend%ddt_temp_subs_ls(1:nlev)
+        CASE('dqls_w ')
+          outvar(1:nlev) = phy_tend%ddt_qv_subs_ls(1:nlev)
+        CASE('dthls_h')
+          outvar(1:nlev) = phy_tend%ddt_temp_adv_ls(1:nlev)
+        CASE('dqls_h ')
+          outvar(1:nlev) = phy_tend%ddt_qv_adv_ls(1:nlev)
+        CASE('nt_thl ')
+          outvar(1:nlev) = phy_tend%ddt_temp_nud_ls(1:nlev)
+        CASE('nt_qt  ')
+          outvar(1:nlev) = phy_tend%ddt_qv_nud_ls(1:nlev)
+        CASE('wfls   ')
+          outvar(1:nlev) = phy_tend%wsub(1:nlev)
+       END SELECT
+     END IF
 
      !Calculate time mean
      IF(is_at_full_level(n))THEN
@@ -882,7 +892,7 @@ CONTAINS
        prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)
      END IF
 
-    END DO!nvar
+    END DO !nvar
 
 !======================================================================================
        !Some time series
@@ -912,6 +922,8 @@ CONTAINS
        CALL levels_horizontal_mean(p_diag_land%qv_s, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('hbl')
        CALL levels_horizontal_mean(prm_diag%z_pbl, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+     CASE('tke')
+       CALL levels_horizontal_mean(p_prog_rcf%tke(:,nlev,:), p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('psfc')
        CALL levels_horizontal_mean(p_diag%pres_sfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_tom')
@@ -1246,6 +1258,10 @@ CONTAINS
      CASE('qh') 
        longname = 'specific hail content'
        unit     = 'kg/kg'
+     CASE('tke') 
+       longname = 'subgrid scale turbulent kinetic energy'
+       unit     = 'm2/s2'
+       is_at_full_level(n) = .FALSE.
      CASE('lwf') 
        longname = 'net longwave flux'
        unit     = 'W/m2'
@@ -1357,6 +1373,9 @@ CONTAINS
      CASE('hbl')
        longname = 'boundary layer height'
        unit     = 'm'
+     CASE('tke')
+       longname = 'turbulent kinetic energy'
+       unit     = 'm2/s2'       
      CASE('psfc')
        longname = 'surface pressure'
        unit     = 'Pa'

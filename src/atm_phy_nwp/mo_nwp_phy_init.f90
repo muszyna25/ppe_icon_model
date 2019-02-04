@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
-    &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
+    &                               iprog, igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,   &
     &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -371,7 +371,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
         END DO
 
-      ELSE IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
+      ELSE IF (ltestcase .AND. nh_test_name == 'RCE' .AND. &
+               ANY( (/ismag,iprog/) /= atm_phy_nwp_config(jg)%inwp_turb)) THEN !
 
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
@@ -522,7 +523,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ENDDO
     ENDDO
 
-    IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
+    IF (ltestcase .AND. nh_test_name == 'RCE' .AND. &
+        ANY( (/ismag,iprog/) /= atm_phy_nwp_config(jg)%inwp_turb)) THEN !
      DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &  i_startidx, i_endidx, rl_start, rl_end)
@@ -1174,8 +1176,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme,ismag,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
-
+  IF ( ANY( (/icosmo,igme,ismag,iprog,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+       linit_mode ) THEN
 
     ! gz0 is initialized if we do not start from an own first guess
     IF (lturb_init) THEN
@@ -1468,9 +1470,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 !$OMP END DO
 !$OMP END PARALLEL
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == ismag .AND. linit_mode ) THEN
+  ELSE IF ( ANY( (/ismag,iprog/) == atm_phy_nwp_config(jg)%inwp_turb) .AND. linit_mode ) THEN
 
-    CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
+    CALL message('mo_nwp_phy_init:', 'init LES turbulence')
 
     IF(atm_phy_nwp_config(jg)%inwp_surface == 0)THEN
       IF (turbdiff_config(jg)%lconst_z0) THEN

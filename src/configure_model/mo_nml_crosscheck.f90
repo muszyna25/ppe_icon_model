@@ -27,7 +27,7 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
+    &                              iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
@@ -543,7 +543,7 @@ CONTAINS
       ENDIF
 
       IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
+        IF ( ANY( (/icosmo,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
