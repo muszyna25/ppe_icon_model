@@ -309,10 +309,9 @@ MODULE mo_ls_forcing
 !$OMP PARALLEL
     CALL init(ddt_u_ls); CALL init(ddt_v_ls);  CALL init(ddt_temp_ls)
     call init(ddt_qv_ls)
-!$OMP END PARALLEL
 
     !use theta instead of temperature for subsidence (Anurag, Christopher)
-!$OMP PARALLEL
+!$OMP BARRIER
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
