@@ -110,7 +110,7 @@ MODULE mo_ls_forcing
 
       !Skip the first line and read next 2 lines with information about vertical and time levels
       READ(iunit,*,IOSTAT=ist)                       !skip
-      READ(iunit,*,IOSTAT=ist)nk,dt_forcing,end_time !vertical levels, forcing interval, end of forcing data
+      IF (ist == success) READ(iunit,*,IOSTAT=ist)nk,dt_forcing,end_time !vertical levels, forcing interval, end of forcing data
       IF(ist/=success) &
         CALL finish(routine, &
           'Must provide vertical level, forcing interval, end of forcing time info in forcing file')
