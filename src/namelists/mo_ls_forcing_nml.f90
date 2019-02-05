@@ -40,9 +40,6 @@ MODULE mo_ls_forcing_nml
   LOGICAL  :: is_theta       !true is forcings are in terms of theta
   LOGICAL  :: is_nudging      !true if nudging applied
  
-  NAMELIST/ls_forcing_nml/ is_subsidence_moment, is_subsidence_heat, is_advection, is_geowind, is_rad_forcing,  &
-                           is_theta, is_nudging
-
 CONTAINS
   !-------------------------------------------------------------------------
   !>
@@ -67,6 +64,9 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_ls_forcing_nml: read_ls_forcing_namelist'
+    NAMELIST/ls_forcing_nml/ &
+         is_subsidence_moment, is_subsidence_heat, is_advection, &
+         is_geowind, is_rad_forcing, is_theta, is_nudging
 
     !-----------------------
     ! 1. default settings
