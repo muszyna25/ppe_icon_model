@@ -411,12 +411,11 @@ MODULE mo_ls_forcing
      !WRITE(message_text,*)dt_nudging
       !CALL message('dt_nudging =',message_text)
 
+      inv_dt_relax    = 1._wp / dt_relax
       IF (dt_nudging > 0._wp) THEN
         n_curr = FLOOR(curr_sim_time/dt_nudging)+1
         n_next = n_curr+1
         int_weight = curr_sim_time/dt_nudging-n_curr+1
-
-        inv_dt_relax    = 1._wp / dt_relax
 
         ! Interpolation error catch
         IF (int_weight.LT.0 .OR. int_weight.GT.1) THEN
