@@ -63,7 +63,7 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
+    &  TracerDiffusion_LeithWeight,             &
     &  max_turbulenece_TracerDiffusion,                       &
     &  LeithViscosity_SmoothIterations, LeithViscosity_SpatialSmoothFactor 
 

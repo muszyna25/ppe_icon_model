@@ -1,3 +1,114 @@
+#!/bin/ksh
+#=============================================================================
+# =====================================
+# mistral batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --account=mh0287
+#SBATCH --job-name=exp.omip_10km_Leith_04_smoothed_04.run
+#SBATCH --partition=compute
+#SBATCH --workdir=/work/mh0287/users/leonidas/icon/oes_leith_2/intel_yMyO_ocean/run
+#SBATCH --nodes=64
+#SBATCH --threads-per-core=2
+#SBATCH --output=/work/mh0287/users/leonidas/icon/oes_leith_2/intel_yMyO_ocean/run/LOG.exp.omip_10km_Leith_04_smoothed_04.run.%j.o
+#SBATCH --error=/work/mh0287/users/leonidas/icon/oes_leith_2/intel_yMyO_ocean/run/LOG.exp.omip_10km_Leith_04_smoothed_04.run.%j.o
+#SBATCH --exclusive
+# #SBATCH --time=00:30:00
+# #SBATCH --qos=mpidevel
+
+#=============================================================================
+#
+# ICON run script. Created by ./config/make_target_runscript
+# target machine is bullx
+# target use_compiler is intel
+# with mpi=yes
+# with openmp=yes
+# memory_model=default
+# submit with sbatch -N ${SLURM_JOB_NUM_NODES:-1}
+# 
+#=============================================================================
+set -x
+. ./add_run_routines
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="$use_site"
+target="$use_target"
+compiler="$use_compiler"
+loadmodule="$use_load_modules"
+with_mpi="$use_mpi"
+with_openmp="$use_openmp"
+job_name="exp.omip_10km_Leith_04_smoothed_04.run"
+submit="sbatch -N ${SLURM_JOB_NUM_NODES:-1}"
+#-----------------------------------------------------------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=6
+export OMP_SCHEDULE=dynamic,1
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=200M
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+# mpi_root=/opt/mpi/bullxmpi_mlx/1.2.9.2
+no_of_nodes=${SLURM_JOB_NUM_NODES:=1}
+mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2 / OMP_NUM_THREADS))
+((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
+START="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS)) --propagate=STACK"
+#-----------------------------------------------------------------------------
+# load ../setting if exists  
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
+BUILDDIR=build/x86_64-unknown-linux-gnu
+#-----------------------------------------------------------------------------
+#=============================================================================
+# load profile
+if [ -a  /etc/profile ] ; then
+. /etc/profile
+#=============================================================================
+#=============================================================================
+# load modules
+module purge
+module load "$loadmodule"
+module list
+#=============================================================================
+fi
+#=============================================================================
+export LD_LIBRARY_PATH=/sw/rhel6-x64/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14/lib:$LD_LIBRARY_PATH
+#=============================================================================
+nproma=16
+cdo="cdo"
+cdo_diff="cdo diffn"
+icon_data_rootFolder="/pool/data/ICON"
+icon_data_poolFolder="/pool/data/ICON"
+icon_data_buildbotFolder="/pool/data/ICON/buildbot_data"
+icon_data_buildbotFolder_aes="/pool/data/ICON/buildbot_data/aes"
+icon_data_buildbotFolder_oes="/pool/data/ICON/buildbot_data/oes"
+export EXPNAME="omip_10km_Leith_04_smoothed_04"
+export KMP_AFFINITY="verbose,granularity=core,compact,1,1"
+export KMP_LIBRARY="turnaround"
+export KMP_KMP_SETTINGS="1"
+export OMP_WAIT_POLICY="active"
+export OMPI_MCA_pml="cm"
+export OMPI_MCA_mtl="mxm"
+export OMPI_MCA_coll="^ghc"
+export MXM_RDMA_PORTS="mlx5_0:1"
+export OMPI_MCA_coll_fca_enable="1"
+export OMPI_MCA_coll_fca_priority="95"
+export MALLOC_TRIM_THRESHOLD_="-1"
+ulimit -s 2097152
+
+# this can not be done in use_mpi_startrun since it depends on the
+# environment at time of script execution
+#case " $loadmodule " in
+#  *\ mxm\ *)
+#    START+=" --export=$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=${LD_PRELOAD+$LD_PRELOAD:}${MXM_HOME}/lib/libmxm.so"
+#    ;;
+#esac
 #!/bin/bash
 #=============================================================================
 #-----------------------------------------------------------------------------
@@ -6,46 +117,39 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="1948-01-01T00:00:00Z"
-  end_date="2018-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="1949-07-01T00:00:00Z"  #  201 years to ensure write of restart at end
   restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P3M"
-checkpoint_interval="P3M"
+restart_interval="P1Y"
+checkpoint_interval="P1Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
-file_interval="P1M"
+file_interval="P1Y"
 
-modelTimeStep="PT240S"
+modelTimeStep="PT300S"
 restartSemaphoreFilename='isRestartRun.sem'
-#if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-#  modelTimeStep="PT150S"
-#fi
+if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
+  modelTimeStep="PT300S"
+fi
+
+
 
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
-
-YEAR="1948"
-if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-    YEAR_=$(cdo -s showyear ../experiments/${EXPNAME}/multifile_restart_oce.mfr/patch1_1.nc)
-    YEAR=$(echo $YEAR_ | xargs echo -n )
-fi
-NCEP_FORCING=/work/mh0033/m211054/projects/icon/forcing_ncep/forcing_ncep6h_r2b8/${YEAR}_ncep_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_forcing.nc
-FORCING_TIMESCALE=$(cdo -s ntime $NCEP_FORCING)
-
-forcing_timescale=$FORCING_TIMESCALE  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
-ocean_vertical_levels=128
-ocean_grids="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min.nc"
-grids_folder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
+ocean_vertical_levels=64
+ocean_grids="EarthOceanOnly_Icos_0010km_srtm30.nc"
+grids_folder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
+ocean_data_InputFolder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -57,7 +161,6 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
- io_process_stride = 6
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -71,66 +174,28 @@ cat > ${ocean_namelist} << EOF
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 1
+ profiling_output     = 2
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
-  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
+  filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
-  operation        = "mean"
-  file_interval    = "${file_interval}"
+  output_interval  = "P3D"                            ! "P3D"
+  file_interval    = "P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default', 'group:oce_eddy'
-/
-&output_nml
-  output_start     = "${start_date}"
-  output_end       = "${end_date}"
-  output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_grid      = .true.
-  operation        = "mean"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval    = "${file_interval}"
-  output_filename  = "${EXPNAME}_oceanMonitor"
-  ml_varlist       =  'group:ocean_monitor'
-/
-&output_nml
-  output_start     = "${start_date}"
-  output_end       = "${end_date}"
-  output_interval  = "${monthly}"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_grid      = .true.
-  operation        = "mean"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval    = "${file_interval}"
-  output_filename  = "${EXPNAME}_MOC"
-  ml_varlist       =  'group:ocean_moc'
-/
-&output_nml
-  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_fx"
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${start_date}"                    ! end date in ISO-format
-  output_interval  = "${monthly}"         ! interval in ISO-format
-  filename_format  = "<output_filename>"
-  file_interval    = "${file_interval}"
-  output_grid      = .TRUE.
-  mode             =  1
-  include_last     = .false.
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
+  ml_varlist       = 'w', 'u', 'v', 'vort', 'zos', 'HarmonicViscosity_coeff'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -141,21 +206,13 @@ cat > ${ocean_namelist} << EOF
 &ocean_dynamics_nml
 ! 64 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
-
-dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,    8.0,    8.0,
-              8.0,    8.0,    8.0,    8.25,   8.5,    8.75,   9.0,   9.25,    9.5,   9.75,
-             10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,
-             10.5,   11.0,   11.5,   12.0,   12.5,   13.0,   13.5,   14.0,   14.5,   15.0,
-             15.5,   16.0,   16.5,   17.0,   17.5,   18.0,   18.5,   19.0,   19.5,   20.0, 
-             20.5,   21.0,   21.5,   22.0,   22.5,   23.0,   23.5,   24.0,   24.5,   25.0,
-             25.5,   26.0,   26.5,   27.0,   28.5,   29.0,   29.5,   30.0,   30.5,   31.0,
-             31.0,   32.0,   33.0,   34.0,   35.0,   36.0,   37.0,   38.0,   39.0,   40.0,
-             42.0,   44.0,   46.0,   48.0,   50.0,   52.0,   54.0,   56.0,   58.0,   60.0,
-             62.0,   64.0,   66.0,   68.0,   70.0,   72.0,   74.0,   76.0,   78.0,   80.0,
-             82.0,   84.0,   86.0,   88.0,   90.0,   92.0,   94.0,   96.0,   98.0,  100.0,
-            102.0,  104.0,  106.0,  108.0,  110.0,  112.0,  114.0,  116.0,  118.0,  200.0,
-            200.0,  200.0,  200.0,  200.0,  200.0,  200.0,  200.0,  200.0
-
+ dzlev_m(1:64)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
+                       13.0,   14.0,   15.0,   16.0,   17.0,   18.0,   20.0,   22.0,   24.0,   26.0,
+                       29.0,   33.0,   36.0,   39.0,   42.0,   45.0,   48.0,   52.0,   56.0,   60.0,
+                       64.0,   68.0,   72.0,   76.0,   80.0,   85.0,   90.0,   95.0,  100.0,  106.0,
+                      112.0,  118.0,  124.0,  130.0,  138.0,  146.0,  154.0,  162.0,  170.0,  178.0,
+                      186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
+                      286.0,  296.0,  306.0,  318.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
@@ -186,13 +243,27 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
-  VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
+  VelocityDiffusion_order = 1          ! 21=biharmonic+laplacian (for the laplacian Leith)
 
-  BiharmonicViscosity_scaling     =  1
-  BiharmonicViscosity_reference   =  2.0E10  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_scaling     =  0
+  BiharmonicViscosity_reference   =  1.0E9  !  [m2/s] constant horizontal viscosity coefficient for velocity
   BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicVort_weight           = 0.5
+  BiharmonicDiv_weight            = 1.25
+
   HarmonicViscosity_scaling     =  1
   HarmonicViscosity_reference   =  0.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
+
+  LeithClosure_order = 1
+  LeithClosure_form  = 4
+  LeithHarmonicViscosity_scaling = 4
+  LeithHarmonicViscosity_reference =  7.5E-4
+
+  LeithViscosity_SmoothIterations = 1
+  LeithViscosity_SpatialSmoothFactor = 0.5 
+ 
+  HorizontalViscosity_SmoothIterations = 1
+  HorizontalViscosity_SpatialSmoothFactor = 0.5
 
   TracerHorizontalDiffusion_scaling          = 1
   Temperature_HorizontalDiffusion_Background = 0.0
@@ -226,12 +297,12 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   k_tracer_isoneutral_parameter   = 0.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
+  GMREDI_COMBINED_DIAGNOSTIC             =.false.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
-  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
+  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.false.
   SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
-  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
-  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
+  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.false. !think of l_with_vert_tracer_diffusion
+  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.false.
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
@@ -249,13 +320,11 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
  albsm        = 0.70         ! Albedo of snow (melting)
  albi         = 0.75         ! Albedo of ice (not melting)
  albim        = 0.70         ! Albedo of ice (melting)
- Pstar        = 40000
+
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
-  forcing_frequency               = 21600.0
-  sw_scaling_factor               = 0.89                ! reduce sw in ncep forcing by 11%
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -271,10 +340,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
   limit_seaice                    = .TRUE.    ! default: true
-  seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
+  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
-  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
-  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -283,25 +350,18 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 &ocean_diagnostics_nml
   diagnostics_level            = 1
   diagnose_for_horizontalVelocity = .false.
-  eddydiag = .true.
-/
+/                                    
 &io_nml
-  restart_file_type = 5
   write_last_restart = .true.
   lkeep_in_sync = .true.          ! sync after each timestep
-  restart_write_mode = "joint procs multifile"
 /
 EOF
 #-----------------------------------------------------------------------------
 
 
-
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-#. ${thisdir}/add_required_ocean_files
-
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
-add_link_file $NCEP_FORCING ocean-flux.nc
-add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
-
+. ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
+. ${thisdir}/exec.iconrun
+#=============================================================================
