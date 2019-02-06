@@ -26,7 +26,7 @@ MODULE mo_latbc_read_recv
 
   USE mo_kind,               ONLY: sp, i8
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   USE mo_mpi,                ONLY: p_pe_work,  &
     &                              num_work_procs, p_real_sp               
@@ -45,7 +45,7 @@ MODULE mo_latbc_read_recv
   PUBLIC  :: prefetch_cdi_3d
   PUBLIC  :: compute_data_receive
 
-  CHARACTER(LEN=*), PARAMETER :: modname = '::mo_latbc_read_recv'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_latbc_read_recv::'
 
 CONTAINS
 
@@ -71,7 +71,7 @@ CONTAINS
     INTEGER,                 INTENT(IN)  :: hgrid        !< stored variable location indication
     
     ! local constants:
-    CHARACTER(len=*), PARAMETER :: routine = modname//':prefetch_cdi_3d'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'prefetch_cdi_3d'
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
       &                                jk, ierrstat, dimlen(2), nmiss
@@ -154,7 +154,7 @@ CONTAINS
 #else
     INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//':prefetch_cdi_2d'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'prefetch_cdi_2d'
     INTEGER,                 INTENT(IN) :: streamID     !< ID of CDI file stream
     CHARACTER(len=*),        INTENT(IN) :: varname      !< Varname of field to be read
     TYPE(t_latbc_data),      INTENT(IN) :: latbc_data   !< patch data containing information for prefetch 
@@ -180,8 +180,8 @@ CONTAINS
     TYPE(t_patch_data),  TARGET, INTENT(IN)   :: patch_data
     TYPE(t_reorder_info), POINTER             :: p_ri
     ! local constants:
-    CHARACTER(len=max_char_length), PARAMETER :: &
-         routine = modname//':compute_data_receive'
+    CHARACTER(len=*), PARAMETER :: &
+         routine = modname//'compute_data_receive'
     ! local variables:
     INTEGER     :: j, jl, jb, jk, mpi_error      
 
@@ -234,7 +234,7 @@ CONTAINS
     INTEGER,                    INTENT(IN) :: nlevs
     TYPE(t_reorder_info), INTENT(in) :: p_ri
 
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::prefetch_proc_send'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'prefetch_proc_send'
     INTEGER                        :: voff(0:num_work_procs-1) 
     INTEGER                        :: nv_off_np(0:num_work_procs)
     REAL(sp), ALLOCATABLE          :: var3_sp(:)
