@@ -60,7 +60,7 @@ MODULE mo_les_utilities
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
-        TRIM("mo_les_utilities:init_vertical_grid_for_les")
+        "mo_les_utilities:init_vertical_grid_for_les"
     INTEGER :: ist
     ! helper for syncing single-precision array
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: ddx_arg, ddx
