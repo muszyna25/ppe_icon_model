@@ -37,6 +37,7 @@ MODULE mo_les_utilities
   USE mo_physical_constants,  ONLY: grav
   USE mo_les_config,          ONLY: les_config
   USE mo_exception,           ONLY: finish
+  USE mo_fortran_tools,       ONLY: init
   IMPLICIT NONE
 
   PRIVATE
@@ -70,14 +71,16 @@ MODULE mo_les_utilities
       RETURN
 
     IF (p_test_run) THEN
-      p_metrics%ddxt_z_half_v(:,:,:) = 0._wp
-      p_metrics%ddxn_z_half_c(:,:,:) = 0._wp
-      p_metrics%ddxn_z_full_c(:,:,:) = 0._wp
-      p_metrics%ddxn_z_full_v(:,:,:) = 0._wp
-      p_metrics%ddxt_z_half_c(:,:,:) = 0._wp
-      p_metrics%ddxt_z_full_c(:,:,:) = 0._wp
-      p_metrics%ddxt_z_full_v(:,:,:) = 0._wp
-      p_metrics%inv_ddqz_z_full_v(:,:,:) = 0._wp
+!$OMP PARALLEL
+      CALL init(p_metrics%ddxt_z_half_v)
+      CALL init(p_metrics%ddxn_z_half_c)
+      CALL init(p_metrics%ddxn_z_full_c)
+      CALL init(p_metrics%ddxn_z_full_v)
+      CALL init(p_metrics%ddxt_z_half_c)
+      CALL init(p_metrics%ddxt_z_full_c)
+      CALL init(p_metrics%ddxt_z_full_v)
+      CALL init(p_metrics%inv_ddqz_z_full_v)
+!$OMP END PARALLEL
     END IF
 
     ! half_c sync
