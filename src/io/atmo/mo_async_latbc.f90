@@ -739,7 +739,7 @@ MODULE mo_async_latbc
             latbc%patch_data%edges%n_own, latbc%patch_data%nblks_e, &
             var_buf_map, mem_size)
         ELSE IF (is_pref) THEN
-          mem_size = 1_mpi_address_kind
+          mem_size = 0_mpi_address_kind
         END IF
         ! allocate amount of memory needed with MPI_Alloc_mem
         CALL create_win(latbc%patch_data%mem_win, mem_size)
@@ -1535,15 +1535,15 @@ MODULE mo_async_latbc
       TYPE(t_buffer), INTENT(inout) :: buffer
       TYPE(t_var_data), INTENT(in) :: var_data(:)
       INTEGER, INTENT(in) :: n_own_cells, n_own_edges, nblks_c, nblks_e, map(:)
-      INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(out) :: mem_size
+      INTEGER(kind=mpi_address_kind), INTENT(out) :: mem_size
 
       INTEGER :: ierror, iv, jp, nlevs, nblks, hgrid
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size_, lvlsz
+      INTEGER(kind=mpi_address_kind) :: mem_size_, lvlsz
       LOGICAL :: is_work, found_unknown_grid
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 
       ! Get size and offset of the data for the input
-      mem_size_ = 0_i8
+      mem_size_ = 0_mpi_address_kind
 
       is_work = my_process_is_work()
       found_unknown_grid = .FALSE.
@@ -1590,7 +1590,7 @@ MODULE mo_async_latbc
           IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
             ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
             ! as the variable GEOSP doesn't exist in metadata
-            mem_size_ = mem_size_ + INT(1*n_own_cells,i8)
+            mem_size_ = mem_size_ + INT(1*n_own_cells,mpi_address_kind)
 
             IF(is_work)THEN
               ! allocate the buffer sizes for variable 'GEOSP' on compute processors
@@ -1621,22 +1621,28 @@ MODULE mo_async_latbc
       TYPE(c_ptr)                     :: c_mem_ptr
       INTEGER                         :: ierror, nbytes_real
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-
+      REAL(sp), TARGET :: dummy(1)
       ! Get the amount of bytes per REAL*4 variable (as used in MPI
       ! communication)
       CALL MPI_Type_extent(p_real_sp, nbytes_real, ierror)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = mem_size*INT(nbytes_real,i8)
+      IF (mem_size > 0) THEN
+        mem_bytes = mem_size*INT(nbytes_real,mpi_address_kind)
 
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
+        CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
 
-      CALL C_F_POINTER(c_mem_ptr, mem_win%mem_ptr_sp, (/ mem_size /) )
+        CALL C_F_POINTER(c_mem_ptr, mem_win%mem_ptr_sp, (/ mem_size /) )
+        mem_win%mem_ptr_sp(:) = 0._sp
+      ELSE
+        mem_bytes = 0_mpi_address_kind
+        mem_win%mem_ptr_sp => dummy
+      END IF
 
       ! Create memory window for communication
-      mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-        &                  p_comm_work_pref, mem_win%mpi_win, ierror )
+      CALL MPI_Win_create(mem_win%mem_ptr_sp, mem_bytes, nbytes_real, &
+        &                 MPI_INFO_NULL, p_comm_work_pref, mem_win%mpi_win, &
+        &                 ierror )
       IF (ierror /= 0) CALL finish(routine, "MPI error!")
 
     END SUBROUTINE create_win
