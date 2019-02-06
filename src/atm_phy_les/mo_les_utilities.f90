@@ -260,33 +260,32 @@ MODULE mo_les_utilities
     REAL(wp) :: var_aux(SIZE(var,1),SIZE(var,2),SIZE(var,3))
     INTEGER  :: i_startblk, i_endblk, rl_start
     INTEGER  :: i_endidx, i_startidx
-    INTEGER  :: jk, jc, jb, nz
-
-    !Put all fields to 0
-    var_aux(:,:,:) = 0._wp
+    INTEGER  :: jk, jc, jb, nz, nblk, nproma
 
     rl_start   = grf_bdywidth_c+1
     i_startblk = p_patch%cells%start_block(rl_start)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
+    nproma     = SIZE(var,1)
     nz         = SIZE(var,2)
+    nblk       = SIZE(var,3)
 
    !Now put values in interior nodes
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                          i_startidx, i_endidx, rl_start, min_rlcell_int)
-#ifdef __LOOP_EXCHANGE
-       DO jc = i_startidx , i_endidx
-         DO jk = 1 , nz
-#else
-       DO jk = 1 , nz
-         DO jc = i_startidx , i_endidx
-#endif
-             var_aux(jc,jk,jb) = var(jc,jk,jb)
-         END DO
-       END DO
-    END DO 
+    DO jb = 1, nblk
+      IF (jb >= i_startblk .AND. jb <= i_endblk) THEN
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, min_rlcell_int)
+        DO jk = 1, nz
+          DO jc = 1, nproma
+            var_aux(jc,jk,jb) = MERGE(var(jc,jk,jb), 0._wp, &
+                 jc >= i_startidx .AND. jc <= i_endidx)
+          END DO
+        END DO
+      ELSE
+        var_aux(:,:,jb) = 0.0_wp
+      END IF
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
