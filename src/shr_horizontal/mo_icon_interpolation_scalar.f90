@@ -133,7 +133,7 @@
 MODULE mo_icon_interpolation_scalar
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,                ONLY: wp, vp
+  USE mo_kind,                ONLY: dp, sp, wp, vp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
   USE mo_grid_config,         ONLY: l_limited_area
@@ -168,6 +168,10 @@ MODULE mo_icon_interpolation_scalar
 #endif
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
+
+  INTERFACE edges2cells_scalar
+    MODULE PROCEDURE edges2cells_scalar_dp, edges2cells_scalar_sp
+  END INTERFACE edges2cells_scalar
 
 CONTAINS
 
@@ -647,14 +651,14 @@ END SUBROUTINE edges2verts_scalar
 !!  - exchange calling parameters to have the same shape as for other
 !!    interpolation routines
 !!
-SUBROUTINE edges2cells_scalar( p_edge_in, ptr_patch, c_int, p_cell_out,  &
-  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE edges2cells_scalar_dp(p_edge_in, ptr_patch, c_int, p_cell_out,  &
+  &                              opt_slev, opt_elev, opt_rlstart, opt_rlend)
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 
 ! edge based scalar input field
-REAL(wp), INTENT(in) ::  p_edge_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
+REAL(dp), INTENT(in) ::  p_edge_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
 
 ! coefficients for (area weighted) interpolation
 REAL(wp), INTENT(in) ::  c_int(:,:,:)      ! dim: (nproma,cell_type,nblks_c)
@@ -667,7 +671,7 @@ INTEGER, INTENT(in), OPTIONAL ::  opt_elev ! optional vertical end level
 INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
 
 ! cell based scalar output field
-REAL(wp), INTENT(inout) :: p_cell_out(:,:,:)  ! dim: (nproma,nlev,nblks_c)
+REAL(dp), INTENT(inout) :: p_cell_out(:,:,:)  ! dim: (nproma,nlev,nblks_c)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
@@ -757,7 +761,133 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 
 IF (timers_level > 10) CALL timer_stop(timer_intp)
 
-END SUBROUTINE edges2cells_scalar
+END SUBROUTINE edges2cells_scalar_dp
+!------------------------------------------------------------------------
+!------------------------------------------------------------------------
+!
+!>
+!!  Computes interpolation from edges to cells
+!!
+!!  Computes interpolation of scalar fields from velocity points to
+!!  cell centers via given interpolation weights
+!!
+!! @par Revision History
+!!  Original version by Hui Wan (MPI-M, 2006-08-17)
+!!  Modification by Almut Gassmann, MPI-M (2009-01-28)
+!!  - exchange calling parameters to have the same shape as for other
+!!    interpolation routines
+!!
+SUBROUTINE edges2cells_scalar_sp( p_edge_in, ptr_patch, c_int, p_cell_out,  &
+  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
+!
+
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! edge based scalar input field
+REAL(sp), INTENT(in) ::  p_edge_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
+
+! coefficients for (area weighted) interpolation
+REAL(wp), INTENT(in) ::  c_int(:,:,:)      ! dim: (nproma,cell_type,nblks_c)
+
+INTEGER, INTENT(in), OPTIONAL ::  opt_slev ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  opt_elev ! optional vertical end level
+
+! start and end values of refin_ctrl flag
+INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
+
+! cell based scalar output field
+REAL(sp), INTENT(inout) :: p_cell_out(:,:,:)  ! dim: (nproma,nlev,nblks_c)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-------------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_edge_in,2)
+END IF
+
+
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 1
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlcell
+END IF
+
+iidx => ptr_patch%cells%edge_idx
+iblk => ptr_patch%cells%edge_blk
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+IF (timers_level > 10) CALL timer_start(timer_intp)
+
+!$ACC DATA PCOPYIN( c_int, p_edge_in ), PCOPY( p_cell_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( c_int, p_edge_in, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
+!loop over blocks and cells
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+#ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
+    DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
+      DO jk = slev, elev
+#else
+    !$ACC LOOP GANG
+    DO jk = slev, elev
+      !$ACC LOOP VECTOR
+      DO jc = i_startidx, i_endidx
+#endif
+
+        p_cell_out(jc,jk,jb) = REAL( &
+          c_int(jc,1,jb) * REAL(p_edge_in(iidx(jc,jb,1),jk,iblk(jc,jb,1)), wp)+&
+          c_int(jc,2,jb) * REAL(p_edge_in(iidx(jc,jb,2),jk,iblk(jc,jb,2)), wp)+&
+          c_int(jc,3,jb) * REAL(p_edge_in(iidx(jc,jb,3),jk,iblk(jc,jb,3)), wp),&
+          sp)
+      ENDDO
+    ENDDO
+!$ACC END PARALLEL
+
+  ENDDO  !loop over blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+!$ACC UPDATE HOST( p_cell_out ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+
+IF (timers_level > 10) CALL timer_stop(timer_intp)
+
+END SUBROUTINE edges2cells_scalar_sp
 !------------------------------------------------------------------------
 
 !------------------------------------------------------------------------
