@@ -173,6 +173,11 @@ MODULE mo_icon_interpolation_scalar
     MODULE PROCEDURE edges2cells_scalar_dp, edges2cells_scalar_sp
   END INTERFACE edges2cells_scalar
 
+  INTERFACE cells2verts_scalar
+    MODULE PROCEDURE cells2verts_scalar_dp, cells2verts_scalar_sp
+    MODULE PROCEDURE cells2verts_scalar_sp2dp
+  END INTERFACE cells2verts_scalar
+
 CONTAINS
 
 
@@ -898,14 +903,14 @@ END SUBROUTINE edges2cells_scalar_sp
 !! @par Revision History
 !! Developed  by Almut Gassmann, MPI-M (2009-01-28)
 !!
-SUBROUTINE cells2verts_scalar( p_cell_in, ptr_patch, c_int, p_vert_out,  &
+SUBROUTINE cells2verts_scalar_dp( p_cell_in, ptr_patch, c_int, p_vert_out,  &
   &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 
 ! cell based scalar input field
-REAL(wp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
+REAL(dp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
 
 ! coefficients for interpolation
 REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-cell_type,nblks_v)
@@ -918,7 +923,7 @@ INTEGER, INTENT(in), OPTIONAL :: opt_elev  ! optional vertical end level
 INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
 
 ! vertex based scalar output field
-REAL(wp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+REAL(dp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb
@@ -1012,7 +1017,256 @@ IF (timers_level > 10) CALL timer_start(timer_intp)
 IF (timers_level > 10) CALL timer_stop(timer_intp)
 
 
-END SUBROUTINE cells2verts_scalar
+END SUBROUTINE cells2verts_scalar_dp
+!------------------------------------------------------------------------
+
+!------------------------------------------------------------------------
+!>
+!!  Computes  average of scalar fields from centers of cells to vertices.
+!!
+!!
+!! @par Revision History
+!! Developed  by Almut Gassmann, MPI-M (2009-01-28)
+!!
+SUBROUTINE cells2verts_scalar_sp( p_cell_in, ptr_patch, c_int, p_vert_out,  &
+  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
+!
+
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! cell based scalar input field
+REAL(sp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
+
+! coefficients for interpolation
+REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-cell_type,nblks_v)
+
+INTEGER, INTENT(in), OPTIONAL :: opt_slev  ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL :: opt_elev  ! optional vertical end level
+
+! start and end values of refin_ctrl flag
+INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
+
+! vertex based scalar output field
+REAL(sp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jv, jk, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_cell_in,2)
+END IF
+
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 2
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlvert
+END IF
+
+iidx => ptr_patch%verts%cell_idx
+iblk => ptr_patch%verts%cell_blk
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%verts%start_blk(rl_start,1)
+i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
+
+
+IF (timers_level > 10) CALL timer_start(timer_intp)
+
+!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+#ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
+    DO jv = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=6
+    !$ACC LOOP GANG
+    DO jk = slev, elev
+      !$ACC LOOP VECTOR
+      DO jv = i_startidx, i_endidx
+#endif
+
+         p_vert_out(jv,jk,jb) =                       &
+           c_int(jv,1,jb) * p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)) + &
+           c_int(jv,2,jb) * p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)) + &
+           c_int(jv,3,jb) * p_cell_in(iidx(jv,jb,3),jk,iblk(jv,jb,3)) + &
+           c_int(jv,4,jb) * p_cell_in(iidx(jv,jb,4),jk,iblk(jv,jb,4)) + &
+           c_int(jv,5,jb) * p_cell_in(iidx(jv,jb,5),jk,iblk(jv,jb,5)) + &
+           c_int(jv,6,jb) * p_cell_in(iidx(jv,jb,6),jk,iblk(jv,jb,6))
+
+      ENDDO
+    ENDDO
+!$ACC END PARALLEL
+
+  ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+
+IF (timers_level > 10) CALL timer_stop(timer_intp)
+
+
+END SUBROUTINE cells2verts_scalar_sp
+!------------------------------------------------------------------------
+
+!------------------------------------------------------------------------
+!>
+!!  Computes  average of scalar fields from centers of cells to vertices.
+!!
+!!
+!! @par Revision History
+!! Developed  by Almut Gassmann, MPI-M (2009-01-28)
+!!
+  SUBROUTINE cells2verts_scalar_sp2dp(p_cell_in, ptr_patch, c_int, p_vert_out, &
+    &                                 opt_slev, opt_elev, opt_rlstart, &
+    &                                 opt_rlend)
+    !
+    TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+    ! cell based scalar input field
+    REAL(sp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
+
+    ! coefficients for interpolation
+    REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-cell_type,nblks_v)
+
+    INTEGER, INTENT(in), OPTIONAL :: opt_slev  ! optional vertical start level
+
+    INTEGER, INTENT(in), OPTIONAL :: opt_elev  ! optional vertical end level
+
+    ! start and end values of refin_ctrl flag
+    INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
+
+    ! vertex based scalar output field
+    REAL(dp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+
+    INTEGER :: slev, elev     ! vertical start and end level
+    INTEGER :: jv, jk, jb
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+    !-----------------------------------------------------------------------
+
+    ! check optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = UBOUND(p_cell_in,2)
+    END IF
+
+    IF ( PRESENT(opt_rlstart) ) THEN
+      rl_start = opt_rlstart
+    ELSE
+      rl_start = 2
+    END IF
+    IF ( PRESENT(opt_rlend) ) THEN
+      rl_end = opt_rlend
+    ELSE
+      rl_end = min_rlvert
+    END IF
+
+    iidx => ptr_patch%verts%cell_idx
+    iblk => ptr_patch%verts%cell_blk
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%verts%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
+
+
+    IF (timers_level > 10) CALL timer_start(timer_intp)
+
+!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+#ifdef __LOOP_EXCHANGE
+      !$ACC LOOP GANG
+      DO jv = i_startidx, i_endidx
+        !$ACC LOOP VECTOR
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=6
+      !$ACC LOOP GANG
+      DO jk = slev, elev
+        !$ACC LOOP VECTOR
+        DO jv = i_startidx, i_endidx
+#endif
+
+          p_vert_out(jv,jk,jb) =                                                    &
+            c_int(jv,1,jb) * REAL(p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)), dp) + &
+            c_int(jv,2,jb) * REAL(p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)), dp) + &
+            c_int(jv,3,jb) * REAL(p_cell_in(iidx(jv,jb,3),jk,iblk(jv,jb,3)), dp) + &
+            c_int(jv,4,jb) * REAL(p_cell_in(iidx(jv,jb,4),jk,iblk(jv,jb,4)), dp) + &
+            c_int(jv,5,jb) * REAL(p_cell_in(iidx(jv,jb,5),jk,iblk(jv,jb,5)), dp) + &
+            c_int(jv,6,jb) * REAL(p_cell_in(iidx(jv,jb,6),jk,iblk(jv,jb,6)), dp)
+
+        ENDDO
+      ENDDO
+!$ACC END PARALLEL
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+
+    IF (timers_level > 10) CALL timer_stop(timer_intp)
+
+  END SUBROUTINE cells2verts_scalar_sp2dp
 !------------------------------------------------------------------------
 
 !>
