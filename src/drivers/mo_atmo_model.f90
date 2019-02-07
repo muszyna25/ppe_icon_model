@@ -557,7 +557,7 @@ CONTAINS
     ! Setup horizontal grids and tiles for JSBACH
     DO jg=1,n_dom
       IF (echam_phy_config(jg)%ljsb) THEN 
-        CALL jsbach_setup_grid( jg, p_patch(jg)) !< in
+        CALL jsbach_setup_grid( jg, p_patch(jg), type='icon') !< in
         CALL jsbach_setup_tiles(jg)
       END IF
     END DO
