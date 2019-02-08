@@ -1226,14 +1226,16 @@ CONTAINS
 
          DO isubs = 1,ntiles_total
            DO jc = i_startidx, i_endidx
-             area_frac = ext_data%atm%frac_t(jc,jb,isubs)
+             ! use rescaled area fraction on mixed land-water points in order to obtain aggregated values
+             ! representative for the land part
+             area_frac = ext_data%atm%frac_t(jc,jb,isubs)*ext_data%atm%inv_frland_from_tiles(jc,jb)
              prm_diag%lhfl_bs(jc,jb) = prm_diag%lhfl_bs(jc,jb) + prm_diag%lhfl_bs_t(jc,jb,isubs) * area_frac
              lnd_diag%h_snow(jc,jb)  = lnd_diag%h_snow(jc,jb) + lnd_diag%h_snow_t(jc,jb,isubs) * area_frac
            ENDDO  ! jc
            DO jk=1,nlev_soil
              DO jc = i_startidx, i_endidx
                prm_diag%lhfl_pl(jc,jk,jb) = prm_diag%lhfl_pl(jc,jk,jb) + ext_data%atm%frac_t(jc,jb,isubs) &
-                 &       * prm_diag%lhfl_pl_t(jc,jk,jb,isubs)
+                 &      * ext_data%atm%inv_frland_from_tiles(jc,jb) * prm_diag%lhfl_pl_t(jc,jk,jb,isubs)
              ENDDO  ! jc
            ENDDO  ! jk
          ENDDO  ! isubs
