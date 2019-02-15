@@ -2890,7 +2890,6 @@ CONTAINS
                                    !< and a piecewise approximation is needed,
                                    !< instead
 
-    LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: npoints            !< number of points per block for ndex list allocation
     INTEGER  :: slev, elev         !< vertical start and end level
@@ -2936,12 +2935,6 @@ CONTAINS
     ELSE
       elev_ti = nlev
     END IF
-
-    IF ( PRESENT(opt_lconsv) ) THEN
-     l_consv = opt_lconsv
-    ELSE
-     l_consv = .FALSE. ! non-conservative reconstruction
-    ENDIF
 
     IF ( PRESENT(opt_lout_edge) ) THEN
       l_out_edgeval = opt_lout_edge
@@ -3044,8 +3037,7 @@ CONTAINS
         &                   dreg_patch0, dreg_patch1, dreg_patch2,     &! out
         &                   patch1_cell_idx, patch1_cell_blk,          &! out
         &                   patch2_cell_idx, patch2_cell_blk,          &! out
-        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend,  &! in
-        &                   opt_slev=slev_ti, opt_elev=elev_ti         )! in
+        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend   )! in
 
       ! maps quadrilateral onto the standard rectangle of edge length 2.
       ! provides quadrature points and the corresponding determinant of the
@@ -3061,13 +3053,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_l_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ELSE IF (lsq_high_ord == 2) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -3079,13 +3069,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_q_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
@@ -3097,13 +3085,11 @@ CONTAINS
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch1, falist,  &! in
           &                      z_quad_vector_sum1, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
         CALL prep_gauss_quadrature_c_list( p_patch, dreg_patch2, falist,  &! in
           &                      z_quad_vector_sum2, z_dreg_area,         &! out/inout
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
-          &                      opt_slev=slev_ti, opt_elev=elev_ti       )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
 
       ENDIF
 

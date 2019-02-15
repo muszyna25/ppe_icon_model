@@ -92,6 +92,8 @@ CONTAINS
 
     REAL(wp) :: p_upflux
 
+    !$ACC ROUTINE SEQ
+
     !-----------------------------------------------------------------------
     p_upflux = 0.5_wp * (        p_vn  *( p_psi1 + p_psi2 )    &
       &                   - ABS( p_vn )*( p_psi2 - p_psi1 ) )
@@ -134,6 +136,8 @@ CONTAINS
     REAL(wp), INTENT(in) :: p_coeff_grid
 
     REAL(wp) :: p_upflux
+
+    !$ACC ROUTINE SEQ
 
     !-----------------------------------------------------------------------
     p_upflux = 0.5_wp * (                       p_w  *( p_psi1 + p_psi2 )    &

@@ -74,9 +74,7 @@ MODULE mo_assimilation_nml
     lhn_dt_obs        ,& ! time step of input data in minutes
     abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit)
     fac_lhn_artif     ,& ! factor when artificial profile will applied
-    fac_lhn_up_in     ,& ! limiting factor for upscaling of model heating profile incoming
     fac_lhn_up        ,& ! limiting factor for upscaling of model heating profile
-    fac_lhn_down_in   ,& ! limiting factor for downscaling model heating profile incoming
     fac_lhn_down      ,& ! limiting factor for downscaling model heating profile
     thres_lhn         ,& ! threshold of rain rates to be consinderd within lhn approach
     rqrsgmax          ,& ! ratio of maximum of qrsgflux, needed for reference precipitation

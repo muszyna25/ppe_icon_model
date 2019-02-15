@@ -314,7 +314,6 @@ CONTAINS
 !
 !=======================================================================
 !
-      NFAST = 1
 !C    DATA NFAST / 0, 0, 0, 0, 0, 0, 0, 0/
 !C
 !C                                                                       
@@ -775,7 +774,8 @@ CONTAINS
      &   0.000000E+00_wp, 0.000000E+00_wp, 0.000000E+00_wp/                    
 !C
 
-      
+      NFAST(:) = 1
+
 !      IF (myproc == 0) THEN
 !      PRINT *,'======================================================'
 !      PRINT *,'=     Radiative transfer calculations employ data    ='

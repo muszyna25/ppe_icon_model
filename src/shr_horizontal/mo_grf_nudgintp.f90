@@ -335,7 +335,7 @@ SUBROUTINE interpol_scal_nudging_core(ptr_pp, jb, i_startblk, i_endblk, all_enab
 
   INTEGER :: i_startidx
   INTEGER :: i_endidx
-  INTEGER :: jk, jc, n
+  INTEGER :: jk, jc
 
   ! Auxiliary fields
   REAL(wp), DIMENSION(nproma,elev+js) :: grad_x, grad_y, maxval_neighb, minval_neighb
@@ -585,14 +585,12 @@ INTEGER :: i_startidx                ! start index
 INTEGER :: i_endidx                  ! end index
 INTEGER :: elev                      ! end index of vertical loop
 
-LOGICAL :: l4d                       ! 4D field is provided as input
 
 ! local variables corresponding to optional input variables
 LOGICAL :: l_limit_nneg(nfields)
 REAL(wp):: r_limval(nfields)
 
 ! Auxiliary fields
-REAL(wp), DIMENSION(nproma,MAX(32,ptr_pp%nlevp1)) :: grad_x, grad_y, maxval_neighb, minval_neighb
 REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1), 4,                    &
                   ptr_pp%cells%start_block(grf_nudgintp_start_c):     &
                   MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
@@ -621,7 +619,6 @@ IF (PRESENT(f4din)) THEN
     p_in(n)%fld  => f4din(:,:,:,n)
     p_out(n)%fld => f4dout(:,:,:,n)
   ENDDO
-  l4d = .TRUE.
 ELSE
   IF (PRESENT(f3din1)) THEN
     p_in(1)%fld  => f3din1
@@ -643,7 +640,6 @@ ELSE
     p_in(5)%fld  => f3din5
     p_out(5)%fld => f3dout5
   ENDIF
-  l4d = .FALSE.
 ENDIF
 
 IF (PRESENT(llimit_nneg)) THEN

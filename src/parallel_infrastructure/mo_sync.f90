@@ -56,7 +56,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  get_np_send, get_pelist_recv, exchange_data_mult_mixprec
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+  & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum!, timer_omp_ordglb_sum
 USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
 
 IMPLICIT NONE
@@ -84,8 +84,8 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
 
 #if defined( __ROUNDOFF_CHECK )
-REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-13
-REAL(wp), PARAMETER :: REL_TOL  = 1.0D-13
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
 REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
 #endif
 
@@ -95,6 +95,8 @@ INTERFACE sync_patch_array
   MODULE PROCEDURE sync_patch_array_s3
   MODULE PROCEDURE sync_patch_array_i2
   MODULE PROCEDURE sync_patch_array_i3
+  MODULE PROCEDURE sync_patch_array_l2
+  MODULE PROCEDURE sync_patch_array_l3
 END INTERFACE
 
 INTERFACE check_patch_array
@@ -177,6 +179,22 @@ SUBROUTINE disable_sync_checks()
   do_sync_checks = .FALSE.
 END SUBROUTINE disable_sync_checks
 
+  FUNCTION comm_pat_of_type(p_patch, typ) RESULT(p_pat)
+   INTEGER, INTENT(IN) :: typ
+   TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+   CLASS(t_comm_pattern), POINTER :: p_pat
+   IF(typ == SYNC_C) THEN
+     p_pat => p_patch%comm_pat_c
+   ELSE IF(typ == SYNC_E) THEN
+     p_pat => p_patch%comm_pat_e
+   ELSE IF(typ == SYNC_V) THEN
+     p_pat => p_patch%comm_pat_v
+   ELSE IF(typ == SYNC_C1) THEN
+     p_pat => p_patch%comm_pat_c1
+   ELSE
+     CALL finish('comm_pat_of_type','Illegal type parameter')
+   ENDIF
+  END FUNCTION comm_pat_of_type
 
 !-------------------------------------------------------------------------
 !> Does boundary exchange for a 3-D REAL array.
@@ -186,28 +204,20 @@ END SUBROUTINE disable_sync_checks
 !
 SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(INOUT) :: p_patch
+   TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
    CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+   CLASS(t_comm_pattern), POINTER :: p_pat
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) &
      CALL check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ! Boundary exchange for work PEs
-   IF(my_process_is_mpi_parallel()) THEN
-      IF(typ == SYNC_C) THEN
-         CALL exchange_data(p_patch%comm_pat_c, arr)
-      ELSE IF(typ == SYNC_E) THEN
-         CALL exchange_data(p_patch%comm_pat_e, arr)
-      ELSE IF(typ == SYNC_V) THEN
-         CALL exchange_data(p_patch%comm_pat_v, arr)
-      ELSE IF(typ == SYNC_C1) THEN
-         CALL exchange_data(p_patch%comm_pat_c1, arr)
-      ELSE
-         CALL finish('sync_patch_array','Illegal type parameter')
-      ENDIF
-   ENDIF
+    IF(my_process_is_mpi_parallel()) THEN
+      p_pat => comm_pat_of_type(p_patch, typ)
+      CALL exchange_data(p_pat, arr)
+    ENDIF
 END SUBROUTINE sync_patch_array_r3
 
 
@@ -219,33 +229,27 @@ END SUBROUTINE sync_patch_array_r3
 !
 SUBROUTINE sync_patch_array_s3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
    REAL(sp),      INTENT(INOUT) :: arr(:,:,:)
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
-
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+   CLASS(t_comm_pattern), POINTER :: p_pat
+   CHARACTER(len=4), SAVE, TARGET :: default_varname = 'sync'
+   CHARACTER(len=:), POINTER :: varname
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      IF(PRESENT(opt_varname)) THEN
-       CALL check_patch_array_sp(typ, p_patch, arr, opt_varname)
+       varname => opt_varname
      ELSE
-       CALL check_patch_array_sp(typ, p_patch, arr, 'sync')
+       varname => default_varname
      ENDIF
+     CALL check_patch_array_sp(typ, p_patch, arr, varname)
    ENDIF
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
-      IF(typ == SYNC_C) THEN
-         CALL exchange_data(p_patch%comm_pat_c, arr)
-      ELSE IF(typ == SYNC_E) THEN
-         CALL exchange_data(p_patch%comm_pat_e, arr)
-      ELSE IF(typ == SYNC_V) THEN
-         CALL exchange_data(p_patch%comm_pat_v, arr)
-      ELSE IF(typ == SYNC_C1) THEN
-         CALL exchange_data(p_patch%comm_pat_c1, arr)
-      ELSE
-         CALL finish('sync_patch_array','Illegal type parameter')
-      ENDIF
+      p_pat => comm_pat_of_type(p_patch, typ)
+      CALL exchange_data(p_pat, arr)
    ENDIF
 END SUBROUTINE sync_patch_array_s3
 
@@ -261,24 +265,29 @@ END SUBROUTINE sync_patch_array_s3
 !
 SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(INOUT) :: p_patch
+   TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
    INTEGER,       INTENT(INOUT) :: arr(:,:,:)
+   CLASS(t_comm_pattern), POINTER :: p_pat
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
-      IF(typ == SYNC_C) THEN
-         CALL exchange_data(p_patch%comm_pat_c, arr)
-      ELSE IF(typ == SYNC_E) THEN
-         CALL exchange_data(p_patch%comm_pat_e, arr)
-      ELSE IF(typ == SYNC_V) THEN
-         CALL exchange_data(p_patch%comm_pat_v, arr)
-      ELSE IF(typ == SYNC_C1) THEN
-         CALL exchange_data(p_patch%comm_pat_c1, arr)
-      ELSE
-         CALL finish('sync_patch_array','Illegal type parameter')
-      ENDIF
+      p_pat => comm_pat_of_type(p_patch, typ)
+      CALL exchange_data(p_pat, arr)
    ENDIF
 END SUBROUTINE sync_patch_array_i3
+
+  SUBROUTINE sync_patch_array_l3(typ, p_patch, arr)
+    INTEGER,       INTENT(IN)    :: typ
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
+    LOGICAL,       INTENT(INOUT) :: arr(:,:,:)
+    CLASS(t_comm_pattern), POINTER :: p_pat
+
+    ! Boundary exchange for work PEs
+    IF(my_process_is_mpi_parallel()) THEN
+      p_pat => comm_pat_of_type(p_patch, typ)
+      CALL exchange_data(p_pat, arr)
+    ENDIF
+  END SUBROUTINE sync_patch_array_l3
 
 
 !-------------------------------------------------------------------------
@@ -320,6 +329,17 @@ SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
    CALL sync_patch_array_i3(typ, p_patch, arr3)
 END SUBROUTINE sync_patch_array_i2
 
+  SUBROUTINE sync_patch_array_l2(typ, p_patch, arr)
+    INTEGER,       INTENT(IN)    :: typ
+    TYPE(t_patch), INTENT(INOUT) :: p_patch
+    LOGICAL, TARGET, INTENT(INOUT) :: arr(:,:)
+    ! local variable
+    LOGICAL, POINTER :: arr3(:,:,:)
+
+    CALL insert_dimension(arr3, arr, 2)
+    CALL sync_patch_array_l3(typ, p_patch, arr3)
+  END SUBROUTINE sync_patch_array_l2
+
 
 !-------------------------------------------------------------------------
 !>
@@ -348,15 +368,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 
 !-----------------------------------------------------------------------
 
-    IF(typ == SYNC_C) THEN
-      p_pat => p_patch%comm_pat_c
-    ELSE IF(typ == SYNC_E) THEN
-      p_pat => p_patch%comm_pat_e
-    ELSE IF(typ == SYNC_V) THEN
-      p_pat => p_patch%comm_pat_v
-    ELSE IF(typ == SYNC_C1) THEN
-      p_pat => p_patch%comm_pat_c1
-    ENDIF
+   p_pat => comm_pat_of_type(p_patch, typ)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
@@ -426,7 +438,6 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    REAL(sp), OPTIONAL, INTENT(INOUT) ::  f3din1_sp(:,:,:), f3din2_sp(:,:,:), f3din3_sp(:,:,:), &
       &                                  f3din4_sp(:,:,:), f3din5_sp(:,:,:), f4din_sp(:,:,:,:)
 
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat
    CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
 
@@ -450,20 +461,14 @@ SUBROUTINE sync_patch_array_mult_mp(typ, p_patch, nfields, nfields_sp, f3din1, f
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
-       ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
        DO i = 1, SIZE(f4din,4)
-         arr3(:,:,:) = f4din(:,:,:,i)
-         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
+         CALL check_patch_array_3(typ, p_patch, f4din(:,:,:,i), opt_varname)
        ENDDO
-       DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f4din_sp)) THEN
-       ALLOCATE(arr3(UBOUND(f4din_sp,1), UBOUND(f4din_sp,2), UBOUND(f4din_sp,3)))
        DO i = 1, SIZE(f4din_sp,4)
-         arr3(:,:,:) = REAL(f4din_sp(:,:,:,i),wp)
-         CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
+         CALL check_patch_array_sp(typ, p_patch, f4din_sp(:,:,:,i), opt_varname)
        ENDDO
-       DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, opt_varname)
      IF (PRESENT(f3din2)) CALL check_patch_array_3(typ, p_patch, f3din2, opt_varname)
@@ -532,15 +537,7 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din, opt_varname)
 
 !-----------------------------------------------------------------------
 
-    IF(typ == SYNC_C) THEN
-      p_pat => p_patch%comm_pat_c
-    ELSE IF(typ == SYNC_E) THEN
-      p_pat => p_patch%comm_pat_e
-    ELSE IF(typ == SYNC_V) THEN
-      p_pat => p_patch%comm_pat_v
-    ELSE IF(typ == SYNC_C1) THEN
-      p_pat => p_patch%comm_pat_c1
-    ENDIF
+    p_pat => comm_pat_of_type(p_patch, typ)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
@@ -570,21 +567,24 @@ SUBROUTINE check_patch_array_sp(typ, p_patch, arr, opt_varname)
 
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(sp), INTENT(IN) :: arr(:,:,:)
    REAL(wp) :: arr_wp(SIZE(arr,1),SIZE(arr,2),SIZE(arr,3))
 
+!$ACC DATA CREATE(arr_wp) IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
    arr_wp(:,:,:) = REAL(arr(:,:,:),wp)
+!$ACC END KERNELS
    CALL check_patch_array_3(typ, p_patch, arr_wp, opt_varname)
+!$ACC END DATA
 
 END SUBROUTINE check_patch_array_sp
 
 
 !>
-!! In a verification run, this routine checks the consistency of an array, i.
-!!
-!! e. if the parts on the worker PEs are identical with the data on
+!! In a verification run, this routine checks the consistency of an array,
+!! i.e. if the parts on the worker PEs are identical with the data on
 !! the verification PE.
 !! For a non-verification run it just does nothing.
 !!
@@ -597,7 +597,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(wp), INTENT(IN) :: arr(:,:,:)
 
@@ -880,7 +880,7 @@ SUBROUTINE check_patch_array_2(typ, p_patch, arr, opt_varname)
    INTEGER, INTENT(IN)     :: typ
    TYPE(t_patch), INTENT(IN) :: p_patch
    REAL(wp), TARGET, INTENT(IN)    :: arr(:,:)
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(*), INTENT(IN), OPTIONAL :: opt_varname
 
    REAL(wp), POINTER :: arr3(:,:,:)
 !-----------------------------------------------------------------------
@@ -935,12 +935,13 @@ END SUBROUTINE check_patch_array_4
 !! @par Revision History
 !! Initial version by Rainer Johanni, Oct 2011
 
-SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
+SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varname )
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
   TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
   LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
+  CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
 
   INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
   LOGICAL :: remap
@@ -991,6 +992,10 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   ! Set z_idx with the global 1D-index of all points
 
+!$ACC DATA COPYIN( z_idx ), IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1004,11 +1009,14 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
 
   ! Sync z_idx
-  CALL sync_patch_array(type_arr, p_patch, z_idx)
+  CALL sync_patch_array(type_arr, p_patch, z_idx, opt_varname)
 
   ! Set all points with local index corresponding to z_idx
+!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
   DO jb = 1, nblks
     DO jl = 1, nproma
 
@@ -1034,6 +1042,9 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
     END DO
   END DO
+!$ACC END PARALLEL
+
+!$ACC END DATA
 
 END SUBROUTINE sync_idx
 
@@ -1884,7 +1895,7 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
 #if defined( __ROUNDOFF_CHECK )
       IF ( ( ( ABS(aux(k)- res(k)) > ABS_TOL ) ) .AND.     &
                 ( ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)  > REL_TOL ) ) THEN
-        out_of_sync = .FALSE.
+        out_of_sync = .TRUE.
         PRINT *, 'Abs. error ', ABS(aux(k)- res(k)), ' rel. error ', ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)
       ENDIF
 #else

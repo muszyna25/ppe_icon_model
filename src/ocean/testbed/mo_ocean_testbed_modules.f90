@@ -43,7 +43,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers, prepare_tracer_transport
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
@@ -535,18 +535,13 @@ CONTAINS
         old_tracer_collection => ocean_state(jg)%p_prog(nold(1))%tracer_collection
         new_tracer_collection => ocean_state(jg)%p_prog(nnew(1))%tracer_collection
 
-        CALL prepare_tracer_transport( patch_3d, &
-          & ocean_state(jg),                         &
-          & operators_coefficients)
-
-
         IF (no_tracer>=1) THEN
 
           ! fill transport_state
           transport_state%patch_3d    => patch_3d
           transport_state%h_old       => ocean_state(jg)%p_prog(nold(1))%h
           transport_state%h_new       => ocean_state(jg)%p_prog(nnew(1))%h
-          transport_state%w           => ocean_state(jg)%p_diag%w_time_weighted
+          transport_state%w           => ocean_state(jg)%p_diag%w
           transport_state%mass_flux_e => ocean_state(jg)%p_diag%mass_flx_e
 
           ! fill boundary conditions

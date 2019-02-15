@@ -40,9 +40,6 @@ export RESTART_DATE='19790101T000800Z'
 # m = mpi test
 # o = omp test
 #
-# default: MD='rnmo'
-#
-export MD='rnmo'
 
 #--------------------------------------------------------------------------------
 # 
@@ -51,7 +48,14 @@ export MD='rnmo'
 rundir=`pwd`
 cd checksuite.icon-dev
 
-./icon-dev.checksuite -m update -o no -r /pool/data/ICON/buildbot_data/aes/reference.18306/${BB_SYSTEM}_${BB_SLAVE}/
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix="/users/icontest"
+else
+    poolFolder_prefix=""
+fi
+
+./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.19017/${BB_SYSTEM}_${BB_SLAVE}/
 STATUS=$?
 
 check_final_status $STATUS "$EXPERIMENT"

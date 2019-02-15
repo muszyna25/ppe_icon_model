@@ -565,7 +565,7 @@ CONTAINS
 
 
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_coords_dreg_v, p_cell_idx, p_cell_blk ),  &
-!$ACC      CREATE(  edge_verts,lvn_sys_pos,depart_pts,pos_dreg_vert_c,pos_on_tplane_e ), &
+!$ACC      CREATE(  edge_verts,lvn_sys_pos ), &
 !$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
@@ -649,7 +649,7 @@ CONTAINS
       ENDIF
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE( depart_pts, pos_dreg_vert_c, pos_on_tplane_e ), &
+      !$ACC LOOP GANG PRIVATE( depart_pts, pos_dreg_vert_c, pos_on_tplane_e )
 
       DO jk = slev, elev
 !DIR$ IVDEP

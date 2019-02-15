@@ -44,9 +44,9 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_redist_collection_new, xt_redist_s_exchange, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new, &
-  &             xt_mpi_comm_mark_exclusive, xt_int_kind
+  &             xt_mpi_comm_mark_exclusive, xt_int_kind, xt_slice_c_loc
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
-USE iso_c_binding, ONLY: c_int, c_loc, c_ptr, c_null_ptr
+USE iso_c_binding, ONLY: c_int, c_loc, c_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
   & t_comm_pattern_collection, xfer_list
 
@@ -112,6 +112,8 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
     PROCEDURE :: exchange_data_r2d => exchange_data_r2d
     PROCEDURE :: exchange_data_s2d => exchange_data_s2d
     PROCEDURE :: exchange_data_i2d => exchange_data_i2d
+    PROCEDURE :: exchange_data_l2d => exchange_data_l2d
+    PROCEDURE :: exchange_data_l3d => exchange_data_l3d
     PROCEDURE :: exchange_data_mult => exchange_data_mult_dp
     PROCEDURE :: exchange_data_mult_mixprec => exchange_data_mult_mixprec
     PROCEDURE :: exchange_data_4de1 => exchange_data_4de1
@@ -470,7 +472,7 @@ END SUBROUTINE setup_comm_pattern
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: recv_msg, send_msg
 #endif
-    INTEGER :: i, j, np_recv, np_send, nlocal
+    INTEGER :: i, np_recv, np_send, nlocal
     TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
     TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
     CHARACTER(len=*), PARAMETER :: routine &
@@ -516,7 +518,7 @@ END SUBROUTINE setup_comm_pattern
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: com, msg
 #endif
-      INTEGER :: np, nidx, i, j, jl, glbidx, start_local, end_local
+      INTEGER :: np, nidx, i, j, jl, glbidx
       indices = -1_xt_int_kind
       np = SIZE(msg)
       DO i = 1, np
@@ -974,7 +976,6 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
 
-   REAL(dp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1,2), m, n, o
@@ -1010,10 +1011,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(m, n, o))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
 
@@ -1071,6 +1069,19 @@ CONTAINS
 
   END SUBROUTINE
 
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+      REAL(dp), TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+
+
 END SUBROUTINE exchange_data_r3d
 
 SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
@@ -1080,7 +1091,6 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
 
-   REAL(sp), ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1, 2), m, n, o
@@ -1116,10 +1126,7 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
 
@@ -1177,6 +1184,18 @@ CONTAINS
 
   END SUBROUTINE
 
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      REAL(sp), INTENT(INOUT), TARGET :: recv(n)
+      REAL(sp), TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+
 END SUBROUTINE exchange_data_s3d
 
 !================================================================================================
@@ -1189,7 +1208,6 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
 
-   INTEGER, ALLOCATABLE :: send_(:,:,:)
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1, 2), m, n, o
@@ -1225,10 +1243,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
        ! make copy of recv
-       ALLOCATE(send_(SIZE(recv, 1), SIZE(recv, 2), SIZE(recv, 3)))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
 
@@ -1286,7 +1301,115 @@ CONTAINS
 
   END SUBROUTINE
 
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      INTEGER, INTENT(INOUT), TARGET :: recv(n)
+      INTEGER, TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+
 END SUBROUTINE exchange_data_i3d
+
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+
+    TYPE(xt_redist) :: redist
+
+    INTEGER :: nlev(1, 2), n
+
+    IF(SIZE(recv,1) /= nproma) THEN
+      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
+    ENDIF
+
+    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
+      IF (activate_sync_timers) CALL timer_start(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+    ENDIF
+
+    start_sync_timer(timer_exch_data)
+
+    n = SIZE(recv, 2)
+
+    nlev(1, 1) = n
+    IF (PRESENT(send)) THEN
+      nlev(1, 2) = SIZE(send,2)
+    ELSE
+      nlev(1, 2) = n
+    END IF
+    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
+
+    IF (PRESENT(send)) THEN
+      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+    ELSE
+      IF (p_pat%inplace) THEN
+        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+      ELSE
+        ! make copy of recv
+        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
+      END IF
+    END IF
+
+    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+      IF (activate_sync_timers) CALL timer_start(timer_barrier)
+      CALL p_barrier(p_pat%comm)
+      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+    ENDIF
+
+    stop_sync_timer(timer_exch_data)
+
+  CONTAINS
+
+    ! this wrapper is needed because we have to ensure that the input array are in
+    ! contiguous memory (the keyword CONTIGUOUS is Fortran2008, which is not
+    ! required by ICON)
+    SUBROUTINE xt_redist_s_exchange1_contiguous(redist, send, recv)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+      LOGICAL, INTENT(IN), TARGET :: send(*)
+      TYPE(c_ptr) :: send_ptr, recv_ptr
+
+      CALL xt_slice_c_loc(send, send_ptr)
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+      TYPE(c_ptr) :: recv_ptr
+
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, recv_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_inplace
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      LOGICAL, INTENT(INOUT), TARGET :: recv(n)
+      LOGICAL, TARGET :: send(n)
+      TYPE(c_ptr) :: send_ptr, recv_ptr
+
+      send = recv
+      CALL xt_slice_c_loc(send, send_ptr)
+      CALL xt_slice_c_loc(recv, recv_ptr)
+      CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+
+  END SUBROUTINE exchange_data_l3d
 
 !>
 !! Does data exchange according to a communication pattern (in p_pat).
@@ -1298,22 +1421,37 @@ END SUBROUTINE exchange_data_i3d
 !! in one step
 !! yaxt version by Moritz Hanke, April 2016
 !!
-SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
+  SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
+       recv, send, nshift)
+
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+
+    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
+    TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+
+    INTEGER, INTENT(IN)           :: ndim2tot
+    INTEGER, OPTIONAL, INTENT(IN) :: nshift
+    CALL exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
+  END SUBROUTINE exchange_data_mult_dp
+
+
+  SUBROUTINE exchange_data_mult_dp_top(p_pat, ndim2tot, &
    recv, send, nshift)
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-   TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
-   TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+   TYPE(t_ptr_3d), TARGET, PTR_INTENT(in) :: recv(:)
+   TYPE(t_ptr_3d), TARGET, OPTIONAL, PTR_INTENT(in) :: send(:)
 
    INTEGER, INTENT(IN)           :: ndim2tot
    INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
    INTEGER :: nlev(SIZE(recv), 2)
-   LOGICAL :: iscont(SIZE(recv), 2)
+   LOGICAL :: needs_cpy(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
-   LOGICAL :: lsend, nproma_mismatch_found
+   LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
+   TYPE(t_ptr_3d), POINTER :: send_(:)
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_dp"
@@ -1329,13 +1467,14 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
    start_sync_timer(timer_exch_data)
 
    lsend = PRESENT(send)
+   cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
    nfields = SIZE(recv)
    nproma1 = SIZE(recv(1)%p, 1)
    nproma_mismatch_found = .FALSE.
    cpy_size = 0
    DO i = 1, nfields
-     iscont(i, 1) = IS_CONTIGUOUS(recv(i)%p)
+     needs_cpy(i, 1) = .NOT. IS_CONTIGUOUS(recv(i)%p)
      cpy_shape = SHAPE(recv(i)%p)
      nproma_mismatch_found = nproma_mismatch_found &
        &          .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
@@ -1343,34 +1482,42 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
      nblk = cpy_shape(3)
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
-       &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+       &        + nproma1 * nl * nblk &
+       &             * (MERGE(1, 0, needs_cpy(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
-       iscont(i, 2) = IS_CONTIGUOUS(send(i)%p)
+       needs_cpy(i, 2) = .NOT. IS_CONTIGUOUS(send(i)%p)
        cpy_shape = SHAPE(send(i)%p)
        nproma_mismatch_found = nproma_mismatch_found &
          &        .OR. cpy_shape(1) /= nproma1
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
+         &        + nproma1 * MERGE(nl, 0, needs_cpy(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE
-     iscont(:, 2) = .TRUE.
+     needs_cpy(:, 2) = cpy_recv
      nlev(:, 2) = nlev(:, 1)
    END IF
 
+   IF (cpy_recv) THEN
+     send_ => recv
+   ELSE IF (lsend) THEN
+     send_ => send
+   ELSE
+     NULLIFY(send_)
+   END IF
    IF (nproma_mismatch_found) &
      CALL finish(routine, "inconsistent array shapes detected")
 
-   CALL exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, iscont, &
-        recv, send, nshift)
+   CALL exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
+        recv, send_, nshift)
 
    stop_sync_timer(timer_exch_data)
 
-END SUBROUTINE exchange_data_mult_dp
+END SUBROUTINE exchange_data_mult_dp_top
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -1382,34 +1529,35 @@ END SUBROUTINE exchange_data_mult_dp
   !! in one step
   !! yaxt version by Moritz Hanke, April 2016
   !!
-  SUBROUTINE exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, iscont, &
+  SUBROUTINE exchange_data_mult_dp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
     recv, send, nshift)
 
     CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
     TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
-    TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+    TYPE(t_ptr_3d), POINTER, PTR_INTENT(in) :: send(:)
 
     INTEGER, INTENT(IN) :: cpy_size, nlev(SIZE(recv), 2)
-    LOGICAL, INTENT(IN)           :: iscont(SIZE(recv), 2)
+    LOGICAL, INTENT(IN)           :: needs_cpy(SIZE(recv), 2)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
          kshift(SIZE(recv))
-    LOGICAL :: lsend
+    LOGICAL :: lsend, cpy_recv
     REAL(dp), TARGET :: cpy_buf(cpy_size)
     REAL(dp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
-    lsend = PRESENT(send)
+    lsend = ASSOCIATED(send)
+    cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
     cpy_psum = 0
     nproma = SIZE(recv(1)%p, 1)
     ! set up C pointers
     DO i = 1, nfields
-      IF (iscont(i, 1)) THEN
+      IF (.NOT. needs_cpy(i, 1)) THEN
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
         nblk = SIZE(recv(i)%p, 3)
@@ -1425,7 +1573,7 @@ END SUBROUTINE exchange_data_mult_dp
     END DO
     IF (lsend) THEN
       DO i = 1, nfields
-        IF (iscont(i, 2)) THEN
+        IF (.NOT. needs_cpy(i, 2)) THEN
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
           nblk = SIZE(send(i)%p, 3)
@@ -1459,7 +1607,7 @@ END SUBROUTINE exchange_data_mult_dp
 
     cpy_psum = 0
     DO i = 1, nfields
-      IF (.NOT. iscont(i, 1)) THEN
+      IF (needs_cpy(i, 1)) THEN
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
@@ -1488,17 +1636,18 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-   TYPE(t_ptr_3d_sp), PTR_INTENT(in) :: recv(:)
-   TYPE(t_ptr_3d_sp), OPTIONAL, PTR_INTENT(in) :: send(:)
+   TYPE(t_ptr_3d_sp), TARGET, PTR_INTENT(in) :: recv(:)
+   TYPE(t_ptr_3d_sp), TARGET, OPTIONAL, PTR_INTENT(in) :: send(:)
 
    INTEGER, INTENT(IN)           :: ndim2tot
    INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
    INTEGER :: nlev(SIZE(recv), 2)
-   LOGICAL :: iscont(SIZE(recv), 2)
+   LOGICAL :: needs_cpy(SIZE(recv), 2)
    INTEGER :: nproma1, nblk, nl, cpy_shape(3), cpy_size
    INTEGER :: i, nfields
-   LOGICAL :: lsend, nproma_mismatch_found
+   LOGICAL :: lsend, nproma_mismatch_found, cpy_recv
+   TYPE(t_ptr_3d_sp), POINTER :: send_(:)
 
    CHARACTER(len=*), PARAMETER :: &
      routine = "mo_communication::exchange_data_mult_sp"
@@ -1513,45 +1662,54 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 
    start_sync_timer(timer_exch_data)
 
-   lsend     = .FALSE.
+   lsend = PRESENT(send)
+   cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
    nfields = SIZE(recv)
    nproma1 = SIZE(recv(1)%p, 1)
    nproma_mismatch_found = .FALSE.
    cpy_size = 0
    DO i = 1, nfields
-     iscont(i, 1) = IS_CONTIGUOUS(recv(i)%p)
+     needs_cpy(i, 1) = .NOT. IS_CONTIGUOUS(recv(i)%p)
      cpy_shape = SHAPE(recv(i)%p)
      nproma_mismatch_found = nproma_mismatch_found &
-       &                     .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
+       &          .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
      nl = cpy_shape(2)
      nblk = cpy_shape(3)
      nlev(i, 1) = nl
      cpy_size =   cpy_size &
-       &        + nproma1 * MERGE(0, nl, iscont(i, 1)) * nblk
+       &        + nproma1 * nl * nblk &
+       &             * (MERGE(1, 0, needs_cpy(i, 1)) + MERGE(1, 0, cpy_recv))
    END DO
    IF (lsend) THEN
      DO i = 1, nfields
-       iscont(i, 2) = IS_CONTIGUOUS(send(i)%p)
+       needs_cpy(i, 2) = .NOT. IS_CONTIGUOUS(send(i)%p)
        cpy_shape = SHAPE(send(i)%p)
        nproma_mismatch_found = nproma_mismatch_found &
-         &                     .OR. (i > 1 .AND. cpy_shape(1) /= nproma1)
+         &        .OR. cpy_shape(1) /= nproma1
        nl = cpy_shape(2)
        nblk = cpy_shape(3)
        cpy_size =   cpy_size &
-         &        + nproma1 * MERGE(0, nl, iscont(i, 2)) * nblk
+         &        + nproma1 * MERGE(nl, 0, needs_cpy(i, 2)) * nblk
        nlev(i, 2) = nl
      END DO
    ELSE
-     iscont(:, 2) = .FALSE.
+     needs_cpy(:, 2) = cpy_recv
      nlev(:, 2) = nlev(:, 1)
    END IF
 
+   IF (cpy_recv) THEN
+     send_ => recv
+   ELSE IF (lsend) THEN
+     send_ => send
+   ELSE
+     NULLIFY(send_)
+   END IF
    IF (nproma_mismatch_found) &
      CALL finish(routine, "inconsistent array shapes detected")
 
-   CALL exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, iscont, &
-        recv, send, nshift)
+   CALL exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
+        recv, send_, nshift)
 
    stop_sync_timer(timer_exch_data)
 
@@ -1567,34 +1725,35 @@ END SUBROUTINE exchange_data_mult_sp
   !! in one step
   !! yaxt version by Moritz Hanke, April 2016
   !!
-  SUBROUTINE exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, iscont, &
+  SUBROUTINE exchange_data_mult_sp_bottom(p_pat, cpy_size, nlev, needs_cpy, &
     recv, send, nshift)
 
     CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-    TYPE(t_ptr_3d_sp), INTENT(in) :: recv(:)
-    TYPE(t_ptr_3d_sp), OPTIONAL, INTENT(in) :: send(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in) :: recv(:)
+    TYPE(t_ptr_3d_sp), POINTER, PTR_INTENT(in) :: send(:)
 
     INTEGER, INTENT(IN) :: cpy_size, nlev(SIZE(recv), 2)
-    LOGICAL, INTENT(IN)           :: iscont(SIZE(recv), 2)
+    LOGICAL, INTENT(IN)           :: needs_cpy(SIZE(recv), 2)
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
     INTEGER :: i, nfields, cpy_psum, ofs, last, nproma, nblk, incr, nl, &
          kshift(SIZE(recv))
-    LOGICAL :: lsend
+    LOGICAL :: lsend, cpy_recv
     REAL(sp), TARGET :: cpy_buf(cpy_size)
     REAL(sp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
 
-    lsend = PRESENT(send)
+    lsend = ASSOCIATED(send)
+    cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
 
     nfields = SIZE(recv)
     cpy_psum = 0
     nproma = SIZE(recv(1)%p, 1)
     ! set up C pointers
     DO i = 1, nfields
-      IF (iscont(i, 1)) THEN
+      IF (.NOT. needs_cpy(i, 1)) THEN
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
         nblk = SIZE(recv(i)%p, 3)
@@ -1610,7 +1769,7 @@ END SUBROUTINE exchange_data_mult_sp
     END DO
     IF (lsend) THEN
       DO i = 1, nfields
-        IF (iscont(i, 2)) THEN
+        IF (.NOT. needs_cpy(i, 2)) THEN
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
           nblk = SIZE(send(i)%p, 3)
@@ -1644,7 +1803,7 @@ END SUBROUTINE exchange_data_mult_sp
 
     cpy_psum = 0
     DO i = 1, nfields
-      IF (.NOT. iscont(i, 1)) THEN
+      IF (needs_cpy(i, 1)) THEN
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
@@ -1673,10 +1832,10 @@ SUBROUTINE exchange_data_mult_mixprec(p_pat, nfields_dp, ndim2tot_dp, &
 
   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
-    TYPE(t_ptr_3d), INTENT(in), OPTIONAL :: recv_dp(:)
-    TYPE(t_ptr_3d), INTENT(in), OPTIONAL :: send_dp(:)
-    TYPE(t_ptr_3d_sp), INTENT(in), OPTIONAL :: recv_sp(:)
-    TYPE(t_ptr_3d_sp), INTENT(in), OPTIONAL :: send_sp(:)
+    TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: recv_dp(:)
+    TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: send_dp(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in), OPTIONAL :: recv_sp(:)
+    TYPE(t_ptr_3d_sp), PTR_INTENT(in), OPTIONAL :: send_sp(:)
 
     INTEGER, INTENT(IN)           :: nfields_dp, ndim2tot_dp, &
       nfields_sp, ndim2tot_sp
@@ -1712,7 +1871,6 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
 
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
-   REAL(dp), ALLOCATABLE :: send_(:,:,:,:)
    INTEGER :: data_type
    TYPE(xt_redist) :: redist
 
@@ -1780,10 +1938,7 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      IF (p_pat%inplace) THEN
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
-       ALLOCATE(send_(SIZE(recv,1),SIZE(recv,2),SIZE(recv,3),SIZE(recv,4)))
-       send_ = recv
-       CALL xt_redist_s_exchange1_contiguous(redist, send_, recv)
-       DEALLOCATE(send_)
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    ENDIF
 
@@ -1811,6 +1966,18 @@ CONTAINS
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
+
+    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+
+      TYPE(xt_redist), INTENT(IN) :: redist
+      INTEGER, INTENT(in) :: n
+      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+      REAL(dp), TARGET :: send(n)
+
+      send = recv
+      CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+
+    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_4de1
 
@@ -2365,6 +2532,35 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_i2d
+
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    !
+    CLASS(t_comm_pattern_yaxt), INTENT(INOUT), TARGET :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+
+    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
+    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+
+    !-----------------------------------------------------------------------
+
+    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+      tmp_recv(:,1,:) = .FALSE.
+    ELSE
+      tmp_recv(:,1,:) = recv(:,:)
+    ENDIF
+
+    IF (PRESENT(send)) THEN
+      CALL exchange_data_l3d(p_pat, tmp_recv, &
+           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+    ELSE
+      CALL exchange_data_l3d(p_pat, tmp_recv)
+    ENDIF
+
+    recv(:,:) = tmp_recv(:,1,:)
+
+  END SUBROUTINE exchange_data_l2d
 
 FUNCTION get_np_recv(comm_pat)
   CLASS(t_comm_pattern_yaxt), INTENT(IN) :: comm_pat

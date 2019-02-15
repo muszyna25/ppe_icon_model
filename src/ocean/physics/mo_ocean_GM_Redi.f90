@@ -1884,8 +1884,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                        &
           & temp_tracer_before,              &
-          & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,                &
-          & op_coeff)
+          & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)
 
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block

@@ -759,7 +759,6 @@ CONTAINS
             END IF
           END IF
 
-          IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
           mtime_date = mtime_date + delta
 
           l_active = mtime_date <= mtime_end .AND.   &
@@ -1086,7 +1085,7 @@ CONTAINS
     INTEGER,                               INTENT(IN)  :: icomm                !< MPI communicator
     !> local list of output events
     TYPE(t_event_data_local),              INTENT(INOUT)  :: event_list_local(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
     !> length of local list of output events
@@ -1206,7 +1205,7 @@ CONTAINS
     TYPE(t_event_data_local), INTENT(INOUT) :: event_list_local(:)
     !> length of local list of output events
     INTEGER, INTENT(in) :: ievent_list_local
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
 
@@ -1843,7 +1842,7 @@ CONTAINS
   !---------------------------------------------------------------
   SUBROUTINE p_gatherv_event_data_1d1d(sbuf, rbuf, p_dest, counts, comm)
     TYPE(t_event_data_local), INTENT(in) :: sbuf(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: sbuf
 #endif
     TYPE(t_event_data_local), ALLOCATABLE, INTENT(inout) :: rbuf(:)
@@ -2210,7 +2209,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::pass_output_step"
     LOGICAL :: step_is_not_finished
 #ifndef NOMPI
-    INTEGER :: ierrstat, impi_status(MPI_STATUS_SIZE), istep, i_tag
+    INTEGER :: ierrstat, mstat(MPI_STATUS_SIZE), istep, i_tag
 #endif
 
     step_is_not_finished = .NOT. is_output_event_finished(event)
@@ -2219,23 +2218,29 @@ CONTAINS
     IF (use_async_name_list_io .AND. step_is_not_finished &
          .AND. (event%icomm /= MPI_COMM_NULL)) THEN
       ! wait for the last ISEND to be processed:
-      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle."
-      CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
+      IF (ldebug) WRITE (0,'(i0,a)') p_pe, ": waiting for request handle."
+      CALL MPI_WAIT(event%isend_req, mstat, ierrstat)
       IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_WAIT.')
-      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle done."
-      ! launch a new non-blocking send:
       istep = event%output_event%i_event_step
+      IF (ldebug .AND. istep > 1) THEN
+        WRITE (0,'(i0,2(a,i0))') p_pe, ": completed request for rank ", &
+             event%iroot, ', tag ', &
+             event%output_event%event_step(istep-1)%event_step_data(1)%i_tag
+      END IF
+      ! launch a new non-blocking send:
       i_tag = event%output_event%event_step(istep)%event_step_data(1)%i_tag
       event%isend_buf = istep
+      event%isend_buf = event%output_event%event_step(istep)%i_sim_step
       IF (ldebug) THEN
-        WRITE (0,*) routine, ": sending message ", i_tag, " from ", get_my_global_mpi_id(), &
-          &         " to ", event%iroot
+        WRITE (0,'(a,4(a,i0))') routine, ": ", p_pe, &
+          &   ": sending message ", i_tag, " from ", get_my_global_mpi_id(), &
+          &   " to ", event%iroot
       END IF
       CALL MPI_IBSEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
         &            event%icomm, event%isend_req, ierrstat)
       IF (ierrstat /= mpi_success) CALL finish (routine, 'Error in MPI_ISEND.')
       IF (ldebug) THEN
-        WRITE (0,*) "pass ", event%output_event%i_event_step, &
+        WRITE (0,'(4(i0,a))') p_pe, ": pass ", event%output_event%i_event_step,&
           &         " (",  event%output_event%event_step(istep)%event_step_data(1)%jfile, &
           &         " / ", event%output_event%event_step(istep)%event_step_data(1)%jpart, &
           &         " )"
@@ -2308,8 +2313,8 @@ CONTAINS
       i_pe  = event_step%event_step_data(i)%i_pe
       i_tag = event_step%event_step_data(i)%i_tag
       IF (ldebug) THEN
-        WRITE (0,*) routine, ": launching IRECV ", i_tag, " on ", get_my_global_mpi_id(), &
-          &         " to ", i_pe
+        WRITE (0,'(a,3(a,i0))') routine, ": launching IRECV ", i_tag, " on ", get_my_global_mpi_id(), &
+          &         " from ", i_pe
       END IF
       CALL mpi_irecv(irecv_buf(i), 1, p_int, i_pe, &
         &            i_tag, icomm, irecv_req(i), ierror)

@@ -85,7 +85,7 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
     ! Indexing
-    INTEGER :: ist, nblks_v
+    INTEGER :: ist
     INTEGER :: jb, jv, ji
     INTEGER :: i_startidx_v, i_endidx_v
     INTEGER :: cell_index, cell_block
@@ -597,8 +597,9 @@ CONTAINS
   !! Developed by Einar Olason, MPI-M (2013-08-05)
   !
   SUBROUTINE ice_fem_grid_post(p_patch)
-    USE mo_ice_fem_types,                 ONLY: lmass_matrix
-    USE mo_ice_fem_mesh,            ONLY: myList_nod2D, myList_elem2D, coriolis_nod2D, voltriangle!, nod2D, elem2D, cos_elem2D, sin_elem2D
+    USE mo_ice_fem_types,       ONLY: lmass_matrix
+    USE mo_ice_fem_mesh,        ONLY: myList_nod2D, myList_elem2D, coriolis_nod2D, voltriangle
+   !USE mo_ice_fem_mesh,        ONLY: nod2D, elem2D, cos_elem2D, sin_elem2D
 
     USE mo_util_sort,           ONLY: quicksort
 

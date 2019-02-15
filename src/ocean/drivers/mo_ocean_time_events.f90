@@ -42,13 +42,11 @@ MODULE mo_ocean_time_events
   PUBLIC :: getCurrentDate_to_String
   PUBLIC :: isStartdate
   PUBLIC :: newNullDatetime
-
+  
   PUBLIC :: get_OceanCurrentTime_Pointer ! this will be removed, do not use  !
 
-  !! COMPAD-DCO  BEGIN  JR2018
-  !!  for AD checkpointing
-  PUBLIC :: set_OceanCurrentTime, get_OceanCurrentTime
-  !! COMPAD-DCO  END    JR2018
+!   PUBLIC :: set_OceanCurrentTime
+  PUBLIC :: get_OceanCurrentTime
   
   CHARACTER(LEN=20)  :: str_module = 'mo_ocean_time_events'  ! Output of module for 1 line debug
   !-------------------------------------------------------------------------
@@ -58,6 +56,7 @@ MODULE mo_ocean_time_events
   TYPE(timedelta), POINTER            :: ocean_time_step => NULL()
 
   TYPE(datetime), POINTER             :: ocean_current_time     => NULL()
+  TYPE(datetime), POINTER             :: ocean_previous_time    => NULL()
   TYPE(datetime), POINTER             :: eventRefDate      => NULL(), &
         &                                eventStartDate    => NULL(), &
         &                                eventEndDate      => NULL()
@@ -66,7 +65,6 @@ MODULE mo_ocean_time_events
 
   TYPE(datetime), POINTER             :: return_current_time => NULL()
 
-  TYPE(timedelta), POINTER            :: eventInterval   => NULL()
   TYPE(event), POINTER                :: checkpointEvent => NULL()
   TYPE(event), POINTER                :: restartEvent    => NULL()
   
@@ -87,13 +85,15 @@ CONTAINS
     LOGICAL :: return_status
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
+    TYPE(timedelta), POINTER               :: eventInterval   => NULL()
 
-    ocean_current_time   => time_config%tc_current_date
-    eventRefDate   => time_config%tc_exp_refdate
-    eventStartDate => time_config%tc_exp_startdate
-    eventEndDate   => time_config%tc_exp_stopdate
-    ocean_dtime    = config_dtime
-    ocean_time_step => time_config%tc_dt_model
+    ocean_current_time  => time_config%tc_current_date
+    ocean_dtime         = config_dtime
+    ocean_previous_time => newDatetime(ocean_current_time) ! - ocean_dtime
+    eventRefDate        => time_config%tc_exp_refdate
+    eventStartDate      => time_config%tc_exp_startdate
+    eventEndDate        => time_config%tc_exp_stopdate
+    ocean_time_step     => time_config%tc_dt_model
 
     ! the time varibales for returning 
     return_current_time => newNullDatetime()
@@ -163,6 +163,7 @@ CONTAINS
   FUNCTION ocean_time_nextStep() 
     TYPE(datetime), POINTER:: ocean_time_nextStep 
      
+    ocean_previous_time = ocean_current_time
     ocean_current_time = ocean_current_time + ocean_time_step
     return_current_time = ocean_current_time
     ocean_time_nextStep => return_current_time
@@ -179,17 +180,17 @@ CONTAINS
   !-------------------------------------------------------------------------
   LOGICAL FUNCTION isCheckpoint()
 
-   LOGICAL :: isRestart,isThisCheckpoint,doWriteRestart
+    LOGICAL :: isRestart,isThisCheckpoint,doWriteRestart
     
-       isCheckpoint = .false.
+    isCheckpoint = .false.
 
-       isRestart      = isCurrentEventActive(restartEvent, ocean_current_time)
-       isThisCheckpoint = isCurrentEventActive(checkpointEvent, ocean_current_time)
-       doWriteRestart = time_config%tc_write_restart
+    isRestart      = isCurrentEventActive(restartEvent, ocean_current_time)
+    isThisCheckpoint = isCurrentEventActive(checkpointEvent, ocean_current_time)
+    doWriteRestart = time_config%tc_write_restart
         
-      isCheckpoint = (isRestart .OR. isThisCheckpoint) .AND. .NOT. isStartdate() .AND. doWriteRestart
+    isCheckpoint = (isRestart .OR. isThisCheckpoint) .AND. .NOT. isStartdate() .AND. doWriteRestart
 
-      isCheckpoint = isCheckpoint .OR. (write_last_restart .AND. isEndOfThisRun())
+    isCheckpoint = isCheckpoint .OR. (write_last_restart .AND. isEndOfThisRun())
 
 !        isExpStopdate  = (time_config%tc_exp_stopdate == ocean_current_time)
 !         IF ( &
@@ -232,9 +233,7 @@ CONTAINS
 
   END FUNCTION get_OceanCurrentTime_Pointer
   !-------------------------------------------------------------------------
-
-  !! COMPAD-DCO  BEGIN  JR2018
-  !!  for AD checkpointing
+  
   !-------------------------------------------------------------------------
   SUBROUTINE set_OceanCurrentTime( current_time )
     TYPE(datetime), INTENT(IN) :: current_time
@@ -244,8 +243,7 @@ CONTAINS
   END SUBROUTINE set_OceanCurrentTime
   !-------------------------------------------------------------------------
 
-    !-------------------------------------------------------------------------
-  ! this will be removed, do not use !
+  !-------------------------------------------------------------------------
   FUNCTION get_OceanCurrentTime()
     TYPE(datetime)         :: get_OceanCurrentTime
 
@@ -253,6 +251,34 @@ CONTAINS
 
   END FUNCTION get_OceanCurrentTime
   !-------------------------------------------------------------------------
-  !! COMPAD-DCO  END    JR2018
+
+  !-------------------------------------------------------------------------
+  FUNCTION newOceanEvent(description, dtime_string)
+    TYPE(event), POINTER :: newOceanEvent
+    CHARACTER(LEN=*) :: description
+    CHARACTER(LEN=*) :: dtime_string
+
+    TYPE(timedelta), POINTER ::  dtime
+    INTEGER :: ierr
+
+    dtime => newTimedelta(dtime_string)
+    newOceanEvent => newEvent(description, eventStartDate, eventStartDate, eventEndDate, dtime, errno=ierr)
+
+  END FUNCTION newOceanEvent
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! this is for "preprocessing" tasks
+  LOGICAL FUNCTION isOceanPreEventActive(oceanEvent)
+    TYPE(event), POINTER :: oceanEvent
+
+    CHARACTER(LEN=32)               :: datestring
+   ! the current time is advanced in the beginning of the loop, so for forcing we need the previous one
+    isOceanPreEventActive = isCurrentEventActive(oceanEvent, ocean_previous_time) 
+!     CALL datetimeToString(ocean_previous_time, datestring)
+!     write(0,*) "Ocean Event at", datestring, " is ", isOceanPreEventActive
+
+  END FUNCTION isOceanPreEventActive
+  !-------------------------------------------------------------------------
 
 END MODULE mo_ocean_time_events

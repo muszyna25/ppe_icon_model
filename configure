@@ -3084,7 +3084,7 @@ fi
 fi
 
 
-make_command="$make_command"
+make_command=${make_command-make}
 
 
 if test "$build" != "$host" ; then
@@ -4990,11 +4990,13 @@ if test -n "$SCTROOT" ; then
 
   case $ac_hostname in #(
   mlogin*|btc*) :
-    case $FC in #(
-  nagfor) :
-    SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
+    case x"$WLFLAG" in #(
+  x-Wl,-Wl,) :
+    SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g'` ;; #(
+  x-Wl) :
+    SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g'` ;; #(
   *) :
-    SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+     ;;
 esac ;; #(
   *) :
      ;;

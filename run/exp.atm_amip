@@ -337,7 +337,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8

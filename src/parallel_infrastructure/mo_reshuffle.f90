@@ -144,7 +144,10 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
     INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals, dst_idx
-    LOGICAL                   :: lfound, lcollision
+    LOGICAL                   :: lfound
+#ifdef NOMPI
+    LOGICAL                   :: lcollision
+#endif
     INTEGER, ALLOCATABLE      :: reg_partition_buf(:,:), reg_partition_modified(:),        &
       &                          reg_partition_count(:,:)
 #ifndef NOMPI

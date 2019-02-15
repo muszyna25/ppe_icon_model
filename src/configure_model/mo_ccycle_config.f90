@@ -16,7 +16,7 @@
 !!
 MODULE mo_ccycle_config
 
-  USE mo_exception     ,ONLY: message, print_value, finish
+  USE mo_exception     ,ONLY: message, print_value
   USE mo_impl_constants,ONLY: max_dom
   USE mo_grid_config   ,ONLY: n_dom
 

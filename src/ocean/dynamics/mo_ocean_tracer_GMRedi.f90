@@ -46,7 +46,7 @@ MODULE mo_ocean_tracer_GMRedi
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_surface_types,       ONLY: t_ocean_surface
-  USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
+  USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit
   USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
   USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
@@ -70,7 +70,6 @@ MODULE mo_ocean_tracer_GMRedi
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: advect_ocean_tracers_GMRedi
-  PUBLIC :: prepare_tracer_transport_GMRedi
 
 CONTAINS
 
@@ -96,6 +95,7 @@ CONTAINS
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------------
     patch_3d => old_tracers%patch_3d
+    CALL prepare_tracer_transport_GMRedi(patch_3d, p_os, p_param, p_op_coeff)
 
     DO tracer_index = 1, old_tracers%no_of_tracers
 
@@ -445,8 +445,7 @@ CONTAINS
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                      &
           & new_tracer,                &
-          & a_v,                             &
-          & p_op_coeff)
+          & a_v)
           
       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
       
@@ -454,8 +453,7 @@ CONTAINS
         CALL tracer_diffusion_vertical_implicit(       &
           & patch_3d,                               &
           & temp_tracer_before,                      &
-          & p_os%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
-          & p_op_coeff)
+          & p_os%p_diag%vertical_mixing_coeff_GMRedi_implicit)
                
       
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
@@ -602,12 +600,12 @@ CONTAINS
 !ICON_OMP_PARALLEL
     ! This should be changed
     ! just moving data around should not take place
-!ICON_OMP_DO SCHEDULE(static)
-    DO jb = all_cells%start_block, all_cells%end_block
-      p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, jb) = &
-        & p_os%p_diag%w(1:nproma, 1:n_zlev+1, jb)
-    ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_DO SCHEDULE(static)
+!     DO jb = all_cells%start_block, all_cells%end_block
+!       p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, jb) = &
+!         & p_os%p_diag%w(1:nproma, 1:n_zlev+1, jb)
+!     ENDDO
+! !ICON_OMP_END_DO
     !In case of shallow water we have to to this here, for 3D fluid its done within vertical velocity calculation
 !     IF(iswm_oce==1)THEN
 !      CALL map_edges2edges_viacell_3d_const_z( patch_3d, p_os%p_diag%vn_time_weighted, p_op_coeff, &
@@ -641,29 +639,11 @@ CONTAINS
         fin_level  = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
 
         DO level = startLevel, fin_level
-                        p_os%p_diag%p_vn_mean(je,level,jb)%x = 0.5_wp *                          &
-                          & (p_os%p_diag%p_vn(edge_cell_index(1), level, edge_cell_block(1))%x + &
-                          &  p_os%p_diag%p_vn(edge_cell_index(2), level, edge_cell_block(2))%x)
-          !p_os%p_diag%p_vn_mean(je,level,jb)%x = 0.5_wp *                               &
-          !  & (p_os%p_diag%p_vn_dual(edge_vert_index(1), level, edge_vert_block(1))%x + &
-          !  & p_os%p_diag%p_vn_dual(edge_vert_index(2), level, edge_vert_block(2))%x)
-
-          ! this is specific to the miura_order1_hflux_oce
-          p_op_coeff%moved_edge_position_cc(je,level,jb)%x =      &
-            & p_op_coeff%edge_position_cc(je,level,jb)%x          &
-            & - half_time * p_os%p_diag%p_vn_mean(je,level,jb)%x
-
-        END DO
-
-        DO level = startLevel, fin_level
           upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,level,jb) > 0.0_wp)
 
           p_op_coeff%upwind_cell_idx(je,level,jb) = edge_cell_index(upwind_index)
           p_op_coeff%upwind_cell_blk(je,level,jb) = edge_cell_block(upwind_index)
 
-          p_op_coeff%upwind_cell_position_cc(je,level,jb)%x = &
-            & patch_2d%cells%cartesian_center(edge_cell_index(upwind_index), edge_cell_block(upwind_index))%x
-          ! & p_op_coeff%cell_position_cc(edge_cell_index(upwind_index), level, edge_cell_block(upwind_index))%x
         END DO
 
       END DO
@@ -672,14 +652,14 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     !calculation of isopycnical slopes and tapering
-!     IF(GMRedi_configuration/=Cartesian_Mixing)THEN
+    IF(GMRedi_configuration/=Cartesian_Mixing)THEN
 
       CALL prepare_ocean_physics(patch_3d, &
         & p_os,    &
         & p_param, &
         & p_op_coeff)
 
-!     ENDIF
+    ENDIF
 
   !  ENDIF
   END SUBROUTINE prepare_tracer_transport_GMRedi

@@ -19,12 +19,11 @@ MODULE mo_ocean_model
        &                            pio_type, num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            set_mpi_work_communicators, p_pe_work, process_mpi_io_size, &
-       &                            my_process_is_stdio
+       &                            set_mpi_work_communicators, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
   USE mo_memory_log,              ONLY: memory_log_terminate
-  USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
+  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
   USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
@@ -113,7 +112,7 @@ MODULE mo_ocean_model
   USE mo_ocean_diagnostics,    ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
-  USE mo_io_config,            ONLY: write_initial_state, restartWritingParameters
+  USE mo_io_config,            ONLY: restartWritingParameters
   USE mo_bgc_icon_comm,        ONLY: hamocc_state
   USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
@@ -148,7 +147,6 @@ MODULE mo_ocean_model
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
-    INTEGER                             :: jg
 
     !-------------------------------------------------------------------
     IF (isRestart()) THEN
@@ -186,8 +184,8 @@ MODULE mo_ocean_model
 
     CALL prepare_output()
 
-    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1),p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+    CALL prepare_ho_stepping(ocean_patch_3d, operators_coefficients, &
+      & ocean_state(1), v_oce_sfc, p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
 
     !------------------------------------------------------------------
     ! write initial state

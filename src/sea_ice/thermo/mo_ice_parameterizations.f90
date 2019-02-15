@@ -226,6 +226,9 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
             ! SLO/EO 2014-04-11 - this is wrong, must be accompanied by correction elsewhere, since open part of water is still losing heat
             ice%zHeatOceI(jc,k,jb) = ( sst(jc,jb) - ice%Tfw(jc,jb) ) * ice%zUnderIce(jc,jb) * clw*rho_ref / &
                                    & (dtime*ice%concSum(jc,jb)) * ( ice%conc(jc,k,jb)/ice%concSum(jc,jb) )
+          ELSE  ! hi<=0
+            ! Correction needed if ice was melted in the last timestep
+            ice%zHeatOceI(jc,k,jb) = 0.0_wp
           ENDIF
           ENDDO
         ENDDO
@@ -239,6 +242,8 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('O-I-HeatFlx: zHeatOceI ' ,ice%zHeatOceI , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('O-I-HeatFlx: conc      ' ,ice%conc      , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('O-I-HeatFlx: concSum   ' ,ice%concSum   , str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE oce_ice_heatflx 
@@ -278,7 +283,7 @@ SUBROUTINE oce_ice_heatflx (p_patch, p_os, ice)
             ice%draft       (jc,k,jb) = ( rhoi*ice%hi(jc,k,jb) + rhos*ice%hs(jc,k,jb) )/rho_ref
             ! Increase in ice thickness due to flooding
             hi_from_flood             = ice%draft(jc,k,jb) - MIN( ice%draft(jc,k,jb), ice%hi(jc,k,jb) )
-            ! Thickness of snow that is converted into ice
+            ! Thickness of snow that is converted into ice (in units of snow thickness/density)
             ice%snow_to_ice (jc,k,jb) = hi_from_flood*rhoi/rhos
 
             ! update hi and hs

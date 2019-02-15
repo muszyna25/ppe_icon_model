@@ -68,9 +68,11 @@ MODULE mo_turbulent_diagnostic
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
   INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
-  
-  CHARACTER(len=*), PARAMETER :: tname = 'time'
-  CHARACTER(len=*), PARAMETER :: tlongname = 'Time'
+
+  CHARACTER(len=*), PARAMETER :: tname = 'time', &
+       tlongname = 'Time', &
+       modname = 'mo_turbulent_diagnostic'
+
 
   PRIVATE
 
@@ -100,8 +102,6 @@ CONTAINS
                             & p_prog,                     & !in
                             & p_prog_rcf,                 & !in
                             & p_diag,                     & !in
-                            & p_diag_land,                & !in
-                            & p_prog_land,                & !in
                             & prm_diag                    ) !inout    
 
     !>
@@ -111,8 +111,6 @@ CONTAINS
     TYPE(t_phy_params)     , INTENT(IN)   :: phy_params
 
     TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
-    TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
-    TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
@@ -127,32 +125,27 @@ CONTAINS
     REAL(wp):: ri_no
     REAL(wp):: ztp(nproma), zqp(nproma)
 
-    INTEGER :: found_cltop, found_clbas
-    INTEGER :: nlev, nlevp1
+    LOGICAL :: found_cltop, found_clbas
+    INTEGER :: nlev
     INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom, jg            !< domain index
-    INTEGER :: jc,jk,jb                !block index
+    INTEGER :: jg,jc,jk,jb             !< domian and block index
     INTEGER :: mtop_min
     LOGICAL :: mlab(nproma)
 
     nlev      = p_patch%nlev 
-    nlevp1    = p_patch%nlev+1 
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
 
-   
-    prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,found_cltop,found_clbas,ri_no,&
@@ -165,37 +158,43 @@ CONTAINS
        DO jc = i_startidx, i_endidx
 
          !cloud top
-         found_cltop = -1
-         DO jk = kstart_moist, nlev-1
-           IF(jk.EQ.kstart_moist.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
-             prm_diag%mtop_con(jc,jb) = jk
-             found_cltop = 1
-           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
-             prm_diag%mtop_con(jc,jb) = jk
-             found_cltop = 1
-           END IF
-         END DO
+         IF (p_prog_rcf%tracer(jc,kstart_moist,jb,iqc) > qc_min) THEN
+           prm_diag%mtop_con(jc,jb) = kstart_moist
+           found_cltop = .TRUE.
+         ELSE
+           found_cltop = .FALSE.
+           DO jk = kstart_moist+1, nlev-1
+             IF (p_prog_rcf%tracer(jc,jk,jb,iqc)   < qc_min &
+                  .AND. p_prog_rcf%tracer(jc,jk+1,jb,iqc) > qc_min) THEN
+               prm_diag%mtop_con(jc,jb) = jk
+               found_cltop = .TRUE.
+               EXIT
+             END IF
+           END DO
+         END IF
 
          !cloud base
-         found_clbas = -1
-         DO jk = nlev, kstart_moist+1, -1
-           IF(jk.EQ.nlev.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !Fog
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1
-           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !otherwise
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1
-           END IF
-         END DO
+         IF (p_prog_rcf%tracer(jc,nlev,jb,iqc)>qc_min) THEN !Fog
+           prm_diag%mbas_con(jc,jb) = nlev
+           found_clbas = .TRUE.
+         ELSE
+           found_clbas = .FALSE.
+           DO jk = nlev-1, kstart_moist+1, -1
+             IF (p_prog_rcf%tracer(jc,jk,jb,iqc) < qc_min &
+                 .AND. p_prog_rcf%tracer(jc,jk-1,jb,iqc) > qc_min) THEN !otherwise
+               prm_diag%mbas_con(jc,jb) = jk
+               found_clbas = .TRUE.
+               EXIT
+             END IF
+           END DO
+         END IF
 
          !Accept only when both top and bottom exist and height of bottom is 
          !lower than that of top
-         IF(found_clbas==1.AND.found_cltop==1)THEN
-           IF(prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)) &
-              prm_diag%locum(jc,jb) = .TRUE.
+         IF (found_clbas .AND. found_cltop)THEN
+           prm_diag%locum(jc,jb) = prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)
          ELSE
+           prm_diag%locum(jc,jb) = .FALSE.
            prm_diag%mbas_con(jc,jb) = -1
            prm_diag%mtop_con(jc,jb) = -1
          END IF
@@ -261,13 +260,13 @@ CONTAINS
        DO jc = i_startidx, i_endidx 
          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
-          &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+          &                p_metrics%z_ifc(jc,nlev+1,jb) + 3000._wp )
            IF ( prm_diag%locum(jc,jb)) THEN
              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
             &                               prm_diag%hbas_con(jc,jb) )
            END IF
          ELSE
-           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlev+1,jb) )
          END IF
        ENDDO
        ! 
@@ -366,14 +365,13 @@ CONTAINS
 
     ! Local array bounds:
 
-    INTEGER :: nlev, nlevp1            !< number of full levels
+    INTEGER :: nlev, ub            !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
     INTEGER :: jc,jk,jb,jg             !block index
     INTEGER :: nvar, n, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:calculate_turbulent_diagnostics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':calculate_turbulent_diagnostics'
 
     IF(msg_level>18) & 
       CALL message(routine,'Start!')
@@ -382,19 +380,16 @@ CONTAINS
 
     jg         = p_patch%id
     nlev       = p_patch%nlev
-    nlevp1     = nlev + 1
     
     !allocation
-    ALLOCATE( var3df(nproma,nlev,p_patch%nblks_c), var3dh(nproma,nlevp1,p_patch%nblks_c), &
+    ALLOCATE( var3df(nproma,nlev,p_patch%nblks_c), var3dh(nproma,nlev+1,p_patch%nblks_c), &
               theta(nproma,nlev,p_patch%nblks_c),  w_mc(nproma,nlev,p_patch%nblks_c), &
-              outvar(nlevp1) )
-
-    i_nchdom  = MAX(1,p_patch%n_childdom)
+              outvar(nlev+1) )
 
     rl_start   = grf_bdywidth_c
     rl_end     = min_rlcell_int-1  !for wthsfs
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     !Get w and theta at full levels
 !$OMP PARALLEL 
@@ -417,8 +412,8 @@ CONTAINS
     !For diagnostics
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 !======================================================================================
                  !Some vertical profiles
@@ -755,25 +750,25 @@ CONTAINS
 
      CASE('kh')
 
-       CALL levels_horizontal_mean(prm_diag%tkvh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%tkvh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev+1))
 
      CASE('km')
 
-       CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev+1))
 
      CASE('bruvais')
 
-       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
+       CALL levels_horizontal_mean(prm_diag%bruvais,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlev+1))
        outvar(1)      = outvar(2) 
-       outvar(nlevp1) = outvar(nlev) 
+       outvar(nlev+1) = outvar(nlev)
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2
        CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
        outvar = outvar * 0.5_wp          
        outvar(1)      = outvar(2) 
-       outvar(nlevp1) = outvar(nlev) 
+       outvar(nlev+1) = outvar(nlev)
 
      CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
 
@@ -837,11 +832,11 @@ CONTAINS
      CASE('lwf')
        IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
      CASE('swf')
        IF(atm_phy_nwp_config(jg)%inwp_radiation>0)THEN
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+                                   p_patch%cells%owned, outvar(1:nlev+1))
        outvar0d = 0._wp
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
@@ -885,11 +880,9 @@ CONTAINS
      END SELECT
 
      !Calculate time mean
-     IF(is_at_full_level(n))THEN
-       prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)
-     ELSE
-       prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)
-     END IF
+     ub = MERGE(nlev, nlev+1, is_at_full_level(n))
+     prm_diag%turb_diag_1dvar(1:ub,n) = prm_diag%turb_diag_1dvar(1:ub,n) &
+                                        + outvar(1:ub)
 
     END DO!nvar
 
@@ -1073,13 +1066,12 @@ CONTAINS
    LOGICAL, INTENT(IN), OPTIONAL         :: ldelete
    LOGICAL, INTENT(IN), OPTIONAL         :: l_rh  !if rh to be output or not
   
-   CHARACTER (40), ALLOCATABLE, DIMENSION(:) :: dimname, dimlongname, dimunit
+   CHARACTER (40), DIMENSION(2) :: dimname, dimlongname, dimunit
    CHARACTER (LEN=80)                        :: longname, unit
    REAL(wp), ALLOCATABLE                     :: dimvalues(:,:)
-   INTEGER,  ALLOCATABLE                     :: dimsize(:)
-   INTEGER :: n, nlev, nlevp1, nvar, jg
+   INTEGER :: n, nlev, nvar, jg, dimsize(2)
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
-   CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
+   CHARACTER(len=*), PARAMETER :: routine = modname//':init_les_turbulent_output'
    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
    ! calculate elapsed simulation time in seconds
@@ -1103,10 +1095,9 @@ CONTAINS
    is_rh_out = l_rh
 
    nlev   = p_patch%nlev
-   nlevp1 = nlev + 1
 
    !Dimensions
-   ALLOCATE( dimname(2), dimlongname(2), dimunit(2), dimsize(2), dimvalues(nlevp1,2) )
+   ALLOCATE(dimvalues(nlev+1,2))
 
    !Calculate average height
    CALL levels_horizontal_mean(p_metrics%z_mc, p_patch%cells%area, p_patch%cells%owned,  z_mc_avg)
@@ -1298,8 +1289,10 @@ CONTAINS
        longname = 'LS subsidence velocity'
        unit     = 'm/s'
      CASE DEFAULT 
-         WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
-         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
+       WRITE(message_text,'(3a)') 'Variable ', &
+         TRIM(turb_profile_list(n)), &
+         ' is not listed in les_nml'
+       CALL finish(routine,message_text)
      END SELECT
 
      dimname(2) = tname
@@ -1310,13 +1303,15 @@ CONTAINS
      IF(is_at_full_level(n))THEN
       dimname(1) = 'zf'
       dimlongname(1) = 'Full level height'
-      dimsize = (/nlev,0/)
+      dimsize(1) = nlev
+      dimsize(2) = 0
       dimvalues(1:nlev,1) = z_mc_avg(1:nlev)     
      ELSE
       dimname(1) = 'zh'
       dimlongname(1) = 'Half level height'
-      dimsize = (/nlevp1,0/)
-      dimvalues(1:nlevp1,1) = z_ic_avg(1:nlevp1)     
+      dimsize(1) = nlev+1
+      dimsize(2) = 0
+      dimvalues(1:nlev+1,1) = z_ic_avg(1:nlev+1)
      END IF
 
      IF( my_process_is_stdio() ) &
@@ -1327,8 +1322,7 @@ CONTAINS
     
 
     !deallocate
-    DEALLOCATE( dimname, dimlongname, dimunit, dimsize, dimvalues )
-    ALLOCATE( dimname(1), dimlongname(1), dimunit(1) )
+    DEALLOCATE(dimvalues)
 
 
    !open time series file
@@ -1399,21 +1393,21 @@ CONTAINS
      CASE('precp_i')
        longname = 'gridscale ice rate'
        unit     = 'mm/day'
-     CASE DEFAULT 
-         WRITE(message_text,'(a)')TRIM(turb_tseries_list(n))
-         CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
-     END SELECT  
-  
+     CASE DEFAULT
+       WRITE(message_text,'(3a)') 'Variable ', &
+            TRIM(turb_tseries_list(n)), &
+            ' is not listed in les_nml'
+       CALL finish(routine,message_text)
+     END SELECT
+
      dimname(1) = tname
      dimlongname(1) = tlongname
      dimunit(1) = 's'
      IF( my_process_is_stdio() ) &
         CALL addvar_nc(fileid_tseries, TRIM(turb_tseries_list(n)), TRIM(longname), TRIM(unit), &
-                       dimname, dimlongname, dimunit)
+                       dimname(1:1), dimlongname(1:1), dimunit(1:1))
 
    END DO!nvar
-
-   DEALLOCATE( dimname, dimlongname, dimunit )
 
    IF(msg_level>18)CALL message(routine,'Over!')
 

@@ -63,8 +63,9 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
-    &  max_turbulenece_TracerDiffusion
+    &  TracerDiffusion_LeithWeight,             &
+    &  max_turbulenece_TracerDiffusion,                       &
+    &  LeithViscosity_SmoothIterations, LeithViscosity_SpatialSmoothFactor 
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -571,7 +572,6 @@ CONTAINS
 
   END SUBROUTINE calc_lower_bound_veloc_diff
   !-------------------------------------------------------------------------
-
   !-------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
@@ -604,24 +604,15 @@ CONTAINS
         DO jev = 1, patch_2D%verts%num_edges(jv,blockNo)
           ile = patch_2D%verts%edge_idx(jv,blockNo,jev)
           ibe = patch_2D%verts%edge_blk(jv,blockNo,jev)
-          sea_edges_onLevel = 0
-          !             write(0,*) jv,blockNo, patch_2D%verts%num_edges(jv,blockNo), ":", ile, ibe
-          z_k_ave_v(jv,blockNo)= z_k_ave_v(jv,blockNo) + k_h(ile,ibe)
-          sea_edges_onLevel = sea_edges_onLevel + 1
-            
-          !IF(patch_2D%verts%num_edges(jv,blockNo)== 5)THEN
-          !  z_K_ave_v(jv,jk,blockNo)=80000_wp!°z_K_max
-          !ENDIF
+            z_k_ave_v(jv,blockNo)= z_k_ave_v(jv,blockNo) + k_h(ile,ibe)
         END DO ! jev = 1, patch_2D%verts%num_edges(jv,blockNo)
-        IF(sea_edges_onLevel /= 0) & !.and.i_edge_ctr== patch_2D%verts%num_edges(jv,blockNo))THEN
-          & z_k_ave_v(jv,blockNo) = z_k_ave_v(jv,blockNo) / REAL(sea_edges_onLevel,wp)
+        z_k_ave_v(jv,blockNo) = z_k_ave_v(jv,blockNo) / REAL(patch_2D%verts%num_edges(jv,blockNo),wp)
       ENDDO
     END DO
 
     ! we do need to sync here
     CALL sync_patch_array(sync_v, patch_2D, z_k_ave_v)    
-    
-    
+        
     DO blockNo = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, blockNo, start_index, end_index)
       DO je = start_index, end_index
@@ -640,7 +631,7 @@ CONTAINS
     ! CALL sync_patch_array(sync_e, patch_2D, k_h)   
     
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=0  ! output print levels - 0: print in any case
+    idt_src=1  ! output print levels - 0: print in any case
     CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
@@ -648,7 +639,87 @@ CONTAINS
 
   END SUBROUTINE smooth_lapl_diff
   !-------------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2011-08)
+!<Optimize:inUse:initOnly>
+  SUBROUTINE smooth_lapl_diff_3D( patch_3d, k_h, smoothFactor )
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(inout)    :: k_h(:,:,:)
+    REAL(wp), INTENT(in)       ::smoothFactor
+    ! Local variables
+    TYPE(t_patch), POINTER  :: patch_2D
+    INTEGER :: je,jv,jk, jev, ile, ibe, level
+    INTEGER :: il_v1,ib_v1, il_v2,ib_v2
+    INTEGER :: start_index, end_index, blockNo
+    INTEGER :: i_startidx_v, i_endidx_v
+    REAL(wp), POINTER :: z_k_ave_v(:,:,:)
+    INTEGER  :: sea_edges_onLevel(n_zlev)
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER ::all_edges, verts_in_domain
+    !-------------------------------------------------------------------------
+    patch_2D => patch_3d%p_patch_2D(1)
+    all_edges => patch_2D%edges%all
+    verts_in_domain => patch_2D%verts%in_domain
 
+    ALLOCATE(z_k_ave_v(nproma,n_zlev, patch_2D%nblks_v))
+    z_k_ave_v(:,:,:) = 0.0_wp
+
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, i_startidx_v, i_endidx_v, jv, jev, ile, ibe, sea_edges_onLevel, level)
+    DO blockNo = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, blockNo, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        sea_edges_onLevel(:) = 0
+        DO jev = 1, patch_2D%verts%num_edges(jv,blockNo)
+          ile = patch_2D%verts%edge_idx(jv,blockNo,jev)
+          ibe = patch_2D%verts%edge_blk(jv,blockNo,jev)
+          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(ile,ibe)
+            z_k_ave_v(jv,level,blockNo)= z_k_ave_v(jv,level,blockNo) + k_h(ile,level,ibe)
+            sea_edges_onLevel(level) = sea_edges_onLevel(level) + 1
+          END DO 
+        END DO 
+        DO level=1,n_zlev
+          IF (sea_edges_onLevel(level) > 1) &
+            z_k_ave_v(jv,level,blockNo) = z_k_ave_v(jv,level,blockNo) / REAL(sea_edges_onLevel(level),wp)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do need to sync here
+    CALL sync_patch_array(sync_v, patch_2D, z_k_ave_v)    
+        
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, start_index, end_index, je, il_v1, ib_v1, il_v2, ib_v2, level)
+    DO blockNo = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, blockNo, start_index, end_index)
+      DO je = start_index, end_index
+
+        il_v1 = patch_2D%edges%vertex_idx(je,blockNo,1)
+        ib_v1 = patch_2D%edges%vertex_blk(je,blockNo,1)
+        il_v2 = patch_2D%edges%vertex_idx(je,blockNo,2)
+        ib_v2 = patch_2D%edges%vertex_blk(je,blockNo,2)
+   
+        DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+          k_h(je,level,blockNo)= 0.5_wp * smoothFactor * (z_k_ave_v(il_v1,level,ib_v1) + z_k_ave_v(il_v2,level,ib_v2)) + &
+            & (1.0_wp - smoothFactor) * k_h(je,level,blockNo)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do not need to sync edge coefficients
+    ! CALL sync_patch_array(sync_e, patch_2D, k_h)   
+    
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=1  ! output print levels - 0: print in any case
+    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
+      & in_subset=patch_2D%edges%owned)
+    !---------------------------------------------------------------------
+    DEALLOCATE(z_k_ave_v)
+
+  END SUBROUTINE smooth_lapl_diff_3D
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -689,9 +760,15 @@ CONTAINS
       IF (LeithClosure_form == 1) THEN
         CALL calculate_LeithClosure_harmonic_vort(patch_3d, ocean_state, params_oce, op_coeffs)
       ELSEIF (LeithClosure_form == 2) THEN
-        CALL calculate_LeithClosure_harmonic_VortDiv(patch_3d, ocean_state, params_oce, op_coeffs)
+        CALL calculate_LeithClosure_harmonic_vort_w(patch_3d, ocean_state, params_oce, op_coeffs)
+      ELSEIF (LeithClosure_form == 3) THEN
+        CALL calculate_LeithClosure_harmonic_vort_div(patch_3d, ocean_state, params_oce, op_coeffs)
       ELSEIF (LeithClosure_form == 4) THEN
         CALL calculate_LeithClosure_harmonicDivGrad_VortDiv(patch_3d, ocean_state, params_oce, op_coeffs)
+      ELSEIF (LeithClosure_form == 5) THEN
+        CALL calculate_LeithClosure_harmonic_w(patch_3d, ocean_state, params_oce, op_coeffs)
+      ELSEIF (LeithClosure_form == 6) THEN
+        CALL calculate_LeithClosure_harmonic_w2(patch_3d, ocean_state, params_oce, op_coeffs)
       ENDIF
     ENDIF
     IF (LeithClosure_order == 2 .or.  LeithClosure_order == 21) THEN
@@ -802,6 +879,11 @@ CONTAINS
       END DO
     ENDIF
 !   !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
 
   END SUBROUTINE calculate_LeithClosure_harmonic_vort
   !-------------------------------------------------------------------------
@@ -816,7 +898,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
-  SUBROUTINE calculate_LeithClosure_harmonic_VortDiv(patch_3d, ocean_state, param, operators_coeff)
+  SUBROUTINE calculate_LeithClosure_harmonic_vort_w(patch_3d, ocean_state, param, operators_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
@@ -876,10 +958,10 @@ CONTAINS
             &    * patch_2D%edges%inv_primal_edge_length(je,blockNo)
 
           grad_w_e = &
-            & (  ocean_state%p_diag%w_time_weighted(cell2_idx,level,  cell2_blk) &
-            &  + ocean_state%p_diag%w_time_weighted(cell2_idx,level+1,cell2_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level,  cell1_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level+1,cell1_blk)) &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
             &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
 
           LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
@@ -914,7 +996,7 @@ CONTAINS
 !       & str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
 !       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
-!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w_time_weighted,&
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w,&
 !       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
 
 
@@ -929,8 +1011,375 @@ CONTAINS
 !       END DO
     ENDIF
 !   !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
 
-  END SUBROUTINE calculate_LeithClosure_harmonic_VortDiv
+  END SUBROUTINE calculate_LeithClosure_harmonic_vort_w
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_LeithClosure_harmonic_w(patch_3d, ocean_state, param, operators_coeff)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_ho_params),                 INTENT(inout) :: param
+    TYPE(t_operator_coeff),            INTENT(in)    :: operators_coeff
+
+    !Local variables
+    INTEGER :: jk, blockNo, je, jc,jb, i
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level, level,end_level
+    INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
+!     INTEGER :: LEITH_EXPONENT
+    TYPE(t_subset_range), POINTER ::edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp):: grad_w_e,  LeithCoeff
+!     REAL(wp):: div_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+
+    start_level = 1
+   !-------------------------------------------------------------------------------
+   !leith closure for Laplacian(harmonic) viscosity
+
+!      LEITH_EXPONENT=3
+    !1) calculation leith closure or modified LeithClosure_type
+!     ELSEIF(LeithClosure_type==2)THEN
+!     CALL dbg_print('LeithClosure: ptp_vn',ocean_state%p_diag%ptp_vn,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+! 
+!     CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, operators_coeff%div_coeff, div_c, &
+!       & subset_range=patch_2d%cells%all)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
+!ICON_OMP grad_w_e, &
+!ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, LeithCoeff, i) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO je=start_edge_index, end_edge_index
+        end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+
+        cell1_idx = patch_2d%edges%cell_idx(je,blockNo,1)
+        cell1_blk = patch_2d%edges%cell_blk(je,blockNo,1)
+        cell2_idx = patch_2d%edges%cell_idx(je,blockNo,2)
+        cell2_blk = patch_2d%edges%cell_blk(je,blockNo,2)
+
+        DO level=start_level,end_level
+
+          grad_w_e = &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
+            &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
+
+          LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
+            &   ABS(grad_w_e)
+
+          param%HarmonicViscosity_coeff(je,level,blockNo)  = &
+            & param%HarmonicViscosity_BasisCoeff(je,blockNo) + &
+            & LeithCoeff
+
+!           param%TracerDiffusion_coeff(je,level,blockNo,1) = grad_vort_abs
+!           param%TracerDiffusion_coeff(je,level,blockNo,2) = div_e
+
+        END DO
+      END DO
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+   ! this sync most probably is not needed
+!    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
+
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('Leith 5: Harm.viscos.',param%HarmonicViscosity_coeff,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: coeff.',param%LeithHarmonicViscosity_BasisCoeff,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
+!       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w,&
+!       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
+
+
+!     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+    !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
+    
+    !---------------------------------------------------------------------
+    ! tracer diffusion 
+!     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
+!       DO i=1,no_tracer
+! 	param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+! 	  & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+! 	  & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
+! 	  &     max_turbulenece_TracerDiffusion)
+!       END DO
+! !       DO i=1,no_tracer
+!       CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
+! 	&str_module,idt_src, in_subset=edges_in_domain)
+! !       END DO
+!     ENDIF
+
+  END SUBROUTINE calculate_LeithClosure_harmonic_w
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_LeithClosure_harmonic_w2(patch_3d, ocean_state, param, operators_coeff)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_ho_params),                 INTENT(inout) :: param
+    TYPE(t_operator_coeff),            INTENT(in)    :: operators_coeff
+
+    !Local variables
+    INTEGER :: jk, blockNo, je, jc,jb, i
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level, level,end_level
+    INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
+!     INTEGER :: LEITH_EXPONENT
+    TYPE(t_subset_range), POINTER ::edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp):: grad_w_e,  LeithCoeff
+!     REAL(wp):: div_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+
+    start_level = 1
+   !-------------------------------------------------------------------------------
+   !leith closure for Laplacian(harmonic) viscosity
+
+!      LEITH_EXPONENT=3
+    !1) calculation leith closure or modified LeithClosure_type
+!     ELSEIF(LeithClosure_type==2)THEN
+!     CALL dbg_print('LeithClosure: ptp_vn',ocean_state%p_diag%ptp_vn,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+! 
+!     CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, operators_coeff%div_coeff, div_c, &
+!       & subset_range=patch_2d%cells%all)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
+!ICON_OMP grad_w_e, &
+!ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, LeithCoeff, i) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO je=start_edge_index, end_edge_index
+        end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+
+        cell1_idx = patch_2d%edges%cell_idx(je,blockNo,1)
+        cell1_blk = patch_2d%edges%cell_blk(je,blockNo,1)
+        cell2_idx = patch_2d%edges%cell_idx(je,blockNo,2)
+        cell2_blk = patch_2d%edges%cell_blk(je,blockNo,2)
+
+        DO level=start_level,end_level
+
+          grad_w_e = &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
+            &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
+
+          LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
+            &   (grad_w_e**2)
+
+          param%HarmonicViscosity_coeff(je,level,blockNo)  = &
+            & param%HarmonicViscosity_BasisCoeff(je,blockNo) + &
+            & LeithCoeff
+
+!           param%TracerDiffusion_coeff(je,level,blockNo,1) = grad_vort_abs
+!           param%TracerDiffusion_coeff(je,level,blockNo,2) = div_e
+
+        END DO
+      END DO
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+   ! this sync most probably is not needed
+!    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
+
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('Leith 6: Harm.viscos.',param%HarmonicViscosity_coeff,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: coeff.',param%LeithHarmonicViscosity_BasisCoeff,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
+!       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w,&
+!       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
+
+
+!     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+    !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
+    
+    !---------------------------------------------------------------------
+    ! tracer diffusion 
+!     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
+!       DO i=1,no_tracer
+!   param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+!     & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+!     & MIN(param%HarmonicViscosity_coeff(je,1,blockNo) * TracerDiffusion_LeithWeight,    &
+!     &     max_turbulenece_TracerDiffusion)
+!       END DO
+! !       DO i=1,no_tracer
+!       CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
+!   &str_module,idt_src, in_subset=edges_in_domain)
+! !       END DO
+!     ENDIF
+
+  END SUBROUTINE calculate_LeithClosure_harmonic_w2
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>  !! !  SUBROUTINE calculates the viscosity coefficients following the Leith closure.
+  !! Implemented is the pure leith closure and a modified version of it. Both options
+  !! are available for harmonic as well as for biharmonic diffusion.
+  !! this is the original equation
+  !!
+  !! Liteature: Fox-Kemper, Menemenlis, Can Large Eddy Simulations improve Mesoscale Rich Ocean Models ?
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  SUBROUTINE calculate_LeithClosure_harmonic_vort_div(patch_3d, ocean_state, param, operators_coeff)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_ho_params),                 INTENT(inout) :: param
+    TYPE(t_operator_coeff),            INTENT(in)    :: operators_coeff
+
+    !Local variables
+    INTEGER :: jk, blockNo, je, jc,jb, i
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level, level,end_level
+    INTEGER :: vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk
+    INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
+!     INTEGER :: LEITH_EXPONENT
+    TYPE(t_subset_range), POINTER ::edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp):: grad_w_e, grad_vort, LeithCoeff
+!     REAL(wp):: div_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+
+    start_level = 1
+   !-------------------------------------------------------------------------------
+   !leith closure for Laplacian(harmonic) viscosity
+
+!      LEITH_EXPONENT=3
+    !1) calculation leith closure or modified LeithClosure_type
+!     ELSEIF(LeithClosure_type==2)THEN
+!     CALL dbg_print('LeithClosure: ptp_vn',ocean_state%p_diag%ptp_vn,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+! 
+!     CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, operators_coeff%div_coeff, div_c, &
+!       & subset_range=patch_2d%cells%all)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
+!ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort, grad_w_e, &
+!ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, LeithCoeff, i) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO je=start_edge_index, end_edge_index
+        end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+
+        vertex1_idx = patch_2d%edges%vertex_idx(je,blockNo,1)
+        vertex1_blk = patch_2d%edges%vertex_blk(je,blockNo,1)
+        vertex2_idx = patch_2d%edges%vertex_idx(je,blockNo,2)
+        vertex2_blk = patch_2d%edges%vertex_blk(je,blockNo,2)
+        cell1_idx = patch_2d%edges%cell_idx(je,blockNo,1)
+        cell1_blk = patch_2d%edges%cell_blk(je,blockNo,1)
+        cell2_idx = patch_2d%edges%cell_idx(je,blockNo,2)
+        cell2_blk = patch_2d%edges%cell_blk(je,blockNo,2)
+
+        DO level=start_level,end_level
+
+          grad_vort = &
+            &  (ocean_state%p_diag%vort(vertex1_idx,level,vertex1_blk) - &
+            &   ocean_state%p_diag%vort(vertex2_idx,level,vertex2_blk))  &
+            &    * patch_2D%edges%inv_primal_edge_length(je,blockNo)
+
+          grad_w_e = &
+            & (  ocean_state%p_diag%w(cell2_idx,level+1,  cell2_blk) &
+            &  - ocean_state%p_diag%w(cell2_idx,level,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,  cell1_blk) &
+            &  + ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
+            &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
+
+          LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
+            &   sqrt(grad_vort**2  + grad_w_e**2)
+
+          param%HarmonicViscosity_coeff(je,level,blockNo)  = &
+            & param%HarmonicViscosity_BasisCoeff(je,blockNo) + &
+            & LeithCoeff
+
+!           param%TracerDiffusion_coeff(je,level,blockNo,1) = grad_vort_abs
+!           param%TracerDiffusion_coeff(je,level,blockNo,2) = div_e
+
+          DO i=1,no_tracer
+            param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+              & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+              & MIN(LeithCoeff * TracerDiffusion_LeithWeight,    &
+              &     max_turbulenece_TracerDiffusion)
+          END DO
+
+        END DO
+      END DO
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+   ! this sync most probably is not needed
+!    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
+
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('Leith 3: Harm.viscos.',param%HarmonicViscosity_coeff,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: coeff.',param%LeithHarmonicViscosity_BasisCoeff,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('Leith 2: vort', ocean_state%p_diag%vort,&
+!       & str_module,idt_src, in_subset=patch_2D%verts%in_domain)
+!     CALL dbg_print('Leith 2: w',ocean_state%p_diag%w,&
+!       & str_module,idt_src, in_subset=patch_2D%cells%in_domain)
+
+
+!     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+!     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
+!       &str_module,idt_src, in_subset=edges_in_domain)
+    IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
+!       DO i=1,no_tracer
+        CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
+          &str_module,idt_src, in_subset=edges_in_domain)
+!       END DO
+    ENDIF
+!   !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
+
+  END SUBROUTINE calculate_LeithClosure_harmonic_vort_div
   !-------------------------------------------------------------------------
 
 
@@ -987,10 +1436,10 @@ CONTAINS
 
 
           grad_w_e = &
-            & (  ocean_state%p_diag%w_time_weighted(cell2_idx,level,  cell2_blk) &
-            &  + ocean_state%p_diag%w_time_weighted(cell2_idx,level+1,cell2_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level,  cell1_blk) &
-            &  - ocean_state%p_diag%w_time_weighted(cell1_idx,level+1,cell1_blk)) &
+            & (  ocean_state%p_diag%w(cell2_idx,level,  cell2_blk) &
+            &  + ocean_state%p_diag%w(cell2_idx,level+1,cell2_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level,  cell1_blk) &
+            &  - ocean_state%p_diag%w(cell1_idx,level+1,cell1_blk)) &
             &    * 0.5_wp * patch_2D%edges%inv_dual_edge_length(je,blockNo)
 
           LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
@@ -1034,6 +1483,11 @@ CONTAINS
 !       END DO
     ENDIF
 !   !---------------------------------------------------------------------
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%HarmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
 
   END SUBROUTINE calculate_LeithClosure_harmonicDivGrad_VortDiv
   !-------------------------------------------------------------------------
@@ -1058,7 +1512,7 @@ CONTAINS
     !Local variables
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
-    INTEGER :: jk, blockNo, je, jc,jb
+    INTEGER :: jk, blockNo, je, jc,jb, i
     INTEGER :: start_cell_index, end_cell_index, cell_index
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: start_level, level,end_level
@@ -1252,6 +1706,11 @@ CONTAINS
 !    & minval(param%HarmonicViscosity_BasisCoeff(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
 !    !&maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))
 !    END DO
+    ! smooth if requested
+    DO i=1, LeithViscosity_SmoothIterations
+      CALL smooth_lapl_diff_3D( patch_3d, &
+        & param%BiharmonicViscosity_coeff, LeithViscosity_SpatialSmoothFactor )
+    ENDDO
 
   END SUBROUTINE calculate_LeithClosure_biharmonic
   !-------------------------------------------------------------------------

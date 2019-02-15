@@ -57,9 +57,9 @@ MODULE mo_math_types
         PROCEDURE :: destruct => statistics_destruct
 
         ! scan a given array AND update the statistics accordingly
-        PROCEDURE :: addData_s1d => stastistics_addData_s1d
-        PROCEDURE :: addData_d1d => stastistics_addData_d1d
-        PROCEDURE :: addStatistics => stastistics_addStatistics  ! update the statistics with the contents of another t_Stastics object
+        PROCEDURE :: addData_s1d => statistics_addData_s1d
+        PROCEDURE :: addData_d1d => statistics_addData_d1d
+        PROCEDURE :: addStatistics => statistics_addStatistics  ! update the statistics with the contents of another t_Statistics object
     END TYPE t_Statistics
 
 CONTAINS
@@ -73,7 +73,7 @@ CONTAINS
         me%MAX = -HUGE(me%MAX)
     END SUBROUTINE statistics_construct
 
-    SUBROUTINE stastistics_addData_s1d(me, DATA)
+    SUBROUTINE statistics_addData_s1d(me, DATA)
         CLASS(t_Statistics), INTENT(INOUT) :: me
         REAL(sp), INTENT(IN) :: DATA(:)
         INTEGER :: i, icount
@@ -105,9 +105,9 @@ CONTAINS
         CALL me%add(newStatistics)
         CALL newStatistics%destruct()
 
-    END SUBROUTINE stastistics_addData_s1d
+    END SUBROUTINE statistics_addData_s1d
 
-    SUBROUTINE stastistics_addData_d1d(me, DATA)
+    SUBROUTINE statistics_addData_d1d(me, DATA)
         CLASS(t_Statistics), INTENT(INOUT) :: me
         REAL(dp), INTENT(IN) :: DATA(:)
         INTEGER :: i, icount
@@ -139,9 +139,9 @@ CONTAINS
         CALL me%add(newStatistics)
         CALL newStatistics%destruct()
 
-    END SUBROUTINE stastistics_addData_d1d
+    END SUBROUTINE statistics_addData_d1d
 
-    SUBROUTINE stastistics_addStatistics(me, other)
+    SUBROUTINE statistics_addStatistics(me, other)
         CLASS(t_Statistics), INTENT(INOUT) :: me
         CLASS(t_Statistics), INTENT(IN) :: other
 
@@ -152,7 +152,7 @@ CONTAINS
         me%mean = (me%mean*REAL(me%sampleCount, wp) + other%mean*REAL(other%sampleCount, wp))/REAL(newSampleCount, wp)
         me%MAX = MAX(me%MAX, other%MAX)
         me%sampleCount = newSampleCount
-    END SUBROUTINE stastistics_addStatistics
+    END SUBROUTINE statistics_addStatistics
 
     SUBROUTINE statistics_destruct(me)
         CLASS(t_Statistics), INTENT(INOUT) :: me

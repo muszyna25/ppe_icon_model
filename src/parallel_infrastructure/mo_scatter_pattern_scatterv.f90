@@ -24,7 +24,7 @@ MODULE mo_scatter_pattern_scatterv
 #endif
     USE mo_mpi, ONLY: p_io, my_process_is_stdio, &
     &                 p_real_dp, p_real_sp, p_int, &
-    &                 p_comm_size, p_gather, p_gatherv
+    &                 p_gather, p_gatherv
     USE mo_parallel_config, ONLY: blk_no, idx_no
     USE mo_exception, ONLY: finish
 

@@ -45,7 +45,7 @@ MODULE mo_ocean_surface_types
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
       &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
-      &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]
+      &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]                                                [m]
 
       ! heat fluxes
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]

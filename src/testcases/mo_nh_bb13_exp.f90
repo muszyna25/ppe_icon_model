@@ -36,7 +36,7 @@ MODULE mo_nh_bb13_exp
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, rd_o_cpd, cvd_o_rd,   &
                                       p0ref, grav
-   USE mo_math_constants,       ONLY: pi, deg2rad
+   USE mo_math_constants,       ONLY: pi
    USE mo_math_utilities,       ONLY: gc2cc
    USE mo_math_types,           ONLY: t_cartesian_coordinates
    USE mo_model_domain,         ONLY: t_patch
@@ -46,13 +46,11 @@ MODULE mo_nh_bb13_exp
    USE mo_parallel_config,      ONLY: nproma
    !USE mo_exception,            ONLY: finish, message_text, warning
    USE mo_exception,            ONLY: message
-   USE mo_intp_data_strc,       ONLY: t_int_state
    USE mo_loopindices,          ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    !USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
-   USE mo_vertical_coord_table, ONLY: vct_a
-   USE mo_grid_config,          ONLY: grid_sphere_radius
+   !USE mo_vertical_coord_table, ONLY: vct_a
    USE mo_nh_init_utils,        ONLY: hydro_adjust
 
    USE mo_nh_wk_exp,            ONLY: u_infty_wk
@@ -80,7 +78,7 @@ MODULE mo_nh_bb13_exp
   !!
   !!
   SUBROUTINE init_nh_env_bb13( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                                p_metrics, p_int, l_hydro_adjust )
+    &                                p_metrics, l_hydro_adjust )
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
@@ -93,7 +91,6 @@ MODULE mo_nh_bb13_exp
 
 
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
-    TYPE(t_int_state), INTENT(IN)       :: p_int
     LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                          ! initial condition
 
@@ -103,15 +100,15 @@ MODULE mo_nh_bb13_exp
 
     REAL(wp)       :: zu, zv
 
-    REAL(wp), DIMENSION(ptr_patch%nlev) :: z_full, theta, exner, pres, qv, theta_v, rh, temp
+    REAL(wp), DIMENSION(ptr_patch%nlev) :: theta, exner, pres, qv, theta_v, temp !, z_full
 
 !--------------------------------------------------------------------
 !
 
     ! height of main levels (no orography)
-    DO jk = 1, ptr_patch%nlev
-      z_full(jk) = 0.5_wp*( vct_a(jk) + vct_a(jk+1) )
-    ENDDO
+    ! DO jk = 1, ptr_patch%nlev
+    !   z_full(jk) = 0.5_wp*( vct_a(jk) + vct_a(jk+1) )
+    ! ENDDO
 
     ! profiles for T = const 
     DO jk = 1, ptr_patch%nlev
@@ -119,7 +116,6 @@ MODULE mo_nh_bb13_exp
       pres(jk)  = p0ref * exp( - grav / ( Rd * T_bb13 ) )
 
       qv(jk)    = 0.0_wp
-      rh(jk)    = 0.0_wp
 
       exner(jk) = ( pres(jk) / p0ref )**( Rd_o_cpd )
       theta(jk) = temp(jk) / exner(jk)
@@ -219,13 +215,12 @@ MODULE mo_nh_bb13_exp
 
     REAL(KIND=wp)   :: model_height
 
-    REAL(KIND=wp)            :: x, z_full
-    REAL(KIND=wp)            :: dT_breth, dp_breth, dT
+    REAL(KIND=wp)            :: z_full
+    REAL(KIND=wp)            :: dT_breth, dT
     REAL(KIND=wp)            :: delta_B, fac_breth
-    REAL(KIND=wp)            :: bubctr_x, lon, bub_dT, bub_radx
+    REAL(KIND=wp)            :: bubctr_x, bub_dT, bub_radx
 
-    INTEGER        ::  jc, jb, jk, je,   &
-                       nlen 
+    INTEGER        ::  jc, jb, jk, nlen 
     TYPE(t_cartesian_coordinates)   :: p
 
     call message( "init_nh_bubble_bb13", "ACHTUNG: model_height sollte extern vorgegeben sein!" )
