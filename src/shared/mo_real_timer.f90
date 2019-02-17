@@ -39,18 +39,17 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
-                                p_pe, p_io, my_process_is_stdio, p_comm_work, &
-                                p_comm_work_test, get_my_mpi_all_comm_size, &
+                                p_pe, get_my_mpi_all_comm_size, &
                                 p_comm_size, p_n_work
-  USE mo_parallel_config, ONLY: p_test_run
-#else
-  USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio, p_comm_work, &
-       p_comm_work_test
 #endif
+  USE mo_parallel_config, ONLY: p_test_run
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
-    &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
-    &                           num_work_procs, p_sum, p_allgather
+    &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
+    &                           p_min, p_max,  &
+    &                           num_work_procs, p_sum, p_allgather, mpi_land, &
+    &                           p_allreduce, my_process_is_stdio, p_io, &
+    &                           p_comm_work, p_comm_work_test, p_gather
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -584,62 +583,53 @@ CONTAINS
 
     INTEGER, PARAMETER :: i_sum = 1, i_min = 2, i_max = 3
 
-    REAL(dp)::sbuf(3,timer_top), rbuf(3,timer_top,num_test_procs+num_work_procs), res(3,timer_top)
-    REAL(dp) :: q, avg, alpha, e
-#ifdef _OPENMP
-    REAL(dp) :: t
-#endif
-    INTEGER  :: p_error, itpos(timer_top)
-    INTEGER  :: ip, iit, it, it1, it2, n
+    REAL(dp), ALLOCATABLE :: sbuf(:,:), sbuf_raw(:,:), rbuf(:,:,:), res(:,:)
+    REAL(dp) :: q, avg, alpha, e, t
+    INTEGER  :: itpos(timer_top), comm
+    INTEGER  :: ip, iit, it, it1, it2, n, thread_id
 
     CHARACTER(len=12) :: min_str, avg_str, max_str, sum_str, e_str
 
     IF (itimer > 0) THEN
       it1 = itimer
       it2 = itimer
-      CALL real_timer_abort(0,'timer_report_short: itimer>0 not supported (yet)')
     ELSE
       it1 = 1
       it2 = timer_top
     ENDIF
 
-#ifdef _OPENMP
-
 !$omp parallel private(t)
-    DO it = 1, timer_top
-!$omp critical
+    n = 1
+    thread_id = 0
+!$  n = omp_get_num_threads()
+!$  thread_id = omp_get_thread_num()
+!$omp master
+    ALLOCATE(sbuf_raw(timer_top,0:n-1), sbuf(timer_top,3), &
+         rbuf(timer_top,3,num_test_procs+num_work_procs), res(timer_top,3))
+!$omp end master
+!$omp barrier
+    DO it = it1, it2
       t = rt(it)%tot
-      sbuf(i_sum,it) = sbuf(i_sum,it)+t
-      sbuf(i_min,it) = MIN(sbuf(i_min,it),t)
-      sbuf(i_max,it) = MAX(sbuf(i_max,it),t)
-!$omp end critical
+      sbuf_raw(it,thread_id) = t
     ENDDO
+!$omp barrier
+!$omp do
+    DO it = it1, it2
+      sbuf(it,i_sum) = SUM(sbuf_raw(it,:))
+      sbuf(it,i_min) = MINVAL(sbuf_raw(it,:))
+      sbuf(it,i_max) = MAXVAL(sbuf_raw(it,:))
+    ENDDO
+!$omp end do nowait
 !$omp end parallel
 
-    n = omp_get_num_threads()
-
-#else
-    n = 1
-    DO it = 1, timer_top
-      sbuf(:,it) = rt(it)%tot
-    ENDDO
-
-#endif
-
-#ifndef NOMPI
-    CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
-         rbuf, SIZE(sbuf), p_real_dp, &
-         p_io, MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run), p_error)
-#else
-    rbuf(:,:,1) = sbuf(:,:)
-#endif
-
+    comm = MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run)
+    CALL p_gather(sbuf, rbuf, p_io, comm=comm)
 
     n = n*(num_test_procs+num_work_procs)
     q = 1.0_dp/REAL(n,dp)
     res(:,:) = rbuf(:,:,1)
     DO ip = 2, num_test_procs+num_work_procs
-      DO it = 1, timer_top
+      DO it = it1, it2
         res(i_sum,it) = res(i_sum,it)+rbuf(i_sum,it,ip)
         res(i_min,it) = MIN(res(i_min,it),rbuf(i_min,it,ip))
         res(i_max,it) = MAX(res(i_max,it),rbuf(i_max,it,ip))
@@ -662,7 +652,7 @@ CONTAINS
 
       CALL mrgrnk(res(i_sum,:),itpos)
 
-      DO iit = timer_top, 1, -1
+      DO iit = it2, it1, -1
         it = itpos(iit)
         IF (rt(it)%stat == rt_undef_stat) CYCLE
         IF (res(i_sum,it) <= 0.0_dp) CYCLE
@@ -1049,6 +1039,8 @@ CONTAINS
     CALL p_allgather(n, tcounts, comm=p_comm_work)
     consistent_sub_timer_counts = ALL(tcounts(1:) == tcounts(0))
     consistent_timer_lists = .FALSE.
+    consistent_sub_timer_counts &
+         = p_allreduce(consistent_sub_timer_counts, mpi_land, p_comm_work)
     IF (consistent_sub_timer_counts) THEN
       ALLOCATE(tmrlists(n, 0:ntasks-1))
       CALL p_allgather(subtimer_list(1:n), tmrlists, comm=p_comm_work)

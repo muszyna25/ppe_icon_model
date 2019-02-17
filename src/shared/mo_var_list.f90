@@ -300,7 +300,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! @return total number of variables
+  ! @return total number of (non-container) variables
   !
   FUNCTION total_number_of_variables()
     INTEGER :: total_number_of_variables
@@ -314,18 +314,12 @@ CONTAINS
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO i = 1,nvar_lists
-      element => NULL()
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-        ! Do not inspect element if it is a container
-        IF (element%field%info%lcontainer) CYCLE LOOPVAR
-
-        total_number_of_variables = total_number_of_variables + 1
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+        ! Do not count element if it is a container
+        total_number_of_variables = total_number_of_variables &
+             + MERGE(1, 0, .NOT. element%field%info%lcontainer)
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
   END FUNCTION total_number_of_variables
@@ -345,8 +339,9 @@ CONTAINS
       &                               opt_hor_intp_type
     LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
     ! local variables
-    INTEGER                       :: i, ivintp_type
-    LOGICAL                       :: lcontainer
+    INTEGER                       :: i, hor_intp_type_match
+    LOGICAL                       :: lcontainer, loutput_matters, loutput, &
+         vert_intp_type(SIZE(VINTP_TYPE_LIST)), hor_intp_matters
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
 
@@ -359,6 +354,23 @@ CONTAINS
     lcontainer = .FALSE.
     CALL assign_if_present(lcontainer, opt_lcontainer)
 
+    loutput_matters = PRESENT(opt_loutput)
+    IF (loutput_matters) THEN
+      loutput = opt_loutput
+    ELSE
+      loutput = .FALSE.
+    END IF
+    hor_intp_matters= PRESENT(opt_hor_intp_type)
+    IF (hor_intp_matters) THEN
+      hor_intp_type_match = opt_hor_intp_type
+    ELSE
+      hor_intp_type_match = -1
+    END IF
+    IF (PRESENT(opt_vert_intp_type)) THEN
+      vert_intp_type = opt_vert_intp_type
+    ELSE
+      vert_intp_type = .FALSE.
+    END IF
     !- loop over variables
     ivar = 0
     ! Note that there may be several variables with different time
@@ -374,39 +386,28 @@ CONTAINS
         ! Skip var_lists for which loutput .NEQV. opt_loutput
         IF (opt_loutput .NEQV. var_lists(i)%p%loutput) CYCLE LOOP_VARLISTS
       END IF
-      element => NULL()
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE(ASSOCIATED(element))
         info => element%field%info
         ! Do not inspect element if it is a container
-        IF (info%lcontainer .NEQV. lcontainer) CYCLE LOOPVAR
-        ! Do not inspect element if "loutput=.false."
-        IF (PRESENT(opt_loutput)) THEN
-          IF (opt_loutput .NEQV. info%loutput) CYCLE LOOPVAR
+        IF ((info%lcontainer .EQV. lcontainer) &
+             ! Do not inspect element if "loutput=.false."
+             .AND. ((.NOT. loutput_matters) .OR. (loutput .EQV. info%loutput)) &
+             ! Do not inspect element if it does not contain info for
+             ! horizontal interpolation
+             .AND. (.NOT. hor_intp_matters &
+             &      .OR. info%hor_interp%hor_intp_type == hor_intp_type_match) &
+             ) THEN
+          ! Do not inspect element if it does not contain matching info for
+          ! vertical interpolation
+          IF (ALL(.NOT. vert_intp_type(:) .OR. &
+               & info%vert_interp%vert_intp_type(:))) THEN
+            ivar = ivar+1
+            ! assign without time level suffix:
+            varlist(ivar) = get_var_name(element%field)
+          END IF
         END IF
-        ! Do not inspect element if it does not contain info for
-        ! vertical interpolation
-        IF (PRESENT(opt_vert_intp_type)) THEN
-          LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
-            IF (opt_vert_intp_type(ivintp_type) .AND. &
-              & .NOT. info%vert_interp%vert_intp_type(ivintp_type)) CYCLE LOOPVAR
-          END DO LOOP_VINTP_TYPES
-        END IF
-        ! Do not inspect element if it does not contain info for
-        ! horizontal interpolation
-        IF (PRESENT(opt_hor_intp_type)) THEN
-          IF (info%hor_interp%hor_intp_type /= opt_hor_intp_type) CYCLE LOOPVAR
-        END IF
-
-        ! Check for time level suffix:
-        ivar = ivar+1
-        varlist(ivar) = TRIM(get_var_name(element%field))
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO LOOP_VARLISTS ! i = 1,nvar_lists
 
@@ -426,9 +427,9 @@ CONTAINS
 
     idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
     IF (idx==0) THEN
-      get_var_name = TRIM(var%info%name)
+      get_var_name = var%info%name
     ELSE
-      get_var_name = TRIM(var%info%name(1:idx-1))
+      get_var_name = var%info%name(1:idx-1)
     END IF
   END FUNCTION get_var_name
 
@@ -478,24 +479,14 @@ CONTAINS
   END FUNCTION get_var_timelevel
 
   ! return logical if a variable name has a timelevel encoded
-  LOGICAL FUNCTION has_time_level(varname,timelevel)
+  LOGICAL FUNCTION has_time_level(varname)
     CHARACTER(LEN=*) :: varname
-    INTEGER, INTENT(INOUT), OPTIONAL :: timelevel
-
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:has_time_level'
     INTEGER :: idx
 
     idx = INDEX(varname,TIMELEVEL_SUFFIX)
     has_time_level = (0 .EQ. idx)
-
-    IF (.NOT. has_time_level) RETURN
-    
-    IF (PRESENT(timelevel)) THEN
-      timelevel = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
-      IF(timelevel <= 0 .OR. timelevel > MAX_TIME_LEVELS) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
-    ENDIF
-  END FUNCTION 
+  END FUNCTION
 
   !------------------------------------------------------------------------------------------------
   !> @return tile index (extracted from tile index suffix "t_") or "-1"
@@ -4036,21 +4027,21 @@ CONTAINS
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group"
-    INTEGER                       :: i, grp_id
+    INTEGER                       :: i, grp_id, llmsg_len
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
-    LOGICAL                       :: lquiet
+    CHARACTER(len=*), PARAMETER   :: llmsg = " lon-lat"
+    LOGICAL                       :: lquiet, verbose, skip
 
     nvars  = 0
     grp_id = var_groups_dyn%group_id(grp_name)
     lquiet = .FALSE.
     IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
+    verbose = .NOT. lquiet
 
     ! loop over all variable lists and variables
     DO i = 1,nvar_lists
-      element => NULL()
-
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
@@ -4059,50 +4050,36 @@ CONTAINS
         IF (var_lists(i)%p%patch_id /= opt_dom_id)  CYCLE
       END IF
 
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
         info => element%field%info
         ! Do not inspect element if it is a container
-        IF (info%lcontainer) CYCLE LOOPVAR
-
-        IF (info%in_group(grp_id)) THEN
-          name = TRIM(get_var_name(element%field))
-
+        IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
+          name = get_var_name(element%field)
+          llmsg_len = 0
           ! Skip element if we need only output variables:
-          IF (loutputvars_only .AND. &
-            & ((.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput))) THEN
-            IF (.NOT. lquiet) THEN
-              CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
-            END IF
-            CYCLE LOOPVAR
-          END IF
+          skip = loutputvars_only .AND. &
+            & ((.NOT. info%loutput) .OR. (.NOT. var_lists(i)%p%loutput))
 
           IF (lremap_lonlat) THEN
-            IF (info%hgrid /= GRID_UNSTRUCTURED_CELL) THEN
-              IF (.NOT. lquiet) THEN
-                CALL message(routine, "Skipping variable "//TRIM(name)//" for lon-lat output.")
-              END IF
-              CYCLE LOOPVAR
-            ENDIF
-          ELSE IF (.NOT. lremap_lonlat) THEN
+            skip = skip .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL
+            llmsg_len = LEN(llmsg)
+          ELSE
             ! If no lon-lat interpolation is requested for this output file,
             ! skip all variables of this kind:
-            IF (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT)) THEN
-              IF (.NOT. lquiet) THEN
-                CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")
-              END IF
-              CYCLE LOOPVAR
-            ENDIF
+            skip = skip .OR. &
+                 (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT))
           END IF
 
-          nvars = nvars + 1
-          var_name(nvars) = name
+          IF (.NOT. skip) THEN
+            nvars = nvars + 1
+            var_name(nvars) = name
+          ELSE IF (verbose) THEN
+            CALL message(routine, "Skipping variable "//TRIM(name)//" for " &
+                 //llmsg(1:llmsg_len)//"output.")
+          END IF
         END IF
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 
@@ -4168,26 +4145,26 @@ CONTAINS
     IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
-  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,element,opt_caseInsensitive)
-    INTEGER :: key2look4
+  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,name_has_time_level,element,case_insensitive)
+    INTEGER, INTENT(in) :: key2look4
     CHARACTER(len=*),   INTENT(in) :: name2look4
-    TYPE(t_list_element) :: element
-    LOGICAL, OPTIONAL              :: opt_caseInsensitive
-
-    LOGICAL :: caseInsensitive
-    caseInsensitive = .FALSE.
-    CALL assign_if_present(caseInsensitive, opt_caseInsensitive)
+    TYPE(t_list_element), INTENT(in) :: element
+    LOGICAL, INTENT(in) :: name_has_time_level, case_insensitive
 
     ! go forward only if both variables have NO or THE SAME timelevel
-    IF (has_time_level(name2look4) .NEQV. has_time_level(element%field%info%name)) THEN
-      elementFoundByName = .FALSE. 
+    IF (name_has_time_level .NEQV. has_time_level(element%field%info%name)) THEN
+      elementFoundByName = .FALSE.
       RETURN
     ENDIF
 
-    elementFoundByName = merge(tolower(name2look4) == tolower(get_var_name(element%field)), &
-        &                      key2look4 == element%field%info%key, &
-        &                      caseInsensitive)
-
+    IF (case_insensitive) THEN
+      elementFoundByName &
+        = tolower(name2look4) == tolower(get_var_name(element%field))
+    ELSE
+      ! fixme: unless perfect hashing can be employed, this
+      ! might create false positives
+      elementFoundByName = key2look4 == element%field%info%key
+    END IF
   END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
   
@@ -4195,34 +4172,34 @@ CONTAINS
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(element)
     !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
     !
-    TYPE(t_list_element), POINTER :: this_list_element
+    TYPE(t_list_element), POINTER :: element
     INTEGER :: key,hgrid
+    LOGICAL :: name_has_time_level
+    LOGICAL :: case_insensitive
+    case_insensitive = .FALSE.
+    CALL assign_if_present(case_insensitive, opt_caseInsensitive)
 
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
     key = util_hashword(name, LEN_TRIM(name), 0)
+    name_has_time_level = has_time_level(name)
     !
-    this_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      IF ( elementFoundByName(key,name,this_list_element,opt_caseInsensitive) ) THEN
-        IF (-1 == hgrid) THEN
-          RETURN
-        ELSE
-          IF (hgrid == this_list_element%field%info%hgrid) RETURN
-        ENDIF
+    element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(element))
+      IF (-1 == hgrid .OR. hgrid == element%field%info%hgrid) THEN
+        IF (elementFoundByName(key,name,name_has_time_level,&
+          &                    element,case_insensitive)) RETURN
       ENDIF
-      this_list_element => this_list_element%next_list_element
+      element => element%next_list_element
     ENDDO
-    !
-    NULLIFY (this_list_element)
     !
   END FUNCTION find_list_element
   
@@ -4230,17 +4207,17 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(this_list_element)
+  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
 
-    TYPE(t_list_element), POINTER :: this_list_element
+    TYPE(t_list_element), POINTER :: element
     INTEGER :: i
 
     DO i=1,nvar_lists
-      this_list_element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
-      IF (ASSOCIATED (this_list_element)) RETURN
+      element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
+      IF (ASSOCIATED (element)) RETURN
     END DO
   END FUNCTION! find_element_from_all_lists
 
@@ -4291,8 +4268,7 @@ CONTAINS
             ! count the number of variable restart entries
             element => var_lists(iv)%p%first_list_element
             nelems = 0
-            DO
-                IF(.NOT.ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                 IF(element%field%info%lrestart) nelems = nelems+1
                 element => element%next_list_element
             END DO
@@ -4310,8 +4286,7 @@ CONTAINS
 
         IF(operation == kPackOp) THEN
             element => var_lists(iv)%p%first_list_element
-            DO
-                IF(.NOT. ASSOCIATED(element)) EXIT
+            DO WHILE (ASSOCIATED(element))
                 IF(element%field%info%lrestart) THEN
                     info_storage = TRANSFER(element%field%info, (/ 0 /))
                     CALL packedMessage%packer(operation, info_storage)

@@ -21,7 +21,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_kind,                   ONLY: wp, i8
   USE mo_model_domain,           ONLY: t_patch
   USE mo_psrad_general,          ONLY: nbndlw, nbndsw
-  USE mo_exception,              ONLY: finish
+  USE mo_exception,              ONLY: finish, message_text
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
@@ -43,7 +43,7 @@ MODULE mo_bc_aeropt_stenchikov
     MODULE PROCEDURE reorder_stenchikov_3d
   END INTERFACE reorder_stenchikov
 
-  REAL(wp), ALLOCATABLE, TARGET    :: aod_v_s(:,:,:),   & ! volcanic AOD solar
+  REAL(wp), ALLOCATABLE            :: aod_v_s(:,:,:),   & ! volcanic AOD solar
                                       ssa_v_s(:,:,:,:), & ! volcanic SSA solar
                                       asy_v_s(:,:,:,:), & ! volcanic ASY solar
                                       ext_v_s(:,:,:,:), & ! volcanic EXT solar
@@ -475,7 +475,7 @@ END SUBROUTINE pressure_index
   INTEGER, INTENT(in)            :: ktime_step   ! month that has to be set by new data
 
   CHARACTER(len=256)             :: cfname   ! file name containing variables
-  CHARACTER(len=32)              :: ckmonth,ckyear,ci_length,cj_length
+  CHARACTER(len=32)              :: ckmonth,ckyear
   CHARACTER(len=256)             :: cdim_names(4)
 
 !!$  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
@@ -511,39 +511,42 @@ END SUBROUTINE pressure_index
   CALL read_1D_extdim_time(file_id=ifile_id, variable_name='tauttl', &
          &                 return_pointer=zvar2d, dim_names=cdim_names(1:3), &
          &                 start_timestep=kmonth, end_timestep=kmonth)
-  CALL reorder_stenchikov (zvar2d(:,:,1),'aod',ktime_step)
+  CALL reorder_stenchikov(zvar2d(:,:,1), &
+       &                  aod_v_s(:,:,ktime_step), aod_v_t(:,:,ktime_step))
+  DEALLOCATE(zvar2d)
   cdim_names(4)=cdim_names(3)
   cdim_names(3)=clev_dim
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='exts', &
     &                             return_pointer=zvar3d, dim_names=cdim_names, &
     &                             start_timestep=kmonth, end_timestep=kmonth)
-  CALL reorder_stenchikov (zvar3d(:,:,:,1),'ext',ktime_step)
+  CALL reorder_stenchikov(zvar3d(:,:,:,1), &
+       &                  ext_v_s(:,:,:,ktime_step), ext_v_t(:,:,:,ktime_step))
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='omega', &
-    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             fill_array=zvar3d, dim_names=cdim_names, &
     &                             start_timestep=kmonth, end_timestep=kmonth)
-  CALL reorder_stenchikov (zvar3d(:,:,:,1),'ssa',ktime_step)
+  CALL reorder_stenchikov(zvar3d(:,:,:,1), &
+       &                  ssa_v_s(:,:,:,ktime_step), ssa_v_t(:,:,:,ktime_step))
   CALL read_1D_extdim_extdim_time(file_id=ifile_id, variable_name='asymm', &
-    &                             return_pointer=zvar3d, dim_names=cdim_names, &
+    &                             fill_array=zvar3d, dim_names=cdim_names, &
     &                             start_timestep=kmonth, end_timestep=kmonth)
-  CALL reorder_stenchikov (zvar3d(:,:,:,1),'asy',ktime_step)
+  CALL reorder_stenchikov(zvar3d(:,:,:,1), asy_v_s(:,:,:,ktime_step))
+  DEALLOCATE(zvar3d)
   CALL read_1D(file_id=ifile_id, variable_name=clev_dim, return_pointer=zpmid)
-! convert pressure into Pa from hPa
-  zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
+  DEALLOCATE(zpmid)
   CALL read_1D(file_id=ifile_id, variable_name=clat_dim, return_pointer=zlat)
   IF (SIZE(zlat)/=lat_clim) THEN
-    WRITE(ci_length,*) SIZE(zlat)
-    WRITE(cj_length,*) lat_clim
-    CALL finish ('read_months_bc_aeropt_stenchikov of mo_bc_aeropt_stenchikov','lat_clim= '// &
-                 TRIM(ADJUSTL(cj_length))//' expected but found '//TRIM(ADJUSTL(ci_length))// &
-                 ' elements.')
+    WRITE(message_text, '(a,i0,a,i0,a)') 'lat_clim= ', lat_clim, &
+         ' expected but found ', SIZE(zlat), ' elements.'
+    CALL finish('read_months_bc_aeropt_stenchikov of mo_bc_aeropt_stenchikov', &
+         message_text)
   END IF
   r_lat_clim(1:lat_clim)=zlat(lat_clim:1:-1)*deg2rad
   r_lat_clim(0)=0.0_wp
   r_lat_clim(lat_clim+1)=-pi_2
   r_lat_shift=r_lat_clim(1)                      ! this is the value at the N-pole (so +89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
-  DEALLOCATE(zpmid,zlat,zvar2d,zvar3d)
+  DEALLOCATE(zlat)
   CALL closeFile(ifile_id)
   END SUBROUTINE read_months_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
@@ -551,22 +554,12 @@ END SUBROUTINE pressure_index
 !> SUBROUTINE reorder_stenchikov -- reorder dimensions and distribute on
 !!   module variables for time step time_step
 
-  SUBROUTINE reorder_stenchikov_2d (pvar,cvar,time_step)
+  SUBROUTINE reorder_stenchikov_2d (pvar,var_solar,var_thermal)
 
     REAL(wp), INTENT(in)          :: pvar(:,:)
-    CHARACTER(LEN=*), INTENT(in)  :: cvar
-    INTEGER, INTENT(in)           :: time_step
 
-    REAL(wp), POINTER             :: var_solar(:,:), var_thermal(:,:)
+    REAL(wp), INTENT(out)         :: var_solar(:,:), var_thermal(:,:)
 
-    SELECT CASE (TRIM(cvar))
-    CASE ('aod')
-      var_solar => aod_v_s(:,:,time_step)
-      var_thermal => aod_v_t(:,:,time_step)
-    CASE DEFAULT 
-      CALL finish('reorder_stenchikov_2d of mo_bc_aeropt_stenchikov', &
-                  'Variable '//TRIM(ADJUSTL(cvar))//' unknown')
-    END SELECT
     ! attention: the indices of var_solar and var_thermal are (1:nbnd{sw,lw},1:lat_clim+2)
     var_solar(1:nbndsw-1,2:lat_clim+1)=pvar(nbndsw-1:1:-1,lat_clim:1:-1)
     var_solar(nbndsw,2:lat_clim+1)=pvar(nbndsw,lat_clim:1:-1)
@@ -583,48 +576,56 @@ END SUBROUTINE pressure_index
 !> SUBROUTINE reorder_stenchikov -- reorder dimensions and distribute on
 !!   module variables for time step time_step
 
-  SUBROUTINE reorder_stenchikov_3d (pvar,cvar,time_step)
+  SUBROUTINE reorder_stenchikov_3d(pvar, var_solar, var_thermal)
 
-    REAL(wp), INTENT(in)          :: pvar(:,:,:)
-    CHARACTER(LEN=*), INTENT(in)  :: cvar
-    INTEGER, INTENT(in)           :: time_step
+    REAL(wp), INTENT(in)            :: pvar(:,:,:)
+    REAL(wp), INTENT(out)           :: var_solar(:,:,:)
+    REAL(wp), OPTIONAL, INTENT(out) :: var_thermal(:,:,:)
 
-    REAL(wp), POINTER             :: var_solar(:,:,:), var_thermal(:,:,:)
-
-    ALLOCATE(var_solar(1:nbndsw,1:lev_clim,1:lat_clim+2), var_thermal(1:nbndlw,1:lev_clim,1:lat_clim+2))
-    SELECT CASE (TRIM(cvar))
-    CASE ('ext')
-      var_solar => ext_v_s(:,:,:,time_step)
-      var_thermal => ext_v_t(:,:,:,time_step)
-    CASE ('ssa')
-      var_solar => ssa_v_s(:,:,:,time_step)
-      var_thermal => ssa_v_t(:,:,:,time_step)
-    CASE ('asy')
-      var_solar => asy_v_s(:,:,:,time_step)
-      IF (ASSOCIATED(var_thermal)) NULLIFY(var_thermal)
-    CASE DEFAULT 
-      CALL finish('reorder_stenchikov_2d of mo_bc_aeropt_stenchikov', &
-                  'Variable '//TRIM(ADJUSTL(cvar))//' unknown')
-    END SELECT
+    INTEGER :: ibnd, ilev, ilat, nbnd
     ! attention: the indices of var_solar and var_thermal are (1:nbnd{sw,lw},1:lev_clim,1:lat_clim+2)
-    var_solar(1:nbndsw-1,1:lev_clim,2:lat_clim+1)= &
-      RESHAPE(pvar(nbndsw-1:1:-1,lat_clim:1:-1,lev_clim:1:-1), &
-              (/nbndsw-1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-    var_solar(nbndsw:nbndsw,1:lev_clim,2:lat_clim+1)= &
-      RESHAPE(pvar(nbndsw,lat_clim:1:-1,lev_clim:1:-1),(/1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-    var_solar(1:nbndsw,1:lev_clim,1)=var_solar(1:nbndsw,1:lev_clim,1)
-    var_solar(1:nbndsw,1:lev_clim,lat_clim+2)=var_solar(1:nbndsw,1:lev_clim,lat_clim)
-    IF (ASSOCIATED(var_thermal)) THEN
-      var_thermal(1:nbndlw-1,1:lev_clim,2:lat_clim+1)= &
-        RESHAPE(pvar(nbndsw+nbndlw:nbndsw+2:-1,lat_clim:1:-1,lev_clim:1:-1), &
-                (/nbndlw-1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-      var_thermal(nbndlw:nbndlw,1:lev_clim,2:lat_clim+1)= &
-        RESHAPE(pvar(nbndsw-1,lat_clim:1:-1,lev_clim:1:-1),(/1,lev_clim,lat_clim/),ORDER=(/1,3,2/))
-      var_thermal(1:nbndlw,1:lev_clim,1)=var_thermal(1:nbndlw,1:lev_clim,1)
-      var_thermal(1:nbndlw,1:lev_clim,lat_clim+2)=var_thermal(1:nbndlw,1:lev_clim,lat_clim)
+    DO ilat = 2, lat_clim+1
+      DO ilev = 1, lev_clim
+        DO ibnd = 1, nbndsw-1
+          var_solar(ibnd, ilev, ilat) = &
+               pvar(nbndsw-ibnd, lat_clim+2-ilat, lev_clim+1-ilev)
+        END DO
+        var_solar(nbndsw, ilev, ilat) = &
+             pvar(nbndsw, lat_clim+2-ilat, lev_clim+1-ilev)
+      END DO
+    END DO
+    DO ilev = 1, lev_clim
+      DO ibnd = 1, nbndsw
+        ! this assignment probably is in error and should use 3rd index = 2 on the rhs
+        ! var_solar(ibnd, ilev,          1) = var_solar(ibnd, ilev,        1)
+!        var_solar(ibnd, ilev,          1) = 0.0_wp
+        var_solar(ibnd, ilev, lat_clim+2) = var_solar(ibnd, ilev, lat_clim)
+      END DO
+    END DO
+
+    IF (PRESENT(var_thermal)) THEN
+      nbnd = nbndsw+nbndlw
+      DO ilat = 2, lat_clim+1
+        DO ilev = 1, lev_clim
+          DO ibnd = 1, nbndlw-1
+            var_thermal(ibnd, ilev, ilat) = &
+                 pvar(nbnd+1-ibnd, lat_clim+2-ilat, lev_clim+1-ilev)
+          END DO
+          ! this should probably be nbndsw+1 as first index of the rhs
+          var_thermal(nbndlw, ilev, ilat) = &
+               pvar(nbndsw-1, lat_clim+2-ilat, lev_clim+1-ilev)
+        END DO
+      END DO
+      DO ilev = 1, lev_clim
+        DO ibnd = 1, nbndlw
+          ! this assignment probably is in error and should use 3rd index = 2 on the rhs
+          !var_thermal(ibnd, ilev,          1) = var_thermal(ibnd, ilev,        1)
+!          var_thermal(ibnd, ilev,          1) = 0.0_wp
+          var_thermal(ibnd, ilev, lat_clim+2) = var_thermal(ibnd, ilev, lat_clim)
+        END DO
+      END DO
+
     END IF
-    NULLIFY(var_solar,var_thermal)
-!    DEALLOCATE(var_solar,var_thermal)
   END SUBROUTINE reorder_stenchikov_3d
 
 !-------------------------------------------------------------------------
@@ -636,12 +637,15 @@ END SUBROUTINE pressure_index
     REAL(wp), INTENT(inout)        :: p_pmid(lev_clim)
 
     INTEGER                        :: jk
+    REAL(wp) :: accum
 
-    p_pmid(1:lev_clim)=p_pmid(lev_clim:1:-1)
-    p_lim_clim(1)=0.0_wp
-    DO jk=2,lev_clim+1
-      p_lim_clim(jk)=2.0_wp*p_pmid(jk-1)-p_lim_clim(jk-1)
+    accum = 0.0_wp
+    DO jk=1,lev_clim
+      p_lim_clim(jk) = accum
+      ! convert pressure into Pa from hPa
+      accum = 2.0_wp*100._wp*p_pmid(lev_clim+1-jk) - accum
     END DO
+    p_lim_clim(lev_clim+1) = accum
 
   END SUBROUTINE p_lim_stenchikov
     

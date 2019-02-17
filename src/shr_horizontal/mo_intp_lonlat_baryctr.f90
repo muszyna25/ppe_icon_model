@@ -124,7 +124,8 @@
       ! local variables
       TYPE(t_cartesian_coordinates) :: a,b,c,p
       REAL(wp) :: B1(2), B2(2), r(2), det
-      
+      INTEGER :: i
+
       ! Cartesian coordinates of triangle vertices
       a%x(:) = p1
       b%x(:) = p2
@@ -134,9 +135,11 @@
       ! solve linear system for the barycentric coordinates
       !
       ! define matrix and right hand side
-      a%x(1:3) = a%x(1:3) - c%x(1:3)
-      b%x(1:3) = b%x(1:3) - c%x(1:3)
-      p%x(1:3) = p%x(1:3) - c%x(1:3)
+      DO i = 1, 3
+        a%x(i) = a%x(i) - c%x(i)
+        b%x(i) = b%x(i) - c%x(i)
+        p%x(i) = p%x(i) - c%x(i)
+      END DO
       B1(1:2) = (/ cc_dot_product(a,a) , cc_dot_product(a,b) /)   ! (a-c)^2     ,  (a-c)*(b-c)
       B2(1:2) = (/ B1(2)               , cc_dot_product(b,b) /)   ! (a-c)*(b-c) ,  (b-c)^2
       r(1:2)  = (/ cc_dot_product(p,a) , cc_dot_product(p,b) /)   ! [ (p-c)*(a-c), (p-c)*(b-c) ]
@@ -725,7 +728,7 @@
       !$  DOUBLE PRECISION                  :: time_s, toc
       INTEGER                               :: obj_list(NMAX_HITS)  !< query result (triangle search)
       TYPE(t_cartesian_coordinates)         :: ll_point_c           !< cartes. coordinates of lon-lat points
-      REAL(wp)                              :: v(0:2,3)
+      REAL(wp)                              :: v(3,0:2)
       LOGICAL                               :: inside_test
       INTEGER                               :: last_idx1(3)
 
@@ -780,16 +783,16 @@
             j = obj_list(i)
 
             DO k=0,2
-              v(k,:) = (/ p_global%a(tri_global%a(j)%p(k))%x, &
-                &         p_global%a(tri_global%a(j)%p(k))%y, &
-                &         p_global%a(tri_global%a(j)%p(k))%z /)
+              v(1,k) = p_global%a(tri_global%a(j)%p(k))%x
+              v(2,k) = p_global%a(tri_global%a(j)%p(k))%y
+              v(3,k) = p_global%a(tri_global%a(j)%p(k))%z
             END DO
 
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
 
             CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(0,:),v(1,:),v(2,:),               &
+              &                             v(:,0),v(:,1),v(:,2),               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             ! test if either the barycentric interpolation weights
@@ -848,13 +851,13 @@
           ELSE
 
             CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
-              &                             v(0,:),v(1,:),v(2,:),               &
+              &                             v(:,0),v(:,1),v(:,2),               &
               &                             ptr_int_lonlat%baryctr%coeff(1:3,jc,jb))
 
             IF (dbg_level > 5) THEN
-              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v(0,:)
-              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v(1,:)
-              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v(2,:)
+              ptr_int_lonlat%baryctr%v(:,1,jc,jb) = v(:,0)
+              ptr_int_lonlat%baryctr%v(:,2,jc,jb) = v(:,1)
+              ptr_int_lonlat%baryctr%v(:,3,jc,jb) = v(:,2)
             END IF
 
             IF (ALL(last_idx1(1:3) >= 1)) THEN

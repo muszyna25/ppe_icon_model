@@ -131,8 +131,7 @@ CONTAINS
     LOGICAL :: l_exist
 
     ! consistency checks
-    IF ((PRESENT(opt_var2) .AND. .NOT. PRESENT(opt_varname2)) .OR.  &
-      & (PRESENT(opt_varname2) .AND. .NOT. PRESENT(opt_var2))) THEN
+    IF (PRESENT(opt_var2) .NEQV. PRESENT(opt_varname2)) THEN
       CALL finish(routine, "Internal error!")
     END IF
 

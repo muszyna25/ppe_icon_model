@@ -1738,7 +1738,7 @@ MODULE mo_initicon
         ENDIF  ! MODE_IAU
 
       ENDDO  ! jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

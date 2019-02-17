@@ -56,6 +56,8 @@ TYPE, ABSTRACT :: t_comm_pattern
     PROCEDURE(interface_exchange_data_r2d), DEFERRED :: exchange_data_r2d
     PROCEDURE(interface_exchange_data_s2d), DEFERRED :: exchange_data_s2d
     PROCEDURE(interface_exchange_data_i2d), DEFERRED :: exchange_data_i2d
+    PROCEDURE(interface_exchange_data_l2d), DEFERRED :: exchange_data_l2d
+    PROCEDURE(interface_exchange_data_l3d), DEFERRED :: exchange_data_l3d
     PROCEDURE(interface_exchange_data_mult), DEFERRED :: exchange_data_mult
     PROCEDURE(interface_exchange_data_mult_mixprec), DEFERRED :: exchange_data_mult_mixprec
     PROCEDURE(interface_exchange_data_4de1), DEFERRED :: exchange_data_4de1
@@ -203,6 +205,21 @@ ABSTRACT INTERFACE
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
     LOGICAL, OPTIONAL :: l_recv_exists
   END SUBROUTINE interface_exchange_data_i2d
+
+  SUBROUTINE interface_exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    IMPORT t_comm_pattern
+    CLASS(t_comm_pattern), INTENT(INOUT), TARGET :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+  END SUBROUTINE interface_exchange_data_l2d
+
+  SUBROUTINE interface_exchange_data_l3d(p_pat, recv, send)
+    IMPORT t_comm_pattern
+    CLASS(t_comm_pattern), INTENT(INOUT)  :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+  END SUBROUTINE interface_exchange_data_l3d
 
   FUNCTION interface_get_np_recv(comm_pat)
     IMPORT t_comm_pattern
