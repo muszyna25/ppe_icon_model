@@ -2095,7 +2095,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
     REAL(dp), POINTER :: send_ptr(:,:,:), recv_ptr(:,:,:)  ! Refactoring for OpenACC
 #endif
-    INTEGER :: nfields
+    INTEGER :: nfields, accum
     INTEGER :: i, k, kshift(SIZE(recv)), jb,ik, jl, n, np, irs, iss, pid, icount
     LOGICAL :: lsend
     INTEGER, POINTER :: recv_src(:)
@@ -2170,11 +2170,11 @@ CONTAINS
         IF (SIZE(recv(n)%p,2) == 1) kshift(n) = 0
       ENDDO
 
-      noffset(1) = 0
-      ndim2(1)   = SIZE(recv(1)%p,2) - kshift(1)
-      DO n = 2, nfields
-        noffset(n) = noffset(n-1)+ndim2(n-1)
-        ndim2(n)   = SIZE(recv(n)%p,2) - kshift(n)
+      accum = 0
+      DO n = 1, nfields
+        noffset(n) = accum
+        ndim2(n) = SIZE(recv(n)%p,2) - kshift(n)
+        accum = accum + ndim2(n)
       ENDDO
 
 !$ACC DATA COPYIN(noffset, ndim2) IF (use_gpu)
@@ -2372,7 +2372,7 @@ CONTAINS
     REAL(dp), POINTER :: send_fld_dp(:,:,:), recv_fld_dp(:,:,:)
 #endif
     INTEGER :: i, k, kshift_dp(nfields_dp), kshift_sp(nfields_sp), &
-         jb, ik, jl, n, np, irs, iss, pid, icount
+         jb, ik, jl, n, np, irs, iss, pid, icount, accum
     LOGICAL :: lsend
     INTEGER, POINTER :: recv_src(:)
     INTEGER, POINTER :: recv_dst_blk(:)
@@ -2460,21 +2460,17 @@ CONTAINS
         IF (SIZE(recv_sp(n)%p,2) == 1) kshift_sp(n) = 0
       ENDDO
 
-      IF (nfields_dp > 0) THEN
-        noffset_dp(1) = 0
-        ndim2_dp(1)   = SIZE(recv_dp(1)%p,2) - kshift_dp(1)
-      ENDIF
-      DO n = 2, nfields_dp
-        noffset_dp(n) = noffset_dp(n-1)+ndim2_dp(n-1)
+      accum = 0
+      DO n = 1, nfields_dp
+        noffset_dp(n) = accum
         ndim2_dp(n)   = SIZE(recv_dp(n)%p,2) - kshift_dp(n)
+        accum = accum + ndim2_dp(n)
       ENDDO
-      IF (nfields_sp > 0) THEN
-        noffset_sp(1) = 0
-        ndim2_sp(1)   = SIZE(recv_sp(1)%p,2) - kshift_sp(1)
-      ENDIF
-      DO n = 2, nfields_sp
-        noffset_sp(n) = noffset_sp(n-1)+ndim2_sp(n-1)
+      accum = 0
+      DO n = 1, nfields_sp
+        noffset_sp(n) = accum
         ndim2_sp(n)   = SIZE(recv_sp(n)%p,2) - kshift_sp(n)
+        accum = accum + ndim2_sp(n)
       ENDDO
 
 !$ACC DATA COPYIN(kshift_dp,noffset_dp,ndim2_dp,kshift_sp,noffset_sp,ndim2_sp)
@@ -2995,7 +2991,7 @@ CONTAINS
 
     INTEGER :: i, j, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
-      comm_size
+      comm_size, accum, accum2
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
@@ -3159,18 +3155,20 @@ CONTAINS
       ENDIF
     ENDIF
 
-    noffset(1) = 0
-    ndim2(1)   = SIZE(recv(1)%p,2)
-    DO n = 2, nfields
-      noffset(n) = noffset(n-1)+ndim2(n-1)
-      ndim2(n)   = SIZE(recv(n)%p,2)
+    accum = 0
+    DO n = 1, nfields
+      noffset(n) = accum
+      ndim2(n) = SIZE(recv(n)%p,2)
+      accum = accum + ndim2(n)
     ENDDO
 
-    ioffset_r(1) = 0
-    ioffset_s(1) = 0
-    DO np = 2, npats
-      ioffset_r(np) = ioffset_r(np-1) + p_pat(np-1)%p%n_recv
-      ioffset_s(np) = ioffset_s(np-1) + p_pat(np-1)%p%n_send
+    accum = 0
+    accum2 = 0
+    DO np = 1, npats
+      ioffset_r(np) = accum
+      accum = accum + p_pat(np)%p%n_recv
+      ioffset_s(np) = accum2
+      accum2 = accum2 + p_pat(np)%p%n_send
     ENDDO
 
     DO np = 1, npats
