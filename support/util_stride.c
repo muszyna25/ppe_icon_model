@@ -3,6 +3,15 @@
 #include "cfortran.h"
 
 static void
+cf_util_c_loc(const void *ptr_in, void **ptr_out)
+{
+  *ptr_out = ptr_in;
+}
+
+FCALLSCSUB2(cf_util_c_loc, UTIL_C_LOC, util_c_loc, PVOID, PVOID)
+
+
+static void
 cf_util_stride_1d(int *out, int elemsize, void *p1, void *p2)
 {
   ptrdiff_t d = (unsigned char *)p2 - (unsigned char *)p1;
@@ -25,3 +34,4 @@ cf_util_stride_2d(int *out, int elemsize,
 
 FCALLSCSUB5(cf_util_stride_2d, UTIL_STRIDE_2D, util_stride_2d,
             INTV, INT, PVOID, PVOID, PVOID)
+

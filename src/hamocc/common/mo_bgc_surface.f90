@@ -10,10 +10,44 @@ MODULE mo_bgc_surface
 
   PRIVATE
 
-  PUBLIC :: gasex, update_weathering, dust_deposition, nitrogen_deposition
+  PUBLIC :: gasex, update_weathering, dust_deposition, nitrogen_deposition,&
+&           update_linage
 
 
 contains
+
+SUBROUTINE update_linage ( klev,start_idx,end_idx, pddpo)
+
+! update linear age tracer
+  USE mo_memory_bgc, ONLY     : bgctra
+  USE mo_param1_bgc, ONLY     : iagesc
+  USE mo_control_bgc, ONLY    : dtbgc
+
+  ! Arguments
+ 
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+  INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
+
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+
+
+  INTEGER :: jc,k, kpke
+  REAL(wp) :: fac001
+
+  fac001 = dtbgc/(86400._wp*365._wp) 
+  DO jc = start_idx, end_idx
+     kpke=klev(jc)
+     DO k = 2, kpke
+      if(pddpo(jc,k) > 0.5_wp) then
+         bgctra(jc,k,iagesc) = bgctra(jc,k,iagesc) + fac001
+      endif
+     ENDDO
+     if(pddpo(jc,1) > 0.5_wp) bgctra(jc,1,iagesc) = 0._wp
+  ENDDO
+
+
+END SUBROUTINE update_linage 
 
 SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 ! apply weathering rates
@@ -137,7 +171,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
   USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2, iphosph,         &
        &                        ioxygen, isco212, isilica,       &
        &                        ialkali, kcflux, koflux, knflux,          &
-       &                        kn2oflux, idms, kdmsflux 
+       &                        kn2oflux, idms, kdmsflux,kpco2
 
   USE mo_memory_bgc, ONLY         : hi, &
        &                        solco2,satoxy,satn2,aksurf,    &
@@ -313,6 +347,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            thickness = pddpo(j,1) + za(j)                             
            bgctra(j,1,isco212) = bgctra(j,1,isco212)+(fluxd-fluxu)/thickness
            bgcflux(j,kcflux) = (fluxu-fluxd)/dtbgc
+           bgcflux(j,kpco2) = pco2
 
 
         ENDIF ! wet cell

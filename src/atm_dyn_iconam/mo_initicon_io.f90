@@ -243,7 +243,7 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
-    INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
+    INTEGER :: ncid, dimid, varid, ierrstat
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims, itemp(7)
 
@@ -263,8 +263,6 @@ MODULE mo_initicon_io
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
     nlev_in = 0
-
-    mpi_comm = p_comm_work
 
     DO jg = 1, n_dom
 
@@ -431,8 +429,6 @@ MODULE mo_initicon_io
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
-      mpi_comm = p_comm_work
-
       itemp(1) = nlev_in
       itemp(2) = MERGE(1, 0, lread_qs)
       itemp(3) = MERGE(1, 0, lread_qr)
@@ -443,7 +439,7 @@ MODULE mo_initicon_io
         itemp(7) = geopvar_ndims
       END IF
 
-      CALL p_bcast(itemp, p_io, mpi_comm)
+      CALL p_bcast(itemp, p_io, p_comm_work)
 
       nlev_in  = itemp(1)
       lread_qs = itemp(2) /= 0
@@ -553,9 +549,7 @@ MODULE mo_initicon_io
           CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
         END IF
 
-        mpi_comm = p_comm_work
-
-        CALL initicon(jg)%const%vct%construct(ncid, p_io, mpi_comm)
+        CALL initicon(jg)%const%vct%construct(ncid, p_io, p_comm_work)
 
       ELSE IF (init_mode == MODE_COSMO) THEN ! in case of COSMO-DE initial data
         
@@ -641,7 +635,7 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ncid, dimid, varid
     INTEGER :: geop_sfc_var_ndims     ! dimension of geop_sfc_var
     TYPE(t_stream_id) :: stream_id
 
@@ -657,7 +651,6 @@ MODULE mo_initicon_io
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
-    mpi_comm = p_comm_work
 
     DO jg = 1, n_dom
 
@@ -791,11 +784,11 @@ MODULE mo_initicon_io
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
-      CALL p_bcast(l_sst_in, p_io, mpi_comm)
+      CALL p_bcast(l_sst_in, p_io, p_comm_work)
 
-      CALL p_bcast(alb_snow_var, p_io, mpi_comm)
+      CALL p_bcast(alb_snow_var, p_io, p_comm_work)
 
-      CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
+      CALL p_bcast(geop_sfc_var_ndims, p_io, p_comm_work)
 
       ! allocate data structure
       CALL allocate_extana_sfc(nblks_c     = p_patch(jg)%nblks_c,  &

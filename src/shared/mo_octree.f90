@@ -213,7 +213,7 @@ CONTAINS
     REAL(wp),                INTENT(IN) :: p(3)     !< point to insert
     ! local variables
     INTEGER  :: ibox, l1, i, c, nobjects, ioffset
-    REAL(wp) :: brange(2,3), mid(3) !< box range (min/max, dim=1,2,3)
+    REAL(wp) :: brange(2,3), mid !< box range (min/max, dim=1,2,3)
     REAL(wp) :: pmin(3), pmax(3)
 
     nobjects = 0
@@ -233,14 +233,14 @@ CONTAINS
         END DO
       END IF
       ! find containing child box and move down the tree:
-      mid = (/ ( (brange(1,i)+brange(2,i))/2._wp, i=1,3 ) /)
       c   = 0
-      DO i=1,3
-        IF (p(i) > mid(i)) THEN
-          brange(1,i) = mid(i)
+      DO i = 1, 3
+        mid = (brange(1,i)+brange(2,i))*0.5_wp
+        IF (p(i) > mid) THEN
+          brange(1,i) = mid
           c = c + ISHFT(1,i-1)
         ELSE
-          brange(2,i) = mid(i)
+          brange(2,i) = mid
         END IF
       END DO
       ibox = 8*ibox - 6 + c
@@ -258,7 +258,7 @@ CONTAINS
     INTEGER,                 INTENT(INOUT) :: obj_list(:)  !< result: list of objects in traversed boxes.
     ! local variables
     INTEGER  :: ibox, l1, i, c, nobjects, ioffset
-    REAL(wp) :: brange(2,3), mid(3) !< box range (min/max, dim=1,2,3)
+    REAL(wp) :: brange(2,3), mid !< box range (min/max, dim=1,2,3)
     REAL(wp) :: pmin(3), pmax(3)
 
     nobjects = 0
@@ -279,14 +279,14 @@ CONTAINS
         END DO
       END IF
       ! find containing child box and move down the tree:
-      mid = (/ ( (brange(1,i)+brange(2,i))/2._wp, i=1,3 ) /)
       c   = 0
-      DO i=1,3
-        IF (p(i) > mid(i)) THEN
-          brange(1,i) = mid(i)
+      DO i = 1, 3
+        mid = (brange(1,i)+brange(2,i))*0.5_wp
+        IF (p(i) > mid) THEN
+          brange(1,i) = mid
           c = c + ISHFT(1,i-1)
         ELSE
-          brange(2,i) = mid(i)
+          brange(2,i) = mid
         END IF
       END DO
       ibox = 8*ibox - 6 + c

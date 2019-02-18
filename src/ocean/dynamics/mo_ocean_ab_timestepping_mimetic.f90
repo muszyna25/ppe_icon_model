@@ -53,7 +53,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & PPscheme_ICON_Edge_vnPredict_type,                  &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & OceanReferenceDensity_inv, createSolverMatrix,      &
-    & select_lhs, select_lhs_matrix
+    & select_lhs, select_lhs_matrix,                      &
+    & atm_pressure_included_in_ocedyn
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -71,7 +72,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
-  USE mo_ocean_surface_types,       ONLY: t_ocean_surface
+  USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
@@ -141,13 +142,14 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_oce_sfc, &
+  SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_as, p_oce_sfc, &
     & p_phys_param, timestep, op_coeffs, solverCoeff_sp, return_status)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in)     :: p_ext_data
     TYPE(t_ocean_surface), INTENT(inout)          :: p_oce_sfc
+    TYPE(t_atmos_for_ocean), INTENT(inout)        :: p_as
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
@@ -235,7 +237,7 @@ CONTAINS
     
     start_timer(timer_ab_expl,3)
     CALL calculate_explicit_term_ab(patch_3d, ocean_state, p_phys_param, &
-      & is_initial_timestep(timestep), op_coeffs)
+      & is_initial_timestep(timestep), op_coeffs, p_as)
     stop_timer(timer_ab_expl,3)
     
     IF(.NOT.l_rigid_lid)THEN
@@ -577,25 +579,29 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calculate_explicit_term_ab( patch_3d, ocean_state, p_phys_param,&
-    & is_first_timestep, op_coeffs)
+    & is_first_timestep, op_coeffs, p_as)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE (t_ho_params)                   :: p_phys_param
     LOGICAL,INTENT(in)                   :: is_first_timestep
     TYPE(t_operator_coeff)               :: op_coeffs
+    TYPE(t_atmos_for_ocean), INTENT(inout) :: p_as
     !
-    TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
+    TYPE(t_subset_range), POINTER :: owned_edges, owned_cells, all_cells
     TYPE(t_patch), POINTER :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !  &       routine = ('mo_ocean_ab_timestepping_mimetic:calculate_explicit_term_ab')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
+
+    INTEGER :: jc, jb, jk, start_index, end_index
     
     patch_2D        => patch_3d%p_patch_2d(n_dom)
     owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
     owned_cells     => patch_3d%p_patch_2d(n_dom)%cells%owned
-    
+    all_cells       => patch_3d%p_patch_2d(n_dom)%cells%all
+
     !---------------------------------------------------------------------
     ! STEP 1: horizontal advection
     !---------------------------------------------------------------------
@@ -649,8 +655,28 @@ CONTAINS
 !          &                              op_coeffs%grad_coeff,  &
 !          &                              ocean_state%p_diag%press_grad)
 !       ENDIF
-      
-      
+
+
+      IF ( atm_pressure_included_in_ocedyn ) THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = all_cells%start_block, all_cells%end_block
+
+          CALL get_index_range(all_cells, jb, start_index, end_index)
+
+            DO jc = start_index, end_index
+
+              DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+                ocean_state%p_diag%press_hyd(jc,jk,jb) = ocean_state%p_diag%press_hyd(jc,jk,jb) &
+     &                               + p_as%pao(jc,jb)
+            end do
+          end do
+        end do
+!ICON_OMP_END_PARALLEL_DO
+
+      ENDIF
+
      CALL calc_internal_press_grad( patch_3d,&
          &                          ocean_state%p_diag%rho,&
          &                          ocean_state%p_diag%press_hyd,&         

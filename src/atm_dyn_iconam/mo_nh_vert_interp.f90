@@ -2002,25 +2002,27 @@ CONTAINS
       ENDIF
 
 
-      ! Compute vertical gradients of input data
-      DO jk1 = 1, nlevs_in-1
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,1) = (temp_mod(jc,1)-temp_mod(jc,2))/ &
+             (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+      ENDDO
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,2) = (temp_mod(jc,2)-temp_mod(jc,3))/ &
+             (z3d_in(jc,2,jb)-z3d_in(jc,3,jb))
+        ! Compute vertical gradients of gradients
+        g2(jc,2-1) = (g1(jc,1)-g1(jc,2))/(z3d_in(jc,1,jb)-z3d_in(jc,3,jb))
+      ENDDO
+      DO jk1 = 3, nlevs_in-1
         DO jc = 1, nlen
+          ! Compute vertical gradients of input data
           g1(jc,jk1) = (temp_mod(jc,jk1 )-temp_mod(jc,jk1+1 ))/ &
                        (z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+1,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute vertical gradients of gradients
-      DO jk1 = 1, nlevs_in-2
-        DO jc = 1, nlen
-          g2(jc,jk1) = (g1(jc,jk1)-g1(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+2,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute third-order vertical gradients
-      DO jk1 = 1, nlevs_in-3
-        DO jc = 1, nlen
-          g3(jc,jk1) = (g2(jc,jk1)-g2(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+3,jb))
+          ! Compute vertical gradients of gradients
+          g2(jc,jk1-1) = (g1(jc,jk1-1)-g1(jc,jk1))/(z3d_in(jc,jk1-1,jb)-z3d_in(jc,jk1+1,jb))
+          ! Compute third-order vertical gradients
+          g3(jc,jk1-2) = (g2(jc,jk1-2)-g2(jc,jk1-1))/(z3d_in(jc,jk1-2,jb)-z3d_in(jc,jk1+1,jb))
         ENDDO
       ENDDO
 

@@ -34,7 +34,8 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
        &                        ldtrunbgc, bgc_nproma
 
   USE mo_cyano,               ONLY: cyano, cyadyn
-  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, nitrogen_deposition
+  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, &
+&                                   nitrogen_deposition, update_linage
   USE mo_bgc_bcond,           ONLY: ext_data_bgc
   USE mo_hamocc_diagnostics,  ONLY: get_inventories, get_omz
   USE mo_exception, ONLY: message
@@ -114,6 +115,10 @@ ENDIF
  &                          p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))   ! level thickness
 
         stop_detail_timer(timer_bgc_swr,5)
+
+       ! Linear age
+        CALL update_linage(levels, start_index, end_index,  & ! index range, levels, salinity
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))! cell thickness (check for z0)
 
        ! Biogeochemistry
 

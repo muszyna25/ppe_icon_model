@@ -122,8 +122,8 @@ MODULE mo_psrad_radiation
 
     ! Shortcuts to components of echam_rad_config
     !
-    LOGICAL , POINTER :: l_orbvsop87, ldiur, l_sph_symm_irr
-    INTEGER , POINTER :: isolrad, icosmu0
+    LOGICAL , POINTER :: l_orbvsop87, ldiur, l_sph_symm_irr, lyr_perp
+    INTEGER , POINTER :: isolrad, icosmu0, yr_perp
     REAL(wp), POINTER :: fsolrad, cecc, cobld, clonp
     INTEGER  :: jg
 !     CHARACTER(LEN=32)               :: datestring, datestring2
@@ -137,6 +137,8 @@ MODULE mo_psrad_radiation
     cecc           => echam_rad_config(jg)% cecc
     cobld          => echam_rad_config(jg)% cobld
     clonp          => echam_rad_config(jg)% clonp
+    lyr_perp       => echam_rad_config(jg)% lyr_perp
+    yr_perp        => echam_rad_config(jg)% yr_perp
     ldiur          => echam_rad_config(jg)% ldiur
     l_sph_symm_irr => echam_rad_config(jg)% l_sph_symm_irr
     icosmu0        => echam_rad_config(jg)% icosmu0
@@ -147,13 +149,13 @@ MODULE mo_psrad_radiation
     !
     ! "time_of_day"  defines the local noon longitude for the time of this time step.
     ! "orbit_date" is not used. Instead always "orbit_date_rt" is used.
-    CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
+    CALL get_orbit_times(current_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
     !
     ! "time_of_day_rt" defines the local noon longitude for the time of the
     ! radiative transfer calculation.
     ! "orbit_date_rt" defines the orbit position at the radiation time.
     ! This orbit position is kept constant through the radiation interval.
-    CALL get_orbit_times(datetime_radiation, time_of_day_rt, orbit_date_rt)
+    CALL get_orbit_times(datetime_radiation, lyr_perp, yr_perp, time_of_day_rt, orbit_date_rt)
 
 
     ! Compute the orbital parameters of Earth for "orbit_date_rt".

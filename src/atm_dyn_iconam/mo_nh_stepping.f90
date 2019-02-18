@@ -1379,14 +1379,9 @@ MODULE mo_nh_stepping
         ! 2 Cases:
         ! msg_level E [12, inf[: print max/min output for every domain and every transport step
         ! msg_level E [ 8,  11]: print max/min output for global domain and every transport step
-        IF (msg_level >= 12) THEN
+        IF (msg_level >= 12 .OR. msg_level >= 8 .AND. jg == 1) THEN
           CALL print_maxwinds(p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn,   &
             p_nh_state(jg)%prog(nnow(jg))%w)
-        ELSE IF (msg_level >= 8) THEN
-          IF (jg == 1) THEN
-            CALL print_maxwinds(p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn, &
-              p_nh_state(jg)%prog(nnow(jg))%w)
-          ENDIF
         ENDIF
 
 #ifdef MESSY
@@ -2143,19 +2138,11 @@ MODULE mo_nh_stepping
       ! msg_level E [ 8,  11]: print max/min output for global domain and every substep
       ! msg_level E [ 5,   7]: print max/min output for global domain and first substep
       !
-      IF (msg_level >= 12) THEN
+      IF (msg_level >= 12 &
+        & .OR. msg_level >= 8 .AND. jg == 1 &
+        & .OR. msg_level >= 5 .AND. jg == 1 .AND. nstep == 1) THEN
         CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn,   &
           p_nh_state%prog(nnow(jg))%w)
-      ELSE IF (msg_level >= 8) THEN
-        IF (jg == 1) THEN
-          CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn, &
-            p_nh_state%prog(nnow(jg))%w)
-        ENDIF
-      ELSE IF (msg_level >= 5) THEN
-        IF ( (jg == 1) .AND. (nstep == 1) ) THEN
-          CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn, &
-            p_nh_state%prog(nnow(jg))%w)
-        ENDIF
       ENDIF
 
       ! total number of dynamics substeps since last boundary update

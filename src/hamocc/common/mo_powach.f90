@@ -28,7 +28,7 @@ CONTAINS
    USE mo_memory_bgc, ONLY  : ak13, ak23, akb3, akw3, aksp,               &
         &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,          &          
         &                     bolay, kbo, ro2ut, rnit, nitdem, n2prod,    &
-        &                     rrrcl, rcar, ralk
+        &                     rrrcl, rcar, ralk, riron
 
    USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro,              &
         &                     powtra, prcaca, prorca, produs,             &
@@ -43,7 +43,8 @@ CONTAINS
  
    USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,ipowh2s,  &
         &                     issso12, ipowaph, ipowno3, ipown2, &
-        &                     ipowaal, ipowaic, isssc12, issster
+        &                     ipowaal, ipowaic, isssc12, issster, &
+        &                     ipowafe
  
    USE mo_hamocc_nml, ONLY  : disso_po,denit_sed
  
@@ -122,6 +123,7 @@ CONTAINS
          powtra(j,k,ipowaic) = powtra(j,k,ipowaic) + posol*rcar*pors2w(k)
          powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+ posol*pors2w(k)
          powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+ posol*rnit*pors2w(k)
+         powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
          powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*rnit*pors2w(k)
          powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
 
@@ -156,6 +158,7 @@ CONTAINS
 
            powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*nitdem*pors2w(k)
            powtra(j,k,ipowno3)=powtra(j,k,ipowno3)-(2._wp*n2prod - rnit)*posol*pors2w(k)
+           powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
            powtra(j,k,ipown2)=powtra(j,k,ipown2)+n2prod*posol*pors2w(k)
            powh2obud(j,k)=powh2obud(j,k)+0.5_wp*n2prod*posol*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*n2prod*posol*pors2w(k)
@@ -186,6 +189,7 @@ CONTAINS
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
            powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
            powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*ralk*pors2w(k) 
+           powtra(j,k,ipowafe)=powtra(j,k,ipowafe)+ posol*riron*pors2w(k)
            powtra(j,k,ipowh2s) = powtra(j,k,ipowh2s) + posol*pors2w(k)*ralk
            powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 

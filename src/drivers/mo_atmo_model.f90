@@ -193,7 +193,7 @@ CONTAINS
       CALL atmo_nonhydrostatic
 
     CASE DEFAULT
-      CALL finish( TRIM(routine),'unknown choice for iequations.')
+      CALL finish(routine, 'unknown choice for iequations.')
     END SELECT
 
     ! print performance timers:
@@ -327,7 +327,7 @@ CONTAINS
     ! This routine will never return
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
-      CALL message(routine,'asynchronous input prefetching is enabled.')
+      CALL message(routine, 'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
 
@@ -343,7 +343,7 @@ CONTAINS
         ! -----------------------------------------
         !
         use_async_name_list_io = .TRUE.
-        CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
+        CALL message(routine, 'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
         IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
@@ -397,7 +397,7 @@ CONTAINS
       ! -----------------------------------------
       !
       IF (output_mode%l_nml) THEN
-        CALL message(routine,'synchronous namelist I/O scheme is enabled.')
+        CALL message(routine, 'synchronous namelist I/O scheme is enabled.')
       ENDIF
     ENDIF
 
@@ -433,14 +433,14 @@ CONTAINS
             & p_grf_state(n_dom_start:n_dom), &
             & STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
+      CALL finish(routine, 'allocation for ptr_int_state failed')
     ENDIF
 
     ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
       &       p_grf_state_local_parent(n_dom_start+1:n_dom), &
       &       STAT=error_status)
     IF (error_status /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation for local parents failed')
+      CALL finish(routine, 'allocation for local parents failed')
 
     ! Construct interpolation state
     ! Please note that for parallel runs the divided state is constructed here
@@ -515,7 +515,7 @@ CONTAINS
     !------------------------------------------------------------------
     ALLOCATE (ext_data(n_dom), STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
+      CALL finish(routine, 'allocation for ext_data failed')
     ENDIF
 
     ! allocate memory for atmospheric/oceanic external data and
@@ -594,12 +594,12 @@ CONTAINS
     ! Destruct external data state
 
     CALL destruct_ext_data
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_ext_data is done')
+    IF (msg_level > 5) CALL message(routine, 'destruct_ext_data is done')
 
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
+      CALL finish(routine, 'deallocation of ext_data')
     ENDIF
 
     ! destruct surface tile list
@@ -617,21 +617,21 @@ CONTAINS
     IF (n_dom > 1) THEN
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_gridref_state is done')
+    IF (msg_level > 5) CALL message(routine,'destruct_2d_gridref_state is done')
 
     DEALLOCATE (p_grf_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+      CALL finish(routine, 'deallocation for ptr_grf_state failed')
     ENDIF
 
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_interpol_state is done')
+    IF (msg_level>5) CALL message(routine,'destruct_2d_interpol_state is done')
 
     DEALLOCATE (p_int_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+      CALL finish(routine, 'deallocation for ptr_int_state failed')
     ENDIF
 
     ! Deallocate global registry for lon-lat grids
@@ -643,11 +643,11 @@ CONTAINS
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
     CALL destruct_patches( p_patch_local_parent )
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_patches is done')
+    IF (msg_level>5) CALL message(routine, 'destruct_patches is done')
 
     DEALLOCATE( p_patch, STAT=error_status )
     IF (error_status/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
+      CALL finish(routine, 'deallocate for patch array failed')
     ENDIF
 
     ! close memory logging files
@@ -663,7 +663,7 @@ CONTAINS
 #ifndef __NO_JSBACH__
     CALL jsbach_finalize()
 #endif
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(routine, 'clean-up finished')
 
   END SUBROUTINE destruct_atmo_model
   !-------------------------------------------------------------------

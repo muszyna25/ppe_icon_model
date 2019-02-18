@@ -132,7 +132,7 @@ CONTAINS
 
       END IF
     CASE DEFAULT
-      CALL finish (TRIM(routine), 'Unknown type!')
+      CALL finish (routine, 'Unknown type!')
     END SELECT
 
     !--- Allocate 3D half level coordinate arrays
@@ -160,7 +160,7 @@ CONTAINS
     !--- initialize 3D half level coordinate
 
     IF (iequations == inh_atmosphere) THEN
-      IF (TRIM(vertical_grid_filename(1)) == "") THEN
+      IF (vertical_grid_filename(1) == "") THEN
         ! skip the following paragraph if we read vertical grid from
         ! file:
         !
@@ -184,7 +184,7 @@ CONTAINS
           ENDIF
 
           IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
-            CALL finish (TRIM(routine), 'flat_height too close to the top of the innermost nested domain')
+            CALL finish(routine, 'flat_height too close to the top of the innermost nested domain')
           ENDIF
 
           ! Initialize vertical coordinate for cell points

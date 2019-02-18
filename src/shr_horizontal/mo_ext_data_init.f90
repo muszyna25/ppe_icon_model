@@ -89,7 +89,7 @@ MODULE mo_ext_data_init
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
     &                              vlistNtsteps, vlistInqVarGrid, cdiInqAttTxt,    &
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
-    &                              streamClose, cdiStringError
+    &                              streamClose, cdiStringError, cdi_undefid
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
@@ -150,18 +150,20 @@ CONTAINS
 
 
     INTEGER              :: jg, ist
-    INTEGER, ALLOCATABLE :: cdi_extpar_id(:)  !< CDI stream ID (for each domain)
-    INTEGER, ALLOCATABLE :: cdi_filetype(:)   !< CDI filetype (for each domain)
+    INTEGER :: cdi_extpar_id(n_dom)  !< CDI stream ID (for each domain)
+    INTEGER :: cdi_filetype(n_dom)   !< CDI filetype (for each domain)
     ! dictionary which maps internal variable names onto
     ! GRIB2 shortnames or NetCDF var names.
     TYPE (t_dictionary) :: extpar_varnames_dict
 
     TYPE(datetime), POINTER :: this_datetime
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':init_ext_data'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_ext_data'
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     !-------------------------------------------------------------------------
-    CALL message (TRIM(routine), 'Start')
+    CALL message(routine, 'Start')
 
     !-------------------------------------------------------------------------
     !  1.  inquire external files for their data structure
@@ -172,13 +174,9 @@ CONTAINS
     ! contain fr_glac
     is_frglac_in(1:n_dom) = .FALSE.
 
-    ! Allocate and open CDI stream (files):
-    ALLOCATE (cdi_extpar_id(n_dom), cdi_filetype(n_dom), stat=ist)
-    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
-    
-    ! Initialize stream-IDs as "uninitialized"
-    IF(my_process_is_mpi_workroot()) cdi_extpar_id(:) = -1
-
+    ! initialize stream-IDs as "uninitialized"
+    cdi_extpar_id(:) = cdi_undefid
+    ! open CDI stream (files):
     IF (iforcing == inwp) CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
@@ -212,7 +210,7 @@ CONTAINS
 
     CASE(0) ! itopo, do not read external data
       !
-      CALL message( TRIM(routine),'Running with analytical topography' )
+      CALL message(routine,'Running with analytical topography' )
       !
       ! initalize external data with meaningful data, in the case that they
       ! are not read in from file.
@@ -248,18 +246,18 @@ CONTAINS
         IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM) THEN
           CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
             &                     extpar_varnames_dict)
-          CALL message( TRIM(routine),'read_ext_data_atm completed' )
+          CALL message(routine,'read_ext_data_atm completed' )
         END IF
       END IF
 
     CASE(1) ! itopo, read external data from file
 
-      CALL message( TRIM(routine),'Start reading external data from file' )
+      CALL message(routine,'Start reading external data from file' )
 
       CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
         &                     extpar_varnames_dict)
 
-      CALL message( TRIM(routine),'Finished reading external data' )
+      CALL message(routine,'Finished reading external data' )
 
       IF ( iforcing == inwp ) THEN
 
@@ -337,17 +335,17 @@ CONTAINS
 
     CASE DEFAULT ! itopo
 
-      CALL finish( TRIM(routine), 'topography selection not supported' )
+      CALL finish(routine, 'topography selection not supported' )
 
     END SELECT ! itopo
 
     ! close CDI stream (file):
-    DO jg=1,n_dom
-      IF (cdi_extpar_id(jg) == -1) CYCLE
-      IF (my_process_is_mpi_workroot())  CALL streamClose(cdi_extpar_id(jg))
-    END DO
-    DEALLOCATE (cdi_extpar_id, cdi_filetype, stat=ist)
-    IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
+    IF (is_mpi_workroot) THEN
+      DO jg=1,n_dom
+        IF (cdi_extpar_id(jg) /= cdi_undefid) &
+             CALL streamClose(cdi_extpar_id(jg))
+      END DO
+    END IF
 
     ! destroy variable name dictionary:
     CALL dict_finalize(extpar_varnames_dict)
@@ -372,7 +370,7 @@ CONTAINS
     LOGICAL,       INTENT(OUT)     :: is_frglac_in      !< check for fr_glac in Extpar file
 
     ! local variables
-    CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::inquire_extpar_file'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::inquire_extpar_file'
     INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id, var_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
@@ -574,7 +572,7 @@ CONTAINS
 
     LOGICAL :: l_exist
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = modname//':inquire_external_files'
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
@@ -629,7 +627,7 @@ CONTAINS
           INQUIRE (FILE=ozone_file, EXIST=l_exist)
           IF (.NOT.l_exist) THEN
             WRITE(0,*) 'DOMAIN=',jg
-            CALL finish(TRIM(routine),'ozone file of domain is not found.')
+            CALL finish(routine,'ozone file of domain is not found.')
           ENDIF
 
           !
@@ -649,7 +647,7 @@ CONTAINS
           ! check the number of cells and verts
           !
           IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-            CALL finish(TRIM(ROUTINE),&
+            CALL finish(routine,&
               & 'Number of patch cells and cells in ozone file do not match.')
           ENDIF
 
@@ -660,7 +658,7 @@ CONTAINS
           CALL nf(nf_inq_dimlen(ncid, dimid, nmonths), routine)
           WRITE(message_text,'(A,I4)')  &
             & 'Number of months in ozone file = ', nmonths
-          CALL message(TRIM(ROUTINE),message_text)
+          CALL message(routine,message_text)
 
           !
           ! check the vertical structure
@@ -670,7 +668,7 @@ CONTAINS
 
           WRITE(message_text,'(A,I4)')  &
             & 'Number of pressure levels in ozone file = ', nlev_o3
-          CALL message(TRIM(ROUTINE),message_text)
+          CALL message(routine,message_text)
 
           !
           ! close file
@@ -707,8 +705,7 @@ CONTAINS
     INTEGER,               INTENT(IN)    :: cdi_extpar_id(:)      !< CDI stream ID
     TYPE (t_dictionary),   INTENT(IN)    :: extpar_varnames_dict  !< variable names dictionary (for GRIB2)
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':read_ext_data_atm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_ext_data_atm'
     ! input file for topography_c for mpi-physics
     CHARACTER(len=max_char_length) :: land_sso_fn
 
@@ -740,6 +737,9 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file
 
     TYPE(t_inputParameters) :: parameters
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
 !                    z0         pcmx      laimx rd      rsmin      snowalb snowtile
 !
@@ -1328,7 +1328,7 @@ CONTAINS
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
-         IF(my_process_is_mpi_workroot()) THEN
+         IF(is_mpi_workroot) THEN
 
           CALL message  (routine, TRIM(sst_td_file))
 
@@ -2146,8 +2146,7 @@ CONTAINS
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
     
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//': interpol_monthly_mean'
+    CHARACTER(len=*), PARAMETER :: routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2

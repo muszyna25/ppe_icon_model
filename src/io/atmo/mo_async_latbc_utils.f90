@@ -36,7 +36,8 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_reorder_data, t_latbc_data
+    USE mo_async_latbc_types,   ONLY: t_latbc_data, t_buffer
+    USE mo_reorder_info,        ONLY: t_reorder_info
     USE mo_kind,                ONLY: wp, i8
     USE mo_util_string,         ONLY: int2string
     USE mo_parallel_config,     ONLY: nproma
@@ -54,7 +55,7 @@
     USE mo_util_phys,           ONLY: virtual_temp
     USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
       &                               compute_input_pressure_and_height
-    USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
+    USE mo_sync,                ONLY: sync_patch_array, SYNC_E
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            newEvent, datetime, newDatetime,             &
@@ -353,7 +354,7 @@
           DO jk = 1, nlev_in
             DO jc = 1, MERGE(nproma,p_patch%npromz_c,jb/=nblks_c)
 
-              IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+              IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
             
               latbc%latbc_data_const%z_mc_in(jc,jk,jb) = 0.5_wp*(z_ifc_in(jc,jk,jb)+z_ifc_in(jc,jk+1,jb))
             ENDDO
@@ -539,12 +540,11 @@
       IF (ANY(read_params(:)%imode_asy == 0)) THEN
         async_mode = .FALSE.  ! synchronous read of initial data by PE0
         IF (.NOT. PRESENT(latbc_dict) ) CALL finish(routine, "Inconsistent optional arguments!")
-        rl_end = min_rlcell
       ELSE
         async_mode = .TRUE.      ! fetch data from buffer filled asynchronously by prefetch PE
-        rl_end = min_rlcell_int  ! these do not include halo points
       ENDIF
 
+      rl_end   = min_rlcell
       i_endblk = p_patch%cells%end_block(rl_end)
       nblks_c  = p_patch%nblks_c
       nlev_in  = latbc%latbc_data(tlev)%atm_in%nlev
@@ -612,7 +612,7 @@
           DO jk = 1, nlev_in
             DO jc = i_startidx, i_endidx
 
-              IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+              IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
 
               log_exner = (1._wp/cvd_o_rd)*LOG(latbc%latbc_data(tlev)%atm_in%rho(jc,jk,jb)* &
                 latbc%latbc_data(tlev)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)
@@ -689,7 +689,7 @@
              DO jk = 1, nlev_in
                DO jc = i_startidx, i_endidx
 
-                 IF (.NOT. latbc%patch_data%cells%read_mask(jc,jb)) CYCLE
+                 IF (.NOT. latbc%patch_data%cell_mask(jc,jb)) CYCLE
                  latbc%latbc_data(tlev)%atm_in%w(jc,jk,jb) = (w_ifc(jc,jk,jb) + w_ifc(jc,jk+1,jb)) * 0.5_wp
                ENDDO
              ENDDO
@@ -715,50 +715,25 @@
         CALL get_data(latbc, latbc%buffer%geop_ml_var, phi_sfc, read_params(icell), latbc_dict)
       ENDIF
 
-      ! boundary exchange for a 2-D and 3-D array, needed because the
-      ! vertical interpolation includes the halo region (otherwise, the
-      ! syncs would have to be called after vert_interp)
-      IF (async_mode) THEN
-        CALL sync_patch_array_mult(SYNC_C,p_patch,3,                                  &
-          &                        latbc%latbc_data(tlev)%atm_in%w,                   &
-          &                        latbc%latbc_data(tlev)%atm_in%pres,                &
-          &                        latbc%latbc_data(tlev)%atm_in%temp)
-        CALL sync_patch_array_mult(SYNC_C,p_patch,5,latbc%latbc_data(tlev)%atm_in%qv, &
-          &                        latbc%latbc_data(tlev)%atm_in%qc,                  &
-          &                        latbc%latbc_data(tlev)%atm_in%qi,                  &
-          &                        latbc%latbc_data(tlev)%atm_in%qr,                  &
-          &                        latbc%latbc_data(tlev)%atm_in%qs)
-
-        IF (latbc%buffer%lread_vn) THEN
-           CALL sync_patch_array(SYNC_E,p_patch,latbc%latbc_data(tlev)%atm_in%vn)
-        ELSE
-           CALL sync_patch_array_mult(SYNC_C,p_patch,2,latbc%latbc_data(tlev)%atm_in%u, &
-             &                        latbc%latbc_data(tlev)%atm_in%v)
-        ENDIF
-      ENDIF
 
       IF (latbc%buffer%lcompute_hhl_pres) THEN ! i.e. atmospheric data from IFS
-        CALL sync_patch_array(SYNC_C, p_patch, phi_sfc)
-        CALL sync_patch_array(SYNC_C, p_patch, psfc)
 
-        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
+        IF (latbc%patch_data%cells%n_own > 0) THEN
           CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, latbc%latbc_data(tlev), &
-            &                                    opt_lmask=latbc%patch_data%cells%read_mask)
+            &                                    opt_lmask=latbc%patch_data%cell_mask)
         END IF
 
       END IF
 
       IF (latbc%buffer%lconvert_omega2w) THEN
-        CALL sync_patch_array(SYNC_C, p_patch, omega)
         ! (note that "convert_omega2w" requires the pressure field
         ! which has been computed before)
-        IF (.NOT. latbc%patch_data%cells%this_skip .OR. .NOT. latbc_config%lsparse_latbc) THEN
+        IF (latbc%patch_data%cells%n_own > 0) THEN
           CALL convert_omega2w(omega, &
             &                  latbc%latbc_data(tlev)%atm_in%w,     &
             &                  latbc%latbc_data(tlev)%atm_in%pres,  &
             &                  latbc%latbc_data(tlev)%atm_in%temp,  &
-            &                  nblks_c, p_patch%npromz_c, nlev_in,  &
-            &                  opt_lmask=latbc%patch_data%cells%read_mask)
+            &                  nblks_c, p_patch%npromz_c, nlev_in)
         END IF
 
       END IF
@@ -777,11 +752,11 @@
       !   this for single PEs
       !
       IF (latbc_config%lsparse_latbc) THEN
-        IF ( .NOT. (latbc%patch_data%cells%this_skip .AND. latbc%patch_data%edges%this_skip)) THEN
+        IF (latbc%patch_data%cells%n_own > 0 .OR. latbc%patch_data%edges%n_own > 0) THEN
           CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
             &    opt_use_vn=latbc%buffer%lread_vn,                                       &
-            &    opt_lmask_c=latbc%patch_data%cells%read_mask,                           &
-            &    opt_lmask_e=latbc%patch_data%edges%read_mask, opt_latbcmode=.TRUE.)
+            &    opt_lmask_c=latbc%patch_data%cell_mask,                           &
+            &    opt_lmask_e=latbc%patch_data%edge_mask, opt_latbcmode=.TRUE.)
         ENDIF
       ELSE
         CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
@@ -1432,20 +1407,20 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2013-05-19)
     !!
-    FUNCTION get_field_index(latbc,name) RESULT(result_varID)
-      TYPE (t_latbc_data), INTENT(IN) :: latbc
+    FUNCTION get_field_index(buffer,name) RESULT(result_varID)
+      TYPE(t_buffer), INTENT(IN) :: buffer
       CHARACTER (LEN=*),   INTENT(IN) :: name !< variable name
       ! local variables
       LOGICAL, PARAMETER :: ldebug = .FALSE.
-      INTEGER :: result_varID, varID
-
-      IF (ldebug)  WRITE (0,*) "name : ", TRIM(name)
+      INTEGER :: result_varID, varID, nvars
+      CHARACTER(len=len(name)) :: name_lc
 
       result_varID = -1
+      nvars = buffer%ngrp_vars
+      if (nvars >= 1) name_lc = tolower(name)
       ! looping over variable list in internal name
-      LOOP : DO varID=1, latbc%buffer%ngrp_vars
-        IF (ldebug)  WRITE (0,*) "internal name : ", TRIM(latbc%buffer%internal_name(varID))
-        IF (tolower(name) == tolower(latbc%buffer%internal_name(varID))) THEN
+      LOOP : DO varID=1, nvars
+        IF (name_lc == tolower(buffer%internal_name(varID))) THEN
           result_varID = varID
           EXIT LOOP
         END IF
@@ -1461,42 +1436,45 @@
     !!
     SUBROUTINE update_lin_interpolation( latbc, step_datetime )
       TYPE(t_latbc_data), INTENT(IN)    :: latbc
-      TYPE(datetime),  POINTER  :: step_datetime
-      TYPE(timedelta), POINTER  :: delta_tstep
+      TYPE(datetime), INTENT(in) :: step_datetime
+#ifndef NOMPI
+      TYPE(timedelta)           :: delta_tstep
       REAL(wp)                  :: dtime_latbc      ! time delta between two consecutive 
                                                     ! boundary forcing time slices
       TYPE(timedelta)           :: td
+      LOGICAL :: failure
 
       CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::update_lin_interpolation"
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prev
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prv
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN):: delta_tstep_str
-#ifndef NOMPI
-
+      INTEGER :: prv_tlev, cur_tlev
       ! compute boundary update timedelta
-      td = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime
-      dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime))
+      cur_tlev = latbc%new_latbc_tlev
+      prv_tlev = latbc%prev_latbc_tlev()
+      td = latbc%latbc_data(cur_tlev)%vDateTime - latbc%latbc_data(prv_tlev)%vDateTime
+      dtime_latbc =  REAL(getTotalSecondsTimedelta(td, latbc%latbc_data(cur_tlev)%vDateTime))
 
-      delta_tstep => newTimedelta("PT0S")
-      delta_tstep = latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime - step_datetime
+      delta_tstep = latbc%latbc_data(cur_tlev)%vDateTime - step_datetime
 
-
-      IF (msg_level >= 15) THEN
-        CALL message(routine, "")
-        CALL datetimeToString(latbc%latbc_data(latbc%prev_latbc_tlev())%vDateTime, vDateTime_str_prev)
-        CALL datetimeToString(latbc%latbc_data(latbc%new_latbc_tlev)%vDateTime, vDateTime_str_cur)
+      failure = delta_tstep%month /= 0
+      IF (msg_level >= 15 .OR. failure) THEN
+        CALL message(routine, "", all_print=failure)
+        CALL datetimeToString(latbc%latbc_data(prv_tlev)%vDateTime, vDateTime_str_prv)
+        CALL datetimeToString(latbc%latbc_data(cur_tlev)%vDateTime, vDateTime_str_cur)
         CALL timedeltaToString(delta_tstep, delta_tstep_str)
-        WRITE (message_text, '(a,a)')  "lbc vdate current : ", TRIM(vDateTime_str_cur)
-        CALL message("", message_text)
-        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", TRIM(vDateTime_str_prev)
-        CALL message("", message_text)
-        WRITE (message_text, '(a,a)')  "delta_tstep_str: ", TRIM(delta_tstep_str)
-        CALL message("", message_text)
+        WRITE (message_text, '(a,a)')  "lbc vdate current : ", vDateTime_str_cur
+        CALL message("", message_text, all_print=failure)
+        WRITE (message_text, '(a,a)')  "lbc vdate previous: ", vDateTime_str_prv
+        CALL message("", message_text, all_print=failure)
+        WRITE (message_text, '(a,a)')  "delta_tstep_str: ", delta_tstep_str
+        CALL message("", message_text, all_print=failure)
+        IF (delta_tstep%month /= 0) &
+          CALL finish(routine, "time difference for reading boundary&
+          & data must not be more than a month.")
       ENDIF
 
 
 
-      IF(delta_tstep%month /= 0) &
-           CALL finish(routine, "time difference for reading boundary data cannot be more than a month.")
 
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 
@@ -1505,7 +1483,6 @@
       latbc_config%lc2 = 1._wp - latbc_config%lc1
 
       ! deallocating mtime and deltatime
-      CALL deallocateTimedelta(delta_tstep)
 #endif
 
     END SUBROUTINE update_lin_interpolation
@@ -1578,23 +1555,22 @@
       TYPE(t_latbc_data), INTENT(IN), TARGET :: latbc             !< contains read buffer
       CHARACTER(LEN=*),   INTENT(IN)         :: name              !< variable name
       REAL(wp),           INTENT(INOUT)      :: target_buf(:,:)   !< target buffer
-      TYPE(t_reorder_data), POINTER, OPTIONAL, INTENT(IN) :: opt_p_ri         !< patch indices (cells, edges)
+      TYPE(t_reorder_info), POINTER, OPTIONAL, INTENT(IN) :: opt_p_ri         !< patch indices (cells, edges)
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_2D"
       INTEGER :: jm, j, jb, jl
-      TYPE(t_reorder_data), POINTER :: p_ri !< patch indices (cells, edges)
+      TYPE(t_reorder_info), POINTER :: p_ri !< patch indices (cells, edges)
 
       p_ri => latbc%patch_data%cells
       IF (PRESENT(opt_p_ri))  p_ri => opt_p_ri
 
-      jm = get_field_index(latbc, TRIM(name))
+      jm = get_field_index(latbc%buffer, TRIM(name))
       IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
 
 !$OMP PARALLEL DO PRIVATE (j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
         jb = p_ri%own_blk(j) ! Block index in distributed patch
         jl = p_ri%own_idx(j) ! Line  index in distributed patch
-        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
         target_buf(jl,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,1,jb), wp)
       ENDDO
 !$OMP END PARALLEL DO
@@ -1614,12 +1590,12 @@
       TYPE(t_latbc_data),   INTENT(IN), TARGET :: latbc             !< contains read buffer
       CHARACTER(LEN=*),     INTENT(IN)         :: name              !< variable name
       REAL(wp),             INTENT(INOUT)      :: target_buf(:,:,:) !< target buffer
-      TYPE(t_reorder_data), INTENT(IN)         :: p_ri              !< patch indices (cells, edges)
+      TYPE(t_reorder_info), INTENT(IN)         :: p_ri              !< patch indices (cells, edges)
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::fetch_from_buffer_3D_generic"
       INTEGER :: jm, jk, j, jb, jl
 
-      jm = get_field_index(latbc, TRIM(name))
+      jm = get_field_index(latbc%buffer, TRIM(name))
       IF (jm <= 0)  CALL finish(routine//"_"//TRIM(name), "Internal error, invalid field index!")
 
       ! consistency check
@@ -1633,14 +1609,12 @@
       DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
         jb = p_ri%own_blk(j) ! Block index in distributed patch
         jl = p_ri%own_idx(j) ! Line  index in distributed patch
-        IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
         DO jk=1, latbc%buffer%nlev(jm)
 #else
       DO jk=1, latbc%buffer%nlev(jm)
         DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          IF (.NOT. p_ri%read_mask(jl,jb)) CYCLE
 #endif
           target_buf(jl,jk,jb) = REAL(latbc%buffer%vars(jm)%buffer(jl,jk,jb), wp)
         ENDDO

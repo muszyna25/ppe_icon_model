@@ -18,11 +18,11 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t, c_char
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
-                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
+                                                & cdiEncodeTime, institutInq, vlistCreate, vlistDefVar,          &
                                                 & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
                                                 & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
@@ -41,7 +41,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
-    &                                             pio_type_async, pio_type_cdipio,                  &
+    &                                             pio_type_cdipio,                  &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360,              &
     &                                             INWP
@@ -53,8 +53,8 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
-  USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
-    &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
+    &                                             dict_loadfile, dict_get
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
@@ -70,7 +70,7 @@ MODULE mo_name_list_output_init
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
-       use_dp_mpi2io, num_io_procs, pio_type
+       use_dp_mpi2io, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             ICON_grid_file_uri, number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
@@ -91,22 +91,21 @@ MODULE mo_name_list_output_init
   USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
 #endif
   ! MPI Communication routines
-  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id,                    &
-    &                                             get_my_mpi_work_communicator,                   &
+  USE mo_mpi,                               ONLY: p_bcast, &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
     &                                             mpi_comm_null, mpi_comm_self,                   &
     &                                             p_send, p_recv,                                 &
-    &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
+    &                                             p_real_dp, p_real_sp,          &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
     &                                             my_process_is_io,        &
     &                                             my_process_is_mpi_ioroot,                       &
-    &                                             process_mpi_stdio_id, process_work_io0,         &
-    &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
+    &                                             process_work_io0,         &
+    &                                             process_mpi_io_size, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, p_allgatherv, MPI_COMM_NULL
+    &                                             p_allgather, MPI_COMM_NULL
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -775,11 +774,10 @@ CONTAINS
     ! Loop over the output namelists and create a union set of
     ! all requested vertical levels (per domain):
     p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      n_dom_out = n_dom
-      IF(l_output_phys_patch)  n_dom_out = n_phys_dom
+    n_dom_out = MERGE(n_phys_dom, n_dom, l_output_phys_patch)
+
+    DO WHILE (ASSOCIATED(p_onl))
 
       DO jp = 1, n_dom_out
         ! append the chosen p-levels, z-levels, i-levels
@@ -1032,23 +1030,20 @@ CONTAINS
     INTEGER,          PARAMETER :: print_patch_id = 1
 
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
-    INTEGER                              :: i, j, nfiles, &
-      &                                     jp, idom, jg, idom_log,                           &
-      &                                     grid_info_mode, ierrstat, jl,                     &
+    INTEGER                              :: nfiles, &
+      &                                     jp, idom, idom_log,                           &
+      &                                     grid_info_mode, ierrstat,                     &
       &                                     errno
     TYPE (t_output_name_list), POINTER   :: p_onl
-    TYPE(t_list_element),      POINTER   :: element
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
     TYPE(datetime),            POINTER   :: mtime_datetime_start,              &
-      &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
-      &                                     mtime_date
+      &                                     mtime_datetime_end, mtime_date1, mtime_date2
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     INTEGER                              :: idx, istart
     LOGICAL                              :: is_io, is_stdio
-    INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: is_mpi_test
     INTEGER                              :: this_i_lctype
 
@@ -1398,7 +1393,7 @@ CONTAINS
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
     INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
-         vl_list(max_var_lists), i, j, log_patch_id
+         vl_list(max_var_lists), j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
     LOGICAL :: is_work
@@ -1422,26 +1417,23 @@ CONTAINS
         ! Check if name_list has variables of corresponding type
         SELECT CASE(i_typ)
         CASE (level_type_ml)
-          IF (p_onl%ml_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_ml
-          pe_placement => p_onl%pe_placement_ml(1:npartitions)
+          pe_placement => p_onl%pe_placement_ml(:)
           varlist_ptr  => p_onl%ml_varlist
         CASE (level_type_pl)
-          IF (p_onl%pl_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_pl
           pe_placement => p_onl%pe_placement_pl(:)
           varlist_ptr  => p_onl%pl_varlist
         CASE (level_type_hl)
-          IF (p_onl%hl_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_hl
           pe_placement => p_onl%pe_placement_hl(:)
           varlist_ptr  => p_onl%hl_varlist
         CASE (level_type_il)
-          IF (p_onl%il_varlist(1) == ' ') CYCLE
           npartitions  =  p_onl%stream_partitions_il
           pe_placement => p_onl%pe_placement_il(:)
           varlist_ptr  => p_onl%il_varlist
         END SELECT
+        IF (varlist_ptr(1) == ' ') CYCLE
 
         IF (npartitions > 1) THEN
           WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
@@ -1512,7 +1504,7 @@ CONTAINS
   SUBROUTINE assign_output_task(io_proc_id, pe_placement)
     INTEGER, INTENT(out) :: io_proc_id(:)
     INTEGER, INTENT(in) :: pe_placement(:)
-    INTEGER :: i, j, nfiles, test_rank_offset
+    INTEGER :: i, j, nfiles
     INTEGER :: nremaining_io_procs !< no. of non-placed I/O ranks
     LOGICAL :: is_stdio
     CHARACTER(len=MAX_CHAR_LENGTH) :: proc_list_str !< string (unoccupied I/O ranks)
@@ -1551,8 +1543,6 @@ CONTAINS
       IF (ANY(pe_placement /= -1 .AND. pe_placement /= 0)) &
         &  CALL finish(routine, "Invalid explicit placement of IO rank!")
 
-      test_rank_offset = MERGE(num_test_procs, 0, &
-        &                      p_test_run .AND. .NOT. is_mpi_test)
       ! Normal I/O done by the standard I/O processor
       !
       ! Only MPI rank "process_mpi_stdio_id" is available.
@@ -1775,7 +1765,7 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     INTEGER, INTENT(out) :: dom_sim_step_info_jstep0
     TYPE(t_event_data_local), INTENT(INOUT)  :: event_list_local(:)
-#ifdef HAVE_FC_CONTIGUOUS
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: event_list_local
 #endif
 
@@ -1789,12 +1779,11 @@ CONTAINS
     TYPE(timedelta), POINTER :: mtime_interval, mtime_td
     TYPE(datetime), POINTER :: mtime_datetime, mtime_date
     INTEGER(c_int64_t) :: total_ms
-    INTEGER :: tlen, additional_days(max_time_intervals)
+    INTEGER :: tlen
     INTEGER :: iintvl, nintvls, ifile
     INTEGER :: errno
 
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    LOGICAL :: l_is_restart
     LOGICAL :: include_last
     CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
     CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
@@ -2310,7 +2299,7 @@ CONTAINS
     ENDDO
 
     CALL mask2reorder_info(p_ri, phys_owner_mask, n_points_g, glb_index, &
-         p_comm_work, occupation_mask)
+         p_comm_work, occupation_mask, pio_type == pio_type_cdipio)
     DEALLOCATE(phys_owner_mask)
 
 
@@ -2339,7 +2328,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: pos, apos, bpos, bmask
+    INTEGER(i8) :: pos, apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
@@ -2421,7 +2410,7 @@ CONTAINS
     END DO ! i
 
     ! Gather the number of own points for every PE into p_ri%pe_own
-    CALL p_allgather(n_own, patch_info_ll%ri%pe_own, p_comm_work)
+    CALL p_allgather(n_own, patch_info_ll%ri%pe_own, comm=p_comm_work)
 
     ! Get offset within result array
     n = 0
@@ -2437,16 +2426,18 @@ CONTAINS
     END DO
 
 #ifdef HAVE_CDI_PIO
-    ALLOCATE(reorder_index_own_pio(n_own),          &
-      &      patch_info_ll%ri%reorder_idxlst_xt(1), &
-      &      STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    IF (pio_type == pio_type_cdipio) THEN
+      ALLOCATE(reorder_index_own_pio(n_own),          &
+        &      patch_info_ll%ri%reorder_idxlst_xt(1), &
+        &      STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    ! CDI-PIO acts C like...
-    reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
-    idxvec = xt_idxvec_new(reorder_index_own_pio)
-    patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
-    CALL xt_idxlist_delete(idxvec)
+      ! CDI-PIO acts C like...
+      reorder_index_own_pio = patch_info_ll%ri%reorder_index_own - 1
+      idxvec = xt_idxvec_new(reorder_index_own_pio)
+      patch_info_ll%ri%reorder_idxlst_xt(1) = xt_idxstripes_from_idxlist_new(idxvec)
+      CALL xt_idxlist_delete(idxvec)
+    END IF
 #endif
 
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
@@ -2769,10 +2760,9 @@ CONTAINS
 
     ! generate the CDI IDs for the vertical axes in the list
     it => of%verticalAxisList
-    DO
+    DO WHILE (ASSOCIATED(it))
       IF (.NOT. ASSOCIATED(it%axis)) CALL finish(routine, "Internal error!")
       CALL it%axis%cdiZaxisCreate()
-      IF (.NOT. ASSOCIATED(it%next))  EXIT
       it => it%next
     END DO
 
@@ -3067,26 +3057,23 @@ CONTAINS
 
         ! Insert elements into var list
 
-        p_var_list%p%first_list_element => NULL()
-        element => NULL() ! Safety only
-
+        IF (nelems >= 1) THEN
+          ALLOCATE(p_var_list%p%first_list_element)
+          element => p_var_list%p%first_list_element
+        ELSE
+          NULLIFY(p_var_list%p%first_list_element)
+        END IF
         DO n = 1, nelems
-          IF(.NOT.ASSOCIATED(p_var_list%p%first_list_element)) THEN
-            ALLOCATE(p_var_list%p%first_list_element)
-            element => p_var_list%p%first_list_element
-          ELSE
+          IF(n > 1) THEN
             ALLOCATE(element%next_list_element)
             element => element%next_list_element
           ENDIF
 
-          element%next_list_element => NULL()
+          NULLIFY(element%next_list_element)
 
           ! Nullify all pointers in element%field, they don't make sense on the I/O PEs
-
-          element%field%r_ptr => NULL()
-          element%field%s_ptr => NULL()
-          element%field%i_ptr => NULL()
-          element%field%l_ptr => NULL()
+          NULLIFY(element%field%r_ptr, element%field%s_ptr, &
+               element%field%i_ptr, element%field%l_ptr)
           element%field%var_base_size = 0 ! Unknown here
 
           ! Set info structure from binary representation in info_storage
@@ -3338,18 +3325,6 @@ CONTAINS
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8) * nbytes_real
-
-    ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(c_ptr) does not have the size indicated
-    ! by c_intptr_t since the standard only requires c_intptr_t is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
-
-    IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
 
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 

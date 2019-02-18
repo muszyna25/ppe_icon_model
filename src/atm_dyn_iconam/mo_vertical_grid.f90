@@ -342,9 +342,9 @@ MODULE mo_vertical_grid
            &                  p_patch(jg), p_int(jg)%c_lin_e, &
            &                  z_aux_e )
 
-      CALL sync_patch_array(SYNC_E,p_patch(jg),z_aux_e)
       ! remark: ddqz_z_full_e is optionally single precision
       p_nh(jg)%metrics%ddqz_z_full_e(:,:,:) = z_aux_e(:,:,:)
+      CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_full_e)
 
       DEALLOCATE(z_aux_e)
 

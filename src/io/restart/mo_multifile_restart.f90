@@ -211,7 +211,7 @@ MODULE mo_multifile_restart
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
-    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op, p_barrier
+    &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
     &                                        isAsync, rBuddy, rGroup,            &
@@ -323,6 +323,9 @@ CONTAINS
     TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_compute"
     REAL(KIND=dp) :: time_start, time_end
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     CALL resultVar%construct(this_datetime, jstep, modelType, opt_output_jfile)
     !In the CASE of dedicated proc mode, we need to inform the restart processes.
@@ -331,12 +334,12 @@ CONTAINS
     CALL packedMessage%construct()
     CALL packedMessage%pack(kWriteRestartOp)
     CALL resultVar%packer(kPackOp, packedMessage)
-    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    IF(is_mpi_workroot) time_start = p_mpi_wtime()
     CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    IF(is_mpi_workroot) time_end = p_mpi_wtime()
     CALL packedMessage%destruct()
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(my_process_is_mpi_workroot()) THEN
+    IF(is_mpi_workroot) THEN
       WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
                                         ' sec for dedicated restart procs to be ready...'
       CALL message(routine, message_text)             
@@ -349,17 +352,20 @@ CONTAINS
     TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(*), PARAMETER :: routine = modname//":sendStopToRestart"
     REAL(KIND=dp) :: time_start, time_end
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     IF(.NOT.isAsync()) RETURN
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL packedMessage%construct()
     CALL packedMessage%pack(kShutdownOp)
-    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    IF(is_mpi_workroot) time_start = p_mpi_wtime()
     CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    IF(is_mpi_workroot) time_end = p_mpi_wtime()
     CALL packedMessage%destruct()
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(my_process_is_mpi_workroot()) THEN
+    IF(is_mpi_workroot) THEN
       WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
                                         ' sec for dedicated restart procs to finish...'
       CALL message(routine, message_text)
@@ -552,10 +558,10 @@ CONTAINS
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       IF(my_process_is_restart()) THEN
         !dedicated proc mode: restart processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work)
       ELSE
         !joint proc mode: all processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work_restart)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work_restart)
       END IF
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
       dpTime = p_mpi_wtime() - dpTime

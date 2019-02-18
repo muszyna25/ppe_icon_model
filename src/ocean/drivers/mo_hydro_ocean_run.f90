@@ -89,8 +89,7 @@ MODULE mo_hydro_ocean_run
   USE mo_hamocc_diagnostics,     ONLY: get_inventories
   USE mo_hamocc_nml,             ONLY: io_stdo_bgc
   USE mo_end_bgc,                ONLY: cleanup_hamocc
-  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime, &
-       &  set_OceanCurrentTime, get_OceanCurrentTime
+  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
 
 
   IMPLICIT NONE
@@ -401,7 +400,7 @@ CONTAINS
         ! solve for new free surface
         start_timer(timer_solve_ab,1)
         CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
-          & p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
+          & p_as, p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
         IF (return_status /= 0) THEN
          CALL output_ocean(              &
            & patch_3d=patch_3d,          &

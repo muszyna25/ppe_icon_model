@@ -99,7 +99,7 @@ CONTAINS
     INTEGER  :: jg
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
-    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:atm_crosscheck'
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
     REAL(wp) :: restart_time
     TYPE(datetime), POINTER :: reference_dt
     
@@ -128,6 +128,10 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Limited Area Mode and LatBC read-in:
     !--------------------------------------------------------------------
+
+
+    IF (lplane) CALL finish(routine,&
+      'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
     ! or if there are no lateral boundary data to be read
@@ -189,6 +193,18 @@ CONTAINS
 
     END SELECT
 
+
+    ! Limited area mode must not be enabled for torus grid:
+    IF (is_plane_torus .AND. l_limited_area) THEN
+      CALL finish(routine, 'Plane torus grid requires l_limited_area = .FALSE.!')
+    END IF
+
+    ! Root bisection "0" does not make sense for limited area mode; it
+    ! is more likely that the user tried to use a torus grid here:
+    IF (l_limited_area .AND. (nroot == 0)) THEN
+      CALL finish(routine, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
+    END IF
+
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
     ! (in case it is still set in the run script)
@@ -202,36 +218,38 @@ CONTAINS
     ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
 
-    IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
+
+    IF ((ctest_name=='GW') .AND. (nlev /= 20)) THEN
       CALL finish(routine,'nlev MUST be 20 for the gravity-wave test case')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
+    IF ((ctest_name=='SV') .AND. ntracer /= 2 ) THEN
+
       CALL finish(routine, &
         & 'ntracer MUST be 2 for the stationary vortex test case')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
+    IF ((ctest_name=='DF1') .AND. ntracer == 1 ) THEN
       CALL finish(routine, &
         & 'ntracer MUST be >=2 for the deformational flow test case 1')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
+    IF ((ctest_name=='DF2') .AND. ntracer == 1 ) THEN
       CALL finish(routine, &
         & 'ntracer MUST be >=2 for the deformational flow test case 2')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
+    IF ((ctest_name=='DF3') .AND. ntracer == 1 ) THEN
       CALL finish(routine, &
         & 'ntracer MUST be >=2 for the deformational flow test case 3')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
+    IF ((ctest_name=='DF4') .AND. ntracer == 1 ) THEN
       CALL finish(routine, &
         & 'ntracer MUST be >=2 for the deformational flow test case 4')
     ENDIF
 
-    IF ((TRIM(ctest_name)=='APE') .AND. (TRIM(ape_sst_case)=='sst_ice')  ) THEN
+    IF ((ctest_name=='APE') .AND. (ape_sst_case=='sst_ice')  ) THEN
       IF (.NOT. lflux_avg)&
       CALL finish(routine, &
         & 'lflux_avg must be set true to run this setup')
@@ -245,7 +263,7 @@ CONTAINS
         & 'rayleigh_type = RAYLEIGH_CLASSIC not applicable to real case runs.')
     ENDIF
 
-    IF ( ( TRIM(nh_test_name)=='APE_nwp'.OR. TRIM(nh_test_name)=='dcmip_tc_52' ) .AND.  &
+    IF ( ( nh_test_name=='APE_nwp'.OR. nh_test_name=='dcmip_tc_52' ) .AND.  &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) ) .AND.                       &
       &  ( ANY(atm_phy_nwp_config(:)%inwp_turb    /= iedmf ) ) ) THEN
       CALL finish(routine, &
@@ -579,7 +597,8 @@ CONTAINS
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
             &                          atm_phy_nwp_config(1)%inwp_turb
-          CALL finish(routine, TRIM(message_text) )
+
+          CALL finish(routine, message_text )
         ENDIF
       ENDIF
 
@@ -687,7 +706,7 @@ CONTAINS
         WRITE(message_text,'(A,i2,A)') &
           'nonhydrostatic_nml:itime_scheme set to ', tracer_only, &
           '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( routine,TRIM(message_text))
+        CALL finish( routine,message_text)
       END IF
 
     CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
@@ -697,7 +716,7 @@ CONTAINS
         WRITE(message_text,'(A,i2,A)') &
           'ha_dyn_nml:itime_scheme set to ', tracer_only, &
           '(TRACER_ONLY), but ltransport to .FALSE.'
-        CALL finish( routine,TRIM(message_text))
+        CALL finish( routine,message_text)
       END IF
 
     END SELECT
@@ -733,7 +752,7 @@ CONTAINS
       CASE(-1)
         WRITE(message_text,'(a,i2.2)') 'Horizontal diffusion '//&
                                        'switched off for domain ', jg
-        CALL message(routine,TRIM(message_text))
+        CALL message(routine,message_text)
 
       CASE(2,3,4,5)
         CONTINUE
@@ -792,14 +811,14 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
-      CALL message(routine, TRIM(message_text))
+      CALL message(routine, message_text)
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
-      CALL message(routine, TRIM(message_text))
+      CALL message(routine, message_text)
     END IF
 
 
@@ -816,7 +835,7 @@ CONTAINS
         dt_iau = dtime
         WRITE (message_text,'(a,a,f6.2)') "Wrong value for dt_iau. ", &
           &   "If >0 then at least equal to advective/phys tstep ",dtime
-        CALL finish('initicon_nml:', TRIM(message_text))
+        CALL finish('initicon_nml:', message_text)
       ENDIF 
 
       reference_dt => newDatetime("1980-06-01T00:00:00.000")
@@ -831,13 +850,13 @@ CONTAINS
       CALL deallocateDatetime(reference_dt)
       IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
         WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
-        CALL finish('atm_crosscheck:', TRIM(message_text))
+        CALL finish('atm_crosscheck:', message_text)
       ENDIF
 
       DO jg = 2, n_dom
         IF (start_time(jg) > timeshift%dt_shift .AND. start_time(jg) < dt_iau+timeshift%dt_shift) THEN
           WRITE (message_text,'(a)') "Starting a nest is not allowed within the IAU phase"
-          CALL finish('atm_crosscheck:', TRIM(message_text))
+          CALL finish('atm_crosscheck:', message_text)
         ENDIF
       ENDDO
 
@@ -846,7 +865,7 @@ CONTAINS
       IF ((ntiles_lnd > 1) .AND. (.NOT. ltile_coldstart) .AND. (lsnowtile)) THEN
         IF ( init_mode == MODE_IAU_OLD ) THEN
           WRITE (message_text,'(a,i2)') "lsnowtile=.TRUE. not allowed for IAU-Mode ", init_mode   
-          CALL finish(routine, TRIM(message_text))
+          CALL finish(routine, message_text)
         ENDIF
       ENDIF
 
@@ -870,8 +889,9 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:land_crosscheck'
+
     INTEGER  :: jg
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::land_crosscheck'
 
 #ifdef __NO_JSBACH__
     IF (ANY(echam_phy_config(:)%ljsb)) THEN
@@ -894,8 +914,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE art_crosscheck
   
-    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:art_crosscheck'
-
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::art_crosscheck'
 #ifdef __ICON_ART
     INTEGER  :: &
       &  jg
@@ -935,20 +954,14 @@ CONTAINS
     ! XML specification checks
     
     DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol) THEN
-        IF(TRIM(art_config(jg)%cart_aerosol_xml)=='') THEN
-          CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
-        ENDIF
+      IF(art_config(jg)%lart_aerosol .AND. art_config(jg%cart_aerosol_xml)=='') THEN
+        CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_chem) THEN
-        IF(TRIM(art_config(jg)%cart_chemistry_xml)=='') THEN
-          CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
-        ENDIF
+      IF(art_config(jg)%lart_chem .AND. art_config(jg%cart_chemistry_xml)=='') THEN
+        CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_passive) THEN
-        IF(TRIM(art_config(jg)%cart_passive_xml)=='') THEN
-          CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
-        ENDIF
+      IF(art_config(jg)%lart_passive .AND. art_config(jg%cart_passive_xml)=='') THEN
+        CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
       ENDIF
     ENDDO
     
