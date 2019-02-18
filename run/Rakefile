@@ -13,14 +13,21 @@ require 'iconPlot'
 #  warn "Could not find 'facets'"
 #end
 
+# little phony helper
+def (task(:phony)).timestamp # omg I love/hate this grammar construct
+  Time.at 0
+end
+
 # load user settings
 RC = "#{ENV['HOME']}/.rake.rc"
 load(RC) if File.exist?(RC)
 @cdo = Cdo.new
 String.disable_colorization = ENV.has_key?('COLOR')
 
-$DEBUG = ENV.has_key?('DEBUG')
-$QUIET = ENV.has_key?('QUIET')
+$DEBUG    = ENV.has_key?('DEBUG')
+$QUIET    = ENV.has_key?('QUIET')
+$SHOW     = ENV.has_key?('SHOW')
+$QosGiven = ENV.has_key?('QOS')
 $BUILDERS = ['BREEZE_gcc' ,'BREEZE_intel' ,'BREEZE_nag' ,'DAINT_CPU_cce' ,'MISTRAL_intel_hybrid' ,'MISTRAL_intel' ,'MISTRAL_intel_openmp' ,'MISTRAL_gcc' ,'MISTRAL_nag' ,'MISTRAL_nag_serial' ,'MISTRAL_nag_mtime']
 
 CLEAN.include('*.run')
@@ -210,6 +217,8 @@ def makeRunTarget(sourceTemplate,setup={})
   dbg(targetRunscript)
 
   tag, expname  = targetRunscript.split('.')
+
+  expname = setupByEnv['EXPNAME'] if setupByEnv.has_key?('EXPNAME')
   dbg([tag,expname])
 
   CLEAN.include(targetRunscript)
@@ -541,6 +550,7 @@ task :run, :name do |t,args|
 
   # determine the submission command
   submitCommand = ENV.has_key?('SUBMIT') ? ENV['SUBMIT'] : @jobSubmit[@jobHost.to_sym]
+  submitCommand << " --qos=#{ENV['QOS']}" if $QosGiven
   dbg("Submission Command is: '#{submitCommand}'")
 
   # if testsuites are given, transform them into lists of experiments
@@ -568,6 +578,7 @@ task :run, :name do |t,args|
   experimentList.each {|experiment|
     Rake::Task[experiment.to_sym].invoke
     sh" rm #{experiment}.run" if File.exist?("#{experiment}.run")
+    sh "rm #{experiment}.run" if (ENV.has_key?('FORCE')  and File.exist?("#{experiment}.run"))
     Rake::Task["#{experiment}.run".to_sym].invoke
     sh "perl -pi -e 's/^mpi_procs_pernode=.*/mpi_procs_pernode=#{ENV['PROCS']}/' ./#{experiment}.run" if ENV.has_key?('PROCS')
     sh "#{submitCommand} ./#{experiment}.run"
@@ -865,6 +876,61 @@ task :checkMeanStream do |t,args|
   # compare spot values with timemean over a single model timestep:
   # -> should be identical
 
+end
+
+desc "plot the memCheck output of an experiment"
+task :checkMem do
+
+  require 'gnuplot'
+
+  # backup old images if needed
+  oldImages = Dir.glob("*maxrss.png")
+  Dir.mkdir('images') unless ( oldImages.empty? or Dir.exist?('images') )
+  oldImages.each {|im| sh "mv #{im} ./images/#{File.stat(im).ctime.strftime('%FT%T')}_#{im}"}
+
+  # collect logfiles
+  files     = Dir.glob("./memUsage*.log")
+  expDir    = `pwd`.chomp.split('/')
+  expString = expDir[-1].gsub('_','-')
+  setup     = expDir[-4]
+  image     = [expString,setup,'maxrss.png'].join('_')
+
+  # get meta info about the run
+  startDate = `grep experimentStartDate icon_master.namelist`.split.last.gsub(/("|')/,'')
+  endDate   = `grep experimentStopDate icon_master.namelist`.split.last.gsub(/("|')/,'')
+  modelTS = `grep modelTimeStep NAMELIST_* | tail -n 1`.split.last.gsub(/("|')/,'')
+
+  puts "model time step: #{modelTS}|"
+
+  Gnuplot.open do |gp|
+    Gnuplot::Plot.new( gp ) do |plot|
+      plot.termoption 'enhanced'
+      plot.encoding   'utf8'
+      plot.title  "MAXRSS '#{expString}' (#{setup}), start:#{startDate}, end:#{endDate}"
+      plot.grid
+      if ENV.has_key?('showkey') then
+        plot.key 'bot right'
+      else
+        plot.key 'off'
+      end
+#     plot.yrange '[250000:750000]'
+      plot.ylabel 'maxrss [byte]'
+      plot.xlabel 'timesteps ('+modelTS+')'
+      plot.terminal 'png size 1200,800'
+      plot.output image
+
+      files.each {|file|
+        plot.data << Gnuplot::DataSet.new( "'#{file}'" ) do |ds|
+          #     ds.with = "linespoints"
+          ds.with = "lines"
+          ds.using = "1:2"
+          ds.linewidth = 1
+        end
+      }
+    end
+
+  end
+  puts File.expand_path(image)
 end
 
 task :mk, :dir, :varname do |t,args|

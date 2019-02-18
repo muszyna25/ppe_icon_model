@@ -40,7 +40,7 @@ MODULE mo_ocean_ext_data
     &                              GRID_UNSTRUCTURED_VERT,                         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_ocean_nml,          ONLY: iforc_oce, &
+  USE mo_ocean_nml,          ONLY: iforc_oce, sw_scaling_factor, &
     & forcing_timescale, &
     & forcing_windstress_u_type, &
     & forcing_windstress_v_type, &
@@ -562,10 +562,12 @@ CONTAINS
       CALL read_3D(stream_id, on_cells, 'stress_y', z_flux)
       ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
 
-      ! SST
-      CALL read_3D(stream_id, on_cells, 'SST', z_flux)
-      ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
-!     ENDIF
+!      IF ( use_windstress_only ) THEN
+!        ! SST + windstress
+!        CALL read_3D(stream_id, on_cells, 'SST', z_flux)
+!        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
+!      ENDIF
+
       IF ( use_omip_fluxes ) THEN
 
       ! Read complete OMIP data sets for focing ocean model
@@ -598,21 +600,21 @@ CONTAINS
         CALL read_3D(stream_id, on_cells, 'cloud', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
      
-        ! sea level pressure
+        ! sea level pressure  ! hh: can be usefull
         CALL read_3D(stream_id, on_cells, 'pressure', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
      
         ! total solar radiation
         CALL read_3D(stream_id, on_cells, 'tot_solar', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
+        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:) * sw_scaling_factor
      
         ! precipitation
         CALL read_3D(stream_id, on_cells, 'precip', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
      
-        ! evaporation
-        CALL read_3D(stream_id, on_cells, 'evap', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
+!        ! evaporation ! hh: not needed 
+!        CALL read_3D(stream_id, on_cells, 'evap', z_flux)
+!        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
      
         ! runoff
         CALL read_3D(stream_id, on_cells, 'runoff', z_flux)

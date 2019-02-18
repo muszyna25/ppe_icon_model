@@ -76,15 +76,22 @@ CONTAINS
 
     ! Determine the displacements IN a buffer that's filled with consecutive chunks according to the given counts.
     ! displacements(1) will be set to zero, its SIZE IS equal to the SIZE of counts (it's intended to be used IN an MPI_Alltoallv() CALL)
-    FUNCTION countsToDisplacements(counts) RESULT(displacements)
-        INTEGER, ALLOCATABLE :: displacements(:)
+    SUBROUTINE countsToDisplacements(counts, displacements)
+        INTEGER, ALLOCATABLE, INTENT(INOUT) :: displacements(:)
         INTEGER, INTENT(IN) :: counts(:)
 
         INTEGER :: i, error
         CHARACTER(*), PARAMETER :: routine = modname//":countsToDisplacements"
 
         ! ALLOCATE memory
-        ALLOCATE(displacements(SIZE(counts)), STAT = error)
+        IF (ALLOCATED(displacements)) THEN
+          IF (SIZE(displacements) .NE. SIZE(counts)) THEN
+            DEALLOCATE(displacements)
+            ALLOCATE(displacements(SIZE(counts)), STAT = error)
+          END IF
+        ELSE
+          ALLOCATE(displacements(SIZE(counts)), STAT = error)
+        ENDIF
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
         ! fill the array
@@ -92,7 +99,7 @@ CONTAINS
         DO i = 2, SIZE(counts)
             displacements(i) = displacements(i - 1) + counts(i - 1)
         END DO
-    END FUNCTION countsToDisplacements
+    END SUBROUTINE countsToDisplacements
 
     ! Sets up a communication pattern so that calling
     ! `communicateToBroker(myGlobalIndices, resultBuffer)` results IN
@@ -147,8 +154,8 @@ CONTAINS
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
         ! compute the displacements for the MPI_Alltoallv() CALL
-        me%toBrokerDisplacements = countsToDisplacements(me%toBrokerCounts)
-        me%fromProcessDisplacements = countsToDisplacements(me%fromProcessCounts)
+        CALL countsToDisplacements(me%toBrokerCounts, me%toBrokerDisplacements)
+        CALL countsToDisplacements(me%fromProcessCounts, me%fromProcessDisplacements)
 
         ! providers send their provided indices to the respective brokers
         CALL me%localToBufferPerm%permute(myGlobalIndices, me%localBuffer)

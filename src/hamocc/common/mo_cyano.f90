@@ -13,7 +13,7 @@ MODULE mo_cyano
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtb, dtbgc, bgc_nproma, bgc_zlevs
-
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -95,7 +95,7 @@ END SUBROUTINE cyano
 SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 !! @brief prognostic N2 fixation, cyanobacteria
 
-      USE mo_memory_bgc, ONLY      : cycdec, pi_alpha_cya,cya_growth_max,          &
+      USE mo_memory_bgc, ONLY      : pi_alpha_cya,          &
        &                            Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P,      &
        &                            fPAR, strahl, ro2ut, ro2ut_cya,ralk,      &
        &                            doccya_fac, rnit, riron, rcar, rn2, &
@@ -109,6 +109,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
            &                        kpho_cya, kcyaloss, kn2b, &
            &                        kcTlim, kcLlim, kcPlim, kcFlim
 
+      USE mo_hamocc_nml,ONLY      : cycdec, cya_growth_max
 
       IMPLICIT NONE
 
@@ -129,17 +130,17 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
       REAL(wp) :: oldigasnit                                                                          
       REAL(wp) :: cyapro,cyaloss
       REAL(wp) :: avanut,avcyabac                                             
-      REAL(wp) :: pho,xn,avanfe,pho_fe,pho_p 
+      REAL(wp) :: pho,avanfe 
       REAL(wp) :: l_I, l_T
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
-      REAL(wp) :: xn_p,xn_fe, phosy_cya
+      REAL(wp) ::  phosy_cya
       REAL(wp) :: dyn_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
-!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,phosy_cya, &
-!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho,phosy_cya, &
+!HAMOCC_OMP            cyapro,oldigasnit,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
   

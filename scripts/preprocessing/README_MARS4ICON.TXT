@@ -43,10 +43,10 @@ Get GRIB version (GRIB1/GRIB2) of a given file:
 
 Script for retrieval of IFS data (via MARS, ECMWF): See ICON svn repository,
 
-~/trunk/icon-dev/scripts/preprocessing/mars4icon_smi_32r3+ 
+~/trunk/icon-dev/scripts/preprocessing/mars4icon_smi
 
 Run as:
-  mars4icon_smi_32r3+ 2011010100 0 255 1/to/91 2>&1 | tee log.mars4icon.txt
+  mars4icon_smi -d 2011010100 -s 0 -r 255 -l 1/to/91 2>&1 | tee log.mars4icon.txt
 
 Note: Requires valid ECMWF certificate (command "eccert" on DWD cluster)
 

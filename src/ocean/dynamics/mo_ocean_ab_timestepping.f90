@@ -20,7 +20,7 @@
 MODULE mo_ocean_ab_timestepping
   USE mo_ocean_nml,                      ONLY: discretization_scheme
   USE mo_dynamics_config,                ONLY: nold, nnew
-  USE mo_ocean_surface_types,            ONLY: t_ocean_surface
+  USE mo_ocean_surface_types,            ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_model_domain,                   ONLY: t_patch_3D !, t_patch
   USE mo_ext_data_types,                 ONLY: t_external_data
   USE mo_ocean_ab_timestepping_mimetic,  ONLY: solve_free_sfc_ab_mimetic, &
@@ -53,12 +53,13 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE solve_free_surface_eq_ab(patch_3D, ocean_state, external_data, p_oce_sfc, &
+  SUBROUTINE solve_free_surface_eq_ab(patch_3D, ocean_state, external_data, p_as, p_oce_sfc, &
     & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET         :: ocean_state
     TYPE(t_external_data), TARGET             :: external_data
     TYPE(t_ocean_surface), INTENT(INOUT)      :: p_oce_sfc
+    TYPE(t_atmos_for_ocean), INTENT(INOUT)    :: p_as
     TYPE (t_ho_params)                        :: physics_parameters
     INTEGER                                   :: timestep
     TYPE(t_operator_coeff)                    :: operators_coefficients
@@ -67,7 +68,7 @@ CONTAINS
     
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL solve_free_sfc_ab_mimetic( patch_3D, ocean_state, external_data, p_oce_sfc, &
+      CALL solve_free_sfc_ab_mimetic( patch_3D, ocean_state, external_data, p_as, p_oce_sfc, &
         & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
 
     ELSE
@@ -99,7 +100,7 @@ CONTAINS
       CALL calc_normal_velocity_ab_mimetic(patch_3D, ocean_state, operators_coefficients)
 
     ELSE
-      CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')
+      CALL finish ('calc_normal_velocity_ab: ',' Discreization type not supported !!')
     ENDIF
 
   END SUBROUTINE calc_normal_velocity_ab

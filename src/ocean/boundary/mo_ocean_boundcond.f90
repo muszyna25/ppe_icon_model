@@ -35,12 +35,13 @@ MODULE mo_ocean_boundcond
   USE mo_exception,          ONLY: message, finish
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-  USE mo_ocean_types,          ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,        ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_ocean_surface_types,ONLY: t_ocean_surface
   USE mo_ocean_physics_types,ONLY: t_ho_params, v_params
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
+  USE mo_math_utilities,     ONLY: gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
   USE mo_master_config,      ONLY: isRestart

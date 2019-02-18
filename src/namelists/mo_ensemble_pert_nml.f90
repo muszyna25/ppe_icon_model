@@ -21,10 +21,8 @@
 MODULE mo_ensemble_pert_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -37,6 +35,9 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_zvz0i     => range_zvz0i,     &  
     &                               config_range_entrorg   => range_entrorg,   &  
     &                               config_range_capdcfac_et => range_capdcfac_et, &  
+    &                               config_range_capdcfac_tr => range_capdcfac_tr, &  
+    &                               config_range_lowcapefac  => range_lowcapefac,  &  
+    &                               config_range_negpblcape  => range_negpblcape,  &  
     &                               config_range_minsnowfrac => range_minsnowfrac, &
     &                               config_range_c_soil    => range_c_soil,    &
     &                               config_range_cwimax_ml => range_cwimax_ml, &
@@ -85,6 +86,15 @@ MODULE mo_ensemble_pert_nml
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  range_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the tropics
+    &  range_capdcfac_tr            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    &  range_lowcapefac            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< Minimum allowed negative PBL cape in diurnal cycle correction
+    &  range_negpblcape            ! (relevant only if icapdcycl = 3)
 
   REAL(wp) :: &                    !< RH thresholds for evaporation below cloud base
     &  range_rhebc
@@ -138,7 +148,8 @@ MODULE mo_ensemble_pert_nml
     &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
     &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
     &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
-    &                         range_gfrcrit, range_c_soil, range_cwimax_ml
+    &                         range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,             &
+    &                         range_lowcapefac, range_negpblcape
 
 CONTAINS
 
@@ -165,7 +176,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
@@ -191,6 +201,9 @@ CONTAINS
     ! convection
     range_entrorg    = 0.2e-3_wp    ! entrainment parameter for deep convection
     range_capdcfac_et = 0.75_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    range_capdcfac_tr = 0.75_wp     ! fraction of CAPE diurnal cycle correction applied in the tropics
+    range_lowcapefac = 0.5_wp       ! Tuning factor for reducing the diurnal cycle correction in low-cape situations
+    range_negpblcape = 500._wp      ! Minimum allowed negative PBL cape in diurnal cycle correction
     range_rhebc      = 0.05_wp      ! RH thresholds for evaporation below cloud base
     range_texc       = 0.05_wp      ! Excess value for temperature used in test parcel ascent
     !
@@ -207,7 +220,7 @@ CONTAINS
                                     ! Charnock parameter
     !
     ! snow cover diagnosis
-    range_minsnowfrac = 0.05_wp     ! Minimum value to which the snow cover fraction is artificially reduced
+    range_minsnowfrac = 0.1_wp      ! Minimum value to which the snow cover fraction is artificially reduced
                                     ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
     !
     ! TERRA
@@ -271,6 +284,9 @@ CONTAINS
     config_range_zvz0i        = range_zvz0i
     config_range_entrorg      = range_entrorg
     config_range_capdcfac_et  = range_capdcfac_et
+    config_range_capdcfac_tr  = range_capdcfac_tr
+    config_range_lowcapefac   = range_lowcapefac
+    config_range_negpblcape   = range_negpblcape
     config_range_rhebc        = range_rhebc
     config_range_texc         = range_texc
     config_range_minsnowfrac  = range_minsnowfrac

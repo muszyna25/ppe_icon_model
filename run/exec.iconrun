@@ -9,6 +9,9 @@
 # Marco Giorgetta, MPI-M, 2010-04-21
 #
 #-----------------------------------------------------------------------------
+final_status_file=${ICON_BASE_PATH}/run/${job_name}.final_status
+rm -f ${final_status_file}
+#-----------------------------------------------------------------------------
 #
 # directories definition
 #
@@ -39,8 +42,12 @@ check_error $? "${EXPDIR} does not exist?"
 cd ${EXPDIR}
 
 #-----------------------------------------------------------------------------
+final_status_file=${RUNSCRIPTDIR}/${job_name}.final_status
+rm -f ${final_status_file}
+
+#-----------------------------------------------------------------------------
 # set up the model lists if they do not exist
-# this works for subngle model runs
+# this works for single model runs
 # for coupled runs the lists should be declared explicilty
 if [ x$namelist_list = x ]; then
 #  minrank_list=(        0           )
@@ -60,6 +67,11 @@ if [ x$namelist_list = x ]; then
     namelist_list[0]="$ocean_namelist"
     modelname_list[0]="ocean"
     modeltype_list[0]=2
+  elif [ x$psrad_namelist != x ]; then
+    # this is the psrad model
+    namelist_list[0]="$psrad_namelist"
+    modelname_list[0]="psrad"
+    modeltype_list[0]=3
   elif [ x$testbed_namelist != x ]; then
     # this is the testbed model
     namelist_list[0]="$testbed_namelist"
@@ -102,14 +114,28 @@ run_ocean=${run_ocean="false"}
 if [ x$ocean_namelist != x ]; then
   run_ocean="true"
 fi
+run_psrad=${run_psrad="false"}
+if [ x$psrad_namelist != x ]; then
+  run_psrad="true"
+fi
 
 #-----------------------------------------------------------------------------
 # add grids to required files
 all_grids="${atmo_dyn_grids} ${atmo_rad_grids} ${ocean_grids}"
 for gridfile in ${all_grids}; do
+  #
+  gridfile=${gridfile//\'/} # strip all ' in case ' is used to delimit the grid names
+  gridfile=${gridfile//\"/} # strip all " in case " is used to delimit the grid names
+  gridfile=${gridfile//\,/} # strip all , in case , is used to separate the grid names
+  #
+  grfinfofile=${gridfile%.nc}-grfinfo.nc
+  #
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
-  add_required_file ${HGRIDDIR}/$gridfile ./
+  add_required_file ${HGRIDDIR}/${gridfile} ./
+  if [ -f ${HGRIDDIR}/${grfinfofile} ]; then    
+    add_required_file ${HGRIDDIR}/${grfinfofile} ./
+  fi
 done
 #-----------------------------------------------------------------------------
 # print_required_files
@@ -152,6 +178,8 @@ if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
+/
+&master_time_control_nml
  experimentStartDate  = "$start_date" 
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 
@@ -245,21 +273,39 @@ if [[ $run_jsbach == @(yes|true) ]]; then
  debug_level        = 0
  timer_level        = 0
 /
+EOF
+#
+set -A gridfiles $atmo_dyn_grids
+no_of_domains=${#gridfiles[*]}
+echo "no_of_domains=$no_of_domains"
+domain=""
+domain_suffix=""
+j=1
+while [ $j -le ${no_of_domains} ]
+do
+  if [[ $no_of_domains -gt 1 ]]; then
+    # no_of_domains < 10 !
+    domain=" DOM0${j}"
+    domain_suffix="_d${j}"
+  fi
+  cat >> $master_namelist << EOF
 &jsb_model_nml
- model_id = 1
- model_name = 'JSBACH'
- model_shortname = 'jsb'
+ model_id = $j
+ model_name = "JSBACH${domain}"
+ model_shortname = "jsb${domain_suffix}"
  model_description = 'JSBACH land surface model'
- model_namelist_filename = "${lnd_namelist}"
+ model_namelist_filename = "${lnd_namelist}${domain_suffix}"
 /
 EOF
-  if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd ]] ; then
+  if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} ]] ; then
     # namelist file has already been copied to expdir by copy_required_files above
-    rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd
-    check_error $? "rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd"
+    rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}
+    check_error $? "rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}"
   else
-    check_error 1 "${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd does not exist"
+    check_error 1 "${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} does not exist"
   fi
+  j=`expr ${j} + 1`
+done
 fi
 #-----------------------------------------------------------------------------
 
@@ -284,14 +330,14 @@ rm -f finish.status
 #  run_model
 #else
   date
-  ${START} ${MODEL}
+  ${START} ${MODEL} # > out.txt 2>&1
   date
 #fi
 #
 if [ -r finish.status ] ; then
-  check_error 0 "${START} ${MODEL}"
+  check_final_status 0 "${START} ${MODEL}"
 else
-  check_error -1 "${START} ${MODEL}"
+  check_final_status -1 "${START} ${MODEL}"
 fi
 #
 #-----------------------------------------------------------------------------

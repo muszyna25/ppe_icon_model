@@ -8,16 +8,14 @@
 !!
 MODULE mo_name_list_output_metadata
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_intptr_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer
   USE mo_exception,                         ONLY: finish
   USE mo_kind,                              ONLY: i8
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_name_list_output_types,            ONLY: t_mem_win
   USE mo_mpi,                               ONLY: p_int, p_comm_work_io,      &
-    &                                             my_process_is_mpi_test,     &
     &                                             my_process_is_mpi_workroot, &
     &                                             my_process_is_io
-  USE mo_name_list_output_config,           ONLY: use_async_name_list_io
   USE mo_dynamics_config,                   ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_impl_constants,                    ONLY: TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
 
@@ -87,18 +85,6 @@ CONTAINS
     CALL MPI_Type_extent(p_int, nbytes_int, mpierr)
     mem_bytes = MAX(mem_size, 1_i8)*INT(nbytes_int,i8)
 
-    ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(c_ptr) does not have the size indicated
-    ! by c_intptr_t since the standard only requires c_intptr_t is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
-
-    IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
-
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
     NULLIFY(memwin%mem_ptr_metainfo_pe0)
@@ -128,11 +114,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_write_to_memwin"
     INTEGER :: info_size, offset
 
-    ! This subroutine does nothing on PEs except compute PE #0 or if
-    !  we are not running in asynchronous I/O mode.
-    IF (.NOT. use_async_name_list_io .OR. my_process_is_mpi_test()) RETURN
-    IF (.NOT. my_process_is_mpi_workroot())                         RETURN
-    
     IF (.NOT. ASSOCIATED(memwin%mem_ptr_metainfo_pe0)) THEN
       CALL finish(routine, "Internal error!")
     END IF
@@ -160,11 +141,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_get_from_memwin"
     TYPE(t_var_metadata) :: dummy_info  ! dummy meta data object
     INTEGER              :: info_size, offset
-
-    ! This subroutine does nothing on PEs except compute PE #0 or if
-    !  we are not running in asynchronous I/O mode.
-    IF (.NOT. use_async_name_list_io .OR. my_process_is_mpi_test()) RETURN
-    IF (.NOT. my_process_is_io())                                   RETURN
 
     ! get size of a single meta-info field
     info_size = metainfo_get_size()

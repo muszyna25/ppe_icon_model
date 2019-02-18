@@ -1,19 +1,24 @@
 #!/bin/bash
 #-----------------------------------------------------------------------------
-check_error()
+check_final_status()
 {
     # Check if the first parameter (return status) is not OK
     # Arguments:
     #   $1 = error status: 0 = OK, not 0 = ERROR
     #   $2 = error message
 
-    if [ "${STATUS_FILE}" = "" ]
+    if [ "_${STATUS_FILE}" = "_" ]
     then
       STATUS_FILE=${basedir}/.status.file
+    fi
+    if [ "${final_status_file}" = "" ]
+    then
+      final_status_file=${basedir}/run/${job_name}.final_status
     fi
     
     echo "$1" > ${STATUS_FILE}
     echo "$1" > ${basedir}/run/${job_name}.status
+    echo "$1" > $final_status_file
 
     if [ $1 != 0 ] 
     then
@@ -22,7 +27,26 @@ check_error()
         echo "   ERROR : $2"
         exit $1
     fi
+}
 
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+    if [ $1 != 0 ]
+    then
+      check_final_status $1 "$2"
+    fi
+
+    if [ "${STATUS_FILE}" = "" ]
+    then
+      STATUS_FILE=${basedir}/.status.file
+    fi
+    
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
 }
 
 warning()
@@ -119,7 +143,10 @@ MODEL_BASE_PATH=$basedir
 ICON_BASE_PATH=$basedir
 export ICON_BASE_PATH
 RUNSCRIPT_NAME=`basename $0`
-# ICON_RUN_PATH=$ICON_BASE_PATH/run
+ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+. ${thisdir}/../config/set-up.info
+
 #-----------------------------------------------------------------------------
 # set default data paths
 # can be overwritten by the experiment, or by the add_required_ocean_files,

@@ -146,11 +146,11 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   TYPE(t_patch),      POINTER     :: p_pp
 
   ! Indices
-  INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, &
+  INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, i_startrow, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nlevp1_rg, nst, nstart, nend
+  INTEGER :: nshift, nlevp1_rg, nst
   REAL(wp) :: exdist_h, exdist_f
 
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -177,10 +177,6 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   nshift = nlev_rg - nlev ! resulting shift parameter
 
   ! Parameters used in case of latm_above_top = .TRUE.:
-  !
-  ! start and end levels for parent to local parent copying in case of vertical nesting
-  nstart = p_patch(jgp)%nlev - nlev_rg + 1
-  nend   = p_patch(jgp)%nlev - nlev_rg + nshift
   !
   ! extrapolation distances for passive layer above model top (m) if there is no vertical nesting
   exdist_h = 1.5_wp*(vct_a(nst+1)-vct_a(nst+2))
@@ -297,7 +293,12 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   ! Now average input fields to parent grid cells
 
   ! Start/End block in the parent domain
-  i_startblk = p_gcp%start_blk(grf_ovlparea_start_c,i_chidx)
+  IF (jg == 1 .AND. l_limited_area) THEN
+    i_startrow = grf_fbk_start_c
+  ELSE
+    i_startrow = grf_ovlparea_start_c
+  ENDIF
+  i_startblk = p_gcp%start_blk(i_startrow,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
@@ -305,7 +306,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
+                       i_startidx, i_endidx, i_startrow, min_rlcell_int)
 !DIR$ IVDEP
     DO jc = i_startidx, i_endidx
 
@@ -545,7 +546,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         ENDDO
       ENDDO
 
-      IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above model top for global grid (nshift=1 in this case)
+      IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above model top 
+                                                      ! for global grid (nshift=1 in this case)
         DO jc = i_startidx, i_endidx
           ! Temperature is extrapolated linearly assuming a vertical temperature gradient of -5.0 K/km
           p_temp(jc,1,jb) = p_temp(jc,2,jb) - 5.0e-3_wp*exdist_f
@@ -677,8 +679,11 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   ! Auxiliary fields on full grid for back-interpolated values
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp
 
+  !> pressure scale for longwave downscaling correction
+  REAL(wp), PARAMETER :: pscal = 1._wp/4000._wp
+
   ! More local variables
-  REAL(wp) :: pscal, dpresg, pfaclw, intqctot
+  REAL(wp) :: dpresg, pfaclw, intqctot
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2, logtqv, &
                                  dtrans_o_dalb_clrsfc
@@ -693,7 +698,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   TYPE(t_patch),      POINTER     :: p_pp
 
   ! Indices
-  INTEGER :: i_chidx, i_nchdom, nblks_c_lp
+  INTEGER :: i_chidx, i_nchdom, nblks_c_lp, i_startrow
   INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
   INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
 
@@ -749,7 +754,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   itrclrsfc = nshift+10
   itrparsfc = nshift+11
 
-  pscal = 1._wp/4000._wp ! pressure scale for longwave downscaling correction
 
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
@@ -821,15 +825,22 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   ! routine
 
   ! Start/End block in the local parent domain - same extent to nest boundary region as used for radiation calculation
-  i_startblk = p_gcp%start_blk(grf_ovlparea_start_c,i_chidx)
+  IF (jg == 1 .AND. l_limited_area) THEN
+    i_startrow = grf_fbk_start_c
+  ELSE
+    i_startrow = grf_ovlparea_start_c
+  ENDIF
+
+!$OMP PARALLEL PRIVATE(i_startblk, i_endblk)
+
+  i_startblk = p_gcp%start_blk(i_startrow,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
+                       i_startidx, i_endidx, i_startrow, min_rlcell_int)
 
     DO jk = 1, nshift+1
       DO jc = i_startidx, i_endidx
@@ -845,6 +856,29 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
 
   ENDDO
 !$OMP END DO
+
+  ! For the limited-area mode, possibly undefined grid points entering into the subsequent interpolation
+  ! need to be set to zero
+  IF (jg == 1 .AND. l_limited_area) THEN
+    i_startblk = p_gcp%start_block(grf_ovlparea_start_c)
+    i_endblk   = p_gcp%end_block(grf_ovlparea_start_c)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                         grf_ovlparea_start_c, grf_ovlparea_start_c)
+
+      DO jc = i_startidx, i_endidx
+        zrg_trdiffsolall(jc,:,jb) = 0._wp
+        p_lwflxall(jc,:,jb)       = 0._wp
+        zrg_aux3d(jc,:,jb)        = 0._wp
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+  ENDIF
+
 !$OMP END PARALLEL
 
   ! Interpolate reduced-grid fields to full grid
@@ -878,6 +912,45 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     &                         llimit_nneg=l_limit,     overshoot_fac=1.0_wp)
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+  ! For the limited-area mode, near-boundary grid points filled with partly invalid data need to be reset
+  IF (jg == 1 .AND. l_limited_area) THEN
+    i_startblk = p_gcp%start_block(grf_fbk_start_c)
+    i_endblk   = p_gcp%end_block(grf_fbk_start_c)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                         grf_fbk_start_c, grf_fbk_start_c)
+
+
+      DO jk = nshift+1, n2dvars
+        DO jc = i_startidx, i_endidx
+          z_aux3d(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = zrg_aux3d(jc,jk,jb)
+          z_aux3d(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = zrg_aux3d(jc,jk,jb)
+          z_aux3d(iidx(jc,jb,3),jk-nshift,iblk(jc,jb,3)) = zrg_aux3d(jc,jk,jb)
+          z_aux3d(iidx(jc,jb,4),jk-nshift,iblk(jc,jb,4)) = zrg_aux3d(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+      DO jk = nshift+1, nlevp1_rg
+        DO jc = i_startidx, i_endidx
+          z_trdiffsolall(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = zrg_trdiffsolall(jc,jk,jb)
+          z_trdiffsolall(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = zrg_trdiffsolall(jc,jk,jb)
+          z_trdiffsolall(iidx(jc,jb,3),jk-nshift,iblk(jc,jb,3)) = zrg_trdiffsolall(jc,jk,jb)
+          z_trdiffsolall(iidx(jc,jb,4),jk-nshift,iblk(jc,jb,4)) = zrg_trdiffsolall(jc,jk,jb)
+
+          lwflxall(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = p_lwflxall(jc,jk,jb)
+          lwflxall(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = p_lwflxall(jc,jk,jb)
+          lwflxall(iidx(jc,jb,3),jk-nshift,iblk(jc,jb,3)) = p_lwflxall(jc,jk,jb)
+          lwflxall(iidx(jc,jb,4),jk-nshift,iblk(jc,jb,4)) = p_lwflxall(jc,jk,jb)
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+  ENDIF
 
   CALL copy(z_aux3d(:,1,:), aclcov(:,:))
   CALL copy(z_aux3d(:,2,:), tsfc_backintp(:,:))
@@ -1585,8 +1658,11 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   ! Auxiliary fields on full grid for back-interpolated values
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nblks_c) :: tsfc_backintp, alb_backintp, albfac_backintp
 
+  !> pressure scale for longwave downscaling correction
+  REAL(wp), PARAMETER :: pscal = 1._wp/4000._wp
+
   ! More local variables
-  REAL(wp) :: pscal, dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
+  REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac2, lwfac1, lwfac2
 
@@ -1759,8 +1835,6 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   ! Start/End block in the parent domain
   i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
-
-  pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
 
 !$OMP PARALLEL

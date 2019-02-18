@@ -42,7 +42,7 @@ MODULE mo_ice_interface
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, i_ice_advec, hci_layer
   USE mo_ocean_nml,           ONLY: atmos_flux_analytical_type, atmos_SWnet_const, atmos_sens_const
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_ocean_surface_types, ONLY: t_ocean_surface
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 
@@ -78,12 +78,13 @@ CONTAINS
   !! Initial release by Vladimir Lapin, MPI-M (2016-11)
   !
 !<Optimize_Used>
-  SUBROUTINE ice_slow_interface(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_op_coeff)
+  SUBROUTINE ice_slow_interface(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET,   INTENT(IN)      :: p_patch_3D
     TYPE(t_sea_ice),            INTENT(INOUT)   :: p_ice
     TYPE(t_ocean_surface),      INTENT(INOUT)   :: p_oce_sfc
     TYPE(t_atmos_fluxes),       INTENT(IN)      :: atmos_fluxes
+    TYPE(t_atmos_for_ocean),    INTENT(INOUT)   :: p_as
     TYPE(t_hydro_ocean_state),  INTENT(IN)      :: p_os
     TYPE(t_operator_coeff),     INTENT(IN)      :: p_op_coeff
 
@@ -106,7 +107,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_extra40)
 
       ! solve for ice velocities (AWI FEM model wrapper)
-      CALL ice_fem_interface ( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff)
+      CALL ice_fem_interface ( p_patch_3D, p_ice, p_os, p_as, atmos_fluxes, p_op_coeff, p_oce_sfc)
 
       ! advection
       IF (i_ice_advec == 0) THEN

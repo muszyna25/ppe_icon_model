@@ -100,6 +100,14 @@ CONTAINS
 
     REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: energyCheck
 
+    ! energy_in_surface below only returns something useful if energyCheck_dbg_lev
+    ! is greater than 3. We therefore set the debug level for the following
+    ! dbg_print calls to 4. To get output set energyCheck_dbg_lev to 4 and set the
+    ! debug level in the namelist accordingly.
+
+    INTEGER, PARAMETER :: energyCheck_dbg_lev   = 3
+    INTEGER, PARAMETER :: energyCheck_dbg_print = 4
+
     !-----------------------------------------------------------------------
     p_patch => p_patch_3D%p_patch_2D(1)
 
@@ -119,6 +127,9 @@ CONTAINS
     ! totalsnowfall is applied in ice_growth_*
     ice%totalsnowfall(:,:) =  atmos_fluxes%rpreci(:,:) * dtime
     ! thick ice growth/melt (K-classes): calculates ice%hs, ice%hi, ice%heatOceI
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: befZero: totalSnF', ice%totalsnowfall, str_module, 4, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
     SELECT CASE (i_ice_therm)
     CASE (1,3)
         CALL ice_growth_zerolayer (p_patch, ice)
@@ -128,6 +139,9 @@ CONTAINS
     ! for historical reasons, ice%totalsnowfall represents cell-average, when applied in mo_ocean_surface*
     ! ToDo: should not be done this way
     ice%totalsnowfall(:,:) =  ice%totalsnowfall(:,:) * ice%concSum(:,:)
+    !-------------------------------------------------------------------------------
+    CALL dbg_print('IceSlow: aftZero: totalSnF', ice%totalsnowfall, str_module, 3, in_subset=p_patch%cells%owned)
+    !-------------------------------------------------------------------------------
 
     ! Flooding (snow to ice conversion)
     ! Calculates ice%snow_to_ice and updates ice%draft, ice%draftave
@@ -139,8 +153,12 @@ CONTAINS
     CALL ice_open_ocean(p_patch, ice, atmos_fluxes, sst)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. Growth')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, &
+         &                          dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. Growth', energyCheck, str_module, &
+         &          energyCheck_dbg_print, in_subset=p_patch%cells%all)
+
     !---------------------------------------------------------------------
 
     ! updates fluxes that ocean will receive
@@ -153,8 +171,12 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. ConcChange')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=0, &
+         &                          dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. ConcChange', energyCheck, str_module, &
+         &         energyCheck_dbg_print, in_subset= p_patch%cells%all)
+ 
     !---------------------------------------------------------------------
 
     ! limits ice thinkness, adjust p_oce_sfc fluxes and calculates the final freeboard
@@ -164,8 +186,12 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=1, dbg_lev=3, &
-    &                                       info='IceSlow: energy aft. ThickLimiter')
+    energyCheck = energy_in_surface(p_patch, ice, ssh(:,:), sst(:,:), computation_type=1, &
+                                    dbg_lev=energyCheck_dbg_lev)
+
+    CALL dbg_print('IceSlow: energy aft. ThickLimiter', energyCheck, str_module, &
+         &         energyCheck_dbg_print, in_subset= p_patch%cells%all)
+
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
@@ -292,7 +318,7 @@ CONTAINS
 
     ! Loop indices
     TYPE(t_subset_range), POINTER :: all_cells
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+    INTEGER :: jb, jc, i_startidx_c, i_endidx_c
 
     !-------------------------------------------------------------------------------------------
     all_cells   => p_patch%cells%all
@@ -305,7 +331,7 @@ CONTAINS
     snowmelted  (:,:) = 0.0_wp
     !-------------------------------------------------------------------------------
 
-    !TODOram: openmp
+  !TODOram: openmp
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
@@ -323,25 +349,27 @@ CONTAINS
         ! Volmue flux (rain that goes through ice)
         p_oce_sfc%FrshFlux_VolumeIce(jc,jb) = atmos_fluxes%rprecw(jc,jb)*ice%concSum(jc,jb)
 
-        ! TotalIce contains fluxes that do not change the total fresh-water volume in the cell
-        ! #slo# 2015-01: better reformulate with ice-change, snowmelt, snoiceave - assign variables in sbrt icegrowth!
-        ! #vla# 2017-05: Done.  Reformulated using ice%delhi, ice%delhs, ice%snow_to_ice, ice%newice. OMIP results are binary identical
+        ! FrshFlux_TotalIce contains fluxes that do not change the total fresh-water volume in the cell
         IF (v_base%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
-          ! snowiceave -- cell-average snow_to_ice
           snowiceave(jc,jb) = SUM( ice%snow_to_ice(jc,:,jb)*ice%conc(jc,:,jb) )
-          ! thick ice growth/melt + new ice in open water + snow_to_ice conversion (water equiv.)
+          ! thickness of ice growth/melt + new ice in open water + snow_to_ice conversion (in cell-average water equiv.)
           icegrowave(jc,jb) = ( (SUM(ice%delhi(jc,:,jb)) + ice%newice(jc,jb))*rhoi + snowiceave(jc,jb)*rhos ) / rho_ref
           ! total salt flux from ocean to sea ice:
           p_oce_sfc%FrshFlux_IceSalt(jc,jb) = - sice * icegrowave(jc,jb) / dtime
 
+          ! The treatment of snow-to-ice conversion is done as follows: The amount of snow that is transformed to ice is melted
+          ! This meltwater flux is included in "snowmelted" and thus in fi2.
+          ! The energy for the snow melting is then used to form an equivalent amount of sea ice from sea water.
+          ! Hence, energy is conserved. The related salt flux of the sea-ice formation from sea water is included in fi1.
+          ! Growing ice from ocean water in fi1 and melted snow in fi2 which are not identical due to sea ice salinity.
+
           ! ice growth/melt plus snow_to_ice conversion proportional to salt difference of water and ice
           fi1(jc,jb) = - (1._wp-sice/sss(jc,jb)) * ( SUM( ice%delhi(jc,:,jb) )*rhoi + snowiceave(jc,jb)*rhos )/(rho_ref*dtime)
 
-          ! snow melt only (without snowfall and snow_to_ice conversion), in m water equivalent (fresh water)
-!          snowmelted(jc,jb) =  SUM( ice%delhs(jc,:,jb) )*rhos/rho_ref-ice%totalsnowfall(jc,jb)
-          ! the line above is correct. the line below is wrong, snowiceave is not in ice%delhs and no need to substruct it
-          ! this is wrong, kept during restructuring to get bit-identical results
+          ! Total snow melt (negative is net melt) is given by real snow melt and implied snow melt from snow-to ice conversion.
+          ! Real snow melt is given by change in snow thickness, minus the new snow from snow fall.
+
           snowmelted(jc,jb) = ( SUM( ice%delhs(jc,:,jb) )- snowiceave(jc,jb))*rhos/rho_ref-ice%totalsnowfall(jc,jb)
           fi2(jc,jb) = - MIN(snowmelted(jc,jb), 0.0_wp)/dtime
 
@@ -364,10 +392,13 @@ CONTAINS
     CALL dbg_print('Update_IO_FL: fi2       ', fi2          ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('Update_IO_FL: fi3       ', fi3          ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('Update_IO_FL: snowmelted',snowmelted    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('Update_IO_FL: snowiceave',snowiceave    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('Update_IO_FL: icegrowave',icegrowave    ,str_module, 4, in_subset=p_patch%cells%owned)
 
     CALL dbg_print('Update_IO_FL: TotalHeat', p_oce_sfc%HeatFlux_Total,     str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('Update_IO_FL: VolumeIce', p_oce_sfc%FrshFlux_VolumeIce, str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('Update_IO_FL: TotalIce ', p_oce_sfc%FrshFlux_TotalIce , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('Update_IO_FL: IceSalt  ', p_oce_sfc%FrshFlux_IceSalt  , str_module, 3, in_subset=p_patch%cells%owned)
     !-------------------------------------------------------------------------------
 
   END SUBROUTINE update_ice_ocean_fluxes

@@ -41,15 +41,17 @@
 MODULE mo_psrad_orbit
 
   USE mo_kind,           ONLY : wp, i8
-  USE mo_math_constants, ONLY : pi
-  USE mo_exception,      ONLY : finish, message, message_text, em_param
-  USE mtime,             ONLY: julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
-       &                       datetime, no_of_ms_in_a_day
+  USE mo_math_constants, ONLY : pi           ,& ! pi
+       &                        twopi => pi2 ,& ! pi*2
+       &                        deg2rad         ! pi/180
+  USE mo_exception,      ONLY : finish, message, message_text, em_param, warning, print_value
+  USE mtime,             ONLY : julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
+       &                        newDateTime, deallocateDateTime, datetime, no_of_ms_in_a_day
 
   IMPLICIT NONE
   PRIVATE 
   PUBLIC :: orbit_kepler, orbit_vsop87, inquire_declination, &
-            clonp, get_orbit_times
+            get_orbit_times
 
   TYPE terms 
     REAL(wp) :: A
@@ -58,12 +60,10 @@ MODULE mo_psrad_orbit
   END TYPE terms
 
   LOGICAL,  SAVE      :: initialized = .FALSE.
-  REAL(wp), PARAMETER :: twopi   = 2.0_wp*pi
-  REAL(wp), PARAMETER :: deg2rad = pi/180.0_wp
-  REAL(wp), PARAMETER :: sec2rad = deg2rad/3600.0_wp
-  REAL(wp), SAVE      :: declination
+  REAL(wp), PARAMETER :: sec2rad     = deg2rad/3600.0_wp
 
-  REAL(wp), SAVE :: clonp  =  282.7000_wp !< Long. of Perihelion (from v.eqin)
+  REAL(wp), SAVE      :: declination  = 0.0_wp
+  LOGICAL , SAVE      :: decl_warning = .TRUE.
 
 CONTAINS
   !-----------------------------------------------------------------------------
@@ -82,12 +82,13 @@ CONTAINS
   !!   Monin, A. S.: An Introduction to the Theory of Climate  D. Reidel 
   !!    Publishing Company, Dordrecht, 1986 (pp 10-12).
   !
-  SUBROUTINE orbit_kepler (cecc, cobld, time, rasc_sun, decl_sun, dist_sun)
+  SUBROUTINE orbit_kepler (cecc, cobld, clonp, time, rasc_sun, decl_sun, dist_sun)
 
     REAL(wp), PARAMETER   :: ceps = 1.0e-9_wp        
 
     REAL(wp), INTENT(in)  :: cecc  !< Eccentricity of the Kepler orbit
     REAL(wp), INTENT(in)  :: cobld !< Obliquity of the Earth axis [Deg]
+    REAL(wp), INTENT(in)  :: clonp !< Longitude of perihelion [Deg]
     REAL(wp), INTENT(in)  :: time  !< Time of year rel. to vernal equinox [rad]
     REAL(wp), INTENT(out) :: &
          rasc_sun,           & !< Right Ascension of the Sun
@@ -801,17 +802,20 @@ CONTAINS
   END FUNCTION sum_vsop87
   !-----------------------------------------------------------------------------
   !>
-  !! @brief Returns declination calculated in last orbit call
+  !! @brief Returns declination calculated in last orbit call, or default value
   !
   SUBROUTINE inquire_declination(xdec)
 
     REAL(wp), INTENT(out) :: xdec !< declination of the sun
 
-    IF (initialized) THEN
-      xdec = declination
-    ELSE
-      CALL finish('inquire_declination','Not Initialized')
+    IF (.NOT.initialized .AND. decl_warning) THEN
+      CALL warning    ('mo_psrad_radiation/inquire_declination',                                  &
+           &           'The declination of the sun has not been initialized --> use default value')
+      CALL print_value('default declination',declination)
+      decl_warning = .FALSE.
     END IF
+
+    xdec = declination
 
   END SUBROUTINE inquire_declination
 
@@ -821,11 +825,14 @@ CONTAINS
   !! @brief Returns orbit time
   !
   SUBROUTINE get_orbit_times( current_datetime,  &
+                           & lyr_perp, yr_perp,  &
 !!$    lrad_date,          lyr_perp,    &
 !!$  & nmonth,        yr_perp,          &
                            & time_of_day, orbit_date    )
 
     TYPE(datetime), POINTER, INTENT(IN) :: current_datetime
+    LOGICAL, INTENT(in) :: lyr_perp
+    INTEGER, INTENT(in) :: yr_perp
 !!$    LOGICAL, INTENT (IN)    :: lrad_date, lyr_perp
 !!$    INTEGER, INTENT (IN)    :: nmonth, yr_perp
     REAL (wp), INTENT (OUT) :: time_of_day, orbit_date
@@ -833,11 +840,15 @@ CONTAINS
     TYPE(julianday), POINTER :: jd 
 !!$    TYPE(julian_date) :: date_now, date_pal
 !!$    TYPE(ly360_date)  :: idate_format
-!!$    TYPE(datetime), POINTER  :: valid_date
+    TYPE(datetime), POINTER  :: valid_datetime
 !!$
 !!$    INTEGER  :: iyr, imo, idy, isec
 !!$    REAL(wp) :: rsec, daylen, zdy, zdy_mar0, zscr
 
+       valid_datetime => newDateTime(current_datetime)
+       IF (lyr_perp) THEN
+         valid_datetime%date%year = yr_perp
+       END IF
 !!$    if (lrad_date) then
 !!$      valid_date = datetime
 !!$    else
@@ -895,11 +906,12 @@ CONTAINS
 !!$    END IF
 
     jd => newJulianday(0_i8, 0_i8)
-    CALL getJulianDayFromDatetime(current_datetime, jd) 
+    CALL getJulianDayFromDatetime(valid_datetime, jd) 
     orbit_date = REAL(jd%day,wp) + REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)
     time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*2.0_wp*pi
     CALL deallocateJulianday(jd)
-    
+    CALL deallocateDateTime(valid_datetime)
+
   END SUBROUTINE get_orbit_times
 
 END MODULE mo_psrad_orbit

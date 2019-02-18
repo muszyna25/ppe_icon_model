@@ -45,7 +45,7 @@ MODULE mo_dictionary
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_dictionary'
 
-  INTEGER, PARAMETER :: DICT_MAX_STRLEN =  32    !< maximum string length
+  INTEGER, PARAMETER :: DICT_MAX_STRLEN = 132    !< maximum string length
   INTEGER, PARAMETER :: NINITIAL        = 100    !< initial dictionary size
   INTEGER, PARAMETER :: DICT_UNDEFID    =  -1    !< return value: undefined/not found
 

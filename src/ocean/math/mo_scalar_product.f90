@@ -36,7 +36,7 @@ MODULE mo_scalar_product
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level,l_ANTICIPATED_VORTICITY,&
     & KineticEnergy_type, KineticEnergy_onPrimalGrid, KineticEnergy_onDualGrid, NoKineticEnergy
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_math_types,         ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
     & Get3DVectorTo2DLocal_array3D
   USE mo_ocean_math_operators,ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
@@ -2254,7 +2254,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
   SUBROUTINE map_scalar_prismtop2center(patch_3d, scalar_top, p_op_coeff,scalar_center)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
     REAL(wp)                                         :: scalar_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_c)       
@@ -2442,7 +2442,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
   SUBROUTINE map_scalar_prismtop2center_GM(patch_3d, scalar_top, p_op_coeff, scalar_center)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
     TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
     REAL(wp)                                         :: scalar_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_c)       

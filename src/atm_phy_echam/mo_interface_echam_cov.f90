@@ -76,7 +76,8 @@ CONTAINS
     END IF
 
     CALL cover(    jg,                        &! in
-         &         jce, nproma,               &! in
+         &         jb,                        &! in
+         &         jcs, jce, nproma,          &! in
          &         nlev, nlevp1,              &! in
          &         itype,                     &! in
          &         zfrw(:),                   &! in

@@ -73,11 +73,11 @@ MODULE mo_nonhydro_state
     &                                add_var_list_reference, get_timelevel_string, &
     &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
-    &                                MAX_GROUPS
+  USE mo_var_groups,           ONLY: MAX_GROUPS, groups
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                groups, vintp_types, new_action, actions
+    &                                vintp_types, new_action, actions
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
   USE mo_add_tracer_ref,       ONLY: add_tracer_ref
@@ -155,11 +155,11 @@ MODULE mo_nonhydro_state
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nonhydro_state:construct_nh_state'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//'::construct_nh_state'
 !-----------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'Construction of NH state started')
+    CALL message (routine, 'Construction of NH state started')
 
     DO jg = 1, n_dom
 
@@ -191,24 +191,18 @@ MODULE mo_nonhydro_state
       !
       ! create state arrays
       ALLOCATE(p_nh_state(jg)%prog(1:ntl), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                               &
-          &          'allocation of prognostic state array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic state array failed')
 
       ! create state list
       ALLOCATE(p_nh_state_lists(jg)%prog_list(1:ntl), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                    &
-          &          'allocation of prognostic state list array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic state list array failed')
 
       ! create tracer list (no extra timelevels)
       ALLOCATE(p_nh_state_lists(jg)%tracer_list(1:ntl_pure), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                    &
-          &          'allocation of prognostic tracer list array failed')
-      ENDIF
+      IF (ist/=SUCCESS) CALL finish(routine,                                   &
+        'allocation of prognostic tracer list array failed')
 
 
       !
@@ -218,11 +212,7 @@ MODULE mo_nonhydro_state
 
         ! Tracer fields do not need extra time levels because feedback is not incremental
         ! and the nest-call frequency is always synchronized with the advection time step
-        IF (jt > n_timelevels) THEN
-          l_extra_timelev = .TRUE.
-        ELSE
-          l_extra_timelev = .FALSE.
-        ENDIF
+        l_extra_timelev = jt > n_timelevels
 
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
@@ -275,7 +265,7 @@ MODULE mo_nonhydro_state
 
     ENDDO ! jg
 
-    CALL message (TRIM(routine), 'NH state construction completed')
+    CALL message (routine, 'NH state construction completed')
 
   END SUBROUTINE construct_nh_state
 
@@ -306,23 +296,22 @@ MODULE mo_nonhydro_state
                 jg,  &      ! grid level counter
                 jt          ! time level counter
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nonhydro_state:destruct_nh_state'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::destruct_nh_state'
 !-----------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'Destruction of NH state started')
+    CALL message(routine, 'Destruction of NH state started')
 
 
     DO jg = 1, n_dom
 
       ntl_prog = SIZE(p_nh_state(jg)%prog(:))
       IF(ntl_prog==0)THEN
-        CALL finish(TRIM(routine), 'prognostic array has no timelevels')
+        CALL finish(routine, 'prognostic array has no timelevels')
       ENDIF
 
       ntl_tra = SIZE(p_nh_state_lists(jg)%tracer_list(:))
       IF(ntl_tra==0)THEN
-        CALL finish(TRIM(routine), 'tracer list has no timelevels')
+        CALL finish(routine, 'tracer list has no timelevels')
       ENDIF
 
       ! delete reference state list elements
@@ -350,20 +339,20 @@ MODULE mo_nonhydro_state
 
       ! destruct state lists and arrays
       DEALLOCATE(p_nh_state_lists(jg)%prog_list, STAT=ist )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish(routine,&
         & 'deallocation of prognostic state list array failed')
 
       DEALLOCATE(p_nh_state_lists(jg)%tracer_list, STAT=ist )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish(routine,&
         & 'deallocation of tracer list array failed')
 
       DEALLOCATE(p_nh_state(jg)%prog )
-      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+      IF (ist/=SUCCESS) CALL finish (routine,&
         & 'deallocation of prognostic state array failed')
 
     ENDDO
 
-    CALL message (TRIM(routine), 'NH state destruction completed')
+    CALL message(routine, 'NH state destruction completed')
 
   END SUBROUTINE destruct_nh_state
   !-------------------------------------------------------------------------
@@ -634,7 +623,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_QV,                  &
             &                       l_satlimit=.FALSE.,                                &
-            &                       lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
+            &                       lower_limit=2.5e-7_wp, l_restore_pbldev=.FALSE. ), &
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
             &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
@@ -1151,8 +1140,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(                            &
-            &                       name = TRIM(vname_prefix)//'qtvar'//suffix)       ,&
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name = TRIM(vname_prefix)//'qtvar'//suffix),       &
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1290,24 +1279,23 @@ MODULE mo_nonhydro_state
   !!
   SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
     &                                 listname )
-!
-    TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
-      &  p_patch
+    !
+    !> current patch
+    TYPE(t_patch), INTENT(IN)         :: p_patch
 
-    TYPE(t_var_list), INTENT(IN)      :: & !< source list to be referenced
-      &  from_var_list 
+    !> source list to be referenced
+    TYPE(t_var_list), INTENT(IN)      :: from_var_list
 
-    TYPE(t_var_list), INTENT(INOUT)   :: & !< new tracer list (containing all tracers)
-      &  p_tracer_list
+    !> new tracer list (containing all tracers)
+    TYPE(t_var_list), INTENT(INOUT)   :: p_tracer_list
 
-    CHARACTER(len=*), INTENT(IN)      :: & !< list name
-      &  listname
+    !> list name
+    CHARACTER(len=*), INTENT(IN)      :: listname
 
     ! local variables
     TYPE (t_var_metadata), POINTER         :: from_info
     TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
     TYPE (t_list_element), POINTER         :: element
-    TYPE (t_list_element), TARGET          :: start_with
 
     !--------------------------------------------------------------
 
@@ -1323,13 +1311,9 @@ MODULE mo_nonhydro_state
     !
     ! add references to all tracer fields of the source list (prognostic state)
     !
-    element => start_with
-    element%next_list_element => from_var_list%p%first_list_element
+    element => from_var_list%p%first_list_element
     !
-    for_all_list_elements: DO
-      !
-      element => element%next_list_element
-      IF (.NOT.ASSOCIATED(element)) EXIT
+    for_all_list_elements: DO WHILE (ASSOCIATED(element))
       !
       ! retrieve information from actual linked list element
       !
@@ -1337,13 +1321,11 @@ MODULE mo_nonhydro_state
       from_info_dyn => element%field%info_dyn
 
       ! Only add tracer fields to the tracer list
-      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
-
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, in_group=groups() )
 
-      ENDIF
-
+      element => element%next_list_element
     ENDDO for_all_list_elements
 
 
@@ -1526,7 +1508,7 @@ MODULE mo_nonhydro_state
     &       p_diag%vn_incr, &
     &       p_diag%exner_incr, &
     &       p_diag%rho_incr, &
-    &       p_diag%qv_incr, &
+    &       p_diag%rhov_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -1989,11 +1971,8 @@ MODULE mo_nonhydro_state
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
-      IF (p_patch%id == 1 .AND. l_limited_area) THEN
-        lrestart = .TRUE.  ! needed for boundary nudging in this case
-      ELSE
-        lrestart = .FALSE.
-      ENDIF
+      ! restart needed for boundary nudging in case l_limited_area
+      lrestart = p_patch%id == 1 .AND. l_limited_area
 
       cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &
         &                   'normal wind tendency (grid refinement)', datatype_flt)
@@ -2375,10 +2354,10 @@ MODULE mo_nonhydro_state
 
     ENDIF  !  ntracer >0
 
-    p_diag%vn_incr    => NULL()
-    p_diag%exner_incr => NULL()
-    p_diag%rho_incr   => NULL()
-    p_diag%qv_incr    => NULL()
+
+    !
+    ! (Transformed) Analysis increments
+    !
     IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
@@ -2413,12 +2392,12 @@ MODULE mo_nonhydro_state
                   & lrestart=.FALSE., loutput=.TRUE.)
 
 
-      ! qv_incr   p_diag%qv_incr(nproma,nlev,nblks_c)
+      ! rhov_incr  p_diag%rhov_incr(nproma,nlev,nblks_c)
       !
-      cf_desc    = t_cf_var('qv_incr', ' ',                   &
-        &                   'specific humidity increment from DA', datatype_flt)
-      grib2_desc = grib2_var(  0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'qv_incr', p_diag%qv_incr,                     &
+      cf_desc    = t_cf_var('rhov_incr', ' ',                   &
+        &                   'partial density of water vapour increment from DA', datatype_flt)
+      grib2_desc = grib2_var(  0, 1, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'rhov_incr', p_diag%rhov_incr,                    &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
@@ -2546,6 +2525,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & initval=0._wp,                                              &
                   & lcontainer=.TRUE., ldims=shape2d_extra, lrestart=.FALSE. )
 
       ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
@@ -2569,7 +2549,7 @@ MODULE mo_nonhydro_state
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_extra,                                        &
+                  & initval=0._wp, ldims=shape3d_extra,                            &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
       ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))

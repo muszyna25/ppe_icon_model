@@ -37,7 +37,7 @@ MODULE mo_nh_torus_exp
                                     bubctr_x, bubctr_y, nh_test_name
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_math_constants,      ONLY: pi, rad2deg, pi_2
+  USE mo_math_constants,      ONLY: rad2deg, pi_2
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_ref
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -75,7 +75,7 @@ MODULE mo_nh_torus_exp
   SUBROUTINE init_nh_state_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
     &                           ptr_int, ptr_metrics)
 
-    TYPE(t_patch),TARGET,  INTENT(IN)   ::  ptr_patch
+    TYPE(t_patch),TARGET,  INTENT(INOUT)::  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
@@ -85,7 +85,7 @@ MODULE mo_nh_torus_exp
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
     REAL(wp) :: zvn1, zvn2, zu, zv, zt00, zh00, ex_sfc
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
-    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
+    INTEGER  :: nblks_c,npromz_c,nblks_e
     INTEGER  :: nlev, nlevp1                  !< number of full and half levels
     INTEGER  :: nlen, jcn, jbn, jg, ntropo
 
@@ -101,7 +101,6 @@ MODULE mo_nh_torus_exp
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
@@ -230,7 +229,7 @@ MODULE mo_nh_torus_exp
   SUBROUTINE init_torus_with_sounding ( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
                                         ptr_int, ptr_metrics)
 
-    TYPE(t_patch),TARGET,  INTENT(IN)   ::  ptr_patch
+    TYPE(t_patch),TARGET,  INTENT(INOUT)::  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
@@ -238,9 +237,9 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT)::  ptr_nh_ref
 
     INTEGER  :: je,jk,jb,i_startidx,i_endidx   !< loop indices
-    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e, jg
+    INTEGER  :: nblks_c,npromz_c,nblks_e, jg
     INTEGER  :: nlev, nlevp1                        !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist
+    INTEGER  :: nlen
 
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, u_in, v_in
     REAL(wp) :: zvn1, zvn2, zu, zv, psfc_in, ex_sfc
@@ -258,7 +257,6 @@ MODULE mo_nh_torus_exp
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
@@ -270,7 +268,10 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
-    les_config(jg)%psfc = psfc_in
+    IF ( les_config(jg)%psfc /= psfc_in ) THEN
+      CALL finish(TRIM(routine),'Value of psfc in les_nml is inconsistent with data in sounding file!')
+    END IF
+
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
@@ -324,16 +325,12 @@ MODULE mo_nh_torus_exp
      DO jk = 1 , nlev 
       DO je = i_startidx, i_endidx
 
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,1)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,1)
         zu   =   u_in(jk)
         zv   =   v_in(jk)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
                 zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
  
-        jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
-        jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
         zu   =   u_in(jk)
         zv   =   v_in(jk)
       
@@ -369,7 +366,7 @@ MODULE mo_nh_torus_exp
     &                           ptr_int, ptr_metrics)
 
     ! INPUT PARAMETERS:
-    TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
+    TYPE(t_patch),TARGET,  INTENT(INOUT):: &  !< patch on which computation is performed
       &  ptr_patch
     TYPE(t_int_state),     INTENT(IN)   :: &
       &  ptr_int
@@ -384,9 +381,9 @@ MODULE mo_nh_torus_exp
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv
     INTEGER  :: je,jk,jb,i_startidx,i_endidx   !< loop indices
-    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
-    INTEGER  :: nlev, nlevp1                        !< number of full and half levels
-    INTEGER  :: nlen, i_rcstartlev, jcn, jbn, jg
+    INTEGER  :: nblks_c,npromz_c,nblks_e
+    INTEGER  :: nlev                      !< number of full levels
+    INTEGER  :: nlen, jcn, jbn, jg
 
     !DEFINED PARAMETERS (RICO case):
     REAL(wp), PARAMETER :: zpsfc   = 101540._wp   !< surface pressure
@@ -403,11 +400,9 @@ MODULE mo_nh_torus_exp
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
-    nlevp1 = ptr_patch%nlevp1
 
     !patch id
     jg = ptr_patch%id
@@ -598,12 +593,11 @@ MODULE mo_nh_torus_exp
     Real(wp), INTENT(in) :: qv_high   ! upper value of vapor flux
     Real(wp), INTENT(in) :: qv_low    ! lower value of vapor flux
 
-    TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: lon_deg
 
 !-------------------------------------------------------------------------
 
@@ -614,7 +608,6 @@ MODULE mo_nh_torus_exp
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        lat_deg = ptr_patch%cells%center(jc,jb)%lat * rad2deg
         lon_deg = ptr_patch%cells%center(jc,jb)%lon * rad2deg
 
         IF((lon_deg) >= wallLonDeg) THEN
@@ -655,14 +648,15 @@ MODULE mo_nh_torus_exp
   
     INTEGER :: ist, iunit
     INTEGER :: jk, klev 
-  
+    
     !-------------------------------------------------------------------------
   
     CALL message(TRIM(routine), 'READING FROM SOUNDING!')
     
     !open file again to read data this time
     iunit = find_next_free_unit(10,100)
-    OPEN (unit=iunit,file='sound_in', action='READ', status='OLD', IOSTAT=ist) 
+    OPEN (unit=iunit,file='sound_in', access='SEQUENTIAL', &
+            form='FORMATTED',action='READ', status='OLD', IOSTAT=ist) 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open verticaling sound file failed')
     ENDIF
@@ -677,7 +671,7 @@ MODULE mo_nh_torus_exp
     DO jk = klev,1,-1 
       READ (iunit,*,IOSTAT=ist) zs(jk),ths(jk),qvs(jk),us(jk),vs(jk)
       IF(ist/=success)THEN
-        CALL finish (TRIM(routine), 'reading souding file failed')
+        CALL finish (TRIM(routine), 'reading sounding file failed')
       ENDIF
     END DO
 
@@ -711,21 +705,18 @@ MODULE mo_nh_torus_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_warm_bubble( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                          ptr_int, ptr_metrics)
+  SUBROUTINE init_warm_bubble( ptr_patch, ptr_nh_prog, ptr_nh_diag, ptr_metrics)
 
     TYPE(t_patch),TARGET,  INTENT(IN)   ::  ptr_patch
-    TYPE(t_int_state),     INTENT(IN)   ::  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT)::  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT)::  ptr_nh_diag
     TYPE(t_nh_metrics),    INTENT(IN)   ::  ptr_metrics      
-    TYPE(t_nh_ref),        INTENT(INOUT)::  ptr_nh_ref
 
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
     REAL(wp) :: ex_sfc, x_loc(3), x_c(3), psfc_in, dis, inv_th0, pres_new
-    REAL(wp) :: th_new, qv_new, qc_new, th_old, th_ptb, temp_new
+    REAL(wp) :: th_new, qv_new, qc_new, th_ptb, temp_new
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, qc_in, tmp
-    INTEGER  :: jc,jk,jb,i_startidx,i_endidx   !< loop indices
+    INTEGER  :: jc,jk,jb   !< loop indices
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                  
     INTEGER  :: nlen, jg, itr

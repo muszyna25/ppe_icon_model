@@ -152,13 +152,7 @@ SUBROUTINE VDFPARCEL (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook   , &
                & RG       , RD       , RLSTT    , RCPD      , RLVTT   , & !yomcst
-               & RETV     , RTT      , &                                  ! -         
-               & R2ES     , R3LES    , R3IES    , &                       !yoethf
-               & R4LES    , R4IES    , R5LES    , R5IES     , RVTMP2  , & ! -
-               & RALVDCP  , RALSDCP  , &                                  ! -
-               & RTWAT    , RTICE    , RTICECU  , R5ALVCP   , R5ALSCP , & ! -
-               & RTWAT_RTICE_R       , RTWAT_RTICECU_R      , RTBERCU , & ! -
-               & RTICECU                                                  ! -
+               & RETV     , RTBERCU  , RTICECU                 ! -
 USE mo_edmf_param   ,ONLY : &
                 & FOEALFA                                                 !fcttre.f
 
@@ -218,15 +212,14 @@ REAL(KIND=JPRB)   ,INTENT(IN)      :: PVERVEL(KLON,KLEV)
 LOGICAL ::            LLDOIT(KLON), LLCLOUD(KLON), LLPREC
 
 REAL(KIND=JPRB) ::    ZRG   , ZDZ   , ZTVUF , ZQUF    , ZQCUF   , ZMU, ZB, &
-                    & ZQLUF , ZQIUF , ZQTUF , ZTUF  , ZSLGUF  , &
+                    & ZQLUF , ZQIUF , ZQTUF , ZTUF    , ZSLGUF  , &
                     & ZMIX  (KLON,0:KLEV), ZMIXW (KLON,0:KLEV) !,ZBUOF(KLON,KLEV)
 
-REAL(KIND=JPRB) ::    ZWUH  (KLON,0:KLEV)   , ZQUH  (KLON,0:KLEV)    , ZPH  (KLON), &
+REAL(KIND=JPRB) ::    ZWUH  (KLON,0:KLEV)   , ZPH  (KLON), &
                     & ZTTEMP(KLON,KLEV)     , ZQTEMP(KLON,KLEV)      
                     
-REAL(KIND=JPRB) ::    ZALFAW  , ZFACW   , ZFACI   , ZFAC    , ZTEMP ,&
-                    & ZESDP   , ZCOR    , ZDQSDTEMP(KLON)   , ZQS(KLON,0:KLEV), &
-                    & ZPGENUP , ZWUHTEMP(KLON), ZTAUEPS(KLON,0:KLEV), ZCEPSZ(KLON), &
+REAL(KIND=JPRB) ::    ZALFAW  , ZTEMP ,&
+                    & ZPGENUP , ZTAUEPS(KLON,0:KLEV), ZCEPSZ(KLON), &
                     & ZENTRLIM(KLON,0:KLEV), ZVERVELCRIT
 
 INTEGER(KIND=JPIM) :: IS, JK, JL, JKMAX, JKMIN

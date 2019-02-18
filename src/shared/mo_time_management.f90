@@ -45,7 +45,8 @@ MODULE mo_time_management
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
     &                                    set_calendar, set_is_relative_time,               &
-    &                                    set_tc_dt_model, calendar_index2string
+    &                                    set_tc_dt_model, set_tc_dt_dyn,                   &
+    &                                    calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
@@ -73,8 +74,8 @@ MODULE mo_time_management
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nonhydrostatic_config,    ONLY: divdamp_order
-!!$  USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
+  USE mo_initicon_config,          ONLY: timeshift 
 #endif
 
 
@@ -184,7 +185,8 @@ CONTAINS
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
     ! --------------------------------------------------------------
 
-    CALL set_tc_dt_model(dtime_string)
+    CALL set_tc_dt_model(dtime_string) ! dyn. time step  on the global grid
+    CALL set_tc_dt_dyn                 ! dyn. time steps on all grids
     IF (dtime_real > 0._wp) THEN
       ! In case that we came from the REAL-valued namelist setting of
       ! the time step we try to avoid rounding errors in floating
@@ -209,7 +211,14 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Model time step          : ', TRIM(dtime_string)
     CALL message('',message_text)
     CALL message('','')
-    
+    DO jg=1,n_dom
+       dtime1 => time_config%tc_dt_dyn(jg)
+       CALL timedeltaToString  (dtime1, dtime_string)
+       WRITE(message_text,'(a,i2.2,a,a,a,f8.3,a)') '- Time step on grid jg=',jg,': ', &
+         &   TRIM(dtime_string),' = ',time_config%dt_dyn_sec(jg),' sec'
+       CALL message('',message_text)
+    END DO
+
   END SUBROUTINE compute_timestep_settings
 
   !---------------------------------------------------------------------------------------
@@ -446,9 +455,13 @@ CONTAINS
       &                                       mtime_td
     TYPE(divisionquotienttimespan)        ::  mtime_quotient
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
-      &                                       errno
+      &                                       errno, tlen1, tlen2
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
     TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
+#ifndef __NO_ICON_ATMO__
+    REAL(wp)                              :: zdt_shift            ! rounded dt_shift
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: dt_shift_string
+#endif
 
     ! --------------------------------------------------------------
     ! PART I: Collect all the dates as ISO8601 strings
@@ -465,12 +478,17 @@ CONTAINS
     ! with concurrent namelist settings of the calendar (mtime):
     calendar1 = calendar_index2string(time_nml_icalendar)
     calendar2 = TRIM(master_nml_calendar)
-    IF (TRIM(calendar1) /= "")  calendar = calendar1
-    IF (TRIM(calendar2) /= "")  calendar = calendar2
-    IF ((TRIM(calendar1) /= "") .AND. (TRIM(calendar2) /= "")) THEN
-      ! both settings were used; we need to test for equality
-      IF (TRIM(tolower(calendar1)) /= TRIM(tolower(calendar2)))  &
-        &  CALL finish(routine, "Inconsistent setting of calendar")
+    tlen1 = LEN_TRIM(calendar1)
+    tlen2 = LEN_TRIM(calendar2)
+    IF (tlen2 /= 0) THEN
+      calendar = calendar2
+      IF (tlen1 /= 0) THEN
+        ! both settings were used; we need to test for equality
+        IF (tolower(calendar1) /= tolower(calendar2))  &
+             &  CALL finish(routine, "Inconsistent setting of calendar")
+      END IF
+    ELSE IF (tlen1 /= 0) THEN
+      calendar = calendar1
     END IF
     SELECT CASE (toLower(calendar))
     CASE ('julian gregorian')
@@ -526,11 +544,11 @@ CONTAINS
     !         set the experiment start date to the latter.
     !
     exp_start_datetime_string = ''
-    ini_datetime1 = TRIM(experimentStartDate)
-    ini_datetime2 = TRIM(ini_datetime_string)
-    IF (TRIM(ini_datetime1) /= "")  exp_start_datetime_string = ini_datetime1
-    IF (TRIM(ini_datetime2) /= "")  exp_start_datetime_string = ini_datetime2
-    IF ((TRIM(ini_datetime1) /= "") .AND. (LEN_TRIM(ini_datetime2) > 0)) THEN
+    ini_datetime1 = experimentStartDate
+    ini_datetime2 = ini_datetime_string
+    IF (ini_datetime1 /= "")  exp_start_datetime_string = ini_datetime1
+    IF (ini_datetime2 /= "")  exp_start_datetime_string = ini_datetime2
+    IF (ini_datetime1 /= "" .AND. LEN_TRIM(ini_datetime2) > 0) THEN
       ! both settings were used; we need to test for equality
       tmp_dt1 => newDatetime(ini_datetime1)
       tmp_dt2 => newDatetime(ini_datetime2)      
@@ -541,14 +559,14 @@ CONTAINS
       CALL deallocateDatetime(tmp_dt1)
       CALL deallocateDatetime(tmp_dt2)      
     END IF
-    IF ( (TRIM(ini_datetime1) == "")        .AND.  &
-      &  (TRIM(ini_datetime2) == "")        .AND.  &
-      &  (TRIM(experimentReferenceDate) /= "")) THEN
+    IF ( (ini_datetime1 == "")        .AND.  &
+      &  (ini_datetime2 == "")        .AND.  &
+      &  (experimentReferenceDate /= "")) THEN
       ! set the experiment start date to the reference date
       exp_start_datetime_string = experimentReferenceDate
     END IF
     ! throw an error, if no start date has been specified at all
-    IF (TRIM(exp_start_datetime_string) == "") THEN
+    IF (exp_start_datetime_string == "") THEN
       CALL finish(routine, "No experiment start date has been set!")
     END IF
 
@@ -565,11 +583,11 @@ CONTAINS
     !         "end_datetime_string" (in "time_nml") - the old way.
     !
     exp_stop_datetime_string = ''
-    end_datetime1 = TRIM(experimentStopDate)
-    end_datetime2 = TRIM(end_datetime_string)
-    IF (TRIM(end_datetime1) /= "")  exp_stop_datetime_string = end_datetime1
-    IF (TRIM(end_datetime2) /= "")  exp_stop_datetime_string = end_datetime2
-    IF ((TRIM(end_datetime1) /= "") .AND. (TRIM(end_datetime2) /= "")) THEN
+    end_datetime1 = experimentStopDate
+    end_datetime2 = end_datetime_string
+    IF (end_datetime1 /= "")  exp_stop_datetime_string = end_datetime1
+    IF (end_datetime2 /= "")  exp_stop_datetime_string = end_datetime2
+    IF (end_datetime1 /= "" .AND. end_datetime2 /= "") THEN
       ! both settings were used; we need to test for equality
       tmp_dt1 => newDatetime(end_datetime1)
       tmp_dt2 => newDatetime(end_datetime2)      
@@ -655,6 +673,47 @@ CONTAINS
     !         the start date computed above.
     !
     cur_datetime_string = start_datetime_string
+
+
+    IF (TRIM(model_string) == 'atm') THEN
+#ifndef __NO_ICON_ATMO__
+      !
+      ! timeshift-operations for CURRENT DATE
+      !
+      ! A timeshift will be used to shift the current model date, and thus 
+      ! the actual start date by timeshift%dt_shift backwards in time. 
+      ! This is required for the Incremental Analysis Update (IAU) procedure 
+      ! which is used during the initialization phase of the atmospheric 
+      ! model component, in order to filter spurious noise.
+      !
+      !
+      ! Round dt_shift to the nearest integer multiple of the advection time step
+      !
+      IF (timeshift%dt_shift < 0._wp) THEN
+        zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
+        IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
+          WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
+            &                               ' s in order to be an integer multiple of dtime ***'
+          CALL message('',message_text)
+        ENDIF
+        timeshift%dt_shift = zdt_shift
+      END IF
+      !
+      ! transform timeshift to mtime-format
+      !
+      CALL getPTStringFromSeconds(timeshift%dt_shift, dt_shift_string)
+      timeshift%mtime_shift => newTimedelta(TRIM(dt_shift_string))
+      WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(dt_shift_string)
+      !
+      CALL getPTStringFromSeconds(ABS(timeshift%dt_shift), dt_shift_string)
+      timeshift%mtime_absshift => newTimedelta(TRIM(dt_shift_string))
+      CALL message('',message_text)
+#endif
+    ENDIF
+
+
+
+
 
     ! --- --- STOP DATE:
     !
@@ -853,6 +912,18 @@ CONTAINS
     CALL set_tc_exp_stopdate ( exp_stop_datetime_string  )
     CALL set_tc_exp_refdate  ( exp_ref_datetime_string   )
     CALL set_tc_current_date ( cur_datetime_string       )
+
+    IF (TRIM(model_string) == 'atm') THEN
+#ifndef __NO_ICON_ATMO__
+      ! add IAU time shift to current date
+      IF (.NOT. isRestart()) THEN
+        IF (timeshift%dt_shift < 0._wp) THEN
+          time_config%tc_current_date = time_config%tc_current_date + timeshift%mtime_shift
+        ENDIF
+      ENDIF
+#endif
+    ENDIF
+
 
     ! --- Finally, store the same information in a "t_datetime" data
     !     structure

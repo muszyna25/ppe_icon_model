@@ -30,28 +30,18 @@ MODULE mo_lnd_nwp_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000
-  USE mo_var_metadata_types, ONLY: CLASS_TILE, CLASS_TILE_LAND
   USE mo_io_units,           ONLY: filename_max
-  USE mo_exception,          ONLY: finish
-  USE mo_util_cdi,           ONLY: trivial_tileinfo, trivial_tileId
-  USE mo_util_string,        ONLY: int2string
+  USE mo_nwp_sfc_tiles,      ONLY: t_tile_list, setup_tile_list
+
 
   IMPLICIT NONE
 
   PRIVATE
 
   ! FUNCTIONS/SUBROUTINES
-  PUBLIC :: getNumberOfTiles
-  PUBLIC :: select_tile
   PUBLIC :: configure_lnd_nwp
   PUBLIC :: convert_luc_ICON2GRIB
-  PUBLIC :: get_tile_suffix
-  PUBLIC :: find_tile_id
 
-  ! TYPES
-  PUBLIC :: t_GRIB2_tile
-  PUBLIC :: t_GRIB2_att
-  PUBLIC :: t_tile
 
   ! VARIABLES
   PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
@@ -59,11 +49,11 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lseaice, lprog_albsi, llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
-             itype_hydbound, idiag_snowfrac, cwimax_ml, c_soil, c_soil_urb
+             itype_hydbound, idiag_snowfrac, itype_snowevap, cwimax_ml, c_soil, c_soil_urb
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
-  PUBLIC :: tiles
+  PUBLIC :: tile_list
 
 
   !--------------------------------------------------------------------------
@@ -91,6 +81,7 @@ MODULE mo_lnd_nwp_config
   REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
+  INTEGER ::  itype_snowevap     !< treatment of snow evaporation in the presence of vegetation      
 
   LOGICAL ::  lseaice     !> forecast with sea-ice model
   LOGICAL ::  lprog_albsi !> sea-ice albedo is computed prognostically from a rate equation
@@ -126,28 +117,17 @@ MODULE mo_lnd_nwp_config
 !  TYPE(t_nwp_lnd_config) :: nwp_lnd_config(max_dom)
 
 
-   TYPE t_GRIB2_tile
-     INTEGER :: tileIndex                    ! tile Index (1,...,numberOfTiles)
-     INTEGER :: numberOfTileAttributes       ! number of used tile attributes
-   END TYPE t_GRIB2_tile
 
-   TYPE t_GRIB2_att
-     INTEGER     :: tileAttribute
-   END TYPE t_GRIB2_att
+   TYPE(t_tile_list), TARGET :: tile_list  ! list of tiles
 
-   TYPE t_tile
-     TYPE(t_GRIB2_tile) :: GRIB2_tile
-     TYPE(t_GRIB2_att)  :: GRIB2_att
-   END TYPE t_tile
-
-   TYPE(t_tile), ALLOCATABLE :: tiles(:)
 
    CHARACTER(LEN = *), PARAMETER :: modname = "mo_lnd_nwp_config"
+
 
 CONTAINS
 
   !>
-  !! setup components of the NWP land scheme depending on its namelist
+  !! setup components of the NWP land scheme
   !!
   !! Setup of additional nwp-land control variables depending on the 
   !! land-NAMELIST and potentially other namelists. This routine is 
@@ -164,7 +144,8 @@ CONTAINS
     REAL(wp) :: depth_hl         ! half level depth
 
     CHARACTER(len=*), PARAMETER::  &
-      &  routine = 'mo_lnd_nwp_config: configure_lnd_nwp'
+      &  routine = modname//"::configure_lnd_nwp"
+
     !-----------------------------------------------------------------------
 
     ! number of soil layers
@@ -184,6 +165,10 @@ CONTAINS
     ! make sure that ibot_w_so>=2
     ibot_w_so = MAX(2, ibot_w_so)
 
+
+    !
+    ! settings dealing with surface tiles
+    !
 
     IF (ntiles_lnd == 1) THEN ! Reset options that can be used in combination with tile approach
       lsnowtile     = .FALSE.
@@ -210,8 +195,20 @@ CONTAINS
     ENDIF
 
 
+
+    ! (open) water points tile number
+    isub_water  = MAX(1,ntiles_total + ntiles_water - 2)
+
+    ! lake points tile number
+    isub_lake   = MAX(1,ntiles_total + ntiles_water - 1)
+
+    ! sea-ice tile number
+    isub_seaice = ntiles_total + ntiles_water
+
+
+    ! this results in the following model internal tile structure
     !
-    ! ASCII art for internal tile structure, showing the configuration for:
+    ! ASCII art for ICON-internal tile structure, depicting the configuration for:
     ! - ntiles_lnd = 3
     ! - lsnowtile  = .TRUE.
     !
@@ -226,268 +223,18 @@ CONTAINS
     !<-------------- ntiles_total ------------>
     !
     !<---------------- ntiles_total + ntiles_water ------------------->
-    !
-
-    ! ASCII art for corresponding GRIB2 tile structure:
-    !
-    !-----------------------------------------------------------------!
-    !    land    |    land    |    land    |     oce    |    lake     !
-    !      1     |      2     |      3     |      4     |     5       !  <- GRIB2 Tile ID
-    !     / \    |     / \    |     / \    |     / \    |     |       !
-    !****/***\***|****/***\***|****/***\***|****/***\***|*****|*******!  *******************
-    ! umod | snw | umod | snw | umod | snw | umod | ice |   undef     !  <- Attribute
-    !  1   |  4  |   2  |  5  |   3  |  6  |   7  |  9  |     8       !  <- Internal Tile ID
-    !-----------------------------------------------------------------!     
-
-
-    ! (open) water points tile number
-    isub_water  = MAX(1,ntiles_total + ntiles_water - 2)
-
-    ! lake points tile number
-    isub_lake   = MAX(1,ntiles_total + ntiles_water - 1)
-
-    ! sea-ice tile number
-    isub_seaice = ntiles_total + ntiles_water
 
 
     ! Setup tile meta-information required for tile I/O.
-    CALL setup_tile_metainfo (tiles, ntiles_lnd, ntiles_total, ntiles_water)
+    !
+    ! I.e. the mapping between the internal tile structure and the output 
+    ! structure (according to GRIB2 Product Definition Template (PDT) 4.55) 
+    ! is set up 
+    CALL setup_tile_list (tile_list, ntiles_lnd, lsnowtile, isub_water, isub_lake, isub_seaice)
+
 
   END SUBROUTINE configure_lnd_nwp
 
-
-  !>
-  !! Provides number of tiles
-  !!
-  !! Provides number of tiles, as it is required for GRIB2 encoding.
-  !! It differs from the ICON internal counting rules for tiles, in that 
-  !! snowtiles and the sea-ice tile are not considered as separate tiles.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-01-22)
-  !!
-  FUNCTION getNumberOfTiles (class)  RESULT (numberOfTiles)
-
-    INTEGER, INTENT(IN) :: class           ! CLASS_TILE
-                                           !   variable contains land and water tiles 
-                                           ! CLASS_TILE_LAND
-                                           !   variable contains only land tiles
-    INTEGER             :: numberOfTiles   ! number of tiles for GRIB2 encoding
-
-    SELECT CASE(class)
-    CASE(CLASS_TILE)
-      ! snow tiles and sea-ice tile are not taken into account.
-      numberOfTiles = MAX(1,ntiles_lnd + ntiles_water - 1)
-    CASE(CLASS_TILE_LAND)
-      ! water tiles, snow tiles and sea-ice tile are not taken into account.
-      numberOfTiles = ntiles_lnd
-    CASE DEFAULT
-      CALL finish( 'mo_lnd_nwp_config:getNumberOfTiles', 'class not supported' )
-
-    END SELECT
-
-  END FUNCTION getNumberOfTiles
-
-
-  !>
-  !! Setup tile meta-information
-  !!
-  !! Setup tile meta-information required for tile I/O. 
-  !! For each ICON-tile the following keys are defined:
-  !! - tileIndex
-  !! - numberOfTileAttributes
-  !! - tileAttribute
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
-  !!
-  SUBROUTINE setup_tile_metainfo (tiles, ntiles_lnd, ntiles_total, ntiles_water)
-
-    TYPE(t_tile), ALLOCATABLE, INTENT(INOUT) :: tiles(:)
-    INTEGER                  , INTENT(IN)    :: ntiles_lnd 
-    INTEGER                  , INTENT(IN)    :: ntiles_total
-    INTEGER                  , INTENT(IN)    :: ntiles_water
-
-    ! Local
-    INTEGER :: i                 ! tile loop counter
-    INTEGER :: nat_lnd, nat_oce  ! number of attributes for land tiles and ocean tile
-    INTEGER :: istat             ! error flag
-
-    ! tile attributes
-    INTEGER, PARAMETER :: UNDEF = 0  ! undefined
-    INTEGER, PARAMETER :: UNMOD = 1  ! unmodified
-    INTEGER, PARAMETER :: SNOW  = 2  ! snow-covered
-    INTEGER, PARAMETER :: SEAICE= 4  ! sea ice covered
-
-    !-----------------------------------------------------------------------
-
-    ! allocate tile array
-    ALLOCATE(tiles(ntiles_total + ntiles_water), STAT=istat)
-    IF (istat /= 0) THEN
-      CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
-        &      'allocation of array tiles failed')
-    ENDIF
-
-
-    IF (ntiles_total > 1) THEN  ! tile approach is used
-
-      ! define number of attributes for land tiles
-      ! can be unmodified or snow covered
-      IF (lsnowtile) THEN
-        nat_lnd = 2
-      ELSE
-        nat_lnd = 1
-      ENDIF
-
-      ! define number of attributes for ocean tile
-      ! can be unmodified or sea ice covered
-      IF (ntiles_water > 0) THEN
-        nat_oce = 2
-      ELSE
-        nat_oce = 0
-      ENDIF
-
-
-      ! fill in tile meta information
-      DOTILES: DO i=1, SIZE(tiles)
- 
-        IF (i<=ntiles_lnd) THEN  ! dominating land tiles
-  
-          tiles(i)%GRIB2_tile%tileIndex              = i
-          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
-          tiles(i)%GRIB2_att%tileAttribute           = MERGE(UNMOD, UNDEF, nat_lnd>1)
-  
-        ELSE IF ( (i>ntiles_lnd) .AND. (i<= ntiles_total) ) THEN ! corresponding snow tiles (if present)
-  
-          tiles(i)%GRIB2_tile%tileIndex              = i - ntiles_lnd
-          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_lnd
-          tiles(i)%GRIB2_att%tileAttribute           = SNOW
-  
-        ELSE IF ( i == isub_water ) THEN ! ocean tiles (unfrozen)
-  
-          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
-          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
-          tiles(i)%GRIB2_att%tileAttribute           = UNMOD
-  
-        ELSE IF ( i == isub_lake ) THEN  ! lake tile
-  
-          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 2
-          tiles(i)%GRIB2_tile%numberOfTileAttributes = 1
-          tiles(i)%GRIB2_att%tileAttribute           = UNDEF
-  
-        ELSE IF ( i == isub_seaice ) THEN ! sea-ice tile
-  
-          tiles(i)%GRIB2_tile%tileIndex              = ntiles_lnd + 1
-          tiles(i)%GRIB2_tile%numberOfTileAttributes = nat_oce
-          tiles(i)%GRIB2_att%tileAttribute           = SEAICE
-
-        ELSE
-          CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
-            &      ' failed')
-        END IF
-  
-      ENDDO DOTILES
-
-    ELSE IF (ntiles_total == 1) THEN  ! no tile apporach
-      ! set trivial tile info
-      tiles(1)%GRIB2_tile%tileIndex                = trivial_tileinfo%idx
-      tiles(1)%GRIB2_tile%numberOfTileAttributes   = 0
-      tiles(1)%GRIB2_att%tileAttribute             = trivial_tileinfo%att
-    ELSE
-      CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
-        &    ' invalid number of tiles ntiles_total')
-    ENDIF  ! ntiles_total > 1
-
-  END SUBROUTINE setup_tile_metainfo
-
-
-  !>
-  !! Select tile
-  !!
-  !! Select specific tile and corresponding tile information.
-  !! Since the ICON internal tile nomenclature and structure differes 
-  !! from the GRIB2 tile nomenclature, this function provides the GRIB2 
-  !! tileIndex, given the internal tile ID (tile number) as input.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-01-23)
-  !!
-  FUNCTION select_tile (tileID_int)  RESULT (selected_tile)
-
-    INTEGER, INTENT(IN) :: tileID_int
-
-    TYPE(t_tile) :: selected_tile
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":select_tile"
-
-    !-----------------------------------------------------------------------
-
-    IF(tileID_int == trivial_tileId) then
-        selected_tile%GRIB2_tile%tileIndex = trivial_tileinfo%idx
-        selected_tile%GRIB2_tile%numberOfTileAttributes = 0
-        selected_tile%GRIB2_att%tileAttribute = trivial_tileinfo%att
-    ELSE IF(tileID_int < 1 .OR. tileID_int > SIZE(tiles, 1)) THEN
-        CALL finish(routine, "illegal tileID "//int2string(tileID_int))
-    ELSE
-        selected_tile =  tiles(tileID_int)
-    END IF
-
-  END FUNCTION select_tile
-
-
-  !>
-  !! Convert tile/attribute pair into ICON-internal varname suffix
-  !!
-  !! Convert tile/attribute pair into ICON-internal varname suffix '_t_X'
-  !! Returns the empty string for the trivial_tileinfo.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2015-03-05)
-  !!
-  FUNCTION get_tile_suffix(tileIdx, tileAtt) RESULT (tileSuffix)
-    INTEGER, VALUE :: tileIdx        ! GRIB2 Tile ID
-    INTEGER, VALUE :: tileAtt        ! GRIB2 Tile Attribute
-
-    INTEGER :: tileId
-    CHARACTER(LEN=2) :: tileIdx_str
-    CHARACTER(LEN=5) :: tileSuffix
-
-    !special case: trivial tileinfo => empty suffix
-    IF(tileIdx == trivial_tileinfo%idx .OR. tileAtt == trivial_tileinfo%att) THEN
-        tileSuffix =''
-        RETURN
-    END IF
-
-    !get the tile ID
-    tileId = find_tile_id(tileIdx, tileAtt)
-    IF(tileId == 0) THEN
-        CALL finish('mo_lnd_nwp_config:get_tile_suffix', &
-        &           'Invalid tile/attribute pair ('//int2string(tileIdx)//', '//int2string(tileAtt)//')' )
-    END IF
-
-    !convert the tile ID to the corresponding suffix string
-    WRITE(tileIdx_str,'(i2)') tileId
-    tileSuffix = '_t_'//TRIM(ADJUSTL(tileIdx_str))
-  END FUNCTION get_tile_suffix
-
-  !>
-  !! Find a given tile index-attribute pair within the tiles array AND RETURN its index.
-  !! This results IN a unique, ICON-internal ID for the tile.
-  !!
-  !! Returns zero on failure to find the given tile.
-  !!
-  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(resultVar)
-    INTEGER, VALUE :: tileIndex, tileAttribute  !GRIB2 tile index AND attribute values
-    INTEGER :: resultVar
-
-    DO resultVar = 1, SIZE(tiles, 1)
-        IF(tiles(resultVar)%GRIB2_tile%tileIndex == tileIndex) THEN
-            IF(tiles(resultVar)%GRIB2_att%tileAttribute == tileAttribute) THEN
-                RETURN
-            END IF
-        END IF
-    END DO
-    resultVar = -1
-  END FUNCTION find_tile_id
 
 
   !>

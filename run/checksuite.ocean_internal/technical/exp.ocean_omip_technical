@@ -63,7 +63,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   operation        = "mean"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:ice_default'
+  ml_varlist       =  'group:oce_default','-mld','group:ice_default'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -150,7 +150,6 @@ cat > ${ocean_namelist} << EOF
   lambda_wind                     = 0.03
   tracer_TopWindMixing            = 4.0E-6
   velocity_TopWindMixing          = 4.0E-6
-  Salinity_ConvectionRestrict     = 0.0
 /                                           
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

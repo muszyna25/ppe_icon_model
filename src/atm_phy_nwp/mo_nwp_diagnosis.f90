@@ -26,6 +26,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "consistent_fma.inc"
 !----------------------------
 
 MODULE mo_nwp_diagnosis
@@ -39,7 +40,7 @@ MODULE mo_nwp_diagnosis
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
+  USE mo_run_config,         ONLY: iqv, iqc, iqi, iqr, iqs,  &
                                    iqni, iqg, iqh, iqnc, iqm_max
   USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -65,6 +66,7 @@ MODULE mo_nwp_diagnosis
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
+  USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
 
   IMPLICIT NONE
 
@@ -769,6 +771,7 @@ CONTAINS
           ENDDO
 
           ! total cloud cover
+!PREVENT_INCONSISTENT_IFORT_FMA
           DO jk = kstart_moist+1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -812,17 +815,20 @@ CONTAINS
           ENDDO
 
           ! calibration of layer-wise cloud cover fields
-          DO jc = i_startidx, i_endidx
-            clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
-              EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
-            clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
-              EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
-            clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
-              MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
-            prm_diag%clct(jc,jb) = MIN(1._wp,clct_fac*prm_diag%clct(jc,jb))
-            prm_diag%clcm(jc,jb) = clcm_mod
-            prm_diag%clcl(jc,jb) = clcl_mod
-          ENDDO
+          IF (lcalib_clcov) THEN
+            DO jc = i_startidx, i_endidx
+              clcl_mod = MIN(4._wp*prm_diag%clcl(jc,jb), &
+                EXP((1._wp+prm_diag%clcl(jc,jb))/2._wp*LOG(MAX(eps_clc,prm_diag%clcl(jc,jb)))))
+              clcm_mod = MIN(3._wp*prm_diag%clcm(jc,jb), &
+                EXP((2._wp+prm_diag%clcm(jc,jb))/3._wp*LOG(MAX(eps_clc,prm_diag%clcm(jc,jb)))))
+              clct_fac = (clcl_mod+clcm_mod+prm_diag%clch(jc,jb)) /                        &
+                MAX(eps_clc,prm_diag%clcl(jc,jb)+prm_diag%clcm(jc,jb)+prm_diag%clch(jc,jb))
+              clct_fac = MIN(clct_fac, SQRT(1._wp/MAX(0.05_wp,prm_diag%clct(jc,jb))) )
+              prm_diag%clct(jc,jb) = clct_fac*prm_diag%clct(jc,jb)
+              prm_diag%clcm(jc,jb) = clcm_mod
+              prm_diag%clcl(jc,jb) = clcl_mod
+            ENDDO
+          ENDIF
 
         END SELECT
 
@@ -1500,13 +1506,11 @@ CONTAINS
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-01-07)
   !!
-  SUBROUTINE nwp_diag_output_2(p_patch, p_prog_rcf, prm_nwp_tend, lcall_turb)
+  SUBROUTINE nwp_diag_output_2(p_patch, p_prog_rcf, prm_nwp_tend)
 
     TYPE(t_patch), TARGET,INTENT(in) :: p_patch      !< grid/patch info.
     TYPE(t_nh_prog),      INTENT(in) :: p_prog_rcf   !< state for TKE
     TYPE(t_nwp_phy_tend), INTENT(in) :: prm_nwp_tend !< physics tendencies
-
-    LOGICAL,  INTENT(in) :: lcall_turb ! switch if turbulence has been called
 
     ! Local variables
 
@@ -1536,76 +1540,65 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
-    ! In case that turbulence diagnostics are computed
-    IF (msg_level >= 18) THEN
-      maxtke(:,:)   = 0._wp
-      maxtturb(:,:) = 0._wp
-      maxuturb(:,:) = 0._wp
-      maxvturb(:,:) = 0._wp
-    ENDIF
+    ! initialization
+    maxtke(:,:)   = 0._wp
+    maxtturb(:,:) = 0._wp
+    maxuturb(:,:) = 0._wp
+    maxvturb(:,:) = 0._wp
 
 !$OMP PARALLEL
-
-    ! Extended turbulence diagnostics if msg_level >= 18
-    IF (lcall_turb .AND. msg_level >= 18) THEN
-
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1, nlevp1
-          DO jc = i_startidx, i_endidx
-            maxtke(jb,jk) = MAX(maxtke(jb,jk),p_prog_rcf%tke(jc,jk,jb))
-          ENDDO
+      DO jk = 1, nlevp1
+        DO jc = i_startidx, i_endidx
+          maxtke(jb,jk) = MAX(maxtke(jb,jk),p_prog_rcf%tke(jc,jk,jb))
         ENDDO
-
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            maxtturb(jb,jk) = MAX(maxtturb(jb,jk),ABS(prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-            maxuturb(jb,jk) = MAX(maxuturb(jb,jk),ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb)))
-            maxvturb(jb,jk) = MAX(maxvturb(jb,jk),ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb)))
-          ENDDO
-        ENDDO
-
       ENDDO
-!$OMP END DO NOWAIT
 
-    ENDIF
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          maxtturb(jb,jk) = MAX(maxtturb(jb,jk),ABS(prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+          maxuturb(jb,jk) = MAX(maxuturb(jb,jk),ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb)))
+          maxvturb(jb,jk) = MAX(maxvturb(jb,jk),ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb)))
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (msg_level >= 18 .AND. lcall_turb) THEN ! extended turbulence diagnostic
-      DO jk = 1, nlevp1
-        tkemax(jk) = MAXVAL(maxtke(:,jk))
-      ENDDO
-      DO jk = 1, nlev
-        tturbmax(jk) = MAXVAL(maxtturb(:,jk))
-        uturbmax(jk) = MAXVAL(maxuturb(:,jk))
-        vturbmax(jk) = MAXVAL(maxvturb(:,jk))
-      ENDDO
+    DO jk = 1, nlevp1
+      tkemax(jk) = MAXVAL(maxtke(:,jk))
+    ENDDO
+    DO jk = 1, nlev
+      tturbmax(jk) = MAXVAL(maxtturb(:,jk))
+      uturbmax(jk) = MAXVAL(maxuturb(:,jk))
+      vturbmax(jk) = MAXVAL(maxvturb(:,jk))
+    ENDDO
 
-      ! Take maximum over all PEs
-      tkemax   = global_max(tkemax)
-      tturbmax = global_max(tturbmax)
-      uturbmax = global_max(uturbmax)
-      vturbmax = global_max(vturbmax)
+    ! Take maximum over all PEs
+    tkemax   = global_max(tkemax)
+    tturbmax = global_max(tturbmax)
+    uturbmax = global_max(uturbmax)
+    vturbmax = global_max(vturbmax)
 
-      WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
-      CALL message('nwp_diag_output_2: ', TRIM(message_text))
-      WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
+    WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
+    CALL message('nwp_diag_output_2: ', TRIM(message_text))
+    WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
+    CALL message('', TRIM(message_text))
+
+    DO jk = 1, nlev
+      WRITE(message_text,'(a,i3,4(a,e13.5))') 'level ',jk,': TKE =',tkemax(jk), &
+        ', utend =',uturbmax(jk),', vtend =',vturbmax(jk),', ttend =',tturbmax(jk)
       CALL message('', TRIM(message_text))
-
-      DO jk = 1, nlev
-        WRITE(message_text,'(a,i3,4(a,e13.5))') 'level ',jk,': TKE =',tkemax(jk), &
-          ', utend =',uturbmax(jk),', vtend =',vturbmax(jk),', ttend =',tturbmax(jk)
-        CALL message('', TRIM(message_text))
-      ENDDO
-      jk = nlevp1
-      WRITE(message_text,'(a,i3,a,e13.5)') 'level ',jk,': TKE =',tkemax(jk)
-      CALL message('', TRIM(message_text))
-    ENDIF
+    ENDDO
+    jk = nlevp1
+    WRITE(message_text,'(a,i3,a,e13.5)') 'level ',jk,': TKE =',tkemax(jk)
+    CALL message('', TRIM(message_text))
 
   END SUBROUTINE nwp_diag_output_2
 

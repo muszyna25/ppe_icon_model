@@ -38,10 +38,13 @@ MODULE mo_ocean_state
     &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp,  &
     &                               nbgctra, nbgcadv,lhamocc,                                     &
     &                               GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,          &
-    &                               REDI_INDIVIDUAL_DIAGNOSTIC
+    &                               REDI_INDIVIDUAL_DIAGNOSTIC, eddydiag
   USE mo_run_config,          ONLY: test_mode
   USE mo_ocean_types,         ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
-    &                               t_hydro_ocean_aux , t_oce_config ,t_ocean_tracer
+    &                               t_hydro_ocean_aux , t_oce_config,   &
+    &                               t_ocean_checkpoint, t_ocean_adjoint
+  USE mo_ocean_nudging_types, ONLY: t_ocean_nudge
+  USE mo_ocean_nudging,       ONLY: ocean_nudge  
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,     &
@@ -57,8 +60,7 @@ MODULE mo_ocean_state
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius, grid_angular_velocity, &
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-
+  USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -66,17 +68,24 @@ MODULE mo_ocean_state
     &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups
+  USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_INT8, DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, GRID_ZONAL
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
+    &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
+    &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
+    &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
+    &                               GRID_ZONAL
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
+      &                             grid_unstructured_vert, grid_vertex 
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
   USE mo_hamocc_output,      ONLY: construct_hamocc_state_prog
+  USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
   IMPLICIT NONE
   PRIVATE
@@ -102,9 +111,12 @@ MODULE mo_ocean_state
   PRIVATE :: construct_hydro_ocean_diag
   PRIVATE :: construct_hydro_ocean_prog
   PRIVATE :: construct_hydro_ocean_aux
+  PUBLIC  :: construct_ocean_nudge
   !destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
+  PRIVATE :: destruct_ocean_nudge
+
   !----------------------------------------------------------------------------
 
   ! variables
@@ -159,10 +171,11 @@ CONTAINS
   !
   !
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_state( patch_3d, ocean_state )
+  SUBROUTINE construct_hydro_ocean_state( patch_3d, ocean_state, ncheckpoints )
 
     TYPE(t_patch_3D), TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state(n_dom)
+    INTEGER, INTENT(IN) :: ncheckpoints
 
     ! local variables
     TYPE(t_patch), POINTER :: patch_2d
@@ -189,9 +202,9 @@ CONTAINS
         ! timelevel nnow is not used by the ocean - therefore we dont allocate
         ! variables for this timelevel
         IF (timelevel .ne. nnow(1)) THEN
-        CALL construct_hydro_ocean_prog(patch_2d, &
-            &                           ocean_state(1)%p_prog(timelevel), &
-            &                           get_timelevel_string(timelevel))
+          CALL construct_hydro_ocean_prog(patch_3d, &
+            &                             ocean_state(1)%p_prog(timelevel), &
+            &                             get_timelevel_string(timelevel))
         IF ( lhamocc ) THEN
           CALL construct_hamocc_state_prog(ocean_restart_list, &
             &                              patch_2d, &
@@ -205,9 +218,222 @@ CONTAINS
     CALL construct_hydro_ocean_diag(patch_2d, ocean_state(1)%p_diag)
     CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux)
 
+    CALL construct_checkpoints(patch_2d, ocean_state(1)%p_check,ncheckpoints)
+#ifdef __COMPAD_ADJLOOP__
+    CALL construct_adjoints(patch_2d, ocean_state(1)%p_adjoint)
+#endif    
     CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
   END SUBROUTINE construct_hydro_ocean_state
+
+  SUBROUTINE construct_checkpoints(patch_2d,checkpoint,ncheckpoints)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_ocean_checkpoint), POINTER :: checkpoint(:)
+    INTEGER, INTENT(IN)               :: ncheckpoints
+
+    INTEGER :: status,i, alloc_cell_blocks, nblks_e,nblks_v
+    CHARACTER(LEN=max_char_length) :: var_suffix
+
+ 
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    nblks_e = patch_2d%nblks_e
+    nblks_v = patch_2d%nblks_v
+
+
+    ALLOCATE(checkpoint(0:ncheckpoints),stat=status)
+    IF (status/=success) THEN
+      CALL finish('allocation of checkpoint failed!')
+    END IF
+    DO i=0,ncheckpoints
+        WRITE(var_suffix,'(a,i2.2)') '_',i
+        ALLOCATE(checkpoint(i)%h(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "h"!')
+        ALLOCATE(checkpoint(i)%vn(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "vn"!')
+        ALLOCATE(checkpoint(i)%t(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "t"!')
+        ALLOCATE(checkpoint(i)%s(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "s"!')
+
+        checkpoint(i)%h = 0.0_wp
+        checkpoint(i)%vn = 0.0_wp
+        checkpoint(i)%t = 0.0_wp
+        checkpoint(i)%s = 0.0_wp
+
+        ALLOCATE(checkpoint(i)%h0(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "h0"!')
+        ALLOCATE(checkpoint(i)%vn0(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "vn0"!')
+        ALLOCATE(checkpoint(i)%t0(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "t0"!')
+        ALLOCATE(checkpoint(i)%s0(nproma,n_zlev,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "s0"!')
+
+        checkpoint(i)%h0 = 0.0_wp
+        checkpoint(i)%vn0 = 0.0_wp
+        checkpoint(i)%t0 = 0.0_wp
+        checkpoint(i)%s0 = 0.0_wp
+
+     
+        ALLOCATE(checkpoint(i)%w(nproma,n_zlev+1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "w"!')
+        ALLOCATE(checkpoint(i)%zgrad_rho(nproma,n_zlev,alloc_cell_blocks),stat=status)
+
+        checkpoint(i)%w = 0.0_wp
+        checkpoint(i)%zgrad_rho = 0.0_wp
+
+
+        ALLOCATE(checkpoint(i)%g_nm1(nproma,n_zlev,nblks_e),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "gnm1"!')
+
+        checkpoint(i)%g_nm1 = 0.0_wp
+        
+        ALLOCATE(checkpoint(i)%hi(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "hi"!')
+        ALLOCATE(checkpoint(i)%hs(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "hs"!')
+        ALLOCATE(checkpoint(i)%conc(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "conc"!')
+        ALLOCATE(checkpoint(i)%zUnderIce(nproma,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "zUnderIce"!')
+        ALLOCATE(checkpoint(i)%Tsurf(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "Tsurf"!')
+        ALLOCATE(checkpoint(i)%T1(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "T1"!')
+        ALLOCATE(checkpoint(i)%T2(nproma,1,alloc_cell_blocks),stat=status)
+        IF (status/=success) CALL finish('Could not allocate checkpoints for "T2"!')
+! 
+
+        ALLOCATE(checkpoint(i)%hiold(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%hsold(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%zHeatOceI(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatOceI(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatOceW(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%newice(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%alb(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Qtop(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Qbot(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%E1(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%E2(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Tfw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%vol(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%vols(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%concSum(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%draft(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%draftave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%concSum(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdirw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdifw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdirw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdifw(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdir(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albvisdif(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdir(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%albnirdif(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%Wind_Speed_10m(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Total(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Shortwave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_LongWave(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Sensible(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Latent(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Precipitation(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Evaporation(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_SnowFall(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Runoff(nproma,alloc_cell_blocks),stat=status)
+
+        ALLOCATE(checkpoint(i)%SaltFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%HeatFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%TempFlux_Relax(nproma,alloc_cell_blocks),stat=status)
+
+        ALLOCATE(checkpoint(i)%SWnet (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%lat  (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%sens (nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%LWnet(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dlatdT(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dsensdT(nproma,1,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%dLWdT(nproma,1,alloc_cell_blocks),stat=status)
+
+
+!       ALLOCATE(checkpoint(i)%u_prog(nproma,nblks_v),stat=status)
+!       ALLOCATE(checkpoint(i)%v_prog(nproma,nblks_v),stat=status)
+!       ALLOCATE(checkpoint(i)%u    (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%v    (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%vn_e (nproma,nblks_e),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_x (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_y (nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_xw(nproma,alloc_cell_blocks),stat=status)
+!       ALLOCATE(checkpoint(i)%atmos_fluxes_stress_yw(nproma,alloc_cell_blocks),stat=status)
+    END DO
+  END SUBROUTINE construct_checkpoints
+  SUBROUTINE construct_adjoints(patch_2d, adjoints)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_ocean_adjoint) :: adjoints
+
+    INTEGER :: i
+
+    i = patch_2d%alloc_cell_blocks
+
+    CALL add_var(ocean_restart_list, 'h_adjoint', adjoints%h , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('h_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,i/))
+    
+    !! normal velocity component
+    CALL add_var(ocean_restart_list,'vn_adjoint',adjoints%vn,grid_unstructured_edge, &
+      & za_depth_below_sea, &
+      & t_cf_var('vn_adjoint', 'm/s', 'adjoint normal velocity on edge', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,patch_2d%nblks_e/))
+    
+    !! Tracers
+    CALL add_var(ocean_restart_list, 't_adjoint', adjoints%t , &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('t_adjoint', '', 'adjoint temperature', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/))
+    CALL add_var(ocean_restart_list, 's_adjoint', adjoints%s , &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('s_adjoint', '', 'adjoint salinity', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,patch_2d%alloc_cell_blocks/))
+
+    ! stuff the the sea ice model since icon-ocean does not run without it
+    ! TODO
+#ifndef  __NO_SEAICE_ADJOINTS__
+    CALL add_var(ocean_restart_list, 'hi_adjoint', adjoints%hi , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('hs_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'hs_adjoint', adjoints%hs , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('hs_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'zUnderIce_adjoint', adjoints%zUnderIce , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('zUnderIce_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,i/))
+    CALL add_var(ocean_restart_list, 'Tsurf_adjoint', adjoints%Tsurf , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('Tsurf_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'T1_adjoint', adjoints%T1 , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('T1_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+    CALL add_var(ocean_restart_list, 'T2_adjoint', adjoints%T2 , &
+      & grid_unstructured_cell, za_surface,    &
+      & t_cf_var('T2_adjoint', 'm', 'adjoint surface elevation at cell center', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,1,i/))
+#endif /* __NO_SEAICE_ADJOINTS__ */
+  END SUBROUTINE construct_adjoints
 
   !-------------------------------------------------------------------------
   !>
@@ -404,16 +630,18 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_prog(patch_2d, ocean_state_prog, var_suffix)
+  SUBROUTINE construct_hydro_ocean_prog(patch_3d, ocean_state_prog, var_suffix)
 
-    TYPE(t_patch), INTENT(in), TARGET         :: patch_2d
+    TYPE(t_patch_3D), TARGET, INTENT(in)      :: patch_3d
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: ocean_state_prog
     CHARACTER(LEN=4)                          :: var_suffix
 
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
     INTEGER :: jtrc
+    TYPE(t_ocean_tracer), POINTER :: tracer
+    TYPE(t_patch), POINTER         :: patch_2d
 
-
+    patch_2d => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
@@ -435,6 +663,8 @@ CONTAINS
 
       !! Tracers
       IF ( no_tracer > 0 ) THEN
+#ifdef __NO_HAMOCC__
+#endif
         CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
           & grid_unstructured_cell, za_depth_below_sea, &
           & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
@@ -461,13 +691,24 @@ CONTAINS
             & in_group=groups("oce_default", "oce_essentials","oce_prog"))
         END DO
 
+        !--------------------------------------------------------------------------
         ! use of the ocean_tracers structure
-        ALLOCATE(ocean_state_prog%ocean_tracers(no_tracer+nbgctra))
+        ALLOCATE(ocean_state_prog%tracer_collection%tracer(no_tracer+nbgctra))
+        ocean_state_prog%tracer_collection%no_of_tracers = no_tracer+nbgctra
+        ocean_state_prog%tracer_collection%patch_3d => patch_3d
         DO jtrc = 1,no_tracer+nbgctra
+          tracer => ocean_state_prog%tracer_collection%tracer(jtrc)
           ! point the concentration to the 4D tracer
           ! this is a tmeporary solution until the whole code is cleaned
-          ocean_state_prog%ocean_tracers(jtrc)%concentration =>  ocean_state_prog%tracer(:,:,:,jtrc)
-
+          tracer%concentration => ocean_state_prog%tracer(:,:,:,jtrc) 
+          NULLIFY(tracer%top_bc)
+          NULLIFY(tracer%bottom_bc)
+          IF (jtrc <= no_tracer+nbgcadv) THEN
+            tracer%is_advected = .true.
+          ELSE
+            tracer%is_advected = .false.
+          ENDIF
+            
           ! allocate a
   !         IF (use_tracer_x_height) THEN
   !           !
@@ -482,6 +723,10 @@ CONTAINS
   !
   !         ENDIF ! use_tracer_x_height
         ENDDO
+        !---------------------------------------------------------------------------
+      ELSE
+
+        ocean_state_prog%tracer_collection%no_of_tracers = 0
 
       ENDIF ! no_tracer > 0
 
@@ -550,9 +795,33 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
+    CALL add_var(ocean_default_list, 'global_heat_content', ocean_state_diag%monitor%global_heat_content , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_heat_content', 'J', 'global_heat_content', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'global_heat_content_solid', ocean_state_diag%monitor%global_heat_content_solid , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_heat_content_solid', 'J', 'global_heat_content_solid', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'ssh_global', ocean_state_diag%monitor%ssh_global , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('ssh_global', 'm', 'ssh_global', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_LONLAT),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'sst_global', ocean_state_diag%monitor%sst_global , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('sst_global', 'm', 'global mean sea surface temperature', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_LONLAT),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'sss_global', ocean_state_diag%monitor%sss_global , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('sss_global', 'm', 'global mean sea surface salinity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_LONLAT),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
@@ -578,7 +847,7 @@ CONTAINS
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall_global', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 'FrshFlux_Evaporation_global', ocean_state_diag%monitor%FrshFlux_Evaporation , &
       & GRID_LONLAT, za_surface,    &
@@ -589,6 +858,36 @@ CONTAINS
     CALL add_var(ocean_default_list, 'FrshFlux_Runoff_global', ocean_state_diag%monitor%FrshFlux_Runoff , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce_global', ocean_state_diag%monitor%FrshFlux_VolumeIce , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean_global', ocean_state_diag%monitor%FrshFlux_TotalOcean , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce_global', ocean_state_diag%monitor%FrshFlux_TotalIce , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal_global', ocean_state_diag%monitor%FrshFlux_VolumeTotal , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'totalsnowfall_global', ocean_state_diag%monitor%totalsnowfall , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('totalsnowfall', 'm/s', 'totalsnowfall', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
@@ -616,6 +915,15 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
     ! }}}
+
+! { not yet in monitoring
+    CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt_global', ocean_state_diag%monitor%FrshFlux_TotalSalt , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & ldims=(/1/))
+!     & in_group=groups("ocean_monitor"),ldims=(/1/))
+! }
 
     ! ocean through-flows {{{
     CALL add_var(ocean_default_list, 'ice_framStrait', ocean_state_diag%monitor%ice_framStrait , &
@@ -703,36 +1011,7 @@ CONTAINS
       & in_group=groups("ocean_flows"),ldims=(/1/))
     ! }}}
 
-    ! currently NOT maintained monitoring quatities {{{
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalSalt_global', ocean_state_diag%monitor%FrshFlux_TotalSalt , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalOcean_global', ocean_state_diag%monitor%FrshFlux_TotalOcean , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce_global', ocean_state_diag%monitor%FrshFlux_TotalIce , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_VolumeIce_global', ocean_state_diag%monitor%FrshFlux_VolumeIce , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal_global', ocean_state_diag%monitor%FrshFlux_VolumeTotal , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
+    ! currently NOT maintained monitoring quantities {{{
 
     CALL add_var(ocean_default_list, 'HeatFlux_Relax_global', ocean_state_diag%monitor%HeatFlux_Relax , &
       & GRID_LONLAT, za_surface,    &
@@ -775,6 +1054,7 @@ CONTAINS
       & t_cf_var('vorticity', '', 'vorticity', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'absolute_vertical_velocity_global', ocean_state_diag%monitor%absolute_vertical_velocity , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('absolute_vertical_velocity', 'm/s', 'absolute_vertical_velocity', datatype_flt),&
@@ -929,11 +1209,31 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
+    ! tendency of snow
+      CALL add_var(ocean_default_list, 'delta_snow', ocean_state_diag%delta_snow , &
+       &         grid_unstructured_cell, za_surface,&
+       &         t_cf_var('delta_snow', 'W m-2', 'tendency of snow expressed as heat content', datatype_flt),&
+       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+    ! tendency of ice
+      CALL add_var(ocean_default_list, 'delta_ice', ocean_state_diag%delta_ice, &
+       &         grid_unstructured_cell, za_surface,&
+       &         t_cf_var('delta_ice', 'W m-2', 'tendendcy of ice expressed as heat content', datatype_flt),&
+       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+      CALL add_var(ocean_default_list, 'delta_thetao', ocean_state_diag%delta_thetao,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('delta_theta','W m-2','tendendy of liquid water temperature expressed as heat content', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
       CALL add_var(ocean_default_list, 'opottemptend', ocean_state_diag%opottemptend,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
-       & t_cf_var('opottemptend','','complete temperature tendency at cells', datatype_flt),&
+       & t_cf_var('opottemptend','K','complete temperature tendency at cells', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
@@ -951,7 +1251,120 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
+      IF (eddydiag) THEN
+       CALL add_var(ocean_default_list, 'sigma0', ocean_state_diag%sigma0,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('sigma0','kg m-3','density anomaly', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
 
+       CALL add_var(ocean_default_list, 'uT', ocean_state_diag%uT,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uT','ms-1K','product of zonal velocity and temperature', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'uS', ocean_state_diag%uS,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uS','ms-1 1e-3','product of zonal velocity and salinity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'uR', ocean_state_diag%uR,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uR','ms-1 kg m-3','product of zonal velocity and density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'uu', ocean_state_diag%uu,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uu','m2s-2','square of zonal velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'vT', ocean_state_diag%vT,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('vT','ms-1K','product of meridional velocity and temperature', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'vS', ocean_state_diag%vS,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('vS','ms-1 1e-3','product of meridional velocity and salinity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'vR', ocean_state_diag%vR,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('vR','ms-1 kg m-3','product of meridional velocity and density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'vv', ocean_state_diag%vv,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('vv','m2s-2','square of meridional velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+
+       CALL add_var(ocean_default_list, 'wT', ocean_state_diag%wT,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('wT','ms-1K','product of vertical velocity and temperature', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'wS', ocean_state_diag%wS,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('wS','ms-1 1e-3','product of vertical velocity and salinity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'wR', ocean_state_diag%wR,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('wR','ms-1 kg m-3','product of vertical velocity and density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'ww', ocean_state_diag%ww,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('ww','m2s-2','square of vertical velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'uv', ocean_state_diag%uv,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uv','m2s-2','product of zonal velocity and meridional velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'uw', ocean_state_diag%uw,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('uw','m2-2','product of zonal velocity and vertical velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'vw', ocean_state_diag%vw,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('vw','m2-2','product of meridional velocity and vertical velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+    ENDIF
 
 !   CALL add_var(ocean_restart_list, 'w_e', ocean_state_diag%w_e, grid_unstructured_cell, &
 !     & za_depth_below_sea_half, &
@@ -1003,12 +1416,12 @@ CONTAINS
       & ldims=(/nproma,n_zlev,nblks_e/),loutput=.TRUE., lrestart_cont=.TRUE.)
     ! predicted vn normal velocity component
 
-    CALL add_var(ocean_restart_list, 'zlim', ocean_state_diag%zlim, &
-      & grid_unstructured_cell, za_depth_below_sea, &
-      & t_cf_var('zlim','1','zalesak limiter factor', &
-      & datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),loutput=.true., lrestart_cont=.false.)
+!     CALL add_var(ocean_restart_list, 'zlim', ocean_state_diag%zlim, &
+!       & grid_unstructured_cell, za_depth_below_sea, &
+!       & t_cf_var('zlim','1','zalesak limiter factor', &
+!       & datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+!       & ldims=(/nproma,n_zlev,nblks_e/),loutput=.true., lrestart_cont=.false.)
 
     CALL add_var(ocean_restart_list, 'vn_pred', ocean_state_diag%vn_pred, &
       & grid_unstructured_edge, za_depth_below_sea, &
@@ -1046,11 +1459,11 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
-    CALL add_var(ocean_default_list, 'w_time_weighted', ocean_state_diag%w_time_weighted, &
-      & grid_unstructured_cell, za_depth_below_sea_half, &
-      & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+!     CALL add_var(ocean_default_list, 'w_time_weighted', ocean_state_diag%w_time_weighted, &
+!       & grid_unstructured_cell, za_depth_below_sea_half, &
+!       & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     ! vorticity
     CALL add_var(ocean_restart_list, 'vort', ocean_state_diag%vort, &
@@ -1139,6 +1552,37 @@ CONTAINS
       &          t_cf_var('mld', 'm', 'mixed layer depth', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+
+    ! heat content of liquid water
+      CALL add_var(ocean_default_list, 'heat_content_liquid_water', ocean_state_diag%heat_content_liquid_water,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('heat_content_liquid_water','J m-2','heat_content_liquid_water', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+    ! heat content of snow
+    CALL add_var(ocean_default_list, 'heat_content_snow', ocean_state_diag%heat_content_snow , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_snow', 'J m-2', 'heat_conten_snow', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! heat content of seaice
+    CALL add_var(ocean_default_list, 'heat_content_seaice', ocean_state_diag%heat_content_seaice , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_seaice', 'J m-2', 'heat_content_seaice', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! total heat content per column
+    CALL add_var(ocean_default_list, 'heat_content_total', ocean_state_diag%heat_content_total , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heat_content_total', 'J m-2', 'heat_content_total', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+
     ! number of deepest convection layer
     CALL add_var(ocean_default_list, 'condep', ocean_state_diag%condep , grid_unstructured_cell, za_surface,&
       &         t_cf_var('condep', '', 'convection depth index', datatype_flt),&
@@ -1170,10 +1614,6 @@ CONTAINS
     END IF
 
     !reconstrcuted velocity at edges in cartesian coordinates
-    ALLOCATE(ocean_state_diag%p_vn_mean(nproma,n_zlev,nblks_e), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
-    END IF
     ALLOCATE(ocean_state_diag%p_mass_flux_sfc_cc(nproma,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for p_mass_flux_sfc_cc at cells failed')
@@ -1185,10 +1625,6 @@ CONTAINS
     ocean_state_diag%p_vn_dual(:,:,:)%x(1)=0.0_wp
     ocean_state_diag%p_vn_dual(:,:,:)%x(2)=0.0_wp
     ocean_state_diag%p_vn_dual(:,:,:)%x(3)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(1)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(2)=0.0_wp
-    ocean_state_diag%p_vn_mean(:,:,:)%x(3)=0.0_wp
-
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(1)=0.0_wp
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(2)=0.0_wp
     ocean_state_diag%p_mass_flux_sfc_cc(:,:)%x(3)=0.0_wp
@@ -1201,27 +1637,27 @@ CONTAINS
     ! initialize all components with zero (this is preliminary)
     ocean_state_diag%ptp_vn    = 0.0_wp
 
-    CALL add_var(ocean_default_list,'temp_insitu',ocean_state_diag%temp_insitu,grid_unstructured_cell,&
-      & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'K', 'in situ temperature', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+!     CALL add_var(ocean_default_list,'temp_insitu',ocean_state_diag%temp_insitu,grid_unstructured_cell,&
+!       & za_depth_below_sea, &
+!       & t_cf_var('temp_insitu', 'K', 'in situ temperature', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     CALL add_var(ocean_default_list,'zos_square',ocean_state_diag%zos_square,grid_unstructured_cell,&
       & za_surface, &
-      & t_cf_var('zos_square', 'm^2', 'squera of sea surface hight', datatype_flt),&
+      & t_cf_var('zos_square', 'm^2', 'square of sea surface hight', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
      CALL add_var(ocean_default_list,'Rossby_Radius',ocean_state_diag%Rossby_Radius,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'm', 'Rossby Radius', datatype_flt),&
+      & t_cf_var('Rossby_Radius', 'm', 'Rossby Radius', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     CALL add_var(ocean_default_list,'Richardson_Number',ocean_state_diag%Richardson_Number,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', 'm', 'Richardson Number', datatype_flt),&
+      & t_cf_var('Richardson_Numbe', 'm', 'Richardson Number', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
@@ -1229,13 +1665,13 @@ CONTAINS
 
     CALL add_var(ocean_default_list,'Buoyancy_Freq',ocean_state_diag%Buoyancy_Freq,grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('temp_insitu', '1/s', 'Buoyancy Frequency', datatype_flt),&
+      & t_cf_var('Buoyancy_Freq', '1/s', 'Buoyancy Frequency', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
    CALL add_var(ocean_default_list,'Wavespeed_baroclinic',ocean_state_diag%Wavespeed_baroclinic,grid_unstructured_cell,&
       & za_surface, &
-      & t_cf_var('temp_insitu', 'm', 'Baroclinic wavespeed', datatype_flt),&
+      & t_cf_var('Wavespeed_baroclinic', 'm', 'Baroclinic wavespeed', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
@@ -1342,10 +1778,51 @@ CONTAINS
       & loutput=.TRUE.)
     CALL add_var(ocean_default_list, 'pacific_moc',ocean_state_diag%pacific_moc,    &
       & GRID_ZONAL, za_depth_below_sea,&
-      & t_cf_var('pacific_moc','Sv','global meridional overturning', datatype_flt), &
+      & t_cf_var('pacific_moc','Sv','indopacific meridional overturning', datatype_flt), &
       & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/n_zlev,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)
+
+    ! Implied ocean heat transport
+    CALL add_var(ocean_default_list, 'global_hfl',ocean_state_diag%global_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_hfl','W','global implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_hfl',ocean_state_diag%atlantic_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_hfl','W','atlantic implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_hfl',ocean_state_diag%pacific_hfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_hfl','W','indopacific implied heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
+    ! hfbasin ocean heat transport
+    CALL add_var(ocean_default_list, 'global_hfbasin',ocean_state_diag%global_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_hfbasin','W','global northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_hfbasin',ocean_state_diag%atlantic_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_hfbasin','W','atlantic northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_hfbasin',ocean_state_diag%pacific_hfbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_hfbasin','W','indopacific northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
 
 
 !       CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
@@ -1465,7 +1942,110 @@ CONTAINS
 !     END IF
 
   END SUBROUTINE destruct_hydro_ocean_diag
+ !-------------------------------------------------------------------------
+  !>
+  !!               Allocation of components for 3dim ocean nudging.
+  !!               Initialization of components with zero.
+  !
+  !! @par Revision History
+  !! Developed  by  Helmuth Haak, MPI-M (2018).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE construct_ocean_nudge(patch_2d, ocean_nudge)
+    
+    TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
+    TYPE(t_ocean_nudge), TARGET,INTENT(inout)   :: ocean_nudge
+    
+    ! local variables
+    
+    INTEGER ::  ist  !, jtrc
+    INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
+    INTEGER :: datatype_flt
+
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
+
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(routine), 'construct hydro ocean auxiliary state...')
+    
+    ! determine size of arrays
+    alloc_cell_blocks = patch_2d%alloc_cell_blocks
+    nblks_e = patch_2d%nblks_e
+    nblks_v = patch_2d%nblks_v
+    
+
+    
+    ! allocation of 3-dim tracer relaxation:
+    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
+      CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_nudge%data_3dimRelax_Temp,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Temp',ocean_nudge%forc_3dimRelax_Temp,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.TRUE.)
+      CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_nudge%relax_3dim_coefficient,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.TRUE.)
+!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp 
+    END IF
+    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
+      CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_nudge%data_3dimRelax_Salt,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Salt',ocean_nudge%forc_3dimRelax_Salt,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Salt','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_nudge"),loutput=.FALSE.)
+    END IF
+
+  END SUBROUTINE construct_ocean_nudge
+
   !-------------------------------------------------------------------------
+  !>
+  !!               Deallocation of auxilliary hydrostatic ocean state.
+  !
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE destruct_ocean_nudge(ocean_nudge)
+    
+    TYPE(t_ocean_nudge), INTENT(inout)      :: ocean_nudge
+    
+    ! local variables
+    
+    INTEGER :: ist
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_state:destruct_hydro_ocean_aux'
+    
+    DEALLOCATE(ocean_nudge%data_3dimRelax_Temp, stat=ist)
+    IF (ist/=success) THEN
+      CALL finish(TRIM(routine),'deallocation of data_3dimRelax_Temp failed')
+    END IF
+    
+  END SUBROUTINE destruct_ocean_nudge
+  !-------------------------------------------------------------------------
+    
+
+
+
+!-------------------------------------------------------------------------
   !>
   !!               Allocation of components of hydrostatic ocean auxiliary state.
   !!               Initialization of components with zero.
@@ -1570,37 +2150,6 @@ CONTAINS
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(2) = 0.0_wp
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(3) = 0.0_wp
 
-    ! allocation of 3-dim tracer relaxation:
-    IF (no_tracer>=1 .AND. type_3dimrelax_temp >0) THEN
-      CALL add_var(ocean_default_list,'data_3dimRelax_Temp',ocean_state_aux%data_3dimRelax_Temp,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'forc_3dimRelax_Temp',ocean_state_aux%forc_3dimRelax_Temp,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
-      CALL add_var(ocean_default_list,'relax_3dim_coefficient',ocean_state_aux%relax_3dim_coefficient,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3dim_coefficient','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
-!       ocean_state_aux%relax_3dim_coefficient(:,:,:) = 1.0_wp
-    END IF
-    IF (no_tracer==2 .AND. type_3dimrelax_salt >0) THEN
-      CALL add_var(ocean_default_list,'data_3dimRelax_Salt',ocean_state_aux%data_3dimRelax_Salt,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'forc_3dimRelax_Salt',ocean_state_aux%forc_3dimRelax_Salt,&
-        & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Salt','','', datatype_flt),&
-        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-    END IF
 
    !IF(GMRedi_configuration/=Cartesian_mixing)THEN
 

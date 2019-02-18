@@ -20,9 +20,10 @@ MODULE mo_hamocc_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
+  USE mo_math_types,         ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   USE mo_linked_list,        ONLY: t_var_list
+  USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection
 
 
   PUBLIC :: t_hamocc_diag
@@ -125,6 +126,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  reminn(:,:,:)       
     REAL(wp), POINTER ::  bacfra(:,:,:)       
     REAL(wp), POINTER ::  co2mr(:,:)       
+    REAL(wp), POINTER ::  pco2(:,:)       
     REAL(wp), POINTER ::  cflux(:,:)       
     REAL(wp), POINTER ::  nflux(:,:)       
     REAL(wp), POINTER ::  n2oflux(:,:)       
@@ -190,6 +192,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  h2sloss(:,:,:)       
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
+
+  TYPE t_hammoc_tracer
+
+    TYPE(t_tracer_collection) :: tracer_collection
+
+  END TYPE t_hammoc_tracer
 
 ! array of states
    TYPE t_hamocc_state

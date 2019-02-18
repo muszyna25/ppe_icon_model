@@ -31,20 +31,14 @@
 MODULE mo_nh_dcmip_rest_atm
 
    USE mo_kind,                 ONLY: wp
-   USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
+   USE mo_physical_constants,   ONLY: rd, grav
    USE mo_math_constants,       ONLY: pi
-   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert
-   USE mo_parallel_config,      ONLY: nproma
-   USE mo_loopindices,          ONLY: get_indices_c, get_indices_e, get_indices_v
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge
+   USE mo_loopindices,          ONLY: get_indices_c, get_indices_e
    USE mo_model_domain,         ONLY: t_patch
-   USE mo_grid_config,          ONLY: grid_sphere_radius
-   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_ref, t_nh_metrics
-   USE mo_intp_data_strc,       ONLY: t_int_state
-   USE mo_intp,                 ONLY: cells2edges_scalar
-   USE mo_ext_data_types,       ONLY: t_external_data
-   USE mo_exception,            ONLY: message, finish, message_text
+   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, &
-     &                                SYNC_C, SYNC_E
+     &                                SYNC_C
    USE mo_nh_init_utils,        ONLY: hydro_adjust, convert_thdvars  !, init_w 
 
    IMPLICIT NONE
@@ -145,7 +139,7 @@ MODULE mo_nh_dcmip_rest_atm
   !!
 
   SUBROUTINE init_nh_prog_dcmip_rest_atm(p_patch, p_nh_prog, p_nh_diag, &
-    &                                  p_metrics, p_int, l_hydro_adjust )
+    &                                  p_metrics, l_hydro_adjust )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
@@ -158,8 +152,6 @@ MODULE mo_nh_dcmip_rest_atm
 
     TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
       &  p_metrics
-    TYPE(t_int_state),    INTENT(IN)    :: &  !< interpolation state
-      &  p_int
     LOGICAL,              INTENT(IN)    :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                           ! initial condition
 
@@ -168,8 +160,6 @@ MODULE mo_nh_dcmip_rest_atm
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom  
     INTEGER  :: nlev, nlevp1          !< number of full/half levels
-
-    REAL(wp) :: fac
 
 !   !DEFINED PARAMETERS for the Schaer-type testcase (DCMIP):
     REAL(wp), PARAMETER :: p0 = 100000._wp     ! Reference surface pressure (Pa)
@@ -220,7 +210,6 @@ MODULE mo_nh_dcmip_rest_atm
 
 ! initialized vertical velocity
 
-  ! CALL init_w(p_patch, p_int, p_nh_prog%vn, p_metrics%z_ifc, p_nh_prog%w)
   ! CALL sync_patch_array(SYNC_C, p_patch, p_nh_prog%w)
 
    i_rlstart = 1

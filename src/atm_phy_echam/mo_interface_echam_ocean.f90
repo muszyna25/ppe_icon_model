@@ -64,12 +64,12 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_subdomain, yac_fconnect_subdomains, &
     &                               yac_fdef_elements, yac_fdef_points,          &
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                               yac_ffinalize, YAC_LOCATION_CELL
+    &                               yac_ffinalize, YAC_LOCATION_CELL,            &
+    &                               COUPLING, OUT_OF_BOUND
 
   USE mtime                  ,ONLY: datetimeToString, MAX_DATETIME_STR_LEN
-  
   USE mo_util_dbg_prnt       ,ONLY: dbg_print
-
+  USE mo_dbg_nml             ,ONLY: idbg_mxmn, idbg_val
   USE mo_physical_constants  ,ONLY: amd, amco2
 
   IMPLICIT NONE
@@ -86,6 +86,7 @@ MODULE mo_interface_echam_ocean
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+  LOGICAL, SAVE         :: lyac_very_1st_get
 
   CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
 
@@ -145,6 +146,14 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
+
+    ! Skip time measurement of the very first yac_fget
+    ! as this will measure mainly the wait time caused
+    ! by the initialisation of the model components
+    ! and does not tell us much about the load balancing
+    ! in subsequent calls.
+
+    lyac_very_1st_get = .TRUE.
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -463,7 +472,7 @@ CONTAINS
 
     ! Arguments
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT)    :: p_patch
 
     ! Local variables
 
@@ -478,8 +487,10 @@ CONTAINS
     INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
+
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp)              :: frac_oce, fwf_fac
+    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)        !  allocatable?
+    REAL(wp)              :: fwf_fac !,frac_oce
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -567,8 +578,9 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -598,8 +610,9 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=2, v-stress')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -614,7 +627,9 @@ CONTAINS
     !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
-    buffer(:,:) = 0.0_wp  ! temporarily
+    buffer(:,:)   = 0.0_wp  ! temporarily
+    frac_oce(:,:) = 0.0_wp  ! for dbg
+    scr(:,:)      = 0.0_wp
     !
     ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
     ! Precipitation is reduced by Factor fwf_fac
@@ -643,7 +658,6 @@ CONTAINS
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
      
           ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
-          frac_oce = prm_field(jg)%frac_tile(n,i_blk,iwtr) + prm_field(jg)%frac_tile(n,i_blk,iice) ! 1.0?
           buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
             &              prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice)
         ENDDO
@@ -670,17 +684,23 @@ CONTAINS
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
           ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
-          frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
-          IF (frac_oce <= 0.0_wp) THEN
+          !  - lake part is included in land part, must be subtracted as well
+          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+
+          !IF (frac_oce <= 0.0_wp) THEN
+          IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
             ! land part is zero
             buffer(nn+n,3) = 0.0_wp
           ELSE
             buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
-              &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
+              &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce(n,i_blk)
           ENDIF
+          IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) scr(n,i_blk) = buffer(nn+n,3)
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
+        &  CALL dbg_print('EchOce: evapo-cpl',scr,str_module,3,in_subset=p_patch%cells%owned)
     ELSE
       CALL finish('interface_echam_ocean: coupling only for nsfc_type equals 2 or 3. Check your code/configuration!')
     ENDIF  !  nsfc_type
@@ -689,8 +709,10 @@ CONTAINS
 
     no_arr = 3
     CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=3, fresh water flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -721,8 +743,9 @@ CONTAINS
 
     no_arr = 4
     CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=4, heat flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
@@ -751,13 +774,15 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) write_coupler_restart = .TRUE.
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=5, atmos sea ice')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=5, atmos sea ice bundle')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 1 to 5, atmosphere fields')
     ENDIF
 
     !
@@ -785,13 +810,20 @@ CONTAINS
 
     no_arr = 1
     CALL yac_fput ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=10, wind speed')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+      write_coupler_restart = .TRUE.
+    ELSE
+      write_coupler_restart = .FALSE.
+    ENDIF
+
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=10, wind speed')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=10, wind speed')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 10, wind speed')
     ENDIF
 
 #ifndef __NO_ICON_OCEAN__
@@ -820,13 +852,21 @@ CONTAINS
 
     no_arr = 1
     CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=11, co2mmr')
+
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+      write_coupler_restart = .TRUE.
+    ELSE
+      write_coupler_restart = .FALSE.
+    ENDIF
+
+    IF ( info == OUT_OF_BOUND )                 &
+        & CALL warning('interface_echam_ocean', &
+        &              'YAC says fput called after end of run - id=11, co2 mr')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2mmr')
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
     ENDIF
     ENDIF
 #endif
@@ -849,17 +889,33 @@ CONTAINS
     !  Receive SST
     !   field_id(6) represents "sea_surface_temperature" - SST
     !
-    IF (ltimer) CALL timer_start(timer_coupling_1stget)
+    IF ( .NOT. lyac_very_1st_get ) THEN
+      IF (ltimer) CALL timer_start(timer_coupling_1stget)
+    ENDIF
 
-    !buffer(:,:) = 0.0_wp
-    ! buffer for tsfc in Kelvin
-    buffer(:,:) = 199.99_wp
+    ! Workaround for lake-points on land that are not ocean:
+    !  > no preset (via buffer) to avoid update of ts_wtr over land - land points are untouched
+    !  > to avoid errors with SST over lakes (not ocean) the untouched land-points should be set to undef 
+    !  > the latter would require a discrimination of temperature between ocean water and lake points
+
+    ! This was wrong:
+    ! buffer for tsfc in Kelvin (>0)
+    !!! buffer(:,:) = 199.99_wp
+    ! buffer set to undefined to enforce error on unintended lake grid-points
+    !!! buffer(:,:) = -99.999_wp  ! this aborts with lookup table overflow, since lake-points are affected
 
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=6, SST')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=6, SST')
 
-    IF (ltimer) CALL timer_stop(timer_coupling_1stget)
+    IF ( .NOT. lyac_very_1st_get ) THEN
+       IF (ltimer) CALL timer_stop(timer_coupling_1stget)
+    ENDIF
+
+    lyac_very_1st_get = .FALSE.
+
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
@@ -875,11 +931,25 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            ! Workaround for missing discrimination between tile_wtr and tile_lake:
+            !   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
+            !     by default values (buffer_wtr) from ocean
+            !   > ts_tile(wtr) is set over ocean (not lake) points only
+            IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            !  for dbg_print only
+            IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+              IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
+                scr(n,i_blk) = buffer(nn+n,1)
+              ELSE
+                scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+              ENDIF
+            ENDIF
           ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+      IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 )  &
+        &  CALL dbg_print('EchOce: SSToce-cpl',scr,str_module,4,in_subset=p_patch%cells%owned)
       !
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ts_tile(:,:,iwtr))
     END IF
@@ -892,8 +962,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=7, u velocity')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=7, u velocity')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -929,8 +1001,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=8, v velocity')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=8, v velocity')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -966,8 +1040,10 @@ CONTAINS
     buffer(:,:) = 0.0_wp
     no_arr = 3
     CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=9, sea ice')
+    IF ( info == OUT_OF_BOUND ) &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=9, sea ice')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -1026,8 +1102,10 @@ CONTAINS
 
     buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
-    if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
+    IF ( info == OUT_OF_BOUND )                      &
+         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=12, CO2 flux')
 
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
@@ -1054,63 +1132,76 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2_flux_tile(:,:,iwtr))
     ENDIF ! lcpl_co2_atmoce
 
-    END IF    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    END IF
 
-    ! u/v-stress on ice and water sent
-    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
-    CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
-    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
+!---------DEBUG DIAGNOSTICS-------------------------------------------
 
-    ! rain, snow, evaporation
-    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
-    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
-    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
+    ! calculations for debug print output for namelist debug-values >0 only
+    IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
 
-    ! short wave, long wave, sensible, latent heat flux sent
-    scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+      ! u/v-stress on ice and water sent
+      scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
+      CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
+      CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! Qtop and Qbot, windspeed sent
-    !scr(:,:) = prm_field(jg)%Qtop(:,1,:)
-    !CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop   ,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot   ,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
+      ! rain, snow, evaporation
+      scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
+      CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
+      CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! SST, sea ice, ocean velocity received
-    scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: ts_tile.iwtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ocu(:,:)
-    CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+      ! total: short wave, long wave, sensible, latent heat flux sent
+      scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr) + &
+        &        prm_field(jg)%lwflxsfc_tile(:,:,iwtr) + &
+        &        prm_field(jg)%shflx_tile(:,:,iwtr)    + &
+        &        prm_field(jg)%lhflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: totalhfx.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,4,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,4,in_subset=p_patch%cells%owned)
 
-    ! Fraction of tiles:
-    scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: frac_tile.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
-    CALL dbg_print('EchOce: frac_tile.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
-    if (nsfc_type == 3) THEN
+      ! Qtop and Qbot, windspeed sent
+      CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop        ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot        ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind     ,str_module,3,in_subset=p_patch%cells%owned)
+
+      ! SST, sea ice, ocean velocity received
+      scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: ts_tile.iwtr',scr                       ,str_module,2,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: hi(1)       ',prm_field(jg)%hi(:,1,:)   ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: hs(1)       ',prm_field(jg)%hs(:,1,:)   ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: conc(1)     ',prm_field(jg)%conc(:,1,:) ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced       ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice      ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu         ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv         ,str_module,4,in_subset=p_patch%cells%owned)
+
+      !error?
+      !CALL dbg_print('EchOce: ts_tile.iwtr:iwtr',prm_field(jg)%ts_tile(:,:,iwtr:iwtr),str_module,2,in_subset=p_patch%cells%owned)
+
+      ! Fraction of tiles:
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,iwtr)
+      CALL dbg_print('EchOce: frac_tile.wtr',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
+      scr(:,:) = prm_field(jg)%frac_tile(:,:,iice)
+      CALL dbg_print('EchOce: frac_tile.ice',scr                      ,str_module,3,in_subset=p_patch%cells%owned)
       scr(:,:) = prm_field(jg)%frac_tile(:,:,ilnd)
-      CALL dbg_print('EchOce: frac_tile.lnd',scr,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_tile.lnd',scr                      ,str_module,4,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_oce     ',frac_oce                 ,str_module,3,in_subset=p_patch%cells%owned)
+      CALL dbg_print('EchOce: frac_alake   ',prm_field(jg)%alake      ,str_module,4,in_subset=p_patch%cells%owned)
     ENDIF
 
     !---------------------------------------------------------------------
-
 
   END SUBROUTINE interface_echam_ocean
 

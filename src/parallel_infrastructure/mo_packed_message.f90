@@ -84,7 +84,8 @@ MODULE mo_packed_message
 
         ! The routine marked as "base CASE" are the ones that perform the actual packing,
         ! i. e. they are the ones that need to be overridden to change the way the DATA IS serialized.
-        ! This IS done IN t_SerializedData, which produces platform-independent ASCII text instead of platform-dependent (endianess!) binary DATA.
+        ! This IS done IN t_SerializedData, which produces platform-independent ASCII text instead of
+        ! platform-dependent (endianess!) binary DATA.
         ! pack routines
         PROCEDURE :: packInt => PackedMessage_packInt
         PROCEDURE :: packLong => PackedMessage_packLong        
@@ -265,11 +266,7 @@ MODULE mo_packed_message
 
     END TYPE t_PackedMessage
 
-    CHARACTER :: characterMold, characterArrayMold(1)
-    INTEGER :: integerMold
-    REAL(sp) :: singleMold
-    REAL(dp) :: doubleMold
-    LOGICAL :: logicalMold
+    CHARACTER :: characterArrayMold(1)
 
     CHARACTER(len=*), PARAMETER :: modname = "mo_packed_message"
 
@@ -361,16 +358,22 @@ CONTAINS
 
     !XXX: Originally, this was designed to USE the MPI_Pack*() routines. However, this had some problems:
     !
-    !       * The MPI_Pack*() routines require that the communicator IS passed already when packing, NOT just during communication.
-    !         In theory, this would stop us from passing a message received via one communicator on via another communicator.
-    !         While current MPI implementations don't seem to object such an abuse, it nevertheless invokes undefined behavior, AND may break with ANY MPI update.
-    !         So, since we need to be able to pass on messages through different communicators, MPI_Pack*() routines are OUT of the game.
+    !       * The MPI_Pack*() routines require that the communicator IS passed already when packing,
+    !         NOT just during communication. In theory, this would stop us from passing a message
+    !         received via one communicator on via another communicator. While current MPI
+    !         implementations don't seem to object such an abuse, it nevertheless invokes undefined
+    !         behavior, AND may break with ANY MPI update. So, since we need to be able to pass on
+    !         messages through different communicators, MPI_Pack*() routines are OUT of the game.
     !
-    !       * The MPI_Pack*_external() routines don't have the problem above, however there IS a bug IN their implementation on the cray which renders them unusable.
+    !       * The MPI_Pack*_external() routines don't have the problem above, however there IS a
+    !         bug IN their implementation on the cray which renders them unusable.
     !
-    !       * Since ICON can be built without MPI, AND since we nevertheless need to be able to pack/unpack a message as a local operation, we would need to provide an MPI-free fallback implementation.
+    !       * Since ICON can be built without MPI, AND since we nevertheless need to be able to pack/
+    !         unpack a message as a local operation, we would need to provide an MPI-free fallback
+    !         implementation.
     !
-    !     Since the required fallback implementation IS sufficient to be also used IN the MPI CASE, I have scraped the USE of MPI_Pack*() AND MPI_Pack*_external() from this MODULE.
+    !     Since the required fallback implementation IS sufficient to be also used IN the MPI CASE,
+    !     I have scraped the USE of MPI_Pack*() AND MPI_Pack*_external() from this MODULE.
 
     SUBROUTINE PackedMessage_packInt(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me

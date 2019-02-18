@@ -39,7 +39,7 @@ MODULE mo_interface_echam_sso
 CONTAINS
 
   SUBROUTINE interface_echam_sso(jg, jb,jcs,jce       ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -48,7 +48,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -64,9 +64,18 @@ CONTAINS
 
     ! Local variables
     !
-    REAL(wp) :: zdis_sso(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
-    INTEGER  :: nc
-    REAL(wp) :: zscale(nproma)         !< area scaling factor
+    REAL(wp)                            ::    u_stress_sso(nproma)
+    REAL(wp)                            ::    v_stress_sso(nproma)
+    REAL(wp)                            :: dissipation_sso(nproma)
+    !
+    REAL(wp)                            :: q_sso(nproma,nlev)
+    !
+    REAL(wp)                            :: tend_ta_sso(nproma,nlev)
+    REAL(wp)                            :: tend_ua_sso(nproma,nlev)
+    REAL(wp)                            :: tend_va_sso(nproma,nlev)
+    !
+    REAL(wp)                            :: zdis_sso(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
+    REAL(wp)                            :: zscale(nproma)         !< area scaling factor
 
     IF (ltimer) call timer_start(timer_sso)
 
@@ -81,9 +90,6 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
-          ! number of cells/columns from index jcs to jce
-          nc = jce-jcs+1
-          !
           ! area scaling factor                     ! <-- provisional
           IF (lsftlf) THEN                          ! <-- provisional
              zscale(:) = field% sftlf (:,jb)
@@ -92,7 +98,7 @@ CONTAINS
           END IF                                    ! <-- provisional
           !
           CALL ssodrag(jg                           ,& ! in,  grid index
-               &       nc                           ,& ! in,  number of cells/columns in loop (jce-jcs+1)
+               &       jcs, jce                     ,& ! in,  start and end index
                &       nproma                       ,& ! in,  dimension of block of cells/columns
                &       nlev                         ,& ! in,  number of levels
                !
@@ -119,27 +125,48 @@ CONTAINS
                &              zscale(:)             ,& ! in,  area fraction of land incl. lakes
                !                                              where the SSO params are valid
                !
-               &       field% u_stress_sso(:,jb)    ,& ! out, u-gravity wave stress
-               &       field% v_stress_sso(:,jb)    ,& ! out, v-gravity wave stress
-               &       field% dissipation_sso(:,jb) ,& ! out, dissipation by gravity wave drag
+               &          u_stress_sso(:)           ,& ! out, u-gravity wave stress
+               &          v_stress_sso(:)           ,& ! out, v-gravity wave stress
+               &       dissipation_sso(:)           ,& ! out, dissipation by gravity wave drag
                !
-               &       zdis_sso(:,:)                ,& ! out, energy dissipation rate
-               &       tend%   ua_sso(:,:,jb)       ,& ! out, tendency of zonal wind
-               &       tend%   va_sso(:,:,jb)        ) ! out, tendency of meridional wind
+               &          zdis_sso(:,:)             ,& ! out, energy dissipation rate
+               &       tend_ua_sso(:,:)             ,& ! out, tendency of zonal wind
+               &       tend_va_sso(:,:)              ) ! out, tendency of meridional wind
           !
           ! heating
-          field% q_sso(jcs:jce,:,jb) = zdis_sso(jcs:jce,:) * field%mair(jcs:jce,:,jb)
+          q_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * field%mair(jcs:jce,:,jb)
           !
-          ! vertical integral
-          field% q_sso_vi(jcs:jce,jb) = SUM(field% q_sso(jcs:jce,:,jb),DIM=2)
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(field%    u_stress_sso)) field%    u_stress_sso(jcs:jce,jb) =    u_stress_sso(jcs:jce)
+          IF (ASSOCIATED(field%    v_stress_sso)) field%    v_stress_sso(jcs:jce,jb) =    v_stress_sso(jcs:jce)
+          IF (ASSOCIATED(field% dissipation_sso)) field% dissipation_sso(jcs:jce,jb) = dissipation_sso(jcs:jce)
+          !
+          IF (ASSOCIATED(field% q_sso   )) field% q_sso   (jcs:jce,:,jb) =     q_sso(jcs:jce,:)
+          IF (ASSOCIATED(field% q_sso_vi)) field% q_sso_vi(jcs:jce,  jb) = SUM(q_sso(jcs:jce,:),DIM=2)
+          !
+          IF (ASSOCIATED(tend% ua_sso)) tend% ua_sso(jcs:jce,:,jb) = tend_ua_sso(jcs:jce,:)
+          IF (ASSOCIATED(tend% va_sso)) tend% va_sso(jcs:jce,:,jb) = tend_va_sso(jcs:jce,:)
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(field% q_sso)) q_sso(jcs:jce,:) = field% q_sso(jcs:jce,:,jb)
+          !
+          IF (ASSOCIATED(tend% ua_sso)) tend_ua_sso(jcs:jce,:) = tend% ua_sso(jcs:jce,:,jb)
+          IF (ASSOCIATED(tend% va_sso)) tend_va_sso(jcs:jce,:) = tend% va_sso(jcs:jce,:,jb)
           !
        END IF
        !
        ! convert    heating
-       tend% ta_sso(jcs:jce,:,jb) = field% q_sso(jcs:jce,:,jb) * field% qconv(jcs:jce,:,jb)
+       tend_ta_sso(jcs:jce,:) = q_sso(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
        !
-       ! accumulate heating
-       field% q_phy(jcs:jce,:,jb) = field% q_phy(jcs:jce,:,jb) + field% q_sso(jcs:jce,:,jb)
+       IF (ASSOCIATED(tend% ta_sso)) tend% ta_sso(jcs:jce,:,jb) = tend_ta_sso(jcs:jce,:)
+
+       ! for output: accumulate heating
+       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_sso(jcs:jce,:)
+       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_sso(jcs:jce,:),DIM=2)
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_sso)
@@ -147,9 +174,9 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend% ta_sso(jcs:jce,:,jb)
-          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend% ua_sso(jcs:jce,:,jb)
-          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend% va_sso(jcs:jce,:,jb)
+          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend_ta_sso(jcs:jce,:)
+          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend_ua_sso(jcs:jce,:)
+          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend_va_sso(jcs:jce,:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -157,20 +184,23 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend% ta_sso(jcs:jce,:,jb)*pdtime
-          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend% ua_sso(jcs:jce,:,jb)*pdtime
-          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend% va_sso(jcs:jce,:,jb)*pdtime
+          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_sso(jcs:jce,:)*pdtime
+          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend_ua_sso(jcs:jce,:)*pdtime
+          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend_va_sso(jcs:jce,:)*pdtime
        END IF
        !
     ELSE
        !
-       field% u_stress_sso   (jcs:jce,jb) = 0.0_wp
-       field% v_stress_sso   (jcs:jce,jb) = 0.0_wp
-       field% dissipation_sso(jcs:jce,jb) = 0.0_wp
+       IF (ASSOCIATED(field%    u_stress_sso)) field%    u_stress_sso(jcs:jce,jb) = 0.0_wp
+       IF (ASSOCIATED(field%    v_stress_sso)) field%    v_stress_sso(jcs:jce,jb) = 0.0_wp
+       IF (ASSOCIATED(field% dissipation_sso)) field% dissipation_sso(jcs:jce,jb) = 0.0_wp
        !
-       tend% ta_sso(jcs:jce,:,jb) = 0.0_wp
-       tend% ua_sso(jcs:jce,:,jb) = 0.0_wp
-       tend% va_sso(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_sso   )) field% q_sso   (jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_sso_vi)) field% q_sso_vi(jcs:jce,  jb) = 0.0_wp
+       !
+       IF (ASSOCIATED(tend% ta_sso)) tend% ta_sso(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ua_sso)) tend% ua_sso(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% va_sso)) tend% va_sso(jcs:jce,:,jb) = 0.0_wp
        !
     END IF
     

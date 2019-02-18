@@ -42,7 +42,6 @@ MODULE mo_impl_constants
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
@@ -346,7 +345,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_interact =  1
   INTEGER, PARAMETER :: io3_clim     =  2
   INTEGER, PARAMETER :: io3_ape      =  4
-  INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
   INTEGER, PARAMETER :: io3_art      =  10
 
@@ -509,6 +507,8 @@ MODULE mo_impl_constants
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
+  INTEGER, PARAMETER :: pio_type_async = 1, &
+       pio_type_cdipio = 2
 
   !----------------------!
   !  VARIABLE DATA TYPES !
@@ -608,6 +608,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW_RCF = 1
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
   INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
+
+  ! separator for varname and time level
+  CHARACTER(LEN=3), PARAMETER, PUBLIC :: TIMELEVEL_SUFFIX = '.TL'
 
   !-------------------------!
   !  RTTOV FIELD CATEGORIES !

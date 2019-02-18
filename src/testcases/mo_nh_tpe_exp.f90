@@ -35,8 +35,7 @@ USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: iqv, ntracer
 USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-      &                            sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
-      &                            spec_humi          !! Specific humidity
+      &                            sat_pres_ice
 USE mo_exception,           ONLY: message, message_text
 
 IMPLICIT NONE
@@ -82,8 +81,7 @@ CONTAINS
     REAL(wp), INTENT(IN)                :: t_atm        !< atmospheric temperature
 
 
-    INTEGER               :: nblks_e, nblks_c, npromz_e, npromz_c,  &
-                             nlen
+    INTEGER               :: nblks_e, nblks_c, npromz_c, nlen
     INTEGER               :: nlev             !< number of full levels
     INTEGER               :: jk, jb, jjt, jc, iter  ! loop variables
 
@@ -100,7 +98,6 @@ CONTAINS
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     nlev     = ptr_patch%nlev
 

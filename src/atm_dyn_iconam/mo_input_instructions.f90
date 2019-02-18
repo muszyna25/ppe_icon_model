@@ -186,9 +186,10 @@ CONTAINS
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
-        outGroup(1:8) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
-          &               'aer_bc       ','aer_su       ','aer_du       ','plantevap    '/)
-        outGroupSize  = 8
+        outGroup(1:11) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+          &                'aer_bc       ','aer_su       ','aer_du       ','plantevap    ', &
+          &                't2m_bias     ','hsnow_max    ','snow_age     '/)
+        outGroupSize  = 11
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)
@@ -275,6 +276,7 @@ CONTAINS
                     ! lump together fgGroup and anaGroup
                     CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
                 ENDIF
+                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
 
             CASE(MODE_IAU, MODE_IAU_OLD)
                 ! in case of tile coldstart, we can omit snowfrac_lc
@@ -411,7 +413,7 @@ CONTAINS
         ! (i.e. due to typos) -> Model abort
         DO ivar=1,SIZE(initicon_config(p_patch%id)%fg_checklist)
             IF (initicon_config(p_patch%id)%fg_checklist(ivar) == ' ') EXIT
-  
+
             curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
                  &                                                  initicon_config(p_patch%id)%fg_checklist(ivar), &
                  &                                                  linverse=.TRUE.)), opt_expand=.FALSE.)
@@ -421,8 +423,9 @@ CONTAINS
             IF (ASSOCIATED(curInstruction) .AND. curInstruction%lOptionalFg) THEN
                 curInstruction%lOptionalFg = .FALSE.
 
-                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(initicon_config(p_patch%id)%fg_checklist(ivar)), &
-                   &                       ' into a mandatory first guess field for DOM', p_patch%id
+                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(dict_get(ana_varnames_dict, &
+                 &                                initicon_config(p_patch%id)%fg_checklist(ivar), linverse=.TRUE.)), &
+                 &                               ' into a mandatory first guess field for DOM', p_patch%id
                 CALL message(routine, TRIM(message_text))
             ENDIF
         ENDDO

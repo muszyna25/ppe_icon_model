@@ -6,25 +6,25 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2201-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
-# restart=".true."
+  end_date="2024-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P1Y"
-checkpoint_interval="P1Y"
+restart_interval="P3M"
+checkpoint_interval="P3M"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
-file_interval="P1Y"
+file_interval="P1M"
 
-modelTimeStep="PT300S"
-restartSemaphoreFilename='isRestartRun.sem'
-if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
-  modelTimeStep="PT300S"
-fi
+modelTimeStep="PT240S"
+#restartSemaphoreFilename='isRestartRun.sem'
+#if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
+#  modelTimeStep="PT150S"
+#fi
 
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
@@ -33,10 +33,10 @@ autoPostProcessing="false"                         # submit postprocessing job
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
-ocean_vertical_levels=64
-ocean_grids="EarthOceanOnly_Icos_0010km_srtm30.nc"
-grids_folder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
-ocean_data_InputFolder=/work/mh0033/m211054/projects/icon/oes/input/r0001/EarthOceanOnly_Icos_0010km_srtm30
+ocean_vertical_levels=128
+ocean_grids="OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min.nc"
+grids_folder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
+ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -61,14 +61,14 @@ cat > ${ocean_namelist} << EOF
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
+ profiling_output     = 1
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
-  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -107,13 +107,13 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:ocean_moc'
 /
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}_fx"
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${start_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  output_interval  = "${monthly}"         ! interval in ISO-format
   filename_format  = "<output_filename>"
-  file_interval    = "P100Y"
+  file_interval    = "${file_interval}"
   output_grid      = .TRUE.
   mode             =  1
   include_last     = .false.
@@ -129,15 +129,23 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 64 unevenly spaced levels used by MPIOM/GR30
+! 128 unevenly spaced levels
  n_zlev             =   $ocean_vertical_levels
- dzlev_m(1:64)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
-                       13.0,   14.0,   15.0,   16.0,   17.0,   18.0,   20.0,   22.0,   24.0,   26.0,
-                       29.0,   33.0,   36.0,   39.0,   42.0,   45.0,   48.0,   52.0,   56.0,   60.0,
-                       64.0,   68.0,   72.0,   76.0,   80.0,   85.0,   90.0,   95.0,  100.0,  106.0,
-                      112.0,  118.0,  124.0,  130.0,  138.0,  146.0,  154.0,  162.0,  170.0,  178.0,
-                      186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
-                      286.0,  296.0,  306.0,  318.0
+
+dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,    8.0,    8.0,
+              8.0,    8.0,    8.0,    8.25,   8.5,    8.75,   9.0,   9.25,    9.5,   9.75,
+             10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,
+             10.5,   11.0,   11.5,   12.0,   12.5,   13.0,   13.5,   14.0,   14.5,   15.0,
+             15.5,   16.0,   16.5,   17.0,   17.5,   18.0,   18.5,   19.0,   19.5,   20.0, 
+             20.5,   21.0,   21.5,   22.0,   22.5,   23.0,   23.5,   24.0,   24.5,   25.0,
+             25.5,   26.0,   26.5,   27.0,   28.5,   29.0,   29.5,   30.0,   30.5,   31.0,
+             31.0,   32.0,   33.0,   34.0,   35.0,   36.0,   37.0,   38.0,   39.0,   40.0,
+             42.0,   44.0,   46.0,   48.0,   50.0,   52.0,   54.0,   56.0,   58.0,   60.0,
+             62.0,   64.0,   66.0,   68.0,   70.0,   72.0,   74.0,   76.0,   78.0,   80.0,
+             82.0,   84.0,   86.0,   88.0,   90.0,   92.0,   94.0,   96.0,   98.0,  100.0,
+            102.0,  104.0,  106.0,  108.0,  110.0,  112.0,  114.0,  116.0,  118.0,  200.0,
+            200.0,  200.0,  200.0,  200.0,  200.0,  200.0,  200.0,  200.0
+
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
@@ -171,7 +179,7 @@ cat > ${ocean_namelist} << EOF
   VelocityDiffusion_order = 2          ! 21=biharmonic+laplacian (for the laplacian leith)
 
   BiharmonicViscosity_scaling     =  1
-  BiharmonicViscosity_reference   =  1.0E10  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_reference   =  2.0E10  !  [m2/s] constant horizontal viscosity coefficient for velocity
   BiharmonicViscosity_background  =  0.0  ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_scaling     =  1
   HarmonicViscosity_reference   =  0.0  !  [m2/s] constant horizontal viscosity coefficient for velocity
@@ -197,7 +205,6 @@ cat > ${ocean_namelist} << EOF
   lambda_wind                     = 0.03
   tracer_TopWindMixing            = 1.0E-5
   velocity_TopWindMixing          = 1.0E-5
-  Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -209,7 +216,7 @@ cat > ${ocean_namelist} << EOF
   k_tracer_isoneutral_parameter   = 0.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.TRUE.
+  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
   SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
@@ -232,11 +239,12 @@ cat > ${ocean_namelist} << EOF
  albsm        = 0.70         ! Albedo of snow (melting)
  albi         = 0.75         ! Albedo of ice (not melting)
  albim        = 0.70         ! Albedo of ice (melting)
-
+ Pstar        = 40000
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
+  forcing_frequency               = 86400.0
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -252,8 +260,10 @@ cat > ${ocean_namelist} << EOF
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
   limit_seaice                    = .TRUE.    ! default: true
-  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
+  seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -276,5 +286,10 @@ EOF
 
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-. ${thisdir}/add_required_ocean_files
+#. ${thisdir}/add_required_ocean_files
+
+add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/omip_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128-daily.nc ocean-flux.nc
+add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
+
 #-----------------------------------------------------------------------------

@@ -16,7 +16,6 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, message
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
@@ -72,7 +71,6 @@ MODULE mo_initicon_config
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
-  PUBLIC :: rho_incr_filter_wgt
   PUBLIC :: niter_divdamp, niter_diffu
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
@@ -94,6 +92,7 @@ MODULE mo_initicon_config
   TYPE t_timeshift
     REAL(wp)                 :: dt_shift
     TYPE(timedelta), POINTER :: mtime_shift
+    TYPE(timedelta), POINTER :: mtime_absshift   ! absolute value
   END TYPE t_timeshift
 
   ! ----------------------------------------------------------------------------
@@ -160,8 +159,6 @@ MODULE mo_initicon_config
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
-  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
@@ -187,22 +184,38 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
-  LOGICAL :: lread_tke = .FALSE. !< control variable that specifies if TKE has been found in the input (used for MODE_ICONVREMAP only)
-  LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
+  !> control variable that specifies if u/v or vn are read as wind
+  !  field input
+  LOGICAL :: lread_vn  = .FALSE.
 
-  INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
+  !> control variable that specifies if TKE has been found in the
+  !  input (used for MODE_ICONVREMAP only)
+  LOGICAL :: lread_tke = .FALSE.
 
-  LOGICAL :: is_iau_active = .FALSE.  !< determines whether IAU is active at current time
+  !> logical switch, if sea surface temperature is provided as input
+  LOGICAL :: l_sst_in  = .TRUE.
 
-  LOGICAL :: lcalc_avg_fg           !< determines whether temporally averaged first guess fields are computed
+  !> initialization mode of soil model (coldstart, warmstart,
+  !  warmstart+IAU)
+  INTEGER :: init_mode_soil
+
+  !> determines whether IAU is active at current time
+  LOGICAL :: is_iau_active = .FALSE.
+
+  !> determines whether temporally averaged first guess fields are
+  !  computed
+  LOGICAL :: lcalc_avg_fg
 
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
-  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+  !> registers if aerosol fields have been read from the first-guess
+  !  data
+  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE.
 
-  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
+  !> registers if SST and sea ice fraction data have been read from
+  !  analysis
+  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
@@ -219,18 +232,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
-  SUBROUTINE configure_initicon(dtime)
-    !
-    REAL(wp), INTENT(IN)        :: dtime       ! advection/fast physics time step
+  SUBROUTINE configure_initicon()
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
-    CHARACTER(len=max_timedelta_str_len) :: PTshift
     TYPE(timedelta), POINTER             :: td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
-    !
 
-    REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
     !-----------------------------------------------------------------------
     !
@@ -247,39 +255,6 @@ CONTAINS
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
-    !
-    ! timeshift-operations
-    !
-
-    ! Round dt_shift to the nearest integer multiple of the advection time step
-    !
-    IF (timeshift%dt_shift < 0._wp) THEN
-      zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
-      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
-        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
-          &                               ' s in order to be a multiple of the advection time step ***'
-        CALL message('',message_text)
-      ENDIF
-      timeshift%dt_shift = zdt_shift
-    ELSE
-      iterate_iau = .FALSE. ! IAU iteration is meaningless if the model starts without backward time shift
-    END IF
-    !
-    ! transform timeshift to mtime-format
-    !
-    CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
-    timeshift%mtime_shift => newTimedelta(TRIM(PTshift))
-    WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(PTshift)
-    CALL message('',message_text)
-        
-    !*******************************************************
-    ! can be removed, once the new libmtime is available (timedeltaToString)
-    ! IF (TRIM(PTshift)=="-P00.000S") THEN
-    !   PTshift = "-PT00.000S"
-    ! ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
-    !   PTshift = "+PT00.000S"
-    ! ENDIF 
-    !********************************************************
     
     ! Preparations for first guess averaging
     !

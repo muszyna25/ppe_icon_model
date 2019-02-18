@@ -18,7 +18,10 @@ MODULE mo_restart_descriptor
     USE mo_impl_constants,            ONLY: SUCCESS
     USE mo_kind,                      ONLY: wp
     USE mo_model_domain,              ONLY: t_patch
-    USE mo_mpi,                       ONLY: my_process_is_work, p_bcast, p_comm_work_2_restart, p_get_bcast_role
+    USE mo_mpi,                       ONLY: my_process_is_work, p_bcast, &
+      &                                     p_comm_work_2_restart,       &
+      &                                     p_get_bcast_role,            &
+      &                                     my_process_is_mpi_test
     USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_restart_attributes,        ONLY: t_RestartAttributeList
     USE mo_restart_file,              ONLY: t_RestartFile
@@ -202,6 +205,7 @@ CONTAINS
         INTEGER :: jg
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
 
+        IF (my_process_is_mpi_test()) RETURN
         IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
 
         DO jg = 1, SIZE(me%patchData)

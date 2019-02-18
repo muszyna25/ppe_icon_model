@@ -16,7 +16,7 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish, warning
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
+  USE mo_impl_constants,     ONLY: max_dom, max_num_io_procs, pio_type_async
   USE mo_util_string,        ONLY: int2string
 
   IMPLICIT NONE
@@ -24,11 +24,11 @@ MODULE mo_parallel_config
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma
-
+!
   PUBLIC :: n_ghost_rows,                                     &
        &  div_geometric, division_method, division_file_name,       &
        &  l_log_checks, l_fast_sum,   &
-       &  ldiv_phys_dom, p_test_run, l_test_openmp,                 &
+       &  ldiv_phys_dom, p_test_run, num_test_pe, l_test_openmp,    &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &  num_restart_procs, num_prefetch_proc,                     &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
@@ -38,7 +38,9 @@ MODULE mo_parallel_config
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
        &  use_div_from_file, io_proc_chunk_size,                    &
-       &  num_dist_array_replicas, io_process_stride, io_process_rotate
+       &  num_dist_array_replicas, comm_pattern_type_orig,          &
+       &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
+       &  io_process_stride, io_process_rotate
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -77,6 +79,10 @@ MODULE mo_parallel_config
   ! model whereas the other PEs do a real parallelized run
   LOGICAL :: p_test_run = .false.
 
+  ! use more than 1 PE for verification if p_test_run and num_test_pe is set
+  ! to a value > 1
+  INTEGER :: num_test_pe
+
   LOGICAL :: use_dycore_barrier = .false. ! acivate an mpi barrier before the dycore
                                           ! to synchronize MPI tasks
   LOGICAL :: use_physics_barrier = .false. ! activate mpi barrier after the physics
@@ -105,7 +111,7 @@ MODULE mo_parallel_config
   LOGICAL :: use_async_restart_output = .FALSE.
 
   ! Type of parallel I/O
-  INTEGER :: pio_type = 1
+  INTEGER :: pio_type = pio_type_async
 
   INTEGER :: num_io_procs = 0
 
@@ -152,6 +158,11 @@ MODULE mo_parallel_config
 
   ! shift ranks doing I/O by this number
   INTEGER :: io_process_rotate
+
+  ! switch between different implementations of mo_communication
+  INTEGER, PARAMETER :: comm_pattern_type_orig = 1
+  INTEGER, PARAMETER :: comm_pattern_type_yaxt = 2
+  INTEGER :: default_comm_pattern_type
 
 CONTAINS
 
@@ -290,11 +301,17 @@ CONTAINS
   ! Trying to invert the above and catching cases with blk_no < 1
   !-------------------------------------------------------------------------
   ELEMENTAL INTEGER FUNCTION blk_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     blk_no = MAX((ABS(j)-1)/nproma + 1, 1) ! i.e. also 1 for j=0, nproma=1
   END FUNCTION blk_no
 
   ELEMENTAL INTEGER FUNCTION idx_no(j)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: j
     IF(j==0) THEN
       idx_no = 0
@@ -304,6 +321,9 @@ CONTAINS
   END FUNCTION idx_no
 
   ELEMENTAL INTEGER FUNCTION idx_1d(jl,jb)
+#if defined(__PGI)
+!$ACC ROUTINE SEQ
+#endif
     INTEGER, INTENT(IN) :: jl, jb
     IF(jb<=0) THEN
       idx_1d = 0 ! This covers the special case nproma==1,jb=0,jl=1

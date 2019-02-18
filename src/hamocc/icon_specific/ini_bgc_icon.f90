@@ -2,11 +2,11 @@
 
 SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
-  USE mo_kind, ONLY           : wp, dp
-  USE mo_hamocc_nml, ONLY     : l_cpl_co2, io_stdo_bgc
+  USE mo_kind, ONLY           : wp
+  USE mo_hamocc_nml, ONLY     : l_init_bgc
   USE mo_exception, ONLY      : message
-  USE mo_control_bgc, ONLY    : dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
-       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs, bgc_nproma, &
+  USE mo_control_bgc, ONLY    : dtb, dtbgc, inv_dtbgc, ndtdaybgc,  &
+       &                        ldtrunbgc, bgc_zlevs, bgc_nproma, &
        &                        inv_dtb
 !#ifdef AVFLUX
 !  USE mo_avflux, ONLY         : avflux_ini
@@ -27,12 +27,11 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
        &                        ini_wpoc, bgc_param_conv_unit
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_run_config,          ONLY: dtime
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_ocean_nml,           ONLY: n_zlev, nbgctra, no_tracer,dzlev_m
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m
   USE mo_dynamics_config,     ONLY: nold,nnew
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: global_sum_array
@@ -48,7 +47,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   TYPE(t_atmos_for_ocean)                     :: p_as
   LOGICAL, INTENT(in):: l_is_restart
 
-  INTEGER :: alloc_cell_blocks
 
   !! Local variables
 
@@ -56,7 +54,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   TYPE(t_patch),POINTER    :: p_patch
   TYPE(t_subset_range), POINTER :: all_cells
 
-  INTEGER :: jc, jk, jb
+  INTEGER :: jc,  jb
   INTEGER :: start_index, end_index
   INTEGER  :: levels(nproma)
 
@@ -80,7 +78,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
    ! determine size of arrays 
    p_patch           => p_patch_3D%p_patch_2D(1)
-   alloc_cell_blocks =  p_patch%alloc_cell_blocks
 
    bgc_zlevs = n_zlev
    bgc_nproma = nproma
@@ -180,22 +177,19 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
         levels(start_index:end_index) = p_patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
 
+        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
-        IF(l_is_restart)then
+        IF(l_is_restart.and..not.l_init_bgc)then
 
           CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-             &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
+             &jb, p_os%p_prog(nnew(1))%tracer(:,:,jb,:)&
              &,p_as%co2(:,jb)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
-
-          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
          ELSE
 
           CALL ini_aquatic_tracers(start_index,end_index,levels,regions(:,jb))
-
-          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
           CALL ini_pore_water_tracers(start_index,end_index)
 
@@ -213,10 +207,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
   ENDDO
 
-!  IF (l_cpl_co2) THEN
-!     !     initializes fields used for redistribution of co2 fluxes
-!     CALL avflux_ini
-!  END IF
 
  CALL message(TRIM(routine), 'end ini bgc')
 END SUBROUTINE 

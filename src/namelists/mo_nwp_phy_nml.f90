@@ -24,11 +24,11 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom, icosmo
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_control,      ONLY: use_restart_namelists, isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
 
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
@@ -79,6 +79,7 @@ MODULE mo_nwp_phy_nml
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
+  real(wp) :: rain_n0_factor     !! tuning factor for intercept parameter of raindrop size distribution
   real(wp) :: mu_snow            !! ...for snow
 
 
@@ -100,10 +101,9 @@ MODULE mo_nwp_phy_nml
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
-    &                    ldetrain_conv_prec
+    &                    ldetrain_conv_prec, rain_n0_factor
 
-  LOGICAL :: l_nwp_phy_namelist_read = .false.
-  
+ 
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -132,36 +132,43 @@ CONTAINS
     INTEGER :: iunit
     CHARACTER(len=*), PARAMETER ::  &
          &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
+    INTEGER  :: param_def
+    REAL(wp) :: dt_conv_def, dt_rad_def, dt_sso_def, dt_gwd_def
 
     !-----------------------
-    ! 0a. dummy settings; will be replaced with defaults after reading the namelist
-    !     wherever nothing is specified explicitly   
+    ! 1a. default settings for domain-specific parmeters; will be rest to dummy values afterwards
+    !     to determine what is actually specified in the namelist
     !-----------------------
-    inwp_gscp(:)       = -1
-    inwp_satad(:)      = -1
-    inwp_convection(:) = -1
-    inwp_radiation(:)  = -1
-    inwp_sso(:)        = -1
-    inwp_gwd(:)        = -1
-    inwp_cldcover(:)   = -1
-    inwp_turb(:)       = -1
-    inwp_surface(:)    = -1
+    param_def   = 1  ! default for all parameterizations is currently '1'
+    dt_conv_def = 600._wp
+    dt_rad_def  = 1800._wp
+    dt_sso_def  = 1200._wp
+    dt_gwd_def  = 1200._wp
+
+    inwp_gscp(:)       = param_def
+    inwp_satad(:)      = param_def
+    inwp_convection(:) = param_def
+    inwp_radiation(:)  = param_def
+    inwp_sso(:)        = param_def
+    inwp_gwd(:)        = param_def
+    inwp_cldcover(:)   = param_def
+    inwp_turb(:)       = param_def
+    inwp_surface(:)    = param_def
+
+    dt_conv (:) = dt_conv_def
+    dt_rad  (:) = dt_rad_def
+    dt_sso  (:) = dt_sso_def
+    dt_gwd  (:) = dt_gwd_def
+
+    !------------------------------------------------------------------
+    ! 1b. Defaults for some other variables
+    !------------------------------------------------------------------
 
     lshallowconv_only(:)  = .FALSE.
     ldetrain_conv_prec(:) = .FALSE.
 
-    dt_conv (:) = -999._wp
-    dt_rad  (:) = -999._wp
-    dt_sso  (:) = -999._wp
-    dt_gwd  (:) = -999._wp
-
     lrtm_filename   = 'rrtmg_lw.nc'  
     cldopt_filename = 'ECHAM6_CldOptProps.nc'
-
-
-    !------------------------------------------------------------------
-    ! 0b. Real defaults for some other variables
-    !------------------------------------------------------------------
 
     itype_z0 = 2  !  2 = land-cover related roughness lenght only (i.e. no orographic contrib)
     qi0      = 0.0_wp 
@@ -170,6 +177,7 @@ CONTAINS
     ! shape parameter for gamma distribution for rain and snow
     mu_rain = 0.0_wp
     mu_snow = 0.0_wp
+    rain_n0_factor = 1.0_wp
 
     ustart_raylfric    = 160._wp
     efdt_min_raylfric  = 10800._wp
@@ -199,66 +207,69 @@ CONTAINS
     icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
 
-
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, nwp_phy_nml)   ! write defaults to temporary text file
+    END IF
 
     !------------------------------------------------------------------
-    ! 1. If this is a resumed integration, overwrite the defaults above 
+    ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('nwp_phy_nml')
       READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
-      l_nwp_phy_namelist_read = .true.
     END IF
 
     !--------------------------------------------------------------------
-    ! 2. Read user's (new) specifications (Done so far by all MPI processes)
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nwp_phy_nml', status=istat)
-    IF (my_process_is_stdio()) THEN
-      iunit = temp_defaults()
-      WRITE(iunit, nwp_phy_nml)   ! write defaults to temporary text file
-    END IF
+
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nwp_phy_nml)                                       ! overwrite default settings
-      IF (my_process_is_stdio()) THEN
-        iunit = temp_settings()
-        WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
-      END IF
-      l_nwp_phy_namelist_read = .true.
-    END SELECT
-    CALL close_nml
 
-    !-----------------------
-    ! 3. apply default settings where nothing is specified explicitly (except for restart)
-    !-----------------------
-    
-    IF (.NOT. isRestart() .or. .NOT. l_nwp_phy_namelist_read) THEN
+      ! Set array parameters to dummy values to determine which ones are actively set in the namelist
+      inwp_gscp(:)       = -1
+      inwp_satad(:)      = -1
+      inwp_convection(:) = -1
+      inwp_radiation(:)  = -1
+      inwp_sso(:)        = -1
+      inwp_gwd(:)        = -1
+      inwp_cldcover(:)   = -1
+      inwp_turb(:)       = -1
+      inwp_surface(:)    = -1
 
-      ! 3a. Set default values for global domain where nothing at all has been specified
+      dt_conv (:) = -999._wp
+      dt_rad  (:) = -999._wp
+      dt_sso  (:) = -999._wp
+      dt_gwd  (:) = -999._wp
+
+      READ (nnml, nwp_phy_nml)   ! overwrite default settings
+
+      ! Restore default values for global domain where nothing at all has been specified
 
       ! Physics packages
-      IF (inwp_gscp(1)       < 0) inwp_gscp(1)       = 1  !> 1 = hydci (COSMO-EU microphysics)
-      IF (inwp_satad(1)      < 0) inwp_satad(1)      = 1  !> 1 = saturation adjustment on
-      IF (inwp_convection(1) < 0) inwp_convection(1) = 1  !> 1 = Tiedtke/Bechthold convection
-      IF (inwp_radiation(1)  < 0) inwp_radiation(1)  = 1  !> 1 = RRTM radiation
-      IF (inwp_sso(1)        < 0) inwp_sso(1)        = 1  !> 1 = Lott and Miller scheme (COSMO)
-      IF (inwp_gwd(1)        < 0) inwp_gwd(1)        = 1  !> 1 = Orr-Ern-Bechthold scheme (IFS)
-      IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = 1  !> 1 = diagnostic cloud cover (by Martin Koehler)
-      IF (inwp_turb(1)       < 0) inwp_turb(1)       = icosmo  !> 1 = turbdiff (COSMO diffusion and transfer)
-      IF (inwp_surface(1)    < 0) inwp_surface(1)    = 1  !> 1 = TERRA
+      IF (inwp_gscp(1)       < 0) inwp_gscp(1)       = param_def  !> 1 = hydci (COSMO-EU microphysics)
+      IF (inwp_satad(1)      < 0) inwp_satad(1)      = param_def  !> 1 = saturation adjustment on
+      IF (inwp_convection(1) < 0) inwp_convection(1) = param_def  !> 1 = Tiedtke/Bechthold convection
+      IF (inwp_radiation(1)  < 0) inwp_radiation(1)  = param_def  !> 1 = RRTM radiation
+      IF (inwp_sso(1)        < 0) inwp_sso(1)        = param_def  !> 1 = Lott and Miller scheme (COSMO)
+      IF (inwp_gwd(1)        < 0) inwp_gwd(1)        = param_def  !> 1 = Orr-Ern-Bechthold scheme (IFS)
+      IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = param_def  !> 1 = diagnostic cloud cover (by Martin Koehler)
+      IF (inwp_turb(1)       < 0) inwp_turb(1)       = param_def  !> 1 = turbdiff (COSMO diffusion and transfer)
+      IF (inwp_surface(1)    < 0) inwp_surface(1)    = param_def  !> 1 = TERRA
 
       ! Time steps
-      IF (dt_conv (1) < 0._wp) dt_conv (1) = 600._wp    !seconds
-      IF (dt_sso  (1) < 0._wp) dt_sso  (1) = 1200._wp   !seconds
-      IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = 1200._wp   !seconds
-      IF (dt_rad  (1) < 0._wp) dt_rad  (1) = 1800._wp   !seconds
+      IF (dt_conv (1) < 0._wp) dt_conv (1) = dt_conv_def
+      IF (dt_sso  (1) < 0._wp) dt_sso  (1) = dt_sso_def
+      IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = dt_gwd_def
+      IF (dt_rad  (1) < 0._wp) dt_rad  (1) = dt_rad_def
 
       
-      ! 3b. Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
+      ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
       DO jg = 2, max_dom
 
@@ -281,7 +292,13 @@ CONTAINS
 
       ENDDO
 
-    ENDIF
+
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
+      END IF
+    END SELECT
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Sanity check
@@ -353,6 +370,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
+      atm_phy_nwp_config(jg)%rain_n0_factor  = rain_n0_factor
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
       atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
     ENDDO

@@ -56,6 +56,8 @@ MODULE mo_turbdiff_config
       &  imode_frcsmot
     INTEGER :: &   ! mode of the separated horizontal shear mode 
       &  imode_shshear
+    INTEGER :: &   ! mode of the SSO-turbulence coupling
+      &  imode_tkesso
 
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso
@@ -94,6 +96,8 @@ MODULE mo_turbdiff_config
       &  alpha0_max !
     REAL(wp):: &   ! additive ensemble perturbation of Charnock-parameter
       &  alpha0_pert !
+    REAL(wp):: &   ! scaling factor for molecular roughness length of ocean waves
+      &  alpha1    !
     REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum
@@ -120,12 +124,17 @@ MODULE mo_turbdiff_config
       &  impl_t    ! 
     REAL(wp):: &   ! Length scale factor for the separated horizontal shear mode
       &  a_hshr    ! 
+    REAL(wp):: &   ! Parameter for pdf width in turbulent cloud cover scheme
+      &  q_crit    ! 
 
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)
 
     LOGICAL :: &   ! turbulent diffusion of cloud ice QI
       &  ldiff_qi  ! .TRUE.: ON
+
+    LOGICAL :: &   ! turbulent diffusion of snow QS
+      &  ldiff_qs  ! .FALSE.: OFF
 
     !
     ! Switches controlling other physical parameterizations:

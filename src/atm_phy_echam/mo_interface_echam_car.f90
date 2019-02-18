@@ -42,7 +42,7 @@ MODULE mo_interface_echam_car
 CONTAINS
 
   SUBROUTINE interface_echam_car(jg,jb,jcs,jce        ,&
-       &                         nproma,nlev          ,& 
+       &                         nproma,nlev,ntracer  ,& 
        &                         is_in_sd_ed_interval ,&
        &                         is_active            ,&
        &                         datetime_old         ,&
@@ -51,7 +51,7 @@ CONTAINS
     ! Arguments
     !
     INTEGER                 ,INTENT(in) :: jg,jb,jcs,jce
-    INTEGER                 ,INTENT(in) :: nproma,nlev
+    INTEGER                 ,INTENT(in) :: nproma,nlev,ntracer
     LOGICAL                 ,INTENT(in) :: is_in_sd_ed_interval
     LOGICAL                 ,INTENT(in) :: is_active
     TYPE(datetime)          ,POINTER    :: datetime_old
@@ -66,7 +66,8 @@ CONTAINS
 
     ! Local variables
     !
-    REAL(wp)                            :: do3dt(nproma,nlev)
+    REAL(wp)                            :: tend_qtrc_car(nproma,nlev,ntracer)
+    !
     TYPE(t_time_interpolation)          :: time_interpolation
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
     TYPE(t_avi)                         :: avi
@@ -105,9 +106,23 @@ CONTAINS
                &               nproma,                nlev,                   &
                &               time_interpolation,                            &
                &               lcariolle_lat_intp_li, lcariolle_pres_intp_li, &
-               &               avi,                   do3dt                   )
+               &               avi,                   tend_qtrc_car(:,:,io3)  )
           !
           DEALLOCATE(avi%o3_vmr, avi%vmr2molm2, avi%cell_center_lat, avi%lday)
+          !
+          ! store in memory for output or recycling
+          !
+          IF (ASSOCIATED(tend% qtrc_car)) THEN
+             tend% qtrc_car(jcs:jce,:,jb,io3) = tend_qtrc_car(jcs:jce,:,io3)
+          END IF
+          !
+       ELSE
+          !
+          ! retrieve from memory for recycling
+          !
+          IF (ASSOCIATED(tend% qtrc_car)) THEN
+             tend_qtrc_car(jcs:jce,:,io3) = tend% qtrc_car(jcs:jce,:,jb,io3)
+          END IF
           !
        END IF
        !
@@ -117,7 +132,7 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend% qtrc_phy(jcs:jce,:,jb,io3) = tend% qtrc_phy(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
+          tend% qtrc_phy(jcs:jce,:,jb,io3) = tend% qtrc_phy(jcs:jce,:,jb,io3) + tend_qtrc_car(jcs:jce,:,io3)*amo3/amd
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -125,7 +140,13 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field% qtrc(jcs:jce,:,jb,io3)  = field% qtrc(jcs:jce,:,jb,io3)  +  do3dt(jcs:jce,:)*amo3/amd*pdtime
+          field% qtrc(jcs:jce,:,jb,io3)  = field% qtrc(jcs:jce,:,jb,io3)  +  tend_qtrc_car(jcs:jce,:,io3)*amo3/amd*pdtime
+       END IF
+       !
+    ELSE
+       !
+       IF (ASSOCIATED(tend% qtrc_car)) THEN
+          tend% qtrc_car(jcs:jce,:,jb,io3) = 0.0_wp
        END IF
        !
     END IF

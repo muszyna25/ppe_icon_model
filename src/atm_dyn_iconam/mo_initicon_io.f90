@@ -24,7 +24,7 @@ MODULE mo_initicon_io
 
   USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
@@ -42,21 +42,23 @@ MODULE mo_initicon_io
     &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
-    &                               p_comm_work_test, my_process_is_mpi_workroot
+    &                               my_process_is_mpi_workroot
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
-  USE mo_util_cdi,            ONLY: trivial_tileId
+  USE mo_nwp_sfc_tiles,       ONLY: t_tileinfo_icon, trivial_tile_att
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
-    &                               isub_lake, llake, lprog_albsi, itype_trvg
+    &                               isub_lake, llake, lprog_albsi, itype_trvg, &
+    &                               itype_snowevap
+  USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
@@ -240,9 +242,9 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
-    INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
+    INTEGER :: ncid, dimid, varid, ierrstat
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: psvar_ndims, geopvar_ndims
+    INTEGER :: psvar_ndims, geopvar_ndims, itemp(7)
 
     REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:), z_ifc_in(:,:,:), &
       &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -255,7 +257,6 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
-
     !-------------------------------------------------------------------------
 
     ! flag. if true, then this PE reads data from file and broadcasts
@@ -402,21 +403,27 @@ MODULE mo_initicon_io
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
-
-      CALL p_bcast(nlev_in,       p_io, mpi_comm)
-      CALL p_bcast(lread_qs,      p_io, mpi_comm)
-      CALL p_bcast(lread_qr,      p_io, mpi_comm)
-      CALL p_bcast(lread_vn,      p_io, mpi_comm)
+      itemp(1) = nlev_in
+      itemp(2) = MERGE(1, 0, lread_qs)
+      itemp(3) = MERGE(1, 0, lread_qr)
+      itemp(4) = MERGE(1, 0, lread_vn)
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        CALL p_bcast( nhyi, p_io, mpi_comm)
-        CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
-        CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      ENDIF
+        itemp(5) = nhyi
+        itemp(6) = psvar_ndims
+        itemp(7) = geopvar_ndims
+      END IF
+
+      CALL p_bcast(itemp, p_io, p_comm_work)
+
+      nlev_in  = itemp(1)
+      lread_qs = itemp(2) /= 0
+      lread_qr = itemp(3) /= 0
+      lread_vn = itemp(4) /= 0
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+        nhyi = itemp(5)
+        psvar_ndims = itemp(6)
+        geopvar_ndims = itemp(7)
+      END IF
 
       IF (msg_level >= 10) THEN
         IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
@@ -515,14 +522,8 @@ MODULE mo_initicon_io
         ELSE
           CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
         END IF
-        
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test
-        ELSE
-          mpi_comm = p_comm_work
-        ENDIF
-        
-        CALL initicon(jg)%const%vct%construct(ncid, p_io, mpi_comm)
+
+        CALL initicon(jg)%const%vct%construct(ncid, p_io, p_comm_work)
 
       ELSE IF (init_mode == MODE_COSMO) THEN ! in case of COSMO-DE initial data
         
@@ -538,11 +539,8 @@ MODULE mo_initicon_io
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,p_patch(jg)%nblks_c
 
-          IF (jb /= p_patch(jg)%nblks_c) THEN
-            i_endidx = nproma
-          ELSE
-            i_endidx = p_patch(jg)%npromz_c
-          ENDIF
+          i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+               jb /= p_patch(jg)%nblks_c)
 
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
@@ -611,7 +609,7 @@ MODULE mo_initicon_io
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
-    INTEGER :: ncid, dimid, varid, mpi_comm
+    INTEGER :: ncid, dimid, varid
     INTEGER :: geop_sfc_var_ndims     ! dimension of geop_sfc_var
     TYPE(t_stream_id) :: stream_id
 
@@ -735,17 +733,11 @@ MODULE mo_initicon_io
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
+      CALL p_bcast(l_sst_in, p_io, p_comm_work)
 
-      CALL p_bcast(l_sst_in, p_io, mpi_comm)
+      CALL p_bcast(alb_snow_var, p_io, p_comm_work)
 
-      CALL p_bcast(alb_snow_var, p_io, mpi_comm)
-
-      CALL p_bcast(geop_sfc_var_ndims, p_io, mpi_comm)
+      CALL p_bcast(geop_sfc_var_ndims, p_io, p_comm_work)
 
       ! allocate data structure
       CALL allocate_extana_sfc(nblks_c     = p_patch(jg)%nblks_c,  &
@@ -829,12 +821,13 @@ MODULE mo_initicon_io
     REAL(dp), VALUE :: level
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
-
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetch2d(varName, level, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+      tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+      fetchResult = params%requestList%fetch2d(varName, level, tileinfo_icon%idx, jg, field)
+      CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
     END IF
   END SUBROUTINE fetch2d
 
@@ -846,9 +839,11 @@ MODULE mo_initicon_io
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+        fetchResult = params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field)
         IF (PRESENT(found)) THEN
           found = fetchResult
         ELSE
@@ -865,9 +860,11 @@ MODULE mo_initicon_io
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        fetchResult = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+        fetchResult = params%requestList%fetchSurface(varName, tileinfo_icon%idx, jg, field)
         IF (PRESENT(found)) THEN
           found = fetchResult
         ELSE
@@ -885,13 +882,15 @@ MODULE mo_initicon_io
 
     INTEGER :: jt
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
-                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, trivial_tileId, jg, field(:,:,jt))
+                tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, tileinfo_icon%idx, jg, field(:,:,jt))
             END DO
         ELSE
             !True tiled input.
@@ -910,13 +909,15 @@ MODULE mo_initicon_io
 
     INTEGER :: jt
     LOGICAL :: fetchResult
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
-                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+                tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field(:,:,:,jt))
             END DO
         ELSE
             !True tiled input.
@@ -941,6 +942,7 @@ MODULE mo_initicon_io
     INTEGER :: jt
     LOGICAL :: fetchResult
     REAL(wp), POINTER :: ptr_field_fb(:,:,:,:)
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     ! set pointer to fallback target field
     IF (PRESENT(opt_field_fallback)) THEN
@@ -949,13 +951,14 @@ MODULE mo_initicon_io
       ptr_field_fb => field
     ENDIF
 
+    tileinfo_icon = trivial_tile_att%getTileinfo_icon()
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         IF(ltile_coldstart) THEN
             !Fake tiled input by copying the input field to all tiles.
             fetchResult = .TRUE.
             DO jt = 1, tileCount
                 fetchResult = fetchResult.AND.  &
-                  &           params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+                  &           params%requestList%fetch3d(varName, tileinfo_icon%idx, jg, field(:,:,:,jt))
             END DO
             IF (.NOT.fetchResult) THEN
                 CALL params%inputInstructions(jg)%ptr%optionalReadResult(fetchResult, varName, params%routine, params%isFg)
@@ -963,7 +966,7 @@ MODULE mo_initicon_io
                 fetchResult = .TRUE.
                 DO jt = 1, tileCount
                    fetchResult = fetchResult.AND. &
-                     &           params%requestList%fetch3d(varNameFallback, trivial_tileId, jg, ptr_field_fb(:,:,:,jt))
+                     &           params%requestList%fetch3d(varNameFallback, tileinfo_icon%idx, jg, ptr_field_fb(:,:,:,jt))
                 END DO
                 CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varNameFallback, params%routine, params%isFg)
             ELSE
@@ -990,8 +993,10 @@ MODULE mo_initicon_io
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
-    CALL params%requestList%fetchRequired3d(varName, trivial_tileId, jg, field)
+    tileinfo_icon = trivial_tile_att%getTileinfo_icon()
+    CALL params%requestList%fetchRequired3d(varName, tileinfo_icon%idx, jg, field)
     CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
   END SUBROUTINE fetchRequired3d
 
@@ -1003,11 +1008,13 @@ MODULE mo_initicon_io
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
     INTEGER :: jt
+    TYPE(t_tileinfo_icon) :: tileinfo_icon
 
     IF(ltile_coldstart) THEN
         !Fake tiled input by copying the input field to all tiles.
+        tileinfo_icon = trivial_tile_att%getTileinfo_icon()
         DO jt = 1, tileCount
-            CALL params%requestList%fetchRequiredSurface(varName, trivial_tileId, jg, field(:,:,jt))
+            CALL params%requestList%fetchRequiredSurface(varName, tileinfo_icon%idx, jg, field(:,:,jt))
         END DO
     ELSE
         !True tiled input.
@@ -1038,6 +1045,7 @@ MODULE mo_initicon_io
     TYPE(t_fetchParams)      :: params
     REAL(wp), ALLOCATABLE    :: z_ifc_in(:,:,:)
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1148,6 +1156,7 @@ MODULE mo_initicon_io
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
     LOGICAL :: lfound_thv, lfound_rho, lfound_vn
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1292,6 +1301,7 @@ MODULE mo_initicon_io
     TYPE(t_fetchParams) :: params
     LOGICAL :: lHaveFg
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1436,6 +1446,13 @@ MODULE mo_initicon_io
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
+            IF (itype_vegetation_cycle == 3) THEN
+              CALL fetchSurface(params, 't2m_bias', jg, lnd_diag%t2m_bias)
+            ENDIF
+            IF (itype_snowevap == 3) THEN
+              CALL fetchSurface(params, 'hsnow_max', jg, lnd_diag%hsnow_max)
+              CALL fetchSurface(params, 'snow_age',  jg, lnd_diag%snow_age)
+            ENDIF
 
             IF (lmulti_snow) THEN
                 ! multi layer snow fields
@@ -1459,7 +1476,7 @@ MODULE mo_initicon_io
             ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
-                CASE(MODE_COMBINED,MODE_COSMO)
+                CASE(MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP)
                     CALL fetchTiled3dWithFallback(params          = params,         &
                       &                           varName         = 'smi' ,         &
                       &                           varNameFallback = 'w_so',         &
@@ -1468,7 +1485,12 @@ MODULE mo_initicon_io
                       &                           field           = lnd_prog%w_so_t )
                 CASE DEFAULT
                     CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
-                    CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
+            END SELECT
+            SELECT CASE(init_mode)
+              CASE(MODE_COMBINED,MODE_COSMO)
+                ! no w_so_ice available
+              CASE DEFAULT
+                CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
             END SELECT
 
 
@@ -1574,7 +1596,7 @@ MODULE mo_initicon_io
             ! When starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
             ! SMI is read if available, with W_SO being the fallback option. If SMI is 
             ! read, it is directly stored in w_so_t. Here, it is converted into w_so
-            IF (ANY((/MODE_COMBINED,MODE_COSMO/) == init_mode)) THEN
+            IF (ANY((/MODE_COMBINED,MODE_COSMO,MODE_ICONVREMAP/) == init_mode)) THEN
                 IF (inputInstructions(jg)%ptr%sourceOfVar('smi')==kInputSourceFg) THEN
                     DO jt=1, ntiles_total
                         CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
@@ -1658,6 +1680,7 @@ MODULE mo_initicon_io
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_sfc'
 
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
     params%requestList => requestList
     params%routine = routine
@@ -1754,6 +1777,13 @@ MODULE mo_initicon_io
                 my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
                 CALL fetch3d(params, 'w_so', jg, my_ptr3d)
             END IF
+
+            ! t_2m bias
+            IF (itype_vegetation_cycle == 3 .AND. init_mode == MODE_IAU ) THEN
+               my_ptr2d => initicon(jg)%sfc_inc%t_2m(:,:)
+               CALL fetchSurface(params, 't_2m', jg, my_ptr2d)
+            ENDIF
+
         END IF
     END DO ! loop over model domains
 

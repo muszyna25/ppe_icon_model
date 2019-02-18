@@ -19,8 +19,8 @@ MODULE mo_util_vgrid
   USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
                                                 & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
-                                                & DATATYPE_INT32, DATATYPE_FLT64, CDI_UNDEFID, CDI_GLOBAL, vlistDefAttInt, &
-                                                & vlistInqAttInt, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
+                                                & DATATYPE_INT32, DATATYPE_FLT64, CDI_UNDEFID, CDI_GLOBAL, cdiDefAttInt, &
+                                                & cdiInqAttInt, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
                                                 & streamWriteVarSlice, streamWriteVar, streamDefVlist, &
                                                 & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
@@ -83,7 +83,7 @@ CONTAINS
   !
   SUBROUTINE construct_vertical_grid(p_patch, p_int_state, ext_data, &
     &                                vct_a, vct_b, vct, nflatlev)
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT) :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)          ! (1,..., n_dom)
     REAL(wp),               INTENT(INOUT) :: vct_a(:)             ! param. A of the vertical coordinate
@@ -132,7 +132,7 @@ CONTAINS
 
       END IF
     CASE DEFAULT
-      CALL finish (TRIM(routine), 'Unknown type!')
+      CALL finish (routine, 'Unknown type!')
     END SELECT
 
     !--- Allocate 3D half level coordinate arrays
@@ -160,7 +160,7 @@ CONTAINS
     !--- initialize 3D half level coordinate
 
     IF (iequations == inh_atmosphere) THEN
-      IF (TRIM(vertical_grid_filename(1)) == "") THEN
+      IF (vertical_grid_filename(1) == "") THEN
         ! skip the following paragraph if we read vertical grid from
         ! file:
         !
@@ -184,7 +184,7 @@ CONTAINS
           ENDIF
 
           IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) <= 1) THEN
-            CALL finish (TRIM(routine), 'flat_height too close to the top of the innermost nested domain')
+            CALL finish(routine, 'flat_height too close to the top of the innermost nested domain')
           ENDIF
 
           ! Initialize vertical coordinate for cell points
@@ -329,7 +329,7 @@ CONTAINS
       CALL vlistDefVarDatatype(cdiVlistID, cdiVarID_c, DATATYPE_FLT64)
       !--- add "nflat"
       oneInt(1) = nflat
-      iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, oneInt)
+      iret = cdiDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, oneInt)
 
       !--- open file via CDI
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
@@ -432,7 +432,7 @@ CONTAINS
       cdiVarID_vct_b     = get_cdi_varID(cdiFileID, "vct_b")
       CALL streamReadVar(cdiFileID, cdiVarID_vct_b, vct_b, nmiss)
       cdiVlistID         = streamInqVlist(cdiFileID)
-      iret = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, oneInt)
+      iret = cdiInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, oneInt)
       nflat = oneInt(1)
 
       !--- get UUID for horizontal grid contained in vertical grid file

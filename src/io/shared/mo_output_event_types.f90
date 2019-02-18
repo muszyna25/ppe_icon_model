@@ -51,23 +51,23 @@ MODULE mo_output_event_types
   ! DEFINITIONS FOR CONVERSION "time stamp -> simulation step"
 
   !> Data structure containing all necessary data for mapping a time
-  !  stamp onto a corresponding simulation step index.
-  !
-  !  These data members correspond to the master_time_control_nml in
-  !  the following way:
-  !
-  !    ***************************  EXPERIMENT RUN   *************
-  !    *                                                         *
-  !    *                    ***  JOB RUN   ***                   *
-  !    *                    *                *                   *
-  !  --|--------------------[----------------]-------------------|---------------> (time axis)
-  !    ^                    ^                ^                   ^
-  !    tc_exp_startdate     tc_startdate     tc_stopdate         tc_exp_stopdate   (master_time_control_nml notation)
-  !
-  !    sim_start            run_start        restart_time        sim_end           (t_sim_step_info)
-  !    
-  !
-  !
+  !! stamp onto a corresponding simulation step index.
+  !!
+  !! These data members correspond to the master_time_control_nml in
+  !! the following way:
+  !!
+  !!   ***************************  EXPERIMENT RUN   *************
+  !!   *                                                         *
+  !!   *                    ***  JOB RUN   ***                   *
+  !!   *                    *                *                   *
+  !! --|--------------------[----------------]-------------------|---------------> (time axis)
+  !!   ^                    ^                ^                   ^
+  !!   tc_exp_startdate     tc_startdate     tc_stopdate         tc_exp_stopdate   (master_time_control_nml notation)
+  !!
+  !!   sim_start            run_start        restart_time        sim_end           (t_sim_step_info)
+  !!
+  !!
+  !!
   TYPE t_sim_step_info
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: sim_start, sim_end               !< simulation start/end time stamp
     CHARACTER(len=MAX_DATETIME_STR_LEN)   :: run_start                        !< start of this run (-> restart)
@@ -102,15 +102,19 @@ MODULE mo_output_event_types
   !        step available.
   !
   TYPE t_event_step_data
-    INTEGER                               :: i_pe                             !< rank of participating PE
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string                  !< ISO 8601 conforming time stamp
-    CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string                  !< output file name
-    INTEGER                               :: jfile, jpart                     !< file counter, "part of file" counter
-    LOGICAL                               :: l_open_file                      !< Flag. .TRUE. if file is to be opened in this step
-    LOGICAL                               :: l_close_file                     !< Flag. .TRUE. if file is closed in this step
+    !> rank of participating PE
+    INTEGER                               :: i_pe
+    !> file counter, "part of file" counter
+    INTEGER                               :: jfile, jpart
+    !> Flag. .TRUE. if file is to be opened in this step
+    LOGICAL                               :: l_open_file
 
     !> tag, e.g. for MPI isend/irecv messages, unique at least on sender side
     INTEGER                               :: i_tag
+    !> ISO 8601 conforming time stamp
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: datetime_string
+    !> output file name
+    CHARACTER(LEN=MAX_FILENAME_STR_LEN)   :: filename_string
   END TYPE t_event_step_data
 
 
@@ -149,7 +153,7 @@ MODULE mo_output_event_types
   !  parallel.
   !
   TYPE t_par_output_event
-    TYPE(t_output_event), POINTER         :: output_event                     !< event data structure
+    TYPE(t_output_event), ALLOCATABLE     :: output_event                     !< event data structure
 
     ! --- MPI related fields:
     INTEGER                               :: icomm                            !< MPI communicator

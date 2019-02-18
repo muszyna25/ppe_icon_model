@@ -120,7 +120,7 @@ MODULE m_dyn
   IMPLICIT NONE
 
 
-  TYPE(t_patch),TARGET,INTENT(IN)   :: pt_patch     !< grid/patch info.
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch     !< grid/patch info.
   TYPE(t_int_state),TARGET,INTENT(IN):: pt_int_state !< horizontal interpolation coeff.
   TYPE(t_external_data), INTENT(IN) :: pt_ext_data  !< external data
 

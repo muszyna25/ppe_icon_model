@@ -20,7 +20,7 @@
 !!
 MODULE mo_sea_ice_types
   USE mo_kind,                ONLY: wp
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates
+  USE mo_math_types,          ONLY: t_cartesian_coordinates
 
   IMPLICIT NONE
   PRIVATE
@@ -75,7 +75,7 @@ MODULE mo_sea_ice_types
       & Tsurf      (:,:,:)       ,   & ! Surface temperature                                    [C]
       & Tfw        (:,:)         ,   & ! Ocean surface freezing temperature                     [C]
       & Qtop       (:,:,:)       ,   & ! Energy flux available for surface melting              [W/m2]
-      & Qbot       (:,:,:)       ,   & ! Energy flux at ice-ocean interface                     [W/m2]
+      & Qbot       (:,:,:)       ,   & ! Conductive heat flux at ice-ocean interface (fast)     [W/m2]
       & alb        (:,:,:)       ,   & ! Albedo of snow-ice system
       ! thermodynamics, slow
       ! Note: variables like zHeatOceI and heatOceI SHOULD NOT have kice dimension
@@ -85,7 +85,7 @@ MODULE mo_sea_ice_types
       & zHeatOceI  (:,:,:)       ,   & ! Heat flux that goes into ice from below                [W/m^2]
       & heatOceI   (:,:,:)       ,   & ! Heat flux to ocean due to the ice growth               [W/m^2]
       & heatOceW   (:,:)         ,   & ! Heat flux to ocean from the atmosphere                 [W/m^2]
-      & CondHeat   (:,:,:)       ,   & ! Conductive Heat flux through ice                       [W/m^2]
+      & Qbot_slow  (:,:,:)       ,   & ! Engery flux at ice-ocean interface (slow)              [W/m^2]
       & snow_to_ice(:,:,:)       ,   & ! Amount of snow that is transformed to ice              [m]
       & newice     (:,:)         ,   & ! New ice growth in open water                           [m]
       & totalsnowfall(:,:)       ,   & ! Snow fall on ice-covered part of cell (water equiv.)   [m]

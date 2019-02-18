@@ -24,7 +24,7 @@ MODULE mo_testbed_ocean_performance
 
   ! USE mo_icon_testbed_config, ONLY: testbed_iterations
 
-  USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+  USE mo_math_types,                ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea
   USE mo_math_constants,            ONLY: pi
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
@@ -119,40 +119,40 @@ CONTAINS
     timer_prep_trace_trans_2  = new_timer("prep_trace_trans_2")
     timer_prep_trace_trans_3  = new_timer("prep_trace_trans_3")
 
-    !---------------------------------------------------------------------
-    ! measure the original implementation
-    CALL work_mpi_barrier()
-    DO iter=1, testbed_iterations
-      CALL timer_start(timer_prep_trace_trans_0)
-      CALL prepare_tracer_transport_0( patch_3D, ocean_state(1), operators_coefficients)
-      CALL timer_stop(timer_prep_trace_trans_0)
-    ENDDO
-    !---------------------------------------------------------------------
-    ! measure 1st implementation
-    CALL work_mpi_barrier()
-    DO iter=1, testbed_iterations
-      CALL timer_start(timer_prep_trace_trans_1)
-      CALL prepare_tracer_transport_1( patch_3D, ocean_state(1), operators_coefficients)
-      CALL timer_stop(timer_prep_trace_trans_1)
-    ENDDO
-    !---------------------------------------------------------------------
-    ! measure 2nd implementation
-    CALL work_mpi_barrier()
-    DO iter=1, testbed_iterations
-      CALL timer_start(timer_prep_trace_trans_2)
-      CALL prepare_tracer_transport_2( patch_3D, ocean_state(1), operators_coefficients)
-      CALL timer_stop(timer_prep_trace_trans_2)
-    ENDDO
-    !---------------------------------------------------------------------
-    ! measure 3d implementation
-    CALL work_mpi_barrier()
-    DO iter=1, testbed_iterations
-      CALL timer_start(timer_prep_trace_trans_3)
-      CALL prepare_tracer_transport_3( patch_3D, ocean_state(1), operators_coefficients)
-      CALL timer_stop(timer_prep_trace_trans_3)
-    ENDDO
-    !---------------------------------------------------------------------
-
+!     !---------------------------------------------------------------------
+!     ! measure the original implementation
+!     CALL work_mpi_barrier()
+!     DO iter=1, testbed_iterations
+!       CALL timer_start(timer_prep_trace_trans_0)
+!       CALL prepare_tracer_transport_0( patch_3D, ocean_state(1), operators_coefficients)
+!       CALL timer_stop(timer_prep_trace_trans_0)
+!     ENDDO
+!     !---------------------------------------------------------------------
+!     ! measure 1st implementation
+!     CALL work_mpi_barrier()
+!     DO iter=1, testbed_iterations
+!       CALL timer_start(timer_prep_trace_trans_1)
+!       CALL prepare_tracer_transport_1( patch_3D, ocean_state(1), operators_coefficients)
+!       CALL timer_stop(timer_prep_trace_trans_1)
+!     ENDDO
+!     !---------------------------------------------------------------------
+!     ! measure 2nd implementation
+!     CALL work_mpi_barrier()
+!     DO iter=1, testbed_iterations
+!       CALL timer_start(timer_prep_trace_trans_2)
+!       CALL prepare_tracer_transport_2( patch_3D, ocean_state(1), operators_coefficients)
+!       CALL timer_stop(timer_prep_trace_trans_2)
+!     ENDDO
+!     !---------------------------------------------------------------------
+!     ! measure 3d implementation
+!     CALL work_mpi_barrier()
+!     DO iter=1, testbed_iterations
+!       CALL timer_start(timer_prep_trace_trans_3)
+!       CALL prepare_tracer_transport_3( patch_3D, ocean_state(1), operators_coefficients)
+!       CALL timer_stop(timer_prep_trace_trans_3)
+!     ENDDO
+!     !---------------------------------------------------------------------
+! 
 
     !---------------------------------------------------------------------
     ! print the timers
@@ -164,314 +164,6 @@ CONTAINS
     
 
   END SUBROUTINE test_prepare_tracer_transport
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !!  0 version (original), without the syncs
-  !!
-  SUBROUTINE prepare_tracer_transport_0(patch_3D, p_os, p_op_coeff)
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-    !
-    !Local variables
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: i_startidx_e, i_endidx_e
-    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-    INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
-    INTEGER  :: il_c, ib_c
-    REAL(wp) :: delta_z
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-    TYPE(t_cartesian_coordinates):: flux_sum
-    !-------------------------------------------------------------------------------
-    TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-    !-------------------------------------------------------------------------------
-    patch_2d         => patch_3D%p_patch_2D(1)
-    cells_in_domain => patch_2d%cells%in_domain
-    edges_in_domain => patch_2d%edges%in_domain
-
-    slev = 1
-    elev = n_zlev
-
-    ! This should be moved to the vertical advection
-    ! just moving data around should not take place
-!    p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c) = &
-!      &  p_os%p_diag%w(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c)
-
-    DO jk = slev, elev
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
-
-          IF (patch_3D%lsm_e(je,jk,jb) == sea) THEN
-
-            !Get indices of two adjacent cells
-            il_c1 = patch_2d%edges%cell_idx(je,jb,1)
-            ib_c1 = patch_2d%edges%cell_blk(je,jb,1)
-            il_c2 = patch_2d%edges%cell_idx(je,jb,2)
-            ib_c2 = patch_2d%edges%cell_blk(je,jb,2)
-
-            p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-              &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
-
-            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
-              & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
-              &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
-
-            IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
-              il_c = patch_2d%edges%cell_idx(je,jb,1)
-              ib_c = patch_2d%edges%cell_blk(je,jb,1)
-            ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
-              il_c = patch_2d%edges%cell_idx(je,jb,2)
-              ib_c = patch_2d%edges%cell_blk(je,jb,2)
-            ENDIF
-
-            p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
-            p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
-
-            p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-              & patch_2d%cells%cartesian_center(il_c,ib_c)%x
-
-          ENDIF
-
-        END DO
-      END DO
-    END DO
-
-  END SUBROUTINE prepare_tracer_transport_0
-  !-------------------------------------------------------------------------
-    
-  !-------------------------------------------------------------------------
-  !>
-  !!  1 version
-  !!
-  SUBROUTINE prepare_tracer_transport_1(patch_3D, p_os, p_op_coeff)
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-    !
-    !Local variables
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: i_startidx_e, i_endidx_e
-    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-    INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
-    INTEGER  :: il_c, ib_c
-    REAL(wp) :: delta_z
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-    TYPE(t_cartesian_coordinates):: flux_sum
-    !-------------------------------------------------------------------------------
-    TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-    !-------------------------------------------------------------------------------
-    patch_2d         => patch_3D%p_patch_2D(1)
-    cells_in_domain => patch_2d%cells%in_domain
-    edges_in_domain => patch_2d%edges%in_domain
-
-    slev = 1
-    elev = n_zlev
-
-    ! This should be moved to the vertical advection
-    ! just moving data around should not take place
-!    p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c) = &
-!      &  p_os%p_diag%w(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c)
-
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        !Get indices of two adjacent cells
-        il_c1 = patch_2d%edges%cell_idx(je,jb,1)
-        ib_c1 = patch_2d%edges%cell_blk(je,jb,1)
-        il_c2 = patch_2d%edges%cell_idx(je,jb,2)
-        ib_c2 = patch_2d%edges%cell_blk(je,jb,2)
-
-        DO jk = slev, elev
-
-          IF (patch_3D%lsm_e(je,jk,jb) == sea) THEN
-
-
-            p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-              &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
-
-            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
-              & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
-              &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
-
-            IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
-              il_c = patch_2d%edges%cell_idx(je,jb,1)
-              ib_c = patch_2d%edges%cell_blk(je,jb,1)
-            ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
-              il_c = patch_2d%edges%cell_idx(je,jb,2)
-              ib_c = patch_2d%edges%cell_blk(je,jb,2)
-            ENDIF
-
-            p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
-            p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
-
-            p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-              & patch_2d%cells%cartesian_center(il_c,ib_c)%x
-
-          ENDIF
-
-        END DO
-      END DO
-    END DO
-
-  END SUBROUTINE prepare_tracer_transport_1
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !!  2 version
-  !!
-  SUBROUTINE prepare_tracer_transport_2(patch_3D, p_os, p_op_coeff)
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-    !
-    !Local variables
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: i_startidx_e, i_endidx_e
-    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-    INTEGER  :: edge_cell_index(2), edge_cell_block(2)
-    INTEGER  :: upwind_index
-    REAL(wp) :: delta_z, half_time
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-    TYPE(t_cartesian_coordinates):: flux_sum
-    !-------------------------------------------------------------------------------
-    TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-    !-------------------------------------------------------------------------------
-    patch_2d         => patch_3D%p_patch_2D(1)
-    cells_in_domain => patch_2d%cells%in_domain
-    edges_in_domain => patch_2d%edges%in_domain
-
-    slev = 1
-    half_time = 0.5_wp * dtime
-
-    ! This should be moved to the vertical advection
-    ! just moving data around should not take place
-!    p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c) = &
-!      &  p_os%p_diag%w(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c)
-
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        !Get indices of two adjacent cells
-        edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
-        edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,1)
-        edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
-        edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
-        elev  = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-
-        DO jk = slev, elev
-
-          upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp)
-
-          p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp *                          &
-            & (p_os%p_diag%p_vn(edge_cell_index(1), jk, edge_cell_block(1))%x + &
-            &  p_os%p_diag%p_vn(edge_cell_index(2), jk, edge_cell_block(2))%x)
-
-          p_op_coeff%upwind_cell_idx(je,jk,jb) = edge_cell_index(upwind_index)
-          p_op_coeff%upwind_cell_blk(je,jk,jb) = edge_cell_block(upwind_index)
-
-          p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-            & patch_2d%cells%cartesian_center(edge_cell_index(upwind_index), edge_cell_block(upwind_index))%x
-          ! & p_op_coeff%cell_position_cc(edge_cell_index(upwind_index), jk, edge_cell_block(upwind_index))%x
-
-          p_op_coeff%moved_edge_position_cc(je,jk,jb)%x =   &
-            &  p_op_coeff%edge_position_cc(je,jk,jb)%x      &
-            &  - half_time * p_os%p_diag%p_vn_mean(je,jk,jb)%x
-
-        END DO
-      END DO
-    END DO
-
-  END SUBROUTINE prepare_tracer_transport_2
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !!  3 version
-  !!
-  SUBROUTINE prepare_tracer_transport_3(patch_3D, p_os, p_op_coeff)
-
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-    !
-    !Local variables
-    INTEGER  :: slev, elev
-    INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: i_startidx_e, i_endidx_e
-    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-    INTEGER  :: edge_cell_index(2), edge_cell_block(2)
-    INTEGER  :: upwind_index
-    REAL(wp) :: delta_z, half_time
-    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-    TYPE(t_cartesian_coordinates):: flux_sum
-    !-------------------------------------------------------------------------------
-    TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-    !-------------------------------------------------------------------------------
-    patch_2d        => patch_3D%p_patch_2D(1)
-    cells_in_domain => patch_2d%cells%in_domain
-    edges_in_domain => patch_2d%edges%in_domain
-
-    slev = 1
-    half_time = 0.5_wp * dtime
-
-    ! This should be moved to the vertical advection
-    ! just moving data around should not take place
-!    p_os%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c) = &
-!      &  p_os%p_diag%w(1:nproma, 1:n_zlev+1, 1:patch_2d%nblks_c)
-
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        !Get indices of two adjacent cells
-        edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
-        edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
-        edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
-        edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
-        elev  = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-
-        DO jk = slev, elev
-
-          p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp *                          &
-            & (p_os%p_diag%p_vn(edge_cell_index(1), jk, edge_cell_block(1))%x + &
-            &  p_os%p_diag%p_vn(edge_cell_index(2), jk, edge_cell_block(2))%x)
-
-          p_op_coeff%moved_edge_position_cc(je,jk,jb)%x =   &
-            &  p_op_coeff%edge_position_cc(je,jk,jb)%x      &
-            &  - half_time * p_os%p_diag%p_vn_mean(je,jk,jb)%x
-
-        END DO
-
-        DO jk = slev, elev
-          upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp)
-
-
-          p_op_coeff%upwind_cell_idx(je,jk,jb) = edge_cell_index(upwind_index)
-          p_op_coeff%upwind_cell_blk(je,jk,jb) = edge_cell_block(upwind_index)
-
-          p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-            & patch_2d%cells%cartesian_center(edge_cell_index(upwind_index), edge_cell_block(upwind_index))%x
-          ! & p_op_coeff%cell_position_cc(edge_cell_index(upwind_index), jk, edge_cell_block(upwind_index))%x
-        END DO
-
-      END DO
-    END DO
-
-  END SUBROUTINE prepare_tracer_transport_3
   !-------------------------------------------------------------------------
 
 

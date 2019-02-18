@@ -35,14 +35,14 @@ mpi_ocean_procs=${mpi_ocean_procs:=1}
 #-----------------------------------------------------------------------------
 if [ $mpi_total_procs -lt `expr $mpi_ocean_procs + 1` ] ; then
    echo "The coupled runs require at least 2 mpi procs. Exiting."
-   check_error 0
+   check_final_status 0
    exit
 fi
-if [ $OMP_NUM_THREADS -gt 1 ] ; then
-   echo "The coupled runs will not run in OpenMP mode . Exiting."
-   check_error 0
-   exit
-fi
+# if [ $OMP_NUM_THREADS -gt 1 ] ; then
+#    echo "The coupled runs will not run in OpenMP mode . Exiting."
+#    check_final_status 0
+#    exit
+# fi
 
 #-----------------------------------------------------------------------------
 # ATMO
@@ -766,13 +766,13 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/lsdata.nc           ./
-add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
+add_required_file ${basedir}/data/lsdata.nc                             ./
+add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc                 ./
 #
 # namelist files
 # --------------
 #
-add_required_file ${thisdir}/${atmo_namelist} ./
+add_required_file ${thisdir}/${atmo_namelist}                           ./
 #
 # atmosphere initial conditions
 # -----------------------------
@@ -788,7 +788,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 #
 # - ozone
 datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
-add_link_file ${datadir}/bc_ozone_ape.nc                                ./o3_icon_DOM01.nc
+add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozone.nc
 #
 # dictionary for variable names
 # -----------------------------

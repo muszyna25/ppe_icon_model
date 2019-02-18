@@ -37,7 +37,7 @@ MODULE mo_jw_test
 !
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, inwp, iecham
+  USE mo_impl_constants,      ONLY: inwp, iecham
   USE mo_physical_constants,  ONLY: rgrav, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
   USE mo_vertical_coord_table,ONLY: ceta

@@ -32,7 +32,10 @@ PROGRAM icon
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               atmo_process, ocean_process, testbed_process
+    &                               atmo_process, ocean_process, ps_radiation_process
+#ifndef __NO_ICON_TESTBED__
+  USE mo_master_control,      ONLY: testbed_process
+#endif
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: OPERATOR(>)
   USE mo_util_signal
@@ -51,6 +54,10 @@ PROGRAM icon
 
 #ifndef __NO_ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
+#endif
+
+#ifndef __NO_ICON_PS_RAD__
+  USE mo_ps_radiation_model, ONLY: ps_radiation_model
 #endif
 
   USE mo_cdi,                 ONLY: gribapiLibraryVersion
@@ -89,6 +96,7 @@ PROGRAM icon
   INTEGER                     :: signals(1)
   INTEGER                     :: iret
 #endif
+
 
 !--------------------------------------------------------------------
 
@@ -218,6 +226,7 @@ PROGRAM icon
     CALL message('','')
   END IF
 
+
   !-------------------------------------------------------------------
   ! Initialize the master control
 
@@ -238,10 +247,16 @@ PROGRAM icon
     CALL ocean_model (my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
+#ifndef __NO_ICON_PS_RAD__
+  CASE (ps_radiation_process)
+    CALL ps_radiation_model  (my_namelist_filename, TRIM(master_namelist_filename))
+#endif
+
 #ifndef __NO_ICON_TESTBED__
   CASE (testbed_process)
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
+
 
   CASE default
     CALL finish("icon","my_process_component is unknown")

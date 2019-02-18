@@ -161,12 +161,12 @@ MODULE mo_icon_interpolation_scalar
   PUBLIC :: edges2edges_scalar
 
 #if defined( _OPENACC )
-#define ACC_DEBUG NOACC
 #if defined(__ICON_INTERPOLATION_SCALAR_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -260,32 +260,31 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 ! loop over edges and blocks
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vertex_in, c_int ), PCOPY( p_edge_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( c_int, p_vertex_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, c_int, p_vertex_in, p_edge_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_vertex_in, c_int ), PCOPY( p_edge_out ), &
+!$ACC      PRESENT( iidx, iblk), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( c_int, p_vertex_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
 #ifdef __LOOP_EXCHANGE
+  !$ACC LOOP GANG
   DO je = i_startidx, i_endidx
+    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
+  !$ACC LOOP GANG
   DO jk = slev, elev
+    !$ACC LOOP VECTOR
     DO je = i_startidx, i_endidx
 #endif
 
@@ -296,17 +295,15 @@ DO jb = i_startblk, i_endblk
     END DO
 
   END DO
+!$ACC END PARALLEL
 
 END DO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -413,41 +410,34 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( c_int, p_cell_in ), PCOPY( p_edge_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( c_int, p_cell_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on )
-#else
+!$ACC DATA PCOPYIN( c_int, p_cell_in ), PCOPY( p_edge_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( c_int, p_cell_in, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
 
 IF ( (l_limited_area .OR. ptr_patch%id > 1) .AND. lfill_latbc) THEN ! Fill outermost nest boundary
 
   i_startblk = ptr_patch%edges%start_blk(1,1)
   i_endblk   = ptr_patch%edges%end_blk(1,1)
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cell_in, p_edge_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, 1, 1)
 
-!$ACC LOOP WORKER
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+
+    !$ACC LOOP GANG
     DO je = i_startidx, i_endidx
       IF (iidx(je,jb,1) >= 1 .AND. iblk(je,jb,1) >= 1) THEN
-!$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
           p_edge_out(je,jk,jb) =  p_cell_in(iidx(je,jb,1),jk,iblk(je,jb,1))
         END DO
       ELSE IF (iidx(je,jb,2) >= 1 .AND. iblk(je,jb,2) >= 1) THEN
-!$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR
         DO jk = slev, elev
           p_edge_out(je,jk,jb) =  p_cell_in(iidx(je,jb,2),jk,iblk(je,jb,2))
         END DO
@@ -462,13 +452,11 @@ IF ( (l_limited_area .OR. ptr_patch%id > 1) .AND. lfill_latbc) THEN ! Fill outer
 #endif
       ENDIF
     END DO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO
-#endif
+
 ENDIF
 
 ! Process the remaining grid points for which a real interpolation is possible
@@ -477,29 +465,26 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 
 IF (slev > 1) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, c_int, p_cell_in, p_edge_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG 
     DO je = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 #ifdef _URD2
 !CDIR UNROLL=_URD2
 #endif
+    !$ACC LOOP GANG 
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = i_startidx, i_endidx
 #endif
 
@@ -509,38 +494,32 @@ IF (slev > 1) THEN
 
       END DO
     END DO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
-#endif
+
 ELSE
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, c_int, p_cell_in, p_edge_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO je = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = i_startidx, i_endidx
 #endif
 
@@ -550,21 +529,17 @@ ELSE
 
       END DO
     END DO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
-#endif
+
 ENDIF
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -652,10 +627,9 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( v_int, p_edge_in ), PCOPY( p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( v_int, p_edge_in, p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-#endif
+!$ACC DATA PCOPYIN( v_int, p_edge_in ), PCOPY( p_vert_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( v_int, p_edge_in, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !loop over blocks and verts
 IF (ptr_patch%geometry_info%cell_type == 6) THEN
@@ -664,16 +638,8 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
   nblks_v   = ptr_patch%nblks_v
   npromz_v  = ptr_patch%npromz_v
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( v_int, p_edge_in, iidx, iblk, p_vert_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = 1, nblks_v
 
     IF (jb /= nblks_v) THEN
@@ -682,13 +648,17 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
       nlen = npromz_v
     ENDIF
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jv = 1, nlen
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jv = 1, nlen
 #endif
 
@@ -699,38 +669,31 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
       ENDDO
     ENDDO
-  ENDDO  !loop over blocks
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+  ENDDO  !loop over blocks
 !$OMP END DO
 !$OMP END PARALLEL
-#endif
 
 ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, v_int, p_edge_in, p_vert_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jv = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jv = i_startidx, i_endidx
 #endif
 
@@ -744,21 +707,15 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO  !loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 ENDIF
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST( p_vert_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#endif
-
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -845,35 +802,31 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( c_int, p_edge_in ), PCOPY( p_cell_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( c_int, p_edge_in, p_cell_out ), IF( i_am_accel_node .AND. acc_on )
-#endif
+!$ACC DATA PCOPYIN( c_int, p_edge_in ), PCOPY( p_cell_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( c_int, p_edge_in, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !loop over blocks and cells
 IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, c_int, p_edge_in, p_cell_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -884,38 +837,32 @@ IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO  !loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, c_int, p_edge_in, p_cell_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -929,20 +876,15 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO  !loop over blocks
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 ENDIF
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST( p_cell_out ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_out ), IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#endif
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -1022,35 +964,30 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-#endif
+!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jv = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jv = i_startidx, i_endidx
 #endif
 
@@ -1061,39 +998,32 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jv = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jv = i_startidx, i_endidx
 #endif
 
@@ -1107,21 +1037,16 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
 ENDIF
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#endif
-
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -1199,32 +1124,29 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_cell_in, c_int, p_vert_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_cell_in, c_int ), PCOPY( p_vert_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cell_in, c_int, p_vert_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jv = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
          p_vert_out(jk,jv,jb) =                                         &
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jv = i_startidx, i_endidx
          p_vert_out(jv,jk,jb) =                                         &
 #endif
@@ -1237,17 +1159,15 @@ IF (ltimer) CALL timer_start(timer_intp)
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO
 
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST(p_vert_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -1312,22 +1232,14 @@ npromz_c = ptr_patch%npromz_c
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vert_in, c_int ), PCOPY( p_cell_out ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_vert_in, c_int, p_cell_out ), IF( i_am_accel_node .AND. acc_on )
-#endif
+!$ACC DATA PCOPYIN( p_vert_in, c_int ), PCOPY( p_cell_out ), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_vert_in, c_int, p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 IF (ptr_patch%geometry_info%cell_type == 3) THEN
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, p_vert_in, c_int, p_cell_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
 
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -1336,13 +1248,17 @@ IF (ptr_patch%geometry_info%cell_type == 3) THEN
       nlen = npromz_c
     ENDIF
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jc = 1, nlen
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = 1, nlen
 #endif
 
@@ -1353,27 +1269,16 @@ IF (ptr_patch%geometry_info%cell_type == 3) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   END DO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
-#ifdef _OPENACC
-!$ACC PARALLEL &
-!$ACC PRESENT( p_vert_in, c_int, iidx, iblk, p_cell_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = 1, nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -1382,13 +1287,17 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
       nlen = npromz_c
     ENDIF
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jc = 1, nlen
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = 1, nlen
 #endif
 
@@ -1402,21 +1311,16 @@ ELSE IF (ptr_patch%geometry_info%cell_type == 6) THEN
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
   ENDDO
-#ifdef _OPENACC
-!$ACC END PARALLEL
-#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
 
 ENDIF
 
-#ifdef _OPENACC
-!ACC_DEBUG UPDATE HOST( p_cell_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_cell_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
-#endif
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -1486,18 +1390,12 @@ npromz_e = ptr_patch%npromz_e
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_edge_in, c_int ), PCOPY( p_edge_out), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( p_edge_in, c_int, p_edge_out ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( p_edge_in, c_int, iidx, iblk, p_edge_out ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_edge_in, c_int ), PCOPY( p_edge_out), &
+!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_edge_in, c_int, p_edge_out ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = 1, nblks_e
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -1505,12 +1403,16 @@ IF (ltimer) CALL timer_start(timer_intp)
       nlen = npromz_e
     ENDIF
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO je = 1, nlen
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO je = 1, nlen
 #endif
         p_edge_out(je,jk,jb) =                                        &
@@ -1521,15 +1423,14 @@ IF (ltimer) CALL timer_start(timer_intp)
         & + c_int(5,je,jb)* p_edge_in(je,jk,jb)
       ENDDO
     ENDDO
-  END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
+
+  END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST(p_edge_out), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 IF (ltimer) CALL timer_stop(timer_intp)
 
@@ -1637,30 +1538,27 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-#ifdef _OPENACC
 !$ACC DATA PCOPYIN( psi_c, avg_coeff ), PCOPY( avg_psi_c ), IF( i_am_accel_node .AND. acc_on )
-!ACC_DEBUG UPDATE DEVICE( psi_c, avg_coeff, avg_psi_c ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL &
-!$ACC PRESENT( ptr_patch, psi_c, avg_coeff, avg_psi_c ), &
-!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( psi_c, avg_coeff, avg_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-!$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 #ifdef __LOOP_EXCHANGE
+    !$ACC LOOP GANG
     DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
       DO jk = slev, elev
 #else
 !CDIR UNROLL=4
+    !$ACC LOOP GANG
     DO jk = slev, elev
+      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -1675,16 +1573,15 @@ IF (ltimer) CALL timer_start(timer_intp)
       END DO !cell loop
 
     END DO !vertical levels loop
+!$ACC END PARALLEL
 
   END DO !block loop
-#ifdef _OPENACC
-!$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( avg_psi_c ), IF( i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-#else
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
+!$ACC UPDATE HOST( avg_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
 
 IF (ltimer) CALL timer_stop(timer_intp)
 

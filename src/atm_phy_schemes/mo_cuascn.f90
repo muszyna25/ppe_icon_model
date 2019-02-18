@@ -662,7 +662,8 @@ DO jk=klev-1,ktdia+2,-1
              zdmfen(jl)=ENTSHALP*zdmfen(jl)
              zdmfde(jl)=zdmfen(jl)
           ENDIF
-          ZDMFDE(JL)=ZDMFDE(JL)*(1.6_JPRB-MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)))
+          zc = 1.6_JPRB-MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK))
+          ZDMFDE(JL)=ZDMFDE(JL)*MAX(0.9_jprb*zc,zc**2)
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
           zchange=MAX(zmftest-zmfmax,0.0_JPRB)
           zxe=MAX(zchange-zxs,0.0_JPRB)
@@ -1115,9 +1116,9 @@ END SUBROUTINE cuascn
     !!*    1.           CALCULATE ENTRAINMENT AND DETRAINMENT RATES
     !!                  -------------------------------------------
 
-!DIR$ IVDEP
 !OCL NOVREC
     IF (lhook) CALL dr_hook('CUBASMCN',0,zhook_handle)
+!DIR$ IVDEP
     DO jl=kidia,kfdia
 
       IF(.NOT.ldcum(jl).AND.klab(jl,kk+1) == 0 ) THEN

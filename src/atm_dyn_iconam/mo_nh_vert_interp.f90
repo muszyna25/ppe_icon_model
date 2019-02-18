@@ -98,7 +98,7 @@ CONTAINS
   !!
   SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
@@ -208,7 +208,7 @@ CONTAINS
   !!
   SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon, opt_use_vn, opt_lmask_c, opt_lmask_e, opt_latbcmode)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
 
@@ -431,7 +431,7 @@ CONTAINS
                   p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,    &
                   wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1,    &
                   wfacpbl2, kpbl2, l_loglin=.TRUE., l_extrapol=.TRUE., &
-                  l_pd_limit=.TRUE., lower_limit=2.5e-6_wp             )
+                  l_pd_limit=.TRUE., lower_limit=2.5e-7_wp             )
 
     ! Cloud and precipitation variables - linear interpolation only because cubic may
     ! cause negative values, and no-gradient condition for downward extrapolation
@@ -478,7 +478,7 @@ CONTAINS
                  coef1, coef2, coef3, wfac_lin,                             &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
                  wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
-                 lower_limit=2.5e-6_wp, l_restore_pbldev=.TRUE.,            &
+                 lower_limit=2.5e-7_wp, l_restore_pbldev=.TRUE.,            &
                  opt_qc=initicon%atm%qc, opt_lmask=opt_lmask_c )
 
     ! Compute virtual temperature with final QV
@@ -691,6 +691,7 @@ CONTAINS
             ELSE IF (z3d_out(jc,jk,jb) <= z3d_in(jc,nlevs_in,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in
+              IF (jk == 1)  bot_idx(jc,jb) = 0
             ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
               idx0(jc,jk,jb) = 1
               IF (l_extrap) THEN
@@ -1650,7 +1651,7 @@ CONTAINS
   !!
   SUBROUTINE compute_slope(p_patch, p_int, topo_c, slope_c)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
 
     ! Topography data
@@ -1993,25 +1994,27 @@ CONTAINS
       ENDIF
 
 
-      ! Compute vertical gradients of input data
-      DO jk1 = 1, nlevs_in-1
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,1) = (temp_mod(jc,1)-temp_mod(jc,2))/ &
+             (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+      ENDDO
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,2) = (temp_mod(jc,2)-temp_mod(jc,3))/ &
+             (z3d_in(jc,2,jb)-z3d_in(jc,3,jb))
+        ! Compute vertical gradients of gradients
+        g2(jc,2-1) = (g1(jc,1)-g1(jc,2))/(z3d_in(jc,1,jb)-z3d_in(jc,3,jb))
+      ENDDO
+      DO jk1 = 3, nlevs_in-1
         DO jc = 1, nlen
+          ! Compute vertical gradients of input data
           g1(jc,jk1) = (temp_mod(jc,jk1 )-temp_mod(jc,jk1+1 ))/ &
                        (z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+1,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute vertical gradients of gradients
-      DO jk1 = 1, nlevs_in-2
-        DO jc = 1, nlen
-          g2(jc,jk1) = (g1(jc,jk1)-g1(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+2,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute third-order vertical gradients
-      DO jk1 = 1, nlevs_in-3
-        DO jc = 1, nlen
-          g3(jc,jk1) = (g2(jc,jk1)-g2(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+3,jb))
+          ! Compute vertical gradients of gradients
+          g2(jc,jk1-1) = (g1(jc,jk1-1)-g1(jc,jk1))/(z3d_in(jc,jk1-1,jb)-z3d_in(jc,jk1+1,jb))
+          ! Compute third-order vertical gradients
+          g3(jc,jk1-2) = (g2(jc,jk1-2)-g2(jc,jk1-1))/(z3d_in(jc,jk1-2,jb)-z3d_in(jc,jk1+1,jb))
         ENDDO
       ENDDO
 
@@ -2671,7 +2674,7 @@ CONTAINS
            (1._wp-wfacpbl2(jc,jb))*qv_in_lim(jc,kpbl2(jc,jb)+1)
 
         ! Vertical gradient between zpbl1 and zpbl2
-        dqvdz_up(jc) = (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)
+        dqvdz_up(jc) = MIN(5.e-6_wp, MAX(-5.e-6_wp, (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)))
       ENDDO
 
       DO jk1 = 1, nlevs_in
@@ -2683,6 +2686,8 @@ CONTAINS
           ! Modified QV with boundary-layer deviation from the extrapolated profile removed
           IF (zalml_in(jc,jk1) < zpbl1) THEN
             qv_mod(jc,jk1) = qv1(jc)+dqvdz_up(jc)*(zalml_in(jc,jk1)-zpbl1)
+            qv_mod(jc,jk1) = MIN(qv_mod(jc,jk1),1.25_wp*qv_in_lim(jc,jk1),qsat_in(jc,jk1))
+            qv_mod(jc,jk1) = MAX(qv_mod(jc,jk1),0.75_wp*qv_in_lim(jc,jk1))
           ELSE
             qv_mod(jc,jk1) = qv_in_lim(jc,jk1)
           ENDIF

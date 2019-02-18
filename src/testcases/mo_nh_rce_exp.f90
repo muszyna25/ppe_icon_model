@@ -21,12 +21,9 @@ MODULE mo_nh_rce_exp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: rd, cpd, grav, p0ref,rd_o_cpd, cvd_o_rd
-  USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_physical_constants,  ONLY: rd, grav, p0ref,rd_o_cpd
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_ref
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc
   USE mo_nh_testcases_nml,    ONLY: tpe_psfc, tpe_temp
 
   IMPLICIT NONE
@@ -53,13 +50,11 @@ MODULE mo_nh_rce_exp
   !!  
   !!
   SUBROUTINE init_nh_state_rce_glb( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-  &                           ptr_int, ptr_metrics)
+  &                                 ptr_metrics)
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
       &  ptr_patch
-    TYPE(t_int_state),     INTENT(IN)   :: &
-      &  ptr_int
     TYPE(t_nh_prog),       INTENT(INOUT):: &  !< prognostic state vector
       &  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
@@ -69,25 +64,16 @@ MODULE mo_nh_rce_exp
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma)!, zvn1, zvn2, zu, zv
     INTEGER  :: jb,jk  ! loop indices
-    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
-    INTEGER  :: nlen,nlev,jg
+    INTEGER  :: nblks_c,npromz_c
+    INTEGER  :: nlen,nlev
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
     npromz_c = ptr_patch%npromz_c
-    nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev   = ptr_patch%nlev
-
-    !patch id
-    jg = ptr_patch%id
-
-    ! use equation of state to set a reference density
-!!$    rho_sfc = tpe_psfc / (rd * tpe_temp )
   
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = tpe_psfc
@@ -110,10 +96,10 @@ MODULE mo_nh_rce_exp
         ptr_nh_prog%rho(1:nlen,jk,jb)     = ptr_nh_diag%pres(1:nlen,jk,jb)/rd/tpe_temp
         ptr_nh_prog%exner(1:nlen,jk,jb)   = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
         ptr_nh_prog%theta_v(1:nlen,jk,jb) = tpe_temp/ptr_nh_prog%exner(1:nlen,jk,jb)
-!++jsr
-        write(0,*) 'ptr_nh_prog%exner(1,jk,jb)=',ptr_nh_prog%exner(1,jk,jb), &
-                   'ptr_nh_prog%rho(1,jk,jb)=',ptr_nh_prog%rho(1,jk,jb), 'tpe_psfc=',tpe_psfc      
-!--jsr
+!!$!++jsr
+!!$        write(0,*) 'ptr_nh_prog%exner(1,jk,jb)=',ptr_nh_prog%exner(1,jk,jb), &
+!!$                   'ptr_nh_prog%rho(1,jk,jb)=',ptr_nh_prog%rho(1,jk,jb), 'tpe_psfc=',tpe_psfc      
+!!$!--jsr
      END DO
 
 

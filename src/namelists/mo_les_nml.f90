@@ -17,10 +17,9 @@ MODULE mo_les_nml
   USE mo_les_config,          ONLY: les_config
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
-  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_control,     ONLY: use_restart_namelists
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
@@ -31,42 +30,8 @@ MODULE mo_les_nml
   PUBLIC :: read_les_namelist
   PUBLIC :: turb_profile_list, turb_tseries_list
 
-  REAL(wp) :: sst        ! prescribed SST
-  REAL(wp) :: psfc       ! prescribed surface pressure
-  REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
-  REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
-  INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
-
-  REAL(wp) :: ufric      ! friction velocity
- 
-  LOGICAL  :: is_dry_cbl  !special case for CBL testcase
- 
-  !For isrf_type==3
-  REAL(wp) :: bflux      !Buoyancy flux
-  REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
-
-  !Some parameters
-  REAL(wp) :: smag_constant
-  REAL(wp) :: turb_prandtl 
-  REAL(wp) :: km_min         !min mass weighted turbulent viscosity 
-  REAL(wp) :: max_turb_scale !max turbulence length scale
-  REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
-
-  !Scheme for vertical discretization
-  INTEGER :: vert_scheme_type !1=explicit, 2=implicit
-
-  !Parameters for additional diagnostic output
-  LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
-  REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
-  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(44) !list of variables  
-  CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
-  LOGICAL  :: les_metric
-
-  NAMELIST/les_nml/ sst, psfc, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
-                    smag_constant, turb_prandtl, bflux, tran_coeff,   &
-                    vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
-                    expname, ldiag_les_out, km_min, min_sfc_wind, les_metric, &
-                    max_turb_scale
+  CHARACTER(LEN=7) :: turb_tseries_list(19), turb_profile_list(51) !list of variables
+                                !added profiles of LS forcing tendencies (45-51)
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -93,6 +58,42 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_les_nml: read_les_namelist'
+
+    REAL(wp) :: sst        ! prescribed SST
+    REAL(wp) :: psfc       ! prescribed surface pressure
+    REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
+    REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
+    INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
+
+    REAL(wp) :: ufric      ! friction velocity
+
+    LOGICAL  :: is_dry_cbl  !special case for CBL testcase
+
+    !For isrf_type==3
+    REAL(wp) :: bflux      !Buoyancy flux
+    REAL(wp) :: tran_coeff !Surface transfer coefficient in units of velocity (m/s)
+
+    !Some parameters
+    REAL(wp) :: smag_constant
+    REAL(wp) :: turb_prandtl
+    REAL(wp) :: km_min         !min mass weighted turbulent viscosity
+    REAL(wp) :: max_turb_scale !max turbulence length scale
+    REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
+
+    !Scheme for vertical discretization
+    INTEGER :: vert_scheme_type !1=explicit, 2=implicit
+
+    !Parameters for additional diagnostic output
+    LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
+    REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time
+    CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
+    LOGICAL  :: les_metric
+
+    NAMELIST/les_nml/ sst, psfc, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
+         smag_constant, turb_prandtl, bflux, tran_coeff,   &
+         vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
+         expname, ldiag_les_out, km_min, min_sfc_wind, les_metric, &
+         max_turb_scale
 
     !-----------------------
     ! 1. default settings
@@ -131,7 +132,8 @@ CONTAINS
       'thv    ','wthv   ','wqvd   ','wthd   ','wqcd   ','bruvais','mechprd',   & !22-28
       'wud    ','wvd    ','wthsfs ','rh     ','clc    ','qi     ','qs     ',   & !29-35
       'qr     ','qg     ','qh     ','lwf    ','swf    ','dt_t_sw','dt_t_lw',   & !36-42
-      'dt_t_tb','dt_t_mc' /)    !43-44 
+      'dt_t_tb','dt_t_mc','dthls_w','dqls_w ','dthls_h','dqls_h ','nt_thl ',   & !43-49 
+      'nt_qt  ','wfls   ' /)    						 !50-51
 
     turb_tseries_list = (/                                          &
       'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6

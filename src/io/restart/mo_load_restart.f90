@@ -59,8 +59,8 @@ CONTAINS
   !
   !The RESULT of the first CALL IS cached, so that this FUNCTION may
   !be called several times without negative consequences.
-  FUNCTION findRestartFile(modelType, out_lIsMultifile) RESULT(linkname)
-    CHARACTER(:), ALLOCATABLE :: linkname
+  SUBROUTINE findRestartFile(modelType, out_lIsMultifile, linkname)
+    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: linkname
     CHARACTER(*), INTENT(IN) :: modelType
     LOGICAL, INTENT(OUT) :: out_lIsMultifile
 
@@ -73,8 +73,8 @@ CONTAINS
 
     IF(.NOT.cache_isValid) THEN
         !get the two possible paths
-        singlefileLinkName = restartSymlinkName(modelType, 1)
-        multifileLinkName = multifileRestartLinkName(modelType)
+        CALL restartSymlinkName(modelType, 1, singlefileLinkName)
+        CALL multifileRestartLinkName(modelType, multifileLinkName)
 
         !check whether the respective files exist
         INQUIRE(file = singlefileLinkName, exist = haveSinglefileLink)
@@ -107,11 +107,11 @@ CONTAINS
 
     out_lIsMultifile = cache_isMultifile
     IF(cache_isMultifile) THEN
-        linkname = multifileRestartLinkName(modelType)
+        CALL multifileRestartLinkName(modelType, linkname)
     ELSE
-        linkname = restartSymlinkName(modelType, 1)
+        CALL restartSymlinkName(modelType, 1, linkname)
     END IF
-  END FUNCTION findRestartFile
+  END SUBROUTINE findRestartFile
 
   ! Read all namelists used in the previous run
   ! and store them in a buffer. These values will overwrite the
@@ -162,8 +162,10 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: filename
 
     CHARACTER(*), PARAMETER :: routine = modname//":multifileReadRestartMetadata"
+    CHARACTER(:), ALLOCATABLE :: mfaname
 
-    CALL readRestartAttributeFile(multifileAttributesPath(filename))
+    CALL multifileAttributesPath(filename, mfaname)
+    CALL readRestartAttributeFile(mfaname)
   END SUBROUTINE multifileReadRestartMetadata
 
   ! Reads attributes and namelists for all available domains from restart file.
@@ -179,7 +181,7 @@ CONTAINS
     ! for fear of silently breaking the initialization of some other global variable.
 !   IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
-    filename = findRestartFile(modelType, lIsMultifile)
+    CALL findRestartFile(modelType, lIsMultifile, filename)
     IF(lIsMultifile) THEN
         CALL multifileReadRestartMetadata(filename)
         IF(my_process_is_stdio()) CALL multifileCheckRestartFiles(filename)
@@ -242,10 +244,9 @@ CONTAINS
     END IF
     lMultifileTimersInitialized = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
-        WRITE(0,*) "restart: reading restart data for patch "//TRIM(int2string(p_patch%id))// &
-                 & ", nvar_lists = "//TRIM(int2string(nvar_lists))
-    END IF
+    IF (my_process_is_mpi_workroot()) &
+         WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
+         p_patch%id, ", nvar_lists = ", nvar_lists
 
     ! get the list of all the different model types that we need to
     ! consider:
@@ -255,7 +256,7 @@ CONTAINS
         varData => createRestartVarData(p_patch%id, modelTypes(i)%a, integerTrash)
 
         !determine whether we have a multifile to READ
-        restartPath = findRestartFile(modelTypes(i)%a, lIsMultifileRestart)
+        CALL findRestartFile(modelTypes(i)%a, lIsMultifileRestart, restartPath)
         IF(lIsMultifileRestart) THEN
             !multifile loading also uses these two timers
             IF(timers_level >= 7 .AND..NOT.lMultifileTimersInitialized) THEN

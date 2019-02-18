@@ -48,8 +48,9 @@ USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_ve
 
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius
 
+USE mo_math_types,          ONLY: t_cartesian_coordinates
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length, &
-                                  t_cartesian_coordinates, arc_length_v
+                                  arc_length_v
 USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
 
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
@@ -731,21 +732,21 @@ END SUBROUTINE init_fbk_wgt
 !!             idx_2a for edge "_____"                          idx_2b for edge "_____"       
 !!                              ^^^^^                                            ^^^^^        
 !!                                                                                      
-!!     /    \    /   \    /    \    /    \                /    \    /   \    /    \    /    \   
-!!    /      \  /     \  /      \  /      \              /      \  /     \  /      \  /      \  
-!!   /________\/...5...\/....4...\/________\            /________\/_______\/________\/________\ 
-!!   \        /\       ::        /\        /            \        /\       /\        /\        / 
-!!    \      /  \     :  :      /  \      /              \      /  \     /  \      /  \      /  
-!!     \    /    \   3    2    /    \    /                \    /    \   /    \    /    \    /   
-!!      \  /      \ :      :  /      \  /                  \  /      \ /      \  /      \  /    
-!!       \/________:____1___:/________\/                    \/________/________\/________\/     
-!!       /\       /\^^^^^^^^/\        /\                    /\       /:^^^^^^^^:\        /\     
-!!      /  \     /  \      /  \      /  \                  /  \     /  :      :  \      /  \    
-!!     /    \   /    \    /    \    /    \                /    \   /    :    :    \    /    \   
-!!    /      \ /      \  /      \  /      \              /      \ /      :  :      \  /      \  
-!!   /________/________\/________\/________\            /________/........::........\/________\ 
-!!   \        /\       /\        /\        /            \        /\       /\        /\        / 
-!!    \      /  \     /  \      /  \      /              \      /  \     /  \      /  \      /  
+!!     /    \    /   \    /    \    /    \                /    \    /   \    /    \    /    \  ! 
+!!    /      \  /     \  /      \  /      \              /      \  /     \  /      \  /      \ ! 
+!!   /________\/...5...\/....4...\/________\            /________\/_______\/________\/________\! 
+!!   \        /\       ::        /\        /            \        /\       /\        /\        /! 
+!!    \      /  \     :  :      /  \      /              \      /  \     /  \      /  \      / ! 
+!!     \    /    \   3    2    /    \    /                \    /    \   /    \    /    \    /  ! 
+!!      \  /      \ :      :  /      \  /                  \  /      \ /      \  /      \  /   ! 
+!!       \/________:____1___:/________\/                    \/________/________\/________\/    ! 
+!!       /\       /\^^^^^^^^/\        /\                    /\       /:^^^^^^^^:\        /\    ! 
+!!      /  \     /  \      /  \      /  \                  /  \     /  :      :  \      /  \   ! 
+!!     /    \   /    \    /    \    /    \                /    \   /    :    :    \    /    \  ! 
+!!    /      \ /      \  /      \  /      \              /      \ /      :  :      \  /      \ ! 
+!!   /________/________\/________\/________\            /________/........::........\/________\! 
+!!   \        /\       /\        /\        /            \        /\       /\        /\        /! 
+!!    \      /  \     /  \      /  \      /              \      /  \     /  \      /  \      / ! 
 !!   
 !!   These stencils are calculated as follows:
 !!   
@@ -1511,7 +1512,6 @@ REAL(wp) :: z_idwwgt(6)      ! IDW weighting factors
 INTEGER :: jg, jb, je, jcd, jgc, &
            iie1, ibe1, je1, iiec, ibec
 INTEGER :: istencil              ! number of edges for the stencil
-INTEGER :: ist                   ! status variable
 INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
@@ -1539,7 +1539,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
   i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
-!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb, i_startidx, i_endidx)
+!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,jb, i_startidx, i_endidx)
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &

@@ -18,7 +18,6 @@
 !!
 MODULE mo_limarea_config
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
@@ -27,10 +26,8 @@ MODULE mo_limarea_config
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
   USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN, datetime,  &
-    &                              timedelta, deallocateTimedelta,   &
-    &                              newTimedelta, OPERATOR(-),        &
-    &                              getTotalSecondsTimeDelta,         &
-    &                              MAX_DATETIME_STR_LEN
+    &                              timedelta, OPERATOR(-)
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDDHH, FMT_DDHHMMSS, FMT_HHH
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
@@ -161,10 +158,6 @@ CONTAINS
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename'
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
-    TYPE(timedelta), POINTER                    :: td
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: timedelta_str
-    INTEGER(c_int64_t)                          :: td_seconds
-    INTEGER                                     :: errno
     
     WRITE(str,'(i4)')   latbc_mtime%date%year
     CALL associate_keyword("<y>",         TRIM(str),                        keywords)
@@ -185,17 +178,15 @@ CONTAINS
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
     
     IF (PRESENT(opt_mtime_begin)) THEN
-      td => newTimedelta("P01D")
-      td = latbc_mtime - opt_mtime_begin
-      ! we convert the time delta to an ISO 8601 conforming string
-      ! (where, for convenience, the 'T' token has been erased)
-      WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
-        &                                 td%minute, 'M',  td%second, 'S'
-      td_seconds = getTotalSecondsTimeDelta(td, opt_mtime_begin, errno)
-      IF (errno /= 0)  CALL finish(routine, "Internal error: "//TRIM(timedelta_str))
-      WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
-      CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
-      CALL deallocateTimedelta(td)
+      CALL associate_keyword("<ddhhmmss>", &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_DDHHMMSS)), &
+        &                    keywords)
+      CALL associate_keyword("<dddhh>",    &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_DDDHH)),    &
+        &                    keywords)
+      CALL associate_keyword("<hhh>",    &
+        &                    TRIM(mtime_utils%ddhhmmss(opt_mtime_begin, latbc_mtime, FMT_HHH)),    &
+        &                    keywords)
     END IF
 
     ! replace keywords in latbc_filename

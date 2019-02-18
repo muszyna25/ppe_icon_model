@@ -23,7 +23,7 @@
 MODULE mo_decomposition_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: i8, wp
-  USE mo_exception,          ONLY: message_text, message, finish, warning
+  USE mo_exception,          ONLY: finish
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_math_utilities
   USE mo_util_sort,          ONLY: quicksort
@@ -75,8 +75,9 @@ MODULE mo_decomposition_tools
     ! For cells this is the same as decomp_domain(:,:)==0
     ! index1=nproma, index2=1,nblks_c
     ! For edges, this can not be derived from decomp_domain:
-    ! edges at the border are assigned the PE with the bigger number
-    ! index1=nproma, index2=1,nblks_e    ! For verts, this can not be derived from decomp_domain:
+    ! edges at the border are assigned to the PE with the bigger number
+    ! index1=nproma, index2=1,nblks_e
+    ! For verts, this can not be derived from decomp_domain:
     ! verts at the border are assigned the PE with the bigger number
     ! index1=nproma, index2=1,nblks_v
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
@@ -98,7 +99,7 @@ MODULE mo_decomposition_tools
     ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
     ! index1=nproma, index2=1,nblks_c
     ! For edges:
-    ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
+    ! 0=owned, 1=on owned cell=in domain, 2=exactly one shared vertex with owned cells
     ! index1=nproma, index2=1,nblks_e
     ! For verts:
     ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
@@ -308,6 +309,8 @@ CONTAINS
 
     INTEGER :: lb, ub, middle
 
+    !$ACC ROUTINE SEQ
+
     lb = 1
     ub = SIZE(array)
     middle = ub / 2
@@ -344,8 +347,8 @@ CONTAINS
   ! according to the lat, lon and cell_number fields
 
   ! returns the local index for a given global index
-  ! in case the global index is not available locally -1 is returned
-  ! in case the global index is no valid 0 is returned
+  ! in case the global index is not available locally, -1 is returned
+  ! in case the global index is invalid, 0 is returned
   ELEMENTAL FUNCTION get_local_index(glb2loc_index, glb_index)
 
     TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
@@ -353,6 +356,8 @@ CONTAINS
     INTEGER :: get_local_index
 
     INTEGER :: temp
+
+    !$ACC ROUTINE SEQ
 
     IF (glb_index > glb2loc_index%global_size .OR. glb_index < 1) THEN
       get_local_index = 0
@@ -383,6 +388,8 @@ CONTAINS
     INTEGER :: get_valid_local_index_prev
 
     INTEGER :: temp
+
+    !$ACC ROUTINE SEQ
 
     IF (glb_index > glb2loc_index%global_size .OR. glb_index < 1) THEN
 
@@ -416,8 +423,15 @@ CONTAINS
     INTEGER, INTENT(in) :: glb_index
     INTEGER :: get_valid_local_index_next
     LOGICAL, INTENT(in) :: use_next
-
     INTEGER :: temp
+
+
+    !$ACC ROUTINE SEQ
+
+    IF (.NOT. use_next) THEN
+      get_valid_local_index_next = get_valid_local_index_prev(glb2loc_index, glb_index)
+      RETURN
+    ENDIF
 
     IF (glb_index > glb2loc_index%global_size .OR. &
       & glb_index < 1) THEN
@@ -468,7 +482,9 @@ CONTAINS
 
     TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
     INTEGER, INTENT(IN) :: glb_index(:), loc_index(:)
-
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: glb_index, loc_index
+#endif
     INTEGER :: ist, num_indices
 
     num_indices = SIZE(glb_index(:))
@@ -499,7 +515,9 @@ CONTAINS
 
     TYPE (t_glb2loc_index_lookup), INTENT(INOUT) :: glb2loc
     INTEGER, INTENT(IN) :: glb_index(:), loc_index(:)
-
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: glb_index, loc_index
+#endif
     INTEGER :: ist, num_indices
 
     num_indices = SIZE(glb_index(:))
@@ -933,8 +951,7 @@ CONTAINS
     INTEGER, INTENT(in) :: nparts
     TYPE(extent), INTENT(in) :: set_interval
     INTEGER, INTENT(in) :: part_idx
-    INTEGER :: start, part_offset, sym_part_idx
-    INTEGER(i8) :: sym_size
+    INTEGER :: start, part_offset
 
     part_offset = INT((INT(extent_size(set_interval), i8) &
          &             * INT(part_idx - 1, i8)) / INT(nparts, i8))

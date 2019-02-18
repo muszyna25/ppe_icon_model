@@ -17,16 +17,30 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
-    &                                   my_process_is_pref, process_mpi_pref_size  
+    &                                   my_process_is_pref, process_mpi_pref_size
+#ifdef HAVE_CDI_PIO
+  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
+#endif
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_prefetch_proc
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
+    &                                   num_io_procs,                                         &
+    &                                   num_prefetch_proc, pio_type
   USE mo_master_config,           ONLY: isRestart
+  USE mo_memory_log,              ONLY: memory_log_terminate
+  USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
+#ifdef HAVE_CDI_PIO
+  USE yaxt,                       ONLY: xt_initialize, xt_initialized
+  USE mo_cdi,                     ONLY: namespacegetactive
+  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
+    &                                   cdi_base_namespace, &
+    &                                   nml_io_cdi_pio_client_comm, &
+    &                                   nml_io_cdi_pio_conf_handle
+#endif
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -46,7 +60,7 @@ MODULE mo_atmo_model
   USE mo_nonhydrostatic_config,   ONLY: configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_io_config,               ONLY: restartWritingParameters
-  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
+  USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp, tile_list
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
@@ -65,6 +79,7 @@ MODULE mo_atmo_model
   USE mo_jsb_model_init,          ONLY: jsbach_setup_grid
   USE mo_jsb_model_final,         ONLY: jsbach_finalize
 #endif
+  USE mo_master_control,          ONLY: atmo_process
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -72,7 +87,7 @@ MODULE mo_atmo_model
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
-  USE mo_alloc_patches,           ONLY: destruct_patches
+  USE mo_alloc_patches,           ONLY: destruct_patches, destruct_comm_patterns
 
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
@@ -89,7 +104,7 @@ MODULE mo_atmo_model
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
-  USE mo_ext_data_init,           ONLY: init_ext_data 
+  USE mo_ext_data_init,           ONLY: init_ext_data
   USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
@@ -100,7 +115,7 @@ MODULE mo_atmo_model
     &                                   destruct_2d_interpol_state, transfer_interpol_state
   USE mo_grf_intp_state,          ONLY: construct_2d_gridref_state,                           &
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
-    &                                   create_grf_index_lists
+    &                                   create_grf_index_lists, destruct_interpol_patterns
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
   USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
@@ -113,6 +128,10 @@ MODULE mo_atmo_model
   ! I/O
   USE mo_restart,                 ONLY: detachRestartProcs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
+#ifdef HAVE_CDI_PIO
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
+  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
+#endif
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
@@ -126,6 +145,9 @@ MODULE mo_atmo_model
 
   IMPLICIT NONE
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: atmo_model, construct_atmo_model, destruct_atmo_model
 
@@ -170,7 +192,7 @@ CONTAINS
       CALL atmo_nonhydrostatic
 
     CASE DEFAULT
-      CALL finish( TRIM(routine),'unknown choice for iequations.')
+      CALL finish(routine, 'unknown choice for iequations.')
     END SELECT
 
     ! print performance timers:
@@ -230,7 +252,6 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
@@ -258,15 +279,17 @@ CONTAINS
 
 
     ! complete initicon config-state
-    CALL configure_initicon(dtime)
+    CALL configure_initicon()
 
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
-               &                    num_prefetch_proc)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
+         &                          num_io_procs, dedicatedRestartProcs, &
+         &                          num_prefetch_proc, num_test_pe,      &
+         &                          pio_type, opt_comp_id=atmo_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -303,15 +326,13 @@ CONTAINS
     ! This routine will never return
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
-      CALL message(routine,'asynchronous input prefetching is enabled.')
-      IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc()
-      ENDIF
+      CALL message(routine, 'asynchronous input prefetching is enabled.')
+      IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
- 
+
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
-    IF (process_mpi_io_size > 0) THEN
+    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
       ! Decide whether async vlist or name_list IO is to be used,
       ! only one of both may be enabled!
 
@@ -321,9 +342,9 @@ CONTAINS
         ! -----------------------------------------
         !
         use_async_name_list_io = .TRUE.
-        CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
+        CALL message(routine, 'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
-        IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
           ! since xxx_io_main_proc never returns
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
@@ -344,18 +365,38 @@ CONTAINS
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF
-      ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      ELSE IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
         STOP
       ENDIF
+    ELSE IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
+      ! initialize parallel output via CDI-PIO
+#ifdef HAVE_CDI_PIO
+      IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
+      cdi_base_namespace = namespaceGetActive()
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postcommsetup, init_cdipio_cb)
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postwritebatch, write_ready_files_cdipio)
+      nml_io_cdi_pio_client_comm = &
+        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
+        &              nml_io_cdi_pio_namespace)
+      IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
+        ! todo: terminate program cleanly here
+        CALL stop_mpi
+        STOP
+      END IF
+#else
+      CALL finish(routine, 'CDI-PIO requested but unavailable')
+#endif
     ELSE
       ! -----------------------------------------
       ! non-asynchronous I/O (performed by PE #0)
       ! -----------------------------------------
       !
       IF (output_mode%l_nml) THEN
-        CALL message(routine,'synchronous namelist I/O scheme is enabled.')
+        CALL message(routine, 'synchronous namelist I/O scheme is enabled.')
       ENDIF
     ENDIF
 
@@ -373,6 +414,7 @@ CONTAINS
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
     IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
 
+
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
@@ -387,14 +429,14 @@ CONTAINS
             & p_grf_state(n_dom_start:n_dom), &
             & STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
+      CALL finish(routine, 'allocation for ptr_int_state failed')
     ENDIF
 
     ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
       &       p_grf_state_local_parent(n_dom_start+1:n_dom), &
       &       STAT=error_status)
     IF (error_status /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation for local parents failed')
+      CALL finish(routine, 'allocation for local parents failed')
 
     ! Construct interpolation state
     ! Please note that for parallel runs the divided state is constructed here
@@ -446,7 +488,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
-    
+
     CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
@@ -455,7 +497,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
-   ! Prepare dynamics and land 
+   ! Prepare dynamics and land
    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
@@ -469,7 +511,7 @@ CONTAINS
     !------------------------------------------------------------------
     ALLOCATE (ext_data(n_dom), STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
+      CALL finish(routine, 'allocation for ext_data failed')
     ENDIF
 
     ! allocate memory for atmospheric/oceanic external data and
@@ -515,7 +557,7 @@ CONTAINS
     ! Setup horizontal grids and tiles for JSBACH
     DO jg=1,n_dom
       IF (echam_phy_config(jg)%ljsb) THEN 
-        CALL jsbach_setup_grid( jg, p_patch(jg)) !< in
+        CALL jsbach_setup_grid( jg, p_patch(jg), type='icon') !< in
         CALL jsbach_setup_tiles(jg)
       END IF
     END DO
@@ -529,7 +571,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! 11. Create ART data fields
     !------------------------------------------------------------------
-    
+
     CALL art_init_interface(n_dom,'construct')
 
     !------------------------------------------------------------------
@@ -548,48 +590,64 @@ CONTAINS
     ! Destruct external data state
 
     CALL destruct_ext_data
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_ext_data is done')
+    IF (msg_level > 5) CALL message(routine, 'destruct_ext_data is done')
 
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
+      CALL finish(routine, 'deallocation of ext_data')
     ENDIF
+
+    ! destruct surface tile list
+    IF (iforcing == inwp) THEN
+      CALL tile_list%destruct()
+    ENDIF
+
+    ! destruct interpolation patterns generate in create_grf_index_lists
+    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+      CALL destruct_interpol_patterns(p_patch)
+    END IF
 
     ! Deconstruct grid refinement state
 
     IF (n_dom > 1) THEN
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_gridref_state is done')
+    IF (msg_level > 5) CALL message(routine,'destruct_2d_gridref_state is done')
 
     DEALLOCATE (p_grf_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+      CALL finish(routine, 'deallocation for ptr_grf_state failed')
     ENDIF
 
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_interpol_state is done')
+    IF (msg_level>5) CALL message(routine,'destruct_2d_interpol_state is done')
 
     DEALLOCATE (p_int_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+      CALL finish(routine, 'deallocation for ptr_int_state failed')
     ENDIF
 
     ! Deallocate global registry for lon-lat grids
     CALL lonlat_grids%finalize()
 
+    ! Destruct communication patterns
+    CALL destruct_comm_patterns( p_patch, p_patch_local_parent )
+
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
     CALL destruct_patches( p_patch_local_parent )
-    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_patches is done')
+    IF (msg_level>5) CALL message(routine, 'destruct_patches is done')
 
     DEALLOCATE( p_patch, STAT=error_status )
     IF (error_status/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
+      CALL finish(routine, 'deallocate for patch array failed')
     ENDIF
+
+    ! close memory logging files
+    CALL memory_log_terminate
 
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
@@ -601,7 +659,7 @@ CONTAINS
 #ifndef __NO_JSBACH__
     CALL jsbach_finalize()
 #endif
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(routine, 'clean-up finished')
 
   END SUBROUTINE destruct_atmo_model
   !-------------------------------------------------------------------
