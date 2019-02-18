@@ -3458,9 +3458,9 @@ CONTAINS
 
         isum = ioffset
         DO n = 1, npats
-          irs = p_pat(n)%p%recv_limits(pid)+1 + ioffset_r(n)
+          irs = p_pat(n)%p%recv_limits(pid)   + ioffset_r(n)
           ire = p_pat(n)%p%recv_limits(pid+1) + ioffset_r(n)
-          isum1 = ire - irs + 1
+          isum1 = ire - irs
           IF (isum1 > 0) THEN
 #ifdef __OMPPAR_COPY__
 !$OMP DO
@@ -3471,7 +3471,7 @@ CONTAINS
 !
 !$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
             DO i = 1, isum1
-              recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+              recv_buf(:,irs+i) = auxr_buf(:,isum+i)
             ENDDO
 !$ACC END KERNELS
 #ifdef __OMPPAR_COPY__
