@@ -1065,12 +1065,11 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+   ELSE IF (p_pat%inplace) THEN
+     CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
    ELSE
-     IF (p_pat%inplace) THEN
-       CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
-     ELSE
-       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
-     END IF
+     ! make copy of recv
+     CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -1397,12 +1396,11 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+   ELSE IF (p_pat%inplace) THEN
+     CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
    ELSE
-     IF (p_pat%inplace) THEN
-       CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
-     ELSE
-       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
-     END IF
+     ! make copy of recv
+     CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
@@ -1559,12 +1557,11 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+   ELSE IF (p_pat%inplace) THEN
+     CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
    ELSE
-     IF (p_pat%inplace) THEN
-       CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
-     ELSE
-       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
-     END IF
+     ! make copy of recv
+     CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
