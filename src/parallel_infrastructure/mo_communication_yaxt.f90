@@ -1740,6 +1740,11 @@ SUBROUTINE exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
      END DO
    ELSE
      needs_cpy(:, 2) = cpy_recv
+     IF (cpy_recv) THEN
+       DO i = 1, nfields
+         cpy_size = cpy_size + nproma * nlev(i, 1) * SIZE(recv(i)%p, 3)
+       END DO
+     END IF
      nlev(:, 2) = nlev(:, 1)
    END IF
 
