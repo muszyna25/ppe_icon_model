@@ -64,8 +64,10 @@ MODULE mo_util_string
 
   !
   PUBLIC :: normal, bold
-  PUBLIC :: fg_black, fg_red, fg_green, fg_blue, fg_magenta, fg_cyan, fg_white, fg_default
-  PUBLIC :: bg_black, bg_red, bg_green, bg_blue, bg_magenta, bg_cyan, bg_white, bg_default
+  PUBLIC :: fg_black, fg_red, fg_green, fg_yellow, fg_blue, fg_magenta, &
+       fg_cyan, fg_white, fg_default
+  PUBLIC :: bg_black, bg_red, bg_green, bg_yellow, bg_blue, bg_magenta, &
+       bg_cyan, bg_white, bg_default
   !
   INTERFACE real2string
     MODULE PROCEDURE float2string
