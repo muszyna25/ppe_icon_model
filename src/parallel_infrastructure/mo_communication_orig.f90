@@ -2991,7 +2991,7 @@ CONTAINS
 
     INTEGER :: i, j, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, &
-      comm_size, accum, accum2
+      comm_size, idx_1d_i, accum, accum2
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
 
     TYPE(t_p_comm_pattern_orig), POINTER :: p_pat(:)
@@ -3209,14 +3209,13 @@ CONTAINS
       DO np = 1, npats
 !$ACC LOOP VECTOR
         DO i = 1, n_pnts(np)
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(p_recv_src(np)%p(i)),       &
+                            p_send_src_blk(np)%p(p_recv_src(np)%p(i)))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
               recv(n)%p( p_recv_dst_idx(np)%p(i), k, &
                 p_recv_dst_blk(np)%p(i) ) =            &
-                send(np+(n-1)*npats)%p( k,           &
-                  idx_1d(p_send_src_idx(np)%p(         &
-                         p_recv_src(np)%p(i)),       &
-                         p_send_src_blk(np)%p(p_recv_src(np)%p(i))))
+                send(np+(n-1)*npats)%p(k, idx_1d_i)
             ENDDO
           ENDDO
         ENDDO
@@ -3274,18 +3273,18 @@ CONTAINS
 !$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(np)
 #endif
       DO np = 1, npats
 #ifdef __OMPPAR_COPY__
-!$OMP DO PRIVATE(jl,n,k)
+!$OMP DO PRIVATE(idx_1d_i,n,k)
 #endif
         DO i = 1, n_send(np)
-          jl = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
+          idx_1d_i = idx_1d(p_send_src_idx(np)%p(i), p_send_src_blk(np)%p(i))
           DO n = 1, nfields
             DO k = 1, ndim2(n)
               send_buf(k+noffset(n),i+ioffset_s(np)) = &
-                send(np+(n-1)*npats)%p(k,jl)
+                send(np+(n-1)*npats)%p(k,idx_1d_i)
             ENDDO
           ENDDO
         ENDDO
