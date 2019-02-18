@@ -311,7 +311,8 @@ CONTAINS
         END IF
       END DO
     END IF
-#else ! The crap compiler is to brain-dead to compile and USE the above code.
+#else
+    ! The crap compiler is to brain-dead to compile and USE the above code.
     one_of = -1
     IF (SIZE(arg) > 0) THEN
       in_str_tlen = LEN_TRIM(in_str)
