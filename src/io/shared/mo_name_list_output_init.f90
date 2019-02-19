@@ -31,7 +31,8 @@ MODULE mo_name_list_output_init
                                                 & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,  &
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,      &
                                                 & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,  &
-                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey
+                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey, &
+                                                & gridDefProj, GRID_PROJECTION
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -2480,6 +2481,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
     CHARACTER(len=128)                :: comment
+    LOGICAL                           :: lrotated
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist)                  :: null_idxlist
     INTEGER                           :: grid_deco_part(2)
@@ -2551,12 +2553,20 @@ CONTAINS
       ll_dim1 = lonlat%grid%lon_dim
       ll_dim2 = lonlat%grid%lat_dim
 
-      of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim1*ll_dim2)
+      lrotated = ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
+      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL )
 
-      IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
-      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
+      IF (.NOT. lrotated) THEN
+        gridtype = GRID_LONLAT
+      ELSE
+        gridtype = GRID_PROJECTION
+      END IF
+
+      of%cdiLonLatGridID = gridCreate(gridtype, ll_dim1*ll_dim2)
+
+      IF (lrotated) THEN
         CALL gridDefParamRLL(of%cdiLonLatGridID, lonlat%grid%north_pole(1), &
-          &                  lonlat%grid%north_pole(2), 0.0_dp)
+          &                  lonlat%grid%north_pole(2), lonlat%grid%north_pole(1))
       END IF
 
       CALL gridDefXsize(of%cdiLonLatGridID, ll_dim1)
