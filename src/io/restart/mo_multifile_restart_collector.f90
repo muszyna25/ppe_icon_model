@@ -11,7 +11,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-
+#define MFILE_RESTART_USE_LOCKALL
 MODULE mo_multifile_restart_collector
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC
@@ -31,7 +31,7 @@ MODULE mo_multifile_restart_collector
   USE mo_impl_constants, ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind, ONLY: dp, sp, i8
   USE mo_mpi, ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
-   & my_process_is_work, p_int, p_real_dp, p_real_sp
+   & my_process_is_work, p_int, p_real_dp, p_real_sp, p_barrier
   USE mo_multifile_restart_util, ONLY: iAmRestartWriter, commonBuf_t, dataPtrs_t
   USE mo_timer, ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
     & timer_restart_indices_setup, timers_level
@@ -553,11 +553,6 @@ CONTAINS
     memSize(1) = INT(this%wSizes(3), addr)
     CALL C_F_POINTER(cMemPtr, this%sendBuffer%i, INT(memSize))
     DEALLOCATE(this%tOffCl)
-    IF (this%wComm .NE. MPI_COMM_NULL) THEN
-      CALL MPI_Comm_free(this%wComm, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      this%wComm    = MPI_COMM_NULL
-    END IF
     this%handshakd = .true.
     this%allocd = .true.
 #endif
@@ -615,12 +610,11 @@ CONTAINS
         IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
       END DO
 #endif
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL p_barrier(comm=this%wComm)
       this%wStarted = .false.
+      this%wPosted = .false.
     ELSE IF (this%wPosted) THEN
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL p_barrier(comm=this%wComm)
       this%wPosted = .false.
     END IF
 #else
@@ -638,8 +632,7 @@ CONTAINS
     assert_lock = MPI_MODE_NOCHECK
     assert_fence = MPI_MODE_NOPUT
     IF (iAmRestartWriter() .AND. .NOT. this%wStarted) THEN
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL p_barrier(comm=this%wComm)
 #ifdef MFILE_RESTART_USE_LOCKALL
       CALL MPI_Win_lock_all(assert_lock, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
@@ -652,9 +645,8 @@ CONTAINS
       this%wStarted = .true.
       IF (my_process_is_work()) this%wPosted = .true.
    ELSE IF (my_process_is_work() .AND. .NOT.this%wPosted) THEN
+      CALL p_barrier(comm=this%wComm)
       this%wPosted = .true.
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     END IF
 #else
     CALL finish(routine, "Not implemented!")
