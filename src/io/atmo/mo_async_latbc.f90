@@ -1656,6 +1656,7 @@ MODULE mo_async_latbc
         &                 ierror )
       IF (ierror /= 0) CALL finish(routine, "MPI error!")
 
+      IF (mem_size <= 0) NULLIFY(mem_win%mem_ptr_sp)
     END SUBROUTINE create_win
 #endif
 
