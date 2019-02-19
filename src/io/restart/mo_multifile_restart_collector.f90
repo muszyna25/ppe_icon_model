@@ -11,7 +11,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#define MFILE_RESTART_USE_LOCKALL
+
 MODULE mo_multifile_restart_collector
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC
@@ -52,7 +52,7 @@ MODULE mo_multifile_restart_collector
     INTEGER(KIND=MPI_ADDRESS_KIND), ALLOCATABLE :: tOffSv(:)
     INTEGER(KIND=MPI_ADDRESS_KIND) :: facDpSp, facIntSp
     INTEGER(KIND=MPI_ADDRESS_KIND), PRIVATE, ALLOCATABLE :: tOffCl(:)
-    INTEGER, PRIVATE :: wComm, wComm_size, frstCl
+    INTEGER, PRIVATE :: wComm
     INTEGER(KIND=i8), PRIVATE :: wSizes(3)
     TYPE(ptr_arr_t), PRIVATE :: wPtr
     LOGICAL, PRIVATE :: allocd, handshakd, wPosted, wStarted
@@ -398,9 +398,8 @@ CONTAINS
     
     idx => me%idx(me%vGrid(iV))%p
     inType = me%vType(iV)
-    IF (.NOT. ASSOCIATED(me%glb_sendbuf%sendBuffer%d)) THEN
-      CALL finish(routine, "Unassociated send buffer!")
-    END IF
+    IF (.NOT. ASSOCIATED(me%glb_sendbuf%sendBuffer%d)) &
+      & CALL finish(routine, "Unassociated send buffer!")
     offset = ioffset(inType)
     IF (idx%sendPntCnt > 0) THEN
       DO iLev = lStart, lStart -1 + lCnt
@@ -482,10 +481,7 @@ CONTAINS
     idx_e%destProc = 0
     idx_v%destProc = 0
     CALL MPI_Comm_size(this%wComm, wComm_size, ierr)
-    this%wComm_size = wComm_size
-    this%frstCl = -1 !not necessary on non-writers
     IF (iAmRestartWriter()) THEN
-      this%frstCl = MERGE(0, 1, my_process_is_work())
       ALLOCATE(tmpOffSv(4*wComm_size), rank_map(wComm_size))
     ELSE
       ALLOCATE(tmpOffSv(1), rank_map(1))
@@ -601,15 +597,8 @@ CONTAINS
 
     IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer allocd to fill!")
     IF (this%wStarted) THEN
-#ifdef MFILE_RESTART_USE_LOCKALL
       CALL MPI_Win_unlock_all(this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-#else
-      DO i = this%frstCl, this%wComm_size - 1
-        CALL MPI_Win_unlock(i, this%win, ierr)
-        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      END DO
-#endif
       CALL p_barrier(comm=this%wComm)
       this%wStarted = .false.
       this%wPosted = .false.
@@ -633,15 +622,8 @@ CONTAINS
     assert_fence = MPI_MODE_NOPUT
     IF (iAmRestartWriter() .AND. .NOT. this%wStarted) THEN
       CALL p_barrier(comm=this%wComm)
-#ifdef MFILE_RESTART_USE_LOCKALL
       CALL MPI_Win_lock_all(assert_lock, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-#else
-      DO i = this%frstCl, this%wComm_size - 1
-        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, i, assert_lock, this%win, ierr)
-        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      END DO
-#endif
       this%wStarted = .true.
       IF (my_process_is_work()) this%wPosted = .true.
    ELSE IF (my_process_is_work() .AND. .NOT.this%wPosted) THEN
