@@ -23,7 +23,7 @@ MODULE mo_advection_config
   USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
     &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
-    &                                 FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,       &
+    &                                 FFSL_HYB_MCYCL, ippm_v,                  &
     &                                 ino_flx, izero_grad, iparent_flx, inwp,  &
     &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN, &
     &                                 NO_HADV, NO_VADV
@@ -195,10 +195,6 @@ MODULE mo_advection_config
                                  !< circumvent CFL instability in the 
                                  !< stratopause region).
                                                                                  
-    REAL(wp) :: coeff_grid       !< parameter which is used to make the vertical 
-                                 !< advection scheme applicable to a height      
-                                 !< based coordinate system (coeff_grid=-1)      
-
     LOGICAL  :: lfull_comp       !< .TRUE. : the full set of setup computations 
                                  !<          is executed in prepare_tracer
                                  !< .FALSE.: the majority of setup computations
@@ -321,7 +317,6 @@ CONTAINS
     ! lfull_comp is only used by the nonhydrostatic core.
     IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
       &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
       &  advection_config(jg)%iord_backtraj == 2                      .OR. &
       &  idiv_method  == 2                                            .OR. &
       &  itime_scheme == TRACER_ONLY                                       ) THEN
@@ -336,18 +331,6 @@ CONTAINS
       advection_config(jg)%cSTR = 0.5_wp
     ELSE
       advection_config(jg)%cSTR = 1._wp
-    ENDIF
-
-
-    ! Set grid-coefficient according to the applied vertical grid.
-    !
-    ! coeff_grid=1   : pressure based vertical coordinate system
-    ! coeff_grid=-1  : height based vertical coordinate system
-    !
-    IF (iequations == 3) THEN  ! non-hydrostatic equation-set
-      advection_config(jg)%coeff_grid = -1._wp
-    ELSE
-      advection_config(jg)%coeff_grid = 1._wp
     ENDIF
 
 
@@ -410,11 +393,11 @@ CONTAINS
 
     advection_config(jg)%ppm_v%iadv_min_slev = HUGE(1)
 
-    IF ( ANY(ivadv_tracer == ippm_v) .OR. ANY(ivadv_tracer == ippm_vcfl)  ) THEN
+    IF ( ANY(ivadv_tracer == ippm_v)  ) THEN
 
       ! compute minimum required slev for this group of tracers
       DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+        IF ( ivadv_tracer(jt) == ippm_v ) THEN
           advection_config(jg)%ppm_v%iadv_min_slev =                           &
             &                  MIN( advection_config(jg)%ppm_v%iadv_min_slev,  &
             &                        advection_config(jg)%iadv_slev(jt) )
@@ -424,7 +407,7 @@ CONTAINS
       ! Search for the first tracer jt for which vertical advection of
       ! type PPM has been selected.
       DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+        IF ( ivadv_tracer(jt) == ippm_v ) THEN
           lcompute%ppm_v(jt) = .TRUE.
           exit
         ENDIF
@@ -433,7 +416,7 @@ CONTAINS
       ! Search for the last tracer jt for which vertical advection of
       ! type PPM has been selected.
       DO jt=ntracer,1,-1
-        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+        IF ( ivadv_tracer(jt) == ippm_v ) THEN
           lcleanup%ppm_v(jt) = .TRUE.
           exit
         ENDIF

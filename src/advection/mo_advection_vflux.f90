@@ -1,15 +1,15 @@
 !>
 !! Computation of vertical tracer flux
 !!
-!! Vertical upwind fluxes are calculated at triangle centers on half-levels.
+!! Vertical fluxes are calculated at triangle centers on half-levels.
 !! Possible options for vertical flux calculation include
 !! - first order Godunov method (UP1)
-!! - third order PPM method with or without CFL restriction
+!! - third order PPM method without CFL restriction
 !!
-!! Semi-monotone and monotone limiters are available for MUSCL and PPM
+!! Semi-monotone and monotone limiters are available for PPM
 !!
 !! These routines compute only the correct half level value of
-!! 'c*weta'. The vertical divergence is computed in step_advection.
+!! 'c*w'. The vertical divergence is computed in step_advection.
 !!
 !!
 !! @author Daniel Reinert, DWD
@@ -38,6 +38,9 @@
 !! - refactoring in upwind_vflux_ppm_cfl
 !! Modification by Will Sawyer, CSCS (2016-07-15)
 !! - added OpenACC support
+!! Modification by Daniel Reinert, DWD (2019-02-18)
+!! - remove restricted time step version of PPM and rename 
+!!   upwind_vflux_ppm_cfl to upwind_vflux_ppm.
 !!
 !!
 !! @par Copyright and License
@@ -52,8 +55,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
-#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))+ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
 
 #ifdef __INTEL_COMPILER
 #define USE_LAXFR_MACROS
@@ -64,7 +66,7 @@ MODULE mo_advection_vflux
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
-    &                               iup_v, ippm_v, ippm_vcfl, islopel_vsm,      &
+    &                               iup_v, ippm_v, islopel_vsm,                 &
     &                               islopel_vm, ifluxl_vpd, ino_flx, izero_grad,&
     &                               iparent_flx
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -98,7 +100,7 @@ MODULE mo_advection_vflux
   PUBLIC :: vert_upwind_flux
   PUBLIC :: upwind_vflux_up
   PUBLIC :: upwind_vflux_ppm
-  PUBLIC :: upwind_vflux_ppm_cfl
+
 
 #if defined( _OPENACC )
 #if defined(__ADVECTION_VFLUX_NOACC)
@@ -147,7 +149,7 @@ CONTAINS
   !        Lin and Rood (1996), MWR, 124, 2046-2070 (see also for CFL-
   !                                                  independent versions)
   !
-  SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v, p_w_contra,    &
+  SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v,                &
     &                      p_dtime, p_cellhgt_mc_now,                         &
     &                      p_cellmass_now, p_ivadv_tracer, p_itype_vlimit,    &
     &                      p_iubc_adv, p_iadv_slev, lprint_cfl, p_upflux,     &
@@ -162,19 +164,14 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &   !< contravariant vertical mass flux
       &  p_mflx_contra_v(:,:,:)     !< dim: (nproma,nlevp1,nblks_c)
 
-    REAL(wp), INTENT(IN) ::  &      !< contravariant vertical velocity
-      &  p_w_contra(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
-
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
     REAL(wp), INTENT(IN) ::  &      !< cell height defined at full levels for
       &  p_cellhgt_mc_now(:,:,:)    !< time step n (either \Delta p or \Delta z)
                                     !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), TARGET, INTENT(IN)::& !< NH: density weighted cell height at full levels
+    REAL(wp), INTENT(IN)::  &       !< NH: density weighted cell height at full levels
       &  p_cellmass_now(:,:,:)      !< at time step n [kg/m**2]
-                                    !< HA: pressure thickness for full levels 
-                                    !< at time step n [Pa]
                                     !< dim: (nproma,nlev,nblks_c)
 
     INTEGER, INTENT(IN) ::   &      !< parameter to select numerical
@@ -192,19 +189,17 @@ CONTAINS
       &  p_iubc_adv
 
     LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
-      &  lprint_cfl                 !< in routine upwind_vflux_ppm_cfl
+      &  lprint_cfl                 !< in routine upwind_vflux_ppm
 
     REAL(wp), INTENT(INOUT) :: &    !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
       &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
-                                        !< HA: [Pa/s]
                                         !< dim: (nproma,nblks_c,ntracer)
 
     REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
       &  opt_q_int(:,:,:)               !< NH: [kg/kg]
-                                        !< HA: [kg/kg]
                                         !< dim: (nproma,nblks_c,ntracer)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
@@ -214,13 +209,13 @@ CONTAINS
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
     TYPE(t_trList), POINTER ::  &      !< pointer to tracer sublist
-      trAdvect
+      &  trAdvect
 
     INTEGER :: jt, nt                  !< tracer index and loop index
     INTEGER :: jg                      !< patch ID
     INTEGER :: jc, jb                  !< cell and block loop index
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i_rlstart_c, i_rlend_c, i_nchdom
+    INTEGER :: i_rlstart_c, i_rlend_c
     INTEGER :: iadv_min_slev           !< scheme specific minimum slev
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
@@ -245,153 +240,90 @@ CONTAINS
     ! tracers. Furthermore, options regarding the desired limiter can be passed 
     ! via the argument list. The same is true for precomputed lcompute/lcleanup
     ! values.
-    IF (PRESENT(opt_topflx_tra)) THEN
+    DO nt = 1, trAdvect%len
 
-      DO nt = 1, trAdvect%len
+      jt = trAdvect%list(nt)
 
-        jt = trAdvect%list(nt)
-
-        IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advection_config(jg)%iadv_tke == 1)) THEN
-          i_rlend_c = min_rlcell_int
-        ELSE
-          i_rlend_c = opt_rlend
-        ENDIF
-
-        ! Select desired flux calculation method
-        SELECT  CASE( p_ivadv_tracer(jt) )
-
-        CASE( iup_v )
-          ! CALL first order upwind
-          CALL upwind_vflux_up( p_patch, p_cc(:,:,:,jt), p_iubc_adv,   &! in
-            &                   p_mflx_contra_v, p_upflux(:,:,:,jt),   &! in,out
-            &                   opt_topflx_tra=opt_topflx_tra(:,:,jt), &! in
-            &                   opt_slev=p_iadv_slev(jt),              &! in
-            &                   opt_rlstart=opt_rlstart,               &! in
-            &                   opt_rlend=i_rlend_c                    )! in
-
-
-        CASE( ippm_vcfl )
-
-          iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
-
-          ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
-            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
-            &                  p_upflux(:,:,:,jt),                           &! out
-            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
-            &                  opt_slev=p_iadv_slev(jt),                     &! in
-            &                  opt_ti_slev=iadv_min_slev,                    &! in
-            &                  opt_rlstart=opt_rlstart,                      &! in
-            &                  opt_rlend=i_rlend_c                           )! in
-        CASE( ippm_v )
-          ! CALL third order PPM
-          CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
-            &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
-            &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
-            &                  p_upflux(:,:,:,jt),                     &! out
-            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),  &! in
-            &                  opt_slev=p_iadv_slev(jt),               &! in
-            &                  opt_rlstart=opt_rlstart,                &! in
-            &                  opt_rlend=i_rlend_c                     )! in
-        END SELECT
-      END DO  ! Tracer loop
-
-
-      !
-      ! get face value "q_int" at vertical boundary of child nest
-      !
-      ! determine if upper boundary values are needed
-      IF (lvert_nest .AND. (p_patch%nshift_child > 0)) THEN 
-
-        ! refinement control start/end level for cells
-        i_rlstart_c = 1
-        i_rlend_c   = min_rlcell_int
-
-        ! number of child domains
-        i_nchdom = MAX(1,p_patch%n_childdom)
-
-        i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-        i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
-
-!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-            &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
-
-          ! Be sure to avoid division by zero
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR
-          DO jc = i_startidx, i_endidx
-            z_mflx_contra_v(jc) = SIGN( MAX(ABS(p_mflx_contra_v(jc,p_patch%nshift_child,jb)),dbl_eps), &
-              &                                 p_mflx_contra_v(jc,p_patch%nshift_child,jb) )
-          ENDDO
-!$ACC END PARALLEL
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG
-          DO nt = 1, trAdvect%len
-            jt = trAdvect%list(nt)
-            !$ACC LOOP VECTOR
-            DO jc = i_startidx, i_endidx
-              opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
-            ENDDO
-          ENDDO
-!$ACC END PARALLEL
-        ENDDO
-!$OMP END PARALLEL DO
-
+      IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advection_config(jg)%iadv_tke == 1)) THEN
+        i_rlend_c = min_rlcell_int
+      ELSE
+        i_rlend_c = opt_rlend
       ENDIF
 
+      ! Select desired flux calculation method
+      SELECT  CASE( p_ivadv_tracer(jt) )
 
-    ELSE ! opt_topflx_tra not present (i.e. for hydrostatic model)
-
-      DO nt = 1, trAdvect%len
-
-        jt = trAdvect%list(nt)
-
-        ! Select desired flux calculation method
-        SELECT  CASE( p_ivadv_tracer(jt) )
-
-        CASE( iup_v )
-          ! CALL first order upwind
-          CALL upwind_vflux_up( p_patch, p_cc(:,:,:,jt), p_iubc_adv,   &! in
-            &                   p_mflx_contra_v, p_upflux(:,:,:,jt),   &! in,out
-            &                   opt_slev=p_iadv_slev(jt),              &! in
-            &                   opt_rlstart=opt_rlstart,               &! in
-            &                   opt_rlend=opt_rlend                    )! in
+      CASE( iup_v )
+        ! CALL first order upwind
+        CALL upwind_vflux_up( p_patch, p_cc(:,:,:,jt), p_iubc_adv,   &! in
+          &                   p_mflx_contra_v, p_upflux(:,:,:,jt),   &! in,out
+          &                   opt_topflx_tra=opt_topflx_tra(:,:,jt), &! in
+          &                   opt_slev=p_iadv_slev(jt),              &! in
+          &                   opt_rlstart=opt_rlstart,               &! in
+          &                   opt_rlend=i_rlend_c                    )! in
 
 
-        CASE( ippm_vcfl )
+      CASE( ippm_v )
 
-          iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
+        iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
-          ! CALL third order PPM which handles long time steps (i.e. CFL>1)
-          CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
-            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
-            &                  p_upflux(:,:,:,jt),                           &! out
-            &                  opt_slev=p_iadv_slev(jt),                     &! in
-            &                  opt_ti_slev=iadv_min_slev,                    &! in
-            &                  opt_rlstart=opt_rlstart,                      &! in
-            &                  opt_rlend=opt_rlend                           )! in
+        ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
+        CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
+          &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+          &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
+          &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
+          &                  p_upflux(:,:,:,jt),                           &! out
+          &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
+          &                  opt_slev=p_iadv_slev(jt),                     &! in
+          &                  opt_ti_slev=iadv_min_slev,                    &! in
+          &                  opt_rlstart=opt_rlstart,                      &! in
+          &                  opt_rlend=i_rlend_c                           )! in
 
-        CASE( ippm_v )
-          ! CALL third order PPM
-          CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
-            &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
-            &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
-            &                  p_upflux(:,:,:,jt),                     &! out
-            &                  opt_slev=p_iadv_slev(jt),               &! in
-            &                  opt_rlstart=opt_rlstart,                &! in
-            &                  opt_rlend=opt_rlend                     )! in
+      END SELECT
+    END DO  ! Tracer loop
 
-        END SELECT
-      END DO  ! Tracer loop
 
-    END IF ! PRESENT(opt_topflx_tra)
+    !
+    ! get face value "q_int" at vertical boundary of child nest
+    !
+    ! determine if upper boundary values are needed
+    IF (lvert_nest .AND. (p_patch%nshift_child > 0)) THEN 
+
+      ! refinement control start/end level for cells
+      i_rlstart_c = 1
+      i_rlend_c   = min_rlcell_int
+
+      i_startblk = p_patch%cells%start_block(i_rlstart_c)
+      i_endblk   = p_patch%cells%end_block(i_rlend_c)
+
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+          &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
+
+        ! Be sure to avoid division by zero
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR
+        DO jc = i_startidx, i_endidx
+          z_mflx_contra_v(jc) = SIGN( MAX(ABS(p_mflx_contra_v(jc,p_patch%nshift_child,jb)),dbl_eps), &
+            &                                 p_mflx_contra_v(jc,p_patch%nshift_child,jb) )
+        ENDDO
+!$ACC END PARALLEL
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG
+        DO nt = 1, trAdvect%len
+          jt = trAdvect%list(nt)
+          !$ACC LOOP VECTOR
+          DO jc = i_startidx, i_endidx
+            opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
+      ENDDO
+!$OMP END PARALLEL DO
+
+    ENDIF
 
     IF (timers_level > 2) CALL timer_stop(timer_adv_vert)
 
@@ -454,7 +386,6 @@ CONTAINS
     INTEGER  :: slev                   !< vertical start level
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
-    INTEGER  :: jg                     !< patch ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     !-------------------------------------------------------------------------
@@ -498,9 +429,6 @@ CONTAINS
       i_rlend = min_rlcell_int
     ENDIF
 
-    ! get patch ID
-    jg = p_patch%id
-
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
 
@@ -530,7 +458,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           ! calculate vertical tracer flux
           p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v(p_mflx_contra_v(jc,jk,jb),p_cc(jc,jk-1,jb),p_cc(jc,jk,jb),advection_config(jg)%coeff_grid)
+            &  laxfr_upflux_v(p_mflx_contra_v(jc,jk,jb),p_cc(jc,jk-1,jb),p_cc(jc,jk,jb))
 
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
@@ -542,7 +470,7 @@ CONTAINS
 !
 ! With OpenACC this sometimes causes the compiler to crash, apparently due to the array syntax of one argument.  
 !
-      CALL set_bc_vadv(nproma, p_upflux(:,slev+1,jb),    &! in
+      CALL set_bc_vadv(p_upflux(:,slev+1,jb),            &! in
         &              p_mflx_contra_v(:,slev+1,jb),     &! in
         &              p_mflx_contra_v(:,slev  ,jb),     &! in
         &              p_iubc_adv, i_startidx, i_endidx, &! in
@@ -560,592 +488,6 @@ CONTAINS
 
   END SUBROUTINE upwind_vflux_up
 
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! The third order PPM scheme
-  !!
-  !! Calculation of time averaged vertical tracer fluxes using the third
-  !! order PPM scheme.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2009-08-12)
-  !! Modification by Daniel Reinert, DWD (2010-04-23)
-  !! - generalized to height based vertical coordinate systems. Included
-  !!   parameter coeff_grid, in order to apply the same code to either a
-  !!   pressure based or height based vertical coordinate system.
-  !! Modification by Daniel Reinert, DWD (2011-01-17)
-  !! - added optional parameter opt_lout_edge which will provide the 
-  !!   reconstructed 'edge' value.
-  !!
-  !
-  ! !LITERATURE
-  ! - Colella and Woodward (1984), JCP, 54, 174-201
-  ! - Carpenter et al. (1989), MWR, 118, 586-612
-  ! - Lin et al (1994), MWR, 122, 1575-1593 (slope limiter)
-  ! - Lin and Rood (1996), MWR, 124, 2046-2070
-  !
-  SUBROUTINE upwind_vflux_ppm( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v,  &
-    &                      p_w_contra, p_dtime, p_itype_vlimit,             &
-    &                      p_cellhgt_mc_now, p_upflux,                      &
-    &                      opt_lout_edge, opt_topflx_tra, opt_slev,         &
-    &                      opt_rlstart, opt_rlend )
-
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
-      &  p_patch
-
-    REAL(wp), INTENT(IN) ::  &    !< advected cell centered variable
-      &  p_cc(:,:,:)              !< dim: (nproma,nlev,nblks_c)
-
-    INTEGER, INTENT(IN)  ::   &   !< selects upper boundary condition
-      &  p_iubc_adv
-
-    REAL(wp), INTENT(IN) ::  &    !< contravariant vertical mass flux
-      &  p_mflx_contra_v(:,:,:)   !< dim: (nproma,nlevp1,nblks_c)
-
-    REAL(wp), INTENT(IN) ::  &    !< contravariant vertical velocity
-      &  p_w_contra(:,:,:)        !< dim: (nproma,nlevp1,nblks_c)
-
-    REAL(wp), INTENT(IN) :: p_dtime  !< time step
-
-
-    REAL(wp), INTENT(IN) ::  &    !< layer thickness at cell center at time n
-      &  p_cellhgt_mc_now(:,:,:)  !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(INOUT) :: &  !< output field, containing the tracer mass flux
-      &  p_upflux(:,:,:)          !< or the reconstructed edge value
-                                  !< dim: (nproma,nlevp1,nblks_c)
-
-    INTEGER, INTENT(IN) :: p_itype_vlimit  !< parameter to select the limiter for
-                                           !< vertical transport
-
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
-     & opt_lout_edge                   !< or the flux across the edge 
-                                       !< (.FALSE./not specified)
-
-    REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
-      &  opt_topflx_tra(:,:)            !< dim: (nproma,nblks_c)
-
-    INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
-
-    LOGICAL  :: l_out_edgeval          !< corresponding local variable; default 
-                                       !< .FALSE. i.e. output flux across the edge
-
-    REAL(wp) :: &                      !< face values of transported field
-      &  z_face(nproma,p_patch%nlevp1,p_patch%nblks_c)
-
-    REAL(wp) :: &                      !< face value (upper face)
-      &  z_face_up(nproma,p_patch%nlev,p_patch%nblks_c)
-
-    REAL(wp) :: &                      !< face value (lower face)
-      &  z_face_low(nproma,p_patch%nlev,p_patch%nblks_c)
-
-    REAL(wp) :: &                      !< linear extrapolation value 1
-      &  z_lext_1
- 
-    REAL(wp) :: &                      !< linear extrapolation value 2
-      &  z_lext_2
- 
-    REAL(wp) :: &                      !< CFL number (weta>0, w<0)
-      &  z_cfl_m(nproma,p_patch%nlevp1,p_patch%nblks_c) !< (nproma,nlevp1,p_patch%nblks_c)
-                                                         
-    REAL(wp) :: &                      !< CFL number (weta<0, w>0)
-      &  z_cfl_p(nproma,p_patch%nlevp1,p_patch%nblks_c) !< (nproma,nlevp1,p_patch%nblks_c)
-                                                       
-    REAL(wp) :: &                      !< monotonized slope
-      &  z_slope(nproma,p_patch%nlev,p_patch%nblks_c)
-
-    REAL(wp) ::  &                             !< necessary, to make this routine
-     &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core
-
-    REAL(wp) :: p_cc_min, p_cc_max       !< 3-point max/min values
-
-    REAL(wp) :: z_delta_m, z_delta_p   !< difference between lower and upper face value
-                                       !< for weta >0 and weta <0
-    REAL(wp) :: z_a11, z_a12           !< 1/6 * a6,i (see Colella and Woodward (1984))
-    REAL(wp) :: z_weta_dt              !< weta times p_dtime
-
-    INTEGER  :: slev, slevp1           !< vertical start level and start level +1
-    INTEGER  :: nlev, nlevp1           !< number of full and half levels
-    INTEGER  :: ikm1, ikp1, ikp2       !< vertical level minus and plus one, plus two
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
-    INTEGER  :: jc, jk, jb              !< index of cell, vertical level and block
-    INTEGER  :: jg                      !< patch ID
-    REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
-                                        !< advection scheme applicable to a height      
-                                        !< based coordinate system (coeff_grid=-1)
-
-    !-----------------------------------------------------------------------
-#ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: z_face,z_face_up,z_face_low,z_cfl_m,z_cfl_p
-!DIR$ ATTRIBUTES ALIGN : 64 :: z_slope,zparent_topflx
-#endif
-
-!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_cfl_m, z_cfl_p, z_slope ), &
-!$ACC      PCOPYIN( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), &
-!$ACC      PCOPYOUT( p_upflux ), PRESENT( advection_config ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v, p_w_contra, p_cellhgt_mc_now ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
-    ! check optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev  = opt_slev
-      slevp1= opt_slev + 1
-    ELSE
-      slev  = 1
-      slevp1= 2
-    END IF
-
-    IF ( PRESENT(opt_lout_edge) ) THEN
-      l_out_edgeval = opt_lout_edge
-    ELSE
-      l_out_edgeval = .FALSE.
-    ENDIF
-
-    IF ( PRESENT(opt_topflx_tra) ) THEN
-      zparent_topflx(:,:) = opt_topflx_tra(:,:)
-    ELSE
-      zparent_topflx(:,:) = 0._wp
-    ENDIF
-
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_c-1
-    ENDIF
-
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rlcell_int
-    ENDIF
-
-    ! get patch ID
-    jg = p_patch%id
-
-    ! save some paperwork
-    coeff_grid = advection_config(jg)%coeff_grid
-
-
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
-
-    ! number of vertical levels
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
-
-
-    !
-    ! advection is done with an upwind scheme and a piecwise parabolic
-    ! approx. of the subgrid distribution is used.
-    !
-    ! 3 options:  standard without limiter
-    !             standard with semi-monotone or monotone limiter
-    !             special version with limiter which handles CFL >1
-
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
-    !
-    ! 1. Calculate Courant number for weta>0 (w<0) and weta<0 (w>0)
-    !
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1, &
-!$OMP            p_cc_min,p_cc_max,ikp2) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-!$ACC KERNELS
-      ! Courant number at top
-      z_cfl_p(i_startidx:i_endidx,slev,jb) = 0._wp
-      z_cfl_m(i_startidx:i_endidx,slev,jb) = 0._wp
-      ! Courant number at bottom
-      z_cfl_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-      z_cfl_m(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-!$ACC END KERNELS
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
-      DO jk = slevp1, nlev
-        !$ACC LOOP VECTOR
-        DO jc = i_startidx, i_endidx
-
-          ! WS 2015-05-07: moved to inner loop to ensure loops can be collapsed
-          ! index of top half level
-          ikm1 = jk - 1
-
-          ! Calculate local Courant number at half levels
-          ! z_cfl_m for weta >0 (w <0)
-          ! z_cfl_p for weta <0 (w >0)
-          z_weta_dt = ABS(p_w_contra(jc,jk,jb)) * p_dtime
-
-          z_cfl_m(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,ikm1,jb)
-
-          z_cfl_p(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,jk,jb)
-
-        END DO ! end loop over cells
-
-      ENDDO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-      !
-      ! 2. Calculate monotonized slope
-      !
-!$ACC KERNELS
-      z_slope(i_startidx:i_endidx,slev,jb) = 0._wp
-!$ACC END KERNELS
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
-      DO jk = slevp1, nlev
-        !$ACC LOOP VECTOR
-        DO jc = i_startidx, i_endidx
-
-          ! WS 2015-05-07: moved to inner loop to ensure loops can be collapsed
-          ! index of top half level
-          ikm1    = jk - 1
-          ! index of bottom half level
-          ikp1    = MIN( jk+1, nlev )
-
-
-          z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
-              &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
-              &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
-              &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
-              &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
-
-          ! equivalent formulation of Colella and Woodward (1984) slope limiter 
-          ! following Lin et al (1994).
-          p_cc_min = MIN(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
-          p_cc_max = MAX(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
-          z_slope(jc,jk,jb) = SIGN(                                            &
-            &  MIN( ABS(z_slope(jc,jk,jb)), 2._wp*(p_cc(jc,jk,jb)-p_cc_min),   &
-            &                               2._wp*(p_cc_max-p_cc(jc,jk,jb)) ), &
-            &    z_slope(jc,jk,jb))
-
-        END DO ! end loop over cells
-
-      END DO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-      !
-      ! 3. reconstruct face values at vertical half-levels
-      !
-
-      ! Boundary values for two highest and lowest half-levels
-      !
-      ! for faces k=slevp1 and k=nlevp1-1 reconstructed face values are calculated by
-      ! interpolating a quadratic (instead of quartic) polynomial through 3
-      ! values of the indefinite integral A=\int_{\eta_{0}}^{\eta}q\,\mathrm{d}\eta
-      !
-      ! for faces k=slev and k=nlevp1 a zero gradient condition is assumed and the
-      ! face values are set to the tracer values of the corresponding cell centers
-      !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR
-      DO jc = i_startidx, i_endidx
-
-        z_face(jc,slevp1,jb) = p_cc(jc,slev,jb)*(1._wp - (p_cellhgt_mc_now(jc,slev,jb)&
-          &       / p_cellhgt_mc_now(jc,slevp1,jb))) + (p_cellhgt_mc_now(jc,slev,jb)  &
-          &       /(p_cellhgt_mc_now(jc,slev,jb) + p_cellhgt_mc_now(jc,slevp1,jb)))   &
-          &       * ((p_cellhgt_mc_now(jc,slev,jb) / p_cellhgt_mc_now(jc,slevp1,jb))  &
-          &       * p_cc(jc,slev,jb) + p_cc(jc,slevp1,jb))
-
-        z_face(jc,nlev,jb) = p_cc(jc,nlev-1,jb)*( 1._wp                               &
-          &       - (p_cellhgt_mc_now(jc,nlev-1,jb) / p_cellhgt_mc_now(jc,nlev,jb)))  &
-          &       + (p_cellhgt_mc_now(jc,nlev-1,jb)/(p_cellhgt_mc_now(jc,nlev-1,jb)   &
-          &       + p_cellhgt_mc_now(jc,nlev,jb))) * ((p_cellhgt_mc_now(jc,nlev-1,jb) &
-          &       / p_cellhgt_mc_now(jc,nlev,jb)) * p_cc(jc,nlev-1,jb)                &
-          &       + p_cc(jc,nlev,jb))
-
-        z_face(jc,slev,jb)   = p_cc(jc,slev,jb)
-        z_face(jc,nlevp1,jb) = p_cc(jc,nlev,jb)
-
-      ENDDO
-!$ACC END PARALLEL
-
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE(ikm1,ikp1,ikp2)
-      DO jk = slevp1, nlev-2
-        !$ACC LOOP VECTOR
-        DO jc = i_startidx, i_endidx
-
-          ! index of top half level
-          ikm1 = jk - 1
-          ! index of bottom half level
-          ikp1 = jk + 1
-          ikp2 = jk + 2
-
-          z_face(jc,ikp1,jb) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb)           &
-            &  / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb)))         &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                  &
-            &  + (1._wp/(p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)    &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb)))        &
-            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * p_cellhgt_mc_now(jc,jk,jb) &
-            &  / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb)))         &
-            &  * ( (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))        &
-            &  / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))    &
-            &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb))        &
-            &  / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) )  &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)     &
-            &  * z_slope(jc,ikp1,jb) * (p_cellhgt_mc_now(jc,ikm1,jb)                  &
-            &  + p_cellhgt_mc_now(jc,jk,jb)) / (2._wp*p_cellhgt_mc_now(jc,jk,jb)      &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb)) + p_cellhgt_mc_now(jc,ikp1,jb)         &
-            &  * z_slope(jc,jk,jb) * (p_cellhgt_mc_now(jc,ikp1,jb)                    &
-            &  + p_cellhgt_mc_now(jc,ikp2,jb)) / (p_cellhgt_mc_now(jc,jk,jb)          &
-            &  + 2._wp*p_cellhgt_mc_now(jc,ikp1,jb)) )
-
-        END DO ! end loop over cells
-
-      END DO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-    END DO
-
-!$OMP END DO
-
-
-
-    !
-    ! 4. Limitation of first guess parabola (which is based on z_face)
-    ! Note that z_face_up(k) does not need to equal z_face_low(k-1) after
-    ! the limitation procedure.
-    ! Therefore 2 additional fields z_face_up and z_face_low are
-    ! introduced.
-    !
-
-!$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-      IF (p_itype_vlimit == islopel_vsm) THEN
-        ! semi-monotonic (sm) limiter
-! TODO (WS): if the compiler cannot inline this, make it an ACC ROUTINE
-        CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:,jb),           & !in
-          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),    & !inout
-          &                   i_startidx, i_endidx, slev, nlev          ) !in
-      ELSE IF (p_itype_vlimit == islopel_vm) THEN
-        ! monotonic (mo) limiter
-! TODO (WS): if the compiler cannot inline this, make it an ACC ROUTINE
-        CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:,jb), z_slope(:,:,jb), & !in
-          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),           & !inout
-          &                   i_startidx, i_endidx, slev, nlev                 ) !in
-      ELSE
-       ! simply copy face values to 'face_up' and 'face_low' arrays
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG PRIVATE(ikp1)
-        DO jk = slev, nlev
-          ! index of bottom half level
-          ikp1 = jk + 1
-          !$ACC LOOP VECTOR
-          DO jc = i_startidx, i_endidx
-            z_face_up(jc,jk,jb)  = z_face(jc,jk,jb)
-            z_face_low(jc,jk,jb) = z_face(jc,ikp1,jb)
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-      ENDIF
-    ENDDO
-
-!$OMP ENDDO
-
-
-    IF ( l_out_edgeval ) THEN
-
-      ! 5a. Compute edge value of advected quantity by applying a 
-      !     piecewise parabolic reconstruction
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
-!$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-        ! for the time being, when computing the edge value, we set 
-        ! the top and bottom values to 0
-!$ACC KERNELS
-        p_upflux(i_startidx:i_endidx,  slev,jb) = 0._wp
-        p_upflux(i_startidx:i_endidx,nlevp1,jb) = 0._wp
-!$ACC END KERNELS
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-       !$ACC LOOP GANG PRIVATE(ikm1)
-        DO jk = slevp1, nlev
-          !$ACC LOOP VECTOR
-          DO jc = i_startidx, i_endidx
-
-            ! index of top half level
-            ikm1 = jk -1
-
-            ! linear extrapolated values
-            ! for the height based coordinate system multiplication by coeff_grid
-            ! is not necessary due to compensating (-) signs.
-            ! first (of cell above) (case of w < 0; weta > 0)
-            z_delta_m = z_face_low(jc,ikm1,jb) - z_face_up(jc,ikm1,jb)
-            z_a11     = p_cc(jc,ikm1,jb)                                  &
-              &       - 0.5_wp * (z_face_low(jc,ikm1,jb) + z_face_up(jc,ikm1,jb))
-
-            z_lext_1 = p_cc(jc,ikm1,jb)                                   &
-              &  + (0.5_wp * z_delta_m * (1._wp - z_cfl_m(jc,jk,jb)))     &
-              &  - z_a11*(1._wp - 3._wp*z_cfl_m(jc,jk,jb)                 &
-              &  + 2._wp*z_cfl_m(jc,jk,jb)*z_cfl_m(jc,jk,jb))
-
-
-            ! second (of cell below) (case of w > 0; weta < 0)
-            z_delta_p = z_face_low(jc,jk,jb) - z_face_up(jc,jk,jb)
-            z_a12     = p_cc(jc,jk,jb)                                    &
-              &       - 0.5_wp * (z_face_low(jc,jk,jb) + z_face_up(jc,jk,jb))
-
-            z_lext_2 = p_cc(jc,jk,jb)                                     &
-              &  - (0.5_wp * z_delta_p * (1._wp - z_cfl_p(jc,jk,jb)))     &
-              &  - z_a12*(1._wp - 3._wp*z_cfl_p(jc,jk,jb)                 &
-              &  + 2._wp*z_cfl_p(jc,jk,jb)*z_cfl_p(jc,jk,jb))
-
-            !
-            ! calculate 'edge value' of advected quantity
-            !
-            p_upflux(jc,jk,jb) =                                         &
-              &  laxfr_upflux_v( SIGN(1._wp, p_mflx_contra_v(jc,jk,jb)),z_lext_1, z_lext_2,-1.0_wp)  ! for test purposes only in nh model
-
-            ! sign of the edge value
-            p_upflux(jc,jk,jb) =  p_upflux(jc,jk,jb)*SIGN(1._wp, p_mflx_contra_v(jc,jk,jb))
-
-          END DO ! end loop over cells
-
-        ENDDO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-      ENDDO ! end loop over blocks
-
-!$OMP END DO NOWAIT
-
-    ELSE
-    !
-    ! 5b. extrapolation using piecewise parabolic approx. of the transported
-    ! quantity to the edge and finally, calculation of the upwind fluxes
-    !
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_lext_1,z_lext_2,ikm1,z_delta_m, &
-!$OMP            z_delta_p,z_a11,z_a12) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG PRIVATE(ikm1)
-        DO jk = slevp1, nlev
-          !$ACC LOOP VECTOR PRIVATE(z_delta_m,z_a11,z_lext_1,z_delta_p,z_a12,z_lext_2)
-          DO jc = i_startidx, i_endidx
-
-            ! WS 2015-05-07: moved to inner loop to ensure loops can be collapsed
-            ! index of top half level
-            ikm1 = jk -1
-
-            ! linear extrapolated values
-            ! for the height based coordinate system multiplication by coeff_grid
-            ! is not necessary due to compensating (-) signs.
-            ! first (of cell above) (case of w < 0; weta > 0)
-            z_delta_m = z_face_low(jc,ikm1,jb) - z_face_up(jc,ikm1,jb)
-            z_a11     = p_cc(jc,ikm1,jb)                                  &
-              &       - 0.5_wp * (z_face_low(jc,ikm1,jb) + z_face_up(jc,ikm1,jb))
-
-            z_lext_1 = p_cc(jc,ikm1,jb)                                   &
-              &  + (0.5_wp * z_delta_m * (1._wp - z_cfl_m(jc,jk,jb)))     &
-              &  - z_a11*(1._wp - 3._wp*z_cfl_m(jc,jk,jb)                 &
-              &  + 2._wp*z_cfl_m(jc,jk,jb)*z_cfl_m(jc,jk,jb))
-
-
-            ! second (of cell below) (case of w > 0; weta < 0)
-            z_delta_p = z_face_low(jc,jk,jb) - z_face_up(jc,jk,jb)
-            z_a12     = p_cc(jc,jk,jb)                                    &
-              &       - 0.5_wp * (z_face_low(jc,jk,jb) + z_face_up(jc,jk,jb))
-
-            z_lext_2 = p_cc(jc,jk,jb)                                     &
-              &  - (0.5_wp * z_delta_p * (1._wp - z_cfl_p(jc,jk,jb)))     &
-              &  - z_a12*(1._wp - 3._wp*z_cfl_p(jc,jk,jb)                 &
-              &  + 2._wp*z_cfl_p(jc,jk,jb)*z_cfl_p(jc,jk,jb))
-
-            !
-            ! calculate vertical tracer flux
-            !
-            p_upflux(jc,jk,jb) =                                  &
-              &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2,coeff_grid)
-
-          END DO ! end loop over cells
-
-        ENDDO ! end loop over vertical levels
-!$ACC END PARALLEL
-
-
-        !
-        ! set upper and lower boundary condition
-        !
-        CALL set_bc_vadv(nproma, p_upflux(:,slev+1,jb),    &! in
-          &              p_mflx_contra_v(:,slev+1,jb),     &! in
-          &              p_mflx_contra_v(:,slev  ,jb),     &! in
-          &              p_iubc_adv, i_startidx, i_endidx, &! in
-          &              zparent_topflx(:,jb),             &! in
-          &              p_upflux(:,slev,jb),              &! out
-          &              p_upflux(:,nlevp1,jb), .TRUE.)     ! out
-
-      ENDDO ! end loop over blocks
-
-!$OMP END DO NOWAIT
-
-    ENDIF
-
-!$OMP END PARALLEL
-
-    !
-    ! 6. If desired, apply a flux limiter to limit computed fluxes.
-    !    These flux limiters are based on work by Zalesak (1979)
-    !
-    IF (iequations /= 3) THEN
-      IF (p_itype_vlimit == ifluxl_vpd) THEN
-        ! positive-definite (pd) limiter
-        print *, "Calling VFLX_LIMITER_PD_HA"
-        CALL vflx_limiter_pd_ha( p_patch, p_dtime, p_cc, p_upflux,    & !in,inout
-          &                 opt_rlstart=i_rlstart, opt_rlend=i_rlend, & !in
-          &                 opt_slev=slev                             ) !in
-      ENDIF
-    ELSE
-      IF (p_itype_vlimit == ifluxl_vpd) THEN
-        ! positive-definite (pd) limiter
-        print *, "Calling VFLX_LIMITER_PD"
-        CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_upflux,       & !in,inout
-          &                opt_rlstart=i_rlstart, opt_rlend=i_rlend,  & !in
-          &                opt_slev=slev                              ) !in
-      ENDIF
-    ENDIF
-
-!$ACC UPDATE HOST(p_upflux), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
-!$ACC END DATA
-
-  END SUBROUTINE upwind_vflux_ppm
 
 
 
@@ -1167,14 +509,14 @@ CONTAINS
   ! - Lin et al (1994), MWR, 122, 1575-1593 (slope limiter)
   ! - Lin and Rood (1996), MWR, 124, 2046-2070 (CFL-independent version)
   !
-  SUBROUTINE upwind_vflux_ppm_cfl( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v, &
+  SUBROUTINE upwind_vflux_ppm( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v,     &
     &                      p_dtime,  ld_compute, ld_cleanup, p_itype_vlimit,   &
     &                      p_cellhgt_mc_now, p_cellmass_now, lprint_cfl,       &
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux:upwind_vflux_ppm_cfl'
+      &  routine = 'mo_advection_vflux:upwind_vflux_ppm'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -1205,8 +547,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::  &    !< NH: density weighted cell height at full levels
       &  p_cellmass_now(:,:,:)    !< at time step n [kg/m**2]
-                                  !< HA: pressure thickness for full levels 
-                                  !< at time step n [Pa]
                                   !< dim: (nproma,nlev,nblks_c)
 
     LOGICAL, INTENT(IN) ::   &    !< determines if vertical CFL number shall be written out
@@ -1217,7 +557,7 @@ CONTAINS
                                   !< dim: (nproma,nlevp1,nblks_c)
 
     LOGICAL, INTENT(IN), OPTIONAL ::  & !< optional: output edge value (.TRUE.),
-     & opt_lout_edge                    !< or the flux across the edge 
+      &  opt_lout_edge                  !< or the flux across the edge 
                                         !< (.FALSE./not specified)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
@@ -1233,10 +573,10 @@ CONTAINS
       &  opt_elev
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
+      &  opt_rlstart                   !< only valid for calculation of 'cell value'
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
 
     LOGICAL  :: l_out_edgeval     !< corresponding local variable; default 
                                   !< .FALSE. i.e. output flux across the edge
@@ -1250,10 +590,10 @@ CONTAINS
     REAL(wp) :: &                 !< face value (lower face)
       &  z_face_low(nproma,p_patch%nlev)
 
-    REAL(wp) :: &                 !< integer fluxes for w>0 (weta<0)
+    REAL(wp) :: &                 !< integer fluxes for w>0
       &  z_iflx_p(nproma,p_patch%nlevp1)
 
-    REAL(wp) :: &                 !< integer fluxes for w<0 (weta>0)
+    REAL(wp) :: &                 !< integer fluxes for w<0
       &  z_iflx_m(nproma,p_patch%nlevp1)
 
     REAL(wp) :: &                 !< monotonized slope
@@ -1339,10 +679,6 @@ CONTAINS
     REAL(wp) ::   &                      !< auxiliaries for optimization
       &   zfac, zfac_n(nproma), zgeo1, zgeo2, zgeo3, zgeo4
 
-    REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
-                                        !< advection scheme applicable to a height      
-                                        !< based coordinate system (coeff_grid=-1)
-
     REAL(wp) :: rdtime                  !< 1/dt
 
 #ifdef __INTEL_COMPILER
@@ -1385,12 +721,6 @@ CONTAINS
       l_out_edgeval = opt_lout_edge
     ELSE
       l_out_edgeval = .FALSE.
-    ENDIF
-
-    IF (l_out_edgeval) THEN
-      coeff_grid = -1._wp ! needs to be set in case of a call from the hexagonal NH code
-    ELSE
-      coeff_grid = advection_config(jg)%coeff_grid
     ENDIF
 
     IF ( PRESENT(opt_topflx_tra) ) THEN
@@ -1469,7 +799,7 @@ CONTAINS
     END IF
 
 #ifdef _OPENACC
-    PRINT *, "Sorry: upwind_vflux_ppm_cfl not yet available for OpenACC"
+    PRINT *, "Sorry: upwind_vflux_ppm not yet available for OpenACC"
     IF ( .FALSE. ) THEN
 #endif
 
@@ -1499,7 +829,7 @@ CONTAINS
 
     !
     ! 1. Compute density weighted (fractional) Courant number 
-    !    for w<0 (weta>0) and w>0 (weta<0) and integer shift s
+    !    for w<0 and w>0 and integer shift s
     !
     IF (ld_compute) THEN
 
@@ -1580,7 +910,7 @@ CONTAINS
 
               IF ( z_aux_p(jc) > p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)    &
                 &  .AND. jk_int_p(jc,jk,jb) <= nlev-1                        &
-                &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) < 0._wp ) THEN
+                &  .AND. p_mflx_contra_v(jc,jk,jb) > 0._wp ) THEN
 
                 z_aux_p(jc) = z_aux_p(jc) - p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
 
@@ -1641,7 +971,7 @@ CONTAINS
 
               IF ( z_aux_m(jc) > p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)    &
                 &  .AND. jk_int_m(jc,jk,jb) >= slevp1_ti                     &
-                &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) > 0._wp ) THEN
+                &  .AND. p_mflx_contra_v(jc,jk,jb) < 0._wp ) THEN
 
                 z_aux_m(jc) = z_aux_m(jc) - p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
 
@@ -1847,11 +1177,8 @@ CONTAINS
 #endif
         DO jc = i_startidx, i_endidx
 
-          ! if w < 0 , weta > 0 (physical downwelling)
+          ! if w < 0 (physical downwelling)
           !
-          ! note that the second coeff_grid factor in front of z_delta_p 
-          ! is obsolete due to a compensating (-) sign emerging from the 
-          ! computation of z_delta_p.
           z_delta_m = z_face_up(jc,ikm1) - z_face_low(jc,ikm1)
           z_a11     = p_cc(jc,ikm1,jb)                                  &
             &       - 0.5_wp * (z_face_low(jc,ikm1) + z_face_up(jc,ikm1))
@@ -1862,11 +1189,8 @@ CONTAINS
             &  + 2._wp*z_cflfrac_m(jc,jk,jb)*z_cflfrac_m(jc,jk,jb))
 
 
-          ! if w > 0 , weta < 0 (physical upwelling)
+          ! if w > 0 (physical upwelling)
           !
-          ! note that the second coeff_grid factor in front of z_delta_p 
-          ! is obsolete due to a compensating (-) sign emerging from the 
-          ! computation of z_delta_p.
           z_delta_p = z_face_up(jc,ik) - z_face_low(jc,ik)
           z_a12     = p_cc(jc,ik,jb)                                    &
             &       - 0.5_wp * (z_face_low(jc,ik) + z_face_up(jc,ik))
@@ -1880,7 +1204,7 @@ CONTAINS
           ! full flux
           !
           p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2,coeff_grid)
+            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2)
 
         END DO ! end loop over cells
 
@@ -1904,7 +1228,7 @@ CONTAINS
           !
           ! loop over all cells in i_indlist_p
           !
-          ! integer fluxes for w>0 (weta<0)
+          ! integer fluxes for w>0
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ji_p=1,i_listdim_p(nlist,jb)
@@ -1921,8 +1245,8 @@ CONTAINS
             jk_shift = jk + nlist - 1
 
             ! Integer flux (division by p_dtime is done at the end)
-            z_iflx_p(jc,jk) = z_iflx_p(jc,jk) - coeff_grid * p_cc(jc,jk_shift,jb) &
-              &              * p_cellmass_now(jc,jk_shift,jb)
+            z_iflx_p(jc,jk) = z_iflx_p(jc,jk) + p_cc(jc,jk_shift,jb) &
+                             * p_cellmass_now(jc,jk_shift,jb)
 
           ENDDO  ! loop over cells in i_indlist_p
 
@@ -1944,10 +1268,7 @@ CONTAINS
             IF (jk < slevp1) CYCLE
 
             ! fractional upward flux
-            ! if w > 0 , weta < 0 (physical upwelling)
-            ! note that the second coeff_grid factor in front of z_delta_p 
-            ! is obsolete due to a compensating (-) sign emerging from the 
-            ! computation of z_delta_p.
+            ! if w > 0 (physical upwelling)
             z_delta_p = z_face_up(jc,jk_int_p(jc,jk,jb))                &
               &         - z_face_low(jc,jk_int_p(jc,jk,jb))
             z_a12     = p_cc(jc,jk_int_p(jc,jk,jb),jb)                 &
@@ -1956,8 +1277,7 @@ CONTAINS
 
 
             ! fractional high order flux   
-            z_flx_frac_high = ( - coeff_grid                                        &
-              &         * p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)                  &
+            z_flx_frac_high = ( p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)            &
               &         * z_cflfrac_p(jc,jk,jb) *( p_cc(jc,jk_int_p(jc,jk,jb),jb)   &
               &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
               &         - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)                &
@@ -1978,7 +1298,7 @@ CONTAINS
           !
           ! loop over all cells in i_indlist_m
           !
-          ! integer fluxes for w<0 (weta>0)
+          ! integer fluxes for w<0
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ji_m=1,i_listdim_m(nlist,jb)
@@ -1995,7 +1315,7 @@ CONTAINS
             IF (jk_shift < slevp1) CYCLE
 
             ! Integer flux (division by p_dtime is done at the end)
-            z_iflx_m(jc,jk) = z_iflx_m(jc,jk) + coeff_grid*p_cc(jc,jk_shift,jb) &
+            z_iflx_m(jc,jk) = z_iflx_m(jc,jk) - p_cc(jc,jk_shift,jb) &
               &              * p_cellmass_now(jc,jk_shift,jb)
 
           ENDDO  ! loop over cells in i_indlist_m
@@ -2022,10 +1342,7 @@ CONTAINS
             IF (jk_int_m(jc,jk,jb) < slev) CYCLE
 
             ! fractional downward flux
-            ! if w < 0 , weta > 0 (physical downwelling)
-            ! note that the second coeff_grid factor in front of z_delta_p 
-            ! is obsolete due to a compensating (-) sign emerging from the 
-            ! computation of z_delta_p.
+            ! if w < 0 (physical downwelling)
             z_delta_m = z_face_up(jc,jk_int_m(jc,jk,jb))                &
               &         - z_face_low(jc,jk_int_m(jc,jk,jb))
             z_a11     = p_cc(jc,jk_int_m(jc,jk,jb),jb)                  &
@@ -2034,8 +1351,7 @@ CONTAINS
 
 
             ! fractional high order flux           
-            z_flx_frac_high = ( coeff_grid                                          &
-              &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                  &
+            z_flx_frac_high = ( -1._wp * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)   &
               &         * z_cflfrac_m(jc,jk,jb) * ( p_cc(jc,jk_int_m(jc,jk,jb),jb)  &
               &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
               &         - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)                &
@@ -2054,7 +1370,7 @@ CONTAINS
       !
       ! set upper and lower boundary condition
       !
-      CALL set_bc_vadv(nproma, p_upflux(:,slev+1,jb),    &! in
+      CALL set_bc_vadv(p_upflux(:,slev+1,jb),            &! in
         &              p_mflx_contra_v(:,slev+1,jb),     &! in
         &              p_mflx_contra_v(:,slev  ,jb),     &! in
         &              p_iubc_adv, i_startidx, i_endidx, &! in
@@ -2154,7 +1470,7 @@ CONTAINS
     END IF
 
 
-  END SUBROUTINE upwind_vflux_ppm_cfl
+  END SUBROUTINE upwind_vflux_ppm
 
 
 
@@ -2168,30 +1484,29 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2011-04-12)
   !!
   !
-  SUBROUTINE set_bc_vadv(nproma, upflx_top_p1, mflx_top_p1, mflx_top, iubc_adv, &
+  SUBROUTINE set_bc_vadv(upflx_top_p1, mflx_top_p1, mflx_top, iubc_adv, &
     &                    i_start, i_end, parent_topflx, upflx_top,      &
     &                    upflx_bottom, llbc_adv )
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_advection_vflux: set_ubc_adv'
 
-    INTEGER, INTENT(IN)      :: nproma  ! To avoid the declaration of a module var.
     REAL(wp), INTENT(IN)     :: & !< computed tracer flux at second half level
-      &  upflx_top_p1(nproma)
+      &  upflx_top_p1(:)
     REAL(wp), INTENT(IN)     :: & !< mass flux at second half level
-      &  mflx_top_p1(nproma)
+      &  mflx_top_p1(:)
     REAL(wp), INTENT(IN)     :: & !< mass flux at upper boundary
-      &  mflx_top(nproma)
+      &  mflx_top(:)
     INTEGER, INTENT(IN)      :: & !< selects upper boundary condition
       &  iubc_adv
     INTEGER, INTENT(IN)      :: & !< start and end index
       & i_start, i_end
     REAL(wp), INTENT(IN)     :: & !< tracer flux at upper boundary, 
-      &  parent_topflx(nproma)    !< interpolated from parent grid
+      &  parent_topflx(:)         !< interpolated from parent grid
     REAL(wp), INTENT(OUT)    :: & !< upper boundary condition
-      &  upflx_top(nproma)
+      &  upflx_top(:)
     REAL(wp), INTENT(OUT)    :: & !< lower boundary condition
-      &  upflx_bottom(nproma)
+      &  upflx_bottom(:)
     LOGICAL, INTENT(IN)      :: & !< apply lower boundary condition?
       &  llbc_adv
 
