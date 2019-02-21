@@ -16,7 +16,6 @@
 
 MODULE mo_ps_radiation_model
 
-  USE mo_kind                    ,ONLY: i8
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_psrad_interface_namelist,ONLY: configure_ps_radiation, number_of_levels
   USE mo_time_config,             ONLY: time_config
@@ -148,14 +147,14 @@ MODULE mo_ps_radiation_model
       
       CALL ps_rad_run_bc(mtime_current, patch)
 
-      CALL psrad_concurrent_interface(mtime_current, patch)
+      CALL psrad_concurrent_interface(mtime_current)
  
       mtime_current = mtime_current + radiation_time_step
       timestep = timestep + 1
    
     ENDDO
 
-    CALL finalize_psrad_concurrent(patch)
+    CALL finalize_psrad_concurrent
 
     CALL message (method_name, " ended")
     CALL message ("", "-----------------------------------------------------------")

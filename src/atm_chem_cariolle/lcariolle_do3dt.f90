@@ -37,7 +37,6 @@ TYPE(t_avi),INTENT(IN) :: avi                       !< derived type containing a
 REAL(wp),INTENT(INOUT) :: do3dt(NCX,nlev)           !< tendency of ozone VMR per second
 
 INTEGER(wi)            :: ilev,ic
-INTEGER(wi)            :: lev_temp
 REAL(wp)               :: o3_column(NCX,nlev)       !< overhead ozone column 
 REAL(wp)               :: wgt1_lat(NCX),wgt2_lat(NCX), &
                         & wgt1_p(NCX,nlev),wgt2_p(NCX,nlev)

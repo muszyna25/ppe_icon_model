@@ -20,7 +20,7 @@
 
 MODULE mo_echam_phy_bcs
 
-  USE mo_kind                       ,ONLY: wp, i8
+  USE mo_kind                       ,ONLY: wp
   USE mtime                         ,ONLY: datetime , newDatetime ,                        &
        &                                   timedelta, newTimedelta, max_timedelta_str_len, &
        &                                   operator(+), operator(-), operator(*),          &
@@ -29,6 +29,7 @@ MODULE mo_echam_phy_bcs
        &                                   getTotalSecondsTimeDelta,                       &
        &                                   isCurrentEventActive, deallocateDatetime
   USE mo_model_domain               ,ONLY: t_patch
+  USE mo_impl_constants             ,ONLY: max_dom
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
   USE mo_echam_phy_config           ,ONLY: echam_phy_config, echam_phy_tc, dt_zero
@@ -82,7 +83,14 @@ CONTAINS
 
     ! Local variables
 
-    TYPE(datetime) , POINTER, SAVE           :: radiation_time => NULL() !< date and time for radiative transfer
+    ! mtime currently does not work with arrays of datetime pointers
+    ! therefore a type is constructed around the mtime pointer
+    TYPE t_radtime_domains
+      TYPE(datetime) , POINTER               :: radiation_time => NULL() !< date and time for radiative transfer
+    END TYPE t_radtime_domains
+    !
+    TYPE(t_radtime_domains), SAVE            :: radtime_domains(max_dom)
+
     TYPE(timedelta), POINTER                 :: td_radiation_offset
     CHARACTER(len=max_timedelta_str_len)     :: dstring
 
@@ -174,18 +182,18 @@ CONTAINS
       ! in the radiative transfer. All other input for the radiative transfer
       ! is for datetime, i.e. the start date and time of the current timestep.
       !
-      IF (ASSOCIATED(radiation_time)) &
-        & CALL deallocateDatetime(radiation_time) 
-      radiation_time => newDatetime(mtime_old)
+      IF (ASSOCIATED(radtime_domains(jg)%radiation_time)) &
+        & CALL deallocateDatetime(radtime_domains(jg)%radiation_time) 
+      radtime_domains(jg)%radiation_time => newDatetime(mtime_old)
       dtrad_loc = getTotalSecondsTimeDelta(echam_phy_tc(patch%id)%dt_rad,mtime_old) ! [s] local time step of radiation
       dsec = 0.5_wp*(dtrad_loc - dtadv_loc) + dtrad_shift                           ! [s] time increment for zenith angle
       CALL getPTStringFromSeconds(dsec, dstring)
       td_radiation_offset => newTimedelta(dstring)
-      radiation_time = radiation_time + td_radiation_offset
+      radtime_domains(jg)%radiation_time = radtime_domains(jg)%radiation_time + td_radiation_offset
       !
       ! interpolation weights for linear interpolation
       ! of monthly means onto the radiation time step
-      radiation_time_interpolation_weights = calculate_time_interpolation_weights(radiation_time)
+      radiation_time_interpolation_weights = calculate_time_interpolation_weights(radtime_domains(jg)%radiation_time)
       !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN
@@ -237,7 +245,7 @@ CONTAINS
 
     IF ( luse_rad ) THEN
        CALL pre_psrad_radiation( &
-            & patch,                           radiation_time,                     &
+            & patch,                           radtime_domains(jg)%radiation_time, &
             & mtime_old,                       ltrig_rad,                          &
             & prm_field(patch%id)%cosmu0,      prm_field(patch%id)%daylght_frc,    &
             & prm_field(patch%id)%cosmu0_rt,   prm_field(patch%id)%daylght_frc_rt )
