@@ -1449,7 +1449,7 @@ MODULE mo_nh_stepping
           &         advection_config(jg)%lfull_comp,                      &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
-          &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
+          &         prep_adv(jg)%mass_flx_ic,                             &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
         CALL compute_airmass(p_patch(jg),                   &
@@ -1468,7 +1468,7 @@ MODULE mo_nh_stepping
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
           &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-          &        prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
+          &        prep_adv(jg)%mass_flx_ic,                             & !in
           &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
           &        p_nh_state(jg)%diag%airmass_new,                      & !in
           &        p_nh_state(jg)%diag%airmass_now,                      & !in
@@ -1565,7 +1565,7 @@ MODULE mo_nh_stepping
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
             &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-            &          prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
+            &          prep_adv(jg)%mass_flx_ic,                             & !in
             &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &          p_nh_state(jg)%diag%airmass_new,                      & !in
             &          p_nh_state(jg)%diag%airmass_now,                      & !in
@@ -2206,7 +2206,7 @@ MODULE mo_nh_stepping
           &                  advection_config(jg)%lfull_comp,           &! in
           &                  p_nh_state%diag,                           &! inout
           &                  prep_adv%vn_traj, prep_adv%mass_flx_me,    &! inout
-          &                  prep_adv%w_traj,  prep_adv%mass_flx_ic,    &! inout
+          &                  prep_adv%mass_flx_ic,                      &! inout
           &                  prep_adv%topflx_tra                        )! out
 
       ! Finally, switch between time levels now and new for next iteration
@@ -2755,13 +2755,12 @@ MODULE mo_nh_stepping
   ! deallocate auxiliary fields for tracer transport and rcf
   !
   DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
-      &         prep_adv(jg)%topflx_tra, STAT=ist                      )
+    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,     &
+      &         prep_adv(jg)%vn_traj, prep_adv(jg)%topflx_tra, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',            &
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, topflx_tra failed' )
+        &    'topflx_tra failed' )
     ENDIF
   ENDDO
 
@@ -2849,13 +2848,12 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
       &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',           &
       &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'w_traj, topflx_tra failed' )
+      &      'topflx_tra failed' )
     ENDIF
     !
     ! initialize (as long as restart output is synchroinzed with advection,
@@ -2864,7 +2862,6 @@ MODULE mo_nh_stepping
     CALL init(prep_adv(jg)%mass_flx_me)
     CALL init(prep_adv(jg)%mass_flx_ic)
     CALL init(prep_adv(jg)%vn_traj)
-    CALL init(prep_adv(jg)%w_traj)
     CALL init(prep_adv(jg)%topflx_tra)
 !$OMP END PARALLEL
 

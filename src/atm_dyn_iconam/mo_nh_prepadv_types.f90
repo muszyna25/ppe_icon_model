@@ -43,10 +43,6 @@ MODULE mo_nh_prepadv_types
     ! (currently at N+1/2)
     vn_traj(:,:,:) ,         &
     !
-    ! vertical velocity at half level centers for computation of
-    ! backward trajectories (currently at N+1/2)
-    w_traj(:,:,:) ,          &
-    !
     !< vertical tracer flux at domain top (time average; n+1/2)
     topflx_tra(:,:,:)
 
