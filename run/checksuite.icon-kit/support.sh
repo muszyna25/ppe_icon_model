@@ -57,6 +57,14 @@ function set_cluster {
 	 FILETYPE="4" 
      output_folder="/scratch/b/${USER}/TESTSUITE_OUTPUT/"
 	 ;;
+
+   mlogin*)
+     echo "...MISTRAL at DKRZ"; CENTER="DKRZ" 
+     input_folder="/pfs/imk/ICON/TESTSUITE/"
+	 FILETYPE="4" 
+     output_folder="${SCRATCH}/TESTSUITE_OUTPUT"
+	 icon_data_poolFolder=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/
+	 ;;
    *) :
      echo "...unknown HPC" ; exit 202 ;; #(
  esac
@@ -275,6 +283,44 @@ ENDFILEDWD
 
       ##       
 EOF
+;;
+   xmlogin*)
+account_id=$(id -gn)
+cat >> $output_script << EOF
+	   
+cat > job_ICON << ENDFILE
+#!/bin/bash -x
+#SBATCH --account=$account_id
+
+#SBATCH --partition=compute
+#SBATCH --$3
+#SBATCH --exclusive
+#SBATCH --ntasks-per-node=24
+#SBATCH --time=$2
+
+
+ulimit -s 102400
+
+$5 
+export OMPI_MCA_pml=cm
+export OMPI_MCA_mtl=mxm
+export OMPI_MCA_mtl_mxm_np=0
+export MXM_RDMA_PORTS=mlx5_0:1
+export MXM_LOG_LEVEL=ERROR
+# Disable GHC algorithm for collective communication
+export OMPI_MCA_coll=^ghc
+
+
+srun -l --propagate=STACK --cpu_bind=cores \
+  --distribution=block:cyclic ./icon.exe
+
+ENDFILE
+
+chmod +x job_ICON
+sbatch job_ICON
+
+EOF
+;;
 
 esac
 
