@@ -373,6 +373,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_v      = 3
+  INTEGER, PARAMETER :: ippm4gpu_v  = 4
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
