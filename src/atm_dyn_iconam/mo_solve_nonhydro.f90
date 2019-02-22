@@ -2374,6 +2374,7 @@ MODULE mo_solve_nonhydro
               z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
 
         ! Solve tridiagonal matrix for w
