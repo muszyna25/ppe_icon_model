@@ -258,6 +258,9 @@ CONTAINS
           & out_value=z_h_c,                        &
           & smooth_weights=(/ 0.5_wp, 0.5_wp /),    &
           & has_missValue=.false., missValue=-999999.0_wp)
+ 
+      CASE (2)
+        z_h_c = ocean_state%p_prog(nold(1))%h
 
       CASE default
         z_h_c = 0.0_wp
