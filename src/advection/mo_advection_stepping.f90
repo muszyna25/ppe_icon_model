@@ -308,7 +308,7 @@ CONTAINS
 !$ACC       PRESENT( p_int_state, advection_config, iidx, iblk ),       &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    & 
-!$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
+!$ACC                p_vn_contra_traj,                                  &
 !$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
