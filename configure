@@ -3084,7 +3084,7 @@ fi
 fi
 
 
-make_command="$make_command"
+make_command=${make_command-make}
 
 
 if test "$build" != "$host" ; then
@@ -4990,11 +4990,13 @@ if test -n "$SCTROOT" ; then
 
   case $ac_hostname in #(
   mlogin*|btc*) :
-    case $FC in #(
-  nagfor) :
-    SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
+    case x"$WLFLAG" in #(
+  x-Wl,-Wl,) :
+    SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g'` ;; #(
+  x-Wl) :
+    SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g'` ;; #(
   *) :
-    SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+     ;;
 esac ;; #(
   *) :
      ;;
@@ -6801,8 +6803,18 @@ if test "x$enable_serialization" != "xno"; then :
 
               if test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then :
 
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     case $fortran_compiler in #(
+  pgi*) :
+
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                       ;; #(
+  *) :
+
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                       ;;
+esac
 
 else
 
@@ -6848,7 +6860,7 @@ EOF
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -E \\\"{}\\\" > "../${my_iconppdir}/{}")" \\\; )
 EOF
  ;; #(
   *) :

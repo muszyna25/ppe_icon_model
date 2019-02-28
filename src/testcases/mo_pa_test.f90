@@ -48,7 +48,7 @@ USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_physical_constants,  ONLY: rdaylen
-USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
+USE mo_grid_config,         ONLY: grid_angular_velocity
 
 IMPLICIT NONE
 
@@ -263,8 +263,7 @@ CONTAINS
 
 
           CALL init_pure_adv_tracers ( tracer_inidist_list(1:5), zlon, zlat, zheight, &
-            &                          p_rotate_axis_deg, zq4, zq5, zq6,              &
-            &                          zq7, zq8 )
+            &                          zq4, zq5, zq6, zq7, zq8 )
 
           IF (it4 /= 0) ptr_prog%tracer(jc,jk,jb,it4) = zq4
           IF (it5 /= 0) ptr_prog%tracer(jc,jk,jb,it5) = zq5

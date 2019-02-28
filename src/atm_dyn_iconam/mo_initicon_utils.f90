@@ -1382,9 +1382,7 @@ MODULE mo_initicon_utils
   SUBROUTINE initVarnamesDict(dictionary)
     TYPE(t_dictionary), INTENT(INOUT) :: dictionary
 
-    INTEGER :: mpi_comm, itemp(3)
-
-    mpi_comm = p_comm_work
+    INTEGER :: itemp(3)
 
     ! read the map file into dictionary data structure:
     CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
@@ -1393,12 +1391,12 @@ MODULE mo_initicon_utils
         CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
       itemp(1) = dictionary%nmax_entries; itemp(2) = dictionary%nentries
       itemp(3) = MERGE(1, 0, dictionary%lcase_sensitive)
-      CALL p_bcast(itemp, p_io, mpi_comm)
+      CALL p_bcast(itemp, p_io, p_comm_work)
       dictionary%nmax_entries = itemp(1); dictionary%nentries = itemp(2)
       dictionary%lcase_sensitive = itemp(3) /= 0
       IF (.NOT. my_process_is_mpi_workroot()) &
         CALL dict_resize(dictionary, dictionary%nmax_entries)
-      CALL p_bcast(dictionary%array, p_io, mpi_comm)
+      CALL p_bcast(dictionary%array, p_io, p_comm_work)
     END IF
   END SUBROUTINE initVarnamesDict
 

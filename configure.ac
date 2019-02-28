@@ -281,7 +281,7 @@ AS_IF([test $use_mh_file = yes],
 dnl ######################################################################
 dnl if not set, select make for making (cannot use anything else anyway)
 
-make_command=m4_default(["$make_command"],["make"])
+make_command=${make_command-make}
 
 dnl ######################################################################
 dnl are we cross compiling?
@@ -979,10 +979,11 @@ if test -n "$SCTROOT" ; then
 
   AS_CASE([$ac_hostname],
           [mlogin*|btc*],
-          [AS_CASE([$FC],
-                   [nagfor],
-                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-                   [SCT_LIB=$(echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+          [AS_CASE([x"$WLFLAG"],
+             [x-Wl,-Wl,],
+             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g'`],
+             [x-Wl],
+             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g'`])],
           [])
 
 dnl checks for additional libs needed for sct, eg. papi
@@ -1339,8 +1340,16 @@ AS_IF([test "x$enable_serialization" != "xno"],
              [
               AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
                     [
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     AS_CASE([$fortran_compiler],
+                      [pgi*],
+                      [
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ],
+                      [
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ])
                      ],
                     [
                      AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
@@ -1384,7 +1393,7 @@ EOF
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -E \\\"{}\\\" > "../${my_iconppdir}/{}")" \\\; )
 EOF
 ])
                             read -d '' my_pp_ser <<EOF

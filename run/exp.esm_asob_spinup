@@ -97,6 +97,8 @@ mts_oce="PT10M"
 #atm_substeps=8  # dynamic substeps (dynamic time step length around 2 min)
 #mts_oce="PT45M"
 
+mts_rad="PT90M" # radiation time step length
+
 # coupling timestep
 # -----------------
 
@@ -104,19 +106,23 @@ mts_oce="PT10M"
 # successfull coupling requires that
 # - mts_oce is a multiple of mts_atm or vice versa, or
 # - mts_cpl is least common multiple of mts_atm and mts_oce
+# - output interval must be a multiple of mts_cpl
 mts_cpl=$mts_oce
 
 # restart interval
 # ----------------
 
+# set restart to true at begin of run if restart files are provided
+# restart=.true.          
+# read_restart_namelists=".false."
 checkpoint_interval="P20Y" #  mtime ISO-format
 
 # high frequency output and restart intervals
 #  - Warning: restart_interval must be multiple of radiation time step (see below).
-restart_interval="P1D"
-atm_output_interval="PT6H"
-lnd_output_interval="PT6H"
-oce_output_interval="PT6H"
+#restart_interval="P1D"
+#atm_output_interval="PT6H"
+#lnd_output_interval="PT6H"
+#oce_output_interval="PT6H"
 
 # mid-frequency output and restart intervals
 #restart_interval="P1Y"
@@ -124,11 +130,12 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1D"
 #oce_output_interval="P1D"
 
-## long-term low frequency output and restart intervals
-#restart_interval="P1Y"
-#atm_output_interval="P1M"
-#lnd_output_interval="P1M"
-#oce_output_interval="P1M"
+# long-term low frequency output and restart intervals
+restart_interval="P2Y"
+#restart_interval="P10Y"
+atm_output_interval="P1M"
+lnd_output_interval="P1M"
+oce_output_interval="P1M"
 
 # for HAMOCC
 monthly="P1M"
@@ -264,7 +271,7 @@ cat > ${atm_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT2H"
+ echam_phy_config(1)%dt_rad = "$mts_rad"
  echam_phy_config(1)%dt_vdf = "$mts_atm"
  echam_phy_config(1)%dt_cnv = "$mts_atm"
  echam_phy_config(1)%dt_cld = "$mts_atm"
@@ -316,7 +323,7 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
  echam_cld_config(1)%csecfrl    = 5.e-5       ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%crs        = 0.93        ! Critical relative humidity at surface, default 0.968
+ echam_cld_config(1)%crs        = 0.915       ! Critical relative humidity at surface, default 0.968
 /
 &sea_ice_nml
 /
@@ -423,9 +430,9 @@ INDATA=${icon_data_poolFolder}/input/r0003
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_r2b4_amip_2012010100_setyear1979.nc ./ifs2icon.nc
 #
-# - land: source?, date+time?
+# - land - pre-industrial 1850 CE: source?, date+time?
 datadir=$grids_folder/Land/r0002
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+add_link_file ${datadir}/ic_land_soil_1850.nc                           ./ic_land_soil.nc
 
 # II.2.5 Boundary conditions
 # --------------------------
@@ -437,7 +444,6 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 # mbe/slo - attention: do not use, set to constant 1850 via namelist
-#datadir=$INDATA/global/atm
 #add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 
 # - ozone
@@ -450,17 +456,16 @@ datadir=$grids_folder
 add_link_file $datadir/bc_sic.pre04.ff.nc                               ./bc_sic.nc
 add_link_file $datadir/bc_sst.pre04.ff.nc                               ./bc_sst.nc
 
-# - sso parameters
+# - sso parameters - today's topography
 icon_amip_poolFolder="/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
 datadir=${icon_amip_poolFolder}/preliminary_land_22-02-2018/R02B04/land
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 
-# - land parameters
+# - land parameters - pre-industrial, 1850 CE
 datadir=$grids_folder/Land/r0002
-add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
-#add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1850.nc              ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1850.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1850.nc                             ./bc_land_soil.nc
 datadir=$grids_folder
 add_link_file $datadir/hd_para_icon_r2b4_pre04_ff_vs1_7.nc              ./bc_land_hd.nc
 #
@@ -471,18 +476,6 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib
 datadir=$grids_folder
 add_link_file $datadir/slm-2to2_forHDmodel.pre04_158km_editSLOHH2017_G.nc ./hd_mask.nc
 add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runoff_a2o.weights.nc
-
-# II.2.6 Restart files
-# --------------------
-#  - links to restart files for atmosphere and ocean
-#datadir=$grids_folder/Restart_files
-#add_link_file $datadir/slo1004_restart_atm_21960101T000000Z.nc          ./init_restart_atm.nc
-#add_link_file $datadir/ocean_omip_long_r2b6_smax1e-3_17250-RTC_restart_oce_21960101T000000Z.nc ./init_restart_oce.nc
-#  - add links to standard names, will be overwritten during model run
-#add_link_file ./init_restart_atm.nc                                     ./restart_atm_DOM01.nc
-#add_link_file ./init_restart_oce.nc                                     ./restart_oce_DOM01.nc
-# set restart to true (default is false):
-#restart=.true.
 
 read_restart_namelists=".false."  # do not read namelists from restart-file
 #--------------------------------------------------------------------------------------------------
@@ -499,6 +492,7 @@ cat >> ${atm_namelist} << EOF
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
  !lkeep_in_sync = .TRUE.          ! sync after each timestep
+ lkeep_in_sync = .FALSE.
 /
 EOF
 
@@ -522,7 +516,8 @@ if [[ "$output_atm_mon" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'tas_gmean','rsdt_gmean','rsut_gmean','rlut_gmean','prec_gmean','evap_gmean'
+ ml_varlist       = 'tas_gmean','rsdt_gmean','rsut_gmean','rlut_gmean','radtop_gmean',
+                    'prec_gmean','evap_gmean','fwfoce_gmean'
 /
 EOF
 fi
@@ -873,8 +868,7 @@ cat > ${oce_namelist} << EOF0
 /
 &ocean_physics_nml
  lhamocc                         = ${lhamocc}
-  lbgcadv                         = ${lbgcadv}
-!  lhamocc_calc                   =.false.
+ lbgcadv                         = ${lbgcadv}
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
@@ -882,6 +876,7 @@ cat > ${oce_namelist} << EOF0
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
   leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+  pstar                           =  18000.   ! default: 27500./MPIOM: 20000
 /
 &ocean_forcing_nml
   iforc_oce                       =  14       ! ocean forcing: FORCING_FROM_COUPLED_FLUX  = 14
@@ -926,6 +921,7 @@ mc_fac                            = 2.0       ! slope of sinking speed increase 
 l_implsed                         =.FALSE.    ! implicit sediment formulation
 cycdec                            = 0.07
 cya_growth_max                    = 0.3
+grazra                            = 0.7
 l_init_bgc                        = ${l_init_bgc}
 /
 &output_nml
@@ -1000,7 +996,7 @@ l_init_bgc                        = ${l_init_bgc}
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
-  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
+  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min','HAMOCC_pco2'
 /
 EOF3
 
@@ -1021,12 +1017,12 @@ if [[ "$output_oce_min" == "yes" ]]; then
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
-  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  mode             =  1                               ! 1: forecast mode (relative t-axis); 2: climate mode
   operation        = 'mean'                           ! mean over output interval
   include_last     = .false.
   m_levels         = "1,2"                            ! surface and subsurface level only
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot','CondHeat', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
+  ml_varlist       =  'Qtop', 'Qbot','Qbot_slow', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
                       'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
                       'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
                       'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
@@ -1071,40 +1067,6 @@ if [[ "$output_oce_mon" == "yes" ]]; then
 EOF
 fi
 
-# zeta/h/ssh global mean diagnostics: spot-values
-cat >> ${oce_namelist} <<EOF
-
-&output_nml
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-!  operation        = 'mean'                           ! mean over output interval
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_oce_zGL"
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'ssh_global'
-/
-EOF
-
-# zeta/h/zos 2d-diagnostics: spot-values
-cat >> ${oce_namelist} <<EOF
-
-&output_nml
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-!  operation        = 'mean'                           ! mean over output interval
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_oce_z2d"
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'zos'
-/
-EOF
-
 if [[ "$output_oce_def" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
@@ -1117,7 +1079,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
-  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  mode             =  1                               ! 1: forecast mode (relative t-axis); 2: climate mode
   operation        = 'mean'                           ! mean over output interval
   include_last     = .false.
   filename_format  = "<output_filename>_<datetime2>"

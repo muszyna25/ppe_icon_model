@@ -212,7 +212,7 @@ MODULE mo_nh_stepping
   USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
 
@@ -375,8 +375,6 @@ MODULE mo_nh_stepping
              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
              &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
              &                      p_nh_state(jg)%diag,                    & !in
-             &                      p_lnd_state(jg)%diag_lnd,               & !in
-             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
              &                      prm_diag(jg)                            ) !inout
 
          END IF!is_les_phy
@@ -695,13 +693,8 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-
-  CALL save_convenience_pointers( )
-
-!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
-
-  CALL refresh_convenience_pointers( )
-  i_am_accel_node = .false.    ! Dectivate GPUs
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -895,8 +888,6 @@ MODULE mo_nh_stepping
               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
               &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
               &                      p_nh_state(jg)%diag,                    & !in
-              &                      p_lnd_state(jg)%diag_lnd,               & !in
-              &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
               &                      prm_diag(jg)                            ) !inout
 
           END IF!is_les_phy
@@ -1165,9 +1156,8 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  CALL save_convenience_pointers( )
-!$ACC END DATA
-  CALL refresh_convenience_pointers( )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1383,14 +1373,9 @@ MODULE mo_nh_stepping
         ! 2 Cases:
         ! msg_level E [12, inf[: print max/min output for every domain and every transport step
         ! msg_level E [ 8,  11]: print max/min output for global domain and every transport step
-        IF (msg_level >= 12) THEN
+        IF (msg_level >= 12 .OR. msg_level >= 8 .AND. jg == 1) THEN
           CALL print_maxwinds(p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn,   &
             p_nh_state(jg)%prog(nnow(jg))%w)
-        ELSE IF (msg_level >= 8) THEN
-          IF (jg == 1) THEN
-            CALL print_maxwinds(p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn, &
-              p_nh_state(jg)%prog(nnow(jg))%w)
-          ENDIF
         ENDIF
 
 #ifdef MESSY
@@ -1513,8 +1498,14 @@ MODULE mo_nh_stepping
         ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
         ENDIF
 
         IF (itype_comm == 1) THEN
@@ -1528,11 +1519,20 @@ MODULE mo_nh_stepping
 
             ! diffusion at physics time steps
             !
+#ifdef _OPENACC
+            i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
+
+#ifdef _OPENACC
+            i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
+
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
@@ -1667,7 +1667,6 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
-              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1676,8 +1675,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
+              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf) ) !inout
 
           ELSE ! is_les_phy
 
@@ -2156,19 +2154,11 @@ MODULE mo_nh_stepping
       ! msg_level E [ 8,  11]: print max/min output for global domain and every substep
       ! msg_level E [ 5,   7]: print max/min output for global domain and first substep
       !
-      IF (msg_level >= 12) THEN
+      IF (msg_level >= 12 &
+        & .OR. msg_level >= 8 .AND. jg == 1 &
+        & .OR. msg_level >= 5 .AND. jg == 1 .AND. nstep == 1) THEN
         CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn,   &
           p_nh_state%prog(nnow(jg))%w)
-      ELSE IF (msg_level >= 8) THEN
-        IF (jg == 1) THEN
-          CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn, &
-            p_nh_state%prog(nnow(jg))%w)
-        ENDIF
-      ELSE IF (msg_level >= 5) THEN
-        IF ( (jg == 1) .AND. (nstep == 1) ) THEN
-          CALL print_maxwinds(p_patch, p_nh_state%prog(nnow(jg))%vn, &
-            p_nh_state%prog(nnow(jg))%w)
-        ENDIF
       ENDIF
 
       ! total number of dynamics substeps since last boundary update
@@ -2322,7 +2312,6 @@ MODULE mo_nh_stepping
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout
         &                  prm_nwp_tend(jg)                ,   &
@@ -2330,8 +2319,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
+        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf) ) !inout
 
     ELSE ! is_les_phy
 

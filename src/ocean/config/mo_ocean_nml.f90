@@ -399,7 +399,6 @@ MODULE mo_ocean_nml
 
   ! tracer vertical diffusion
   INTEGER, PARAMETER  :: PPscheme_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
-  INTEGER, PARAMETER  :: PPscheme_ICON_type       = 1
   INTEGER, PARAMETER  :: PPscheme_MPIOM_type      = 2
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_type  = 3
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_vnPredict_type = 4
@@ -411,7 +410,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: tracer_RichardsonCoeff                     =  1.5E-3  ! factor for vertical diffusion coefficient in PP schemes
   REAL(wp) :: Temperature_VerticalDiffusion_background   = 1.5E-5   ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: Salinity_VerticalDiffusion_background      = 1.5E-5   ! vertical diffusion coefficient for salinity
-  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp ! do not change !
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
@@ -520,8 +518,7 @@ MODULE mo_ocean_nml
     &  velocity_TopWindMixing,      &
     &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
-    &  RichardsonDiffusion_threshold,   &
-    &  Salinity_ConvectionRestrict
+    &  RichardsonDiffusion_threshold
 
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
@@ -670,6 +667,11 @@ MODULE mo_ocean_nml
   REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
 !   INTEGER  :: windstress_smoothIterations          = 0
 !   REAL(wp) :: windstress_smoothWeight              = 0.0_wp
+
+  ! include slp_pressure forcing in horizontal pressure gradient
+  LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
+  LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
+
                                                               
 
   NAMELIST/ocean_forcing_nml/&
@@ -727,7 +729,9 @@ MODULE mo_ocean_nml
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
     &                 forcing_windStress_weight           , &
-    &                 use_new_forcing                    
+    &                 use_new_forcing                     , &
+    &                 atm_pressure_included_in_icedyn     , &
+    &                 atm_pressure_included_in_ocedyn
   ! } END FORCING
 
   !----------------------------------------------------------------------------

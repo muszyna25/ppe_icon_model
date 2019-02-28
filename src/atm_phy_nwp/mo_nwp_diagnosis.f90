@@ -40,7 +40,7 @@ MODULE mo_nwp_diagnosis
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
+  USE mo_run_config,         ONLY: iqv, iqc, iqi, iqr, iqs,  &
                                    iqni, iqg, iqh, iqnc, iqm_max
   USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics

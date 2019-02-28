@@ -19,3 +19,6 @@ builder|MISTRAL_intel17_hybrid_mixed|--with-fortran=intel17 --with-openmp --with
 experiment|checksuite.icon-dev/check.atm_amip_update|queue=compute
 builder|MISTRAL_nag|--with-fortran=nag --with-yaxt|Active
 experiment|checksuite.icon-dev/check.atm_amip_update|queue=compute
+machine|daint|
+builder|DAINT_CPU_cce|--with-fortran=cray|Active
+experiment|checksuite.icon-dev/check.atm_amip_update|constraint=gpu

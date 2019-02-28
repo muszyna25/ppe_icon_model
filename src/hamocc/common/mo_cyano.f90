@@ -130,17 +130,17 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
       REAL(wp) :: oldigasnit                                                                          
       REAL(wp) :: cyapro,cyaloss
       REAL(wp) :: avanut,avcyabac                                             
-      REAL(wp) :: pho,xn,avanfe,pho_fe,pho_p 
+      REAL(wp) :: pho,avanfe 
       REAL(wp) :: l_I, l_T
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
-      REAL(wp) :: xn_p,xn_fe, phosy_cya
+      REAL(wp) ::  phosy_cya
       REAL(wp) :: dyn_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
-!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,phosy_cya, &
-!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP           sgnT,l_T,xa_p,l_P,xa_fe,pho,phosy_cya, &
+!HAMOCC_OMP            cyapro,oldigasnit,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
   

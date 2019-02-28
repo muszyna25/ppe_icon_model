@@ -34,9 +34,9 @@
 MODULE mo_nh_dcmip_schaer
 
    USE mo_kind,                 ONLY: wp
-   USE mo_physical_constants,   ONLY: rd, grav, cpd, cvd_o_rd
+   USE mo_physical_constants,   ONLY: rd, grav
    USE mo_math_constants,       ONLY: pi
-   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert
+   USE mo_impl_constants,       ONLY: min_rlcell, min_rledge
    USE mo_parallel_config,      ONLY: nproma
    USE mo_loopindices,          ONLY: get_indices_c, get_indices_e
    USE mo_model_domain,         ONLY: t_patch
@@ -44,7 +44,6 @@ MODULE mo_nh_dcmip_schaer
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_ref, t_nh_metrics
    USE mo_intp_data_strc,       ONLY: t_int_state
    USE mo_intp,                 ONLY: cells2edges_scalar
-   USE mo_exception,            ONLY: message, finish, message_text
    USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, &
      &                                SYNC_C, SYNC_E
    USE mo_nh_init_utils,        ONLY: hydro_adjust, convert_thdvars  !, init_w 

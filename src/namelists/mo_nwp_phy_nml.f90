@@ -24,11 +24,11 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom, icosmo
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_control,      ONLY: use_restart_namelists, isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
 
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
@@ -103,8 +103,7 @@ MODULE mo_nwp_phy_nml
     &                    iprog_aero, lshallowconv_only,              &
     &                    ldetrain_conv_prec, rain_n0_factor
 
-  LOGICAL :: l_nwp_phy_namelist_read = .false.
-  
+ 
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -221,7 +220,6 @@ CONTAINS
       funit = open_and_restore_namelist('nwp_phy_nml')
       READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
-      l_nwp_phy_namelist_read = .true.
     END IF
 
     !--------------------------------------------------------------------
@@ -299,7 +297,6 @@ CONTAINS
         iunit = temp_settings()
         WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
       END IF
-      l_nwp_phy_namelist_read = .true.
     END SELECT
     CALL close_nml
 

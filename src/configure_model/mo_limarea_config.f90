@@ -18,7 +18,6 @@
 !!
 MODULE mo_limarea_config
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
@@ -27,10 +26,7 @@ MODULE mo_limarea_config
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
   USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN, datetime,  &
-    &                              timedelta, deallocateTimedelta,   &
-    &                              newTimedelta, OPERATOR(-),        &
-    &                              getTotalSecondsTimeDelta,         &
-    &                              MAX_DATETIME_STR_LEN
+    &                              timedelta, OPERATOR(-)
   USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDDHH, FMT_DDHHMMSS, FMT_HHH
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
@@ -162,10 +158,6 @@ CONTAINS
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename'
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
-    TYPE(timedelta), POINTER                    :: td
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: timedelta_str
-    INTEGER(c_int64_t)                          :: td_seconds
-    INTEGER                                     :: errno
     
     WRITE(str,'(i4)')   latbc_mtime%date%year
     CALL associate_keyword("<y>",         TRIM(str),                        keywords)

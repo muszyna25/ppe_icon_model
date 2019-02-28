@@ -145,7 +145,7 @@
   !!
   !!
   SUBROUTINE init_nh_atmo_ana_poly( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                                p_metrics, p_int, l_hydro_adjust )
+    &                                p_metrics, l_hydro_adjust )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_poly'
@@ -162,14 +162,13 @@
 
 
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
-    TYPE(t_int_state), INTENT(IN)       :: p_int
     LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                          ! initial condition
 
 
 
     INTEGER        ::  jc, jb, jk,    &
-                       nlen, nblks_e,  nblks_c, npromz_c, &
+                       nlen, nblks_c, npromz_c, &
                        jl, jg, jsubl
     INTEGER        :: nlev        !< number of full levels
 
@@ -198,8 +197,6 @@
     ALLOCATE ( jglayer(nproma,nlev,ptr_patch%nblks_c) )
     nblks_c   = ptr_patch%nblks_c
     npromz_c  = ptr_patch%npromz_c
-    nblks_e   = ptr_patch%nblks_e
-
 
 !
 ! First some control of the imput namelist parameters 
@@ -508,7 +505,7 @@ jglayer(:,:,:)=0
   !!
   !!
   SUBROUTINE init_nh_atmo_ana_nconstlayers( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                                p_metrics, p_int, l_hydro_adjust )
+    &                                p_metrics, l_hydro_adjust )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_lim_area_testcases:init_nh_atmo_ana_nconstlayers'
@@ -525,13 +522,12 @@ jglayer(:,:,:)=0
 
 
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
-    TYPE(t_int_state), INTENT(IN)       :: p_int
     LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                          ! initial condition
 
 
     INTEGER        ::  jc, jb, jk,    &
-                       nlen, nblks_e,  nblks_c, npromz_c, &
+                       nlen, nblks_c, npromz_c, &
                        jl, jn
     INTEGER        :: nlev        !< number of full levels
 
@@ -541,7 +537,7 @@ jglayer(:,:,:)=0
     INTEGER,  ALLOCATABLE :: jnlayer(:,:,:)
 
     REAL(wp), DIMENSION(nlayers_nconst) :: thetab, exnerb, tempb, qvb, &
-                             theta_vb, rhb, presb
+                                           rhb, presb
 
   
     REAL(wp)  :: z_h,  temp_aux, pres_aux,  tempv_aux, zz_top, theta_top
@@ -611,7 +607,6 @@ jglayer(:,:,:)=0
     ALLOCATE ( jnlayer(nproma,nlev,ptr_patch%nblks_c) )
    nblks_c   = ptr_patch%nblks_c
    npromz_c  = ptr_patch%npromz_c
-   nblks_e   = ptr_patch%nblks_e
    !npromz_e  = ptr_patch%npromz_e
 
 ! set the values at h_nconst(1)
@@ -620,9 +615,7 @@ jglayer(:,:,:)=0
     rhb(1)    = rh_nconst(1)
     presb(1)  = p_base_nconst
     tempb(1)  =  thetab(1) * exnerb(1)
-    qvb(1)      = qv_rhtp(rhb(1), tempb(1), presb(1) )
-    theta_vb(1) = thetab(1)*(1._wp+vtmpc1*qvb(1)) 
-   
+    qvb(1)      = qv_rhtp(rhb(1), tempb(1), presb(1) )   
 
 
 ! set the values at the base of each layer
@@ -667,7 +660,6 @@ jglayer(:,:,:)=0
 ! now consider the relative humidity of the base of the current layer
     rhb(jl)    = rh_nconst(jl)
     qvb(jl)    = qv_rhtp(rhb(jl), tempb(jl), presb(jl) )
-    theta_vb(jl)= thetab(jl)*(1._wp+vtmpc1*qvb(jl))
 
   END DO
 

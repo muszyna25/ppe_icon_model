@@ -145,7 +145,11 @@ CONTAINS
     !> interpolation state
     TYPE(t_int_state), INTENT(IN) :: p_int_state
 
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -194,7 +198,11 @@ CONTAINS
                                         !< [kg/kg]
                                         !< dim: (nproma,nlev,nblks_c,ntracer)
 
-    REAL(wp), TARGET, INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
+    REAL(wp), TARGET &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+     , CONTIGUOUS &
+#endif
+     , INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_new(:,:,:,:)             !< at time level n+1 (after transport)
                                            !< [kg/kg]  
                                            !< dim: (nproma,nlev,nblks_c,ntracer)
@@ -255,7 +263,7 @@ CONTAINS
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
 
-    INTEGER  :: nlev, nlevp1      !< number of full and half levels
+    INTEGER  :: nlev              !< number of full and half levels
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
@@ -276,7 +284,6 @@ CONTAINS
 
     ! number of vertical levels
     nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg  = p_patch%id
@@ -316,12 +323,12 @@ CONTAINS
 !$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
 !$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
-!$ACC       CREATE( z_delp_mc1, z_delp_mc2 ),              &
+!$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
 !$ACC       PRESENT( p_int_state, advection_config, iidx, iblk ),       &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,     & 
-!$ACC                p_vn_contra_traj, p_w_contra_traj,                  &
-!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),    &
+!$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    & 
+!$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
+!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     !*********************************!
@@ -364,9 +371,8 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
           ! integration of mass continuity equation
               ptr_delp_mc_new(jc,jk,jb) =                      &
@@ -413,15 +419,13 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG PRIVATE(jt)
-
           ! computation of vertical flux divergences
           DO nt = 1, trAdvect%len ! Tracer loop
 
             jt = trAdvect%list(nt)
 
-            !$ACC LOOP WORKER PRIVATE(ikp1)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG PRIVATE(ikp1)
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
               ! index of top half level
@@ -439,8 +443,8 @@ CONTAINS
 
               END DO
             END DO
-          END DO  ! Tracer loop
 !$ACC END PARALLEL
+          END DO  ! Tracer loop
         END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -479,9 +483,8 @@ CONTAINS
               &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
-              !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
                 ptr_delp_mc_new(jc,jk,jb) =                   &
               &          p_delp_mc_new(jc,jk,jb)          &
@@ -537,9 +540,8 @@ CONTAINS
           ! to prevent instabilities in extreme breaking gravity waves
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG 
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jc = i_startidx, i_endidx
               ptr_delp_mc_new(jc,jk,jb) =                        &
             &       MAX(0.1_wp*p_delp_mc_new(jc,jk,jb),      &
@@ -601,8 +603,6 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                     i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE( z_fluxdiv_c, jt )
       DO nt = 1, trAdvect%len ! Tracer loop
 
         jt = trAdvect%list(nt)
@@ -610,7 +610,8 @@ CONTAINS
         IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
 
 !  compute divergence of the upwind fluxes for tracers
-         !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -628,11 +629,13 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ELSE  ! horizontal advection switched off
 
 !  compute divergence of the upwind fluxes for tracers
-          !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -650,12 +653,12 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDIF  ! ihadv_tracer(jt) /= 0
 
-
-
-        !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -674,6 +677,7 @@ CONTAINS
             p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
           END DO
         END DO
+!$ACC END PARALLEL
 
 
         ! Store qv advection tendency for convection scheme. 
@@ -682,27 +686,30 @@ CONTAINS
         IF ( is_present_opt_ddt_tracer_adv .AND. (MOD( k_step, 2 ) == 0) &
           &  .AND. iforcing == inwp ) THEN
           IF ( jt == iqv ) THEN
-            !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                   & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF  ! jt == iqv
           IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
-            !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                   & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
               ENDDO
             ENDDO
+!$ACC END PARALLEL
           ENDIF  ! jt == iqtke
         ENDIF
 
       ENDDO  ! Tracer loop
-!$ACC END PARALLEL
 
     ENDDO
 
@@ -725,13 +732,12 @@ CONTAINS
           ! Tracer values are clipped here to avoid generation of negative values
           ! For mass conservation, a correction has to be applied in the
           ! feedback routine anyway
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-       !$ACC LOOP GANG PRIVATE(jt)
         DO nt = 1, trAdvect%len ! Tracer loop
 
           jt = trAdvect%list(nt)
 
-          !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               p_tracer_new(jc,jk,jb,jt) =                            &
@@ -739,8 +745,8 @@ CONTAINS
                 &   + p_dtime * p_grf_tend_tracer(jc,jk,jb,jt) )
             ENDDO
           ENDDO  ! Tracer loop
-        ENDDO
 !$ACC END PARALLEL
+        ENDDO
       ENDDO
 
 !$OMP END DO NOWAIT
@@ -807,13 +813,12 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG PRIVATE(jt)
         DO nt = 1, trAdvect%len ! Tracer loop
 
           jt = trAdvect%list(nt)
 
-          !$ACC LOOP VECTOR, COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
 !DIR$ IVDEP
@@ -830,33 +835,37 @@ CONTAINS
 
             END DO
           END DO
+!$ACC END PARALLEL
 
           ! Store qv advection tendency for convection scheme. 
           ! Store TKE tendency, if TKE advection is turned on
           !
           IF ( is_present_opt_ddt_tracer_adv .AND. (iforcing == inwp) ) THEN
             IF ( jt == iqv ) THEN
-              !$ACC LOOP VECTOR, COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG VECTOR COLLAPSE(2)
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
+!$ACC END PARALLEL
             ENDIF  ! jt == iqv
             IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
-              !$ACC LOOP VECTOR, COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+              !$ACC LOOP GANG VECTOR COLLAPSE(2)
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
+!$ACC END PARALLEL
             ENDIF  ! jt == iqtke
           ENDIF
 
         END DO  ! Tracer loop
-!$ACC END PARALLEL
       END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -886,21 +895,20 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG PRIVATE(jt)
         DO nt = 1, trNotAdvect%len ! Tracer loop
 
           jt = trNotAdvect%list(nt)
 
-          !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
             ENDDO  !jc
           ENDDO  !jk
+!$ACC END PARALLEL
  
         ENDDO  !nt
-!$ACC END PARALLEL
        
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -935,13 +943,12 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,     &
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG PRIVATE(jt)
         DO nt = 1, trAdvect%len
 
           jt = trAdvect%list(nt)
 
-          !$ACC LOOP VECTOR COLLAPSE(2)
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = advection_config(jg)%iadv_slev(jt), nlev
             DO jc = i_startidx, i_endidx
               opt_ddt_tracer_adv(jc,jk,jb,jt) =               &
@@ -950,8 +957,8 @@ CONTAINS
                 &            /p_dtime
             ENDDO
           ENDDO
-        ENDDO
 !$ACC END PARALLEL
+        ENDDO
       ENDDO
 !$OMP END DO
 

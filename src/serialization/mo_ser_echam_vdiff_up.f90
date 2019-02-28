@@ -50,7 +50,7 @@ MODULE mo_ser_echam_vdiff_up
     !$ser verbatim ENDIF
     !$ser verbatim IF (serializeStepIn .and. writeIn) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim   CALL init('echam_vdiff_up')
+    !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_vdiff_up-input jb=jb jcs=jcs kproma=kproma kbdim=kbdim klev=klev &
     !$ser&          klevm1=klevm1 ktrac=ktrac ksfc_type=ksfc_type idx_wtr=idx_wtr &
     !$ser&          pdtime=pdtime iqv=iqv iqc=iqc iqi=iqi iqt=iqt date=TRIM(date)
@@ -63,25 +63,25 @@ MODULE mo_ser_echam_vdiff_up
 #else
 #error SERIALIZATION MODE IS NOT SET
 #endif
-    !$ser data pfrc=field%frac_tile(:,jb,:)         &
-    !$ser&     pcfm_tile=pcfm_tile                  &
-    !$ser&     aa=aa                                &
-    !$ser&     pcptgz=pcptgz                        &
-    !$ser&     pum1=field%ua(:,:,jb)                &
-    !$ser&     pvm1=field%va(:,:,jb)                &
-    !$ser&     ptm1=field%ta(:,:,jb)                &
-    !$ser&     pmair=field%mair(:,:,jb)             &
-    !$ser&     pmref=field%mref(:,:,jb)             &
-    !$ser&     pqm1=field%qtrc(:,:,jb,iqv)          &
-    !$ser&     pxlm1=field%qtrc(:,:,jb,iqc)         &
-    !$ser&     pxim1=field%qtrc(:,:,jb,iqi)         &
-    !$ser&     pxtm1=field%qtrc(:,:,jb,iqt:)        &
-    !$ser&     pgeom1=field%geom(:,:,jb)            &
-    !$ser&     pztottevn=pztottevn                  &
-    !$ser&     bb=bb                                &
-    !$ser&     pzthvvar=pzthvvar                    &
-    !$ser&     pxvar=pxvar                          &
-    !$ser&     pz0m_tile=field%z0m_tile(:,jb,:)
+    !$ser data echam_vu_pfrc=field%frac_tile(:,jb,:)         &
+    !$ser&     echam_vu_pcfm_tile=pcfm_tile                  &
+    !$ser&     echam_vu_aa=aa                                &
+    !$ser&     echam_vu_pcptgz=pcptgz                        &
+    !$ser&     echam_vu_pum1=field%ua(:,:,jb)                &
+    !$ser&     echam_vu_pvm1=field%va(:,:,jb)                &
+    !$ser&     echam_vu_ptm1=field%ta(:,:,jb)                &
+    !$ser&     echam_vu_pmair=field%mair(:,:,jb)             &
+    !$ser&     echam_vu_pmref=field%mref(:,:,jb)             &
+    !$ser&     echam_vu_pqm1=field%qtrc(:,:,jb,iqv)          &
+    !$ser&     echam_vu_pxlm1=field%qtrc(:,:,jb,iqc)         &
+    !$ser&     echam_vu_pxim1=field%qtrc(:,:,jb,iqi)         &
+    !$ser&     echam_vu_pxtm1=field%qtrc(:,:,jb,iqt:)        &
+    !$ser&     echam_vu_pgeom1=field%geom(:,:,jb)            &
+    !$ser&     echam_vu_pztottevn=pztottevn                  &
+    !$ser&     echam_vu_bb=bb                                &
+    !$ser&     echam_vu_pzthvvar=pzthvvar                    &
+    !$ser&     echam_vu_pxvar=pxvar                          &
+    !$ser&     echam_vu_pz0m_tile=field%z0m_tile(:,jb,:)
     !$ser verbatim writeIn = .FALSE.
     !$ser verbatim IF (singleStepIn) THEN
     !$ser verbatim   serializeStepIn = .FALSE.
@@ -114,27 +114,27 @@ MODULE mo_ser_echam_vdiff_up
     !$ser verbatim ENDIF
     !$ser verbatim IF (serializeStepOut .and. writeOut) THEN
     !$ser verbatim CALL datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim CALL init('echam_vdiff_up')
+    !$ser verbatim CALL init('icon')
     !$ser savepoint echam_vdiff_up-output jb=jb jcs=jcs kproma=kproma kbdim=kbdim klev=klev &
     !$ser&          klevm1=klevm1 ktrac=ktrac ksfc_type=ksfc_type idx_wtr=idx_wtr &
     !$ser&          pdtime=pdtime iqv=iqv iqc=iqc iqi=iqi iqt=iqt date=TRIM(date)
     !$ser mode write
-    !$ser data bb=bb                                  &
-    !$ser&     pxvar=pxvar                            &
-    !$ser&     pz0m_tile=field%z0m_tile(:,jb,:)       &
-    !$ser&     pkedisp=pkedisp                        &
-    !$ser&     pute_vdf=pute_vdf                      &
-    !$ser&     pvte_vdf=pvte_vdf                      &
-    !$ser&     pq_vdf=pq_vdf                          &
-    !$ser&     pqte_vdf=tend_qtrc_vdf(:,:,iqv)        &
-    !$ser&     pxlte_vdf=tend_qtrc_vdf(:,:,iqc)       &
-    !$ser&     pxite_vdf=tend_qtrc_vdf(:,:,iqi)       &
-    !$ser&     pxtte_vdf=tend_qtrc_vdf(:,:,iqt:)      &
-    !$ser&     pz0m=field%z0m(:,jb)                   &
-    !$ser&     pthvvar=pthvvar                        &
-    !$ser&     ptotte=field%totte(:,:,jb)             &
-    !$ser&     psh_vdiff=field%sh_vdiff(:,jb)         &
-    !$ser&     pqv_vdiff=field%qv_vdiff(:,jb)
+    !$ser data echam_vu_bb=bb                                  &
+    !$ser&     echam_vu_pxvar=pxvar                            &
+    !$ser&     echam_vu_pz0m_tile=field%z0m_tile(:,jb,:)       &
+    !$ser&     echam_vu_pkedisp=pkedisp                        &
+    !$ser&     echam_vu_pute_vdf=pute_vdf                      &
+    !$ser&     echam_vu_pvte_vdf=pvte_vdf                      &
+    !$ser&     echam_vu_pq_vdf=pq_vdf                          &
+    !$ser&     echam_vu_pqte_vdf=tend_qtrc_vdf(:,:,iqv)        &
+    !$ser&     echam_vu_pxlte_vdf=tend_qtrc_vdf(:,:,iqc)       &
+    !$ser&     echam_vu_pxite_vdf=tend_qtrc_vdf(:,:,iqi)       &
+    !$ser&     echam_vu_pxtte_vdf=tend_qtrc_vdf(:,:,iqt:)      &
+    !$ser&     echam_vu_pz0m=field%z0m(:,jb)                   &
+    !$ser&     echam_vu_pthvvar=pthvvar                        &
+    !$ser&     echam_vu_ptotte=field%totte(:,:,jb)             &
+    !$ser&     echam_vu_psh_vdiff=field%sh_vdiff(:,jb)         &
+    !$ser&     echam_vu_pqv_vdiff=field%qv_vdiff(:,jb)
     !$ser verbatim writeOut = .FALSE.
     !$ser verbatim IF (singleStepOut) THEN
     !$ser verbatim   serializeStepOut = .FALSE.

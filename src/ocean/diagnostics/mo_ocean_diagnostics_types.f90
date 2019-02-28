@@ -41,6 +41,7 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: pot_energy(:)
     REAL(wp), POINTER :: total_energy(:)
     REAL(wp), POINTER :: global_heat_content(:)
+    REAL(wp), POINTER :: global_heat_content_solid(:)
     REAL(wp), POINTER :: total_salt(:)
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)

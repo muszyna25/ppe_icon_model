@@ -37,6 +37,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
+end_date="2008-09-13T00:00:00Z"
 ndays_restart=12
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -44,6 +45,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 # model timing
 dtime=900
 ndays=12
+restart_interval="P${ndays}D"
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 24 \* 3600 `   # int output each 24 hours
 dt_file=`expr 30 \* 86400 `   # 30 days per file
@@ -63,6 +65,7 @@ iforcing=0        # no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
+grids_folder="${icon_data_poolFolder}/grids/buildbot"
 atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
