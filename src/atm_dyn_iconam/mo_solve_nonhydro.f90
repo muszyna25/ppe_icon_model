@@ -109,7 +109,7 @@ MODULE mo_solve_nonhydro
   !! Development started by Guenther Zaengl on 2010-02-03
   !!
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
-                       lprep_adv, lclean_mflx, idyn_timestep, jstep, l_bdy_nudge, dtime)
+                       lprep_adv, lclean_mflx, idyn_timestep, jstep, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
@@ -130,8 +130,6 @@ MODULE mo_solve_nonhydro
     INTEGER,                   INTENT(IN)    :: idyn_timestep
     ! Time step count since last boundary interpolation (ranges from 0 to 2*ndyn_substeps-1)
     INTEGER,                   INTENT(IN)    :: jstep
-    ! Switch to determine if boundary nudging is executed
-    LOGICAL,                   INTENT(IN)    :: l_bdy_nudge
     ! Time levels
     INTEGER,                   INTENT(IN)    :: nnow, nnew
     ! Time step
@@ -1587,28 +1585,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 !$OMP END DO
 
-      IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
-
-!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-        DO ic = 1, p_nh%metrics%nudge_e_dim
-          je = p_nh%metrics%nudge_e_idx(ic)
-          jb = p_nh%metrics%nudge_e_blk(ic)
-!DIR$ IVDEP
-          !$ACC LOOP VECTOR
-          DO jk = 1, nlev
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-              + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-
-!$OMP END DO
-
-      ENDIF
-
       ! Boundary update of horizontal velocity
       IF (istep == 1 .AND. (l_limited_area .OR. jg > 1)) THEN
         rl_start = 1
@@ -2016,7 +1992,7 @@ MODULE mo_solve_nonhydro
               ! COMMENT: this optimization yields drastically better performance in an OpenACC context
               ! Interpolate contravariant correction to cell centers...
               z_w_concorr_mc_m1 =  &
-                P_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
+                p_int%e_bln_c_s(jc,1,jb)*z_w_concorr_me(ieidx(jc,jb,1),jk-1,ieblk(jc,jb,1)) + &
                 p_int%e_bln_c_s(jc,2,jb)*z_w_concorr_me(ieidx(jc,jb,2),jk-1,ieblk(jc,jb,2)) + &
                 p_int%e_bln_c_s(jc,3,jb)*z_w_concorr_me(ieidx(jc,jb,3),jk-1,ieblk(jc,jb,3))
               z_w_concorr_mc_m0 =  &
@@ -2403,6 +2379,20 @@ MODULE mo_solve_nonhydro
         ENDDO
 !$ACC END PARALLEL
 
+        IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
+          
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              z_rho_expl(jc,jk)   = z_rho_expl(jc,jk)   + iau_wgt_dyn*p_nh%diag%rho_incr(jc,jk,jb)
+              z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDIF
+
         ! Solve tridiagonal matrix for w
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR
@@ -2491,20 +2481,6 @@ MODULE mo_solve_nonhydro
                 &                         - dtime*p_nh%metrics%rayleigh_w(jk) &
                 &                         * ( p_nh%prog(nnew)%w(jc,jk,jb)     &
                 &                         - p_nh%ref%w_ref(jc,jk,jb) )
-            ENDDO
-          ENDDO
-!$ACC END PARALLEL
-        ENDIF
-
-        IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              z_rho_expl(jc,jk)   = z_rho_expl(jc,jk)   + iau_wgt_dyn*p_nh%diag%rho_incr(jc,jk,jb)
-              z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
             ENDDO
           ENDDO
 !$ACC END PARALLEL

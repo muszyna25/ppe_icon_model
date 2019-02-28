@@ -701,10 +701,14 @@ case "$ac_sitename" in
                 make_command=make -j 8
                 case "$fortran_compiler" in
                     cray)
-                      load_modules    = cray-netcdf cray-hdf5 
-                      # if nothing is available: load grib_api module
-                      if test -z "$GRIB_API" -a -z "$ECCODES"; then
-                        load_modules    = $load_modules grib_api
+                      load_modules    = cray-netcdf cray-hdf5
+		      #	Add "eccodes" GRIB library, if nothing else has been
+		      # set.  Note that we use an intermediate variable
+		      # "dwd_gribapi_env"! Since mh-linux is processed twice
+		      # during configure we cannot simply ask for the
+		      # existence of module-specific environment variables.
+                      if test -n "$dwd_gribapi_env"; then
+                        load_modules    = $load_modules aec eccodes 
                       fi  
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS

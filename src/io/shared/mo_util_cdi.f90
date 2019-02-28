@@ -24,11 +24,13 @@ MODULE mo_util_cdi
   USE mo_communication,      ONLY: t_scatterPattern
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_run_config,         ONLY: msg_level
+  USE mo_io_config,          ONLY: config_lmask_boundary => lmask_boundary
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -72,11 +74,13 @@ MODULE mo_util_cdi
     MODULE PROCEDURE read_cdi_2d_real_tiles
     MODULE PROCEDURE read_cdi_2d_int_tiles
     MODULE PROCEDURE read_cdi_2d_time_tiles
+    MODULE PROCEDURE read_cdi_2d_lbc
   END INTERFACE
 
   INTERFACE read_cdi_3d
     MODULE PROCEDURE read_cdi_3d_real
     MODULE PROCEDURE read_cdi_3d_real_tiles
+    MODULE PROCEDURE read_cdi_3d_lbc
   END INTERFACE
 
 
@@ -757,6 +761,161 @@ CONTAINS
   END SUBROUTINE read_cdi_3d_real
 
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 3D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_3d_lbc(parameters, varname, nlevs, var_out, npoints, idx_list)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    CHARACTER(len=*),  INTENT(IN) :: varname
+    INTEGER,           INTENT(IN) :: nlevs, npoints, idx_list(:)
+    REAL(wp),       INTENT(INOUT) :: var_out(:,:,:) !< output field
+
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_lbc'
+    INTEGER :: jk, ierrstat, nmiss, i
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
+    LOGICAL :: lmap_buf
+
+    CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
+    lmap_buf = .FALSE.
+
+    IF(my_process_is_mpi_workroot()) THEN
+      vlistId = streamInqVlist(parameters%streamId)
+      ! sanity check of the variable dimensions
+      zaxisId = vlistInqVarZaxis(vlistId, varId)
+      IF (zaxisInqSize(zaxisId) /= nlevs) THEN
+        CALL finish(routine, "Incompatible dimensions! level count = "//trim(int2string(zaxisInqSize(zaxisId)))//&
+        &                    " (expected "//trim(int2string(nlevs))//")")
+      END IF
+
+      gridId = vlistInqVarGrid(vlistId, varId)
+      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
+        IF (npoints == gridInqSize(gridId)) THEN
+          lmap_buf = .TRUE.
+        ELSE
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          &                    " (expected "//trim(int2string(npoints))//")")
+        ENDIF
+      END IF
+    END IF
+
+
+    ! allocate a buffer for one vertical level
+    IF(my_process_is_mpi_workroot()) THEN
+      IF (lmap_buf) THEN
+        ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
+        map_buf(:) = 0._sp
+      ELSE
+        ALLOCATE(tmp_buf(1),map_buf(parameters%glb_arr_len), STAT=ierrstat)
+      ENDIF
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ELSE
+        ALLOCATE(tmp_buf(1), map_buf(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    END IF
+
+
+
+    !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
+    DO jk=1,nlevs
+      IF(my_process_is_mpi_workroot()) THEN
+        ! read record as 1D field
+        IF (lmap_buf) THEN
+          CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
+!$OMP PARALLEL DO PRIVATE(i)
+          DO i = 1, npoints
+            map_buf(idx_list(i)) = tmp_buf(i)
+          ENDDO
+!$OMP END PARALLEL DO
+        ELSE
+          CALL timeStreamReadVarSliceF(parameters, varID, jk-1, map_buf(:), nmiss)
+        ENDIF
+      END IF
+
+      CALL parameters%distribution%distribute(map_buf(:), var_out(:, jk, :), .FALSE.)
+ 
+    END DO ! jk=1,nlevs
+
+    ! clean up
+    DEALLOCATE(tmp_buf, map_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
+  END SUBROUTINE read_cdi_3d_lbc
+
+  !---------------------------------------------------------------------------------------------------------------------------------
+  !> read and distribute a 2D variable across the processes
+  !---------------------------------------------------------------------------------------------------------------------------------
+  SUBROUTINE read_cdi_2d_lbc(parameters, varname, var_out, npoints, idx_list)
+    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
+    CHARACTER(len=*),  INTENT(IN) :: varname
+    INTEGER,           INTENT(IN) :: npoints, idx_list(:)
+    REAL(wp),       INTENT(INOUT) :: var_out(:,:) !< output field
+
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_lbc'
+    INTEGER :: jk, ierrstat, nmiss, i
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
+    LOGICAL :: lmap_buf
+
+    CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
+    lmap_buf = .FALSE.
+
+    IF(my_process_is_mpi_workroot()) THEN
+      vlistId = streamInqVlist(parameters%streamId)
+
+      gridId = vlistInqVarGrid(vlistId, varId)
+      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
+        IF (npoints == gridInqSize(gridId)) THEN
+          lmap_buf = .TRUE.
+        ELSE
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          &                    " (expected "//trim(int2string(npoints))//")")
+        ENDIF
+      END IF
+    END IF
+
+
+    ! allocate a buffer for one vertical level
+    IF(my_process_is_mpi_workroot()) THEN
+      IF (lmap_buf) THEN
+        ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
+        map_buf(:) = 0._sp
+      ELSE
+        ALLOCATE(tmp_buf(1),map_buf(parameters%glb_arr_len), STAT=ierrstat)
+      ENDIF
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    ELSE
+        ALLOCATE(tmp_buf(1), map_buf(1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    END IF
+
+
+
+    !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
+      IF(my_process_is_mpi_workroot()) THEN
+        ! read record as 1D field
+        IF (lmap_buf) THEN
+          CALL timeStreamReadVarSliceF(parameters, varID, 0, tmp_buf(:), nmiss)
+!$OMP PARALLEL DO PRIVATE(i)
+          DO i = 1, npoints
+            map_buf(idx_list(i)) = tmp_buf(i)
+          ENDDO
+!$OMP END PARALLEL DO
+        ELSE
+          CALL timeStreamReadVarSliceF(parameters, varID, 0, map_buf(:), nmiss)
+        ENDIF
+      END IF
+
+      CALL parameters%distribution%distribute(map_buf(:), var_out(:, :), .FALSE.)
+ 
+
+    ! clean up
+    DEALLOCATE(tmp_buf, map_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
+  END SUBROUTINE read_cdi_2d_lbc
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> read and distribute a 2D variable across the processes
@@ -1058,9 +1217,10 @@ CONTAINS
     IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
     IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
     IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
-
-    ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-    IF (info%lmiss) THEN
+    
+    IF (info%lmiss .OR.                                        &
+      &   (info%lmask_boundary .AND. config_lmask_boundary .AND. &
+      &   (info%hgrid == GRID_UNSTRUCTURED_CELL))) THEN
       CALL vlistDefVarMissval(vlistID, varID, missval)
     END IF
 

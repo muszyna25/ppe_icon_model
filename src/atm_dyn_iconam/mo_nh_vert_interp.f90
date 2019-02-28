@@ -791,6 +791,10 @@ CONTAINS
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
+
+      kpbl1(1:nproma,jb) = -1
+      kpbl2(1:nproma,jb) = -1
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
@@ -801,7 +805,6 @@ CONTAINS
         wfacpbl1(nlen+1:nproma,jb) = 0.5_wp
         wfacpbl2(nlen+1:nproma,jb) = 0.5_wp
       ENDIF
-
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_in(1:nlen,nlevs_in,jb)) <= zpbl2) THEN
           jk_start = jk - 1
@@ -833,6 +836,11 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ! If the input data is corrupted, no kpbl1 or kpbl2 is found, i.e. still equal -1
+    IF ( ANY(kpbl1 < 0) .OR. ANY(kpbl2 < 0) ) THEN
+      CALL finish("prepare_extrap:", &
+        &         "No kpbl found, check vertical coordinate input data.")
+    ENDIF
 
   END SUBROUTINE prepare_extrap
 

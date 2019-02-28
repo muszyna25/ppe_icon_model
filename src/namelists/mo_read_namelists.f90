@@ -80,6 +80,7 @@ MODULE mo_read_namelists
   USE mo_run_config          ,ONLY: iforcing
   USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM, INWP
   USE mo_assimilation_nml    ,ONLY: read_assimilation_namelist
+  USE mo_nudging_nml         ,ONLY: read_nudging_namelist
 
   IMPLICIT NONE
 
@@ -202,6 +203,7 @@ CONTAINS
     !
     CALL read_extpar_namelist         (atm_namelist_filename(1:tlen))
     CALL read_limarea_namelist        (atm_namelist_filename(1:tlen))
+    CALL read_nudging_namelist        (atm_namelist_filename(1:tlen))
 
     ! GRIB output
     CALL read_gribout_namelist        (atm_namelist_filename(1:tlen))

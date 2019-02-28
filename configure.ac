@@ -267,6 +267,14 @@ AS_CASE([$host],
          m4_define([line2], [Please set a valid config/mh-* file up.])
          AC_MSG_ERROR([line1 line2], [1])])
 
+# check for environment variables "$GRIB_API",
+# "$ECCODES" (set by these modules).  If nothing is
+# available: load eccodes module:
+AS_IF([test -z "$GRIB_API" -a -z "$ECCODES"],
+  [dwd_gribapi_env="1"])
+AC_MSG_NOTICE([dwd_gribapi_env = $dwd_gribapi_env.])
+export dwd_gribapi_env
+
 AS_IF([test $use_mh_file = yes],
       [ACX_GET_MODULES_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_profile" ],
@@ -896,7 +904,9 @@ AS_CASE(["$GRIB_OPTION"],
          AS_CASE([$GRIB_OPTION],
                  [eccodes],
                  [AS_IF([test -n "$AEC_DIR"],
-                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\$(AEC_DIR)/lib -laec"
+                        # note the backslash-notation for environment variables:
+                        # this means that they are not evaluated right now.
+                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\${AEC_DIR}/lib -laec"
                          AC_MSG_NOTICE([taking over environment variable $AEC_DIR])],
                         [])],
                  []) 

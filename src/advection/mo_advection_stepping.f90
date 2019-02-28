@@ -1,6 +1,6 @@
 !>
-!! Contains implementation of the advection time stepping for the hydrostatic
-!! and non-hydrostatic dynamical core.
+!! Contains implementation of the advection time stepping for the 
+!! non-hydrostatic dynamical core.
 !!
 !! Performs time integration of tracer continuity equations in flux form
 !! using either Marchuk or Strang splitting between the horizontal and
@@ -35,6 +35,9 @@
 !!   NH-core.
 !! Modification by Will Sawyer, CSCS (2016-07-15)
 !! - added OpenACC support
+!! Modification by Daniel Reinert, DWD (2019-02-18)
+!! - removed obsolete 3D field p_w_contra_traj, which was only needed 
+!!   by the time-restricted PPM scheme. This scheme is no longer available.
 !!
 !!
 !! @par Copyright and License
@@ -133,7 +136,7 @@ CONTAINS
   !!
   SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now, &
     &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,  &
-    &                        p_w_contra_traj, p_cellhgt_mc_now, p_delp_mc_new,    &
+    &                        p_cellhgt_mc_now, p_delp_mc_new,                     &
     &                        p_delp_mc_now, p_grf_tend_tracer, p_tracer_new,      &
     &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
     &                        opt_q_int, opt_ddt_tracer_adv )
@@ -156,7 +159,6 @@ CONTAINS
 
     REAL(wp), INTENT(IN)  ::         &  !< horizontal mass flux (contravariant)
       &  p_mflx_contra_h(:,:,:)         !< NH: v_n*delta_z*\rho  [kg/m/s]
-                                        !< HA: v_n*delta_p       [kg/s**3]
                                         !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(IN)  ::         &  !< horizontal velocity component at n+1/2
@@ -166,31 +168,19 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT)  ::      &  !< vertical mass flux (contravariant)
       &  p_mflx_contra_v(:,:,:)         !< NH: \rho*w     [kg/m**2/s]
-                                        !< HA: eta_dot \partial p/\partial eta [Pa/s]
-                                        !< dim: (nproma,nlevp1,nblks_c)
-
-    REAL(wp), INTENT(IN)  ::         &  !< vertical velocity (contravariant) at n+1/2
-      &  p_w_contra_traj(:,:,:)         !< for calculation of backward trajectories
-                                        !< NH: w [m/s]
-                                        !< HA: eta_dot \partial p/\partial eta [Pa/s]
                                         !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN) ::          &  !< cell height defined at full levels for
       &  p_cellhgt_mc_now(:,:,:)        !< time step n 
                                         !< NH: \Delta z       [m]
-                                        !< HA: \Delta p       [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels 
       &  p_delp_mc_new(:,:,:)           !< at n+1 [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
-                                        !< at n+1 [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
       &  p_delp_mc_now(:,:,:)           !< at time step n [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
-                                        !< at time step n [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(INOUT) ::       &  !< interpolated tracer time tendencies for
@@ -209,22 +199,18 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT)  ::  &   !< horizontal tracer mass flux at full level edges
       &  p_mflx_tracer_h(:,:,:,:)    !< NH: [kg/m/s]
-                                     !< HA: [kg/s**3]
                                      !< dim: (nproma,nlev,nblks_e,ntracer)
 
     REAL(wp), INTENT(INOUT)  ::  &   !< vertical tracer mass flux at half level centers
       &  p_mflx_tracer_v(:,:,:,:)    !< NH: [kg/m**2/s]
-                                     !< HA: [Pa/s]
                                      !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary 
       &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
-                                        !< HA: [Pa/s]
                                         !< dim: (nproma,nblks_c,ntracer)
 
     REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
       &  opt_q_int(:,:,:)               !< NH: [kg/kg]
-                                        !< HA: [kg/kg]
                                         !< dim: (nproma,nblks_c,ntracer)
 
     REAL(wp), INTENT(INOUT), OPTIONAL :: & !< advective tendency    [kg/kg/s]
@@ -240,15 +226,11 @@ CONTAINS
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
       & z_delp_mc1(nproma,p_patch%nlev,p_patch%nblks_c) 
                                         !< at first intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
-                                        !< at first intermediate time step [Pa]
                                         !< dim: (nproma,nlev,nblks_c) 
 
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
       & z_delp_mc2(nproma,p_patch%nlev,p_patch%nblks_c) 
                                         !< at second intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
-                                        !< at first intermediate time step [Pa]
                                         !< dim: (nproma,nlev,nblks_c) 
 
     REAL(vp) ::  &                      !< flux divergence at cell center
@@ -261,7 +243,7 @@ CONTAINS
       & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
 
     REAL(wp) :: pdtime_mod        !< modified time step
-                                  !< (multiplied by cSTR * coeff_grid)
+                                  !< (multiplied by cSTR)
 
     INTEGER  :: nlev              !< number of full and half levels
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
@@ -289,10 +271,9 @@ CONTAINS
     jg  = p_patch%id
 
     ! precompute modified timestep (timestep multiplied by Strang-splitting
-    ! coefficient and a second coefficient to account for either a
-    ! vertical z- or p-system)
-    pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
-      &        * p_dtime
+    ! coefficient)
+    pdtime_mod = advection_config(jg)%cSTR * p_dtime
+
 
     is_present_opt_ddt_tracer_adv = PRESENT( opt_ddt_tracer_adv )
 
@@ -320,7 +301,7 @@ CONTAINS
     ptr_delp_mc_now    => p_delp_mc_now
 
 !$ACC DATA  PCOPYIN( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    &
-!$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
+!$ACC                p_vn_contra_traj,                                  &
 !$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
 !$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
@@ -374,12 +355,9 @@ CONTAINS
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-          ! integration of mass continuity equation
-              ptr_delp_mc_new(jc,jk,jb) =                      &
-            &              ptr_delp_mc_now(jc,jk,jb)       &
-            &              - pdtime_mod                                         &
-            &              * ( p_mflx_contra_v(jc,jk+1,jb) &
-            &              - p_mflx_contra_v(jc,jk,jb) )
+              ! integration of mass continuity equation
+              ptr_delp_mc_new(jc,jk,jb) =  ptr_delp_mc_now(jc,jk,jb) + pdtime_mod  &
+              &   * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -392,7 +370,6 @@ CONTAINS
         ! compute vertical tracer flux
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
           &              p_mflx_contra_v,                            &! inout
-          &              p_w_contra_traj,                            &! in
           &              advection_config(jg)%cSTR*p_dtime,          &! in
           &              p_cellhgt_mc_now,                           &! in
           &              ptr_delp_mc_now,                            &! in
@@ -437,7 +414,7 @@ CONTAINS
 
                 p_tracer_new(jc,jk,jb,jt) =                                         &
                   &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)  &
-                  &  - pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
+                  &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
                   &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) ) )            &
                   &  / ptr_delp_mc_new(jc,jk,jb)
 
@@ -486,11 +463,8 @@ CONTAINS
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
               DO jc = i_startidx, i_endidx
-                ptr_delp_mc_new(jc,jk,jb) =                   &
-              &          p_delp_mc_new(jc,jk,jb)          &
-              &          + pdtime_mod                                          &
-              &          * ( p_mflx_contra_v(jc,jk+1,jb)  &
-              &          - p_mflx_contra_v(jc,jk,jb) )
+                ptr_delp_mc_new(jc,jk,jb) = p_delp_mc_new(jc,jk,jb) - pdtime_mod    &
+                &       * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
               ENDDO
             ENDDO
 !$ACC END PARALLEL
@@ -543,12 +517,8 @@ CONTAINS
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              ptr_delp_mc_new(jc,jk,jb) =                        &
-            &       MAX(0.1_wp*p_delp_mc_new(jc,jk,jb),      &
-            &                  p_delp_mc_new(jc,jk,jb)       &
-            &                + pdtime_mod                                         &
-            &                * ( p_mflx_contra_v(jc,jk+1,jb) &
-            &                - p_mflx_contra_v(jc,jk,jb) )   )
+              ptr_delp_mc_new(jc,jk,jb) = MAX(0.1_wp*p_delp_mc_new(jc,jk,jb), p_delp_mc_new(jc,jk,jb) &
+            &    - pdtime_mod*( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )  )
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -785,7 +755,6 @@ CONTAINS
 
       CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
         &              p_mflx_contra_v,                            &! inout
-        &              p_w_contra_traj,                            &! in
         &              advection_config(jg)%cSTR*p_dtime,          &! in
         &              p_cellhgt_mc_now,                           &! in
         &              ptr_delp_mc_now,                            &! in
@@ -829,7 +798,7 @@ CONTAINS
 
               p_tracer_new(jc,jk,jb,jt) =                                         &
                 &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)  &
-                &  - pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
+                &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
                 &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) ) )            &
                 &  / ptr_delp_mc_new(jc,jk,jb)
 

@@ -35,7 +35,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
     &                              num_io_procs, itype_comm,                         &
     &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config
+  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
   USE mo_master_config,      ONLY: isRestart
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
     &                              ltransport, ntracer, nlev, ltestcase,             &
@@ -50,7 +50,8 @@ MODULE mo_nml_crosscheck
   USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
-                                      lhdiff_rcf, rayleigh_type
+    &                                 lhdiff_rcf, rayleigh_type,                     &
+    &                                 ivctype, ndyn_substeps
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
@@ -76,6 +77,8 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
+  USE mo_nudging_nml,        ONLY: check_nudging
+
 #ifdef __ICON_ART
   USE mo_grid_config,        ONLY: lredgrid_phys
 #endif
@@ -123,8 +126,9 @@ CONTAINS
 
 
     !--------------------------------------------------------------------
-    ! Grid and dynamics
+    ! Limited Area Mode and LatBC read-in:
     !--------------------------------------------------------------------
+
 
     IF (lplane) CALL finish(routine,&
       'Currently a plane version is not available')
@@ -132,6 +136,40 @@ CONTAINS
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
     ! or if there are no lateral boundary data to be read
     IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
+
+    ! If LatBC data is unavailable: Idle-wait-and-retry
+    !
+    IF (latbc_config%nretries > 0) THEN
+      !
+      ! ... only supported for prefetching LatBC mode
+      IF (.NOT. l_limited_area .OR. (num_prefetch_proc == 0)) THEN
+        CALL finish(routine, "LatBC: Idle-wait-and-retry only supported for prefetching LatBC mode!")
+      END IF
+      !
+      ! ... only supported for MPI parallel configuration
+#ifdef NOMPI
+      CALL finish(routine, "LatBC: Idle-wait-and-retry requires MPI!")
+#endif
+    END IF
+
+    ! Limited area mode must not be enabled for torus grid:
+    IF (is_plane_torus .AND. l_limited_area) THEN
+      CALL finish(routine, 'Plane torus grid requires l_limited_area = .FALSE.!')
+    END IF
+
+    ! Root bisection "0" does not make sense for limited area mode; it
+    ! is more likely that the user tried to use a torus grid here:
+    IF (l_limited_area .AND. (nroot == 0)) THEN
+      CALL finish(routine, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! Grid and dynamics
+    !--------------------------------------------------------------------
+
+    IF (lplane) CALL finish( routine,&
+      'Currently a plane version is not available')
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
@@ -154,6 +192,7 @@ CONTAINS
                  (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     END SELECT
+
 
     ! Limited area mode must not be enabled for torus grid:
     IF (is_plane_torus .AND. l_limited_area) THEN
@@ -179,11 +218,13 @@ CONTAINS
     ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
 
+
     IF ((ctest_name=='GW') .AND. (nlev /= 20)) THEN
       CALL finish(routine,'nlev MUST be 20 for the gravity-wave test case')
     ENDIF
 
     IF ((ctest_name=='SV') .AND. ntracer /= 2 ) THEN
+
       CALL finish(routine, &
         & 'ntracer MUST be 2 for the stationary vortex test case')
     ENDIF
@@ -556,6 +597,7 @@ CONTAINS
         ELSE
           WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
             &                          atm_phy_nwp_config(1)%inwp_turb
+
           CALL finish(routine, message_text )
         ENDIF
       ENDIF
@@ -837,6 +879,11 @@ CONTAINS
 
     CALL art_crosscheck()
 
+    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                     &
+      &                 l_limited_area, latbc_config%lsparse_latbc, latbc_config%itype_latbc, & 
+      &                 latbc_config%nudge_hydro_pres, LATBC_TYPE_CONST, is_plane_torus,      &
+      &                 lart, ndyn_substeps                                                   )
+
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
 
@@ -867,8 +914,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE art_crosscheck
   
-    CHARACTER(len=*), PARAMETER :: &
-      &  routine =  modname//'::art_crosscheck'
+    CHARACTER(len=*), PARAMETER :: routine =  modname//'::art_crosscheck'
 #ifdef __ICON_ART
     INTEGER  :: &
       &  jg

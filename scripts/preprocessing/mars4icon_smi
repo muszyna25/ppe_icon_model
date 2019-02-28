@@ -2,8 +2,8 @@
 # -------------------------------------------------------
 # MARS request to read data used in the ifs2icon utility.
 #
-# mars4icon_smi [-C class_mars] [-d cymdg] [-D [-D]] [-l levelist]
-#               [-L lv_split] [-o grib_file] [-O|+O] [-r resolution]
+# mars4icon_smi [-a area] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid]
+#               [-l levelist] [-L lv_split] [-o grib_file] [-O|+O] [-p parallel] [-r resolution]
 #               [-s step] [-S stream]
 #
 # versions:
@@ -41,20 +41,22 @@
 #   Helmut Frank    20170711  Add information and settings for ERA5
 #   Helmut Frank    20171129  New option -g for cubic grids. See
 #                             https://software.ecmwf.int/wiki/display/FCST/Relationship+between+spectral+truncation+and+grid+point+resolution
+#   Helmut Frank    20181128  New option -a for area. swvl* is always retrieved on archived grid.
+#                             Use MARS_CALL_OPTION to call mars with an option (e.g. -m)
+#   Helmut Frank    20190129  Always set rainsnow='/crwc/cswc' for era5 data (thanks to G. Pante, IMK)
 # ------------------------------------------------------------------------------
 
-# --- argument list ---
-
+typeset    area
 typeset    pdatin=g12       # initial time
-typeset -i step=0           # forecast step [hours]
-typeset -i res=255          # resolution
-typeset    grd
+integer    step=0           # forecast step [hours]
+typeset    res=255          # resolution
+typeset    grd Fgrd         # grid, Full grid
 typeset    levs             # levels
-typeset -i lv_split=91      # fetch the atmospheric levels in portions of lv_split levels
-typeset -i parallel=0
+integer    lv_split=91      # fetch the atmospheric levels in portions of lv_split levels
+integer    parallel=0
 typeset    grib_file
 typeset    ozone
-typeset -i debug=0
+integer    debug=0
 typeset -l class_mars='od'
 typeset -l stream_mars='oper'
 typeset    expv=${MARS_EXPVER:-1}
@@ -63,13 +65,15 @@ typeset    Dflag
 
 typeset name=${0##*/}
 
-while getopts +C:Dd:E:g:hl:L:o:Op:r:s:S: option
+while getopts +a:C:Dd:E:g:hl:L:o:Op:r:s:S: option
 do
     case ${option} in
+        a) area="area=${OPTARG},"
+           ;;
         C) class_mars=${OPTARG}
            ;;
         d) pdatin=${OPTARG} ;;
-        D) debug=$((${debug}+1))
+        D) debug=debug+1
            Dflag='-D'
            set -x
            ;;
@@ -79,52 +83,52 @@ do
            ;;
         h) cat <<-HELP_EOF
 
-		${name} [-C class] [-d pdatin] [-l levelist] [-L lv_split] [-o grib_file]
-		        [-O|+O] [-p parallel] [-r resolution] [-s step] [-S stream]
+		${name} [-a area] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid]
+                        [-l levelist] [-L lv_split] [-o grib_file] [-O|+O] [-p parallel] [-r resolution]
+                        [-s step] [-S stream]
 
 		Most common usage: ${name} -d pdatin [-s step]
 
 		Extract IFS data from MARS for ICON
 
+		  -a North/West/South/East   area keyword of MARS. Only possible for regular lat/lon grids
 		  -C class       MARS class. Default: ${class_mars}
 		                    e4 for ERA-40, ei for ERA-Interim, ea for ERA5
 		  -D             Debug flag. Repeating -D will only write the MARS request to STDERR.
 		  -E expv_soil   MARS parameter expver for soil data.
-		                 Only usefull in combination with ERA-Interim data (-C ei):
-		                    expv_soil=fiv7: ERA-Interim forced land model
-		                    expv_soil=fiv8: ERA-Interim + GPCP corrected precip
+		                    Only usefull in combination with ERA-Interim data (-C ei):
+		                      expv_soil=fiv7: ERA-Interim forced land model
+		                      expv_soil=fiv8: ERA-Interim + GPCP corrected precip
 		                                    (fiv8 not available after 2010)
 		  -d pdatin      Initial time. Format YYYYMMDDHH or something like g12, h00,
-		                 or the ICON time format. Default: ${pdatin}
-		                 (You need datconv for formats like g12, h00.)
+		                    or the ICON time format. Default: ${pdatin}
+		                    (You need datconv for formats like g12, h00.)
 		  -g grd         MARS parameter grid. The default depends on resolution. It is (resolution+1)/2.
-		                 With the introduction of a cubic grid on 20160310 values F(resolution+1)/2
-		                 are reasonable. E.g. F1280 for resolution=1279.
+		                    Recommendation for cubic grids: F320 for res=639, F640 for res=1279.
 		  -h             This help
 		  -l levelist    Number of levels. A single number N will be used as levelist='1/to/N'.
 		                    Default: 1/to/137 since 2013062512,
 		                             1/to/91  after 2006020112,
 		                             1/to/60  before 2006020112
 		  -L lv_split    Fetch atmospheric data in portions of lv_split levels
+		                    lv_split=35 is used for 137 levels with resolution=1279 in the backup suite of DWD.
 		  -o grib_file   Name of output GRIB-file
 		  -O             Do not retrieve ozone. [Default]
 		  +O             Retrieve ozone.
 		  -p parallel    Number of parallel requests. Default: The number of MARS request which is
-		                 calculated from the number of levels and lv_split.
-		                 Use parallel=1 for serial processing of mars requests.
-		                 parallel=1, lv_split=1 was necessary for 137 levels with resolution=1279.
+		                    calculated from the number of levels and lv_split.
+		                    Use parallel=1 for serial processing of mars requests.
 		  -r resolution  Spectral resolution.
-		                 Possible values: 95, 159, 255, 319, 399, 511, 639, 799, 1023, 1279, 2047.
-		                    Default:     ${res}
-		                    ERA-40:      resolution <= 159,
-		                    ERA-Interim: resolution <= 255.
-		                    ERA5:        resolution <= 639 (HRES), <= 319 (EDA)
-                                 See http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
-		                    (http://www.ecmwf.int/products/data/technical/gaussian/spatial_representations.html)
+		                    Possible values: 95, 106, 159, 213, 255, 319, 399, 511, 639, 799, 1023, 1279, 2047.
+		                       Default:     ${res}
+		                       ERA-40:      resolution <= 159,
+		                       ERA-Interim: resolution <= 255.
+		                       ERA5:        resolution <= 639 (HRES), <= 319 (EDA)
+                                    See http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
 
 		  -s step        forecast step [hours]. Default: ${step}
 		  -S stream      MARS stream. Default: ${stream_mars}
-		                 Use -S eda:N  for EDA member N.
+		                    Use -S eda:N  for EDA member N.
 
 		Helmut Frank, 27.09.2013
 		HELP_EOF
@@ -149,18 +153,19 @@ function date_time {
 #   or the ICON time format is allowed.
 #
     typeset dat_ini=$1
-    typeset -i dvv=$2
+    integer dvv=$2
 
     if [ $(whence datconv) ]; then
         cymdg=$(datconv -Cy  ${dat_ini})
         cymdg_fc=$(datconv -Cy ${cymdg} -d ${dvv})
     else
         case ${dat_ini} in
-            {10}(\d)) cymdg=${dat_ini}
-                       cymdg_fc=$(datconv -Cy ${dat_ini} -d ${dvv})
+            {10}(\d))  cymdg=${dat_ini}
+#                      cymdg_fc=$(datconv -Cy ${dat_ini} -d ${dvv})
+                       cymdg_fc="${cymdg}+${dvv}"
                        ;;
             {1}(\d\d\d\d-\d\d-\d\dT\d\d)*) # ICON format
-                       typeset -i year
+                       integer     year
                        typeset -Z2 mo dy hr rest
                        print -- "${dat_ini}" | IFS='-T:' read year mo dy hr rest
                        cymdg=${year}${mo}${dy}${hr}
@@ -190,13 +195,14 @@ fi
 #
 #  Check and set MARS class, stream, type parameters
 #
-typeset -i n_st=7   # number of soil types
+integer    n_st=7   # number of soil types
 typeset    soiltype='/slt'
 typeset    sr='sr'
 case ${class_mars} in
     ea|era5)    class_mars='ea'
                 levs=${levs:-137}
                 sr='fsr'
+                rainsnow="/crwc/cswc"
                 ;;
     e4|era40)   class_mars='e4'
                 levs=${levs:-60}
@@ -224,7 +230,7 @@ fi
 typeset stream_name       #  used for the default name of the GRIB file
 case ${stream_mars} in
     enda*|eda*) # EDA analysis
-                typeset -i eda_number=1
+                integer eda_number=1
                 if [[ ${stream_mars} = *:+(\d) ]]; then
                     eda_number=$(print -- "${stream_mars}" | cut -d: -f2)
                 fi
@@ -242,7 +248,7 @@ if [[ ${expv_soil} = fiv* ]]; then
 fi
 
 typeset type_mars
-if [[ ${step} -eq 0 ]]; then
+if (( step == 0 )); then
   type_mars='an'
 else
   type_mars='fc'
@@ -274,26 +280,32 @@ esac
 # The following list is copied from
 # http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
 #
-# With the introduction of a cubic grid on 20160310 values F($res+1)/2 are reasonable.
-# E.g. grd=F1280 for res=1279. See
+# With the introduction of a cubic grid on 20160310 values F(4($res+1))/4 (~ F($res+1) ) are reasonable.
+# E.g. grd=F640 for res=1279. See
 # https://software.ecmwf.int/wiki/display/FCST/Relationship+between+spectral+truncation+and+grid+point+resolution 
 #
 if [[ -z "${grd}" ]]; then
-    case ${res} in
-         95) grd=48  ;;
-        159) grd=80  ;;
-        255) grd=128 ;;
-        319) grd=160 ;;
-        399) grd=200 ;;
-        511) grd=256 ;;
-        639) grd=320 ;;
-        799) grd=400 ;;
-       1023) grd=512 ;;
-       1279) grd=640 ;;
-       2047) grd=1024;;
-          *) print -- "${name} error! No parameter grid known for resolution=${res}!" >&2
-             exit 5
+    grd=$(( (${res}+1)/2 ))
+    print -- "\n\tSet grid=${grd} for resolution=${res}\n"
+    Fgrd="F${grd}"
+else
+    case ${grd} in
+	*/*) # Regular grids
+            Fgrd=${grd}
+            res='auto'
+            ;;
+	O*) Fgrd=${grd/O/F} ;;
+	N*) Fgrd=${grd/N/F} ;;
+	F*) Fgrd=${grd}     ;;
+	[0-9]*) Fgrd=F${grd}
+            ;;
+	 *) print -- "${name} error! Invalid grid parameter ${grd}!" >&2
+            exit 6
+            ;;
     esac
+    if [[ ${Fgrd} == F* ]]; then
+        area=''
+    fi
 fi
 #
 # define data directory (if not set otherwise)
@@ -315,16 +327,16 @@ grib_file=${grib_file:-${datadir}/ifs_${stream_name}${class_mars}_T${res}_${cymd
 typeset tmpdir=${SCRATCHDIR:-${TMPDIR}}
 
 datadir=$(dirname ${grib_file})
-if [[ "${datadir}" = '.' ]]; then
-    datadir=${work}
-fi
+#if [[ "${datadir}" = '.' ]]; then
+#    datadir=${work}
+#fi
 if [[ ! -d ${datadir} ]]; then
     mkdir -p ${datadir}
 fi
 #
 # find the number of levels
 #
-typeset -i mlx ml1 ml2    # max. level, first level, max. level of individual requests
+integer mlx ml1 ml2    # max. level, first level, max. level of individual requests
 print -- "${levs}" | IFS='/' read ml1 to mlx
 
 #----------------------------------------------------------------------#
@@ -333,22 +345,23 @@ print -- "${levs}" | IFS='/' read ml1 to mlx
 
 # Use ksh for pshell-command and do not limit the number of MARS requests
 # for serial processing of the requests
-if [[ ${parallel} -eq 1 ]];then
+if (( parallel == 1 ));then
     PSHELL_CMD='ksh'
     MAX_PARALLEL_MARS_REQUESTS=9999
 fi
 
-if [[ ${lv_split} -lt 1 ]]; then lv_split=1; fi
-typeset -i n_rq=$(( (${mlx}+${lv_split}-${ml1})/${lv_split} ))
+if (( lv_split < 1 )); then lv_split=1; fi
+integer n_rq n_mx
+n_rq=$(( (mlx+lv_split-ml1)/lv_split ))
 
 # limit the maximum number of parallel requests
-typeset -i n_mx=${MAX_PARALLEL_MARS_REQUESTS:-4}
-if [[ ${n_rq} -gt ${n_mx} ]]; then
-    n_rq=${n_mx}
-    lv_split=$(( (${mlx}+${n_mx}-1)/${n_mx} ))
+n_mx=${MAX_PARALLEL_MARS_REQUESTS:-4}
+if (( n_rq > n_mx )); then
+    n_rq=n_mx
+    lv_split=$(( (mlx+n_mx-1)/n_mx ))
 fi
-if [[ ${parallel} -eq 0 || ${parallel} -gt ${n_rq} ]]; then
-    parallel=${n_rq}
+if (( parallel == 0 || parallel > n_rq )); then
+    parallel=n_rq
 fi
 
 #-------------------------#
@@ -357,19 +370,22 @@ fi
 
 set -A mars_req                                    # MARS requests
 set -A target_file                                 # target files for the individual requests
-typeset slt_file=${datadir}/slt_swvl_${cymdg}.grb  # help file for slt, swvl
-typeset smi_file=${datadir}/smi_${cymdg}.grb       # help file for smi
+#typeset swvl_file=${datadir}/slt_swvl_${cymdg}.grb # help file for swvl
+#typeset smi_file=${datadir}/smi_${cymdg}.grb       # help file for smi
+typeset swvl_file=${grib_file}.tmp_swvl            # help file for swvl
+typeset smi_file=${grib_file}.tmp_smi      b       # help file for smi
 
-typeset -i i_rq=0
-while [[ ${i_rq} -lt ${n_rq} ]]
+integer  i_rq=0
+while (( i_rq < n_rq ))
 do
-    ml2=$((${ml1}+${lv_split}-1))
-    if [[ ${ml2} -gt ${mlx} ]]; then ml2=${mlx}; fi
+    ml2=ml1+lv_split-1
+    if (( ml2 > mlx )); then ml2=mlx; fi
 
     mars_req[$i_rq]=${tmpdir}/mars4icon_req${i_rq}.$$
     rm -f ${mars_req[$i_rq]}
+
     target_file[$i_rq]=${grib_file}_${i_rq}.tmp
-    if [[ ${n_rq} -eq 1 ]]; then
+    if (( n_rq == 1 )); then
         target_file[0]=${grib_file}
     elif [[ -s ${target_file[$i_rq]} ]]; then
         target_file[$i_rq]=${target_file[$i_rq]}_tmp
@@ -381,25 +397,21 @@ retrieve,
         padding  = 0,
         accuracy = 16,
         ${db_para_atmo},
-#       class    = ${class_mars},
-#       expver   = ${expv},
         domain   = g,
-#       stream   = ${stream_mars},
         type     = ${type_mars},
         date     = ${cymd},
         time     = ${hh},
         step     = ${step},
         target   = "${target_file[$i_rq]}",
         param    = u/v/w/t/q/clwc/ciwc${rainsnow}${ozone},
-        repres   = sh,                                  # spherical harmonics,
+        repres   = gg,
         resol    = ${res},
-        grid     = ${grd},
-        gaussian = regular,
-        levtype  = ml,                                  # model levels,
+        grid     = ${Fgrd}, ${area}
+        levtype  = ml,
         levelist = ${ml1}/to/${ml2}
 MARS_IFS2ICON_EOF
 
-  if [[ ${i_rq} -eq 0 ]]; then
+  if (( i_rq == 0 )); then
   #
   # single levels fields are retrieved by the first request
   #
@@ -414,7 +426,6 @@ retrieve,
         levtype  = surface
 retrieve,
         ${db_para_soil},
-##      param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn${soiltype},
         param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn,
         repres   = gg, 
         resol    = off, 
@@ -422,34 +433,29 @@ retrieve,
 retrieve,
         ${db_para_atmo},
         param    = ci,
-# The following lines of the MARS retrieval command remove the 
-# bitmap in the sea-ice field.
-# They are not required since the CDI are able to handle GRIB
-# bitmaps; however, these lines have caused problems on lce.dwd.de.
-# Therefore, the bitmap-treatment for the CI field has been 
-# disabled (FP, 2014-06-12).
-#
+# The following lines of the MARS retrieval command remove the bitmap in the sea-ice field.
+# They are not required since the CDI are able to handle GRIB bitmaps.
+# However, these lines have caused problems on lce.dwd.de.
+# Therefore, the bitmap-treatment for the CI field has been disabled (FP, 2014-06-12).
 #        fieldset = ci0
-#compute,
-#        formula  = "nobitmap(ci0,0)",                   # missing value -> 0
+#compute,formula  = "nobitmap(ci0,0)",                   # missing value -> 0
 #        fieldset = ci
-#write,  
-#        fieldset = ci, 
+#write,  fieldset = ci, 
         target   = "${target_file[$i_rq]}"
 # Retrieve constant fields
 retrieve,
         type     = an,
         step     = 0,
-        repres   = gg,                  # gaussian grid,
+        repres   = gg,
         resol    = off,
         levtype  = surface,
-        gaussian = regular,
         param    = lsm/${sr}/cvl/cvh/sdor/isor/anor/slor${soiltype},
         fieldset = off,
         target   = "${target_file[$i_rq]}"
 MARS_IFS2ICON1_EOF
 
-    if [[ ${n_st} -eq 7 ]]; then
+    typeset smi_equation
+    if (( n_st == 7 )); then
       #-----------------------#
       # IFS with 7 soil types #
       #-----------------------#
@@ -459,53 +465,56 @@ MARS_IFS2ICON1_EOF
       set -A wiltingp 0 0.059 0.151 0.133 0.279 0.335 0.267 0.151  # wilting point
       set -A fieldcap 0 0.242 0.346 0.382 0.448 0.541 0.662 0.346  # field capacity
 
+      st=1
+      smi_equation="(swvl-${wiltingp[$st]})/(${fieldcap[$st]}-${wiltingp[$st]})*(slt=${st})"
+      while (( st < n_st ))
+      do
+          st=$((st+1))
+	  smi_equation="${smi_equation}+(swvl-${wiltingp[$st]})/(${fieldcap[$st]}-${wiltingp[$st]})*(slt=${st})"
+      done
+
       if [[ ${expv_soil} = fiv* ]]; then
 #
 #       ERA-Interim with new soil type. Retrieve soil types, slt, for actual yesterday
 #
         cat >> ${mars_req[$i_rq]} <<-MARS_IFS2ICON2_EOF
-# Retrieve the soil water to fieldset slt on reduced gaussian grid
-retrieve,
-        type     = ${type_mars},
-        step     = ${step},
-        param    = swvl1/swvl2/swvl3/swvl4,
-        gaussian = reduced,
-        target   = "${slt_file}",
-        fieldset = off
-# Retrieve slt from operational analysis for yesterday to fieldset slt on reduced gaussian grid
-retrieve,
-        class    = od, expver = 1, stream = oper, date = -1,
-        type     = ${type_mars},
-        step     = ${step},
-        param    = slt,
-        gaussian = reduced,
-        target   = "${slt_file}"
-read,
-        source   = "${slt_file}",
-        param    = slt,
-        fieldset = slt
+	# Retrieve the soil water to fieldset slt on archived (reduced gaussian) grid
+	retrieve,
+	    type     = ${type_mars},
+	    step     = ${step},
+	    param    = swvl1/swvl2/swvl3/swvl4,
+	    grid     = av, area=off,
+	    target   = "${swvl_file}",
+	    fieldset = off
+	# Retrieve slt from operational analysis for yesterday to fieldset slt on archived (reduced gaussian) grid
+	retrieve,
+	    class    = od, expver = 1, stream = oper, date = -1,
+	    type     = ${type_mars},
+	    step     = ${step},
+	    param    = slt,
+	    grid     = av, area=off,
+	    target   = "${swvl_file}"
+	    read,
+	    source   = "${swvl_file}",
+	    param    = slt,
+	    fieldset = slt
 	MARS_IFS2ICON2_EOF
 
       else
 
         cat >> ${mars_req[$i_rq]} <<-MARS_IFS2ICON2_EOF
-# Retrieve the soil water and soil type to fieldset slt on reduced gaussian grid
-retrieve,
-        type     = ${type_mars},
-        step     = ${step},
-##      param    = slt/swvl1/swvl2/swvl3/swvl4,
-        param    = swvl1/swvl2/swvl3/swvl4,
-        gaussian = reduced,
-        target   = "${slt_file}",
-        fieldset = off
-retrieve,
-        typeset  = an, step=0,
-        param    = slt,
-        fieldset = slt
-#read,
-#       source   = "${slt_file}",
-#       param    = slt,
-#       fieldset = slt
+	# Retrieve the soil water and soil type to fieldset slt on archived (reduced gaussian) grid
+	retrieve,
+	    type     = ${type_mars},
+	    step     = ${step},
+	    param    = swvl1/swvl2/swvl3/swvl4,
+	    grid     = av, area=off,
+	    target   = "${swvl_file}",
+	    fieldset = off
+	    retrieve,
+	    typeset  = an, step=0,
+	    param    = slt,
+	    fieldset = slt
 	MARS_IFS2ICON2_EOF
       fi
 
@@ -518,102 +527,73 @@ retrieve,
       # soil type       1
       set -A wiltingp 0 0.171 # wilting point
       set -A fieldcap 0 0.323 # field capacity
+
+      st=1
+      smi_equation="(swvl-${wiltingp[$st]})/(${fieldcap[$st]}-${wiltingp[$st]})"
       #
-      cat >> ${mars_req[$i_rq]} << MARS_IFS2ICON3_EOF
-# Retrieve the soil water on reduced gaussian grid
-retrieve,
-        type     = ${type_mars},
-        step     = ${step},
-        param    = swvl1/swvl2/swvl3/swvl4,
-        gaussian = reduced,
-        target   = "${slt_file}",
-        fieldset = off
-MARS_IFS2ICON3_EOF
+      cat >> ${mars_req[$i_rq]} <<-MARS_IFS2ICON3_EOF
+	# Retrieve the soil water on archived (reduced gaussian) grid
+	retrieve,
+	    type     = ${type_mars},
+	    step     = ${step},
+	    param    = swvl1/swvl2/swvl3/swvl4,
+	    grid     = av, area=off,
+	    target   = "${swvl_file}",
+	    fieldset = off
+	MARS_IFS2ICON3_EOF
 
     fi
     #
-    #--------------------------------------------------#
-    # loop over the 4 soil levels and the 7 soil types #
-    #--------------------------------------------------#
+    # loop over the 4 soil levels  #
     #
-    typeset -i lv st
+    integer    lv st
+    typeset smi_equation
     lv=1
-    while [[ ${lv} -le 4 ]]
+    while (( lv <= 4 ))
     do
-        cat >> ${mars_req[$i_rq]} <<MARS_SWVL_EOF
-# Retrieve the Volumetric Soil Water Layer ${lv} to fieldset swv${lv}
-read,   source   = "${slt_file}",
-        param    = swvl${lv},
-        fieldset = swvl
-# Compute the soil moisture index SMI. At each grid point with a non-zero value for soil type (slt<>0):
-# one and only one of the following will be non-zero.
-MARS_SWVL_EOF
-
-        if [[ ${n_st} -gt 1 ]]; then
-        #
-        # loop through the soil types
-        #
-          st=1
-          while [[ ${st} -le ${n_st} ]]
-          do
-            cat >> ${mars_req[$i_rq]} <<-MARS_SLT_EOF
-		compute,fieldset = smi${lv}${st},
-		        formula  = "(swvl-${wiltingp[$st]})/(${fieldcap[$st]}-${wiltingp[$st]})*(slt=${st})"
-		MARS_SLT_EOF
-            st=$((${st}+1))
-          done
-
-          cat >> ${mars_req[$i_rq]} <<-MARS_SMI_EOF
+        cat >> ${mars_req[$i_rq]} <<-MARS_SMI_EOF
+	# Retrieve the Volumetric Soil Water Layer ${lv} to fieldset swvl and calculate SMI
+	read,   source   = "${swvl_file}",
+	        param    = swvl${lv}, fieldset = swvl
 	compute,fieldset = smi${lv},
-	        formula  = "smi${lv}1 + smi${lv}2 + smi${lv}3 + smi${lv}4 + smi${lv}5 + smi${lv}6 + smi${lv}7"
+	        formula  = "${smi_equation}"
 	write,  fieldset = smi${lv}, target = "${smi_file}"
 	MARS_SMI_EOF
-
-        else
-
-          cat >> ${mars_req[$i_rq]} <<-MARS_SLT_EOF
-	compute,fieldset = smi${lv},
-	        formula  = "(swvl-${wiltingp[1]})/(${fieldcap[1]}-${wiltingp[1]})"
-	write,  fieldset = smi${lv}, target = "${smi_file}"
-	MARS_SLT_EOF
-
-        fi
-        lv=$((${lv}+1))
+        lv=lv+1
     done
 
     lv=1
-    while [[ ${lv} -le 4 ]]
+    while (( lv <= 4 ))
     do
         cat >> ${mars_req[$i_rq]} <<-MARS_GAUSS2REG_EOF
-	# convert from reduced Gaussian to regular Gaussian for soil level ${lv}
-	read,   param = swvl${lv}, fieldset = smi${lv}, source = "${smi_file}", 
-        	gaussian=regular, grid=${grd}
-	write,  fieldset = smi${lv}, target = "${target_file[$i_rq]}"
+	# convert from archived (reduced) to regular grid for soil level ${lv}
+	read,  param = swvl${lv}, fieldset = smi${lv}, source = "${smi_file}", 
+               ${area} grid=${Fgrd}
+	write, fieldset = smi${lv}, target = "${target_file[$i_rq]}"
 	MARS_GAUSS2REG_EOF
-        lv=$((${lv}+1))
+        lv=lv+1
     done
 
   fi   # end of request for single level fields
 
-  ml1=$((ml1+${lv_split}))
-  i_rq=$((${i_rq}+1))
+  ml1=ml1+lv_split
+  i_rq=i_rq+1
 done
-
 #
 #  Show mars requests in debug mode
 #
-if [[ ${debug} -gt 0 ]]; then
+if (( debug > 0 )); then
     cat ${mars_req[*]} >&2
-    if  [[ ${debug} -gt 1 ]]; then exit 0; fi
+    if  (( debug > 1 )); then exit 0; fi
 fi
 
 #------------------------#
 #  Execute mars requests #
 #------------------------#
 
-typeset -i rc_mars
-if [[ ${n_rq} -eq 1 ]]; then
-    mars ${mars_req[0]}
+integer    rc_mars
+if (( n_rq == 1 )); then
+    mars ${MARS_CALL_OPTION} ${mars_req[0]}
     rc_mars=$?
 else
 #
@@ -628,10 +608,10 @@ else
     pshell_cmd=${PSHELL_CMD:-${pshell_cmd}}
 
     i_rq=0
-    while [[ ${i_rq} -lt ${n_rq} ]]
+    while (( i_rq < n_rq ))
     do
-        print -- "mars ${mars_req[$i_rq]}" >> ${psh_mars}
-        i_rq=$((${i_rq}+1))
+        print -- "mars ${MARS_CALL_OPTION} ${mars_req[$i_rq]}" >> ${psh_mars}
+        i_rq=i_rq+1
     done
     if [[ "${pshell_cmd}" = 'pshell' ]]; then
         ${pshell_cmd} ${Dflag} -p ${parallel} -f ${psh_mars}
@@ -648,7 +628,7 @@ fi
 #  finish
 
 if [ ${rc_mars} -ne 0 ]; then
-    { print -- "Error ${rc_mars} executing mars"
+    { print -- "Error ${rc_mars} executing mars!\n"
       print -- "Input files to MARS:"
       cat ${mars_req[*]}
     } >&2
@@ -659,13 +639,13 @@ fi
 
 if [[ -z "${Dflag}" ]]; then
     print -- "Delete the following files:"
-    ls -l ${slt_file} ${smi_file}
-    rm -f ${slt_file} ${smi_file}
+    ls -l ${swvl_file} ${smi_file}
+    rm -f ${swvl_file} ${smi_file}
     print
 fi
 
 print -- "\nRetrieved IFS data valid at ${cymdg_fc} = ${cymdg} + ${step} h"
-print -- "Class ${class_mars}, stream ${stream_mars}, resolution=${res}, grid=${grd}, levels=${levs}"
+print -- "Class ${class_mars}, stream ${stream_mars}, resolution=${res}, grid=${grd}, ${area} levels=${levs}"
 
 ls -al ${grib_file}
 rm -f ${mars_req[*]}

@@ -34,7 +34,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: message, message_text
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav, salinity_fac
   USE mo_math_constants,      ONLY: dbl_eps, rad2deg
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
     &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
@@ -354,7 +354,7 @@ CONTAINS
         p_prog_lnd_now%t_g_t(jc,jb,isub_water) = temp
         p_prog_lnd_new%t_g_t(jc,jb,isub_water) = temp
         ! includes reduction of saturation pressure due to salt content
-        p_lnd_diag%qv_s_t(jc,jb,isub_water)    = 0.981_wp * &  
+        p_lnd_diag%qv_s_t(jc,jb,isub_water)    = salinity_fac * &  
           &       spec_humi(sat_pres_water(temp ),p_diag%pres_sfc(jc,jb) )
       END DO
 
@@ -592,11 +592,12 @@ CONTAINS
 
         ENDIF
 
-        IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers
-          DO ic = 1, i_count
+        IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers,
+          DO ic = 1, i_count          ! and reset hsnow_max to 40 m in agreement with what is done in initicon
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) &
-              p_lnd_diag%snow_age(jc,jb) = 365._wp
+              p_lnd_diag%snow_age(jc,jb)  = 365._wp
+              p_lnd_diag%hsnow_max(jc,jb) = MIN(40._wp,p_lnd_diag%hsnow_max(jc,jb))
           ENDDO
         ENDIF
 
@@ -2203,7 +2204,7 @@ CONTAINS
 
           ! Initialize surface saturation specific humidity for new water tile
           ! includes reduction of saturation pressure due to salt content
-          qv_s_t(jc) = 0.981_wp * spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
+          qv_s_t(jc) = salinity_fac * spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
 
           ! since sea-ice melted away, the sea-ice fraction is re-set to 0
           fr_seaice(jc)  = 0._wp
@@ -2262,7 +2263,7 @@ CONTAINS
             !
             ! Initialize surface saturation specific humidity
             ! includes reduction of saturation pressure due to salt content
-            qv_s_t(jc) = 0.981_wp * spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
+            qv_s_t(jc) = salinity_fac * spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
           ENDIF
 
           ! re-set dynamic fractions of water and sea-ice
@@ -2415,7 +2416,7 @@ CONTAINS
           p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water) = new_sst
 
           ! includes reduction of saturation pressure due to salt content
-          p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water) = 0.981_wp *                           & 
+          p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water) = salinity_fac *                       & 
             &   spec_humi( sat_pres_water(p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)),&
             &                                  p_nh_state%diag%pres_sfc(jc,jb) )
 
@@ -2549,7 +2550,7 @@ CONTAINS
                 p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state%diag_lnd%t_seasfc(jc,jb)
                 t_water = p_lnd_state%diag_lnd%t_seasfc(jc,jb)
                 ! includes reduction of saturation pressure due to salt content
-                p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    = 0.981_wp *             &
+                p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    = salinity_fac *         &
                      &                             spec_humi( sat_pres_water(t_water ),   &
                      &                             p_nh_state%diag%pres_sfc(jc,jb) )
 
@@ -2635,7 +2636,7 @@ CONTAINS
                 p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state%diag_lnd%t_seasfc(jc,jb)
                 t_water = p_lnd_state%diag_lnd%t_seasfc(jc,jb)
                 ! includes reduction of saturation pressure due to salt content
-                p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  0.981_wp *             &
+                p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *         &
                      &                             spec_humi( sat_pres_water(t_water ),    &
                      &                             p_nh_state%diag%pres_sfc(jc,jb) )
 
@@ -2718,7 +2719,7 @@ CONTAINS
               p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
                    p_lnd_state%diag_lnd%t_seasfc(jc,jb)
               ! includes reduction of saturation pressure due to salt content
-              p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  0.981_wp *            &
+              p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *        &
                    &   spec_humi( sat_pres_water(p_lnd_state%diag_lnd%t_seasfc(jc,jb) ),&
                    &                                  p_nh_state%diag%pres_sfc(jc,jb) )
             END IF

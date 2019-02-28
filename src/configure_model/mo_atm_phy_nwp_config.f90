@@ -46,6 +46,7 @@ MODULE mo_atm_phy_nwp_config
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
+  USE mo_nudging_config,      ONLY: configure_nudging
 
   IMPLICIT NONE
 
@@ -132,6 +133,8 @@ MODULE mo_atm_phy_nwp_config
                                    !       are not computed in operational runs.
                                    !       lcalc_extra_avg is set to true automatically, if any of the 
                                    !       non-standard fields is specified in the output namelist.
+
+    LOGICAL :: lhave_graupel       ! Flag if microphysics scheme has a prognostic variable for graupel
 
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
@@ -300,6 +303,14 @@ CONTAINS
       IF ( atm_phy_nwp_config(jg)%inwp_gwd > 0 )                 &
         &  atm_phy_nwp_config(jg)%lenabled(itgwd)     = .TRUE.
 
+
+      ! Set flag for the presence of graupel
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+      CASE (2,4,5,6)
+        atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+      CASE DEFAULT
+        atm_phy_nwp_config(jg)%lhave_graupel = .FALSE.
+      END SELECT
 
       ! Configure LES physics (if activated)
       !
@@ -475,6 +486,8 @@ CONTAINS
     IF(l_limited_area) THEN
       CALL configure_latbc()
     END IF
+    ! Configure nudging (primary domain only)
+    CALL configure_nudging(p_patch(1)%nlev) 
 
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)

@@ -170,6 +170,9 @@ MODULE mo_physical_constants
   !> constants for radiation module
   REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !> lw sfc default emissivity factor
 
+  !> salinity factor for reduced saturation vapor pressure over oceans
+  REAL(wp), PARAMETER :: salinity_fac = 0.981_wp
+
 
 !------------below are parameters for ocean model---------------
   ! coefficients in linear EOS
