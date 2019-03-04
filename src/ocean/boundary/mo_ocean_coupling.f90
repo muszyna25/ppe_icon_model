@@ -481,6 +481,7 @@ CONTAINS
     nbr_hor_cells = patch_horz%n_patch_cells
 
     !
+    !
     !  Receive fields from atmosphere
     !   field_id(1) represents "surface_downward_eastward_stress" bundle  - zonal wind stress component over ice and water
     !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
