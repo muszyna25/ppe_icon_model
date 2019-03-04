@@ -68,7 +68,7 @@ icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
 atmo_grid_folder=/pool/data/ICON/grids/public/mpim/${atmos_gridID}
-atmo_data_InputFolder==${icon_data_poolFolder}/${atmos_gridID}
+atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time
