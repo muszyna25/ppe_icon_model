@@ -156,7 +156,7 @@ MODULE mo_name_list_output
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info,                     &
     &                                     collect_requested_ipz_levels, create_vertical_axes
-  USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
+  USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_buffer,       &
     &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_level_selection,           ONLY: create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
@@ -388,7 +388,6 @@ CONTAINS
             CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
           END IF
           CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
-          CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
         END IF
 #endif
         IF (output_file(i)%cdiFileID >= 0) THEN
@@ -2761,7 +2760,7 @@ CONTAINS
     TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
-    INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
+    INTEGER, ALLOCATABLE           :: bufr_metainfo(:,:)
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
       &                               this_chunk_nlevs, ilev, chunk_size
@@ -2831,7 +2830,7 @@ CONTAINS
 
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
-    ALLOCATE(bufr_metainfo(of%num_vars*metainfo_get_size()), STAT=ierrstat)
+    ALLOCATE(bufr_metainfo(metainfo_get_size(), of%num_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
@@ -2854,7 +2853,7 @@ CONTAINS
 
       ! WRITE (0,*) ">>>>>>>>>> ", info%name
       ! get also an update for this variable's meta-info (separate object)
-      CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
+      CALL metainfo_get_from_buffer(bufr_metainfo(:, iv), updated_info)
 
       CALL set_time_varying_metadata(of, info, updated_info)
 
@@ -3405,7 +3404,7 @@ CONTAINS
             CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
           END IF
         CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
-        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
+        IF (p_pe_work == 0) CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
       END DO
     END IF
   END SUBROUTINE compute_shutdown_async_io

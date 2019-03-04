@@ -328,7 +328,12 @@ MODULE mo_name_list_output_types
          , CONTIGUOUS &
 #endif
          :: mem_ptr_sp(:)
-    INTEGER,  POINTER                     :: mem_ptr_metainfo_pe0(:)          !< Pointer to variable meta-info.
+    !> Pointer to variable meta-info.
+    INTEGER,  POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         , CONTIGUOUS &
+#endif
+         :: mem_ptr_metainfo_pe0(:,:)
   END TYPE t_mem_win
 
 
