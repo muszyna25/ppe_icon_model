@@ -95,64 +95,46 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*),PARAMETER :: routine =  modname//'::t_vct_construct_ncfile'
-    REAL(wp), ALLOCATABLE :: vct_a(:) ! param. A of the vertical coordinte
-    REAL(wp), ALLOCATABLE :: vct_b(:) ! param. B of the vertical coordinate
+    REAL(wp), ALLOCATABLE :: vct_ab(:,:) ! param. A and B of the vertical coordinte
     REAL(wp), ALLOCATABLE :: lev_ifs(:)
     INTEGER,  ALLOCATABLE :: lev_hyi(:)
     REAL(wp), ALLOCATABLE :: hyab(:)
-    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, var_dimlen(NF_MAX_VAR_DIMS), &
+    INTEGER  :: varid, nlev_in, dimid, nhyi, ierrstat, var_ndims, &
       &         var_dimids(NF_MAX_VAR_DIMS), i
     LOGICAL  :: lread_process  !< .TRUE. on the reading PE
 
     lread_process = (p_comm_rank(mpi_comm) == p_io)
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
-      ! retrieve number of levels
-      CALL nf(nf_inq_varndims(ncid, varid, var_ndims), routine)
-      CALL nf(nf_inq_vardimid(ncid, varid, var_dimids), routine)
-      DO i = 1, var_ndims
-        CALL nf(nf_inq_dimlen (ncid, var_dimids(i), var_dimlen(i)), routine)
-      END DO
-      nlev_in = var_dimlen(1)
+      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+      nlev_in = nhyi-1
     END IF
 
     CALL p_bcast(nlev_in, p_io, mpi_comm)
 
-    ALLOCATE( vct_a(nlev_in+1), vct_b(nlev_in+1), STAT=ierrstat)
+    ALLOCATE( vct_ab(nlev_in+1, 2), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
 
-      ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi), STAT=ierrstat)
+      ALLOCATE( hyab(nhyi), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
-      lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
-      lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
-      IF ( nlev_in+1 /= nhyi) THEN
-        WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-        CALL message(TRIM(routine), TRIM(message_text))
-      END IF
 
       CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_a(:) = hyab( lev_hyi(:))
-
+      vct_ab(:,1) = hyab(:)
       CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_b(:) = hyab( lev_hyi(:))
+      vct_ab(:,2) = hyab(:)
     ENDIF
 
-    CALL p_bcast(vct_a, p_io, mpi_comm)
-    CALL p_bcast(vct_b, p_io, mpi_comm)
+    CALL p_bcast(vct_ab, p_io, mpi_comm)
 
     ! now call constructor based on arrays:
-    CALL vct%construct(nlev_in, vct_a, vct_b)
+    CALL vct%construct(nlev_in, vct_ab(:,1), vct_ab(:,2))
 
-    DEALLOCATE( vct_a, vct_b, STAT=ierrstat)
+    DEALLOCATE(vct_ab, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END SUBROUTINE t_vct_construct_ncfile
 

@@ -20,7 +20,7 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
-    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero
   USE mo_io_units,           ONLY: filename_max
   USE mo_io_util,            ONLY: get_filetype
   USE mo_model_domain,       ONLY: t_patch
@@ -53,6 +53,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
+  PUBLIC :: qcana_mode, qiana_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
   PUBLIC :: lvert_remap_fg
@@ -134,6 +135,7 @@ MODULE mo_initicon_config
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode ! mode of processing QC/QI increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -211,7 +213,7 @@ MODULE mo_initicon_config
 
   !> registers if aerosol fields have been read from the first-guess
   !  data
-  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE.
+  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE.
 
   !> registers if SST and sea ice fraction data have been read from
   !  analysis

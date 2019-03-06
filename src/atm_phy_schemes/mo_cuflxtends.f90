@@ -582,7 +582,7 @@ CONTAINS
     !!   *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS            PA
     !!   *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                   M2/S2
     !!   *PGEO*         GEOPOTENTIAL ON FULL LEVELS                   M2/S2
-    !!    *zdph*         pressure thickness on half levels              Pa
+    !!   *zdph*         pressure thickness on full levels              PA
     !!   *PTEN*         PROVISIONAL ENVIRONMENT TEMPERATURE (T+1)       K
     !!   *PQEN*         PROVISIONAL ENVIRONMENT SPEC. HUMIDITY (T+1)  KG/KG
     !!   *PTENH*        ENV. TEMPERATURE (T+1) ON HALF LEVELS           K
@@ -978,7 +978,7 @@ CONTAINS
     !!   *PUD*          U-VELOCITY IN DOWNDRAFTS                       M/S
     !!   *PVU*          V-VELOCITY IN UPDRAFTS                         M/S
     !!   *PVD*          V-VELOCITY IN DOWNDRAFTS                       M/S
-    !!   *zdph*         pressure thickness on half levels              Pa
+    !!   *zdph*         pressure thickness on full levels              PA
 
     !!   UPDATED PARAMETERS (REAL):
 
@@ -1232,9 +1232,9 @@ CONTAINS
     & ( kidia,    kfdia,   klon,   ktdia, klev, ktrac,&
     & kctop,     kdtop,   &
     & ldcum,    lddraf,   ptsphy,   &
-    & paph,     zdph,                       &
+    & paph,     zdph,     zdgeoh,           &
     & pmfu,     pmfd,     pudrate,  pddrate,&
-    & pcen,     ptenc  )
+    & pcen,     ptenrhoc  )
     !
     !!Description:
     !**** *CUCTRACER* - COMPUTE CONVECTIVE TRANSPORT OF CHEM. TRACERS
@@ -1269,7 +1269,8 @@ CONTAINS
 
     !!   *PTSPHY*       PHYSICS TIME-STEP                              S
     !!   *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS            PA
-    !!   *zdph*         pressure thickness on half levels              Pa
+    !!   *zdph*         pressure thickness on full levels              PA
+    !!   *zdgeoh*       geopot thickness on full levels               M2/S2
     !!   *PCEN*         PROVISIONAL ENVIRONMENT TRACER CONCENTRATION
     !!   *PMFU*         MASSFLUX UPDRAFTS                             KG/(M2*S)
     !!   *PMFD*         MASSFLUX DOWNDRAFTS                           KG/(M2*S)
@@ -1278,7 +1279,7 @@ CONTAINS
 
     !!   UPDATED PARAMETERS (REAL):
 
-    !!   *PTENC*        UPDATED TENDENCY OF CHEM. TRACERS              1/S
+    !!   *PTENRHOC*     UPDATED TENDENCY OF CHEM. TRACERS             KG/(M3*S)
 
     !!         METHOD
     !!         -------
@@ -1338,15 +1339,13 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdph(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pudrate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pddrate(klon,klev)
-!K.L. test with pcen%ptr and ptenc%ptr
-!    REAL(KIND=jprb)   ,INTENT(in)    :: pcen(klon,klev,ktrac)
     TYPE(t_ptr_tracer)   ,INTENT(in), OPTIONAL :: pcen(ktrac)
-!    REAL(KIND=jprb)   ,INTENT(inout) :: ptenc(klon,klev,ktrac)
-    TYPE(t_ptr_tracer)   ,INTENT(inout),OPTIONAL :: ptenc(ktrac)
+    TYPE(t_ptr_tracer)   ,INTENT(inout),OPTIONAL :: ptenrhoc(ktrac)
 
 
     ! Set MODULE PARAMETERS for offline
@@ -1361,14 +1360,14 @@ CONTAINS
          zcen, & !< Half-level environmental values
          zcu,  & !< Updraft values
          zcd,  & !< Downdraft values
-         ztenc, &!< Tendency
+         ztenc, &!< Tendency    kg/kg/s
          zmfc, & !< Fluxes
          zdp,  & !< Pressure difference
          zb,   &
          zr1
     LOGICAL :: llcumask(klon,klev)
     REAL(KIND=jprb) :: zhook_handle
-    REAL(kind=jprb), POINTER :: tenc(:,:), cen(:,:)
+    REAL(kind=jprb), POINTER :: tenrhoc(:,:), cen(:,:)
 
     ! Set MODULE PARAMETERS for offline
 
@@ -1396,7 +1395,7 @@ CONTAINS
 
       !*    1.0          DEFINE TRACERS AT HALF LEVELS
       !!                 -----------------------------
-      tenc => ptenc(jn)%ptr
+      tenrhoc => ptenrhoc(jn)%ptr
       cen => pcen(jn)%ptr
       DO jk=ktdia+1,klev
         ik=jk-1
@@ -1522,7 +1521,8 @@ CONTAINS
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
             IF(llcumask(jl,jk)) THEN
-              tenc(jl,jk) = tenc(jl,jk) + ztenc(jl,jk)
+              ! DR: be aware of conversion from c-tendency (1/s) to rho*c tendency (kg/m3/s)
+              tenrhoc(jl,jk) = tenrhoc(jl,jk) + (zdph(jl,jk)/zdgeoh(jl,jk))*ztenc(jl,jk)
             ENDIF
           ENDDO
         ENDDO
@@ -1552,6 +1552,7 @@ CONTAINS
               zmfc(jl,jk)=-zzp*(pmfu(jl,jk)+pmfd(jl,jk))
               ztenc(jl,jk) = ztenc(jl,jk)*ptsphy+cen(jl,jk)
               !  for implicit solution including tendency source term
+              ! DR: valid only if PTENC has units (1/s)
               !  ZTENC(JL,JK) = (ZTENC(JL,JK)+PTENC(JL,JK))*PTSPHY+PCEN(JL,JK)
               IF(jk<klev) THEN
                 zb(jl,jk)=1.0_JPRB+zzp*(pmfu(jl,ik)+pmfd(jl,ik))
@@ -1574,8 +1575,10 @@ CONTAINS
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
             IF(llcumask(jl,jk)) THEN
-              tenc(jl,jk) = tenc(jl,jk) + (zr1(jl,jk) - cen(jl,jk)) * ztsphy
+              ! DR: be aware of conversion from c-tendency (1/s) to rho*c tendency (kg/m3/s)
+              tenrhoc(jl,jk) = tenrhoc(jl,jk) + (zdph(jl,jk)/zdgeoh(jl,jk))*(zr1(jl,jk) - cen(jl,jk)) * ztsphy
               !  for implicit solution including tendency source term
+              !  DR: note that PTENC here has units (1/s)
               !    PTENC(JL,JK)=(ZR1(JL,JK)-PCEN(JL,JK))*ZTSPHY
             ENDIF
           ENDDO

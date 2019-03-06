@@ -283,7 +283,9 @@ CONTAINS
 #endif
 
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_p%edges%cell_idx, ptr_p%edges%cell_blk, ptr_p%edges%primal_normal_cell, &
+!$ACC      ptr_p%edges%dual_normal_cell, ptr_int%pos_on_tplane_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
@@ -566,7 +568,11 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_coords_dreg_v, p_cell_idx, p_cell_blk ),  &
 !$ACC      CREATE(  edge_verts,lvn_sys_pos ), &
-!$ACC      PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_p%edges%cell_idx, ptr_p%edges%cell_blk, ptr_p%edges%primal_normal_cell, &
+!$ACC      ptr_p%edges%dual_normal_cell, ptr_p%edges%tangent_orientation, &
+!$ACC      ptr_p%edges%edge_cell_length, ptr_int%pos_on_tplane_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
@@ -932,8 +938,10 @@ CONTAINS
     p_cell_blk   => btraj%cell_blk
     p_distv_bary => btraj%distv_bary
 #endif
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
-!$ACC CREATE( z_vn_plane ), PRESENT( ptr_p, ptr_int ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), CREATE( z_vn_plane ),   &
+!$ACC      PRESENT( iidx, iblk, ptr_p%edges%cell_idx, ptr_p%edges%cell_blk, ptr_p%edges%primal_normal_cell, &
+!$ACC               ptr_p%edges%dual_normal_cell, ptr_int%tplane_e_dotprod, ptr_int%pos_on_tplane_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_vn, p_vt ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL

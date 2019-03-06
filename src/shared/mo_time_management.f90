@@ -544,11 +544,11 @@ CONTAINS
     !         set the experiment start date to the latter.
     !
     exp_start_datetime_string = ''
-    ini_datetime1 = TRIM(experimentStartDate)
-    ini_datetime2 = TRIM(ini_datetime_string)
-    IF (TRIM(ini_datetime1) /= "")  exp_start_datetime_string = ini_datetime1
-    IF (TRIM(ini_datetime2) /= "")  exp_start_datetime_string = ini_datetime2
-    IF ((TRIM(ini_datetime1) /= "") .AND. (LEN_TRIM(ini_datetime2) > 0)) THEN
+    ini_datetime1 = experimentStartDate
+    ini_datetime2 = ini_datetime_string
+    IF (ini_datetime1 /= "")  exp_start_datetime_string = ini_datetime1
+    IF (ini_datetime2 /= "")  exp_start_datetime_string = ini_datetime2
+    IF (ini_datetime1 /= "" .AND. LEN_TRIM(ini_datetime2) > 0) THEN
       ! both settings were used; we need to test for equality
       tmp_dt1 => newDatetime(ini_datetime1)
       tmp_dt2 => newDatetime(ini_datetime2)      
@@ -559,14 +559,14 @@ CONTAINS
       CALL deallocateDatetime(tmp_dt1)
       CALL deallocateDatetime(tmp_dt2)      
     END IF
-    IF ( (TRIM(ini_datetime1) == "")        .AND.  &
-      &  (TRIM(ini_datetime2) == "")        .AND.  &
-      &  (TRIM(experimentReferenceDate) /= "")) THEN
+    IF ( (ini_datetime1 == "")        .AND.  &
+      &  (ini_datetime2 == "")        .AND.  &
+      &  (experimentReferenceDate /= "")) THEN
       ! set the experiment start date to the reference date
       exp_start_datetime_string = experimentReferenceDate
     END IF
     ! throw an error, if no start date has been specified at all
-    IF (TRIM(exp_start_datetime_string) == "") THEN
+    IF (exp_start_datetime_string == "") THEN
       CALL finish(routine, "No experiment start date has been set!")
     END IF
 
@@ -583,11 +583,11 @@ CONTAINS
     !         "end_datetime_string" (in "time_nml") - the old way.
     !
     exp_stop_datetime_string = ''
-    end_datetime1 = TRIM(experimentStopDate)
-    end_datetime2 = TRIM(end_datetime_string)
-    IF (TRIM(end_datetime1) /= "")  exp_stop_datetime_string = end_datetime1
-    IF (TRIM(end_datetime2) /= "")  exp_stop_datetime_string = end_datetime2
-    IF ((TRIM(end_datetime1) /= "") .AND. (TRIM(end_datetime2) /= "")) THEN
+    end_datetime1 = experimentStopDate
+    end_datetime2 = end_datetime_string
+    IF (end_datetime1 /= "")  exp_stop_datetime_string = end_datetime1
+    IF (end_datetime2 /= "")  exp_stop_datetime_string = end_datetime2
+    IF (end_datetime1 /= "" .AND. end_datetime2 /= "") THEN
       ! both settings were used; we need to test for equality
       tmp_dt1 => newDatetime(end_datetime1)
       tmp_dt2 => newDatetime(end_datetime2)      

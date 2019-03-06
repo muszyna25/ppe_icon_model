@@ -236,10 +236,9 @@ CONTAINS
     END IF
     lMultifileTimersInitialized = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
-        WRITE(0,*) "restart: reading restart data for patch "//TRIM(int2string(p_patch%id))// &
-                 & ", nvar_lists = "//TRIM(int2string(nvar_lists))
-    END IF
+    IF (my_process_is_mpi_workroot()) &
+         WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
+         p_patch%id, ", nvar_lists = ", nvar_lists
 
     ! get the list of all the different model types that we need to
     ! consider:

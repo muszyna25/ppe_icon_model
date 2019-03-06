@@ -112,36 +112,31 @@ CONTAINS
   !! used in conservative vertical advection routines.
   !! For passive advection, equivalent to any other first
   !! order upwind flux.
-  !! Applicable to both pressure based and height based vertical
-  !! coordinate systems. Depending on the coordinate system chosen,
-  !! the sign of the second term in the flux equation changes.
-  !! - (-) for pressure based vertical coordinate systems
-  !! - (+) for height based coordinate systems
-  !! In order to get the correct sign, the variable p_coeff_grid
-  !! has been introduced which is =1 for pressure based and =-1
-  !! for height based coordinate systems.
+  !! Applicable to height based vertical coordinate systems. 
   !!
   !! @par Revision History
   !! Developed  by L.Bonaventura  (2004).
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized for p- and z-based vertical coordinate systems
+  !! Modification by Daniel Reinert, DWD (2019-02-18)
+  !! - revert generalization for p- and z-based vertical coordinate systems.
+  !!   From now on only valid for z-based coordinate systems.
   !!
-  FUNCTION laxfr_upflux_v( p_w, p_psi1, p_psi2, p_coeff_grid )  RESULT(p_upflux)
+  FUNCTION laxfr_upflux_v( p_w, p_psi1, p_psi2 )  RESULT(p_upflux)
     !
 
     IMPLICIT NONE
 
     REAL(wp), INTENT(in) :: p_w
     REAL(wp), INTENT(in) :: p_psi1, p_psi2
-    REAL(wp), INTENT(in) :: p_coeff_grid
 
     REAL(wp) :: p_upflux
 
     !$ACC ROUTINE SEQ
 
     !-----------------------------------------------------------------------
-    p_upflux = 0.5_wp * (                       p_w  *( p_psi1 + p_psi2 )    &
-      &                   - p_coeff_grid * ABS( p_w )*( p_psi2 - p_psi1 ) )
+    p_upflux = 0.5_wp * (        p_w  *( p_psi1 + p_psi2 )    &
+      &                   + ABS( p_w )*( p_psi2 - p_psi1 ) )
 
   END FUNCTION laxfr_upflux_v
 

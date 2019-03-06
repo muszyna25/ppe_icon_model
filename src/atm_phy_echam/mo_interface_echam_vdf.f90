@@ -22,10 +22,10 @@ MODULE mo_interface_echam_vdf
 
   !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
   !$ser&                                            serialize_vdiff_down_output => serialize_output
-  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
-  !$ser&                                          serialize_vdiff_up_output => serialize_output
   !$ser verbatim USE mo_ser_echam_update_surface, ONLY: serialize_update_surface_input => serialize_input, &
   !$ser&                                                serialize_update_surface_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
+  !$ser&                                          serialize_vdiff_up_output => serialize_output
   !$ser verbatim USE mo_ser_echam_nsurf_diag, ONLY: serialize_nsurf_diag_input => serialize_input, &
   !$ser&                                            serialize_nsurf_diag_output => serialize_output
 

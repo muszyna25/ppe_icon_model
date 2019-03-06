@@ -42,22 +42,6 @@ MODULE mo_time_nml
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_nml"
 
-  INTEGER            ::  calendar         ! calendar type
-  REAL(wp)           ::  dt_restart       ! [s] length of a restart cycle 
-
-  CHARACTER(len=32)  ::  ini_datetime_string, end_datetime_string
-
-  !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
-  !> step 0 regardless whether we are in a standard run or in a
-  !> restarted run (which means re-initialized run):
-  LOGICAL            ::  is_relative_time
-
-  NAMELIST /time_nml/ calendar,            &
-    &                 ini_datetime_string, &
-    &                 end_datetime_string, &
-    &                 dt_restart,          &
-    &                 is_relative_time
-
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -91,6 +75,22 @@ CONTAINS
    CHARACTER(LEN=*), INTENT(IN)        :: filename
    ! local variables
    CHARACTER(len=*), PARAMETER         :: routine = modname//'::read_time_namelist'
+
+   INTEGER            ::  calendar         ! calendar type
+   REAL(wp)           ::  dt_restart       ! [s] length of a restart cycle 
+
+   CHARACTER(len=32)  ::  ini_datetime_string, end_datetime_string
+
+   !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
+   !> step 0 regardless whether we are in a standard run or in a
+   !> restarted run (which means re-initialized run):
+   LOGICAL            ::  is_relative_time
+
+   NAMELIST /time_nml/ calendar,            &
+     &                 ini_datetime_string, &
+     &                 end_datetime_string, &
+     &                 dt_restart,          &
+     &                 is_relative_time
 
    INTEGER                             :: istat, funit
    INTEGER                             :: iunit

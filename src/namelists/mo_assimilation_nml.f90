@@ -48,6 +48,7 @@ MODULE mo_assimilation_nml
     lhn_filt         ,& ! vertical filtering of lhn t-increments
     lhn_relax        ,& ! horizontal filtering of lhn t-increments
     lhn_limit        ,& ! impose absolute limit on lhn t-increm. (abs_lhn_lim)
+    lhn_limitp       ,& ! impose absolute limit on lhn t-increm. (abs_lhn_lim), restrict increments to Gaussian profile
     lhn_no_ttend     ,& ! do not apply the t increments (except for artif points), but only the q increments
     lhn_hum_adj      ,& ! apply a humidity adjustment along with t-increments
     lhn_incloud      ,& ! apply the LHN-scaling in cloudy layers only
@@ -72,7 +73,7 @@ MODULE mo_assimilation_nml
   REAL (KIND=wp)                   ::           &
     lhn_coef          ,& ! factor for reduction of lhn t-increments
     lhn_dt_obs        ,& ! time step of input data in minutes
-    abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit)
+    abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit or lhn_limitp)
     fac_lhn_artif     ,& ! factor when artificial profile will applied
     fac_lhn_up        ,& ! limiting factor for upscaling of model heating profile
     fac_lhn_down      ,& ! limiting factor for downscaling model heating profile
@@ -102,7 +103,7 @@ MODULE mo_assimilation_nml
                               lhn_black    ,blacklist_file             ,           &
                               lhn_artif    ,fac_lhn_artif              ,           &
                               lhn_filt     ,lhn_hum_adj, lhn_no_ttend  ,           &
-                              lhn_limit    ,abs_lhn_lim                ,           &
+                              lhn_limit    ,lhn_limitp  ,abs_lhn_lim   ,           &
                               lhn_relax    ,nlhn_relax                 ,           &
                               lhn_incloud  ,lhn_diag, lhn_qrs          ,           &
                               lhn_logscale ,lhn_wweight                ,           &
@@ -132,6 +133,7 @@ CONTAINS
     lhn_filt           = .TRUE.
     lhn_relax          = .FALSE.
     lhn_limit          = .TRUE.
+    lhn_limitp         = .FALSE.
     lhn_hum_adj        = .TRUE.
     lhn_no_ttend       = .FALSE.
     lhn_spqual         = .FALSE.
@@ -224,6 +226,7 @@ CONTAINS
         assimilation_config(jg)%lhn_filt        = lhn_filt
         assimilation_config(jg)%lhn_relax       = lhn_relax
         assimilation_config(jg)%lhn_limit       = lhn_limit
+        assimilation_config(jg)%lhn_limitp      = lhn_limitp
         assimilation_config(jg)%lhn_hum_adj     = lhn_hum_adj
         assimilation_config(jg)%lhn_no_ttend    = lhn_no_ttend
         assimilation_config(jg)%lhn_diag        = lhn_diag

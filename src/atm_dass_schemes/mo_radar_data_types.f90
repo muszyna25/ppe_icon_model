@@ -71,18 +71,6 @@ TYPE t_lhn_diag
 
 END TYPE t_lhn_diag
 
-!TYPE t_lhn_fields
-!
-!  TYPE (t_lhn_diag) :: lhn_diag_fields
-!
-!
-!!    REAL  (KIND=wp),ALLOCATABLE ::           &
-!!    lhn_diag(:,:,:)   ,& ! array for test output of diverse 2D fields
-!
-!   
-!  
-!END TYPE t_lhn_fields
-
 !===============================================================================
 
 END MODULE mo_radar_data_types

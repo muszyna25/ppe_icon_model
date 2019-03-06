@@ -546,8 +546,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         ENDDO
       ENDDO
 
-      IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above model top 
-                                                      ! for global grid (nshift=1 in this case)
+      IF (jgp == 0 .OR. p_patch(jg)%nshift == 0) THEN ! settings for passive extra layer above 
+                                                      ! model top for global grid (nshift=1 in this case)
         DO jc = i_startidx, i_endidx
           ! Temperature is extrapolated linearly assuming a vertical temperature gradient of -5.0 K/km
           p_temp(jc,1,jb) = p_temp(jc,2,jb) - 5.0e-3_wp*exdist_f
@@ -1983,7 +1983,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   TYPE(t_wtr_prog),             POINTER :: ptr_wprogc ! child level water prog state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=66   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=68   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
 
@@ -2046,71 +2046,73 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
     DO jc = i_startidx, i_endidx
       z_aux3dp1_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
-      z_aux3dp1_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
-      z_aux3dp1_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
-      z_aux3dp1_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
-      z_aux3dp1_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
-      z_aux3dp1_p(jc,6,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
-      z_aux3dp1_p(jc,7,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
-      z_aux3dp1_p(jc,8,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
-      z_aux3dp1_p(jc,9,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
-      z_aux3dp1_p(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
-      z_aux3dp1_p(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
-      z_aux3dp1_p(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
-      z_aux3dp1_p(jc,13,jb) = prm_diag(jg)%tfm(jc,jb)
-      z_aux3dp1_p(jc,14,jb) = prm_diag(jg)%tfh(jc,jb)
-      z_aux3dp1_p(jc,15,jb) = prm_diag(jg)%tfv(jc,jb)
-      z_aux3dp1_p(jc,16,jb) = prm_diag(jg)%t_2m(jc,jb)
-      z_aux3dp1_p(jc,17,jb) = prm_diag(jg)%qv_2m(jc,jb)
-      z_aux3dp1_p(jc,18,jb) = prm_diag(jg)%td_2m(jc,jb)
-      z_aux3dp1_p(jc,19,jb) = prm_diag(jg)%rh_2m(jc,jb)
-      z_aux3dp1_p(jc,20,jb) = prm_diag(jg)%gust10(jc,jb)
-      z_aux3dp1_p(jc,21,jb) = prm_diag(jg)%sp_10m(jc,jb)
-      z_aux3dp1_p(jc,22,jb) = prm_diag(jg)%swflxsfc(jc,jb)
-      z_aux3dp1_p(jc,23,jb) = prm_diag(jg)%swflx_dn_sfc_diff(jc,jb)
-      z_aux3dp1_p(jc,24,jb) = prm_diag(jg)%lwflx_up_sfc(jc,jb)
-      z_aux3dp1_p(jc,25,jb) = prm_diag(jg)%swflxtoa(jc,jb)
-      z_aux3dp1_p(jc,26,jb) = prm_diag(jg)%flxdwswtoa(jc,jb)
-      z_aux3dp1_p(jc,27,jb) = prm_diag(jg)%swflxsfc_a(jc,jb)
-      z_aux3dp1_p(jc,28,jb) = prm_diag(jg)%asodifd_s(jc,jb)
-      z_aux3dp1_p(jc,29,jb) = prm_diag(jg)%asodifu_s(jc,jb)
-      z_aux3dp1_p(jc,30,jb) = prm_diag(jg)%athu_s(jc,jb)
-      z_aux3dp1_p(jc,31,jb) = prm_diag(jg)%athd_s(jc,jb)
-      z_aux3dp1_p(jc,32,jb) = prm_diag(jg)%swflxtoa_a(jc,jb)
-      z_aux3dp1_p(jc,33,jb) = prm_diag(jg)%asod_t(jc,jb)
-      z_aux3dp1_p(jc,34,jb) = prm_diag(jg)%asou_t(jc,jb)
-      z_aux3dp1_p(jc,35,jb) = prm_diag(jg)%asodird_s(jc,jb)
-      z_aux3dp1_p(jc,36,jb) = prm_diag(jg)%htop_con(jc,jb) - prm_diag(jg)%hbas_con(jc,jb)
-      z_aux3dp1_p(jc,37,jb) = prm_diag(jg)%htop_dc(jc,jb)
-      z_aux3dp1_p(jc,38,jb) = prm_diag(jg)%snowlmt(jc,jb) + 999._wp
-      z_aux3dp1_p(jc,39,jb) = prm_diag(jg)%hzerocl(jc,jb) + 999._wp
-      z_aux3dp1_p(jc,40,jb) = prm_diag(jg)%clcl(jc,jb)
-      z_aux3dp1_p(jc,41,jb) = prm_diag(jg)%clcm(jc,jb)
-      z_aux3dp1_p(jc,42,jb) = prm_diag(jg)%clch(jc,jb)
-      z_aux3dp1_p(jc,43,jb) = prm_diag(jg)%clct(jc,jb)
-      z_aux3dp1_p(jc,44,jb) = prm_diag(jg)%cape(jc,jb)
-      z_aux3dp1_p(jc,45,jb) = prm_diag(jg)%swflx_up_toa(jc,jb)
-      z_aux3dp1_p(jc,46,jb) = prm_diag(jg)%swflx_up_sfc(jc,jb)
-      z_aux3dp1_p(jc,47,jb) = prm_diag(jg)%tmax_2m(jc,jb)
-      z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%tmin_2m(jc,jb)
-      z_aux3dp1_p(jc,49:51,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
-      z_aux3dp1_p(jc,52:56,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
-      z_aux3dp1_p(jc,57,jb) = prm_diag(jg)%clct_mod(jc,jb)
+      z_aux3dp1_p(jc,2,jb) = prm_diag(jg)%prec_gsp(jc,jb)
+      z_aux3dp1_p(jc,3,jb) = prm_diag(jg)%prec_con(jc,jb)
+      z_aux3dp1_p(jc,4,jb) = prm_diag(jg)%rain_gsp(jc,jb)
+      z_aux3dp1_p(jc,5,jb) = prm_diag(jg)%snow_gsp(jc,jb)
+      z_aux3dp1_p(jc,6,jb) = prm_diag(jg)%rain_con(jc,jb)
+      z_aux3dp1_p(jc,7,jb) = prm_diag(jg)%snow_con(jc,jb)
+      z_aux3dp1_p(jc,8,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
+      z_aux3dp1_p(jc,9,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
+      z_aux3dp1_p(jc,10,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
+      z_aux3dp1_p(jc,11,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
+      z_aux3dp1_p(jc,12,jb) = prm_diag(jg)%gz0(jc,jb)
+      z_aux3dp1_p(jc,13,jb) = prm_diag(jg)%tcm(jc,jb)
+      z_aux3dp1_p(jc,14,jb) = prm_diag(jg)%tch(jc,jb)
+      z_aux3dp1_p(jc,15,jb) = prm_diag(jg)%tfm(jc,jb)
+      z_aux3dp1_p(jc,16,jb) = prm_diag(jg)%tfh(jc,jb)
+      z_aux3dp1_p(jc,17,jb) = prm_diag(jg)%tfv(jc,jb)
+      z_aux3dp1_p(jc,18,jb) = prm_diag(jg)%t_2m(jc,jb)
+      z_aux3dp1_p(jc,19,jb) = prm_diag(jg)%qv_2m(jc,jb)
+      z_aux3dp1_p(jc,20,jb) = prm_diag(jg)%td_2m(jc,jb)
+      z_aux3dp1_p(jc,21,jb) = prm_diag(jg)%rh_2m(jc,jb)
+      z_aux3dp1_p(jc,22,jb) = prm_diag(jg)%gust10(jc,jb)
+      z_aux3dp1_p(jc,23,jb) = prm_diag(jg)%sp_10m(jc,jb)
+      z_aux3dp1_p(jc,24,jb) = prm_diag(jg)%swflxsfc(jc,jb)
+      z_aux3dp1_p(jc,25,jb) = prm_diag(jg)%swflx_dn_sfc_diff(jc,jb)
+      z_aux3dp1_p(jc,26,jb) = prm_diag(jg)%lwflx_up_sfc(jc,jb)
+      z_aux3dp1_p(jc,27,jb) = prm_diag(jg)%swflxtoa(jc,jb)
+      z_aux3dp1_p(jc,28,jb) = prm_diag(jg)%flxdwswtoa(jc,jb)
+      z_aux3dp1_p(jc,29,jb) = prm_diag(jg)%swflxsfc_a(jc,jb)
+      z_aux3dp1_p(jc,30,jb) = prm_diag(jg)%asodifd_s(jc,jb)
+      z_aux3dp1_p(jc,31,jb) = prm_diag(jg)%asodifu_s(jc,jb)
+      z_aux3dp1_p(jc,32,jb) = prm_diag(jg)%athu_s(jc,jb)
+      z_aux3dp1_p(jc,33,jb) = prm_diag(jg)%athd_s(jc,jb)
+      z_aux3dp1_p(jc,34,jb) = prm_diag(jg)%swflxtoa_a(jc,jb)
+      z_aux3dp1_p(jc,35,jb) = prm_diag(jg)%asod_t(jc,jb)
+      z_aux3dp1_p(jc,36,jb) = prm_diag(jg)%asou_t(jc,jb)
+      z_aux3dp1_p(jc,37,jb) = prm_diag(jg)%asodird_s(jc,jb)
+      z_aux3dp1_p(jc,38,jb) = prm_diag(jg)%htop_con(jc,jb) - prm_diag(jg)%hbas_con(jc,jb)
+      z_aux3dp1_p(jc,39,jb) = prm_diag(jg)%htop_dc(jc,jb)
+      z_aux3dp1_p(jc,40,jb) = prm_diag(jg)%snowlmt(jc,jb) + 999._wp
+      z_aux3dp1_p(jc,41,jb) = prm_diag(jg)%hzerocl(jc,jb) + 999._wp
+      z_aux3dp1_p(jc,42,jb) = prm_diag(jg)%clcl(jc,jb)
+      z_aux3dp1_p(jc,43,jb) = prm_diag(jg)%clcm(jc,jb)
+      z_aux3dp1_p(jc,44,jb) = prm_diag(jg)%clch(jc,jb)
+      z_aux3dp1_p(jc,45,jb) = prm_diag(jg)%clct(jc,jb)
+      z_aux3dp1_p(jc,46,jb) = prm_diag(jg)%cape(jc,jb)
+      z_aux3dp1_p(jc,47,jb) = prm_diag(jg)%swflx_up_toa(jc,jb)
+      z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%swflx_up_sfc(jc,jb)
+      z_aux3dp1_p(jc,49,jb) = prm_diag(jg)%tmax_2m(jc,jb)
+      z_aux3dp1_p(jc,50,jb) = prm_diag(jg)%tmin_2m(jc,jb)
+      z_aux3dp1_p(jc,51:53,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
+      z_aux3dp1_p(jc,54:58,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
+      z_aux3dp1_p(jc,59,jb) = prm_diag(jg)%clct_mod(jc,jb)
 
       IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
-        z_aux3dp1_p(jc,58,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
-        z_aux3dp1_p(jc,59,jb) = prm_diag(jg)%graupel_gsp_rate(jc,jb)
+        z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%graupel_gsp(jc,jb)
+        z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%graupel_gsp_rate(jc,jb)
       ELSE
-        z_aux3dp1_p(jc,58,jb) = 0._wp
-        z_aux3dp1_p(jc,59,jb) = 0._wp
+        z_aux3dp1_p(jc,60,jb) = 0._wp
+        z_aux3dp1_p(jc,61,jb) = 0._wp
       ENDIF
-      z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%tvm(jc,jb)
-      z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%tvh(jc,jb)
-      z_aux3dp1_p(jc,62,jb) = prm_diag(jg)%tkr(jc,jb)
-      z_aux3dp1_p(jc,63,jb) = prm_diag(jg)%cldepth(jc,jb)
-      z_aux3dp1_p(jc,64,jb) = prm_diag(jg)%t_2m_land(jc,jb)
-      z_aux3dp1_p(jc,65,jb) = prm_diag(jg)%td_2m_land(jc,jb)
-      z_aux3dp1_p(jc,66,jb) = prm_diag(jg)%rh_2m_land(jc,jb)
+      z_aux3dp1_p(jc,62,jb) = prm_diag(jg)%tvm(jc,jb)
+      z_aux3dp1_p(jc,63,jb) = prm_diag(jg)%tvh(jc,jb)
+      z_aux3dp1_p(jc,64,jb) = prm_diag(jg)%tkr(jc,jb)
+      z_aux3dp1_p(jc,65,jb) = prm_diag(jg)%cldepth(jc,jb)
+      z_aux3dp1_p(jc,66,jb) = prm_diag(jg)%t_2m_land(jc,jb)
+      z_aux3dp1_p(jc,67,jb) = prm_diag(jg)%td_2m_land(jc,jb)
+      z_aux3dp1_p(jc,68,jb) = prm_diag(jg)%rh_2m_land(jc,jb)
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2247,71 +2249,73 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
     DO jc = i_startidx, i_endidx          ! to avoid undershoots when taking time differences:
       prm_diag(jgc)%tot_prec(jc,jb)       = MAX(z_aux3dp1_c(jc,1,jb),prm_diag(jgc)%tot_prec(jc,jb))
-      prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,2,jb),prm_diag(jgc)%rain_gsp(jc,jb))
-      prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,3,jb),prm_diag(jgc)%snow_gsp(jc,jb))
-      prm_diag(jgc)%rain_con(jc,jb)       = MAX(z_aux3dp1_c(jc,4,jb),prm_diag(jgc)%rain_con(jc,jb))
-      prm_diag(jgc)%snow_con(jc,jb)       = MAX(z_aux3dp1_c(jc,5,jb),prm_diag(jgc)%snow_con(jc,jb))
-      prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,6,jb)
-      prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,7,jb)
-      prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp1_c(jc,8,jb)
-      prm_diag(jgc)%snow_con_rate(jc,jb)  = z_aux3dp1_c(jc,9,jb)
-      prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp1_c(jc,10,jb)
-      prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp1_c(jc,11,jb)
-      prm_diag(jgc)%tch(jc,jb)            = z_aux3dp1_c(jc,12,jb)
-      prm_diag(jgc)%tfm(jc,jb)            = z_aux3dp1_c(jc,13,jb)
-      prm_diag(jgc)%tfh(jc,jb)            = z_aux3dp1_c(jc,14,jb)
-      prm_diag(jgc)%tfv(jc,jb)            = z_aux3dp1_c(jc,15,jb)
-      prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp1_c(jc,16,jb)
-      prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp1_c(jc,17,jb)
-      prm_diag(jgc)%td_2m(jc,jb)          = MIN(prm_diag(jgc)%t_2m(jc,jb),z_aux3dp1_c(jc,18,jb))
-      prm_diag(jgc)%rh_2m(jc,jb)          = MIN(100._wp,z_aux3dp1_c(jc,19,jb)) ! unit is %
-      prm_diag(jgc)%gust10(jc,jb)         = z_aux3dp1_c(jc,20,jb)
-      prm_diag(jgc)%sp_10m(jc,jb)         = z_aux3dp1_c(jc,21,jb)
-      prm_diag(jgc)%swflxsfc(jc,jb)       = z_aux3dp1_c(jc,22,jb)
-      prm_diag(jgc)%swflx_dn_sfc_diff(jc,jb) = z_aux3dp1_c(jc,23,jb)
-      prm_diag(jgc)%lwflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,24,jb)
-      prm_diag(jgc)%swflxtoa(jc,jb)       = z_aux3dp1_c(jc,25,jb)
-      prm_diag(jgc)%flxdwswtoa(jc,jb)     = z_aux3dp1_c(jc,26,jb)
-      prm_diag(jgc)%swflxsfc_a(jc,jb)     = z_aux3dp1_c(jc,27,jb)
-      prm_diag(jgc)%asodifd_s(jc,jb)      = z_aux3dp1_c(jc,28,jb)
-      prm_diag(jgc)%asodifu_s(jc,jb)      = z_aux3dp1_c(jc,29,jb)
-      prm_diag(jgc)%athu_s(jc,jb)         = z_aux3dp1_c(jc,30,jb)
-      prm_diag(jgc)%athd_s(jc,jb)         = z_aux3dp1_c(jc,31,jb)
-      prm_diag(jgc)%swflxtoa_a(jc,jb)     = z_aux3dp1_c(jc,32,jb)
-      prm_diag(jgc)%asod_t(jc,jb)         = z_aux3dp1_c(jc,33,jb)
-      prm_diag(jgc)%asou_t(jc,jb)         = z_aux3dp1_c(jc,34,jb)
-      prm_diag(jgc)%asodird_s(jc,jb)      = z_aux3dp1_c(jc,35,jb)
-      prm_diag(jgc)%htop_dc(jc,jb)        = z_aux3dp1_c(jc,37,jb)
-      prm_diag(jgc)%snowlmt(jc,jb)        = z_aux3dp1_c(jc,38,jb) - 999._wp
+      prm_diag(jgc)%prec_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,2,jb),prm_diag(jgc)%prec_gsp(jc,jb))
+      prm_diag(jgc)%prec_con(jc,jb)       = MAX(z_aux3dp1_c(jc,3,jb),prm_diag(jgc)%prec_con(jc,jb))
+      prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,4,jb),prm_diag(jgc)%rain_gsp(jc,jb))
+      prm_diag(jgc)%snow_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,5,jb),prm_diag(jgc)%snow_gsp(jc,jb))
+      prm_diag(jgc)%rain_con(jc,jb)       = MAX(z_aux3dp1_c(jc,6,jb),prm_diag(jgc)%rain_con(jc,jb))
+      prm_diag(jgc)%snow_con(jc,jb)       = MAX(z_aux3dp1_c(jc,7,jb),prm_diag(jgc)%snow_con(jc,jb))
+      prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,8,jb)
+      prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,9,jb)
+      prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp1_c(jc,10,jb)
+      prm_diag(jgc)%snow_con_rate(jc,jb)  = z_aux3dp1_c(jc,11,jb)
+      prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp1_c(jc,12,jb)
+      prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp1_c(jc,13,jb)
+      prm_diag(jgc)%tch(jc,jb)            = z_aux3dp1_c(jc,14,jb)
+      prm_diag(jgc)%tfm(jc,jb)            = z_aux3dp1_c(jc,15,jb)
+      prm_diag(jgc)%tfh(jc,jb)            = z_aux3dp1_c(jc,16,jb)
+      prm_diag(jgc)%tfv(jc,jb)            = z_aux3dp1_c(jc,17,jb)
+      prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp1_c(jc,18,jb)
+      prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp1_c(jc,19,jb)
+      prm_diag(jgc)%td_2m(jc,jb)          = MIN(prm_diag(jgc)%t_2m(jc,jb),z_aux3dp1_c(jc,20,jb))
+      prm_diag(jgc)%rh_2m(jc,jb)          = MIN(100._wp,z_aux3dp1_c(jc,21,jb)) ! unit is %
+      prm_diag(jgc)%gust10(jc,jb)         = z_aux3dp1_c(jc,22,jb)
+      prm_diag(jgc)%sp_10m(jc,jb)         = z_aux3dp1_c(jc,23,jb)
+      prm_diag(jgc)%swflxsfc(jc,jb)       = z_aux3dp1_c(jc,24,jb)
+      prm_diag(jgc)%swflx_dn_sfc_diff(jc,jb) = z_aux3dp1_c(jc,25,jb)
+      prm_diag(jgc)%lwflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,26,jb)
+      prm_diag(jgc)%swflxtoa(jc,jb)       = z_aux3dp1_c(jc,27,jb)
+      prm_diag(jgc)%flxdwswtoa(jc,jb)     = z_aux3dp1_c(jc,28,jb)
+      prm_diag(jgc)%swflxsfc_a(jc,jb)     = z_aux3dp1_c(jc,29,jb)
+      prm_diag(jgc)%asodifd_s(jc,jb)      = z_aux3dp1_c(jc,30,jb)
+      prm_diag(jgc)%asodifu_s(jc,jb)      = z_aux3dp1_c(jc,31,jb)
+      prm_diag(jgc)%athu_s(jc,jb)         = z_aux3dp1_c(jc,32,jb)
+      prm_diag(jgc)%athd_s(jc,jb)         = z_aux3dp1_c(jc,33,jb)
+      prm_diag(jgc)%swflxtoa_a(jc,jb)     = z_aux3dp1_c(jc,34,jb)
+      prm_diag(jgc)%asod_t(jc,jb)         = z_aux3dp1_c(jc,35,jb)
+      prm_diag(jgc)%asou_t(jc,jb)         = z_aux3dp1_c(jc,36,jb)
+      prm_diag(jgc)%asodird_s(jc,jb)      = z_aux3dp1_c(jc,37,jb)
+      prm_diag(jgc)%htop_dc(jc,jb)        = z_aux3dp1_c(jc,39,jb)
+      prm_diag(jgc)%snowlmt(jc,jb)        = z_aux3dp1_c(jc,40,jb) - 999._wp
       IF (prm_diag(jgc)%snowlmt(jc,jb) < p_nh_state(jgc)%metrics%z_ifc(jc,nlev_c+1,jb)) &
         prm_diag(jgc)%snowlmt(jc,jb) = -999._wp
-      prm_diag(jgc)%hzerocl(jc,jb)        = z_aux3dp1_c(jc,39,jb) - 999._wp
+      prm_diag(jgc)%hzerocl(jc,jb)        = z_aux3dp1_c(jc,41,jb) - 999._wp
       IF (prm_diag(jgc)%hzerocl(jc,jb) < p_nh_state(jgc)%metrics%z_ifc(jc,nlev_c+1,jb)) &
         prm_diag(jgc)%hzerocl(jc,jb) = -999._wp
-      prm_diag(jgc)%clcl(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,40,jb))
-      prm_diag(jgc)%clcm(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,41,jb))
-      prm_diag(jgc)%clch(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,42,jb))
-      prm_diag(jgc)%clct(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,43,jb))
-      prm_diag(jgc)%cape(jc,jb)           = z_aux3dp1_c(jc,44,jb)
-      prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,45,jb)
-      prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,46,jb)
-      prm_diag(jgc)%tmax_2m(jc,jb)        = MAX(z_aux3dp1_c(jc,47,jb),prm_diag(jgc)%t_2m(jc,jb))
-      prm_diag(jgc)%tmin_2m(jc,jb)        = MIN(z_aux3dp1_c(jc,48,jb),prm_diag(jgc)%t_2m(jc,jb),prm_diag(jgc)%tmax_2m(jc,jb))
-      prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,49:51,jb)
-      p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,52:56,jb)
-      prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,57,jb))
+      prm_diag(jgc)%clcl(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,42,jb))
+      prm_diag(jgc)%clcm(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,43,jb))
+      prm_diag(jgc)%clch(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,44,jb))
+      prm_diag(jgc)%clct(jc,jb)           = MIN(1._wp,z_aux3dp1_c(jc,45,jb))
+      prm_diag(jgc)%cape(jc,jb)           = z_aux3dp1_c(jc,46,jb)
+      prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,47,jb)
+      prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,48,jb)
+      prm_diag(jgc)%tmax_2m(jc,jb)        = MAX(z_aux3dp1_c(jc,49,jb),prm_diag(jgc)%t_2m(jc,jb))
+      prm_diag(jgc)%tmin_2m(jc,jb)        = MIN(z_aux3dp1_c(jc,50,jb),prm_diag(jgc)%t_2m(jc,jb),prm_diag(jgc)%tmax_2m(jc,jb))
+      prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,51:53,jb)
+      p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,54:58,jb)
+      prm_diag(jgc)%clct_mod(jc,jb)       = MIN(1._wp,z_aux3dp1_c(jc,59,jb))
 
       IF (atm_phy_nwp_config(jgc)%inwp_gscp == 2) THEN
-        prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,58,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
-        prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,59,jb)
+        prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,60,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
+        prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,61,jb)
       ENDIF
-      prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,60,jb)
-      prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,61,jb)
-      prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,62,jb)
-      prm_diag(jgc)%cldepth(jc,jb)        = MIN(1._wp,z_aux3dp1_c(jc,63,jb))
-      prm_diag(jgc)%t_2m_land(jc,jb)      = z_aux3dp1_c(jc,64,jb)
-      prm_diag(jgc)%td_2m_land(jc,jb)     = z_aux3dp1_c(jc,65,jb)
-      prm_diag(jgc)%rh_2m_land(jc,jb)     = z_aux3dp1_c(jc,66,jb)
+      prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,62,jb)
+      prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,63,jb)
+      prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,64,jb)
+      prm_diag(jgc)%cldepth(jc,jb)        = MIN(1._wp,z_aux3dp1_c(jc,65,jb))
+      prm_diag(jgc)%t_2m_land(jc,jb)      = z_aux3dp1_c(jc,66,jb)
+      prm_diag(jgc)%td_2m_land(jc,jb)     = z_aux3dp1_c(jc,67,jb)
+      prm_diag(jgc)%rh_2m_land(jc,jb)     = z_aux3dp1_c(jc,68,jb)
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
@@ -2337,7 +2341,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         prm_diag(jgc)%hbas_con(jc,jb) = -500._wp
         prm_diag(jgc)%htop_con(jc,jb) = -500._wp
       ELSE
-        prm_diag(jgc)%htop_con(jc,jb) = z_aux3dp1_c(jc,36,jb) + prm_diag(jgc)%hbas_con(jc,jb)
+        prm_diag(jgc)%htop_con(jc,jb) = z_aux3dp1_c(jc,38,jb) + prm_diag(jgc)%hbas_con(jc,jb)
       ENDIF
     ENDDO
 
@@ -2658,7 +2662,7 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
 
   ! Allocation of local storage fields
   nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
-  ALLOCATE(z_aux3d_lp(nproma,5,nblks_c_lp), z_aux3d_par(nproma,5,p_patch(jgp)%nblks_c))
+  ALLOCATE(z_aux3d_lp(nproma,7,nblks_c_lp), z_aux3d_par(nproma,7,p_patch(jgp)%nblks_c))
 
   p_aux3d => z_aux3d_lp
 
@@ -2684,24 +2688,36 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jg)%tot_prec(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
       p_aux3d(jc,2,jb) =                                         &
+        prm_diag(jg)%prec_gsp(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        prm_diag(jg)%prec_gsp(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        prm_diag(jg)%prec_gsp(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        prm_diag(jg)%prec_gsp(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+
+      p_aux3d(jc,3,jb) =                                         &
+        prm_diag(jg)%prec_con(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        prm_diag(jg)%prec_con(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        prm_diag(jg)%prec_con(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        prm_diag(jg)%prec_con(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+
+      p_aux3d(jc,4,jb) =                                         &
         prm_diag(jg)%rain_con(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         prm_diag(jg)%rain_con(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         prm_diag(jg)%rain_con(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         prm_diag(jg)%rain_con(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_aux3d(jc,3,jb) =                                         &
+      p_aux3d(jc,5,jb) =                                         &
         prm_diag(jg)%snow_con(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         prm_diag(jg)%snow_con(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         prm_diag(jg)%snow_con(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         prm_diag(jg)%snow_con(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_aux3d(jc,4,jb) =                                         &
+      p_aux3d(jc,6,jb) =                                         &
         prm_diag(jg)%rain_gsp(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         prm_diag(jg)%rain_gsp(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         prm_diag(jg)%rain_gsp(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         prm_diag(jg)%rain_gsp(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_aux3d(jc,5,jb) =                                         &
+      p_aux3d(jc,7,jb) =                                         &
         prm_diag(jg)%snow_gsp(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         prm_diag(jg)%snow_gsp(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         prm_diag(jg)%snow_gsp(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
@@ -2731,10 +2747,12 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
 
       IF (p_grf_state(jgp)%mask_ovlp_c(jc,jb,i_chidx)) THEN
         prm_diag(jgp)%tot_prec(jc,jb)      = p_aux3d(jc,1,jb)
-        prm_diag(jgp)%rain_con(jc,jb)      = p_aux3d(jc,2,jb)
-        prm_diag(jgp)%snow_con(jc,jb)      = p_aux3d(jc,3,jb)
-        prm_diag(jgp)%rain_gsp(jc,jb)      = p_aux3d(jc,4,jb)
-        prm_diag(jgp)%snow_gsp(jc,jb)      = p_aux3d(jc,5,jb)
+        prm_diag(jgp)%prec_gsp(jc,jb)      = p_aux3d(jc,2,jb)
+        prm_diag(jgp)%prec_con(jc,jb)      = p_aux3d(jc,3,jb)
+        prm_diag(jgp)%rain_con(jc,jb)      = p_aux3d(jc,4,jb)
+        prm_diag(jgp)%snow_con(jc,jb)      = p_aux3d(jc,5,jb)
+        prm_diag(jgp)%rain_gsp(jc,jb)      = p_aux3d(jc,6,jb)
+        prm_diag(jgp)%snow_gsp(jc,jb)      = p_aux3d(jc,7,jb)
       END IF
 
     ENDDO

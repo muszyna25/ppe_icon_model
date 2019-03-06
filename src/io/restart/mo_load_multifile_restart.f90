@@ -49,7 +49,7 @@ MODULE mo_load_multifile_restart
   USE mo_kind,                   ONLY: sp, dp, i8
   USE mo_model_domain,           ONLY: t_patch
   USE mo_mpi,                    ONLY: p_barrier, p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
-    &                                  p_allreduce, p_sum_op, p_mpi_wtime, my_process_is_stdio, p_bcast,     &
+    &                                  p_allreduce, mpi_sum, p_mpi_wtime, my_process_is_stdio, p_bcast,     &
     &                                  my_process_is_mpi_workroot
   USE mo_multifile_restart_util, ONLY: multifilePayloadPath, commonBuf_t, dataPtrs_t, rBuddy, rGroup, &
     &                                  vNames_glbIdx
@@ -372,7 +372,7 @@ CONTAINS
 
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_comm_setup)
     ! compute the global SIZE of the field
-    globalSize = p_allreduce(SIZE(provGlbIdces), p_sum_op(), p_comm_work)
+    globalSize = p_allreduce(SIZE(provGlbIdces), mpi_sum, p_comm_work)
     procCount = p_comm_size(p_comm_work)
     myRank = p_comm_rank(p_comm_work)
 #ifdef DEBUG 

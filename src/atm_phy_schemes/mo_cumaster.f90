@@ -56,7 +56,8 @@
 
 !! @par Revision History
 !! Initial implementation into GME/ICON  by Kristina Froehlich, DWD (2010-05-26)
-!! Added calclation of convective gusts  by Helmut Frank, DWD (2013-03-13)
+!! Added calculation of convective gusts  by Helmut Frank, DWD (2013-03-13)
+!! Transformation of q-tendencies into rho*q-tendencies by Daniel Reinert, DWD (2018-05-24)
 !!
 !!
 !! @par Copyright and License
@@ -121,7 +122,8 @@ SUBROUTINE cumastrn &
  & pap,      paph,     pgeo,     pgeoh,          &
  & zdph,               zdgeoh,   pcloudnum,      &
  & ptent,    ptenu,    ptenv,                    &
- & ptenq,    ptenl,    pteni,    ptenr,  ptens,  &
+ & ptenq,    ptenrhoq, ptenrhol, ptenrhoi,       &
+ & ptenrhor, ptenrhos,                           &
  & ldcum,      ktype , kcbot,    kctop,          &
  & LDSHCV,                                       &
  & pmfu,     pmfd,                               &
@@ -129,7 +131,7 @@ SUBROUTINE cumastrn &
  & ptu,      pqu,      plu,                      &
  & pmflxr,   pmflxs,   prain, pdtke_con,         &
  & pcape,    pvddraf,                            &
- & ktrac, pcen, ptenc) 
+ & ktrac, pcen, ptenrhoc) 
 
 !
 
@@ -172,8 +174,8 @@ SUBROUTINE cumastrn &
 !    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS             PA
 !    *PGEO*         GEOPOTENTIAL                                  M2/S2
 !    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                   M2/S2
-!    *zdgeoh*       geopot thickness on half levels               m2/s2
-!    *zdph*         pressure thickness on half levels              Pa
+!    *zdgeoh*       geopot thickness on full levels               M2/S2
+!    *zdph*         pressure thickness on full levels               PA
 !
 !    *PSSTRU*       SURFACE MOMENTUM FLUX U                - not used presently
 !    *PSSTRV*       SURFACE MOMENTUM FLUX V                - not used presently
@@ -182,13 +184,9 @@ SUBROUTINE cumastrn &
 
 !    *PTENT*        TEMPERATURE TENDENCY                           K/S
 !    *PTENQ*        MOISTURE TENDENCY                             KG/(KG S)
-!    *PTENL*        LIQUID WATER TENDENCY                         KG/(KG S)
-!    *PTENI*        ICE CONDENSATE TENDENCY                       KG/(KG S)
-!    *PTENR*        DETRAINED RAIN TENDENCY                       KG/(KG S)
-!    *PTENS*        DETRAINED SNOW TENDENCY                       KG/(KG S)
 !    *PTENU*        TENDENCY OF U-COMP. OF WIND                    M/S2
 !    *PTENV*        TENDENCY OF V-COMP. OF WIND                    M/S2
-!    *PTENC*        TENDENCY OF CHEMICAL TRACERS                   1/S
+!    *PTENRHOC*     TENDENCY OF CHEMICAL TRACERS                  KG/(M3*S)
 
 !    OUTPUT PARAMETERS (LOGICAL):
 
@@ -224,6 +222,11 @@ SUBROUTINE cumastrn &
 !    *PCAPE*        CONVECTVE AVAILABLE POTENTIAL ENERGY           J/KG
 !    *PWMEAN*       VERTICALLY AVERAGED UPDRAUGHT VELOCITY         M/S
 !    *pvddraf*      convective gust at surface                     M/S
+!    *PTENRHOQ*     MOISTURE MASS DENSITY TENDENCY                KG/(M3*S)
+!    *PTENRHOL*     LIQUID WATER MASS DENSITY TENDENCY            KG/(M3*S)
+!    *PTENRHOI*     ICE CONDENSATE MASS DENSITY TENDENCY          KG/(M3*S)
+!    *PTENRHOR*     DETRAINED RAIN MASS DENSITY TENDENCY          KG/(M3*S)
+!    *PTENRHOS*     DETRAINED SNOW MASS DENSITY TENDENCY          KG/(M3*S)
 
 !     EXTERNALS.
 !     ----------
@@ -345,16 +348,16 @@ REAL(KIND=jprb)   ,INTENT(in)    :: pcloudnum(klon)
 !REAL(KIND=jprb)   ,INTENT(in), OPTIONAL :: pcen(klon,klev,ktrac)
 TYPE(t_ptr_tracer),INTENT(in), OPTIONAL :: pcen(ktrac)
 REAL(KIND=jprb)   ,INTENT(inout) :: ptent(klon,klev) 
-REAL(KIND=jprb)   ,INTENT(inout) :: ptenq(klon,klev) 
-REAL(KIND=jprb)   ,INTENT(inout) :: ptenl(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pteni(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: ptenr(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: ptens(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenq(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenrhoq(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenrhol(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenrhoi(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenrhor(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenrhos(klon,klev)
 REAL(KIND=jprb)   ,INTENT(inout) :: ptenu(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: ptenv(klon,klev) 
 ! with ktrac=0 this has zero size
-!     REAL(KIND=jprb)   ,INTENT(inout), OPTIONAL :: ptenc(klon,klev,ktrac)
-TYPE(t_ptr_tracer)   ,INTENT(inout), OPTIONAL :: ptenc(ktrac)
+TYPE(t_ptr_tracer)   ,INTENT(inout), OPTIONAL :: ptenrhoc(ktrac)
 LOGICAL           ,INTENT(inout) :: ldcum(klon)
 INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon)
 INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
@@ -387,6 +390,8 @@ REAL(KIND=jprb) :: penth(klon,klev) ! only local variable
 REAL(KIND=jprb) :: pqsen(klon,klev) ! only local variable
 REAL(KIND=JPRB) :: psnde(klon,klev,2)! only local variable
 !*UPG
+
+REAL(KIND=jprb) :: ztenq_sv(klon,klev) ! MOISTURE TENDENCY ON INPUT  KG/(KG S)
 
 REAL(KIND=jprb) :: ztenh(klon,klev),       zqenh(klon,klev),&
   & zqsenh(klon,klev),&
@@ -444,8 +449,9 @@ REAL(KIND=jprb) :: zcvfl_s, zcvfl_q
 !    LOCALS FOR CONSERVATION CHECK
 LOGICAL :: llconscheck=.FALSE.
 INTEGER(KIND=jpim) :: jn
-REAL(KIND=jprb), DIMENSION(:,:), ALLOCATABLE :: ztent, ztenq, zsumc
-REAL(KIND=jprb), DIMENSION(:,:,:), ALLOCATABLE :: ztenc
+REAL(KIND=jprb), DIMENSION(:,:)  , ALLOCATABLE :: ztent, ztenq
+REAL(KIND=jprb), DIMENSION(:,:)  , ALLOCATABLE :: zsumc         ! kg m-2 s-1
+REAL(KIND=jprb), DIMENSION(:,:,:), ALLOCATABLE :: ztenrhoc      ! kg m-3 s-1
 
 ! CAPE threshold for applying ad-hoc fixes for numerical stability
 REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
@@ -724,7 +730,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
+  & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -993,7 +999,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
+    & phy_params%entrorg, phy_params%rprcon, phy_params%lmfmid, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &
@@ -1251,14 +1257,13 @@ IF ( llconscheck ) THEN
   ENDDO
 
    IF ( lmftrac .AND. ktrac>0 ) THEN
-     ALLOCATE(ztenc(klon,klev,ktrac))
+     ALLOCATE(ztenrhoc(klon,klev,ktrac))
      ALLOCATE(zsumc(klon,4+ktrac))
      DO jn=1,ktrac
        DO jk=ktdia+1,klev
          DO jl=kidia,kfdia
            IF ( ldcum(jl) ) THEN
-!             ztenc(jl,jk,jn)=ptenc(jl,jk,jn)
-             ztenc(jl,jk,jn)=ptenc(jn)%ptr(jl,jk)
+             ztenrhoc(jl,jk,jn)=ptenrhoc(jn)%ptr(jl,jk)
            ENDIF
          ENDDO
        ENDDO
@@ -1285,6 +1290,9 @@ ENDDO
 
 !*    8.0          UPDATE TENDENCIES FOR T AND Q IN SUBROUTINE CUDTDQ
 !                  --------------------------------------------------
+
+! save moisture tendency prior to update
+ztenq_sv(:,:) = ptenq(:,:)
 
 IF( rmfsoltq>0.0_JPRB) THEN
 ! derive draught properties for implicit
@@ -1624,9 +1632,9 @@ IF ( lmftrac .AND. ktrac>0 ) THEN
       & ( kidia,    kfdia,    klon,  ktdia,  klev,     ktrac,&
       &   kctop,     idtop,&
       & lldcum,   llddraf3,  ptsphy,  &
-      & paph,     zdph,                      &
+      & paph,     zdph,     zdgeoh,          &
       & zmfuus,   zmfdus,   zmfudr,   zmfddr,&
-      & pcen,     ptenc     )
+      & pcen,     ptenrhoc     )
   ENDIF
 ENDIF
 
@@ -1679,9 +1687,10 @@ IF ( llconscheck ) THEN
       DO jk=klev,ktdia+1,-1
         DO jl=kidia,kfdia
           IF ( ldcum(jl) .AND. jk>=kctop(jl)-1) THEN
-            zdz=(paph(jl,jk+1)-paph(jl,jk))/rg
-       !     zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jl,jk,jn)-ztenc(jl,jk,jn))*zdz
-            zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jn)%ptr(jl,jk)-ztenc(jl,jk,jn))*zdz
+       !DR     zdz=(paph(jl,jk+1)-paph(jl,jk))/rg
+       !DR     zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenc(jl,jk,jn)-ztenc(jl,jk,jn))*zdz
+            zdz=zdgeoh(jl,jk)/rg  ! dz
+            zsumc(jl,4+jn)=zsumc(jl,4+jn)+(ptenrhoc(jn)%ptr(jl,jk)-ztenrhoc(jl,jk,jn))*zdz
           ENDIF
         ENDDO
       ENDDO
@@ -1706,7 +1715,7 @@ IF ( llconscheck ) THEN
 
   DEALLOCATE(zsumc)
   IF ( lmftrac .AND. ktrac>0 ) THEN
-    DEALLOCATE(ztenc)
+    DEALLOCATE(ztenrhoc)
   ENDIF
   DEALLOCATE(ztenq)
   DEALLOCATE(ztent)
@@ -1718,21 +1727,22 @@ ENDIF
 !                  CLOUD CONDENSATE, CHANGE PRECIP UNITS IN M/S (if wanted, K. Froehlich, 19.01.2009)
 !                  --------------------------------------------------
 
+
   DO jk=ktdia,klev
      DO jl=kidia,kfdia
-       ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
-       pteni(jl,jk)=(1.0_JPRB-foealfcu(pten(jl,jk)))*ptenl(jl,jk)
-       ptenl(JL,JK)= ptenl(jl,jk)-pteni(JL,JK)
-      !PMFLXR(JL,JK)=PMFLXR(JL,JK)*1.E-3
-      !PMFLXS(JL,JK)=PMFLXS(JL,JK)*1.E-3
+       ptenrhoq(jl,jk)= (ptenq(jl,jk) - ztenq_sv(jl,jk)) &
+         &            * (zdph(jl,jk)/zdgeoh(jl,jk))
+       ptenrhol(jl,jk)=plude(jl,jk)*rg/zdgeoh(jl,jk)
+       ptenrhoi(jl,jk)=(1.0_JPRB-foealfcu(pten(jl,jk)))*ptenrhol(jl,jk)
+       ptenrhol(jl,jk)= ptenrhol(jl,jk)-ptenrhoi(jl,jk)
     ENDDO
   ENDDO
   IF (phy_params%lmfdsnow) THEN
     DO jk=ktdia,klev
       DO jl=kidia,kfdia
-        zdz = rg/(paph(jl,jk+1)-paph(jl,jk))
-        ptens(JL,JK)=psnde(JL,JK,1)*zdz
-        ptenr(JL,JK)=psnde(JL,JK,2)*zdz
+        zdz = rg/zdgeoh(jl,jk)
+        ptenrhos(jl,jk)=psnde(jl,jk,1)*zdz
+        ptenrhor(jl,jk)=psnde(jl,jk,2)*zdz
       ENDDO
     ENDDO
   ENDIF

@@ -757,7 +757,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        ! dummy array for convective QC tendency field, which is not allocated in LES mode
+        ! dummy array for convective RHOC tendency field, which is not allocated in LES mode
         zqc_pconv(:,:) = 0._wp
 
         CALL cover_koe &
@@ -780,7 +780,7 @@ CONTAINS
 &              ktype  = prm_diag%ktype       (:,jb)       ,       & !! in:  convection type
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
 &              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
-&              qc_tend     = zqc_pconv                    ,       & !! in:  convective qc tendency (does not exist in LES mode)
+&              rhoc_tend   = zqc_pconv                    ,       & !! in:  convective rhoc tendency (does not exist in LES mode)
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice

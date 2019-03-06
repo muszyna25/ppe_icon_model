@@ -57,7 +57,7 @@ MODULE mo_ser_echam_update_surface
     !$ser verbatim ENDIF
     !$ser verbatim IF (serializeStepIn .and. writeIn) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim   CALL init('echam_update_surface')
+    !$ser verbatim   CALL init('init')
     !$ser savepoint echam_update_surface-input jb=jb jg=jg jcs=jcs kproma=kproma kbdim=kbdim &
     !$ser&          kice=field%kice klev=klev klevp1=klevp1 ksfc_type=ksfc_type idx_wtr=idx_wtr &
     !$ser&          idx_ice=idx_ice idx_lnd=idx_lnd pdtime=pdtime iqv=iqv date=TRIM(date)
@@ -70,74 +70,74 @@ MODULE mo_ser_echam_update_surface
 #else
 #error SERIALIZATION MODE IS NOT SET
 #endif
-    !$ser data pfrc=field%frac_tile(:,jb,:)                 &
-    !$ser&     pcfh_tile=pcfh_tile                          &
-    !$ser&     pcfm_tile=pcfm_tile                          &
-    !$ser&     pfac_sfc=pfac_sfc                            &
-    !$ser&     pocu=field%ocu(:,jb)                         &
-    !$ser&     pocv=field%ocv(:,jb)                         &
-    !$ser&     aa=aa                                        &
-    !$ser&     aa_btm=aa_btm                                &
-    !$ser&     bb=bb                                        &
-    !$ser&     bb_btm=bb_btm                                &
-    !$ser&     pcpt_tile=pcpt_tile                          &
-    !$ser&     pqsat_tile=pqsat_tile                        &
-    !$ser&     ptsfc_tile=field%ts_tile(:,jb,:)             &
-    !$ser&     plhflx_tile=field%lhflx_tile(:,jb,:)         &
-    !$ser&     pshflx_tile=field%shflx_tile(:,jb,:)         &
-    !$ser&     lsm=field%lsmask(:,jb)                       &
-    !$ser&     alake%field%alake(:,jb)                      &
-    !$ser&     pu=field%ua(:,klev,jb)                       &
-    !$ser&     pv=field%va(:,klev,jb)                       &
-    !$ser&     ptemp=field%ta(:,klev,jb)                    &
-    !$ser&     pq=field%qtrc(:,klev,jb,iqv)                 &
-    !$ser&     pco2=pco2                                    &
-    !$ser&     prsfl=field%rsfl(:,jb)                       &
-    !$ser&     prsfc=field%rsfc(:,jb)                       &
-    !$ser&     pssfl=field%ssfl(:,jb)                       &
-    !$ser&     pssfc=field%ssfc(:,jb)                       &
-    !$ser&     rlds=field%rlds(:,jb)                        &
-    !$ser&     rlus=field%rlus(:,jb)                        &
-    !$ser&     rsds=field%rsds(:,jb)                        &
-    !$ser&     rsus=field%rsus(:,jb)                        &
-    !$ser&     rvds_dir=field%rvds_dir(:,jb)                &
-    !$ser&     rpds_dir=field%rpds_dir(:,jb)                &
-    !$ser&     rnds_dir=field%rnds_dir(:,jb)                &
-    !$ser&     rvds_dif=field%rvds_dif(:,jb)                &
-    !$ser&     rpds_dif=field%rpds_dif(:,jb)                &
-    !$ser&     rnds_dif=field%rnds_dif(:,jb)                &
-    !$ser&     ps=field%presi_old(:,klevp1,jb)              &
-    !$ser&     pcosmu0=field%cosmu0(:,jb)                   &
-    !$ser&     pch_tile=pch_tile                            &
-    !$ser&     pcsat=field%csat(:,jb)                       &
-    !$ser&     pcair=field%cair(:,jb)                       &
-    !$ser&     z0m_tile=field%z0m_tile(:,jb,:)              &
-    !$ser&     z0h_lnd=field%z0h_lnd(:,jb)                  &
-    !$ser&     albvisdir=field%albvisdir(:,jb)              &
-    !$ser&     albnirdir=field%albnirdir(:,jb)              &
-    !$ser&     albvisdif=field%albvisdif(:,jb)              &
-    !$ser&     albnirdif=field%albnirdif(:,jb)              &
-    !$ser&     albvisdir_tile=field%albvisdir_tile(:,jb,:)  &
-    !$ser&     albnirdir_tile=field%albnirdir_tile(:,jb,:)  &
-    !$ser&     albvisdif_tile=field%albvisdif_tile(:,jb,:)  &
-    !$ser&     albnirdif_tile=field%albnirdif_tile(:,jb,:)  &
-    !$ser&     albedo=field%albedo(:,jb)                    &
-    !$ser&     albedo_tile=field%albedo_tile(:,jb,:)        &
-    !$ser&     pco2_flux_tile=field%co2_flux_tile(:,jb,:)   &
-    !$ser&     rsns_tile=field%swflxsfc_tile(:,jb,:)        &
-    !$ser&     rlns_tile=field%lwflxsfc_tile(:,jb,:)        &
-    !$ser&     Tsurf=field%Tsurf(:,:,jb)                    &
-    !$ser&     T1=field%T1(:,:,jb)                          &
-    !$ser&     T2=field%T2(:,:,jb)                          &
-    !$ser&     hi=field%hi(:,:,jb)                          &
-    !$ser&     hs=field%hs(:,:,jb)                          &
-    !$ser&     Qtop=field%Qtop(:,:,jb)                      &
-    !$ser&     Qbot=field%Qbot(:,:,jb)                      &
-    !$ser&     conc=field%conc(:,:,jb)                      &
-    !$ser&     albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
-    !$ser&     albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
-    !$ser&     albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
-    !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
+    !$ser data echam_us_pfrc=field%frac_tile(:,jb,:)                 &
+    !$ser&     echam_us_pcfh_tile=pcfh_tile                          &
+    !$ser&     echam_us_pcfm_tile=pcfm_tile                          &
+    !$ser&     echam_us_pfac_sfc=pfac_sfc                            &
+    !$ser&     echam_us_pocu=field%ocu(:,jb)                         &
+    !$ser&     echam_us_pocv=field%ocv(:,jb)                         &
+    !$ser&     echam_us_aa=aa                                        &
+    !$ser&     echam_us_aa_btm=aa_btm                                &
+    !$ser&     echam_us_bb=bb                                        &
+    !$ser&     echam_us_bb_btm=bb_btm                                &
+    !$ser&     echam_us_pcpt_tile=pcpt_tile                          &
+    !$ser&     echam_us_pqsat_tile=pqsat_tile                        &
+    !$ser&     echam_us_ptsfc_tile=field%ts_tile(:,jb,:)             &
+    !$ser&     echam_us_plhflx_tile=field%lhflx_tile(:,jb,:)         &
+    !$ser&     echam_us_pshflx_tile=field%shflx_tile(:,jb,:)         &
+    !$ser&     echam_us_lsm=field%lsmask(:,jb)                       &
+    !$ser&     echam_us_alake%field%alake(:,jb)                      &
+    !$ser&     echam_us_pu=field%ua(:,klev,jb)                       &
+    !$ser&     echam_us_pv=field%va(:,klev,jb)                       &
+    !$ser&     echam_us_ptemp=field%ta(:,klev,jb)                    &
+    !$ser&     echam_us_pq=field%qtrc(:,klev,jb,iqv)                 &
+    !$ser&     echam_us_pco2=pco2                                    &
+    !$ser&     echam_us_prsfl=field%rsfl(:,jb)                       &
+    !$ser&     echam_us_prsfc=field%rsfc(:,jb)                       &
+    !$ser&     echam_us_pssfl=field%ssfl(:,jb)                       &
+    !$ser&     echam_us_pssfc=field%ssfc(:,jb)                       &
+    !$ser&     echam_us_rlds=field%rlds(:,jb)                        &
+    !$ser&     echam_us_rlus=field%rlus(:,jb)                        &
+    !$ser&     echam_us_rsds=field%rsds(:,jb)                        &
+    !$ser&     echam_us_rsus=field%rsus(:,jb)                        &
+    !$ser&     echam_us_rvds_dir=field%rvds_dir(:,jb)                &
+    !$ser&     echam_us_rpds_dir=field%rpds_dir(:,jb)                &
+    !$ser&     echam_us_rnds_dir=field%rnds_dir(:,jb)                &
+    !$ser&     echam_us_rvds_dif=field%rvds_dif(:,jb)                &
+    !$ser&     echam_us_rpds_dif=field%rpds_dif(:,jb)                &
+    !$ser&     echam_us_rnds_dif=field%rnds_dif(:,jb)                &
+    !$ser&     echam_us_ps=field%presi_old(:,klevp1,jb)              &
+    !$ser&     echam_us_pcosmu0=field%cosmu0(:,jb)                   &
+    !$ser&     echam_us_pch_tile=pch_tile                            &
+    !$ser&     echam_us_pcsat=field%csat(:,jb)                       &
+    !$ser&     echam_us_pcair=field%cair(:,jb)                       &
+    !$ser&     echam_us_z0m_tile=field%z0m_tile(:,jb,:)              &
+    !$ser&     echam_us_z0h_lnd=field%z0h_lnd(:,jb)                  &
+    !$ser&     echam_us_albvisdir=field%albvisdir(:,jb)              &
+    !$ser&     echam_us_albnirdir=field%albnirdir(:,jb)              &
+    !$ser&     echam_us_albvisdif=field%albvisdif(:,jb)              &
+    !$ser&     echam_us_albnirdif=field%albnirdif(:,jb)              &
+    !$ser&     echam_us_albvisdir_tile=field%albvisdir_tile(:,jb,:)  &
+    !$ser&     echam_us_albnirdir_tile=field%albnirdir_tile(:,jb,:)  &
+    !$ser&     echam_us_albvisdif_tile=field%albvisdif_tile(:,jb,:)  &
+    !$ser&     echam_us_albnirdif_tile=field%albnirdif_tile(:,jb,:)  &
+    !$ser&     echam_us_albedo=field%albedo(:,jb)                    &
+    !$ser&     echam_us_albedo_tile=field%albedo_tile(:,jb,:)        &
+    !$ser&     echam_us_pco2_flux_tile=field%co2_flux_tile(:,jb,:)   &
+    !$ser&     echam_us_rsns_tile=field%swflxsfc_tile(:,jb,:)        &
+    !$ser&     echam_us_rlns_tile=field%lwflxsfc_tile(:,jb,:)        &
+    !$ser&     echam_us_Tsurf=field%Tsurf(:,:,jb)                    &
+    !$ser&     echam_us_T1=field%T1(:,:,jb)                          &
+    !$ser&     echam_us_T2=field%T2(:,:,jb)                          &
+    !$ser&     echam_us_hi=field%hi(:,:,jb)                          &
+    !$ser&     echam_us_hs=field%hs(:,:,jb)                          &
+    !$ser&     echam_us_Qtop=field%Qtop(:,:,jb)                      &
+    !$ser&     echam_us_Qbot=field%Qbot(:,:,jb)                      &
+    !$ser&     echam_us_conc=field%conc(:,:,jb)                      &
+    !$ser&     echam_us_albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
+    !$ser&     echam_us_albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
+    !$ser&     echam_us_albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
+    !$ser&     echam_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)
     !$ser verbatim writeIn = .FALSE.
     !$ser verbatim IF (singleStepIn) THEN
     !$ser verbatim   serializeStepIn = .FALSE.
@@ -168,62 +168,62 @@ MODULE mo_ser_echam_update_surface
     !$ser verbatim ENDIF
     !$ser verbatim IF (serializeStepOut .and. writeOut) THEN
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
-    !$ser verbatim   CALL init('echam_update_surface')
+    !$ser verbatim   CALL init('init')
     !$ser savepoint echam_update_surface-output jb=jb jg=jg jcs=jcs kproma=kproma kbdim=kbdim &
     !$ser&          kice=field%kice klev=klev ksfc_type=ksfc_type idx_wtr=idx_wtr &
     !$ser&          idx_ice=idx_ice idx_lnd=idx_lnd pdtime=pdtime iqv=iqv date=TRIM(date)
     !$ser mode write
-    !$ser data aa=aa                                        &
-    !$ser&     aa_btm=aa_btm                                &
-    !$ser&     bb=bb                                        &
-    !$ser&     bb_btm=bb_btm                                &
-    !$ser&     pcpt_tile=pcpt_tile                          &
-    !$ser&     pqsat_tile=pqsat_tile                        &
-    !$ser&     ptsfc_tile=field%ts_tile(:,jb,:)             &
-    !$ser&     pu_stress_gbm=field%u_stress(:,jb)           &
-    !$ser&     pv_stress_gbm=field%v_stress(:,jb)           &
-    !$ser&     plhflx_gbm=field%lhflx(:,jb)                 &
-    !$ser&     pshflx_gbm=field%shflx(:,jb)                 &
-    !$ser&     pevap_gbm=field%evap(:,jb)                   &
-    !$ser&     pu_stress_tile=field%u_stress_tile(:,jb,:)   &
-    !$ser&     pv_stress_tile=field%v_stress_tile(:,jb,:)   &
-    !$ser&     plhflx_tile=field%lhflx_tile(:,jb,:)         &
-    !$ser&     pshflx_tile=field%shflx_tile(:,jb,:)         &
-    !$ser&     pevap_tile=field%evap_tile(:,jb,:)           &
-    !$ser&     pco2nat=field%fco2nat(:,jb)                  &
-    !$ser&     rlus=field%rlus(:,jb)                        &
-    !$ser&     pcsat=field%csat(:,jb)                       &
-    !$ser&     pcair=field%cair(:,jb)                       &
-    !$ser&     q_snocpymlt=q_snocpymlt                      &
-    !$ser&     z0m_tile=field%z0m_tile(:,jb,:)              &
-    !$ser&     z0h_lnd=field%z0h_lnd(:,jb)                  &
-    !$ser&     albvisdir=field%albvisdir(:,jb)              &
-    !$ser&     albnirdir=field%albnirdir(:,jb)              &
-    !$ser&     albvisdif=field%albvisdif(:,jb)              &
-    !$ser&     albnirdif=field%albnirdif(:,jb)              &
-    !$ser&     albvisdir_tile=field%albvisdir_tile(:,jb,:)  &
-    !$ser&     albnirdir_tile=field%albnirdir_tile(:,jb,:)  &
-    !$ser&     albvisdif_tile=field%albvisdif_tile(:,jb,:)  &
-    !$ser&     albnirdif_tile=field%albnirdif_tile(:,jb,:)  &
-    !$ser&     albedo=field%albedo(:,jb)                    &
-    !$ser&     albedo_tile=field%albedo_tile(:,jb,:)        &
-    !$ser&     co2_flux_tile=field%co2_flux_tile(:,jb,:)    &
-    !$ser&     ptsfc=field%ts(:,jb)                         &
-    !$ser&     ptsfc_rad=field%ts_rad(:,jb)                 &
-    !$ser&     rsns_tile=field%swflxsfc_tile(:,jb,:)        &
-    !$ser&     rlns_tile=field%lwflxsfc_tile(:,jb,:)        &
-    !$ser&     lake_ice_frc=field%lake_ice_frc(:,jb)        &
-    !$ser&     Tsurf=field%Tsurf(:,:,jb)                    &
-    !$ser&     T1=field%T1(:,:,jb)                          &
-    !$ser&     T2=field%T2(:,:,jb)                          &
-    !$ser&     hi=field%hi(:,:,jb)                          &
-    !$ser&     hs=field%hs(:,:,jb)                          &
-    !$ser&     Qtop=field%Qtop(:,:,jb)                      &
-    !$ser&     Qbot=field%Qbot(:,:,jb)                      &
-    !$ser&     albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
-    !$ser&     albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
-    !$ser&     albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
-    !$ser&     albnirdif_ice=field%albnirdif_ice(:,:,jb)
+    !$ser data echam_us_aa=aa                                        &
+    !$ser&     echam_us_aa_btm=aa_btm                                &
+    !$ser&     echam_us_bb=bb                                        &
+    !$ser&     echam_us_bb_btm=bb_btm                                &
+    !$ser&     echam_us_pcpt_tile=pcpt_tile                          &
+    !$ser&     echam_us_pqsat_tile=pqsat_tile                        &
+    !$ser&     echam_us_ptsfc_tile=field%ts_tile(:,jb,:)             &
+    !$ser&     echam_us_pu_stress_gbm=field%u_stress(:,jb)           &
+    !$ser&     echam_us_pv_stress_gbm=field%v_stress(:,jb)           &
+    !$ser&     echam_us_plhflx_gbm=field%lhflx(:,jb)                 &
+    !$ser&     echam_us_pshflx_gbm=field%shflx(:,jb)                 &
+    !$ser&     echam_us_pevap_gbm=field%evap(:,jb)                   &
+    !$ser&     echam_us_pu_stress_tile=field%u_stress_tile(:,jb,:)   &
+    !$ser&     echam_us_pv_stress_tile=field%v_stress_tile(:,jb,:)   &
+    !$ser&     echam_us_plhflx_tile=field%lhflx_tile(:,jb,:)         &
+    !$ser&     echam_us_pshflx_tile=field%shflx_tile(:,jb,:)         &
+    !$ser&     echam_us_pevap_tile=field%evap_tile(:,jb,:)           &
+    !$ser&     echam_us_pco2nat=field%fco2nat(:,jb)                  &
+    !$ser&     echam_us_rlus=field%rlus(:,jb)                        &
+    !$ser&     echam_us_pcsat=field%csat(:,jb)                       &
+    !$ser&     echam_us_pcair=field%cair(:,jb)                       &
+    !$ser&     echam_us_q_snocpymlt=q_snocpymlt                      &
+    !$ser&     echam_us_z0m_tile=field%z0m_tile(:,jb,:)              &
+    !$ser&     echam_us_z0h_lnd=field%z0h_lnd(:,jb)                  &
+    !$ser&     echam_us_albvisdir=field%albvisdir(:,jb)              &
+    !$ser&     echam_us_albnirdir=field%albnirdir(:,jb)              &
+    !$ser&     echam_us_albvisdif=field%albvisdif(:,jb)              &
+    !$ser&     echam_us_albnirdif=field%albnirdif(:,jb)              &
+    !$ser&     echam_us_albvisdir_tile=field%albvisdir_tile(:,jb,:)  &
+    !$ser&     echam_us_albnirdir_tile=field%albnirdir_tile(:,jb,:)  &
+    !$ser&     echam_us_albvisdif_tile=field%albvisdif_tile(:,jb,:)  &
+    !$ser&     echam_us_albnirdif_tile=field%albnirdif_tile(:,jb,:)  &
+    !$ser&     echam_us_albedo=field%albedo(:,jb)                    &
+    !$ser&     echam_us_albedo_tile=field%albedo_tile(:,jb,:)        &
+    !$ser&     echam_us_co2_flux_tile=field%co2_flux_tile(:,jb,:)    &
+    !$ser&     echam_us_ptsfc=field%ts(:,jb)                         &
+    !$ser&     echam_us_ptsfc_rad=field%ts_rad(:,jb)                 &
+    !$ser&     echam_us_rsns_tile=field%swflxsfc_tile(:,jb,:)        &
+    !$ser&     echam_us_rlns_tile=field%lwflxsfc_tile(:,jb,:)        &
+    !$ser&     echam_us_lake_ice_frc=field%lake_ice_frc(:,jb)        &
+    !$ser&     echam_us_Tsurf=field%Tsurf(:,:,jb)                    &
+    !$ser&     echam_us_T1=field%T1(:,:,jb)                          &
+    !$ser&     echam_us_T2=field%T2(:,:,jb)                          &
+    !$ser&     echam_us_hi=field%hi(:,:,jb)                          &
+    !$ser&     echam_us_hs=field%hs(:,:,jb)                          &
+    !$ser&     echam_us_Qtop=field%Qtop(:,:,jb)                      &
+    !$ser&     echam_us_Qbot=field%Qbot(:,:,jb)                      &
+    !$ser&     echam_us_albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
+    !$ser&     echam_us_albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
+    !$ser&     echam_us_albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
+    !$ser&     echam_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)
     !$ser verbatim writeOut = .FALSE.
     !$ser verbatim IF (singleStepOut) THEN
     !$ser verbatim   serializeStepOut = .FALSE.

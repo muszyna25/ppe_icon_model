@@ -30,6 +30,7 @@ USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
 USE mo_assimilation_config,  ONLY: configure_lhn
+USE mo_lnd_nwp_config,       ONLY: groups_smi
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -168,7 +169,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist
+    INTEGER :: jg, jt, ist, jgroup
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
@@ -184,7 +185,7 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
 
-      CALL configure_ensemble_pert(ext_data)
+      CALL configure_ensemble_pert(ext_data, time_config%tc_exp_startdate)
 
       ! - generate index lists for tiles (land, ocean, lake)
       ! index lists for ice-covered and non-ice covered ocean points
@@ -259,6 +260,21 @@ CONTAINS
         l_rh(jg)  = is_variable_in_output(first_output_name_list, var_name="rh")
         l_pv(jg)  = is_variable_in_output(first_output_name_list, var_name="pv")
         l_smi(jg) = is_variable_in_output(first_output_name_list, var_name="smi")
+        ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
+        ! In this case, the group can not be checked, as the connection between SMI and the group will be
+        ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
+        ! As a crutch, a character array containing the output groups of SMI from mo_lnd_nwp_config is used
+        ! here and also at the add_var call.
+        ! The check loops through the output groups. It has to be checked if l_smi is already .true., to not
+        ! overwrite an existing .true. with a false. 
+        IF(.not.l_smi(jg) ) THEN 
+          ! Check for output groups containing SMI
+          DO jgroup = 1,SIZE(groups_smi)
+            IF(.not.l_smi(jg) ) THEN
+              l_smi(jg) = is_variable_in_output(first_output_name_list, var_name='group:'//TRIM(groups_smi(jgroup)))
+            END IF
+          END DO
+        END IF
       END DO
     END IF
 

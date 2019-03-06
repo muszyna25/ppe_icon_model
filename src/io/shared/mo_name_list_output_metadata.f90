@@ -8,7 +8,7 @@
 !!
 MODULE mo_name_list_output_metadata
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_intptr_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer
   USE mo_exception,                         ONLY: finish
   USE mo_kind,                              ONLY: i8
   USE mo_var_metadata_types,                ONLY: t_var_metadata
@@ -71,8 +71,8 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_allocate_memory_window"
-    INTEGER                         :: nbytes_int, mpierr
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
+    INTEGER                         :: mpierr
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, nbytes_int, mem_bytes, typeLB
     TYPE(c_ptr)                     :: c_mem_ptr
 
 #ifdef __SX__
@@ -82,20 +82,8 @@ CONTAINS
     ! total number of required integer variables
     mem_size = nvars * metainfo_get_size()
     ! Get amount of bytes per INTEGER variable (in MPI communication)
-    CALL MPI_Type_extent(p_int, nbytes_int, mpierr)
-    mem_bytes = MAX(mem_size, 1_i8)*INT(nbytes_int,i8)
-
-    ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(c_ptr) does not have the size indicated
-    ! by c_intptr_t since the standard only requires c_intptr_t is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
-
-    IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
+    CALL MPI_TYPE_GET_EXTENT(p_int, typeLB, nbytes_int, mpierr)
+    mem_bytes = MAX(mem_size, 1_i8) * nbytes_int
 
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
@@ -104,7 +92,7 @@ CONTAINS
 
     ! Create memory window for meta-data communication
     memwin%mem_ptr_metainfo_pe0(:) = 0
-    CALL MPI_Win_create( memwin%mem_ptr_metainfo_pe0, mem_bytes, nbytes_int, MPI_INFO_NULL, &
+    CALL MPI_Win_create( memwin%mem_ptr_metainfo_pe0, mem_bytes, INT(nbytes_int), MPI_INFO_NULL, &
       &                  p_comm_work_io, memwin%mpi_win_metainfo, mpierr )
     IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 #endif

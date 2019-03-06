@@ -62,66 +62,6 @@ MODULE mo_nonhydrostatic_nml
   PRIVATE
   PUBLIC  :: read_nonhydrostatic_namelist
 
-  !-----------------------------------------------------------------------------
-  ! Namelist variables
-  !-----------------------------------------------------------------------------
-
-
-  INTEGER  :: itime_scheme   ! parameter used to select the time stepping scheme
-                             ! = 1, explicit 2 time level scheme for tracer
-                             ! 4, 5, 6 = predictor-corrector scheme
-                             ! 4: Contravariant vertical velocity is computed in the predictor step only,
-                             !    velocity tendencies are computed in the corrector step only (most efficient option)
-                             ! 5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
-                             !    stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)
-                             ! 6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive)
-
-  INTEGER :: ndyn_substeps           ! number of dynamics substeps per fast-physics step
-  LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion only at the large time step
-  LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
-                                     ! to the CFL stability limit for vertical advection
-  REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
-  INTEGER :: divdamp_order           ! Order of divergence damping
-  INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
-  REAL(wp):: divdamp_trans_start     ! Lower bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
-  REAL(wp):: divdamp_trans_end       ! Upper bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
-  INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
-  REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
-                                     ! where processes related to moist physics are computed
-  REAL(wp):: hbot_qvsubstep          ! Bottom height (in m) down to which water vapor is 
-                                     ! advected with internal substepping (to circumvent CFL 
-                                     ! instability in the stratopause region).
-
-  INTEGER :: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
-  REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
-  REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
-  REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
-  REAL(wp):: rhotheta_offctr         ! Off-centering for density and potential temperature at interface levels
-  REAL(wp):: veladv_offctr           ! Off-centering for velocity advection
-  INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
-  INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
-  REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
-                                     ! horizontal pressure gradient
-  LOGICAL :: l_open_ubc              ! .true.: open upper boundary condition (w=0 otherwise)
-
-  INTEGER :: nest_substeps           ! the number of dynamics substeps for the child patches
-  LOGICAL :: l_masscorr_nest         ! Apply mass conservation correction also to nested domain
-  
-  LOGICAL :: l_zdiffu_t              ! .true.: apply truly horizontal temperature diffusion
-                                     !         over steep slopes
-  REAL(wp):: thslp_zdiffu            ! threshold slope above which temperature diffusion is applied
-  REAL(wp):: thhgtd_zdiffu           ! threshold height diff. between adjacent model grid points
-                                     ! above which temperature diffusion is applied
-
-
-  NAMELIST /nonhydrostatic_nml/ itime_scheme, ndyn_substeps, ivctype, htop_moist_proc,    &
-                              & hbot_qvsubstep, damp_height, rayleigh_type,               &
-                              & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
-                              & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
-                              & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
-                              & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
-                              & rhotheta_offctr, lextra_diffu, veladv_offctr,             &
-                              & divdamp_trans_start, divdamp_trans_end
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -149,6 +89,65 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nonhydrostatic_nml:read_nonhydrostatic_namelist'
+
+    !-----------------------------------------------------------------------------
+    ! Namelist variables
+    !-----------------------------------------------------------------------------
+    INTEGER  :: itime_scheme   ! parameter used to select the time stepping scheme
+    ! = 1, explicit 2 time level scheme for tracer
+    ! 4, 5, 6 = predictor-corrector scheme
+    ! 4: Contravariant vertical velocity is computed in the predictor step only,
+    !    velocity tendencies are computed in the corrector step only (most efficient option)
+    ! 5: Contravariant vertical velocity is computed in both substeps (beneficial for numerical
+    !    stability in very-high resolution setups with extremely steep slops, otherwise no significant impact)
+    ! 6: As 5, but velocity tendencies are also computed in both substeps (no apparent benefit, but more expensive)
+
+    INTEGER :: ndyn_substeps           ! number of dynamics substeps per fast-physics step
+    LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion only at the large time step
+    LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close
+    ! to the CFL stability limit for vertical advection
+    REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
+    INTEGER :: divdamp_order           ! Order of divergence damping
+    INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
+    REAL(wp):: divdamp_trans_start     ! Lower bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
+    REAL(wp):: divdamp_trans_end       ! Upper bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
+    INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
+    REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
+    ! where processes related to moist physics are computed
+    REAL(wp):: hbot_qvsubstep          ! Bottom height (in m) down to which water vapor is
+    ! advected with internal substepping (to circumvent CFL
+    ! instability in the stratopause region).
+
+    INTEGER :: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
+    REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
+    REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
+    REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
+    REAL(wp):: rhotheta_offctr         ! Off-centering for density and potential temperature at interface levels
+    REAL(wp):: veladv_offctr           ! Off-centering for velocity advection
+    INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
+    INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
+    REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
+    ! horizontal pressure gradient
+    LOGICAL :: l_open_ubc              ! .true.: open upper boundary condition (w=0 otherwise)
+
+    INTEGER :: nest_substeps           ! the number of dynamics substeps for the child patches
+    LOGICAL :: l_masscorr_nest         ! Apply mass conservation correction also to nested domain
+
+    LOGICAL :: l_zdiffu_t              ! .true.: apply truly horizontal temperature diffusion
+    !         over steep slopes
+    REAL(wp):: thslp_zdiffu            ! threshold slope above which temperature diffusion is applied
+    REAL(wp):: thhgtd_zdiffu           ! threshold height diff. between adjacent model grid points
+    ! above which temperature diffusion is applied
+
+
+    NAMELIST /nonhydrostatic_nml/ itime_scheme, ndyn_substeps, ivctype, htop_moist_proc,    &
+         & hbot_qvsubstep, damp_height, rayleigh_type,               &
+         & rayleigh_coeff, vwind_offctr, iadv_rhotheta, lhdiff_rcf,  &
+         & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
+         & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
+         & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
+         & rhotheta_offctr, lextra_diffu, veladv_offctr,             &
+         & divdamp_trans_start, divdamp_trans_end
 
     !-----------------------
     ! 1. default settings

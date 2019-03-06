@@ -63,7 +63,7 @@ The main switch for the Latent heat nudging scheme is called ldass\_lhn and has 
 \begin{longtab}
 
 %\hline
-\textbf{nlhn\_start}&
+ {nlhn\_start}&
 I&
 -9999&
 s&
@@ -72,7 +72,7 @@ run\_nml:ldass\_lhn = .true.
 \tabularnewline
 
 %\hline
-\textbf{nlhn\_end}&
+ {nlhn\_end}&
 I&
 -9999&
 s&
@@ -81,7 +81,7 @@ run\_nml:ldass\_lhn = .true.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_coef}&
+ {lhn\_coef}&
 R&
 1.0&
 &
@@ -89,7 +89,7 @@ Nudging coefficient of adding the increments&
 \tabularnewline
 
 %\hline
-\textbf{fac\_lhn\_up}&
+ {fac\_lhn\_up}&
 R&
 2.0&
 &
@@ -97,7 +97,7 @@ Upper limit of the scaling factor of the temperature profile.&
 \tabularnewline
 
 %\hline
-\textbf{fac\_lhn\_down}&
+ {fac\_lhn\_down}&
 R&
 0.5&
 &
@@ -105,7 +105,7 @@ Lower limit of the scaling factor of the temperature profile.&
 \tabularnewline
 
 %\hline
-\textbf{lhn\_logscale}&
+ {lhn\_logscale}&
 L&
 .TRUE.&
 &
@@ -114,7 +114,7 @@ fac\_lhn\_down, fac\_lhn\_up, fac\_lhn\_artif
 \tabularnewline
 
 %\hline
-\textbf{thres\_lhn}&
+ {thres\_lhn}&
 R&
 0.1/3600.&
 mm/s&
@@ -122,7 +122,7 @@ Minimal value of precipitation rate, either of model or radar. LHN will be appli
 \tabularnewline
 
 %\hline
-\textbf{start\_fadeout}&
+ {start\_fadeout}&
 R&
 1.0&
 &
@@ -130,7 +130,7 @@ Value to determine, at which model time step a fading out of the increments migh
 \tabularnewline
 
 %\hline
-\textbf{lhn\_qrs}&
+ {lhn\_qrs}&
 L&
 .TRUE.&
 &
@@ -140,7 +140,7 @@ If set .FALSE. the model surface precipitation rate is used as reference.&
 \tabularnewline
 
 %\hline
-\textbf{rqrsgmax}&
+ {rqrsgmax}&
 R&
 1.0&
 &
@@ -150,7 +150,7 @@ lhn\_qrs = .TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_hum\_adj}&
+ {lhn\_hum\_adj}&
 L&
 .TRUE.&
 &
@@ -158,7 +158,7 @@ Apply an increment of specific humidity with respect to the estimated temperatur
 \tabularnewline
 
 %\hline
-\textbf{lhn\_no\_ttend}&
+ {lhn\_no\_ttend}&
 L&
 .FALSE.&
 &
@@ -167,7 +167,7 @@ lhn\_hum\_adj=.TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_incloud}&
+ {lhn\_incloud}&
 L&
 .TRUE.&
 &
@@ -176,7 +176,7 @@ lhn\_artif\_only=.FALSE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_limit}&
+ {lhn\_limit}&
 L&
 .TRUE.&
 &
@@ -185,7 +185,7 @@ abs\_lhn\_lim
 \tabularnewline
 
 %\hline
-\textbf{abs\_lhn\_lim}&
+ {abs\_lhn\_lim}&
 R&
 50./3600.&
 K/s&
@@ -194,7 +194,7 @@ lhn\_limit = .TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_filt}&
+ {lhn\_filt}&
 L&
 .TRUE.&
 &
@@ -202,7 +202,7 @@ Vertical smoothing of the profile of temperature increments &
 \tabularnewline
 
 %\hline
-\textbf{lhn\_relax}&
+ {lhn\_relax}&
 L&
 .FALSE.&
 &
@@ -211,7 +211,7 @@ nlhn\_relax
 \tabularnewline
 
 %\hline
-\textbf{nlhn\_relax}&
+ {nlhn\_relax}&
 I&
 2&
 grid points&
@@ -220,7 +220,7 @@ lhn\_relax = .TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_artif}&
+ {lhn\_artif}&
 L&
 .TRUE.&
 &
@@ -229,7 +229,7 @@ fac\_lhn\_artif, tt\_artif\_max, zlev\_artif\_max, std\_artif\_ma
 \tabularnewline
 
 %\hline
-\textbf{fac\_lhn\_artif}&
+ {fac\_lhn\_artif}&
 R&
 5.0&
 &
@@ -238,7 +238,7 @@ lhn\_artif=.TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_artif\_only}&
+ {lhn\_artif\_only}&
 L&
 .FALSE.&
 &
@@ -248,7 +248,7 @@ tt\_artif\_max, zlev\_artif\_max, std\_artif\_max
 \tabularnewline
 
 %\hline
-\textbf{tt\_artif\_max}&
+ {tt\_artif\_max}&
 R&
 0.0015&
 K&
@@ -257,7 +257,7 @@ lhn\_artif, lhn\_artif\_only
 \tabularnewline
 
 %\hline
-\textbf{zlev\_artif\_max}&
+ {zlev\_artif\_max}&
 R&
 1000.0&
 m&
@@ -266,7 +266,7 @@ lhn\_artif, lhn\_artif\_only
 \tabularnewline
 
 %\hline
-\textbf{std\_artif\_max}&
+ {std\_artif\_max}&
 R&
 4.0&
 m&
@@ -275,7 +275,7 @@ lhn\_artif, lhn\_artif\_only
 \tabularnewline
 
 %\hline
-\textbf{nlhnverif\_start}&
+ {nlhnverif\_start}&
 I&
 -9999&
 s&
@@ -284,7 +284,7 @@ run\_nml:ldass\_lhn = .true.
 \tabularnewline
 
 %\hline
-\textbf{nlhnverif\_end}&
+ {nlhnverif\_end}&
 I&
 -9999&
 s&
@@ -293,7 +293,7 @@ run\_nml:ldass\_lhn = .true.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_diag}&
+ {lhn\_diag}&
 L&
 .FALSE.&
 &
@@ -302,7 +302,7 @@ lhn\_diag is set .TRUE. automatically, when online verification is active.&
 \tabularnewline
 
 %\hline
-\textbf{lhn\_dt\_obs}&
+ {lhn\_dt\_obs}&
 R&
 300.0&
 s&
@@ -310,7 +310,7 @@ Frequency of the radar observations&
 \tabularnewline
 
 %\hline
-\textbf{radar\_in}&
+ {radar\_in}&
 C&
 './'&
 &
@@ -318,7 +318,7 @@ Path where the radar data file is expected.&
 \tabularnewline
 
 %\hline
-\textbf{radardata\_file(:)}&
+ {radardata\_file(:)}&
 C (n\_dom)&
 &
 &
@@ -326,7 +326,7 @@ Name of the radar data file. This might be either in GRIB2 or in NetCDF (recomme
 \tabularnewline
 
 %\hline
-\textbf{lhn\_black}&
+ {lhn\_black}&
 L&
 .FALSE.&
 &
@@ -334,7 +334,7 @@ Apply a blacklist information in the radar data obtained by comparison against s
 \tabularnewline
 
 %\hline
-\textbf{blacklist\_file(:)}&
+ {blacklist\_file(:)}&
 C (n\_dom)&
 &
 &
@@ -346,7 +346,7 @@ lhn\_black=.TRUE.
 \tabularnewline
 
 %\hline
-\textbf{lhn\_bright}&
+ {lhn\_bright}&
 L&
 .FALSE.&
 &
@@ -354,7 +354,7 @@ Apply a model intern bright band detection to avoid strong overestimation due to
 \tabularnewline
 
 %\hline
-\textbf{height\_file(:)}&
+ {height\_file(:)}&
 C (n\_dom)&
 &
 &
@@ -365,7 +365,7 @@ lhn\_bright=.TRUE.
 \tabularnewline
 
 %\hline
-\textbf{nradar}&
+ {nradar}&
 I (n\_dom)&
 200&
 &
@@ -1381,10 +1381,29 @@ L&
 &
 Main switch to activate physics parameter perturbations for ensemble forecasts / ensemble data assimilation; 
 the perturbations are applied via random numbers depending on the perturbationNumber 
-(ensemble member ID) specified in gribout\_nml    &
+(ensemble member ID) specified in gribout\_nml. Perturbations are always turned off if perturbationNumber $\le$ 0   &
 run\_nml:iforcing = inwp
 \tabularnewline
 
+\hline
+itype\_pert\_gen&
+I&
+1&
+&
+Mode of ensemble perturbation generation\\
+1: Equal distribution within perturbation range\\
+2: Discrete distribution with 50\% probability for default value and 25\% probability for upper and lower extrema&
+\tabularnewline
+
+\hline
+timedep\_pert&
+I&
+0&
+&
+Time-dependence of ensemble perturbations (except tkred\_sfc, which oscillates with a time scale of 20 days)\\
+0: None\\
+1: Random seed for perturbation generation depends on initial date&
+\tabularnewline
 
 \hline
 range\_gkwake&
@@ -1422,12 +1441,20 @@ Variability range for non-orographic gravity wave launch momentum flux &
 \hline
 range\_zvz0i&
 R&
-0.2&
+0.25&
 m/s&
-Variability range for terminal fall velocity of ice&
+Variability range for terminal fall velocity of cloud ice&
 inwp\_gscp = 1 or 2
 \tabularnewline
 
+\hline
+range\_rain\_n0fac&
+R&
+4.&
+&
+Multiplicative change of intercept parameter of raindrop size distribution&
+inwp\_gscp = 1 or 2
+\tabularnewline
 
 \hline
 range\_entrorg&
@@ -1435,6 +1462,24 @@ R&
 0.2e-3&
 1/m&
 Variability range for entrainment parameter in convection scheme & 
+inwp\_convection = 1
+\tabularnewline
+
+\hline
+range\_rdepths&
+R&
+5.e3&
+Pa&
+Variability range for maximum allowed shallow convection depth & 
+inwp\_convection = 1
+\tabularnewline
+
+\hline
+range\_rprcon&
+R&
+0.25e-3&
+&
+Variability range for tuning parameter controlling conversion of cloud water into precipitation & 
 inwp\_convection = 1
 \tabularnewline
 
@@ -1467,6 +1512,15 @@ inwp\_convection = 1
 \tabularnewline
 
 \hline
+range\_qexc&
+R&
+0.005&
+&
+Variability range for mixing ratio excess value in test parcel ascent & 
+inwp\_convection = 1
+\tabularnewline
+
+\hline
 range\_box\_liq&
 R&
 0.01&
@@ -1475,12 +1529,20 @@ Variability range for box width scale of liquid clouds in cloud cover scheme &
 inwp\_cldcover = 1
 \tabularnewline
 
+\hline
+range\_box\_liq\_asy&
+R&
+0.25&
+&
+Variability range for asymmetry factor for sub-grid scale liquid cloud distribution &
+inwp\_cldcover = 1
+\tabularnewline
 
 \hline
 range\_tkhmin&
 R&
 0.2&
-&
+m$^2$s$^{-1}$&
 Variability range for minimum vertical diffusion for heat/moisture &
 inwp\_turb = 1
 \tabularnewline
@@ -1489,8 +1551,26 @@ inwp\_turb = 1
 range\_tkmmin&
 R&
 0.2&
-&
+m$^2$s$^{-1}$&
 Variability range for minimum vertical diffusion for momentum &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_turlen&
+R&
+150&
+m&
+Variability range for turbulent mixing length &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_a\_hshr&
+R&
+1&
+&
+Variability range for scaling factor for extended horizontal shear term&
 inwp\_turb = 1
 \tabularnewline
 
@@ -1524,7 +1604,7 @@ inwp\_turb = 1
 \hline
 range\_minsnowfrac&
 R&
-0.05&
+0.1&
 &
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
 idiag\_snowfrac = 20/30/40
@@ -1578,6 +1658,17 @@ R&
 Variability range (relative change) of leaf area index (maximum of annual cycle) attributed to each landuse class &
 \tabularnewline
 
+
+\hline
+stdev\_sst\_pert&
+R&
+0.&
+K&
+Inserting the standard deviation of SST perturbations (present in the model input data) activates 
+a correction factor for the saturation vapor pressure over oceans,
+which compensates the systematic increase of evaporation due to the SST perturbations.
+&
+\tabularnewline
 
 \end{longtab}
 
@@ -1760,11 +1851,6 @@ Defined and used in: \verb+src/namelists/mo_gribout_nml.f90+
 \subsection{grid\_nml}
 \begin{longtab}
 
-%\hline
-cell\_type&
-I & 3& &
-Cell type: not used &
-\tabularnewline
 
 %\hline
 lplane &
@@ -2271,6 +2357,22 @@ init\_mode=5,6
 \tabularnewline
 
 %\hline
+qcana\_mode&
+I & 0 & &
+If $>$ 0, analysis increments for cloud water are read and processed. \\
+1: QC increments are added to QV increments \\
+2: QC increments are added to QC if clouds are present, otherwise to QV increments &
+init\_mode=5
+\tabularnewline
+
+%\hline
+qiana\_mode&
+I & 0 & &
+1: analysis increments for cloud ice are read and processed.  &
+init\_mode=5
+\tabularnewline
+
+%\hline
 lconsistency\_checks&
 L & .TRUE.& &
 If .FALSE., consistency checks for Analysis and First Guess fields are skipped. On default, checks are performed for 
@@ -2450,19 +2552,20 @@ conservative (T) or non-conservative (F) least-squares reconstruction for 2nd or
 %\hline
 nudge\_efold\_width&
 R& 2.0& &
-e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
+e-folding width (in units of cell rows) for lateral boundary nudging coefficient. This switch and the following two pertain 
+to one-way nesting and limited-area mode &
 \tabularnewline
 
 %\hline
 nudge\_max\_coeff&
 R& 0.02& &
-Maximum relaxation coefficient for lateral boundary nudging&
+Maximum relaxation coefficient for lateral boundary nudging. Recommended range of values for limited-area mode is 0.06 -- 0.075.&
 \tabularnewline
 
 %\hline
 nudge\_zone\_width&
 I& 8& &
-Total width (in units of cell rows) for lateral boundary nudging zone. 
+Total width (in units of cell rows) for lateral boundary nudging zone. For the limited-area mode, a minimum of 10 is recommended.
 If < 0 the patch boundary\_depth\_index is used. &
 \tabularnewline
 
@@ -2764,7 +2867,7 @@ Allowed settings for \texttt{restart\_write\_mode} are:\\[1em]
 \hspace*{2em} 
 \parbox{0.8\textwidth}{\raggedright%
 
-  In this case, all the restart data is first transfered to memory
+  In this case, all the restart data is first transferred to memory
   buffers in dedicated restart writer PEs.  After that, the work
   processes carry on with their work immediately, while the restart
   writers perform the actual restart writing asynchronously.  Restart
@@ -2930,7 +3033,8 @@ source (IFS, COSMO or a coarser-resolution ICON run), \\
 %
 2: Test mode using time-dependent lateral boundary conditions from a
 nested ICON run in which the present limited-area domain was operated
-as a nested grid with identical(!) model level configuration.
+as a nested grid with identical(!) model level configuration. \\
+Available for synchronous read mode (num\_prefetch\_proc = 0) only!
 \tabularnewline
 
 %\hline
@@ -2952,6 +3056,19 @@ If .TRUE., take lateral boundary conditions for initial time from first guess (o
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
+
+
+%\hline
+nudge\_hydro\_pres&
+L &
+.TRUE. & 
+&
+If .TRUE., hydrostatic pressure is used to compute lateral boundary nudging (recommended
+if boundary conditions contain hydrostatic pressure, which is usually the case)
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
 
 %\hline
 \textbf{latbc\_filename}&
@@ -3013,6 +3130,26 @@ boundary data nudging in a HDCP2 simulation. All new boundary variables
 that in the future, would be read asynchronously. Need to be added to text 
 file dict.latbc in run folder.   
 & num\_prefetch\_proc=1
+\tabularnewline
+
+
+%\hline
+nretries&
+I &
+0 & 
+&
+If LatBC data is unavailable: number of retries
+&
+\tabularnewline
+
+
+%\hline
+retry\_wait\_sec&
+I &
+10 & 
+&
+If LatBC data is unavailable: idle wait seconds between retries
+&
 \tabularnewline
 
 
@@ -3157,7 +3294,8 @@ idiag\_snowfrac &
 I & 1 &  & Type of snow-fraction diagnosis:\\ 
 1 = based on SWE only\\
 2--4 = more advanced experimental methods \\ 
-20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow&
+20, 30, 40 = same as 2, 3, 4, respectively, but with artificial reduction of snow fraction in case of melting snow
+(shold be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
 
@@ -3166,7 +3304,8 @@ itype\_snowevap &
 I & 2 &  & Tuning of snow evaporation in vegetated areas:\\ 
 1: Tuning turned off\\
 2: First level of tuning without additional control variables \\ 
-3: Second level of tuning with additional I/O variables for snow age and maximum snow depth&
+3: Second level of tuning with additional I/O variables for snow age and maximum snow depth
+(should be used only if these additional variables are avaliable from the DWD assimilation cycle)&
 lsnowtile=.TRUE.
 \tabularnewline
 
@@ -3200,7 +3339,7 @@ itype\_trvg &
 I & 2 &  & type of plant transpiration parameterization \\
 2 = BATS scheme, Dickinson (1984)\\
 3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
-should be used only with an appropriate first guess for this variable coming from the assimilation cycle &
+should be used only with an appropriate first guess for this variable coming from the DWD assimilation cycle &
 \tabularnewline
 
 %\hline
@@ -3215,7 +3354,7 @@ I & 2 &  & type of soil heat conductivity \\
 itype\_interception &
 I & 1 &  & type of plant interception \\
 1 = standard scheme, effectively switched off by tiny value cwimax\_ml\\
-2 = Rain and snow interception (\textcolor{red}{under development}) &
+2 = Rain and snow interception (\textcolor{red}{to be removed}) &
 \tabularnewline
 
 %\hline
@@ -3252,7 +3391,7 @@ If .FALSE., use constant value of $150\, \mathrm{s/m}$.
 
 %\hline
 l2tls &
-L & .TRUE. &  & If .TRUE., forecast with 2-Time-Level integration scheme
+L & .TRUE. &  & If .TRUE., forecast with 2-Time-Level integration scheme (mandatory in ICON)
 &
 \tabularnewline
 
@@ -3679,19 +3818,21 @@ ihadv\_tracer=22, 32, 42 or 52
 %\hline
 vwind\_offctr&
 R& 0.15& &
-Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.&
+Off-centering in vertical wind solver. Higher values may be needed for R2B5 or coarser grids when the model top is above 50 km.
+Negative values are not allowed&
 \tabularnewline
 
 %\hline
 rhotheta\_offctr&
 R& -0.1& &
-Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids) &
+Off-centering of density and potential temperature at interface level (may be set to 0.0 for R2B6 or finer grids; positive
+values are not recommended) &
 \tabularnewline
 
 %\hline
 veladv\_offctr&
 R& 0.25& &
-Off-centering of velocity advection in corrector step &
+Off-centering of velocity advection in corrector step. Negative values are not recommended &
 \tabularnewline
 
 %\hline
@@ -3772,7 +3913,7 @@ Number of dynamics substeps for the child patches.\\
 %\hline
 l\_masscorr\_nest&
 L& .FALSE.& &
-.TRUE.: Apply mass conservation correction also in nested domain &
+.TRUE.: Apply mass conservation correction also in nested domain & ifeedback\_type=1
 \tabularnewline
 
 %\hline
@@ -3823,7 +3964,8 @@ truly horizontal temperature diffusion is activated (alternative criterion to th
 exner\_expol&
 R& 1./3.& &
 Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient.
-This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.&
+This damps horizontally propagating sound waves. For R2B5 or coarser grids, values between 1/2 and 2/3 are recommended.
+Model will be numerically unstable for negative values.&
 \tabularnewline
 
 %\hline
@@ -3838,6 +3980,96 @@ extend beyond the model top&
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_nonhydrostatic_nml.f90+
+
+%------------------------------------------------------------------------------
+% nudging_nml:
+%------------------------------------------------------------------------------
+\subsection{nudging\_nml}
+
+Parameters for the upper boundary nudging in the limited-area mode 
+(grid\_nml: l\_limited\_area = .TRUE.). For the lateral boundary nudging, 
+please see interpol\_nml and limarea\_nml. 
+The characteristics of the driving data for the nudging can be specified 
+in limarea\_nml. 
+
+\begin{longtab}
+
+%\hline
+nudge\_type&
+I &
+0 &
+  &
+Nudging type: \\
+0: none \\
+1: upper boundary nudging \\
+Please note: \\
+- nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
+- nudging is applied in primary domian only\\
+&
+run\_nml:iforcing = 3 (NWP) \\
+ivctype = 2 (SLEVE)
+\tabularnewline
+
+%\hline
+max\_nudge\_coeff\_vn&
+R &
+0.04 &
+1  &
+Max. nudging coefficient for the horizontal wind (i.e. the edge-normal wind
+component $v_n$). 
+Given the wind update due to the nudging term on the rhs:\\
+$v_n(t) = v_n^\star(t) + \text{nudge\_coeff\_vn}(z) *
+\text{ndyn\_substeps} * [\overline{v_n}(t) - v_n^\star(t)]$, \\
+where $t$ and $z$ denote time and height, respectively, 
+$\overline{v_n}(t)$ is the target wind 
+to nudge to, and $v_n^\star$ is the value before the nudging, 
+the vertical profile of the nudging coefficient reads:\\
+$\text{nudge\_coeff\_vn}(z) = 
+\text{max\_nudge\_coeff\_vn} * 
+[(z - \text{nudge\_start\_height})/(\text{top\_height} -
+  \text{nudge\_start\_height})]^2$,  \\
+for $\text{nudge\_start\_height} \leq z \leq \text{top\_height}$ 
+(see nudge\_start\_height below), 
+and is zero elsewhere. \\
+The range of validity is 
+$\text{max\_nudge\_coeff\_vn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
+where the lower boundary is mandatory. \\
+&
+nudge\_type > 0
+\tabularnewline
+
+%\hline
+max\_nudge\_coeff\_$\ldots$\\
+$\ldots$thermdyn&
+R &
+0.075 &
+1  &
+Max. nudging coefficient for the thermodynamic variables 
+selected by limarea\_nml: nudge\_hydro\_pres.
+The range of validity is 
+$\text{max\_nudge\_coeff\_thermdyn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
+where the lower boundary is mandatory. 
+&
+nudge\_type > 0
+\tabularnewline
+
+%\hline
+nudge\_start\_height&
+R &
+12000 &
+m &
+Nudging is applied for: \\
+$\text{nudge\_start\_height} \leq z \leq \text{top\_height}$, \\
+where $z$ denotes the nominal height of the grid layer center, 
+and top\_height is the height of the model top 
+(see sleve\_nml). 
+&
+nudge\_type > 0
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_nudging_nml.f90+
 
 
 %------------------------------------------------------------------------------
@@ -3978,7 +4210,8 @@ I&
 0&
  &
 0: off \\
-1: simple prognostic aerosol scheme, based on 2D aerosol optical depth fields of Tegen climatology; requires irad\_aero=6 &
+1: simple prognostic aerosol scheme for mineral dust, based on 2D aerosol optical depth fields of Tegen climatology \\
+2: as option 1, but for all 5 aerosol types  & irad\_aero=6
 \tabularnewline
 
 icpl\_o3\_tp&
@@ -4292,9 +4525,27 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_rprcon&
+R&
+1.4e-3&
+&
+Coefficient for conversion of cloud water into precipitation&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_rdepths&
+R&
+2.e4&
+Pa&
+Maximum allowed depth of shallow convection &
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
 tune\_capdcfac\_et&
 R&
-0.125&
+0.5&
 &
 Fraction of CAPE diurnal cycle correction applied in the extratropics&
 icapdcycl = 3
@@ -4424,7 +4675,7 @@ albedo\_type=2
 \hline
 tune\_minsnowfrac&
 R&
-0.125&
+0.2&
 &
 Minimum value to which the snow cover fraction is artificially reduced in case of melting show &
 lnd\_nml:idiag\_snowfrac = 20/30/40
@@ -5791,7 +6042,8 @@ Height below which the layer thickness does not exceed max\_lay\_thckn &
 itype\_laydistr&
 I& 1& &
 Type of analytical function used to specify the distribution of the vertical coordinate surfaces \\
-1: transformed cosine, 2: third-order polynomial &
+1: transformed cosine, 2: third-order polynomial; in this case, stretch\_fac should be less than 1,
+particularly for large numbers of model levels; the algorithm always works for stretch\_fac=0.5 &
 \tabularnewline
 
 
@@ -6023,8 +6275,8 @@ I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
 & & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
-& & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 30: ppm (3rd order, CFL$<=$1)& \tabularnewline
+& & & & 3: Piecewise parabolic method (PPM): handles $\mathrm{CFL}>1$ & \tabularnewline
+& & & & 4: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
 
 %\hline
 iadv\_tke& 
@@ -7430,7 +7682,8 @@ I & 1& &
 1: annual cycle of LAI solely based on NDVI climatology \\
 2: additional use of monthly T2M climatology to get more realistic values in extratropics 
 (requires external parameter data contining this field) \\
-3: as 2 with additional coupling of vegetation parameters to T2M bias in transitional seasons &
+3: as 2 with additional coupling of vegetation parameters to T2M bias in transitional seasons
+(requires DWD assimilation cycle including soil moisture analysis) &
 \tabularnewline
 
 
@@ -7504,6 +7757,18 @@ Filename of external parameter input file,
 default: ''\texttt{<path>extpar\_<gridfile>}''.
 May contain the keyword \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}. &
+\tabularnewline
+
+%\hline
+read\_nc\_via\_cdi&
+L &
+.FALSE.&
+&
+.TRUE.: read NetCDF input data via cdi library \\
+.FALSE.: read NetCDF input data using parallel NetCDF library \\
+Note: GRIB2 input data is always read via cdi library / GRIB API. For NetCDF input, this
+switch allows optimizing the input performance, but there is no general rule which option is faster.
+&
 \tabularnewline
 
 %\hline

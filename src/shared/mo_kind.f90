@@ -69,10 +69,12 @@ MODULE mo_kind
   ! Integer section
   ! ---------------
   !
+  INTEGER, PARAMETER :: pi1 =  2
   INTEGER, PARAMETER :: pi2 =  4
   INTEGER, PARAMETER :: pi4 =  9
   INTEGER, PARAMETER :: pi8 = 14  ! could be larger, but SX cannot do some operations otherwise
   !
+  INTEGER, PARAMETER :: i1 = SELECTED_INT_KIND(pi1)   !< at least 1 byte integer
   INTEGER, PARAMETER :: i2 = SELECTED_INT_KIND(pi2)   !< at least 2 byte integer
   INTEGER, PARAMETER :: i4 = SELECTED_INT_KIND(pi4)   !< at least 4 byte integer
   INTEGER, PARAMETER :: i8 = SELECTED_INT_KIND(pi8)   !< at least 8 byte integer
@@ -84,7 +86,7 @@ MODULE mo_kind
   !
   INTEGER, PARAMETER :: wi = i4                       !< selected working precission
   !
-  PUBLIC :: sp, dp, wp, vp, vp2, i4, i8, i2
+  PUBLIC :: sp, dp, wp, vp, vp2, i1, i2, i4, i8
   !
   !--------------------------------------------------------------------
 
