@@ -420,7 +420,6 @@ MODULE mo_mpi
   ! general run time information
 
 #ifndef NOMPI
-  INTEGER :: version, subversion   ! MPI version
  ! MPI call inherent variables
   INTEGER :: p_error                     ! MPI error number
   INTEGER :: p_status(MPI_STATUS_SIZE)   ! standard information of MPI_RECV
@@ -2286,6 +2285,7 @@ CONTAINS
     REAL        :: rrg = 0.0
     REAL(sp)    :: rsp = 0.0_sp
     REAL(dp)    :: rdp = 0.0_dp
+    INTEGER :: version, subversion
 
     CHARACTER(len=132) :: yname
 
