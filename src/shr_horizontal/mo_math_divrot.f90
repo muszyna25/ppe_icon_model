@@ -274,7 +274,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -468,7 +468,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( ptr_int_lsq%lsq_pseudoinv, iidx, iblk ), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -646,7 +646,8 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ),  PRESENT( iidx, iblk), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),  &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -867,7 +868,8 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ),        &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ),  &
 !$ACC      CREATE(  z_d ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
@@ -1095,7 +1097,8 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),    &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate ) 
 !$OMP PARALLEL
@@ -1322,7 +1325,8 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),            &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -1568,7 +1572,8 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                         &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ), &
 !$ACC      CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -1797,7 +1802,8 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                       &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -2075,7 +2081,8 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-!$ACC DATA PCOPYIN( ptr_int_lsq, p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ),  &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ),                                          &
+!$ACC      PRESENT( ptr_int_lsq%lsq_moments, ptr_int_lsq%lsq_pseudoinv, iidx, iblk ),  &
 !$ACC      CREATE( z_b), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff  ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -2362,8 +2369,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-!$ACC DATA PCOPYIN( ptr_int, vec_e ), PCOPY( div_vec_c ), &
-!$ACC PRESENT( iidx, iblk ), &
+!$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_c ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -2508,7 +2514,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-!$ACC DATA PCOPYIN( ptr_int, vec_e, in2 ), PCOPY( div_vec_c, out2 ), &
+!$ACC DATA PCOPYIN( vec_e, in2 ), PCOPY( div_vec_c, out2 ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
 !$ACC UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
@@ -2663,7 +2669,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-!$ACC DATA PCOPYIN( ptr_int, f4din ), PCOPY( f4dout ), &
+!$ACC DATA PCOPYIN( f4din ), PCOPY( f4dout ), PRESENT( ptr_int%geofac_div, iidx, iblk ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
@@ -2828,7 +2834,8 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! First compute divergence
 !
-!$ACC DATA PCOPYIN( ptr_int, vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), &
+!$ACC      PRESENT( ptr_int%geofac_div, ieidx, ieblk, inidx, inblk ),  IF( i_am_accel_node .AND. acc_on )
 !$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
 !$ACC UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields .AND. acc_validate )
@@ -3113,7 +3120,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch edges (and blocks)
 !
-!$ACC DATA PCOPYIN( ptr_int, vec_e ), PCOPY( div_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( vec_e ), PCOPY( div_vec_e ), PRESENT( ptr_int%geofac_qdiv ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
@@ -3257,7 +3264,8 @@ END IF
   i_startblk = ptr_patch%verts%start_blk(rl_start,1)
   i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-!$ACC DATA PCOPYIN( ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), PRESENT( ptr_int%geofac_rot, iidx, iblk ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
@@ -3397,8 +3405,8 @@ END IF
   i_endblk   = ptr_patch%verts%end_block(rl_end)
 
 
-!$ACC DATA PCOPYIN( ptr_int, vec_e ), PCOPY( rot_vec ), &
-!$ACC      PRESENT( iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( vec_e ), PCOPY( rot_vec ), &
+!$ACC      PRESENT( ptr_int%geofac_rot, iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE

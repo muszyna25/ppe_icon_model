@@ -267,6 +267,14 @@ AS_CASE([$host],
          m4_define([line2], [Please set a valid config/mh-* file up.])
          AC_MSG_ERROR([line1 line2], [1])])
 
+# check for environment variables "$GRIB_API",
+# "$ECCODES" (set by these modules).  If nothing is
+# available: load eccodes module:
+AS_IF([test -z "$GRIB_API" -a -z "$ECCODES"],
+  [dwd_gribapi_env="1"])
+AC_MSG_NOTICE([dwd_gribapi_env = $dwd_gribapi_env.])
+export dwd_gribapi_env
+
 AS_IF([test $use_mh_file = yes],
       [ACX_GET_MODULES_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_profile" ],
@@ -896,7 +904,9 @@ AS_CASE(["$GRIB_OPTION"],
          AS_CASE([$GRIB_OPTION],
                  [eccodes],
                  [AS_IF([test -n "$AEC_DIR"],
-                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\$(AEC_DIR)/lib -laec"
+                        # note the backslash-notation for environment variables:
+                        # this means that they are not evaluated right now.
+                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\${AEC_DIR}/lib -laec"
                          AC_MSG_NOTICE([taking over environment variable $AEC_DIR])],
                         [])],
                  []) 
@@ -1340,8 +1350,16 @@ AS_IF([test "x$enable_serialization" != "xno"],
              [
               AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
                     [
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     AS_CASE([$fortran_compiler],
+                      [pgi*],
+                      [
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ],
+                      [
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ])
                      ],
                     [
                      AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
@@ -1385,7 +1403,7 @@ EOF
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -E \\\"{}\\\" > "../${my_iconppdir}/{}")" \\\; )
 EOF
 ])
                             read -d '' my_pp_ser <<EOF

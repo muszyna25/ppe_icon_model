@@ -16,7 +16,6 @@
 
 MODULE mo_ps_radiation_model
 
-  USE mo_kind                    ,ONLY: i8
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_psrad_interface_namelist,ONLY: configure_ps_radiation, number_of_levels
   USE mo_time_config,             ONLY: time_config
@@ -148,14 +147,14 @@ MODULE mo_ps_radiation_model
       
       CALL ps_rad_run_bc(mtime_current, patch)
 
-      CALL psrad_concurrent_interface(mtime_current, patch)
+      CALL psrad_concurrent_interface(mtime_current)
  
       mtime_current = mtime_current + radiation_time_step
       timestep = timestep + 1
    
     ENDDO
 
-    CALL finalize_psrad_concurrent(patch)
+    CALL finalize_psrad_concurrent
 
     CALL message (method_name, " ended")
     CALL message ("", "-----------------------------------------------------------")
@@ -189,7 +188,7 @@ MODULE mo_ps_radiation_model
 
       ! tropospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 13) THEN
-        CALL read_bc_aeropt_kinne(mtime_current%date%year, patch) 
+        CALL read_bc_aeropt_kinne(mtime_current, patch) 
       END IF
       !
       ! stratospheric aerosol optical properties
@@ -199,14 +198,14 @@ MODULE mo_ps_radiation_model
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 15) THEN
-        CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current,patch)
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
+        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (1850_i8, patch)
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
         CALL read_bc_aeropt_stenchikov(mtime_current, patch)
       END IF
 

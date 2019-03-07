@@ -312,6 +312,7 @@ CONTAINS
             IF(ALLOCATED(me%namelists(i)%att_key)) DEALLOCATE(me%namelists(i)%att_key)
             IF(ALLOCATED(me%namelists(i)%att_text)) DEALLOCATE(me%namelists(i)%att_text)
         END DO
+        me%namelistCount = 0
     END SUBROUTINE namelistArchive_reset
 
     FUNCTION open_tmpfile() RESULT(funit)

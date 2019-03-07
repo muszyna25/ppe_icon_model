@@ -142,7 +142,7 @@
 !!              * the intermediate buffer may have only the size of
 !!              * the boundary strip.
 !!              * most important subroutine in this context:
-!!                "read_latbc_data" and, therein, "CALL
+!!                "prefetch_latbc_data" and, therein, "CALL
 !!                prefetch_cdi_3d".
 !!
 !!   "Fetch": Copies the data from the intermediate buffer into
@@ -219,7 +219,7 @@ MODULE mo_async_latbc
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_buffer, &
                                             t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
-    USE mo_async_latbc_utils,         ONLY: read_latbc_data, compute_init_latbc_data, async_init_latbc_data,&
+    USE mo_async_latbc_utils,         ONLY: prefetch_latbc_data, read_init_latbc_data, async_init_latbc_data,&
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
@@ -233,7 +233,7 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
-    USE mo_limarea_config,            ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
+    USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -331,7 +331,7 @@ MODULE mo_async_latbc
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
          latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
-         CALL read_latbc_data(latbc, latbc_read_datetime)
+         CALL prefetch_latbc_data(latbc, latbc_read_datetime)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
@@ -558,15 +558,17 @@ MODULE mo_async_latbc
       END IF
       root_pref2work = MERGE(mpi_root, mpi_proc_null, p_pe_work == 0)
       ! bcast number of ranges describing glb_indices to clients
-      CALL p_bcast(nr, root_pref2work, comm=p_comm_work_2_pref)
-      ! bcast ranges to clients
-      IF (nr > 0) THEN
-        CALL p_bcast(ranges, root_pref2work, comm=p_comm_work_2_pref)
-        active_worker_count = p_reduce(dummy, mpi_sum, root_pref2work, &
-             comm=p_comm_work_2_pref)
-      ELSE
-        active_worker_count = 0
-      END IF
+      IF (my_process_is_pref()) THEN
+        CALL p_bcast(nr, root_pref2work, comm=p_comm_work_2_pref)
+        ! bcast ranges to clients
+        IF (nr > 0) THEN
+         CALL p_bcast(ranges, root_pref2work, comm=p_comm_work_2_pref)
+          active_worker_count = p_reduce(dummy, mpi_sum, root_pref2work, &
+               comm=p_comm_work_2_pref)
+        ELSE
+          active_worker_count = 0
+        END IF
+      ENDIF
     END SUBROUTINE create_latbc_mask_pref
 #endif
 
@@ -592,6 +594,7 @@ MODULE mo_async_latbc
       TYPE(t_netcdf_att_int)        :: opt_att(2)            ! optional attribute values
       INTEGER                       :: ierrstat, ic, idx_c, blk_c, cell_active_ranks, edge_active_ranks
       INTEGER                       :: tlen, covered
+      INTEGER                       :: fileID_latbc
       INTEGER(mpi_address_kind)     :: mem_size
       LOGICAL                       :: is_pref, is_work, is_test
       INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:), var_buf_map(:)
@@ -632,7 +635,7 @@ MODULE mo_async_latbc
 
         CALL message(routine, "sparse LATBC read-in mode.")
 
-        IF (is_pref) THEN
+        IF (is_pref .OR. is_work .AND.  p_pe_work == p_work_pe0) THEN
           opt_att(1)%var_name = "global_cell_index"
           opt_att(1)%att_name = "nglobal"
           opt_att(1)%value => latbc%global_index%n_patch_cells_g
@@ -660,13 +663,16 @@ MODULE mo_async_latbc
           CALL create_latbc_mask_pref(latbc%global_index%edges, &
             &                         edge_active_ranks)
           ! status output
-          WRITE (0,'(3a,i0,a,i0,a)') &
-            &   " ", routine, ": prefetching PE reads ", latbc%global_index%n_patch_cells_g, &
-            &   " cells and ", latbc%global_index%n_patch_edges_g, " edges."
-          WRITE (0,'(3a,2(i0,a))') &
-            &   " ", routine, ": ", edge_active_ranks, " of ", num_work_procs, &
-            &   " worker PEs are involved in the LATBC read-in."
-        ELSE
+          IF (is_pref) THEN
+            WRITE (0,'(3a,i0,a,i0,a)') &
+              &   " ", routine, ": prefetching PE reads ", SIZE(latbc%global_index%cells), &
+              &   " cells and ", SIZE(latbc%global_index%edges), " edges."
+            WRITE (0,'(3a,2(i0,a))') &
+              &   " ", routine, ": ", edge_active_ranks, " of ", num_work_procs, &
+              &   " worker PEs are involved in the LATBC read-in."
+          ENDIF
+        ENDIF
+        IF (is_work) THEN
           CALL create_latbc_mask_work(SIZE(latbc%patch_data%cell_mask), &
             &                         latbc%patch_data%cell_mask, &
             &                         cell_ro_idx, &
@@ -707,24 +713,13 @@ MODULE mo_async_latbc
       ! create and transfer patch data
       CALL set_patch_data(latbc%patch_data, cell_ro_idx, edge_ro_idx)
 
-      ! subroutine to read const (height level) data and to check
-      ! whether some variable is specified in input file and setting
-      ! flag for its further usage
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
-        CALL check_variables(latbc%buffer, latbc%patch_data, &
-        &                    latbc_varnames_dict)
-
-
       ! open and read file containing information of prefetch variables
       ALLOCATE(StrLowCasegrp(MAX_NUM_GRPVARS))
       IF (is_work) THEN
-        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1))
+        CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch(1), fileID_latbc)
       ELSE IF (is_pref) THEN
         CALL read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict)
       ENDIF
-
-      ! destroy variable name dictionaries:
-      CALL dict_finalize(latbc_varnames_dict)
 
       CALL match_var_data_to_buffer(var_buf_map, latbc%buffer, &
            var_data, StrLowCasegrp)
@@ -746,16 +741,18 @@ MODULE mo_async_latbc
       END IF
 
 
-
       ! allocate input data for lateral boundary nudging
       IF (is_work) THEN
-        CALL compute_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
-          &                          latbc%new_latbc_tlev)
+        CALL read_init_latbc_data(latbc, p_patch(1), p_int_state(1), p_nh_state(1), &
+          &                       latbc%new_latbc_tlev, fileID_latbc, latbc_varnames_dict)
       ELSE IF (is_pref) THEN
         CALL async_init_latbc_data(latbc)
       ENDIF
 
       CALL message(routine,'Done')
+
+      ! destroy variable name dictionaries:
+      CALL dict_finalize(latbc_varnames_dict)
 #endif
 
     END SUBROUTINE init_prefetch
@@ -764,11 +761,12 @@ MODULE mo_async_latbc
     !-------------------------------------------------------------------------------------------------
     !> open files containing first variable list and analysis
     !
-    SUBROUTINE read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch)
+    SUBROUTINE read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch, fileID)
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
       CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
       TYPE (t_dictionary),        INTENT(IN)    :: latbc_varnames_dict
       TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
+      INTEGER,       OPTIONAL,    INTENT(OUT)   :: fileID
 
       CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_files"
       LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
@@ -801,11 +799,6 @@ MODULE mo_async_latbc
       CALL collect_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, loutputvars_only=.FALSE., &
         &                lremap_lonlat=.FALSE. )
 
-      ! adding the variable 'GEOSP' to the list by add_to_list
-      ! as the variable cannot be found in metadata variable list
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
-           CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
-
       ! allocate the number of vertical levels and other fields with
       ! the same size as number of variables
       ALLOCATE(latbc%buffer%nlev(ngrp_prefetch_vars),        &
@@ -818,7 +811,7 @@ MODULE mo_async_latbc
       ALLOCATE(latbc%buffer%varID(ngrp_prefetch_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-      IF (is_work .AND. p_pe_work == p_work_pe0 .OR. latbc%buffer%lcompute_hhl_pres) THEN
+      IF (is_work .AND. p_pe_work == p_work_pe0) THEN
         ! generate file name
         latbc_filename = TRIM(generate_filename(nroot, latbc%patch_data%level, &
              &                                  time_config%tc_exp_startdate,  &
@@ -845,19 +838,23 @@ MODULE mo_async_latbc
            CALL finish(routine, "Unknown file type")
          END IF
 
+
+        ! subroutine to read const (height level) data and to check
+        ! whether some variable is specified in input file and setting
+        ! flag for its further usage
+        CALL check_variables(latbc%buffer, latbc%patch_data,latbc_varnames_dict, fileID_latbc)
+
+        ! adding the variable 'GEOSP' to the list by add_to_list
+        ! as the variable cannot be found in metadata variable list
+        CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc%buffer%geop_ml_var/) , 1)
+
          ALLOCATE(grp_vars_lc(ngrp_prefetch_vars), stat=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-         IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-           ! Search name mapping for name in file
-           DO jp= 1, ngrp_prefetch_vars
-             grp_vars_lc(jp) = tolower(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
-           ENDDO
-         ELSE
-           DO jp= 1, ngrp_prefetch_vars
-             grp_vars_lc(jp) = tolower(grp_vars(jp))
-           ENDDO
-         ENDIF
+         ! Search name mapping for name in file
+         DO jp= 1, ngrp_prefetch_vars
+           grp_vars_lc(jp) = tolower(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+         ENDDO
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
          flen_latbc = util_filesize(latbc_file)
@@ -913,17 +910,38 @@ MODULE mo_async_latbc
          DEALLOCATE(grp_vars_lc, STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 
-         ! closes the open dataset
-         CALL streamClose(fileID_latbc)
+         ! save fileID for further processing
+         IF (PRESENT(fileID)) THEN
+           fileID = fileID_latbc ! broadcast needed? apparently not.
+         ENDIF
 
        END IF
 
-      CALL p_bcast(latbc%buffer%nlev(:),          p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%varID(:),         p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%mapped_name(:),   p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(latbc%buffer%internal_name(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(StrLowCasegrp(:),              p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(counter,                       p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      ! broadcast data to prefetching and compute PE's
+      ! public constant: p_comm_work_pref_compute_pe0
+      CALL p_bcast(latbc%buffer%nlev(:),           p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%varID(:),          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%mapped_name(:),    p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%internal_name(:),  p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(StrLowCasegrp(:),               p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(counter,                        p_comm_work_pref_compute_pe0, p_comm_work_pref)
+
+      CALL p_bcast(latbc%buffer%psvar,             p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%geop_ml_var,       p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%hhl_var,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_qs,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_qr,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_vn,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_u_v,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_w,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
+
+      CALL p_bcast(latbc%buffer%lread_hhl,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_theta_rho,   p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_ps_geop,     p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_pres,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_temp,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lconvert_omega2w,  p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lcompute_hhl_pres, p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
       !WRITE(0,*) 'mapped_name ',  latbc%buffer%mapped_name(1:counter), 'ngrp_vars ', ngrp_prefetch_vars
 
@@ -961,10 +979,9 @@ MODULE mo_async_latbc
       ! Re-open the file to read constant fields.
       !
       IF (latbc%buffer%lcompute_hhl_pres .AND. is_work) THEN
-
-        CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
+        IF (p_pe_work == p_work_pe0) CALL nf(nf_open(latbc_file, NF_NOWRITE, ncid), routine)
         CALL latbc%latbc_data_const%vct%construct(ncid, p_work_pe0, p_comm_work)
-        CALL nf(nf_close(ncid), routine)
+        IF (p_pe_work == p_work_pe0) CALL nf(nf_close(ncid), routine)
       END IF
 
 #endif
@@ -976,40 +993,19 @@ MODULE mo_async_latbc
     !  a variable or its alternative variable is provided as input and
     !  setting flag for its further usage.
     !
-    SUBROUTINE check_variables(buffer, patch_data, latbc_dict)
-      TYPE(t_buffer), INTENT(inout) :: buffer
+    SUBROUTINE check_variables(buffer, patch_data, latbc_dict, fileID_latbc)
+      TYPE(t_buffer), INTENT(inout)  :: buffer
       TYPE(t_patch_data), INTENT(in) :: patch_data
       TYPE(t_dictionary), INTENT(in) :: latbc_dict
+      INTEGER, INTENT(IN)            :: fileID_latbc
 
 #ifndef NOMPI
       ! local variables
       CHARACTER(*), PARAMETER        :: routine = modname//"::check_variables"
-      INTEGER                        :: fileID_latbc
       LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
-      CHARACTER(LEN=:), ALLOCATABLE  :: latbc_filename, latbc_file
-      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
-      ! prefetch processor opens the file and checks if variables are present
-      IF (my_process_is_work() .AND. p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
-         ! generate file name
-         latbc_filename = TRIM(generate_filename(nroot, patch_data%level,&
-              &                                  time_config%tc_exp_startdate, &
-              &                                  time_config%tc_exp_startdate))
-         latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
-         INQUIRE (FILE=latbc_file, EXIST=l_exist)
-         IF (.NOT.l_exist) THEN
-            CALL finish(routine,'LATBC file not found: '//latbc_file)
-         ENDIF
-
-         ! open file
-         !
-         fileID_latbc = streamOpenRead(latbc_file)
-         IF (fileID_latbc < 0) THEN
-           CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-           CALL finish(routine, "File "//latbc_file//" cannot be opened: "//TRIM(cdiErrorText))
-         ENDIF
 
          ! Check if rain water (QR) is provided as input
          buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
@@ -1073,9 +1069,6 @@ MODULE mo_async_latbc
          lhave_pres = (test_cdi_varID(fileID_latbc, 'PRES', latbc_dict) /= -1)
          lhave_temp = (test_cdi_varID(fileID_latbc, 'TEMP', latbc_dict) /= -1)
 
-
-         ! closes the open dataset
-         CALL streamClose(fileID_latbc)
 
 
          ! --- DEFINE WHICH VARIABLES SHALL BE READ FROM FILE ---
@@ -1192,26 +1185,7 @@ MODULE mo_async_latbc
            CALL message(routine,'U,V are read from file.')
          END IF
 
-       ENDIF
 
-      ! broadcast data to prefetching and compute PE's
-      ! public constant: p_comm_work_pref_compute_pe0
-      CALL p_bcast(buffer%psvar,                    p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%geop_ml_var,              p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%hhl_var,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_qs,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_qr,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_vn,                 p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_u_v,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_w,                  p_comm_work_pref_compute_pe0, p_comm_work_pref)
-
-      CALL p_bcast(buffer%lread_hhl,                p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_theta_rho,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_ps_geop,            p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_pres,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lread_temp,               p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lconvert_omega2w,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
-      CALL p_bcast(buffer%lcompute_hhl_pres,        p_comm_work_pref_compute_pe0, p_comm_work_pref)
 #endif
 
     END SUBROUTINE check_variables
@@ -1518,14 +1492,12 @@ MODULE mo_async_latbc
           buffer%hgrid(jp) = -1
         END IF
       END DO
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-        DO jp = 1, buffer%ngrp_vars
-          IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
-            ! variable GEOSP is stored in cell center location
-            buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
-          END IF
-        END DO
-      END IF
+      DO jp = 1, buffer%ngrp_vars
+        IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+          ! variable GEOSP is stored in cell center location
+          buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
+        END IF
+      END DO
     END SUBROUTINE infer_buffer_hgrid
     !------------------------------------------------------------------------------------------------
     !> Initializes the remote memory window for asynchronous prefetch.
@@ -1585,22 +1557,20 @@ MODULE mo_async_latbc
       ENDDO ! vars
       IF (found_unknown_grid) CALL finish(routine,'Unknown grid type found!')
 
-      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
-        DO jp = 1, buffer%ngrp_vars
-          IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
-            ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
-            ! as the variable GEOSP doesn't exist in metadata
-            mem_size_ = mem_size_ + INT(1*n_own_cells,mpi_address_kind)
+      DO jp = 1, buffer%ngrp_vars
+        IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+          ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
+          ! as the variable GEOSP doesn't exist in metadata
+          mem_size_ = mem_size_ + INT(1*n_own_cells,mpi_address_kind)
 
-            IF(is_work)THEN
-              ! allocate the buffer sizes for variable 'GEOSP' on compute processors
-              ALLOCATE(buffer%vars(jp)%buffer(nproma, 1, nblks_c), STAT=ierror)
-              IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-            ENDIF
-
+          IF(is_work)THEN
+            ! allocate the buffer sizes for variable 'GEOSP' on compute processors
+            ALLOCATE(buffer%vars(jp)%buffer(nproma, 1, nblks_c), STAT=ierror)
+            IF (ierror /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
           ENDIF
-        ENDDO
-      ENDIF
+
+        ENDIF
+      ENDDO
       mem_size = mem_size_
 
     END SUBROUTINE create_client_buffers

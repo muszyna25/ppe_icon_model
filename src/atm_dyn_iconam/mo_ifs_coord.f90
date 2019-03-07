@@ -106,11 +106,9 @@ CONTAINS
     lread_process = (p_comm_rank(mpi_comm) == p_io)
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
-      ! retrieve number of levels
-      CALL nf(nf_inq_varndims(ncid, varid, var_ndims), routine)
-      CALL nf(nf_inq_vardimid(ncid, varid, var_dimids), routine)
-      CALL nf(nf_inq_dimlen (ncid, var_dimids(1), nlev_in), routine)
+      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
+      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
+      nlev_in = nhyi-1
     END IF
 
     CALL p_bcast(nlev_in, p_io, mpi_comm)
@@ -119,27 +117,16 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF (lread_process) THEN
-      CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-      CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
 
-      ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi), STAT=ierrstat)
+      ALLOCATE( hyab(nhyi), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
-      lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
-      lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
-      IF ( nlev_in+1 /= nhyi) THEN
-        WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-        CALL message(routine, TRIM(message_text))
-      END IF
 
       CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_ab(:,1) = hyab( lev_hyi(:))
-
+      vct_ab(:,1) = hyab(:)
       CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
       CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-      vct_ab(:,2) = hyab( lev_hyi(:))
+      vct_ab(:,2) = hyab(:)
     ENDIF
 
     CALL p_bcast(vct_ab, p_io, mpi_comm)

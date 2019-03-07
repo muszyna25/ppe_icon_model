@@ -42,7 +42,8 @@ MODULE mo_vertical_grid
   USE mo_run_config,            ONLY: msg_level
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
-    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
+    &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int, &
+    &                                 SUCCESS
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
                                       grf_nudge_start_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
@@ -61,6 +62,11 @@ MODULE mo_vertical_grid
   USE mo_impl_constants,       ONLY: min_rlvert_int
   USE mo_data_turbdiff,        ONLY: akt
   USE mo_fortran_tools,        ONLY: init
+  USE mo_util_string,          ONLY: int2string, real2string
+  USE mo_mpi,                  ONLY: my_process_is_stdio
+  USE mo_util_table,           ONLY: t_table, initialize_table, add_table_column, &
+    &                                set_table_entry, print_table, finalize_table
+  USE mo_nudging_config,       ONLY: nudging_config, indg_profile
 
   IMPLICIT NONE
 
@@ -154,6 +160,7 @@ MODULE mo_vertical_grid
         CALL finish (TRIM(routine), &
                      'flat_height too close to the top of the innermost nested domain')
       ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -609,7 +616,7 @@ MODULE mo_vertical_grid
             ! Second mask field used for gust parameterization
             IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
               z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
-                ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
+                ext_data(jg)%atm%sso_stdh_raw(jc,jb))/MAX(6750._wp,p_patch(jg)%geometry_info%mean_characteristic_length))
             ELSE
               z_aux_c(jc,1,jb) = 0._wp
             ENDIF
@@ -638,8 +645,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_aux_c,z_aux_c2,z_aux_e)
 
       ! Index lists for boundary nudging (including halo cells so that no
-      ! sync is needed afterwards; halo edges are excluded, however, because
-      ! a sync follows afterwards anyway
+      ! sync is needed afterwards)
       ic = 0
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -680,8 +686,7 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
-              p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
+          IF (p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
           ENDIF
         ENDDO
@@ -698,8 +703,7 @@ MODULE mo_vertical_grid
           nlen = npromz_e
         ENDIF
         DO je = 1, nlen
-          IF (p_patch(jg)%edges%decomp_info%owner_mask(je,jb) .AND.     &
-              p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
+          IF (p_int(jg)%nudgecoeff_e(je,jb) > 1.e-10_wp) THEN
             ic = ic+1
             p_nh(jg)%metrics%nudge_e_idx(ic) = je
             p_nh(jg)%metrics%nudge_e_blk(ic) = jb
@@ -1241,6 +1245,9 @@ MODULE mo_vertical_grid
 
           p_nh(jg)%metrics%coeff_gradp(:,:,:,jb) = 0._vp
 
+          ! Workaround for MPI deadlock with cce 8.7.x
+          IF (msg_level > 300) CALL message (TRIM(routine),'igradp_method>=4')
+
           jk_start = nflatlev(jg) - 1
           DO jk = nflatlev(jg),nlev
             l_found(:) = .FALSE.
@@ -1672,6 +1679,9 @@ MODULE mo_vertical_grid
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
     END DO
 
+    ! Prepare vertically varying nudging (only for primary domain)
+    CALL prepare_nudging(p_patch(1), p_nh(1))
+
   END SUBROUTINE set_nh_metrics
   !----------------------------------------------------------------------------
 
@@ -2076,6 +2086,113 @@ MODULE mo_vertical_grid
 
 
   END SUBROUTINE prepare_les_model
+  !----------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  !>
+  !! Computation of nudging coefficient for nudging types:
+  !! - Upper boundary nudging
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl and Sebastian Borchert, DWD (2018-09)
+  !!
+  SUBROUTINE prepare_nudging(p_patch, p_nh)
+
+    ! In/out variables
+    TYPE(t_patch),    INTENT(IN)    :: p_patch
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh
+
+    ! Local variables
+    TYPE(t_table) :: table
+    REAL(wp) :: scale_height, distance, distance_scaled
+    REAL(wp) :: height, nudge_coeff
+    INTEGER  :: jg, jk
+    INTEGER  :: nlev
+    INTEGER  :: istart, iend
+    INTEGER  :: istat
+    CHARACTER(LEN=16), PARAMETER :: column_jk     = "Full level index"
+    CHARACTER(LEN=10), PARAMETER :: column_height = "Height (m)"
+    CHARACTER(LEN=35), PARAMETER :: column_coeff  = "Nudging coefficient/max_nudge_coeff"
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:prepare_nudging'
+
+    !----------------------------------------------------
+
+    ! Note: here, we compute the dimensionless vertical nudging coefficient profile.  
+    ! The actual max. nudging coefficients 'max_nudge_coeff_vn', 'max_nudge_coeff_thermdyn', ...
+    ! from the nudging namelist will be multiplied with the profile during runtime.
+
+    jg = p_patch%id
+
+    IF (.NOT. nudging_config%lconfigured) THEN
+      ! ('lconfigured' should have been set to .true. 
+      ! in 'src/configure_model/mo_nudging_config: configure_nudging'
+      ! or in 'src/namelists/mo_nudging_nml: check_nudging')
+      CALL finish(routine, "Configuration of nudging_config still pending. &
+        &Please, check the program sequence.")
+    ELSEIF ((.NOT. nudging_config%lnudging) .OR. jg /= 1) THEN
+      ! The following computations have to be done only, 
+      ! if (upper boundary) nudging is switched on, 
+      ! and only for the primary domain
+      RETURN
+    ENDIF
+    
+    ! Number of vertical grid levels
+    nlev = p_patch%nlev
+    
+    ! Allocate field for nudging coefficient
+    ! (Note: no explicit deallocation is implemented for 'nudgecoeff_vert')
+    ALLOCATE(p_nh%metrics%nudgecoeff_vert(nlev), STAT=istat)
+    IF (istat /= SUCCESS)  CALL finish (routine, 'Allocation of nudgecoeff_vert failed!') 
+    
+    ! Initialization
+    p_nh%metrics%nudgecoeff_vert(:) = 0._wp
+    
+    ! Start and end indices for vertical loop
+    istart = nudging_config%ilev_start
+    iend   = nudging_config%ilev_end
+    
+    ! Scale height to control, how fast the nudging strength decreases 
+    ! with increasing vertical distance from nudging end height
+    scale_height = ABS(nudging_config%nudge_scale_height)
+    
+    ! Discriminate between the different profiles of the nudging strength/nudging coefficient
+    SELECT CASE(nudging_config%nudge_profile)
+    CASE(indg_profile%sqrddist)
+      ! Inverse squared scaled vertical distance from nudging start height
+      DO jk = istart, iend
+        ! Distance from nudging start height
+        distance = 0.5_wp*ABS(vct_a(jk)+vct_a(jk+1)) - nudging_config%nudge_start_height
+        ! Scaled distance
+        distance_scaled                  = distance / MAX(1.0e-6_wp, scale_height)
+        p_nh%metrics%nudgecoeff_vert(jk) = distance_scaled**2
+      ENDDO  !jk
+    END SELECT
+    
+    ! Print some info
+    IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
+      ! Print the vertical profile of the nudging coefficient (nudging strength)
+      WRITE(0,*) TRIM(routine)//': Vertical profile of the nudging coefficient:' 
+      ! Set up table
+      CALL initialize_table(table)
+      ! Set up table columns
+      CALL add_table_column(table, column_jk)
+      CALL add_table_column(table, column_height)
+      CALL add_table_column(table, column_coeff)
+      ! Fill the table rows
+      DO jk = istart, iend
+        height      = 0.5_wp * (vct_a(jk) + vct_a(jk+1))
+        nudge_coeff = p_nh%metrics%nudgecoeff_vert(jk)
+        CALL set_table_entry(table, jk, column_jk, TRIM(int2string(jk)))
+        CALL set_table_entry(table, jk, column_height, TRIM(real2string(height)))
+        CALL set_table_entry(table, jk, column_coeff, TRIM(real2string(nudge_coeff)))
+      ENDDO  !jk
+      ! Print table
+      CALL print_table(table)
+      ! Destruct table
+      CALL finalize_table(table)
+    ENDIF  !IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio())
+    
+  END SUBROUTINE prepare_nudging
   !----------------------------------------------------------------------------
 
 

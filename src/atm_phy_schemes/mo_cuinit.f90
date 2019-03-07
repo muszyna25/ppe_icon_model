@@ -379,8 +379,8 @@ SUBROUTINE cubasen &
 !!    *PSSTRV*       KINEMATIC surface V-MOMENTUM FLUX             (M/S)^2
 !!    *PGEOH*        GEOPOTENTIAL ON HALF LEVELS                   M2/S2
 !!    *PAPH*         PROVISIONAL PRESSURE ON HALF LEVELS             PA
-!!    *zdph*         pressure thickness on half levels              Pa
-!!    *zdgeoh*       geopotential thickness on half levels          M2/S2
+!!    *zdph*         pressure thickness on full levels               PA
+!!    *zdgeoh*       geopotential thickness on full levels          M2/S2
 !!    *PTEN*         PROVISIONAL ENVIRONMENT TEMPERATURE (T+1)       K
 !!    *PQEN*         PROVISIONAL ENVIRONMENT SPEC. HUMIDITY (T+1)  KG/KG
 !!    *PQSEN*        PROVISIONAL ENVIRONMENT SATU. HUMIDITY (T+1)  KG/KG

@@ -732,9 +732,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":phyProcGroup_addToGroup"
   !-----------------------------------------------------------------
 
-    WRITE(message_text,'(a,a,a,i2)') 'Reinitialize events for ', TRIM(phyProcGrp%grpName), &
-      &                              ' on patch ', phyProcGrp%pid
-    CALL message('', TRIM(message_text))
+    IF (msg_level >= 12) THEN
+      WRITE(message_text,'(a,a,a,i2)') 'Reinitialize events for ', TRIM(phyProcGrp%grpName), &
+        &                              ' on patch ', phyProcGrp%pid
+      CALL message('', TRIM(message_text))
+    ENDIF
 
     DO iproc = 1, UBOUND(phyProcGrp%proc,1)
       IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE

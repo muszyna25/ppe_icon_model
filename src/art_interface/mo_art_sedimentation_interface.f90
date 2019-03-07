@@ -32,7 +32,7 @@ MODULE mo_art_sedi_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv
   USE mo_exception,                     ONLY: finish
-  USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
+  USE mo_advection_vflux,               ONLY: upwind_vflux_ppm
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_sedInt
@@ -90,7 +90,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< tracer mixing ratio [kg/kg]
   LOGICAL, INTENT(IN)               :: &               
-    &  lprint_cfl                        !< determines if vertical CFL number shall be printed in upwind_vflux_ppm_cfl
+    &  lprint_cfl                        !< determines if vertical CFL number shall be printed in upwind_vflux_ppm
 ! Local Variables
   REAL(wp), ALLOCATABLE        :: &  
     &  p_upflux_sed(:,:,:),       & !< upwind flux at half levels due to sedimentation
@@ -234,16 +234,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                   flx_contra_vsed => fields%flx_contra_vsed0
                 ENDIF
                 
-                ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-                CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
-                  &                       iubc, flx_contra_vsed, dt_sub,          &
-                  &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                  &                       dz,                                     &
-                  &                       rhodz_new, lprint_cfl,                  &
-                  &                       p_upflux_sed(:,:,:),                    &
-                  &                       opt_rlstart=i_rlstart,                  &
-                  &                       opt_rlend=i_rlend,                      &
-                  &                       opt_elev=nlevp1)
+                ! upwind_vflux_ppm is internally OpenMP parallelized
+                CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
+                  &                   iubc, flx_contra_vsed, dt_sub,          &
+                  &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                  &                   dz,                                     &
+                  &                   rhodz_new, lprint_cfl,                  &
+                  &                   p_upflux_sed(:,:,:),                    &
+                  &                   opt_rlstart=i_rlstart,                  &
+                  &                   opt_rlend=i_rlend,                      &
+                  &                   opt_elev=nlevp1)
                 
                 ! ----------------------------------
                 ! --- update mixing ratio after sedimentation
@@ -279,16 +279,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               flx_contra_vsed => fields%flx_contra_vsed
               jsp = fields%itr
               
-              ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
-                &                       iubc, flx_contra_vsed, dt_sub,          &
-                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                &                       dz,                                     &
-                &                       rhodz_new, lprint_cfl,                  &
-                &                       p_upflux_sed(:,:,:),                    &
-                &                       opt_rlstart=i_rlstart,                  &
-                &                       opt_rlend=i_rlend,                      &
-                &                       opt_elev=nlevp1)
+              ! upwind_vflux_ppm is internally OpenMP parallelized
+              CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
+                &                   iubc, flx_contra_vsed, dt_sub,          &
+                &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                   dz,                                     &
+                &                   rhodz_new, lprint_cfl,                  &
+                &                   p_upflux_sed(:,:,:),                    &
+                &                   opt_rlstart=i_rlstart,                  &
+                &                   opt_rlend=i_rlend,                      &
+                &                   opt_elev=nlevp1)
               
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation
@@ -323,16 +323,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               flx_contra_vsed => fields%flx_contra_vsed
               jsp = fields%itr
               
-              ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
-                &                       iubc, flx_contra_vsed, dt_sub,          &
-                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
-                &                       dz,                                     &
-                &                       rhodz_new, lprint_cfl,                  &
-                &                       p_upflux_sed(:,:,:),                    &
-                &                       opt_rlstart=i_rlstart,                  &
-                &                       opt_rlend=i_rlend,                      &
-                &                       opt_elev=nlevp1)
+              ! upwind_vflux_ppm is internally OpenMP parallelized
+              CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
+                &                   iubc, flx_contra_vsed, dt_sub,          &
+                &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                   dz,                                     &
+                &                   rhodz_new, lprint_cfl,                  &
+                &                   p_upflux_sed(:,:,:),                    &
+                &                   opt_rlstart=i_rlstart,                  &
+                &                   opt_rlend=i_rlend,                      &
+                &                   opt_elev=nlevp1)
               
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation

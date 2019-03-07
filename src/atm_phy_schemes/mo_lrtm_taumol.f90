@@ -331,8 +331,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng1
-      use rrlw_kg01,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng1
+      use mo_rrlw_kg01,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2, kb_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -500,8 +500,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng2, ngs1
-      use rrlw_kg02,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng2, ngs1
+      use mo_rrlw_kg02,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -634,8 +634,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng3, ngs2
-      use rrlw_kg03,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng3, ngs2
+      use mo_rrlw_kg03,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -1232,8 +1232,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng4, ngs3
-      use rrlw_kg04,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng4, ngs3
+      use mo_rrlw_kg04,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -1744,8 +1744,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng5, ngs4
-      use rrlw_kg05,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng5, ngs4
+      use mo_rrlw_kg05,   only : fracrefa, fracrefb, absa, absb, &
            ka_mo3, selfref, forref, ccl4
 
       ! ------- Declarations -------
@@ -2268,8 +2268,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng6, ngs5
-      use rrlw_kg06,   only : fracrefa, absa, ka_mco2, &
+      use mo_lrtm_par,    only : ng6, ngs5
+      use mo_rrlw_kg06,   only : fracrefa, absa, ka_mco2, &
            selfref, forref, cfc11adj, cfc12
 
       ! ------- Declarations -------
@@ -2421,8 +2421,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng7, ngs6
-      use rrlw_kg07,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng7, ngs6
+      use mo_rrlw_kg07,   only : fracrefa, fracrefb, absa, absb, &
            ka_mco2, kb_mco2, selfref, forref
 
       ! ------- Declarations -------
@@ -2956,8 +2956,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng8, ngs7
-      use rrlw_kg08,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng8, ngs7
+      use mo_rrlw_kg08,   only : fracrefa, fracrefb, absa, absb, &
            ka_mco2, ka_mn2o, ka_mo3, kb_mco2, kb_mn2o, &
            selfref, forref, cfc12, cfc22adj
 
@@ -3180,8 +3180,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng9, ngs8
-      use rrlw_kg09,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng9, ngs8
+      use mo_rrlw_kg09,   only : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -3686,8 +3686,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng10, ngs9
-      use rrlw_kg10,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng10, ngs9
+      use mo_rrlw_kg10,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -3817,8 +3817,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng11, ngs10
-      use rrlw_kg11,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng11, ngs10
+      use mo_rrlw_kg11,   only : fracrefa, fracrefb, absa, absb, &
            ka_mo2, kb_mo2, selfref, forref
 
       ! ------- Declarations -------
@@ -3971,8 +3971,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng12, ngs11
-      use rrlw_kg12,   only : fracrefa, absa, &
+      use mo_lrtm_par,    only : ng12, ngs11
+      use mo_rrlw_kg12,   only : fracrefa, absa, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -4372,8 +4372,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng13, ngs12
-      use rrlw_kg13,   only : fracrefa, fracrefb, absa, &
+      use mo_lrtm_par,    only : ng13, ngs12
+      use mo_rrlw_kg13,   only : fracrefa, fracrefb, absa, &
            ka_mco2, ka_mco, kb_mo3, selfref, forref
 
       ! ------- Declarations -------
@@ -4870,8 +4870,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng14, ngs13
-      use rrlw_kg14,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng14, ngs13
+      use mo_rrlw_kg14,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -4993,8 +4993,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng15, ngs14
-      use rrlw_kg15,   only : fracrefa, absa, &
+      use mo_lrtm_par,    only : ng15, ngs14
+      use mo_rrlw_kg15,   only : fracrefa, absa, &
            ka_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -5428,8 +5428,8 @@ contains
 
       ! ------- Modules -------
 
-      use mo_lrtm_par, only : ng16, ngs15
-      use rrlw_kg16,   only : fracrefa, fracrefb, absa, absb, &
+      use mo_lrtm_par,    only : ng16, ngs15
+      use mo_rrlw_kg16,   only : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------

@@ -592,6 +592,8 @@ CONTAINS
          &                               tc_ev       ,&
          &                               dt_sec      )
       !
+      CHARACTER(LEN=*),PARAMETER  :: method_name ='eval_echam_phy_tc_details'
+      !
       ! grid and name of evaluated configuration
       CHARACTER(len=*)                    , INTENT(in)    :: cg
       CHARACTER(len=*)                    , INTENT(in)    :: process
@@ -621,6 +623,9 @@ CONTAINS
               &            tc_ed,             &
               &            tc_dt)
          lret   = addEventToEventGroup(tc_ev, echam_phy_event_group)
+         IF (.NOT.lret) THEN
+            CALL finish(method_name,'addEventToEventGroup returned .FALSE. for event '//process//'_d'//cg)
+         END IF
          dt_sec = REAL(getTotalMilliSecondsTimeDelta(tc_dt,tc_sd),wp)/1000._wp
       END IF
       !

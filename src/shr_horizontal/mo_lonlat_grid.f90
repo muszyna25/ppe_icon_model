@@ -301,7 +301,7 @@ CONTAINS
     DO k=1,lon_lat_grid%lat_dim
       rlat(k)         = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
       sincos_lat(k,1) = SIN(rlat(k))
-      sincos_lat(k,2) = SIN(rlat(k))
+      sincos_lat(k,2) = COS(rlat(k))
     END DO
 
     ! special treatment for "trivial rotation" (no.pole at +90,0):

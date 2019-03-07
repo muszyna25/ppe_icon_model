@@ -34,7 +34,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 #define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
-#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b,PPp_coeff_grid) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))-(PPp_coeff_grid)*ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
+#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))+ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
 
 #ifdef __INTEL_COMPILER
 #define USE_LAXFR_MACROS

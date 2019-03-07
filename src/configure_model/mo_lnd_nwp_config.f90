@@ -29,7 +29,7 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000
+  USE mo_impl_constants,     ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000, VARNAME_LEN
   USE mo_io_units,           ONLY: filename_max
   USE mo_nwp_sfc_tiles,      ONLY: t_tile_list, setup_tile_list
 
@@ -54,6 +54,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
   PUBLIC :: tile_list
+  PUBLIC :: groups_smi
 
 
   !--------------------------------------------------------------------------
@@ -123,6 +124,7 @@ MODULE mo_lnd_nwp_config
 
    CHARACTER(LEN = *), PARAMETER :: modname = "mo_lnd_nwp_config"
 
+   CHARACTER(LEN=VARNAME_LEN),DIMENSION(1) :: groups_smi = (/"ICON_INI_OUT"/)
 
 CONTAINS
 

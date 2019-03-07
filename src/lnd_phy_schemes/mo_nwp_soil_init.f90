@@ -987,7 +987,7 @@ CONTAINS
         ELSE
           ! limit snow depth to at least 1 m and set snow density to the equilibrium value for the current snow temperature
           h_snow(jc)   = MAX(h_snow(jc), 1._ireals)
-          rho_snow(jc) = crhosmax_tmin + MAX(0._ireals,(t_snow(jc)-csnow_tmin)/(t0_melt-csnow_tmin)) &
+          rho_snow(jc) = crhosmax_tmin + MAX(0._ireals,(MIN(t0_melt,t_snow(jc))-csnow_tmin)/(t0_melt-csnow_tmin)) &
                          * (crhosmax_ml-crhosmax_tmin)
           w_snow(jc)   = h_snow(jc) * rho_snow(jc)/rho_w
         ENDIF  ! soiltyp

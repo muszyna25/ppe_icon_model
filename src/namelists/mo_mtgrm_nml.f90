@@ -123,7 +123,34 @@ CONTAINS
     stationlist_tot(1)%lon   = 53.633_wp
     stationlist_tot(1)%lat   =  9.983_wp
 
-    max_time_stamps          = 10000
+    ! "max_time_stamps" : Maximum no. of time stamps which can be
+    !                     sampled in the meteogram buffer.
+    !
+    ! Note that this parameter directly the affects the memory
+    ! consumption on the PE which samples the meteograms! The
+    ! following formula calculates the buffer size and gives typical
+    ! values:
+    !
+    !    max_nlevs        = 91
+    !    nvars            = 27
+    !    nsfcvars         = 61
+    !    
+    !    p_real_dp_byte   = 8
+    !    MAX_HEADER_SIZE  = 60
+    !    MAX_DATE_LEN     = 16
+    !    MAX_NUM_STATIONS = 60
+    !    
+    !    max_sfcvar_size  = max_time_stamps*p_real_dp_byte
+    !    max_var_size     = (max_time_stamps+1)*p_real_dp_byte*max_nlevs
+    !    max_buf_size     = MAX_HEADER_SIZE*p_real_dp_byte + max_time_stamps*(MAX_DATE_LEN+4)
+    !                       + nvars*max_var_size  + nsfcvars*max_sfcvar_size              
+    !    total            = max_buf_size * MAX_NUM_STATIONS
+    !
+    ! This means, for example, that sampling 10000 time stamps at once
+    ! in the buffer would allocate 12 GiB of memory! Be careful!
+    !
+    max_time_stamps          =    200
+
     silent_flush             = .FALSE.
     append_if_exists         = .FALSE.
     !------------------------------------------------------------------

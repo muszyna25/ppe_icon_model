@@ -25,7 +25,7 @@ MODULE mo_initicon_io
   USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -39,7 +39,7 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename,             &
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
@@ -48,7 +48,8 @@ MODULE mo_initicon_io
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
-    &                               my_process_is_mpi_workroot
+    &                               my_process_is_mpi_workroot,    &
+    &                               my_process_is_stdio
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
@@ -66,7 +67,7 @@ MODULE mo_initicon_io
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
 
 
@@ -238,7 +239,7 @@ MODULE mo_initicon_io
     TYPE(t_patch), TARGET,  INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
-    INTEGER :: jg, jlev, jc, jk, jb, i_endidx
+    INTEGER :: jg, jlev, jc, jk, jb, i_endidx, jg1
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
@@ -266,6 +267,7 @@ MODULE mo_initicon_io
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
+      ifs2icon_file(jg) = " "
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -277,6 +279,30 @@ MODULE mo_initicon_io
       ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
+      IF (my_process_is_stdio()) THEN
+        ! consistency check: check for duplicate file names which may
+        ! occur, for example, if the keyword pattern (namelist
+        ! parameter) has been defined ambiguously by the user.
+        DO jg1 = 1,(jg-1)
+          IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+          IF (ifs2icon_file(jg1) == ifs2icon_file(jg)) THEN
+            CALL finish(routine, "Error! Namelist parameter ifs2icon_filename="//TRIM(ifs2icon_filename)//&
+              &"has been defined ambiguously for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//&
+              &TRIM(int2string(jg, '(i0)'))//"!")
+          END IF
+        END DO
+      END IF
+
+    END DO
+
+
+    DO jg = 1, n_dom
+
+      jlev = p_patch(jg)%level
+
+      ! Skip reading the atmospheric input data if a model domain
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! Read in data from IFS2ICON
       !
@@ -605,7 +631,7 @@ MODULE mo_initicon_io
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
-    INTEGER :: jg, jlev
+    INTEGER :: jg, jlev, jg1
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_levels
@@ -629,7 +655,7 @@ MODULE mo_initicon_io
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
-
+      ifs2icon_file(jg) = " "
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -640,6 +666,31 @@ MODULE mo_initicon_io
       !
       ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
+
+      IF (my_process_is_stdio()) THEN
+        ! consistency check: check for duplicate file names which may
+        ! occur, for example, if the keyword pattern (namelist
+        ! parameter) has been defined ambiguously by the user.
+        DO jg1 = 1,(jg-1)
+          IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+          IF (ifs2icon_file(jg1) == ifs2icon_file(jg)) THEN
+            CALL finish(routine, "Error! Namelist parameter ifs2icon_filename="//TRIM(ifs2icon_filename)//&
+              &"has been defined ambiguously for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//&
+              &TRIM(int2string(jg, '(i0)'))//"!")
+          END IF
+        END DO
+      END IF
+
+    END DO
+
+
+    DO jg = 1, n_dom
+
+      jlev = p_patch(jg)%level
+
+      ! Skip reading the atmospheric input data if a model domain
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! Read in data from IFS2ICON
       !
@@ -1082,6 +1133,11 @@ MODULE mo_initicon_io
               CALL fetch3d(params, 'qs', jg, my_ptr3d)
             END IF
 
+            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqg)
+              CALL fetch3d(params, 'qg', jg, my_ptr3d)
+            END IF
+
             IF (lvert_remap_fg) THEN
 
                 ! the number of input and output levels must be the same for this mode
@@ -1131,6 +1187,7 @@ MODULE mo_initicon_io
 
   !>
   !! Fetch DWD first guess from the request list (atmosphere only) and store to initicon input state
+  !! for subsequent vertical remapping to the current ICON grid
   !! First guess (FG) is read for z_ifc, theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v,
   !! qv, qc, qi, qr, qs.
@@ -1332,7 +1389,7 @@ MODULE mo_initicon_io
             IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceFg
                 CALL fetch3d(params, 'qv', jg, my_ptr%qv)
-                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                ! check whether we are using DATA from both FG and ANA input, so that it's correctly listed in the input source table
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceAna) THEN
                     CALL inputInstructions(jg)%ptr%setSource('qv', kInputSourceBoth)
                 END IF
@@ -1341,19 +1398,42 @@ MODULE mo_initicon_io
                 CALL fetch3d(params, 'qv', jg, my_ptr3d)
             ENDIF
 
-            ! For the time being, these are identical to qc, qi, qr, AND qs from FG => usually read from FG
-            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-            CALL fetch3d(params, 'qc', jg, my_ptr3d)
-            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-            CALL fetch3d(params, 'qi', jg, my_ptr3d)
-            IF ( iqr /= 0 ) THEN
+            IF (init_mode == MODE_IAU .AND. qcana_mode > 0) THEN
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceFg
+              CALL fetch3d(params, 'qc', jg, my_ptr%qc)
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qc', kInputSourceBoth)
+              END IF
+            ENDIF
+
+            IF (init_mode == MODE_IAU .AND. qiana_mode > 0) THEN
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceFg
+              CALL fetch3d(params, 'qi', jg, my_ptr%qi)
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qi', kInputSourceBoth)
+              END IF
+            ENDIF
+
+            ! For the time being, these are identical to qc, qi, qr, and qs from FG => usually read from FG
+            IF ( .NOT. ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+              my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
+              CALL fetch3d(params, 'qc', jg, my_ptr3d)
+              my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
+              CALL fetch3d(params, 'qi', jg, my_ptr3d)
+              IF ( iqr /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
                 CALL fetch3d(params, 'qr', jg, my_ptr3d)
-            END IF
-            IF ( iqs /= 0 ) THEN
+              END IF
+              IF ( iqs /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
                 CALL fetch3d(params, 'qs', jg, my_ptr3d)
-            END IF
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqg)
+                CALL fetch3d(params, 'qg', jg, my_ptr3d)
+              END IF
+            ENDIF
+
         END IF
     ENDDO ! loop over model domains
 
@@ -1511,39 +1591,42 @@ MODULE mo_initicon_io
             IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk)
             IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk)
 
-            IF(iprog_aero == 1) THEN
-                aerosol_fg_present(jg) = .TRUE.
+            IF(iprog_aero >= 1) THEN
+                IF (iprog_aero == 1) THEN
+                  aerosol_fg_present(jg,1:4) = .FALSE.
+                  aerosol_fg_present(jg,5)   = .TRUE.
+                ELSE
+                  aerosol_fg_present(jg,:)   = .TRUE.
+                ENDIF
 
                 my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
                 CALL fetchSurface(params, 'aer_ss', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_ss') == kInputSourceCold) aerosol_fg_present(jg,iss) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
                 CALL fetchSurface(params, 'aer_or', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_or') == kInputSourceCold) aerosol_fg_present(jg,iorg) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
                 CALL fetchSurface(params, 'aer_bc', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_bc') == kInputSourceCold) aerosol_fg_present(jg,ibc) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
                 CALL fetchSurface(params, 'aer_su', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_su') == kInputSourceCold) aerosol_fg_present(jg,iso4) = .FALSE.
                 !
                 my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
                 CALL fetchSurface(params, 'aer_du', jg, my_ptr2d)
-                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg) = .FALSE.
+                IF (inputInstructions(jg)%ptr%sourceOfVar('aer_du') == kInputSourceCold) aerosol_fg_present(jg,idu) = .FALSE.
 
-                ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
-                IF(.NOT.aerosol_fg_present(jg)) THEN
-                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
-                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
-                END IF
+                ! Reading of each of these variables is purely OPTIONAL, and inform the InputInstructions about this.
+                IF (.NOT.aerosol_fg_present(jg,iss))  CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,iorg)) CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,ibc))  CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,iso4)) CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceCold)
+                IF (.NOT.aerosol_fg_present(jg,idu))  CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceCold)
             ELSE
-                aerosol_fg_present(jg) = .FALSE.
+                aerosol_fg_present(jg,:) = .FALSE.
             END IF
         END IF
     END DO

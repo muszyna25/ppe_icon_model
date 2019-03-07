@@ -36,6 +36,8 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zvz0i
   PUBLIC :: tune_icesedi_exp
   PUBLIC :: tune_entrorg
+  PUBLIC :: tune_rprcon
+  PUBLIC :: tune_rdepths
   PUBLIC :: tune_capdcfac_et
   PUBLIC :: tune_capdcfac_tr
   PUBLIC :: tune_lowcapefac
@@ -52,6 +54,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_box_liq
   PUBLIC :: tune_box_liq_asy
   PUBLIC :: tune_dust_abs
+  PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
   PUBLIC :: lcalib_clcov
   PUBLIC :: max_freshsnow_inc
@@ -93,6 +96,12 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
+
+  REAL(wp) :: &                    !< Coefficient for conversion of cloud water into precipitation in convection scheme 
+    &  tune_rprcon
+
+  REAL(wp) :: &                    !< Maximum allowed shallow convection depth (Pa) 
+    &  tune_rdepths
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
@@ -141,6 +150,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
+
+  REAL(wp) :: &                    !< Tuning factor for gust parameterization
+    &  tune_gust_factor            !
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara

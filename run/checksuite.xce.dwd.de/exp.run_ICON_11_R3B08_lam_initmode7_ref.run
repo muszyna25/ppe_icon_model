@@ -116,8 +116,8 @@ ln -s ${GRIDDIR}/map_file.latbc .
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-dynamics_grid_filename="'lam_test_DOM01.nc'"
-radiation_grid_filename="'lam_test_DOM01.parent.nc'"
+dynamics_grid_filename="lam_test_DOM01.nc"
+radiation_grid_filename="lam_test_DOM01.parent.nc"
 
 
 
@@ -224,8 +224,8 @@ cat > NAMELIST_NWP << EOF
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_grid_filename      =  "${dynamics_grid_filename}"         ! array of the grid filenames for the dycore
+ radiation_grid_filename     = "${radiation_grid_filename}"         ! array of the grid filenames for the radiation model
  dynamics_parent_grid_id     =                          0         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =                      .TRUE.        ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
