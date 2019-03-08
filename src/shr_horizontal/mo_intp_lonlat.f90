@@ -176,6 +176,13 @@
 
               CALL p_global%destructor()
               CALL tri_global%destructor()
+
+              ! The inexact "point-inside-triangle" test which is used
+              ! by the barycentric interpolation algorithm may cause
+              ! (very small) weights outside [0,1]. We therefore apply
+              ! a cut-off and renormalization.
+              CALL normalize_weights(lonlat_grids%list(i)%intp(jg), &
+                &                    lonlat_grids%list(i)%intp(jg)%baryctr)
             END IF
 
             ! --- for debugging purposes: visualize stencil for a
@@ -1470,5 +1477,70 @@
       CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, rbf_shape_param )
 
     END SUBROUTINE rbf_setup_interpol_lonlat_grid
+
+
+    ! Interpolation weight algorithms may cause small weights outside
+    ! [0,1]. This subroutine applies a cut-off and renormalization of
+    ! cell-based interpolation coefficients.
+    !
+    SUBROUTINE normalize_weights(ptr_int_lonlat, intp_coeff)
+      TYPE (t_lon_lat_intp),     INTENT(INOUT) :: ptr_int_lonlat
+      TYPE(t_intp_scalar_coeff), INTENT(INOUT) :: intp_coeff
+      ! local variables
+      CHARACTER(*), PARAMETER :: routine = modname//"::normalize_weights"
+      LOGICAL,      PARAMETER :: ldebug  = .FALSE.
+
+      INTEGER  :: jc, jb, nblks_lonlat, npromz_lonlat, i_startidx, i_endidx, &
+        &         je1, istencil, icount = 0
+      REAL(wp) :: checksum, mmin, mmax, &
+        &         rmin = 1.0_wp, rmax = 0.0_wp
+
+      nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
+      npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
+
+      icount = 0
+      rmin   = 1.0_wp
+      rmax   = 0.0_wp
+
+!$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx, je1, checksum, istencil, mmin, mmax)  &
+!$OMP    REDUCTION(+:icount), REDUCTION(min:rmin), REDUCTION(max:rmax)
+      BLOCKS: DO jb = 1, nblks_lonlat
+        i_startidx = 1
+        i_endidx   = nproma
+        if (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+        DO jc = i_startidx, i_endidx
+          istencil = intp_coeff%stencil(jc,jb) ! actual number of stencil points
+
+          ! statistics
+          mmin   = MINVAL(intp_coeff%coeff(1:istencil,jc,jb))
+          rmin   = MIN(rmin, mmin)
+          mmax   = MAXVAL(intp_coeff%coeff(1:istencil,jc,jb))
+          rmax   = MAX(rmax, mmax)
+          icount = icount + COUNT(intp_coeff%coeff(1:istencil,jc,jb) < 0._wp)
+          icount = icount + COUNT(intp_coeff%coeff(1:istencil,jc,jb) > 1._wp)
+
+          ! Apply cut-off, st. weights in [0,1]
+          DO je1 = 1, istencil
+            intp_coeff%coeff(je1,jc,jb) = MAX(MIN(1.0_wp, intp_coeff%coeff(je1,jc,jb)), 0.0_wp)
+          END DO
+
+          ! Ensure that sum of interpolation coefficients = 1.0
+          checksum = 0._wp
+          DO je1 = 1, istencil
+            checksum = checksum + intp_coeff%coeff(je1,jc,jb)
+          ENDDO
+          DO je1 = 1, istencil
+            intp_coeff%coeff(je1,jc,jb) = intp_coeff%coeff(je1,jc,jb) / checksum
+          END DO
+        END DO ! jc
+      END DO BLOCKS
+!$OMP END DO
+
+      IF (ldebug .AND. (icount > 0)) THEN
+        WRITE (0,*) routine, ": PE ", get_my_mpi_work_id(), &
+          &         " handled ", icount, " cases; min/max = ", rmin, ", ", rmax
+      END IF
+    END SUBROUTINE normalize_weights
 
   END MODULE mo_intp_lonlat

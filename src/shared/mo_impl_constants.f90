@@ -330,6 +330,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: icosmo  =  1
   INTEGER, PARAMETER :: igme    =  2
   INTEGER, PARAMETER :: iedmf   =  3
+  INTEGER, PARAMETER :: iprog   =  4  
   INTEGER, PARAMETER :: ismag   =  5
 
   ! identifiers for aerosol classes of Tegen climatology 
@@ -372,8 +373,8 @@ MODULE mo_impl_constants
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
-  INTEGER, PARAMETER :: ippm_vcfl   = 3
-  INTEGER, PARAMETER :: ippm_v      = 30
+  INTEGER, PARAMETER :: ippm_v      = 3
+  INTEGER, PARAMETER :: ippm4gpu_v  = 4
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0

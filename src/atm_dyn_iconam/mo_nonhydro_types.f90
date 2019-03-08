@@ -158,6 +158,8 @@ MODULE mo_nonhydro_types
     &  exner_incr(:,:,:),   & ! exner inrement                   [-]
     &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
     &  rhov_incr (:,:,:),   & ! water vapour partial density increment [kg/m^3]
+    &  rhoc_incr (:,:,:),   & ! cloud water partial density increment [kg/m^3]
+    &  rhoi_incr (:,:,:),   & ! cloud ice partial density increment [kg/m^3]
     ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
@@ -378,6 +380,14 @@ MODULE mo_nonhydro_types
      bdy_mflx_e_idx(:) , & 
      bdy_mflx_e_blk(:)   &
      => NULL()
+
+     !
+     ! Vertically varying nudging coefficient: nudgecoeff_vert(nlev)
+    REAL(wp), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS           &
+#endif
+     :: nudgecoeff_vert(:)
 
 
 

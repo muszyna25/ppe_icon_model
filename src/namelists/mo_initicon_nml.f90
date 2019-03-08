@@ -35,6 +35,8 @@ MODULE mo_initicon_nml
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
     & config_lread_ana           => lread_ana,           &
+    & config_qcana_mode          => qcana_mode,          &
+    & config_qiana_mode          => qiana_mode,          &
     & config_use_lakeiceana      => use_lakeiceana,      &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
@@ -125,6 +127,7 @@ CONTAINS
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode  ! mode of processing QC/QI increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -197,7 +200,7 @@ CONTAINS
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
-                          niter_diffu
+                          niter_diffu, qcana_mode, qiana_mode
                           
 
   !------------------------------------------------------------
@@ -211,6 +214,9 @@ CONTAINS
   zpbl2       = 1000._wp       ! gradients
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
+  qcana_mode  = 0              ! 1: add QC increments on QV increments (0: ignore them)
+                               ! 2: add QC increments on QV increments in case of subsaturation and to QC otherwise
+  qiana_mode  = 0              ! 0/1: use/ignore QI increments
   use_lakeiceana = .FALSE.     ! do not use ice fraction analysis data over freshwater lakes
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
@@ -355,6 +361,8 @@ CONTAINS
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
   config_lread_ana           = lread_ana
+  config_qcana_mode          = qcana_mode
+  config_qiana_mode          = qiana_mode
   config_use_lakeiceana      = use_lakeiceana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename

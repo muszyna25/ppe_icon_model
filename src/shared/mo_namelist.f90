@@ -46,6 +46,7 @@ MODULE mo_namelist
 
   PUBLIC :: open_nml_output
   PUBLIC :: close_nml_output
+  PUBLIC :: nnml
 
   !  return values of function 'position_nml':
 
