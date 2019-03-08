@@ -785,14 +785,14 @@ case "$ac_sitename" in
                           intel14)
                             load_modules    = intel/14.0.3 ${load_modules}
                             ;;
-                          intel17)
-                            load_modules = intel/17.0.6 ${load_modules}
+                          intel16)
+                            load_modules = intel/16.0 ${load_modules}
                             ;;
                           intel18)
-                            load_modules = intel/18.0.2 ${load_modules}
+                            load_modules = intel/18.0.4 ${load_modules}
                             ;;
-                          intel16|intel*)
-                            load_modules = intel/16.0 ${load_modules}
+                          intel17|intel*)
+                            load_modules = intel/17.0.6 ${load_modules}
                             ;;
                         esac
                         config_compiler = intel
