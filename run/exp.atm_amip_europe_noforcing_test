@@ -164,6 +164,14 @@ add_link_file $datadir/ifs2icon_1979010100_${d1_grid_refinement}_${d1_grid_label
 datadir=${icon_data_poolFolder}/initial_condition
 add_link_file $datadir/ifs2icon_1979010100_${d2_grid_refinement}_${d2_grid_label}.nc ./ifs2icon_DOM02.nc
 
+# boundary conditions
+#
+# - topography
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${d1_grid_refinement}_${d1_grid_label}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM01.nc
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${d2_grid_refinement}_${d2_grid_label}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso_DOM02.nc
+
 #--------------------------------------------------------------------------------------------------
 
 # (5) Define the output
@@ -188,6 +196,27 @@ EOF
 #
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
+
+output_atm_vgrid=yes
+#
+if [[ "$output_atm_vgrid" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_vgrid"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
+/
+EOF
+fi
+
 
 output_atm_3d=yes
 #

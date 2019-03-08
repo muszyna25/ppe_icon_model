@@ -446,6 +446,10 @@ MODULE mo_echam_phy_memory
       & albnirdif      (:,:  )=>NULL(),  &!< [ ] surface albedo for near-IR range, diffuse, grid-box mean
       & albedo         (:,:  )=>NULL()    !< [ ] surface albedo, grid-box mean
 
+    ! Surface emissivity
+    REAL(wp),POINTER :: &
+      & emissivity     (:,:  )=>NULL()    !< [ ] surface emissivity, grid-box mean
+
     TYPE(t_ptr_2d),ALLOCATABLE :: albvisdir_tile_ptr(:), albvisdif_tile_ptr(:), &
       & albnirdir_tile_ptr(:), albnirdif_tile_ptr(:), albedo_tile_ptr(:)
 
@@ -3215,6 +3219,13 @@ CONTAINS
                   & lrestart=.FALSE., ldims=shape2d,                                   &
                   & lmiss=.TRUE., missval=cdimissval )
     END DO
+
+    ! &       field% emissivity (nproma,nblks),          &
+    cf_desc    = t_cf_var('emissivity', '', 'longwave surface emissivity', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'emissivity', field%emissivity,      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart=.FALSE., ldims=shape2d )
 
     !---------------------------
     ! Surface fluxes

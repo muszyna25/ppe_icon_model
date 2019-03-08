@@ -49,7 +49,7 @@ MODULE mo_echam_phy_init
   ! test cases
   USE mo_nh_testcases_nml,     ONLY: nh_test_name, ape_sst_case, th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
-  USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3
+  USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3, zemiss_def
 
   USE mo_sea_ice_nml,          ONLY: albi
 
@@ -436,6 +436,14 @@ CONTAINS
             CALL read_2D(stream_id=stream_id, location=on_cells, &
                  &       variable_name='albedo',                &
                  &       fill_array=prm_field(jg)% alb(:,:))
+            !
+            ! Here surface emissivity should be read from an external file.
+            ! But currently this is not available. Instead a default constant
+            ! is used as source.
+            WRITE(message_text,'(2a)') 'Use default surface emissivity zemiss_def from mo_physical_constants'
+            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            !
+            prm_field(jg)% emissivity(:,:) = zemiss_def
             !
           END IF
           !

@@ -23,7 +23,7 @@ MODULE mo_surface
   USE mo_exception,         ONLY: finish
 #endif
 
-  USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
+  USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, stbo, tmelt, rhos!!$, rhoi
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
@@ -112,6 +112,7 @@ CONTAINS
                            & albvisdif_tile,                    &! inout
                            & albnirdif_tile,                    &! inout
                            & albedo, albedo_tile,               &! inout
+                           & emissivity,                        &! inout
                            & pco2_flux_tile,                    &! inout
                            & ptsfc,                             &! out
                            & ptsfc_rad,                         &! out
@@ -200,6 +201,7 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim), albvisdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim), albnirdif(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: emissivity(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pco2nat  (kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pco2_flux_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim)
@@ -601,10 +603,10 @@ CONTAINS
           & rnds_dir(jcs:kproma) * (1._wp - albnirdir_ice(jcs:kproma,k))
 
         nonsolar_ice(jcs:kproma,k) = &
-          zemiss_def * (rlds(jcs:kproma) - stbo * (Tsurf(jcs:kproma,k)+tmelt)**4) &  ! longwave net
+          emissivity(jcs:kproma) * (rlds(jcs:kproma) - stbo * (Tsurf(jcs:kproma,k)+tmelt)**4) &  ! longwave net
           & + plhflx_tile(jcs:kproma,idx_ice) + pshflx_tile(jcs:kproma,idx_ice)
 
-        dnonsolardT(jcs:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(jcs:kproma,k)+tmelt)**3
+        dnonsolardT(jcs:kproma,k) = -4._wp * emissivity(jcs:kproma) * stbo * (Tsurf(jcs:kproma,k)+tmelt)**3
 
       ENDDO
 
@@ -842,9 +844,9 @@ CONTAINS
         ! set index
         js=loidx(jls,jsfc)
         IF (jsfc == idx_lnd) THEN
-          rlns_tile(js,jsfc) = zemiss_def * (rlds(js) - stbo * ztsfc_lnd_eff(js)**4)
+          rlns_tile(js,jsfc) = emissivity(js) * (rlds(js) - stbo * ztsfc_lnd_eff(js)**4)
         ELSE
-          rlns_tile(js,jsfc) = zemiss_def * (rlds(js) - stbo * ptsfc_tile(js,jsfc)**4)
+          rlns_tile(js,jsfc) = emissivity(js) * (rlds(js) - stbo * ptsfc_tile(js,jsfc)**4)
         END IF
 
         rsns_tile(js,jsfc) = rvds_dif(js) * (1._wp - albvisdif_tile(js,jsfc)) + &

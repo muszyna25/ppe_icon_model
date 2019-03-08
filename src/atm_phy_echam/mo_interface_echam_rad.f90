@@ -98,6 +98,7 @@ CONTAINS
               & alb_nir_dir    = field%albnirdir(:,:)     ,&!< in  surface albedo for near IR range, direct
               & alb_vis_dif    = field%albvisdif(:,:)     ,&!< in  surface albedo for visible range, diffuse
               & alb_nir_dif    = field%albnirdif(:,:)     ,&!< in  surface albedo for near IR range, diffuse
+              & emissivity     = field%emissivity(:,:)    ,&!< in  surface longwave emissivity
               & tk_sfc         = field%ts_rad_rt(:,:)     ,&!< in  grid box mean surface temperature
               & zf             = field%zf(:,:,:)          ,&!< in  geometric height at full level      [m]
               & zh             = field%zh(:,:,:)          ,&!< in  geometric height at half level      [m]

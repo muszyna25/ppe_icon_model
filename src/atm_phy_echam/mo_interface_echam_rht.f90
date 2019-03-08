@@ -32,7 +32,6 @@ MODULE mo_interface_echam_rht
 
   USE mo_radheating             ,ONLY: radheating
   USE mo_psrad_solar_parameters ,ONLY: psctm
-  USE mo_ext_data_state         ,ONLY: ext_data
 
   IMPLICIT NONE
   PRIVATE
@@ -102,7 +101,7 @@ CONTAINS
                & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
                & daylght_frc= field%daylght_frc(:,jb)        ,&! daylight fraction
                !
-               & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
+               & emiss      = field%emissivity (:,jb)        ,&! lw sfc emissivity
                & tsr        = field%ts_rad (:,jb)            ,&! radiative surface temperature at current   time [K]
                & tsr_rt     = field%ts_rad_rt(:,jb)          ,&! radiative surface temperature at radiation time [K]
                !

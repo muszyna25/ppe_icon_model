@@ -16,6 +16,7 @@
 #
   zg                 z_mc
   zghalf             z_ifc
+  dzghalf            ddqz_z_full
   gpfull             geopot
 #
 # Available translations for instantaneous output of variable fields

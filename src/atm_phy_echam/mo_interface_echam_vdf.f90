@@ -411,6 +411,7 @@ CONTAINS
                &              albnirdif_tile = field% albnirdif_tile(:,jb,:), &! inout
                &              albedo         = field% albedo        (:,jb)  , &! inout
                &              albedo_tile    = field% albedo_tile(:,jb,:),    &! inout
+               &              emissivity     = field% emissivity    (:,jb)  , &! inout
                &              pco2_flux_tile = field% co2_flux_tile(:,jb,:),  &! inout
                &              ptsfc     = field%ts    (:,jb),                 &! out
                &              ptsfc_rad = field%ts_rad(:,jb),                 &! out

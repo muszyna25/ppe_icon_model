@@ -2948,7 +2948,7 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & ldims=shape3d_e, loutput=.TRUE.,                              &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -2960,7 +2960,7 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxt_z_full', p_metrics%ddxt_z_full,         &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & ldims=shape3d_e, loutput=.TRUE.,                              &
                 & isteptype=TSTEP_CONSTANT )
 
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -3082,7 +3082,7 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d_e, loutput=.FALSE.,                             &
+                & ldims=shape3d_e, loutput=.TRUE.,                              &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -3094,7 +3094,7 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_metrics_list, 'ddqz_z_half', p_metrics%ddqz_z_half,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf, loutput=.FALSE.,                         &
+                & ldims=shape3d_chalf, loutput=.TRUE.,                          &
                 & isteptype=TSTEP_CONSTANT )
 
 
@@ -3106,7 +3106,7 @@ MODULE mo_nonhydro_state
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_metrics_list, 'ddqz_z_full', p_metrics%ddqz_z_full,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, loutput=.FALSE.,                             &
+                & ldims=shape3d_c, loutput=.TRUE.,                              &
                 & isteptype=TSTEP_CONSTANT )
 
 
