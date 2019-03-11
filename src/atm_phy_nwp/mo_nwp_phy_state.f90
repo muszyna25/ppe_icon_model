@@ -2159,7 +2159,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &                 new_cf=new_cf_desc),                              &
       & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in",               &
       &                 "mode_iau_fg_in","mode_iau_old_fg_in",            &
-      &                 "ICON_INI_OUT"),                                  &
+      &                 "mode_iniana"),                                   &
       & initval=0.01_wp )
 
     ! &      diag%t_2m(nproma,nblks_c)

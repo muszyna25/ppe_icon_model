@@ -408,7 +408,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT,                       &
-        &           in_group=groups("dwd_fg_sfc_vars","ICON_INI_OUT") )
+        &           in_group=groups("dwd_fg_sfc_vars","mode_iniana") )
 
 
       ! glacier fraction

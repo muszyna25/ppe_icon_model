@@ -110,8 +110,8 @@ MODULE mo_var_groups
     &  "ICE_BUDGETS           ",  &
     &  "ICE_DIAG              ",  &
     &  "LATBC_PREFETCH_VARS   ",  &
-    &  "ICON_INI_OUT          ",  &  ! Variable set needed to initialize ICON (including optional variables)
-    &  "ICON_LBC_OUT          ",  &  ! Variable set needed for ICON-LAM lateral boundary conditions
+    &  "mode_iniana           ",  &  ! Variable set needed to initialize ICON (MODE_ICONVREMAP)
+    &  "icon_lbc_vars         ",  &  ! Variable set needed for ICON-LAM lateral boundary conditions
     &  "ART_AEROSOL           ",  &  ! ICON-ART fields for aerosol particles
     &  "ART_CHEMISTRY         ",  &  ! ICON-ART fields for chemical tracers
     &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracers
