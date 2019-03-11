@@ -954,13 +954,13 @@ CONTAINS
     ! XML specification checks
     
     DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol .AND. art_config(jg%cart_aerosol_xml)=='') THEN
+      IF(art_config(jg)%lart_aerosol .AND. art_config(jg)%cart_aerosol_xml =='') THEN
         CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_chem .AND. art_config(jg%cart_chemistry_xml)=='') THEN
+      IF(art_config(jg)%lart_chem .AND. art_config(jg)%cart_chemistry_xml =='') THEN
         CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_passive .AND. art_config(jg%cart_passive_xml)=='') THEN
+      IF(art_config(jg)%lart_passive .AND. art_config(jg)%cart_passive_xml =='' )THEN
         CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
       ENDIF
     ENDDO
