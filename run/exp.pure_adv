@@ -28,6 +28,8 @@ IEQ=1             # equation system
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
 #
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
 #
 DTIME=1200         # time step in seconds
 DT_DATA=`expr 48 \* 3600  `   # output each 96 hours
@@ -40,7 +42,7 @@ NDAYS=12          # number of model days to run
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
+cat > "${atmo_namelist}" << EOF
 !
 &parallel_nml
 /
@@ -54,10 +56,8 @@ cat > NAMELIST_${EXPNAME} << EOF
  start_lev   = ${B}         ! number of bisections applied for the base grid
 /
 &run_nml
- nproma      = ${NPROMA}    ! array blocking length
- nlev        = ${N}         ! number of full levels of vertical grid
+ num_lev        = ${N}         ! number of full levels of vertical grid
  ntracer     = 2            ! number of tracers
- run_day     = ${NDAYS}     ! run length in days
  dtime       = ${DTIME}     ! timestep in seconds
  iequations  = ${IEQ}       ! equation system
  i_! cell_type is not used = 3            ! triangular cells

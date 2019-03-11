@@ -35,16 +35,13 @@ MODULE mo_nh_testcases
   USE mo_math_types,           ONLY: t_cartesian_coordinates, t_geographical_coordinates 
   USE mo_math_utilities,       ONLY: gc2cc, arc_length
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: ltransport, iforcing, iqv
+  USE mo_run_config,           ONLY: ltransport, iforcing
   USE mo_extpar_config,        ONLY: itopo
-    
   USE mo_dynamics_config,      ONLY: nnow, nnew, lcoriolis
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_physical_constants,   ONLY: grav, cpd, rd, cvd_o_rd, p0ref
-
   USE mo_nonhydro_types,       ONLY: t_nh_state
   USE mo_nonhydro_state,       ONLY: duplicate_prog_state
-  
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state
   USE mo_lnd_nwp_config,       ONLY: isub_seaice
@@ -60,9 +57,8 @@ MODULE mo_nh_testcases
   USE mo_nh_bb13_exp,          ONLY: init_nh_env_bb13, init_nh_bubble_bb13                       
   USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
   USE mo_nh_dcmip_hadley,      ONLY: init_nh_dcmip_hadley         
-  USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,                   &
-                                   & init_nh_topo_dcmip_schaer
-  USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
+  USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer
+  USE mo_nh_dcmip_rest_atm,    ONLY: init_nh_topo_dcmip_rest_atm,                 &
                                    & init_nh_prog_dcmip_rest_atm  
   USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
   USE mo_nh_dcmip_bw,          ONLY: init_nh_dcmip_bw
@@ -248,7 +244,7 @@ MODULE mo_nh_testcases
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
 
-     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
+     CALL init_nh_topo_wk ( ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
 
   CASE ('bb13')
@@ -889,7 +885,7 @@ MODULE mo_nh_testcases
       CALL init_nh_env_bb13   ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg), l_hydro_adjust  )
+                                     & l_hydro_adjust  )
          ! add perturbation to theta and recalculate theta_v and rho 
       CALL init_nh_bubble_bb13 ( p_patch(jg), p_nh_state(jg)%metrics,       &
                                      & p_nh_state(jg)%prog(nnow(jg)),       &
@@ -927,12 +923,12 @@ MODULE mo_nh_testcases
       CALL  init_nh_atmo_ana_nconstlayers( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg),l_hydro_adjust  )
+                                     & l_hydro_adjust  )
     CASE(2) 
       CALL  init_nh_atmo_ana_poly( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg),l_hydro_adjust  )
+                                     & l_hydro_adjust  )
 
     CASE default
       WRITE(message_text,'(a)') &
@@ -1010,7 +1006,7 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       CALL init_nh_prog_dcmip_rest_atm( p_patch(jg),                              &
         &                    p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
-        &                    p_nh_state(jg)%metrics, p_int(jg),l_hydro_adjust )
+        &                    p_nh_state(jg)%metrics, l_hydro_adjust )
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     ENDDO
 
@@ -1093,7 +1089,7 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
       CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
@@ -1170,7 +1166,7 @@ MODULE mo_nh_testcases
       nlev   = p_patch(jg)%nlev
 
       CALL init_warm_bubble ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+                              p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg

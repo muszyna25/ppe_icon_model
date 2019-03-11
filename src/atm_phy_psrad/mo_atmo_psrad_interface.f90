@@ -549,9 +549,8 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! this is the concurrent radiation
   !>
-  SUBROUTINE psrad_concurrent_interface(mtime_current, patch)
+  SUBROUTINE psrad_concurrent_interface(mtime_current)
     TYPE(datetime),  POINTER  :: mtime_current     ! current datetime (mtime)
-    TYPE(t_patch),   POINTER  :: patch    ! Patch
 
     TYPE(t_psrad_interface),POINTER :: this_memory
 !    CHARACTER(len=*), PARAMETER :: method_name="psrad_concurrent_interface"
@@ -732,8 +731,7 @@ CONTAINS
  
   !-----------------------------------------------------------------------------
   !>
-  SUBROUTINE finalize_psrad_concurrent(patch)
-    TYPE(t_patch),   POINTER  :: patch    ! Patch
+  SUBROUTINE finalize_psrad_concurrent
 
     TYPE(t_psrad_interface),POINTER :: this_memory
     CHARACTER(len=*), PARAMETER :: method_name="finalize_psrad_concurrent"
@@ -782,7 +780,6 @@ CONTAINS
   ! create the psrad model and run through its interface sequentially
   !>
   SUBROUTINE psrad_interface_test(                                          &
-      & patch,                                                              &
       & irad_aero     ,klev                                                ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
@@ -802,8 +799,6 @@ CONTAINS
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
       & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
      !-------------------------------------------------------------------
-
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
 
     INTEGER,INTENT(IN)  ::             &
          irad_aero,                    & !< aerosol control

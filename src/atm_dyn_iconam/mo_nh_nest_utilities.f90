@@ -41,7 +41,7 @@ MODULE mo_nh_nest_utilities
   USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH, min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
     grf_bdyintp_end_c,                         &
@@ -53,19 +53,20 @@ MODULE mo_nh_nest_utilities
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
+  USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref, vtmpc1, cpd
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_initicon_types,      ONLY: t_pi_atm
   USE mo_advection_config,    ONLY: advection_config
+  USE mo_nudging_config,      ONLY: nudging_config, indg_type, ithermdyn_type
 
   IMPLICIT NONE
 
   PRIVATE
 
 
-  PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup,     &
-    prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging, save_progvars, &
-    prep_rho_bdy_nudging, density_boundary_nudging, prep_outer_bdy_nudging
+  PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup, &
+    prep_bdy_nudging, nest_boundary_nudging, save_progvars,                     &
+    prep_rho_bdy_nudging, density_boundary_nudging, limarea_bdy_nudging
 
 CONTAINS
 
@@ -944,7 +945,7 @@ CONTAINS
 
     ENDIF
 
-    IF (ltransport .AND. iprog_aero == 1) THEN
+    IF (ltransport .AND. iprog_aero >= 1) THEN
      CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, prm_diag(jg)%aerosol,    &
                              prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
     ENDIF
@@ -1292,9 +1293,6 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2011-12-08
   SUBROUTINE prep_rho_bdy_nudging(jgp, jg)
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_nh_nest_utilities:prep_rho_bdy_nudging'
-
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
     INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -1445,17 +1443,20 @@ CONTAINS
 
 
   !>
-  !! This routine prepares outer boundary nudging for the limited-area mode.
+  !! This routine executes boundary nudging for the limited-area mode.
   !!
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2013-21-10
-  SUBROUTINE prep_outer_bdy_nudging (p_patch, p_prog, p_prog_rcf, p_metrics, p_diag, &
-                                     p_latbc_const, p_latbc_old, p_latbc_new)
+  SUBROUTINE limarea_bdy_nudging (p_patch, p_prog, p_prog_rcf, p_metrics, p_diag, &
+                                  p_int, tsrat, p_latbc_const, p_latbc_old, p_latbc_new)
 
     TYPE(t_patch),   INTENT(IN)    :: p_patch
     TYPE(t_nh_prog), INTENT(IN)    :: p_prog, p_prog_rcf
     TYPE(t_nh_metrics), INTENT(IN) :: p_metrics
     TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
+    TYPE(t_int_state), INTENT(IN)  :: p_int
+
+    REAL(wp), INTENT(IN) :: tsrat ! Ratio between advective and dynamical time step
 
     ! alternative input data, either for constant or time-dependent lateral boundary conditions
     TYPE(t_nh_prog), INTENT(IN), OPTIONAL :: p_latbc_const
@@ -1463,21 +1464,56 @@ CONTAINS
 
     ! local variables
     INTEGER :: jb, jc, jk, je, ic, nlev
-    REAL(wp) :: wfac_old, wfac_new
+    INTEGER :: nshift, i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp) :: wfac_old, wfac_new, pres, temp, qv, tempv_inc, pres_inc
+    REAL(wp) :: rho_tend, thv_tend, vn_tend, qv_tend
+    REAL(wp) :: rd_o_cvd, rd_o_cpd, rd_o_p0ref, nudgecoeff
+    REAL(wp) :: max_nudge_coeff_vn, max_nudge_coeff_thermdyn
+    LOGICAL  :: bdymask(nproma)
+    LOGICAL  :: lupper_bdy_nudging, lnudge_hydro_pres_ubn
+
 
     ! number of full levels of child domain
     nlev   = p_patch%nlev
 
+    ! R/c_v (not present in physical constants)
+    rd_o_cvd = 1._wp / cvd_o_rd
+
+    ! R/c_p
+    rd_o_cpd = rd / cpd
+
+    ! R / p0ref
+    rd_o_p0ref = rd / p0ref
+
+    IF (nudging_config%ltype(indg_type%ubn)) THEN
+      ! Upper boundary nudging is switched on
+      lupper_bdy_nudging = .TRUE.
+      nshift = nudging_config%ilev_end
+      !
+      ! Check if hydrostatic or nonhydrostatic thermodynamic variables shall be used for computing nudging increments 
+      lnudge_hydro_pres_ubn = nudging_config%thermdyn_type == ithermdyn_type%hydrostatic .AND. ltransport
+      !
+      ! Max. nudging coefficients (qv is not nudged in upper boundary zone)
+      max_nudge_coeff_vn       = nudging_config%max_nudge_coeff_vn
+      max_nudge_coeff_thermdyn = nudging_config%max_nudge_coeff_thermdyn
+    ELSE
+      nshift                   = 0
+      lupper_bdy_nudging       = .FALSE.
+      lnudge_hydro_pres_ubn    = .FALSE.
+      max_nudge_coeff_vn       = 0._wp
+      max_nudge_coeff_thermdyn = 0._wp
+    ENDIF
+
     IF (PRESENT(p_latbc_const) .AND. (PRESENT(p_latbc_old) .OR. PRESENT(p_latbc_new))) THEN
 
-      CALL finish('prep_outer_bdy_nudging','conflicting arguments')
+      CALL finish('prep_limarea_bdy_nudging','conflicting arguments')
 
     ELSE IF (PRESENT(p_latbc_const)) THEN ! Mode for constant lateral boundary data
 
       ! compute differences between lateral boundary data and prognostic variables
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,ic,rho_tend,thv_tend) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
       DO ic = 1, p_metrics%nudge_c_dim
         jc = p_metrics%nudge_c_idx(ic)
@@ -1491,14 +1527,18 @@ CONTAINS
           jc = p_metrics%nudge_c_idx(ic)
           jb = p_metrics%nudge_c_blk(ic)
 #endif
-          p_diag%grf_tend_thv(jc,jk,jb) = p_latbc_const%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
-          p_diag%grf_tend_rho(jc,jk,jb) = p_latbc_const%rho    (jc,jk,jb) - p_prog%rho    (jc,jk,jb)
+          thv_tend = p_latbc_const%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+          rho_tend = p_latbc_const%rho    (jc,jk,jb) - p_prog%rho    (jc,jk,jb)
+
+          p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + tsrat*p_int%nudgecoeff_c(jc,jb)*rho_tend
+          p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + tsrat*p_int%nudgecoeff_c(jc,jb)*thv_tend
+          p_prog%exner(jc,jk,jb)   = EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb)))
 
         ENDDO
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jk,je,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,je,jb,ic,vn_tend) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, p_metrics%nudge_e_dim
           je = p_metrics%nudge_e_idx(ic)
@@ -1512,7 +1552,10 @@ CONTAINS
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
 #endif
-            p_diag%grf_tend_vn(je,jk,jb) = p_latbc_const%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+            vn_tend = p_latbc_const%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+
+            p_prog%vn(je,jk,jb) = p_prog%vn(je,jk,jb) + tsrat*p_int%nudgecoeff_e(je,jb)*vn_tend
+
         ENDDO
       ENDDO
 !$OMP END DO NOWAIT
@@ -1525,32 +1568,74 @@ CONTAINS
       wfac_old = latbc_config%lc1
       wfac_new = latbc_config%lc2
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      IF (latbc_config%nudge_hydro_pres .AND. ltransport) THEN
+!$OMP DO PRIVATE(jk,jc,jb,ic,pres,temp,qv,tempv_inc,pres_inc,rho_tend,thv_tend) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
-      DO ic = 1, p_metrics%nudge_c_dim
-        jc = p_metrics%nudge_c_idx(ic)
-        jb = p_metrics%nudge_c_blk(ic)
-!DIR$ IVDEP
-        DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, p_metrics%nudge_c_dim
           jc = p_metrics%nudge_c_idx(ic)
           jb = p_metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
+          DO jk = nshift+1, nlev
+#else
+        DO jk = nshift+1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_metrics%nudge_c_dim
+            jc = p_metrics%nudge_c_idx(ic)
+            jb = p_metrics%nudge_c_blk(ic)
 #endif
-          p_diag%grf_tend_thv(jc,jk,jb) = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + &
-            wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
-          p_diag%grf_tend_rho(jc,jk,jb) = wfac_old*p_latbc_old%rho(jc,jk,jb) +     &
-            wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+            pres = wfac_old*p_latbc_old%pres(jc,jk,jb) + wfac_new*p_latbc_new%pres(jc,jk,jb)
+            temp = wfac_old*p_latbc_old%temp(jc,jk,jb) + wfac_new*p_latbc_new%temp(jc,jk,jb)
+            qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
+            tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
+               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+            pres_inc  = pres-p_diag%pres(jc,jk,jb)
+
+            thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
+            rho_tend = ( pres_inc/p_diag%tempv(jc,jk,jb) - &
+              tempv_inc*p_diag%pres(jc,jk,jb)/p_diag%tempv(jc,jk,jb)**2 )/rd
+
+            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + tsrat*p_int%nudgecoeff_c(jc,jb)*rho_tend
+            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + tsrat*p_int%nudgecoeff_c(jc,jb)*thv_tend
+            p_prog%exner(jc,jk,jb)   = EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb)))
+
+          ENDDO
         ENDDO
-      ENDDO
 !$OMP END DO
 
-      IF (ltransport) THEN ! apply QV nudging in unsaturated regions
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+      ELSE
+
+!$OMP DO PRIVATE(jk,jc,jb,ic,rho_tend,thv_tend) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+        DO ic = 1, p_metrics%nudge_c_dim
+          jc = p_metrics%nudge_c_idx(ic)
+          jb = p_metrics%nudge_c_blk(ic)
+!DIR$ IVDEP
+          DO jk = nshift+1, nlev
+#else
+        DO jk = nshift+1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_metrics%nudge_c_dim
+            jc = p_metrics%nudge_c_idx(ic)
+            jb = p_metrics%nudge_c_blk(ic)
+#endif
+            thv_tend = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+            rho_tend = wfac_old*p_latbc_old%rho(jc,jk,jb) + wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+
+            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + tsrat*p_int%nudgecoeff_c(jc,jb)*rho_tend
+            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + tsrat*p_int%nudgecoeff_c(jc,jb)*thv_tend
+            p_prog%exner(jc,jk,jb)   = EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb)))
+
+          ENDDO
+        ENDDO
+!$OMP END DO
+
+      ENDIF
+
+      IF (ltransport) THEN ! apply QV nudging in subsaturated regions
+!$OMP DO PRIVATE(jk,jc,jb,ic,qv_tend) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, p_metrics%nudge_c_dim
           jc = p_metrics%nudge_c_idx(ic)
@@ -1564,125 +1649,151 @@ CONTAINS
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
 #endif
-            p_diag%grf_tend_tracer(jc,jk,jb,iqv) = wfac_old*p_latbc_old%qv(jc,jk,jb) + &
-              wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
-            ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid
-            ! runaway effects
-            IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp) THEN
-               p_diag%grf_tend_tracer(jc,jk,jb,iqv) = MIN(0._wp,p_diag%grf_tend_tracer(jc,jk,jb,iqv))
-            ENDIF
+            qv_tend = wfac_old*p_latbc_old%qv(jc,jk,jb) + wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
+
+            ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid runaway effects
+            qv_tend = MERGE(MIN(0._wp,qv_tend), qv_tend, p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp)
+
+            ! using a weaker nudging coefficient for QV than for thermodynamic variables turned out to have a slightly
+            ! beneficial impact on forecast quality
+            p_prog_rcf%tracer(jc,jk,jb,iqv) = p_prog_rcf%tracer(jc,jk,jb,iqv) + 0.5_wp*tsrat*p_int%nudgecoeff_c(jc,jb)*qv_tend
+
           ENDDO
         ENDDO
 !$OMP END DO
       ENDIF
 
 
-!$OMP DO PRIVATE(jk,je,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,je,jb,ic,vn_tend) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, p_metrics%nudge_e_dim
           je = p_metrics%nudge_e_idx(ic)
           jb = p_metrics%nudge_e_blk(ic)
 !DIR$ IVDEP
-          DO jk = 1, nlev
+          DO jk = nshift+1, nlev
 #else
-        DO jk = 1, nlev
+        DO jk = nshift+1, nlev
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, p_metrics%nudge_e_dim
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
 #endif
-            p_diag%grf_tend_vn(je,jk,jb) = wfac_old*p_latbc_old%vn(je,jk,jb) + &
-              wfac_new*p_latbc_new%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+            vn_tend = wfac_old*p_latbc_old%vn(je,jk,jb) + wfac_new*p_latbc_new%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+
+            ! using a weaker nudging coefficient for vn than for thermodynamic variables turned out to have a
+            ! beneficial impact on forecast quality
+            p_prog%vn(je,jk,jb) = p_prog%vn(je,jk,jb) + 0.5_wp*tsrat*p_int%nudgecoeff_e(je,jb)*vn_tend
         ENDDO
       ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    ELSE
-      CALL finish('prep_outer_bdy_nudging','missing arguments')
-    ENDIF
-
-  END SUBROUTINE prep_outer_bdy_nudging
+!$OMP END DO
 
 
+    IF (lupper_bdy_nudging) THEN
 
-  !>
-  !! This routine executes boundary nudging for limited-area simulations.
-  !!
-  !!
-  !! @par Revision History
-  !! Developed  by Guenther Zaengl, DWD, 2010-06-18
-  SUBROUTINE outer_boundary_nudging(jg, ntlev, ntlev_rcf, rcffac)
+    i_startblk = p_patch%cells%start_block(grf_bdywidth_c+1)
+    i_endblk   = p_patch%cells%end_block(min_rlcell)
 
-    INTEGER, INTENT(IN)  :: jg, ntlev, ntlev_rcf
-    REAL(wp), INTENT(IN) :: rcffac ! Ratio between advective and dynamical time step
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,pres,temp,qv,tempv_inc,pres_inc,rho_tend,thv_tend,&
+!$OMP            nudgecoeff,bdymask) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
 
-    ! Pointers
-    TYPE(t_patch),     POINTER ::  p_p
-    TYPE(t_nh_state),  POINTER ::  p_nh
-    TYPE(t_int_state), POINTER ::  p_int
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
 
-    ! Indices
-    INTEGER :: jb, jc, jk, ic
+      ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
+      DO jc = i_startidx, i_endidx
+        bdymask(jc) = p_patch%cells%refin_ctrl(jc,jb)>=1 .AND. p_patch%cells%refin_ctrl(jc,jb)<=grf_bdywidth_c
+      ENDDO
 
-    INTEGER :: nlev                   ! number of vertical full levels
-
-    REAL(wp) :: rd_o_cvd, rd_o_p0ref
-
-    ! Set pointers
-    p_p   => p_patch(jg)
-    p_nh  => p_nh_state(jg)
-    p_int => p_int_state(jg)
-
-    ! R/c_v (not present in physical constants)
-    rd_o_cvd = 1._wp / cvd_o_rd
-
-    ! R / p0ref
-    rd_o_p0ref = rd / p0ref
-
-    ! number of vertical levels
-    nlev = p_p%nlev
-
-!$OMP PARALLEL
-
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
-#ifdef __LOOP_EXCHANGE
-    DO ic = 1, p_nh%metrics%nudge_c_dim
-      jc = p_nh%metrics%nudge_c_idx(ic)
-      jb = p_nh%metrics%nudge_c_blk(ic)
+      IF (lnudge_hydro_pres_ubn) THEN
+        DO jk = 1, nshift
 !DIR$ IVDEP
-      DO jk = 1, nlev
-#else
-    DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, p_nh%metrics%nudge_c_dim
-        jc = p_nh%metrics%nudge_c_idx(ic)
-        jb = p_nh%metrics%nudge_c_blk(ic)
-#endif
-        p_nh%prog(ntlev)%rho(jc,jk,jb) =                                      &
-          p_nh%prog(ntlev)%rho(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
-          p_nh%diag%grf_tend_rho(jc,jk,jb)
+          DO jc = i_startidx, i_endidx
 
-        p_nh%prog(ntlev)%theta_v(jc,jk,jb) =                                     &
-          p_nh%prog(ntlev)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
-          p_nh%diag%grf_tend_thv(jc,jk,jb)
+            nudgecoeff = MERGE(0._wp, tsrat*MAX(p_int%nudgecoeff_c(jc,jb), &
+              &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
 
-        p_nh%prog(ntlev)%exner(jc,jk,jb) =                                  &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(ntlev)%rho(jc,jk,jb)*p_nh%prog(ntlev)%theta_v(jc,jk,jb)))
+            pres = wfac_old*p_latbc_old%pres(jc,jk,jb) + wfac_new*p_latbc_new%pres(jc,jk,jb)
+            temp = wfac_old*p_latbc_old%temp(jc,jk,jb) + wfac_new*p_latbc_new%temp(jc,jk,jb)
+            qv   = wfac_old*p_latbc_old%qv(jc,jk,jb)   + wfac_new*p_latbc_new%qv(jc,jk,jb)
 
-        IF (ltransport) THEN ! execute also QV nudging
-          p_nh%prog(ntlev_rcf)%tracer(jc,jk,jb,iqv) =                                     &
-            p_nh%prog(ntlev_rcf)%tracer(jc,jk,jb,iqv) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
-            p_nh%diag%grf_tend_tracer(jc,jk,jb,iqv)
-        ENDIF
+            tempv_inc = (temp-p_diag%temp(jc,jk,jb))*(1._wp+vtmpc1*qv) + &
+               (qv-p_prog_rcf%tracer(jc,jk,jb,iqv))*vtmpc1*temp
+            pres_inc  = pres-p_diag%pres(jc,jk,jb)
 
+            thv_tend = tempv_inc/p_prog%exner(jc,jk,jb) - rd_o_cpd*p_prog%theta_v(jc,jk,jb)/pres*pres_inc
+            rho_tend = ( pres_inc/p_diag%tempv(jc,jk,jb) -                 &
+              tempv_inc*p_diag%pres(jc,jk,jb)/p_diag%tempv(jc,jk,jb)**2 )/rd
+
+            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
+            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
+            p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
+              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
+
+        ENDDO
+      ENDDO
+      ELSE
+        DO jk = 1, nshift
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+
+            nudgecoeff = MERGE(0._wp, tsrat*MAX(p_int%nudgecoeff_c(jc,jb), &
+              &          max_nudge_coeff_thermdyn*p_metrics%nudgecoeff_vert(jk)), bdymask(jc))
+
+            thv_tend = wfac_old*p_latbc_old%theta_v(jc,jk,jb) + wfac_new*p_latbc_new%theta_v(jc,jk,jb) - p_prog%theta_v(jc,jk,jb)
+            rho_tend = wfac_old*p_latbc_old%rho(jc,jk,jb) + wfac_new*p_latbc_new%rho(jc,jk,jb)- p_prog%rho(jc,jk,jb)
+
+            p_prog%rho(jc,jk,jb)     = p_prog%rho(jc,jk,jb)     + nudgecoeff*rho_tend
+            p_prog%theta_v(jc,jk,jb) = p_prog%theta_v(jc,jk,jb) + nudgecoeff*thv_tend
+            p_prog%exner(jc,jk,jb)   = MERGE(p_prog%exner(jc,jk,jb), &
+              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_prog%rho(jc,jk,jb)*p_prog%theta_v(jc,jk,jb))),bdymask(jc))
+
+        ENDDO
+      ENDDO
+      ENDIF
+    ENDDO
+!$OMP END DO
+
+    i_startblk = p_patch%edges%start_block(grf_bdywidth_e+1)
+    i_endblk   = p_patch%edges%end_block(min_rledge)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,vn_tend,nudgecoeff,bdymask) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge)
+
+      ! Exclude halo points of boundary interpolation zone (causes sync error otherwise)
+      DO je = i_startidx, i_endidx
+        bdymask(je) = p_patch%edges%refin_ctrl(je,jb)>=1 .AND. p_patch%edges%refin_ctrl(je,jb)<=grf_bdywidth_e
+      ENDDO
+
+      DO jk = 1, nshift
+!DIR$ IVDEP
+        DO je = i_startidx, i_endidx
+
+            nudgecoeff = MERGE(0._wp, tsrat*MAX(0.5_wp*p_int%nudgecoeff_e(je,jb), &
+              &          max_nudge_coeff_vn*p_metrics%nudgecoeff_vert(jk)), bdymask(je))
+
+            vn_tend = wfac_old*p_latbc_old%vn(je,jk,jb) + wfac_new*p_latbc_new%vn(je,jk,jb) - p_prog%vn(je,jk,jb)
+
+            p_prog%vn(je,jk,jb) = p_prog%vn(je,jk,jb) + nudgecoeff*vn_tend
+        ENDDO
       ENDDO
     ENDDO
 !$OMP END DO NOWAIT
+
+    ENDIF
+
 !$OMP END PARALLEL
 
+    ELSE
+      CALL finish('limarea_bdy_nudging','missing arguments')
+    ENDIF
 
-  END SUBROUTINE outer_boundary_nudging
+  END SUBROUTINE limarea_bdy_nudging
+
+
 
   !>
   !! This routine executes boundary nudging for one-way nested domains
@@ -1702,7 +1813,7 @@ CONTAINS
     TYPE(t_int_state), POINTER ::  p_int
 
     ! Indices
-    INTEGER :: jb, jc, jk, jt, ic
+    INTEGER :: jb, jc, je, jk, jt, ic
 
     INTEGER :: nlev          ! number of vertical full levels
     INTEGER :: ntracer_nudge !< number of tracers to be nudged
@@ -1765,6 +1876,26 @@ CONTAINS
           p_nh%prog(nnew)%w(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
           p_nh%diag%grf_tend_w(jc,jk,jb)
 
+      ENDDO
+    ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
+#ifdef __LOOP_EXCHANGE
+    DO ic = 1, p_nh%metrics%nudge_e_dim
+      je = p_nh%metrics%nudge_e_idx(ic)
+      jb = p_nh%metrics%nudge_e_blk(ic)
+!DIR$ IVDEP
+      DO jk = 1, nlev
+#else
+    DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+      DO ic = 1, p_nh%metrics%nudge_e_dim
+        je = p_nh%metrics%nudge_e_idx(ic)
+        jb = p_nh%metrics%nudge_e_blk(ic)
+#endif
+        p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)        &
+          + rcffac*p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
       ENDDO
     ENDDO
 !$OMP END DO

@@ -26,7 +26,7 @@ MODULE mo_ice_fem_interface
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum, timer_ice_interp, timer_ice_advection
 
-!  USE mo_grid_config,         ONLY: l_limited_area, n_dom   ! for now sea-ice works on global domain-only
+! USE mo_grid_config,         ONLY: l_limited_area, n_dom   ! for now sea-ice works on global domain-only
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -35,15 +35,17 @@ MODULE mo_ice_fem_interface
 
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_dynamics_config,     ONLY: nold
-
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
+  USE mo_ocean_nml,           ONLY: atm_pressure_included_in_icedyn 
+  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean, t_ocean_surface
+  USE mo_physical_constants,  ONLY: grav, rho_ref, sfc_press_pascal
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_nml,         ONLY: i_ice_advec
   USE mo_ice_fem_advection,   ONLY: fct_ice_solve, ice_TG_rhs
   USE mo_math_types,          ONLY: t_cartesian_coordinates
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
-  USE mo_icon_interpolation_scalar, ONLY: verts2cells_scalar !, cells2verts_scalar
+  USE mo_icon_interpolation_scalar, ONLY: verts2cells_scalar
   USE mo_ice_fem_interpolation, ONLY: map_edges2verts, map_verts2edges,                 &
                                       gvec2cvec_c_2d, cvec2gvec_c_2d,                   &
                                       rotate_cvec_v, gvec2cvec_v_fem, cvec2gvec_v_fem,  &
@@ -76,9 +78,8 @@ CONTAINS
 !! Developed by Einar Olason, MPI-M (2013-06-05)
 !! Modified   by Vladimir Lapin (2015)
 !
-  SUBROUTINE ice_fem_interface( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff)
+  SUBROUTINE ice_fem_interface( p_patch_3D, p_ice, p_os, p_as, atmos_fluxes, p_op_coeff, p_oce_sfc)
 
-    USE mo_ice_fem_icon_init, ONLY: c2v_wgt
     USE mo_ice_fem_types,     ONLY: sigma11, sigma12, sigma22
     USE mo_ice_fem_evp,       ONLY: EVPdynamics
 !    USE mo_ice_fem_evp_old,  ONLY: EVPdynamics_old ! non-optimized, original version of the solver
@@ -88,14 +89,37 @@ CONTAINS
     TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
     TYPE (t_atmos_fluxes),    INTENT(IN)     :: atmos_fluxes
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+    TYPE(t_atmos_for_ocean),  INTENT(INOUT)  :: p_as
+    TYPE(t_subset_range),     POINTER        :: all_cells
+    TYPE(t_ocean_surface),    INTENT(INOUT)  :: p_oce_sfc
 
     ! Local variables
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: ssh(:,:) ! sea surface height (input only)         [m]
+    REAL(wp), ALLOCATABLE  :: ssh_reduced(:,:) ! reduced sea surface height to take slp coupling into account     [m]
+    INTEGER                :: jc, jb, start_index, end_index
 
 !--------------------------------------------------------------------------------------------------
     p_patch => p_patch_3D%p_patch_2D(1)
+    all_cells     => p_patch_3d%p_patch_2d(1)%cells%all
+
     ssh     => p_os%p_prog(nold(1))%h(:,:)
+
+! this is the formulation of MPIOM to let the sea dynamics feels the atm pressure
+    IF ( atm_pressure_included_in_icedyn ) THEN
+      ALLOCATE(ssh_reduced(SIZE(ssh,1),SIZE(ssh,2)))
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+          DO jc = start_index, end_index
+            ssh_reduced(jc,jb) = ssh (jc,jb) &
+                 + (p_as%pao(jc,jb)-sfc_press_pascal)/(rho_ref*grav)
+          ENDDO   
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
 
     IF (ltimer) CALL timer_start(timer_ice_momentum)
 
@@ -107,7 +131,14 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_ice_interp)
 
     ! Map scalars to vertices. Obtain: m_ice, m_snow, a_ice, elevation
-    CALL map_icon2fem_scalar(p_patch, p_ice, ssh)
+
+    IF (atm_pressure_included_in_icedyn) THEN 
+      CALL dbg_print('debug femIWrap: ssh_reduced' , ssh_reduced, str_module, 4, in_subset=p_patch%cells%owned)
+      CALL map_icon2fem_scalar(p_patch, p_ice, ssh_reduced)
+    ELSE 
+      CALL map_icon2fem_scalar(p_patch, p_ice, ssh)
+    ENDIF
+
     ! Map vectors to vertices on the rotated-pole grid. Obtain: stress_atmice_x, stress_atmice_y, u_w, v_w
     CALL map_icon2fem_vec(p_patch_3D, p_os, atmos_fluxes, p_op_coeff)
 

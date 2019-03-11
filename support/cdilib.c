@@ -27115,6 +27115,9 @@ bool gridCompare(int gridID, const grid_t *grid, bool coord_compare)
                 {
                   differ = grid->nvertex != gridRef->nvertex
                     || gridRef->vtable->compareXYAO((grid_t *)gridRef, (grid_t *)grid);
+
+		  differ |= ((gridRef->uuid[0] || grid->uuid[0]) && memcmp(gridRef->uuid, grid->uuid, CDI_UUID_SIZE));
+
                 }
               else
                 {

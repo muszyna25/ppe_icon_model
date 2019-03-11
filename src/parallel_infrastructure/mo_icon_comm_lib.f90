@@ -26,20 +26,20 @@ MODULE mo_icon_comm_lib
 
   USE mo_kind,            ONLY: wp
   USE mo_exception,       ONLY: message_text, message, finish, warning
-  USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
-    & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &
+  USE mo_parallel_config, ONLY: icon_comm_debug, max_send_recv_buffer_size, &
+    & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,         &
     & max_no_of_comm_processes, max_no_of_comm_patterns, sync_barrier_mode, &
     & max_mpi_message_size
 
   USE mo_grid_subset,    ONLY: block_no, index_no
   USE mo_model_domain,    ONLY: t_patch
   USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
-  USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
-     & process_mpi_all_comm, work_mpi_barrier, stop_mpi, &
+  USE mo_mpi,             ONLY: p_send, p_irecv, p_wait, p_isend, &
+     & p_send, p_real_dp, my_process_is_mpi_seq,   &
+     & work_mpi_barrier, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id
-  USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
+  USE mo_timer,           ONLY: timer_start, timer_stop, timer_icon_comm_sync, &
     & activate_sync_timers, timer_icon_comm_fillrecv, timer_icon_comm_wait, &
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_isend, timer_icon_comm_barrier_2, timer_icon_comm_send, &
@@ -1297,8 +1297,7 @@ CONTAINS
   !>
   !! Creates a new comm_variable and returns its id.
   INTEGER FUNCTION new_comm_var_r2d_recv_send(recv_var, send_var, comm_pattern_index, &
-    & vertical_layers, status, scope, name) !, &
-   ! & var_dim, no_of_variables, vertical_layers)
+    & vertical_layers, status, scope, name) 
 
     REAL(wp), TARGET   :: recv_var(:,:)
     REAL(wp), TARGET   :: send_var(:,:)
@@ -1347,6 +1346,11 @@ CONTAINS
 !     comm_variable(new_comm_var_r2d)%dim_1 = nproma
 
     ! check the vertical_layers
+    IF (PRESENT(vertical_layers)) THEN
+      IF (vertical_layers /= 1) THEN
+        CALL finish(method_name, "Unsupported number of layers.")
+      ENDIF
+    ENDIF
     comm_variable(new_comm_var_r2d_recv_send)%vertical_layers = 1
 
     comm_variable(new_comm_var_r2d_recv_send)%recv_values_2d => recv_var
@@ -1485,7 +1489,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_2D_1(var,  comm_pattern_index, name)
+  SUBROUTINE icon_comm_sync_2D_1(var, comm_pattern_index, name)
     INTEGER, INTENT(IN)       :: comm_pattern_index
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
     REAL(wp), TARGET   :: var(:,:)
@@ -2413,8 +2417,8 @@ CONTAINS
   !> This is a utility routine for the parallel range-searching
   !  algorithm with GNATs, the problem is described below in the
   !  subroutine "mpi_reduce_mindistance_pts".
-  SUBROUTINE mintype_minfct(invec, inoutvec, len, itype)
-    INTEGER :: len, itype
+  SUBROUTINE mintype_minfct(invec, inoutvec, len)
+    INTEGER :: len
     TYPE(t_mpi_mintype) :: invec(len), inoutvec(len)
     ! local variables
     INTEGER :: i
@@ -2455,15 +2459,17 @@ CONTAINS
     INTEGER,                 INTENT(IN) :: total_dim
     INTEGER,                 INTENT(IN) :: comm
     ! local variables:
-    INTEGER  :: mpi_type(2), mpi_disp(2), mpi_block(2), rextent, min_type, ierr, mintype_op
+    INTEGER  :: mpi_type(2), mpi_block(2), min_type, ierr, mintype_op
 
 #ifndef NOMPI
+    INTEGER(MPI_ADDRESS_KIND) :: typeLB, rextent, mpi_disp(2)
+
     ! create a user-defined type for MPI allreduce operation:
     mpi_type  = (/ p_real_dp, MPI_INTEGER /)
-    CALL MPI_TYPE_EXTENT(p_real_dp, rextent, ierr)
-    mpi_disp  = (/ 0, rextent /)
+    CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, rextent, ierr)
+    mpi_disp  = (/ 0_MPI_ADDRESS_KIND, rextent /)
     mpi_block = (/ 1, 2 /)
-    CALL MPI_TYPE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr)
+    CALL MPI_TYPE_CREATE_STRUCT(2, mpi_block, mpi_disp, mpi_type, min_type, ierr)
     CALL MPI_TYPE_COMMIT(min_type, ierr)
     ! register user-defined reduction operation
     CALL MPI_OP_CREATE(mintype_minfct, .TRUE., mintype_op, ierr)

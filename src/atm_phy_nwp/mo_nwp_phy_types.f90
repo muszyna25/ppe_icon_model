@@ -110,38 +110,6 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS             &
 #endif
       &  ::                    &
-      &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
-      &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
-      &   ice_gsp_rate(:,:),   & !! grid_scale surface ice rate                          [kg/m2/s]
-      &   graupel_gsp_rate(:,:),&!! grid_scale surface graupel rate                      [kg/m2/s]
-      &   hail_gsp_rate(:,:),  & !! grid_scale surface hail rate                         [kg/m2/s]
-      &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
-      &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
-      &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate (convection scheme)     [kg/m2/s]
-      &   snow_con_rate_3d(:,:,:),  & !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
-      &   rain_edmf_rate_3d(:,:,:), & !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
-      &   snow_edmf_rate_3d(:,:,:), & !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
-      &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
-      &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
-      &   ice_gsp(:,:),        & !! accumulated grid_scale surface ice                   [kg/m2]
-      &   hail_gsp(:,:),       & !! accumulated grid_scale surface hail                  [kg/m2]
-      &   graupel_gsp(:,:),    & !! accumulated grid_scale surface graupel               [kg/m2]
-      &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]
-      &   snow_con(:,:),       & !! accumulated convective surface snow                  [kg/m2]
-      &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface       [kg/m2]
-                                 !! total precipitation
-      &   tot_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! grid-scale plus convective surface 
-                                 !! total precipitation rate
-      &   con_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! convective surface precipitation rate
-      &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
-                                 !! grid-scale surface precipitation rate
-!     the following precipitation variables *0 are accumulated only to the previous call of ww_diagnostics
-      &   rain_gsp0(:,:),      & !! accumulated grid-scale surface rain                  [kg/m2]
-      &   snow_gsp0(:,:),      & !! accumulated grid_scale surface snow                  [kg/m2]
-      &   rain_con0(:,:),      & !! accumulated convective surface rain                  [kg/m2]
-      &   snow_con0(:,:),      & !! accumulated convective surface snow                  [kg/m2]
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
@@ -201,6 +169,7 @@ MODULE mo_nwp_phy_types
       &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0um)
       &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7um)
       &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7um)
+      &  lw_emiss(:,:),        & !! Longwave emissivity with corrections for deserts and snow cover
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
@@ -249,9 +218,59 @@ MODULE mo_nwp_phy_types
       &  astr_v_sso  (:,:),    & !! meridional sso surface stress, accumulated or mean since model start
       &  lhn_diag (:,:,:),     & !! diagnostic output fields of LHN
       &  tt_lheat (:,:,:),     & !! latent heat release
-      &  ttend_lhn (:,:,:),     & !! temperature increment of LHN
+      &  ttend_lhn (:,:,:),    & !! temperature increment of LHN
+      &  qvtend_lhn (:,:,:),   & !! temperature increment of LHN
       &  qrs_flux (:,:,:)        !! precipitation flux
 
+
+    !> Precipitation fields
+    REAL(wp), POINTER          &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS             &
+#endif
+      &  ::                    &
+      !  Instantaneuous precipitation rates [kg/m2/s]
+      !  grid scale
+      &  rain_gsp_rate    (:,:),  & !! grid-scale surface rain rate                    [kg/m2/s]
+      &  snow_gsp_rate    (:,:),  & !! grid_scale surface snow rate                    [kg/m2/s]
+      &  ice_gsp_rate     (:,:),  & !! grid_scale surface ice rate                     [kg/m2/s]
+      &  graupel_gsp_rate (:,:),  & !! grid_scale surface graupel rate                 [kg/m2/s]
+      &  hail_gsp_rate    (:,:),  & !! grid_scale surface hail rate                    [kg/m2/s]
+      !  convective
+      &  rain_con_rate    (:,:),  & !! convective surface rain rate                    [kg/m2/s]
+      &  snow_con_rate    (:,:),  & !! convective surface snow_rate                    [kg/m2/s]
+      &  rain_con_rate_3d (:,:,:),& !! 3d convective rain rate (convection scheme)     [kg/m2/s]
+      &  snow_con_rate_3d (:,:,:),& !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
+      &  rain_edmf_rate_3d(:,:,:),& !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
+      &  snow_edmf_rate_3d(:,:,:),& !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
+      !
+      !  Integrated instantaneous rates since model start (precipitation amount) [kg/m2]
+      !  grid scale
+      &  rain_gsp         (:,:),  & !! accumulated grid-scale surface rain             [kg/m2]
+      &  snow_gsp         (:,:),  & !! accumulated grid_scale surface snow             [kg/m2]
+      &  ice_gsp          (:,:),  & !! accumulated grid_scale surface ice              [kg/m2]
+      &  hail_gsp         (:,:),  & !! accumulated grid_scale surface hail             [kg/m2]
+      &  graupel_gsp      (:,:),  & !! accumulated grid_scale surface graupel          [kg/m2]
+      &  prec_gsp         (:,:),  & !! accumulated grid scale precipitation            [kg/m2]
+      !  convective
+      &  rain_con         (:,:),  & !! accumulated convective surface rain             [kg/m2]
+      &  snow_con         (:,:),  & !! accumulated convective surface snow             [kg/m2]
+      &  prec_con         (:,:),  & !! accumulated convective precipitation            [kg/m2]
+      !  total
+      &  tot_prec         (:,:),  & !! accumulated total precipitation                 [kg/m2]
+                                     !! (grid-scale plus convective)
+      !
+      !  Time averaged precipitation rates since model start [kg/m2/s]
+      &  prec_con_rate_avg(:,:),  & !! time averaged convective precipitation rate    [kg/m2/s]
+      &  prec_gsp_rate_avg(:,:),  & !! time averaged grid-scale precipitation rate    [kg/m2/s]
+      &  tot_prec_rate_avg(:,:),  & !! time averaged total precipitation rate         [kg/m2/s]
+
+      !  Auxiliary variables for ww_diagnostics
+      !  Precipitation variables *0 are accumulated only to the previous call of ww_diagnostics
+      &  rain_gsp0        (:,:),  & !! accumulated grid-scale surface rain            [kg/m2]
+      &  snow_gsp0        (:,:),  & !! accumulated grid_scale surface snow            [kg/m2]
+      &  rain_con0        (:,:),  & !! accumulated convective surface rain            [kg/m2]
+      &  snow_con0        (:,:)     !! accumulated convective surface snow            [kg/m2]
 
 
     !> Parameter fields for turbulence
@@ -356,6 +375,7 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS          &
 #endif
       & ::                  &
+      & pref_aerdis(:,:),   &
       & aercl_ss  (:,:),    &
       & aercl_or  (:,:),    &
       & aercl_bc  (:,:),    &

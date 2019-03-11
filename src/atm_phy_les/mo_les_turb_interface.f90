@@ -29,7 +29,7 @@ MODULE mo_les_turb_interface
   USE mo_exception,            ONLY: message
   USE mo_model_domain,         ONLY: t_patch
   USE mo_intp_data_strc,       ONLY: t_int_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, ismag
+  USE mo_impl_constants,       ONLY: min_rlcell_int, ismag, iprog
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -58,6 +58,7 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
                           & p_metrics,                        & !>in
                           & p_int,                            & !>in
                           & p_prog,                           & !>in
+                          & p_prog_now_rcf,                   & !>inout                          
                           & p_prog_rcf,                       & !>inout
                           & p_diag ,                          & !>inout
                           & prm_diag, prm_nwp_tend,           & !>inout
@@ -70,6 +71,7 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
+  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_now_rcf  !<old state for tke  
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
@@ -85,7 +87,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
-  INTEGER :: i_nchdom                !< domain index
 
   ! Local scalars:
   INTEGER :: jc,jk,jb,jg      !loop indices
@@ -98,7 +99,6 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   nlev   = p_patch%nlev
 
   ! local variables related to the blocking
-  i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
 
   IF (msg_level >= 15) CALL message('mo_les_turb_interface:', 'turbulence')
@@ -106,40 +106,42 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   !For 3D turbulence the whole patch needs to be passed. Therefore, this call
   !is made outside the block loop next. However, the tendencies it calculates
   !is then used inside the block loop (see at the end) to update u,v,t,qv,qc
-  IF ( atm_phy_nwp_config(jg)%inwp_turb==ismag )THEN
+  IF ( ANY( (/ismag,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) )THEN
 
     ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
     IF (les_config(jg)%les_metric) THEN
-      CALL drive_subgrid_diffusion_m(p_sim_time,   & !in (Christopher Moseley)
-                                     p_prog,       & !inout for w (it is updated inside)
-                                     p_prog_rcf,   & !in
-                                     p_diag,       & !inout
-                                     p_metrics,    & !in
-                                     p_patch,      & !in
-                                     p_int,        & !in
-                                     lnd_prog_now, & !in
-                                     lnd_prog_new, & !inout only for idealized cases
-                                     lnd_diag,     & !inout
-                                     prm_diag,     & !inout
-                                     prm_nwp_tend, & !inout
-                                     tcall_turb_jg & !in
+      CALL drive_subgrid_diffusion_m(p_sim_time,      & !in (Christopher Moseley)
+                                     p_prog,          & !inout for w (it is updated inside)
+                                     p_prog_now_rcf,  & !inout 
+                                     p_prog_rcf,      & !inout                                         
+                                     p_diag,          & !inout
+                                     p_metrics,       & !in
+                                     p_patch,         & !in
+                                     p_int,           & !in
+                                     lnd_prog_now,    & !in
+                                     lnd_prog_new,    & !inout only for idealized cases
+                                     lnd_diag,        & !inout
+                                     prm_diag,        & !inout
+                                     prm_nwp_tend,    & !inout
+                                     tcall_turb_jg    & !in
                                      )
 
 
     ELSE
-      CALL drive_subgrid_diffusion(p_sim_time,   & !in (Christopher Moseley)
-                                   p_prog,       & !inout for w (it is updated inside)
-                                   p_prog_rcf,   & !in
-                                   p_diag,       & !inout
-                                   p_metrics,    & !in
-                                   p_patch,      & !in
-                                   p_int,        & !in
-                                   lnd_prog_now, & !in
-                                   lnd_prog_new, & !inout only for idealized cases
-                                   lnd_diag,     & !inout
-                                   prm_diag,     & !inout
-                                   prm_nwp_tend, & !inout
-                                   tcall_turb_jg & !in
+      CALL drive_subgrid_diffusion(p_sim_time,        & !in (Christopher Moseley)
+                                   p_prog,            & !inout for w (it is updated inside)
+                                   p_prog_now_rcf,    & !inout   
+                                   p_prog_rcf,        & !in                                 
+                                   p_diag,            & !inout
+                                   p_metrics,         & !in
+                                   p_patch,           & !in
+                                   p_int,             & !in
+                                   lnd_prog_now,      & !in
+                                   lnd_prog_new,      & !inout only for idealized cases
+                                   lnd_diag,          & !inout
+                                   prm_diag,          & !inout
+                                   prm_nwp_tend,      & !inout
+                                   tcall_turb_jg      & !in
                                    )
     END IF
 
@@ -150,8 +152,8 @@ SUBROUTINE les_turbulence  ( tcall_turb_jg,                   & !>in
   rl_start = grf_bdywidth_c+1
   rl_end   = min_rlcell_int
 
-  i_startblk = p_patch%cells%start_blk(rl_start,1)
-  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+  i_startblk = p_patch%cells%start_block(rl_start)
+  i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE

@@ -45,21 +45,21 @@ MODULE mo_load_multifile_restart
   USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
     &                                  deallocate_glb2loc_index_lookup
   USE mo_dynamics_config,        ONLY: nnew, nnew_rcf
-  USE mo_exception,              ONLY: finish
+  USE mo_exception,              ONLY: finish, warning
   USE mo_kind,                   ONLY: sp, dp, i8
   USE mo_model_domain,           ONLY: t_patch
   USE mo_mpi,                    ONLY: p_barrier, p_comm_work, p_comm_size, p_comm_rank, my_process_is_work, &
-    &                                  p_allreduce, p_sum_op, p_mpi_wtime, my_process_is_stdio, p_bcast,     &
+    &                                  p_allreduce, mpi_sum, p_mpi_wtime, my_process_is_stdio, p_bcast,     &
     &                                  my_process_is_mpi_workroot
   USE mo_multifile_restart_util, ONLY: multifilePayloadPath, commonBuf_t, dataPtrs_t, rBuddy, rGroup, &
     &                                  vNames_glbIdx
   USE mo_parallel_config,        ONLY: nproma, idx_no, blk_no
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_restart_var_data,       ONLY: t_restartVarData, getLevelPointers, has_valid_time_level
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
-  USE mo_util_cdi,               ONLY: get_cdi_varID
+  USE mo_util_cdi,               ONLY: get_cdi_varID, test_cdi_varID
   USE mo_util_string,            ONLY: charArray_equal, real2string
 
   IMPLICIT NONE
@@ -372,7 +372,7 @@ CONTAINS
 
     IF(timers_level >= 7) CALL timer_start(timer_load_restart_comm_setup)
     ! compute the global SIZE of the field
-    globalSize = p_allreduce(SIZE(provGlbIdces), p_sum_op(), p_comm_work)
+    globalSize = p_allreduce(SIZE(provGlbIdces), mpi_sum, p_comm_work)
     procCount = p_comm_size(p_comm_work)
     myRank = p_comm_rank(p_comm_work)
 #ifdef DEBUG 
@@ -466,7 +466,7 @@ CONTAINS
     CLASS(t_MultifilePatchReader), TARGET, INTENT(INOUT) :: me
     TYPE(t_restartVarData), INTENT(INOUT) :: vDat(:)
     INTEGER, INTENT(IN) :: dom
-    INTEGER :: vId, lId, lCt, fId, varID, pCt(SIZE(me%files))
+    INTEGER :: vId, lId, lCt, fId, varID, svDat, pCt(SIZE(me%files))
     TYPE(t_ReadBuffer), POINTER :: rBuf
     TYPE(dataPtrs_t) :: lPtrs
 #ifdef DEBUG
@@ -474,12 +474,27 @@ CONTAINS
 #endif
     CHARACTER(*), PARAMETER :: routine = modname//":multifilePatchReader_readData"
 
+    svDat = SIZE(vDat)
     DO vId = 1, SIZE(vDat)
       IF(.NOT.has_valid_time_level(vDat(vId)%info, dom, nnew(dom), nnew_rcf(dom))) CYCLE
       ! Check that all processes have a consistent order of variables IN varData(:).
       IF(timers_level >= 7) CALL timer_start(timer_load_restart_get_var_id)
-      IF(SIZE(me%files) .GT. 0) &
-        & varId = get_cdi_varID(me%files(1)%streamId, TRIM(vDat(vId)%info%NAME))
+      IF(SIZE(me%files) .GT. 0) THEN
+! fatal hack from coding hell to make init_fromRestart=.true. (ocean) work
+        IF(ocean_initFromRestart_OVERRIDE) THEN 
+          varId = test_cdi_varID(me%files(1)%streamId, TRIM(vDat(vId)%info%NAME))
+          IF(varId .eq. -1) THEN
+            IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
+            CALL warning(routine, "variable '" // TRIM(vDat(vId)%info%NAME) // &
+              & "' from restart file not found in the list of restart variables")
+            CALL warning(routine, &
+              & "that MAY be intended if initialize_fromRestart=.true.")
+            CYCLE
+          END IF
+        ELSE
+          varId = test_cdi_varID(me%files(1)%streamId, TRIM(vDat(vId)%info%NAME))
+        END IF
+      END IF
       IF(timers_level >= 7) CALL timer_stop(timer_load_restart_get_var_id)
 #ifdef DEBUG
       cVname = vDat(vId)%info%NAME
@@ -507,7 +522,7 @@ CONTAINS
       CALL getLevelPointers(vDat(vId)%info, vDat(vId), lPtrs, lCnt=lCt)
       DO lId = 1, lCt
         DO fId = 1, SIZE(me%files)
-          CALL me%files(fId)%readVarLevel(vDat(vId), varID, &
+          CALL me%files(fId)%readVarLevel(vDat(vId), varId, &
             &           lId - 1, rBuf, pCt(fId))
         END DO
         CALL rBuf%redistribute(lPtrs, lId)

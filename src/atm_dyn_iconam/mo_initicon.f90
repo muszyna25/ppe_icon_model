@@ -23,6 +23,7 @@
 MODULE mo_initicon
 
   USE mo_kind,                ONLY: dp, wp, vp
+  USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -34,14 +35,13 @@ MODULE mo_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, &
-    &                               lread_ana, ltile_init, &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, &
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
     &                               fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, max_dom,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
@@ -52,6 +52,7 @@ MODULE mo_initicon
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_nh_init_nest_utils,  ONLY: interpolate_vn_increments
   USE mo_util_phys,           ONLY: virtual_temp
+  USE mo_util_string,         ONLY: int2string
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
@@ -233,8 +234,9 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdfg"
-    INTEGER :: jg
+    INTEGER :: jg, jg1
     CLASS(t_InputRequestList), POINTER :: requestList
+    CHARACTER(LEN=filename_max) :: fgFilename_str(max_dom)
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -253,17 +255,37 @@ MODULE mo_initicon
       ENDIF
     END DO
 
+    DO jg = 1, n_dom
+      fgFilename_str(jg) = " "
+      IF(p_patch(jg)%ldom_active) THEN
+        fgFilename_str(jg) = fgFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (fgFilename_str(jg1) == fgFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter fgFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
         IF(my_process_is_stdio()) THEN
-          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+          CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename_str(jg)))
         ENDIF  ! p_io
         IF (ana_varnames_map_file /= ' ') THEN
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., &
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE., &
             &                       opt_dict = ana_varnames_dict)
         ELSE
-          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
+          CALL requestList%readFile(p_patch(jg), TRIM(fgFilename_str(jg)), .TRUE.)
         END IF
       END IF
     END DO
@@ -330,7 +352,7 @@ MODULE mo_initicon
             END IF
     END SELECT
     ! Init aerosol field from climatology if no first-guess data have been available
-    IF (iprog_aero == 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
+    IF (iprog_aero >= 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.
@@ -345,12 +367,13 @@ MODULE mo_initicon
 
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
 #else
-    CHARACTER(LEN = 9) :: incrementsList_IAU(8)
+    CHARACTER(LEN = 9) :: incrementsList_IAU(10)
     CHARACTER(LEN = 4) :: incrementsList_IAU_OLD(6)
     CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
 #endif
     CLASS(t_InputRequestList), POINTER :: requestList
-    INTEGER :: jg
+    CHARACTER(LEN=filename_max) :: anaFilename_str(max_dom)
+    INTEGER :: jg, jg1
 
     !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
@@ -380,16 +403,36 @@ MODULE mo_initicon
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
+      anaFilename_str(jg) = ""
+      IF(p_patch(jg)%ldom_active) THEN
+        anaFilename_str(jg) = anaFilename(p_patch(jg))
+
+        IF (my_process_is_stdio()) THEN
+          ! consistency check: check for duplicate file names which may
+          ! occur, for example, if the keyword pattern (namelist
+          ! parameter) has been defined ambiguously by the user.
+          DO jg1 = 1,(jg-1)
+            IF (.NOT. p_patch(jg1)%ldom_active) CYCLE
+            IF (anaFilename_str(jg1) == anaFilename_str(jg)) THEN
+              CALL finish(routine, "Error! Namelist parameter anaFilename has been defined ambiguously "//&
+                & "for domains "//TRIM(int2string(jg1, '(i0)'))//" and "//TRIM(int2string(jg, '(i0)'))//"!")
+            END IF
+          END DO
+        END IF
+      END IF
+    END DO
+
+    DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
             IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
             IF(my_process_is_stdio()) THEN
-                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
+                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename_str(jg)))
             ENDIF  ! p_io
             IF (ana_varnames_map_file /= ' ') THEN
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., &
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE., &
                 &                       opt_dict = ana_varnames_dict)
             ELSE
-              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+              CALL requestList%readFile(p_patch(jg), TRIM(anaFilename_str(jg)), .FALSE.)
             END IF
         END IF
     END DO
@@ -402,7 +445,8 @@ MODULE mo_initicon
 #if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow', 't_2m']
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', &
+                                                        & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
                 CASE DEFAULT
@@ -413,8 +457,8 @@ MODULE mo_initicon
 #else
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', &
-                      &                    'qv       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
+                      &                    'qc       ', 'qi       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU
@@ -1025,9 +1069,6 @@ MODULE mo_initicon
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: ddfac=0.1_wp, smtfac=0.075_wp
 
-    ! analysed water vapour partial density
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_rhov
-
     ! to sum up the water loading term
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
 
@@ -1153,10 +1194,26 @@ MODULE mo_initicon
               &                        * vtmpc1* initicon(jg)%atm_inc%qv(jc,jk,jb)
 
 
-            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
-              &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            ! APPROXIMATION: neglect density increment for the time being, in order to be consistent with 
+            ! the (currently inaccurate) IAU tracer update in iau_update_tracer
+            !   p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb) &
+            !     &                        + p_diag%rho_incr(jc,jk,jb) * p_prog_now_rcf%tracer(jc,jk,jb,iqv)
+            p_diag%rhov_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qv(jc,jk,jb)
 
           ENDDO  ! jc
+
+          IF (qcana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qc(jc,jk,jb)
+            ENDDO
+          ENDIF
+
+          IF (qiana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhoi_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qi(jc,jk,jb)
+            ENDDO
+          ENDIF
+
         ENDDO  ! jk
 
       ENDDO  ! jb
@@ -1339,8 +1396,7 @@ MODULE mo_initicon
         ! For the special case that increments are added in one go,
         ! compute vertical wind increment consistent with the vn increment
         ! Note that here the filtered velocity increment is used.
-        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), &
-          &      z_rhov(nproma,nlev), STAT=ist)
+        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
         ENDIF
@@ -1354,7 +1410,7 @@ MODULE mo_initicon
         i_startblk = p_patch(jg)%cells%start_block(rl_start)
         i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_rhov)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1365,22 +1421,41 @@ MODULE mo_initicon
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
 
-              ! analysed water vapour partial density
-              z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
-                &           + p_diag%rhov_incr(jc,jk,jb)
 
+              ! use this version and corresponding update equation below, as soon as the approximation 
+              ! to rhov_incr is removed (see above)
+              !
+              ! analysed water vapour partial density
+              !z_rhov(jc,jk) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)*p_prog_now%rho(jc,jk,jb) &
+              !  &           + p_diag%rhov_incr(jc,jk,jb)
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
               ! make sure, that due to GRIB2 roundoff errors, qv does not drop
               ! below threshhold (currently 5E-7 kg/kg)
-              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
-
+              !p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,z_rhov(jc,jk)/p_prog_now%rho(jc,jk,jb))
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+                &                                   + p_diag%rhov_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
 
               ! Remember to update theta_v
               p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
                 &                          / p_prog_now%rho(jc,jk,jb)
 
             ENDDO  ! jc
+
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqc)+&
+                 p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqi)+&
+                 p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+            ENDIF
+
           ENDDO  ! jk
 
         ENDDO  ! jb
@@ -1439,7 +1514,7 @@ MODULE mo_initicon
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
 
         ! deallocate temporary arrays
-        DEALLOCATE( w_incr, z_rhov, STAT=ist )
+        DEALLOCATE( w_incr, STAT=ist )
         IF (ist /= SUCCESS) THEN
           CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
         ENDIF
@@ -1731,14 +1806,14 @@ MODULE mo_initicon
           IF (itype_vegetation_cycle == 3 .AND. source_of_t_2m == kInputSourceAna) THEN
             DO jc = i_startidx, i_endidx
               lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                0.25_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+                0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
             ENDDO
           ENDIF
 
         ENDIF  ! MODE_IAU
 
       ENDDO  ! jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 

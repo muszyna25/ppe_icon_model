@@ -325,7 +325,7 @@ MODULE mo_sync_latbc
     TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
-    INTEGER                             :: tlev, mpi_comm
+    INTEGER                             :: tlev
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_icon_data"
     CHARACTER(LEN=filename_max)         :: latbc_filename, latbc_full_filename
@@ -337,12 +337,6 @@ MODULE mo_sync_latbc
     !       file matches the no. of levels in the current ICON run.
 
     tlev    = read_latbc_tlev
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
     latbc_filename = generate_filename(nroot, p_patch%level, &
       &                                last_latbc_mtime, time_config%tc_exp_startdate)
@@ -393,7 +387,7 @@ MODULE mo_sync_latbc
 
     ! broadcast the no. of vertical input levels and allocate the data
     ! structure (if necessary):
-    CALL p_bcast(no_levels, p_io, mpi_comm)
+    CALL p_bcast(no_levels, p_io, p_comm_work)
     CALL allocate_latbc_data(p_patch, p_nh_state, ext_data, no_levels)
 
     latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
@@ -483,7 +477,7 @@ MODULE mo_sync_latbc
     TYPE(t_int_state),      INTENT(IN)  :: p_int
 
     ! local variables
-    INTEGER                             :: mpi_comm, dimid, no_cells, &
+    INTEGER                             :: dimid, no_cells, &
                                            latbc_ncid, no_levels, varid
     TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist, lconvert_omega2w
@@ -498,12 +492,6 @@ MODULE mo_sync_latbc
 
     tlev      = read_latbc_tlev
     nblks_c   = p_patch%nblks_c
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
     latbc_filename = generate_filename(nroot, p_patch%level, &
       &                                last_latbc_mtime, time_config%tc_exp_startdate)
@@ -595,13 +583,13 @@ MODULE mo_sync_latbc
 
     END IF ! my_process_is_stdio()
 
-    CALL p_bcast(lread_qs, p_io, mpi_comm)
-    CALL p_bcast(lread_qr, p_io, mpi_comm)
-    CALL p_bcast(lread_vn, p_io, mpi_comm)
+    CALL p_bcast(lread_qs, p_io, p_comm_work)
+    CALL p_bcast(lread_qr, p_io, p_comm_work)
+    CALL p_bcast(lread_vn, p_io, p_comm_work)
 
     ! broadcast the no. of vertical input levels and allocate the data
     ! structure (if necessary):
-    CALL p_bcast(no_levels, p_io, mpi_comm)
+    CALL p_bcast(no_levels, p_io, p_comm_work)
     CALL allocate_latbc_data(p_patch, p_nh_state, ext_data, no_levels)
 
     latbc_stream_id = openInputFile(latbc_full_filename, p_patch, &
@@ -723,7 +711,7 @@ MODULE mo_sync_latbc
     END IF
 
     ! compute pressure and height of input data, using the IFS routines
-    IF (init_mode == MODE_IFSANA)  CALL p_latbc_data_const%vct%construct(latbc_ncid, p_io, mpi_comm)
+    IF (init_mode == MODE_IFSANA)  CALL p_latbc_data_const%vct%construct(latbc_ncid, p_io, p_comm_work)
     IF ((init_mode == MODE_IFSANA) .OR. (init_mode == MODE_COMBINED)) THEN ! i.e. atmospheric data from IFS
       CALL compute_input_pressure_and_height(p_patch, psfc, phi_sfc, p_latbc_data(tlev))
     END IF

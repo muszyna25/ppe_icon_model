@@ -31,7 +31,6 @@
 MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: ippm_v
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
@@ -89,7 +88,7 @@ CONTAINS
     &                        lfull_comp,                                      &!in
     &                        p_nh_diag,                                       &!inout
     &                        p_vn_traj, p_mass_flx_me,                        &!inout
-    &                        p_w_traj, p_mass_flx_ic,                         &!inout
+    &                        p_mass_flx_ic,                                   &!inout
     &                        p_topflx_tra                                     )!out
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
@@ -109,7 +108,6 @@ CONTAINS
                                          !< solve_nh and only standard settings are used)
 
     REAL(wp),INTENT(INOUT) :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
-    REAL(wp),INTENT(INOUT) :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT) :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT) :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)   :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
@@ -153,16 +151,21 @@ CONTAINS
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-!!$    ! The full set of computations is NOT exectuted when the tracer advection is running together
-!!$    ! with the dynmical core (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
+!!$    ! The full set of setup computations is NOT executed in prepare_tracer 
+!!$    ! when the tracer advection is running together with the dynmical core 
+!!$    ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
 !!$    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+!!$    !
+!!$    ! lfull_comp is only used by the nonhydrostatic core.
 !!$    lfull_computations = lfull_comp
 !!$    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
 !!$      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-!!$      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
-!!$      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
+!!$      &  advection_config(jg)%iord_backtraj == 2                      .OR. &
+!!$      &  idiv_method  == 2                                            .OR. &
+!!$      &  itime_scheme == TRACER_ONLY                                       ) THEN
 !!$      lfull_computations = .TRUE.
 !!$    ENDIF
+
 
 !$OMP PARALLEL PRIVATE(i_rlstart_e,i_rlend_e,i_startblk,i_endblk)
 
@@ -244,7 +247,6 @@ CONTAINS
         ! reset mass fluxes and trajectory-velocities to start new integration sweep
         IF (lclean_mflx) THEN
           p_mass_flx_ic(:,:,jb) = 0._wp
-          p_w_traj     (:,:,jb) = 0._wp
         ENDIF
 
         DO jk = 1, nlevp1
@@ -258,8 +260,6 @@ CONTAINS
               &    + p_metrics%vwind_impl_wgt(jc,jb)*p_new%w(jc,jk,jb)  &
               &    - p_nh_diag%w_concorr_c(jc,jk,jb)
 
-            p_w_traj(jc,jk,jb) = p_w_traj(jc,jk,jb) + w_tavg
-
             p_mass_flx_ic(jc,jk,jb) = p_mass_flx_ic(jc,jk,jb)              &
               &                     + p_nh_diag%rho_ic(jc,jk,jb) * w_tavg
 
@@ -271,7 +271,6 @@ CONTAINS
 
     IF (lfull_comp .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
       CALL init(p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c))
-      CALL init(p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c))
 !$OMP BARRIER
     ENDIF
 
@@ -349,7 +348,6 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             p_mass_flx_ic(jc,jk,jb) = r_ndyn_substeps * p_mass_flx_ic(jc,jk,jb)
-            p_w_traj(jc,jk,jb)      = r_ndyn_substeps * p_w_traj(jc,jk,jb)
 
           ENDDO
         ENDDO
@@ -455,11 +453,6 @@ CONTAINS
 
     ENDIF
 
-    ! This synchronization is only needed if the non-standard vertical PPM-scheme
-    ! ippm_v is used. p_w_traj is not used by the default scheme (ippm_vcfl)
-    IF (lstep_advphy .AND. ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
-      CALL sync_patch_array(SYNC_C,p_patch,p_w_traj)
-    ENDIF
 
     IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 

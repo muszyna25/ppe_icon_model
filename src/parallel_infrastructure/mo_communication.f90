@@ -39,15 +39,13 @@ USE mo_impl_constants,       ONLY: SUCCESS
 USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,                 ONLY: dp, sp
 USE mo_exception,            ONLY: finish
-USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
+USE mo_mpi,                  ONLY: p_send, p_recv, &
      &                             p_comm_work, p_pe_work, p_n_work, p_gatherv, &
      &                             p_alltoallv, p_alltoall, process_mpi_root_id, &
      &                             p_bcast, p_comm_is_intercomm, &
      &                             p_comm_remote_size, p_allgather, &
      &                             p_allgatherv, MPI_COMM_NULL
-USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d, nproma, &
-     & comm_pattern_type_orig, comm_pattern_type_yaxt, default_comm_pattern_type
-USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup
+USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d, nproma
 USE mo_util_sort,            ONLY: quicksort
 USE mo_util_string,          ONLY: int2string
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
@@ -56,8 +54,8 @@ USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
-USE mo_communication_types, ONLY: t_comm_pattern, t_comm_pattern_collection, &
-  & t_p_comm_pattern, xfer_list
+USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
+  &                                t_p_comm_pattern, xfer_list
 
 
 IMPLICIT NONE
@@ -144,6 +142,8 @@ INTERFACE exchange_data
    MODULE PROCEDURE exchange_data_r2d
    MODULE PROCEDURE exchange_data_s2d
    MODULE PROCEDURE exchange_data_i2d
+   MODULE PROCEDURE exchange_data_l2d
+   MODULE PROCEDURE exchange_data_l3d
    MODULE PROCEDURE gather_r_2d_deblock
    MODULE PROCEDURE gather_r_1d_deblock
    MODULE PROCEDURE gather_s_1d_deblock
@@ -479,7 +479,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-
   SUBROUTINE delete_comm_allgather_pattern(allgather_pattern)
     TYPE(t_comm_allgather_pattern), INTENT(INOUT) :: allgather_pattern
 
@@ -534,6 +533,16 @@ CONTAINS
     CALL p_pat%exchange_data_i3d(recv, send, add)
 
   END SUBROUTINE exchange_data_i3d
+
+  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
+
+    CLASS(t_comm_pattern), POINTER :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+
+    CALL p_pat%exchange_data_l3d(recv, send)
+
+  END SUBROUTINE exchange_data_l3d
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -643,6 +652,17 @@ CONTAINS
     CALL p_pat%exchange_data_i2d(recv, send, add, l_recv_exists)
 
   END SUBROUTINE exchange_data_i2d
+
+  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+    !
+    CLASS(t_comm_pattern), POINTER :: p_pat
+    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+    LOGICAL, OPTIONAL :: l_recv_exists
+
+    CALL p_pat%exchange_data_l2d(recv, send, l_recv_exists)
+
+  END SUBROUTINE exchange_data_l2d
 
   !>
   !! Does data exchange according to a communication pattern (in p_pat).
@@ -1034,7 +1054,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:)
     ! dimension (global length); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1156,7 +1176,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:,:)
     ! dimension (global length, nlev); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1262,11 +1282,12 @@ CONTAINS
       comm = p_comm_work
     END IF
     ALLOCATE(collector_buffer_sizes(n_procs))
-    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, comm)
+    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, &
+         comm=comm)
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_r_1d_deblock", "invalid out_array size")
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
-      comm)
+      &               comm=comm)
 
     DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_r_1d_deblock
@@ -1281,7 +1302,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:)
     ! dimension (global length); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1318,7 +1339,8 @@ CONTAINS
       comm = p_comm_work
     END IF
     ALLOCATE(collector_buffer_sizes(n_procs))
-    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, comm)
+    CALL p_allgather(SIZE(collector_buffer, 2), collector_buffer_sizes, &
+         comm=comm)
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_i_1d_deblock", "invalid out_array size")
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
@@ -1330,42 +1352,33 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-
-  SUBROUTINE two_phase_gather_first_r(send_buffer_r, fill_value,                &
-    &                                 gather_pattern, collector_buffer_r)
-    ! dimension (:, length), prepared according to gather pattern
-    REAL(dp), INTENT(IN) :: send_buffer_r(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
-    ! be replaced with this value
-    ! if not provided all valid
-    ! points will be packed to the
-    ! front of the array
+  SUBROUTINE two_phase_gather_first_param_setup(use_fill_value,  &
+       num_send_per_process, send_displ,                         &
+       num_recv_per_process, recv_displ,                         &
+       collector_buffer_nofill_size, collector_buffer_fill_size, &
+       gather_pattern, fill_value_is_present)
+    LOGICAL, INTENT(out) :: use_fill_value
+    INTEGER, INTENT(out) :: num_send_per_process(p_n_work), send_displ(p_n_work), &
+         num_recv_per_process(p_n_work), recv_displ(p_n_work), &
+         collector_buffer_nofill_size, collector_buffer_fill_size
     TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
-    REAL(dp), POINTER, INTENT(OUT) :: collector_buffer_r(:,:)
+    LOGICAL, INTENT(in) :: fill_value_is_present
+    INTEGER :: i, collector_idx, num_coll, num_points_per_coll, &
+         accum_send, accum_recv
 
-    REAL(dp), POINTER :: collector_buffer_nofill_r(:,:)
-    REAL(dp), POINTER :: collector_buffer_fill_r(:,:)
-    INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
-    INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_nofill_size, &
-      &        collector_buffer_fill_size, num_collectors, num_points_per_coll
-    LOGICAL :: use_fill_value
-
-    !
-    ! OPENACC:  GPU execution assumes that all information is now on the host
-    !
-
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
+    num_coll = SIZE(gather_pattern%collector_pes)
+    collector_idx = -1
+    DO i = 1, num_coll
+      IF (gather_pattern%collector_pes(i) == p_pe_work) THEN
+        collector_idx = i
+        EXIT
+      END IF
+    END DO
 
     IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
+      IF (fill_value_is_present) THEN
+        num_points_per_coll = (gather_pattern%global_size + num_coll - 1) &
+          &                   / num_coll
         collector_buffer_fill_size = &
           MIN(num_points_per_coll, &
           & gather_pattern%global_size - &
@@ -1385,21 +1398,54 @@ CONTAINS
       collector_buffer_fill_size = 0
     END IF
 
-    ALLOCATE(collector_buffer_nofill_r(SIZE(send_buffer_r, 1), &
-      &      collector_buffer_nofill_size))
-
     num_send_per_process(:) = 0
     num_send_per_process(gather_pattern%collector_pes(:)+1) = &
       gather_pattern%collector_send_size(:)
     num_recv_per_process(:) = 0
     num_recv_per_process(gather_pattern%recv_pes(:)+1) = &
       gather_pattern%recv_size(:)
-    send_displ(1) = 0
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      send_displ(i) = send_displ(i-1) + num_send_per_process(i-1)
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
+    accum_send = 0
+    accum_recv = 0
+    DO i = 1, p_n_work
+      send_displ(i) = accum_send
+      accum_send = accum_send + num_send_per_process(i)
+      recv_displ(i) = accum_recv
+      accum_recv = accum_recv + num_recv_per_process(i)
     END DO
+
+  END SUBROUTINE two_phase_gather_first_param_setup
+
+  SUBROUTINE two_phase_gather_first_r(send_buffer_r, fill_value,                &
+    &                                 gather_pattern, collector_buffer_r)
+    ! dimension (:, length), prepared according to gather pattern
+    REAL(dp), INTENT(IN) :: send_buffer_r(:,:)
+    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    ! be replaced with this value
+    ! if not provided all valid
+    ! points will be packed to the
+    ! front of the array
+    TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+    REAL(dp), POINTER, INTENT(OUT) :: collector_buffer_r(:,:)
+
+    REAL(dp), POINTER :: collector_buffer_nofill_r(:,:)
+    REAL(dp), POINTER :: collector_buffer_fill_r(:,:)
+    INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
+    INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
+    INTEGER :: collector_buffer_nofill_size, collector_buffer_fill_size
+    LOGICAL :: use_fill_value
+
+    !
+    ! OPENACC:  GPU execution assumes that all information is now on the host
+    !
+
+    CALL two_phase_gather_first_param_setup(use_fill_value, &
+         num_send_per_process, send_displ, &
+         num_recv_per_process, recv_displ, &
+         collector_buffer_nofill_size, collector_buffer_fill_size, &
+         gather_pattern, PRESENT(fill_value))
+
+    ALLOCATE(collector_buffer_nofill_r(SIZE(send_buffer_r, 1), &
+      &      collector_buffer_nofill_size))
 
     CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
       &              collector_buffer_nofill_r, num_recv_per_process, &
@@ -1425,7 +1471,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE two_phase_gather_first_s(send_buffer_r, fill_value,                &
+  SUBROUTINE two_phase_gather_first_s(send_buffer_r, fill_value, &
     &                                 gather_pattern, collector_buffer_r)
     ! dimension (:, length), prepared according to gather pattern
     REAL(sp), INTENT(IN) :: send_buffer_r(:,:)
@@ -1449,51 +1495,14 @@ CONTAINS
     ! OPENACC:  GPU execution assumes that all information is now on the host
     !
 
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
-
-    IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
-        collector_buffer_fill_size = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (collector_idx- 1)))
-        use_fill_value = (collector_buffer_fill_size /= &
-          &               gather_pattern%collector_size(collector_idx)) .AND. &
-          &              (collector_buffer_fill_size > 0)
-      ELSE
-        collector_buffer_fill_size = gather_pattern%collector_size(collector_idx)
-        use_fill_value = .FALSE.
-      END IF
-      collector_buffer_nofill_size = &
-        gather_pattern%collector_size(collector_idx)
-    ELSE
-      use_fill_value = .FALSE.
-      collector_buffer_nofill_size = 0
-      collector_buffer_fill_size = 0
-    END IF
+    CALL two_phase_gather_first_param_setup(use_fill_value, &
+         num_send_per_process, send_displ, &
+         num_recv_per_process, recv_displ, &
+         collector_buffer_nofill_size, collector_buffer_fill_size, &
+         gather_pattern, PRESENT(fill_value))
 
     ALLOCATE(collector_buffer_nofill_r(SIZE(send_buffer_r, 1), &
       &      collector_buffer_nofill_size))
-
-    num_send_per_process(:) = 0
-    num_send_per_process(gather_pattern%collector_pes(:)+1) = &
-      gather_pattern%collector_send_size(:)
-    num_recv_per_process(:) = 0
-    num_recv_per_process(gather_pattern%recv_pes(:)+1) = &
-      gather_pattern%recv_size(:)
-    send_displ(1) = 0
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      send_displ(i) = send_displ(i-1) + num_send_per_process(i-1)
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
-    END DO
 
     CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
       &              collector_buffer_nofill_r, num_recv_per_process, &
@@ -1519,11 +1528,11 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE two_phase_gather_first_i(send_buffer_i, fill_value,                &
+  SUBROUTINE two_phase_gather_first_i(send_buffer_i, fill_value, &
     &                                 gather_pattern, collector_buffer_i)
     ! dimension (:, length), prepared according to gather pattern
     INTEGER, INTENT(IN) :: send_buffer_i(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1543,51 +1552,14 @@ CONTAINS
     ! OPENACC:  GPU execution assumes that all information is now on the host
     !
 
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
-
-    IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
-        collector_buffer_fill_size = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (collector_idx- 1)))
-        use_fill_value = (collector_buffer_fill_size /= &
-          &               gather_pattern%collector_size(collector_idx)) .AND. &
-          &              (collector_buffer_fill_size > 0)
-      ELSE
-        collector_buffer_fill_size = gather_pattern%collector_size(collector_idx)
-        use_fill_value = .FALSE.
-      END IF
-      collector_buffer_nofill_size = &
-        gather_pattern%collector_size(collector_idx)
-    ELSE
-      use_fill_value = .FALSE.
-      collector_buffer_nofill_size = 0
-      collector_buffer_fill_size = 0
-    END IF
+    CALL two_phase_gather_first_param_setup(use_fill_value, &
+         num_send_per_process, send_displ, &
+         num_recv_per_process, recv_displ, &
+         collector_buffer_nofill_size, collector_buffer_fill_size, &
+         gather_pattern, PRESENT(fill_value))
 
     ALLOCATE(collector_buffer_nofill_i(SIZE(send_buffer_i, 1), &
       &      collector_buffer_nofill_size))
-
-    num_send_per_process(:) = 0
-    num_send_per_process(gather_pattern%collector_pes(:)+1) = &
-      gather_pattern%collector_send_size(:)
-    num_recv_per_process(:) = 0
-    num_recv_per_process(gather_pattern%recv_pes(:)+1) = &
-      gather_pattern%recv_size(:)
-    send_displ(1) = 0
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      send_displ(i) = send_displ(i-1) + num_send_per_process(i-1)
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
-    END DO
 
     CALL p_alltoallv(send_buffer_i, num_send_per_process, send_displ, &
       &              collector_buffer_nofill_i, num_recv_per_process, &
@@ -1612,8 +1584,60 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+  SUBROUTINE two_phase_gather_second_param_setup(&
+       num_recv_per_process, recv_displ,         &
+       gather_pattern, fill_value_is_present)
+    INTEGER, INTENT(out) :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
+    TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+    LOGICAL, INTENT(in) :: fill_value_is_present
 
-  SUBROUTINE two_phase_gather_second_r(recv_buffer_r, fill_value,                &
+    INTEGER :: i, num_coll, collector_idx, num_points_per_coll, &
+         collector_buffer_fill_size, recv_accum
+    LOGICAL :: use_fill_value
+
+    num_coll = SIZE(gather_pattern%collector_pes)
+    collector_idx = -1
+    DO i = 1, num_coll
+      IF (gather_pattern%collector_pes(i) == p_pe_work) THEN
+        collector_idx = i
+        EXIT
+      END IF
+    END DO
+
+    IF (collector_idx /= -1 .AND. fill_value_is_present) THEN
+      num_points_per_coll = (gather_pattern%global_size + num_coll - 1) &
+        &                   / num_coll
+      collector_buffer_fill_size = &
+        & MIN(num_points_per_coll, &
+        &     gather_pattern%global_size - &
+        &       MAX(0,num_points_per_coll * (collector_idx - 1)))
+      use_fill_value = (collector_buffer_fill_size /= &
+           &              gather_pattern%collector_size(collector_idx)) &
+           &        .AND. collector_buffer_fill_size > 0
+    ELSE
+      use_fill_value = .FALSE.
+    END IF
+
+    num_recv_per_process(:) = 0
+    IF (p_pe_work == process_mpi_root_id) THEN
+      IF (use_fill_value) THEN
+        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
+          MIN(num_points_per_coll, &
+          & gather_pattern%global_size - &
+          & MAX(0,num_points_per_coll * (/(i, i = 0, num_coll - 1)/)))
+      ELSE
+        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
+          gather_pattern%collector_size(:)
+      END IF
+    END IF
+    recv_accum = 0
+    DO i = 1, p_n_work
+      recv_displ(i) = recv_accum
+      recv_accum = recv_accum + num_recv_per_process(i)
+    END DO
+  END SUBROUTINE two_phase_gather_second_param_setup
+
+  SUBROUTINE two_phase_gather_second_r(recv_buffer_r, fill_value, &
     &                                  gather_pattern, collector_buffer_r)
     ! dimension (:, global length); only required on root
     REAL(dp), INTENT(INOUT) :: recv_buffer_r(:,:)
@@ -1626,55 +1650,14 @@ CONTAINS
     REAL(dp), POINTER, INTENT(INOUT) :: collector_buffer_r(:,:)
 
     INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_fill_size, num_collectors, &
-      &        num_points_per_coll
-    LOGICAL :: use_fill_value
 
     !
     ! OPENACC:  GPU execution assumes that all information is now on the host
     !
 
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
-
-    IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
-        collector_buffer_fill_size = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (collector_idx- 1)))
-        use_fill_value = (collector_buffer_fill_size /= &
-          &               gather_pattern%collector_size(collector_idx)) .AND. &
-          &              (collector_buffer_fill_size > 0)
-      ELSE
-        use_fill_value = .FALSE.
-      END IF
-    ELSE
-      use_fill_value = .FALSE.
-    END IF
-
-    num_recv_per_process(:) = 0
-    IF (p_pe_work == process_mpi_root_id) THEN
-      IF (use_fill_value) THEN
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (/(i, i = 0, num_collectors - 1)/)))
-      ELSE
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          gather_pattern%collector_size(:)
-      END IF
-    END IF
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
-    END DO
+    CALL two_phase_gather_second_param_setup(&
+         num_recv_per_process, recv_displ,   &
+         gather_pattern, PRESENT(fill_value))
 
     CALL p_gatherv(collector_buffer_r, SIZE(collector_buffer_r, 2), &
       &            recv_buffer_r, num_recv_per_process, recv_displ, &
@@ -1699,55 +1682,14 @@ CONTAINS
     REAL(sp), POINTER, INTENT(INOUT) :: collector_buffer_r(:,:)
 
     INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_fill_size, num_collectors, &
-      &        num_points_per_coll
-    LOGICAL :: use_fill_value
 
     !
     ! OPENACC:  GPU execution assumes that all information is now on the host
     !
 
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
-
-    IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
-        collector_buffer_fill_size = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (collector_idx- 1)))
-        use_fill_value = (collector_buffer_fill_size /= &
-          &               gather_pattern%collector_size(collector_idx)) .AND. &
-          &              (collector_buffer_fill_size > 0)
-      ELSE
-        use_fill_value = .FALSE.
-      END IF
-    ELSE
-      use_fill_value = .FALSE.
-    END IF
-
-    num_recv_per_process(:) = 0
-    IF (p_pe_work == process_mpi_root_id) THEN
-      IF (use_fill_value) THEN
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (/(i, i = 0, num_collectors - 1)/)))
-      ELSE
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          gather_pattern%collector_size(:)
-      END IF
-    END IF
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
-    END DO
+    CALL two_phase_gather_second_param_setup(&
+         num_recv_per_process, recv_displ,   &
+         gather_pattern, PRESENT(fill_value))
 
     CALL p_gatherv(collector_buffer_r, SIZE(collector_buffer_r, 2), &
       &            recv_buffer_r, num_recv_per_process, recv_displ, &
@@ -1764,7 +1706,7 @@ CONTAINS
     &                                  collector_buffer_i)
     ! dimension (:, global length); only required on root
     INTEGER, INTENT(INOUT) :: recv_buffer_i(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1773,55 +1715,14 @@ CONTAINS
     INTEGER, POINTER, INTENT(INOUT) :: collector_buffer_i(:,:)
 
     INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_fill_size, num_collectors, &
-      &        num_points_per_coll
-    LOGICAL :: use_fill_value
 
     !
     ! OPENACC:  GPU execution assumes that all information is now on the host
     !
 
-    IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
-      collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
-    ELSE
-      collector_idx = -1
-    END IF
-
-    IF (collector_idx /= -1) THEN
-      IF (PRESENT(fill_value)) THEN
-        num_collectors = SIZE(gather_pattern%collector_pes)
-        num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
-          &                   / num_collectors
-        collector_buffer_fill_size = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (collector_idx- 1)))
-        use_fill_value = (collector_buffer_fill_size /= &
-          &               gather_pattern%collector_size(collector_idx)) .AND. &
-          &              (collector_buffer_fill_size > 0)
-      ELSE
-        use_fill_value = .FALSE.
-      END IF
-    ELSE
-      use_fill_value = .FALSE.
-    END IF
-
-    num_recv_per_process(:) = 0
-    IF (p_pe_work == process_mpi_root_id) THEN
-      IF (use_fill_value) THEN
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          MIN(num_points_per_coll, &
-          & gather_pattern%global_size - &
-          & MAX(0,num_points_per_coll * (/(i, i = 0, num_collectors - 1)/)))
-      ELSE
-        num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
-          gather_pattern%collector_size(:)
-      END IF
-    END IF
-    recv_displ(1) = 0
-    DO i = 2, p_n_work
-      recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
-    END DO
+    CALL two_phase_gather_second_param_setup(&
+         num_recv_per_process, recv_displ,   &
+         gather_pattern, PRESENT(fill_value))
 
     CALL p_gatherv(collector_buffer_i, SIZE(collector_buffer_i, 2), &
       &            recv_buffer_i, num_recv_per_process, recv_displ, &

@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=15:ompthreads=4
+#PBS -l select=15:ompthreads=6
 #PBS -l place=scatter
 #PBS -l walltime=00:15:00
 #PBS -j oe
@@ -121,8 +121,8 @@ ln -s ${GRIDDIR}/map_file.latbc .
 # ----------------------------------------------------------------------------
 
 # the grid parameters
-dynamics_grid_filename="'lam_test_DOM01.nc'"
-radiation_grid_filename="'lam_test_DOM01.parent.nc'"
+dynamics_grid_filename="lam_test_DOM01.nc"
+radiation_grid_filename="lam_test_DOM01.parent.nc"
 
 
 
@@ -139,6 +139,7 @@ restart="       .FALSE.  "
 end_datetime="2017-01-12T12:00:00Z"
 checkpoint="     25200.0 "
 nrest_procs="        1   "
+restart_write_mode="dedicated procs multifile"
 
 else
 
@@ -146,6 +147,7 @@ restart="        .TRUE.  "
 end_datetime="2017-01-13T00:00:00Z"
 checkpoint="    864000.0 "
 nrest_procs="        0   "
+restart_write_mode=""
 
 fi
 
@@ -254,8 +256,8 @@ cat > NAMELIST_NWP << EOF
 
 ! grid_nml: horizontal grid --------------------------------------------------
 &grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_grid_filename      =  "${dynamics_grid_filename}"         ! array of the grid filenames for the dycore
+ radiation_grid_filename     = "${radiation_grid_filename}"         ! array of the grid filenames for the radiation model
  dynamics_parent_grid_id     =                          0         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =                      .TRUE.        ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
@@ -281,6 +283,7 @@ cat > NAMELIST_NWP << EOF
  itype_rh                    =                          1         ! method for computation of relative humidity
  lmask_boundary              =                      .TRUE.        ! mask out interpolation zone in output
  dt_checkpoint               =               ${checkpoint}        ! time interval for writing restart files.
+ restart_write_mode          =     "${restart_write_mode}"
 /
 
 ! limarea_nml: settings for limited area mode ---------------------------------

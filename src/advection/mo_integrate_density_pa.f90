@@ -23,8 +23,8 @@
 MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell,  &
-    &                               min_rledge_int, min_rlcell_int, MIURA, MIURA3
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
+    &                               MIURA, MIURA3
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -34,7 +34,7 @@ MODULE mo_integrate_density_pa
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_traj,      ONLY: t_back_traj, btraj_compute_o1
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3
-  USE mo_advection_vflux,     ONLY: upwind_vflux_ppm_cfl
+  USE mo_advection_vflux,     ONLY: upwind_vflux_ppm
   USE mo_math_divrot,         ONLY: div
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
@@ -213,7 +213,7 @@ CONTAINS
 !DR \rho^{n} \Delta z by \Delta z
 
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-        CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
+        CALL upwind_vflux_ppm( p_patch, ptr_current_rho,                   &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
@@ -428,7 +428,7 @@ CONTAINS
 !DR \rho^{n} \Delta z by \Delta z
 
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
-        CALL upwind_vflux_ppm_cfl( p_patch, ptr_current_rho,               &! in
+        CALL upwind_vflux_ppm( p_patch, ptr_current_rho,                   &! in
           &                  advection_config(pid)%iubc_adv,               &! in
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in

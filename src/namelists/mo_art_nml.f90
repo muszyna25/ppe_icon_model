@@ -19,8 +19,7 @@
 !!
 MODULE mo_art_nml
  
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish, message_text
+  USE mo_exception,           ONLY: message, finish
   USE mo_run_config,          ONLY: lart
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_impl_constants,      ONLY: max_dom
@@ -153,9 +152,8 @@ CONTAINS
     INTEGER :: jg          !< patch loop index
     INTEGER :: auto_ntracer      !< automatically computed number of tracers
     INTEGER :: auto_ntracer_xml  !< art ntracer from one xml file
-    LOGICAL :: l_exist, l_dir_exist     !< variable for inquiring if the xml file 
+    LOGICAL :: l_exist     !< variable for inquiring if the xml file 
                                         !   and emission base path exist.
-    CHARACTER(LEN = 2) :: str_dom  !< number of domain as string
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
     INTEGER :: iunit

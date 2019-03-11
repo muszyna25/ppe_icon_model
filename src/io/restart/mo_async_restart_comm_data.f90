@@ -16,7 +16,7 @@ MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
 
-  USE ISO_C_BINDING,           ONLY: C_PTR, C_INTPTR_T, C_F_POINTER
+  USE ISO_C_BINDING,           ONLY: C_PTR, C_F_POINTER
   USE mo_async_restart_packer, ONLY: t_AsyncRestartPacker
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_decomposition_tools,  ONLY: t_grid_domain_decomp_info
@@ -30,7 +30,7 @@ MODULE mo_async_restart_comm_data
   USE mo_timer,                ONLY: timer_start, timer_stop, timer_write_restart_communication, timers_level
   USE mo_util_string,          ONLY: int2string
   USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_WIN_NULL, MPI_SUCCESS, MPI_INTEGER, &
-    &                                MPI_REQUEST_NULL, MPI_MODE_NOPUT, MPI_STATUS_IGNORE, MPI_UNDEFINED
+    &                                MPI_REQUEST_NULL, MPI_STATUS_IGNORE, MPI_UNDEFINED
 #ifdef DEBUG
   USE mo_mpi,                  ONLY: p_pe
 #endif
@@ -61,8 +61,7 @@ MODULE mo_async_restart_comm_data
     INTEGER                   :: in_use, domain, win
     INTEGER                   :: req_pool(max_inflight)
     TYPE(inbuffer_t)          :: inbuffers(max_inflight)
-    INTEGER                   :: server_group, client_group
-    LOGICAL                   :: handshaked, hello, is_init
+    LOGICAL                   :: handshaked, is_init
   CONTAINS
     PROCEDURE         :: prepare   => asyncRestartCommData_inbuffer_prepare
     PROCEDURE         :: clear     => asyncRestartCommData_inbuffer_clear
@@ -70,7 +69,6 @@ MODULE mo_async_restart_comm_data
     PROCEDURE         :: waitall   => asyncRestartCommData_inbuffer_waitall
     PROCEDURE         :: apply     => asyncRestartCommData_inbuffer_apply
     PROCEDURE         :: iterate   => asyncRestartCommData_inbuffer_iterate
-    PROCEDURE         :: handshake => asyncRestartCommData_inbuffer_handshake
     PROCEDURE         :: sync      => asyncRestartCommData_inbuffer_sync
   END TYPE inbufhandler_t
 
@@ -94,14 +92,14 @@ MODULE mo_async_restart_comm_data
     ! RETURN the relevant t_AsyncRestartPacker object
     PROCEDURE :: getPacker    => asyncRestartCommData_getPacker
     ! called by the compute processes to write their data to their memory window:
-    PROCEDURE :: postData_dp  => asyncRestartCommData_postData_dp  
-    PROCEDURE :: postData_sp  => asyncRestartCommData_postData_sp  
+    PROCEDURE :: postData_dp  => asyncRestartCommData_postData_dp
+    PROCEDURE :: postData_sp  => asyncRestartCommData_postData_sp
     PROCEDURE :: postData_int => asyncRestartCommData_postData_int
     GENERIC, PUBLIC :: postData => postData_dp, postData_sp, postData_int
     ! called by the restart processes to fetch the DATA from the
     ! compute processes:
-    PROCEDURE :: collectData_dp  => asyncRestartCommData_collectData_dp 
-    PROCEDURE :: collectData_sp  => asyncRestartCommData_collectData_sp 
+    PROCEDURE :: collectData_dp  => asyncRestartCommData_collectData_dp
+    PROCEDURE :: collectData_sp  => asyncRestartCommData_collectData_sp
     GENERIC, PUBLIC :: collectData => collectData_dp, collectData_sp
     PROCEDURE, PUBLIC :: sync => asyncRestartCommData_sync
     PROCEDURE :: destruct     => asyncRestartCommData_destruct
@@ -188,7 +186,7 @@ CONTAINS
       CALL this%apply(inbuffer_map(my_slot))
       CALL this%inbuffers(inbuffer_map(my_slot))%reset()
       i_slot = inbuffer_map(my_slot)
-      inbuffer_map(my_slot) = inbuffer_map(remaining) 
+      inbuffer_map(my_slot) = inbuffer_map(remaining)
       inbuffer_map(remaining) = i_slot
       this%req_pool(my_slot) = this%req_pool(remaining)
       this%req_pool(remaining) = MPI_REQUEST_NULL
@@ -312,7 +310,7 @@ CONTAINS
     ENDIF
     this%win        = win_in
     this%in_use     = 0
-    this%handshaked = .false.
+    this%handshaked = .true.
     this%domain     = domain
     DO i = 1, max_inflight
       this%req_pool(i) = MPI_REQUEST_NULL
@@ -320,7 +318,6 @@ CONTAINS
       NULLIFY(this%inbuffers(i)%inbuffer)
     ENDDO
     this%is_init = .true.
-    this%hello   = .true.
   END SUBROUTINE asyncRestartCommData_inbuffer_prepare
 
   SUBROUTINE asyncRestartCommData_inbuffer_clear(this)
@@ -350,44 +347,29 @@ CONTAINS
 #ifdef __xlC__
     INTEGER :: rma_cache_hint
 #endif
-    INTEGER :: nbytes_real, mpi_error
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: mem_bytes
+    INTEGER :: mpi_error
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: mem_bytes, nbytes_real, typeLB
     TYPE(C_PTR) :: c_mem_ptr
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':openMpiWindow'
 
 #ifdef DEBUG
     WRITE(nerr, FORMAT_VALS3)routine, ' is called for p_pe=', p_pe
 #endif
+
     the_win = MPI_WIN_NULL
     ! doubleCount is calculated as number of variables above, get number of bytes
     ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
-    CALL MPI_Type_extent(p_real_dp, nbytes_real, mpi_error)
-    CALL ar_checkmpi(mpi_error, routine, 'MPI_Type_extent returned error '//TRIM(int2string(mpi_error)))
+    CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, nbytes_real, mpi_error)
+    CALL ar_checkmpi(mpi_error, routine, 'MPI_TYPE_GET_EXTEND returned error '//TRIM(int2string(mpi_error)))
     ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_bytes = MAX(doubleCount, 1_i8)*INT(nbytes_real, i8)
+    mem_bytes = MAX(doubleCount, 1_i8) * nbytes_real
     ! allocate amount of memory needed with MPI_Alloc_mem
-    ! 
-    ! Depending on wether the Fortran 2003 C interoperability features
-    ! are available, one needs to use non-standard language extensions
-    ! for calls from Fortran, namely Cray Pointers, since
-    ! MPI_Alloc_mem wants a C pointer argument.
-    !
-    ! see, for example: http://www.lrz.de/services/software/parallel/mpi/onesided/
-    ! TYPE(C_PTR) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
-    ! So check if at least C_INTPTR_T and MPI_ADDRESS_KIND are the same, else we may get
-    ! into deep, deep troubles!
-    ! There is still a slight probability that TYPE(C_PTR) does not have the size indicated
-    ! by C_INTPTR_T since the standard only requires C_INTPTR_T is big enough to hold pointers
-    ! (so it may be bigger than a pointer), but I hope no vendor screws up its ISO_C_BINDING
-    ! in such a way!!!
-    ! If C_INTPTR_T<=0, this type is not defined and we can't do this check, of course.
-    IF(C_INTPTR_T > 0 .AND. C_INTPTR_T /= MPI_ADDRESS_KIND) THEN
-        CALL finish(routine, 'C_INTPTR_T /= MPI_ADDRESS_KIND, too dangerous to proceed!')
-    END IF
+
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpi_error)
     CALL ar_checkmpi(mpi_error, routine, 'MPI_Alloc_mem returned error '//TRIM(int2string(mpi_error)))
     NULLIFY(mem_ptr_dp)
     CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [doubleCount] )
+
 #ifdef __xlC__
     ! IBM specific RMA hint, that we don't want window caching
     rma_cache_hint = MPI_INFO_NULL
@@ -396,9 +378,11 @@ CONTAINS
     CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache", "0", mpi_error)
     CALL ar_checkmpi(mpi_error, routine, 'MPI_Info_set returned error '//TRIM(int2string(mpi_error)))
 #endif
+
     ! create memory window for communication
     mem_ptr_dp(:) = 0._dp
-    CALL MPI_Win_create(mem_ptr_dp, mem_bytes, nbytes_real, MPI_INFO_NULL, communicator, the_win, mpi_error)
+    CALL MPI_Win_create(mem_ptr_dp, mem_bytes, INT(nbytes_real), MPI_INFO_NULL, communicator, &
+      &                 the_win, mpi_error)
     CALL ar_checkmpi(mpi_error, routine, 'MPI_Win_create returned error '//TRIM(int2string(mpi_error)))
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpi_error);
@@ -472,7 +456,6 @@ CONTAINS
     ALLOCATE(me%inbufhandler)
     me%inbufhandler%is_init = .false.
     CALL me%inbufhandler%prepare(me%win,jg)
-    CALL me%inbufhandler%handshake(.NOT.my_process_is_work())
   END SUBROUTINE asyncRestartCommData_construct
 
   INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(resultVar)
@@ -618,115 +601,31 @@ CONTAINS
   SUBROUTINE asyncRestartCommData_inbuffer_sync(this, i_are_baboon, after_update, goodbye)
     CLASS(inbufhandler_t),         INTENT(INOUT) :: this
     LOGICAL,                       INTENT(IN)    :: i_are_baboon, after_update, goodbye
-    INTEGER                                      :: err, assert
-    LOGICAL                                      :: hello_l
+    INTEGER                                      :: err
     CHARACTER(LEN=*), PARAMETER                  :: procedure_name = &
      &                          modname//'::inbufferhandler_sync'
     CHARACTER(LEN=64)                            :: occasion
+
     WRITE(occasion,'(a,i2)') 'DOM', this%domain
-    hello_l = .false.
     IF (goodbye) THEN
       occasion = TRIM(occasion)//'<last>'
     ENDIF
-    IF (this%hello) THEN
-      hello_l = .true.
-      occasion = TRIM(occasion)//'<first>'
-      this%hello = .false.
-    ELSE
-      hello_l = .false.
-    ENDIF
-    assert = MPI_MODE_NOPUT
     IF (i_are_baboon .AND. .NOT.goodbye) THEN
       occasion = TRIM(occasion)//'<server>'
-      IF (after_update .AND. .NOT. hello_l) THEN
+      IF (after_update) THEN
         occasion = TRIM(occasion)//'<ready_for_unexpose>'
-        CALL MPI_Win_complete(this%win, err)
+        CALL MPI_Win_unlock_all(this%win, err)
         CALL ar_checkmpi(err, procedure_name, ': MPI_Win_complete('//TRIM(occasion)//') failed')
       ELSE
         occasion = TRIM(occasion)//'<ready_for_expose>'
-        CALL MPI_Win_start(this%client_group, assert, this%win, err)
+        CALL MPI_Win_lock_all(0, this%win, err)
         CALL ar_checkmpi(err, procedure_name, ': MPI_Win_start('//TRIM(occasion)//') failed')
-        this%hello = .false.
-      ENDIF
-    ELSE IF (.NOT. i_are_baboon) THEN
-      occasion = TRIM(occasion)//'<client>'
-      IF (after_update) THEN
-        occasion = TRIM(occasion)//'<window_expose>'
-        IF (.NOT.goodbye) THEN
-          CALL MPI_Win_post(this%server_group, assert, this%win, err)
-          CALL ar_checkmpi(err, procedure_name, ': MPI_Win_post('//TRIM(occasion)//') failed')
-          this%hello = .false.
-        ENDIF
-      ELSE
-        occasion = TRIM(occasion)//'<window_unexpose>'
-        IF (.NOT.hello_l) THEN
-          CALL MPI_Win_wait(this%win, err)
-          CALL ar_checkmpi(err, procedure_name, ': MPI_Win_wait('//TRIM(occasion)//') failed')
-        ENDIF
       ENDIF
     ENDIF
     IF (goodbye) THEN
-      CALL MPI_Group_free(this%client_group, err)
-      CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
-      CALL MPI_Group_free(this%server_group, err)
-      CALL ar_checkmpi(err, procedure_name, ': MPI_Group_free failed')
       this%handshaked = .false.
     ENDIF
   END SUBROUTINE asyncRestartCommData_inbuffer_sync
-
-  SUBROUTINE asyncRestartCommData_inbuffer_handshake(this, i_are_baboon)
-    CLASS(inbufhandler_t), INTENT(INOUT) :: this
-    LOGICAL,               INTENT(IN)    :: i_are_baboon
-    INTEGER, ALLOCATABLE, DIMENSION(:)   :: flags
-    INTEGER                              :: my_flags(2), err, wgrp, &
-      &                                     wgrp_size, wgrp_rank
-    CHARACTER(LEN=*), PARAMETER                  :: procedure_name =      &
-     &                          modname//'::handshake'
-    IF (.NOT.this%is_init) THEN
-      CALL ar_checkmpi(-99, procedure_name, ": window+buffers not initialized!")
-    ENDIF
-    CALL MPI_Win_get_group(this%win, wgrp, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Win_get_group failed")
-    CALL MPI_Group_size(wgrp, wgrp_size, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_size failed")
-    CALL MPI_Group_rank(wgrp, wgrp_rank, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Comm_rank failed")
-    my_flags(1) = MERGE(wgrp_rank, MPI_UNDEFINED, i_are_baboon)
-    my_flags(2) = MERGE(wgrp_rank, MPI_UNDEFINED, my_process_is_work())
-    ALLOCATE(flags(wgrp_size*2))
-    CALL MPI_Allgather(my_flags,  2, MPI_INTEGER, flags,  2, MPI_INTEGER, &
-     &                 p_comm_work_restart, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Allgather failed")
-    IF (0 .NE. COUNT((flags(1::2).NE.MPI_UNDEFINED)  .AND. &
-                     (flags(2::2).NE.MPI_UNDEFINED)) ) THEN
-      CALL ar_checkmpi(-99, procedure_name, ": roles not consistent")
-    ENDIF
-    this%server_group = create_tgrp(1)
-    this%client_group = create_tgrp(2)
-    CALL MPI_Group_free(wgrp, err)
-    CALL ar_checkmpi(err, procedure_name, ": MPI_Group_free failed")
-    this%handshaked = .true.
-  CONTAINS
-
-    INTEGER FUNCTION create_tgrp(switch) RESULT(tgrp)
-      INTEGER, INTENT(IN)  :: switch
-      INTEGER              :: i, ii, tgrp_size
-      INTEGER, ALLOCATABLE :: ranks_list(:)
-
-      tgrp_size = COUNT(flags(switch::2).NE.MPI_UNDEFINED)
-      ALLOCATE(ranks_list(tgrp_size))
-      i = 0
-      DO ii = 1, wgrp_size
-        IF ( flags(switch + (ii - 1) * 2) .NE. MPI_UNDEFINED) THEN
-          i = i + 1
-          ranks_list(i) = flags(switch + (ii - 1) * 2)
-        ENDIF
-      ENDDO
-      CALL MPI_Group_incl(wgrp, tgrp_size, ranks_list, tgrp, err)
-      CALL ar_checkmpi(err, procedure_name, ": MPI_Group_incl failed")
-      DEALLOCATE(ranks_list)
-    END FUNCTION create_tgrp
-  END SUBROUTINE asyncRestartCommData_inbuffer_handshake
 
 #endif
 END MODULE mo_async_restart_comm_data

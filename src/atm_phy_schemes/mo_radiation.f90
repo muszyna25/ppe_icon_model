@@ -370,9 +370,9 @@ CONTAINS
     ENDIF
 
     IF (PRESENT(zsct)) THEN
-      psctm = zsct
+      psctm(:) = zsct
     ELSE
-      psctm = tsi_radt
+      psctm(:) = tsi_radt
     ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
@@ -686,7 +686,7 @@ CONTAINS
     END DO
     DO jl = 1, jce
       tk_hl(jl,klevp1) = tk_sfc(jl)
-      tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
+      tk_hl(jl,1)      = tk_fl(jl,1)+(pp_hl(jl,1)-pp_fl(jl,1))*(tk_fl(jl,1) - tk_hl(jl,2))  &
         &                / (pp_fl(jl,1)-pp_hl(jl,2))
     END DO
     !
@@ -1437,8 +1437,8 @@ CONTAINS
       CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            , &
          &  alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm(jg), &
+         &  psctm(jg)       ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,&
       laytrop, jp_psrad, iabs, wkl_vr, colmol, fac, &

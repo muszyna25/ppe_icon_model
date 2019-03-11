@@ -16,12 +16,11 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, message
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
-    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero
   USE mo_io_units,           ONLY: filename_max
   USE mo_io_util,            ONLY: get_filetype
   USE mo_model_domain,       ONLY: t_patch
@@ -54,6 +53,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
+  PUBLIC :: qcana_mode, qiana_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
   PUBLIC :: lvert_remap_fg
@@ -135,6 +135,7 @@ MODULE mo_initicon_config
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
+  INTEGER  :: qcana_mode, qiana_mode ! mode of processing QC/QI increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -185,22 +186,38 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
-  LOGICAL :: lread_tke = .FALSE. !< control variable that specifies if TKE has been found in the input (used for MODE_ICONVREMAP only)
-  LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
+  !> control variable that specifies if u/v or vn are read as wind
+  !  field input
+  LOGICAL :: lread_vn  = .FALSE.
 
-  INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
+  !> control variable that specifies if TKE has been found in the
+  !  input (used for MODE_ICONVREMAP only)
+  LOGICAL :: lread_tke = .FALSE.
 
-  LOGICAL :: is_iau_active = .FALSE.  !< determines whether IAU is active at current time
+  !> logical switch, if sea surface temperature is provided as input
+  LOGICAL :: l_sst_in  = .TRUE.
 
-  LOGICAL :: lcalc_avg_fg           !< determines whether temporally averaged first guess fields are computed
+  !> initialization mode of soil model (coldstart, warmstart,
+  !  warmstart+IAU)
+  INTEGER :: init_mode_soil
+
+  !> determines whether IAU is active at current time
+  LOGICAL :: is_iau_active = .FALSE.
+
+  !> determines whether temporally averaged first guess fields are
+  !  computed
+  LOGICAL :: lcalc_avg_fg
 
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
-  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+  !> registers if aerosol fields have been read from the first-guess
+  !  data
+  LOGICAL :: aerosol_fg_present(max_dom,nclass_aero) = .FALSE.
 
-  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
+  !> registers if SST and sea ice fraction data have been read from
+  !  analysis
+  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
@@ -217,9 +234,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
-  SUBROUTINE configure_initicon(dtime)
-    !
-    REAL(wp), INTENT(IN)        :: dtime       ! advection/fast physics time step
+  SUBROUTINE configure_initicon()
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !

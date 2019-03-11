@@ -10,15 +10,15 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P20Y"
-checkpoint_interval="P10Y"
+restart_interval="P50Y"
+checkpoint_interval="P50Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
-file_interval="P1Y"
+file_interval="P50Y"
 modelTimeStep="PT1H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
@@ -29,6 +29,8 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
+grids_folder=/pool/data/ICON/oes/input/r0002//OceanOnly_Icos_0158km_etopo40
+ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -53,53 +55,66 @@ cat > ${ocean_namelist} << EOF
  modelTimeStep        = "${modelTimeStep}"       ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output     = 2
+ profiling_output     = 1
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
-  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
-  filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
   operation        = "mean"
-  file_interval="P1Y"
+  file_interval    = "${file_interval}"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
   operation        = "mean"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval="P10Y"
-  output_filename  = "${EXPNAME}_Monitor"
-  filename_format  = "<output_filename>_<datetime2>"
+  file_interval    = "${file_interval}"
+  output_filename  = "${EXPNAME}_oceanMonitor"
   ml_varlist       =  'group:ocean_monitor'
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
   operation        = "mean"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval="P10Y"
+  file_interval    = "${file_interval}"
   output_filename  = "${EXPNAME}_MOC"
-  filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_moc'
 /
+&output_nml
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_fx"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${start_date}"                    ! end date in ISO-format
+  output_interval  = "${monthly}"         ! interval in ISO-format
+  filename_format  = "<output_filename>"
+  file_interval    = "${file_interval}"
+  output_grid      = .TRUE.
+  mode             =  1
+  include_last     = .false.
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
+/
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -108,13 +123,14 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
+! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
-! l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
+  l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
   select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                =  7.5E-14
@@ -155,15 +171,15 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_vertical_diffusion_nml
   PPscheme_type                            = 4
-  velocity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  Temperature_VerticalDiffusion_background =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  Salinity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  Salinity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
   convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
   RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
   tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
+  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
   tracer_TopWindMixing            = 1.0E-5
@@ -173,13 +189,13 @@ cat > ${ocean_namelist} << EOF
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme=1
   GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-4                                   !1e-3 to 1e-5
-  S_d=0.00005                                 ! 5e-3 to 5e-5
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  S_max=1.0e-3                               
+  S_d=0.0001                                 ! 1e-3 to 1e-4
+  k_tracer_GM_kappa_parameter     = 1000.0     !
+  k_tracer_isoneutral_parameter   = 1000.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.false.
+  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
   SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
@@ -195,13 +211,19 @@ cat > ${ocean_namelist} << EOF
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
 ! use_no_flux_gradients           = .FALSE.   ! default: true
-! leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
-! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
-
+ leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
+ leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
+ albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
+ albs         = 0.85         ! Albedo of snow (not melting)
+ albsm        = 0.70         ! Albedo of snow (melting)
+ albi         = 0.75         ! Albedo of ice (not melting)
+ albim        = 0.70         ! Albedo of ice (melting)
+ Pstar        = 40000
 /
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
+  forcing_frequency               = 86400.0
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -217,8 +239,10 @@ cat > ${ocean_namelist} << EOF
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
   limit_seaice                    = .TRUE.    ! default: true
-  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
+  seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -239,6 +263,12 @@ cat > ${ocean_namelist} << EOF
    agulhas_long(1:10)           = 8024,8022,6036
    agulhas_longer(1:10)         = 8024,8022,6036,6025
 /
+&io_nml
+  restart_file_type = 5
+  write_last_restart = .true.
+!  lkeep_in_sync = .true.          ! sync after each timestep
+!  restart_write_mode = "joint procs multifile"
+/
 EOF
 #-----------------------------------------------------------------------------
 
@@ -246,5 +276,10 @@ EOF
 
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-. ${thisdir}/add_required_ocean_files
+#. ${thisdir}/add_required_ocean_files
+
+add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OceanOnly_Icos_0158km_etopo40-40levels.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OceanOnly_Icos_0158km_etopo40.nc ocean-flux.nc
+add_link_file $ocean_data_InputFolder/omipRelaxSurface-OceanOnly_Icos_0158km_etopo40.nc ocean-relax.nc
+
 #-----------------------------------------------------------------------------

@@ -86,10 +86,11 @@ CONTAINS
 !    ice%heatOceI(:,:,:) = 0.0_wp ! initialized in ice_zero
 
     !---------DEBUG DIAGNOSTICS-----------------------------------------------------------------
-    CALL dbg_print('GrowZero bef.: Qtop' , ice%Qtop  , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero bef.: Qbot' , ice%Qbot  , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero bef.: hi'   , ice%hi    , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero bef.: hs'   , ice%hs    , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: Qtop'     , ice%Qtop     , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: Qbot'     , ice%Qbot     , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: Qbot_slow', ice%Qbot_slow, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: hi'       , ice%hi       , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero bef.: hs'       , ice%hs       , str_module, 4, in_subset=p_patch%cells%owned)
     !-------------------------------------------------------------------------------------------
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
@@ -124,16 +125,14 @@ CONTAINS
               ENDIF
             ENDIF
 
-            ! Save conductive heat flux calculated in ice_fast to new variable CondHeat 
-            ! minus is upward, heat release to the atmosphere, ice growth
-            ice%CondHeat(jc,k,jb) = ice%Qbot(jc,k,jb)
+            ! Heat flux at ice-ocean interface ("Qbot_slow") is sum of
+            !  - Conductive heat flux calculated in ice_fast ("Qbot"):
+            !    Qbot<0 is upward (Qbot=-F_S, negative F_S is upward) -> heat release to the atmosphere, ice growth
+            !  - ocean-ice heat flux ("zHeatOceI", positive upward is melting ice) to Qbot
+            ice%Qbot_slow(jc,k,jb) = ice%Qbot(jc,k,jb) + ice%zHeatOceI(jc,k,jb)
 
-            ! Add ocean-ice heat flux (zHeatOceI, positive upward is melting ice) to Qbot
-            !   Qbot = -F_S = CondHeat (i.e. plus upward conductive flux, melting ice).
-            ice%Qbot(jc,k,jb) = ice%Qbot(jc,k,jb) + ice%zHeatOceI(jc,k,jb)
-
-            !  Resulting flux Qbot>0 melts ice from below, while Qbot<0 grows ice.
-            ice%hi(jc,k,jb) = ice%hi(jc,k,jb) - ice%Qbot(jc,k,jb) * dtime / (alf*rhoi)
+            !  Resulting flux Qbot_slow>0 melts ice from below, while Qbot_slow<0 grows ice.
+            ice%hi(jc,k,jb) = ice%hi(jc,k,jb) - ice%Qbot_slow(jc,k,jb) * dtime / (alf*rhoi)
 
             !     ------------------------------------------------
             ! (2) --------------- Update heatOceI ----------------
@@ -167,13 +166,18 @@ CONTAINS
 
             ! rescale with concentration in order to get output over whole cell-area
             ice%zHeatOceI(jc,k,jb) = ice%zHeatOceI(jc,k,jb)*ice%conc(jc,k,jb)
-            ice%Qbot     (jc,k,jb) = ice%Qbot     (jc,k,jb)*ice%conc(jc,k,jb)
+            ice%Qbot_slow(jc,k,jb) = ice%Qbot_slow(jc,k,jb)*ice%conc(jc,k,jb)  !! Attention !!
             Q_surplus    (jc,k,jb) =     Q_surplus(jc,k,jb)*ice%conc(jc,k,jb)
 
             ! Calculate mean change in ice and snow thickness due to thermodynamic effects
             ice%delhi(jc,k,jb) = ( ice%hi(jc,k,jb) - hiold(jc,k,jb) ) * ice%conc(jc,k,jb)
             ice%delhs(jc,k,jb) = ( ice%hs(jc,k,jb) - hsold(jc,k,jb) ) * ice%conc(jc,k,jb)
 
+          ELSE  ! hi<=0
+            ice%Qbot_slow(jc,k,jb) = 0.0_wp
+            ice%Qbot     (jc,k,jb) = 0.0_wp
+            ice%zHeatOceI(jc,k,jb) = 0.0_wp
+            ice%heatOceI (jc,k,jb) = 0.0_wp
           ENDIF
         END DO
       END DO
@@ -183,14 +187,16 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('GrowZero aft.: hi'         , ice%hi         , str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: hs'         , ice%hs         , str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero aft.: heatOceI '  , ice%heatOceI   , str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero aft.: Qbot_slow'  , ice%Qbot_slow  , str_module, 3, in_subset=p_patch%cells%owned)
 
     CALL dbg_print('GrowZero aft.: zHeatOceI ' , ice%zHeatOceI  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero aft.: heatOceI '  , ice%heatOceI   , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: Qbot'       , ice%Qbot       , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: Q_surplus'  , Q_surplus      , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('GrowZero aft.: CondHeat'   , ice%CondHeat   , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: delhi'      , ice%delhi      , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero aft.: delhs '     , ice%delhs      , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero aft.: conc  '     , ice%conc       , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero aft.: concSum'    , ice%concSum    , str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
 !---------------------------------------------------------------------

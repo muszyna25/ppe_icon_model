@@ -32,6 +32,7 @@ MODULE mo_psrad_solar_parameters
   USE mo_psrad_general,   ONLY: wp, nbndsw
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
+  USE mo_impl_constants,  ONLY: max_dom
   USE mo_math_constants,  ONLY: pi, pi2, pi_2, pi_4 ! pi, pi*2, pi/2, pi/4
 
 IMPLICIT NONE
@@ -41,7 +42,7 @@ IMPLICIT NONE
   PUBLIC :: psctm, ssi_factor
   PUBLIC :: solar_parameters
   
-  REAL(wp) :: psctm                         !< orbit and time dependent solar constant for radiation time step
+  REAL(wp) :: psctm(max_dom)                !< orbit and time dependent solar constant for radiation time step
   REAL(wp) :: ssi_factor(nbndsw)            !< fraction of TSI in the 14 RRTM SW bands
 
 CONTAINS

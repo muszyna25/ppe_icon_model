@@ -44,7 +44,6 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_solverMatrix,ONLY: createSolverMatrix
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
   USE mtime,                        ONLY: datetime
-  USE mo_hamocc_types,              ONLY: t_hamocc_state
   USE mo_ocean_output
   USE mo_ocean_time_events,         ONLY: get_OceanCurrentTime_Pointer  
 !-------------------------------------------------------------------------
@@ -79,7 +78,6 @@ CONTAINS
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
-    TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jstep0
     TYPE(datetime), POINTER                          :: this_datetime
 

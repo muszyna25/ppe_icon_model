@@ -23,7 +23,7 @@ SUBROUTINE srtm_kgb29
 
 USE mo_kind, ONLY : wp
 
-USE yoesrta29, ONLY : ka, kb, selfref, forref, sfluxref, rayl &
+USE mo_yoesrta29, ONLY : ka, kb, selfref, forref, sfluxref, rayl &
  & , absh2o, absco2, layreffr
 
 !     ------------------------------------------------------------------

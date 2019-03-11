@@ -211,7 +211,7 @@ MODULE mo_multifile_restart
   USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
-    &                                        my_process_is_mpi_workroot, p_reduce, p_sum_op
+    &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier
   USE mo_multifile_restart_patch_data, ONLY: t_MultifilePatchData, toMultifilePatchData
   USE mo_multifile_restart_util,       ONLY: createMultifileRestartLink, multifileAttributesPath,       &
     &                                        isAsync, rBuddy, rGroup,            &
@@ -282,7 +282,7 @@ CONTAINS
     srcRanks = PACK((/(i, i=0,num_work_procs-1)/), &
                      (/(rBuddy(pe_in=i)==myWrt, i=0,num_work_procs-1)/))
     IF (nStreams > nSrcRanks) &
-      CALL finish(routine, "more horizontal multifile chunks worker ranks requested!")
+      CALL finish(routine, "more horizontal multifile chunks than worker ranks requested!")
     ! allocate patch data structure
     ALLOCATE(t_MultifilePatchData :: me%patchData(n_dom*nStreams), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
@@ -300,6 +300,9 @@ CONTAINS
         IF (.NOT.iAmRestartWriter()) THEN 
           lthis_pe_active = ANY(myProcId == srcRanks(sRStrt:sREnd))
           CALL patchData%createCollectors(myWrt, srcRanks(1:0), lthis_pe_active)
+          ! too keep mo_timer happy
+          IF (timers_level >= 7) CALL timer_start(timer_write_restart_communication)
+          IF (timers_level >= 7) CALL timer_stop(timer_write_restart_communication)
         ELSE
           CALL patchData%createCollectors(myWrt, srcRanks(sRStrt:sREnd), .TRUE.)
         END IF
@@ -320,6 +323,9 @@ CONTAINS
     TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(*), PARAMETER :: routine = modname//":createRestartArgs_compute"
     REAL(KIND=dp) :: time_start, time_end
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     CALL resultVar%construct(this_datetime, jstep, modelType, opt_output_jfile)
     !In the CASE of dedicated proc mode, we need to inform the restart processes.
@@ -328,12 +334,12 @@ CONTAINS
     CALL packedMessage%construct()
     CALL packedMessage%pack(kWriteRestartOp)
     CALL resultVar%packer(kPackOp, packedMessage)
-    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    IF(is_mpi_workroot) time_start = p_mpi_wtime()
     CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    IF(is_mpi_workroot) time_end = p_mpi_wtime()
     CALL packedMessage%destruct()
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(my_process_is_mpi_workroot()) THEN
+    IF(is_mpi_workroot) THEN
       WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
                                         ' sec for dedicated restart procs to be ready...'
       CALL message(routine, message_text)             
@@ -346,17 +352,20 @@ CONTAINS
     TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(*), PARAMETER :: routine = modname//":sendStopToRestart"
     REAL(KIND=dp) :: time_start, time_end
+    LOGICAL :: is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
 
     IF(.NOT.isAsync()) RETURN
     IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
     CALL packedMessage%construct()
     CALL packedMessage%pack(kShutdownOp)
-    IF(my_process_is_mpi_workroot()) time_start = p_mpi_wtime()
+    IF(is_mpi_workroot) time_start = p_mpi_wtime()
     CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)
-    IF(my_process_is_mpi_workroot()) time_end = p_mpi_wtime()
+    IF(is_mpi_workroot) time_end = p_mpi_wtime()
     CALL packedMessage%destruct()
     IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(my_process_is_mpi_workroot()) THEN
+    IF(is_mpi_workroot) THEN
       WRITE(message_text, "(a,e9.2,a)") 'compute procs waited ', time_end-time_start, &
                                         ' sec for dedicated restart procs to finish...'
       CALL message(routine, message_text)
@@ -481,21 +490,33 @@ CONTAINS
     dpTime = p_mpi_wtime()
     bWritten = 0_i8
     CALL restartWritingParameters(opt_nrestart_streams=nrestart_streams)
-    !ensure that all processes have up-to-date patch DATA
     CALL me%updatePatchData()
-    !create the multifile directory
-    CALL getRestartFilename('multifile', 0, restartArgs, filename)
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) &
+        & CALL patchData%start_local_access()
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        IF (my_process_is_work()) &
+          & CALL patchData%exposeData()
+      END IF
+    END DO
+    DO jg = 1, SIZE(me%patchData)
+      patchData => toMultifilePatchData(me%patchData(jg))
+      IF (patchData%description%l_dom_active) THEN
+        CALL patchData%start_remote_access()
+      END IF
+    END DO
     IF(iAmRestartMaster()) THEN
-        IF(createEmptyMultifileDir(filename) /= SUCCESS) CALL finish(routine, "error creating multifile-dir")
-    END IF
-    IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
-    !ensure that the other processes DO NOT continue before the
-    !directory has been created:
-    CALL p_bcast(dummy, rBuddy(0), p_comm_work_restart) 
-    IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-    IF(iAmRestartMaster()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
+      IF (createEmptyMultifileDir(filename) /= SUCCESS) &
+        & CALL finish(routine, "error creating multifile-dir")
+      CALL p_barrier(p_comm_work)
       restartAttributes => RestartAttributeList_make()
-      CALL restartAttributes%setInteger('multifile_file_count', nrestart_streams*restartProcCount())
+      CALL restartAttributes%setInteger('multifile_file_count', &
+        & nrestart_streams*restartProcCount())
       n_dom_active = 0
       DO jg = 1, SIZE(me%patchData)
         patchData => toMultifilePatchData(me%patchData(jg))
@@ -508,43 +529,24 @@ CONTAINS
       CALL me%writeAttributeFile(filename, restartAttributes, namelists)
       CALL restartAttributes%destruct()
       DEALLOCATE(restartAttributes)
-    END IF
-    ! COLLECT the payload data
-    DO jg = 1, SIZE(me%patchData)
-      patchData => toMultifilePatchData(me%patchData(jg))
-      IF (patchData%description%l_dom_active) THEN
-        CALL patchData%start_local_access()
+    ELSE IF(.NOT.isAsync().OR.iAmRestartWriter()) THEN
+      CALL p_barrier(p_comm_work)
+    ELSE 
+      dpTime = p_mpi_wtime() - dpTime
+      IF(my_process_is_mpi_workroot()) THEN
+        WRITE(message_text, *) "restart: preparing checkpoint-data took " &
+          & //TRIM(real2string(dpTime))//"s"
+        CALL message(routine, message_text)
       END IF
-    END DO
+    END IF
     IF (iAmRestartWriter()) THEN
+      CALL getRestartFilename('multifile', 0, restartArgs, filename)
       DO jg = 1, SIZE(me%patchData)
         patchData => toMultifilePatchData(me%patchData(jg))
         IF (patchData%description%l_dom_active .AND. ASSOCIATED(patchData%varData)) THEN
           findex = nrestart_streams*rGroup() + (jg-1)/n_dom
           cdiIds(jg) = patchData%openPayloadFile(filename, findex, &
-                                                 restartArgs%restart_datetime, bWritten)
-        END IF
-      END DO
-    END IF
-    IF (my_process_is_work()) THEN
-      DO jg = 1, SIZE(me%patchData)
-        patchData => toMultifilePatchData(me%patchData(jg))
-        IF (patchData%description%l_dom_active) THEN
-          CALL patchData%exposeData()
-        END IF
-      END DO
-    END IF
-    ! WRITE the payload files
-    DO jg = 1, SIZE(me%patchData)
-      patchData => toMultifilePatchData(me%patchData(jg))
-      IF (patchData%description%l_dom_active) THEN
-        CALL patchData%start_remote_access()
-      END IF
-    END DO
-    IF(iAmRestartWriter()) THEN
-      DO jg = 1, SIZE(me%patchData)
-        patchData => toMultifilePatchData(me%patchData(jg))
-        IF (patchData%description%l_dom_active) THEN
+            & restartArgs%restart_datetime, bWritten)
           CALL patchData%collectData(cdiIds(jg)%fHndl, bWritten)
           CALL cdiIds(jg)%closeAndDestroyIds()
         END IF
@@ -552,25 +554,16 @@ CONTAINS
     END IF
     IF(iAmRestartMaster()) CALL createMultifileRestartLink(filename, TRIM(restartArgs%modelType))
 #ifndef NOMPI
-    IF(isAsync().AND.my_process_is_work()) THEN
-      !dedicated proc mode: work processes
-      dpTime = p_mpi_wtime() - dpTime
-      IF(my_process_is_mpi_workroot()) THEN
-        WRITE(message_text, *) "restart: preparing checkpoint-data took "//TRIM(real2string(dpTime))//"s"
-        CALL message(routine, message_text)
-      END IF
-    ELSE
+    IF(.NOT.(isAsync().AND.my_process_is_work())) THEN
       IF(timers_level >= 7) CALL timer_start(timer_write_restart_wait)
       IF(my_process_is_restart()) THEN
         !dedicated proc mode: restart processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work)
       ELSE
         !joint proc mode: all processes
-        totBWritten = p_reduce(bWritten, p_sum_op(), 0, p_comm_work_restart)
+        totBWritten = p_reduce(bWritten, mpi_sum, 0, p_comm_work_restart)
       END IF
       IF(timers_level >= 7) CALL timer_stop(timer_write_restart_wait)
-      !the previous CALL has synchronized us, so now it's safe
-      !to stop the timer
       dpTime = p_mpi_wtime() - dpTime
       IF(iAmRestartMaster()) THEN
         gbWritten = REAL(totBWritten, dp)/1024.0_dp/1024.0_dp/1024.0_dp

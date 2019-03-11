@@ -17,16 +17,15 @@ MODULE mo_hamocc_diagnostics
    USE mo_model_domain, ONLY: t_patch_3d, t_patch
    USE mo_grid_subset, ONLY: t_subset_range, get_index_range
    USE mo_hamocc_nml, ONLY: io_stdo_bgc, l_cyadyn
-   USE mo_dynamics_config,     ONLY: nold, nnew
+   USE mo_dynamics_config,     ONLY: nold
    USE mo_ocean_nml,   ONLY: n_zlev,no_tracer
-   USE mo_bgc_constants, ONLY:  s2year, n2tgn, c2gtc, kilo
+   USE mo_bgc_constants, ONLY:  n2tgn, c2gtc, kilo
    USE mo_memory_bgc, ONLY: p2gtc, totalarea
    USE mo_control_bgc, ONLY: dtbgc
    USE mo_bgc_icon_comm, ONLY: to_bgcout
    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                           iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                           ian2o, idet, iiron, icalc, iopal,&
-&                           idust, idms
+&                           ian2o, idet, iiron, icalc, iopal
 
    USE mo_name_list_output_init, ONLY: isRegistered
 
@@ -107,14 +106,12 @@ END SUBROUTINE get_omz
 
   SUBROUTINE get_monitoring(hamocc_state, ssh, tracer, p_patch_3d)
 
-    USE mo_memory_bgc, ONLY: rcar, rn2, nitdem, n2prod, doccya_fac
+    USE mo_memory_bgc, ONLY: rn2, n2prod, doccya_fac
     TYPE(t_hamocc_state) :: hamocc_state
     REAL(wp), INTENT(IN) :: ssh(:,:)
     REAL(wp), INTENT(IN) :: tracer(:,:,:,:)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
-    CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
-    INTEGER:: i_time_stat
     REAL(wp) :: glob_n2b, glob_pwn2b
 
     glob_n2b = 0.0_wp

@@ -791,6 +791,10 @@ CONTAINS
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
+
+      kpbl1(1:nproma,jb) = -1
+      kpbl2(1:nproma,jb) = -1
+
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
@@ -801,7 +805,6 @@ CONTAINS
         wfacpbl1(nlen+1:nproma,jb) = 0.5_wp
         wfacpbl2(nlen+1:nproma,jb) = 0.5_wp
       ENDIF
-
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_in(1:nlen,nlevs_in,jb)) <= zpbl2) THEN
           jk_start = jk - 1
@@ -833,6 +836,11 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ! If the input data is corrupted, no kpbl1 or kpbl2 is found, i.e. still equal -1
+    IF ( ANY(kpbl1 < 0) .OR. ANY(kpbl2 < 0) ) THEN
+      CALL finish("prepare_extrap:", &
+        &         "No kpbl found, check vertical coordinate input data.")
+    ENDIF
 
   END SUBROUTINE prepare_extrap
 
@@ -1994,25 +2002,27 @@ CONTAINS
       ENDIF
 
 
-      ! Compute vertical gradients of input data
-      DO jk1 = 1, nlevs_in-1
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,1) = (temp_mod(jc,1)-temp_mod(jc,2))/ &
+             (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+      ENDDO
+      DO jc = 1, nlen
+        ! Compute vertical gradients of input data
+        g1(jc,2) = (temp_mod(jc,2)-temp_mod(jc,3))/ &
+             (z3d_in(jc,2,jb)-z3d_in(jc,3,jb))
+        ! Compute vertical gradients of gradients
+        g2(jc,2-1) = (g1(jc,1)-g1(jc,2))/(z3d_in(jc,1,jb)-z3d_in(jc,3,jb))
+      ENDDO
+      DO jk1 = 3, nlevs_in-1
         DO jc = 1, nlen
+          ! Compute vertical gradients of input data
           g1(jc,jk1) = (temp_mod(jc,jk1 )-temp_mod(jc,jk1+1 ))/ &
                        (z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+1,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute vertical gradients of gradients
-      DO jk1 = 1, nlevs_in-2
-        DO jc = 1, nlen
-          g2(jc,jk1) = (g1(jc,jk1)-g1(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+2,jb))
-        ENDDO
-      ENDDO
-
-      ! Compute third-order vertical gradients
-      DO jk1 = 1, nlevs_in-3
-        DO jc = 1, nlen
-          g3(jc,jk1) = (g2(jc,jk1)-g2(jc,jk1+1))/(z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+3,jb))
+          ! Compute vertical gradients of gradients
+          g2(jc,jk1-1) = (g1(jc,jk1-1)-g1(jc,jk1))/(z3d_in(jc,jk1-1,jb)-z3d_in(jc,jk1+1,jb))
+          ! Compute third-order vertical gradients
+          g3(jc,jk1-2) = (g2(jc,jk1-2)-g2(jc,jk1-1))/(z3d_in(jc,jk1-2,jb)-z3d_in(jc,jk1+1,jb))
         ENDDO
       ENDDO
 
