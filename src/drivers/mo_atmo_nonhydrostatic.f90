@@ -689,7 +689,7 @@ CONTAINS
     ! variable group information
     IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
       CALL print_group_details(idom=1,                            &
-        &                      opt_latex_fmt           = .FALSE., &
+        &                      opt_latex_fmt           = .TRUE., &
         &                      opt_reduce_trailing_num = .TRUE.,  &
         &                      opt_skip_trivial        = .TRUE.)
     END IF

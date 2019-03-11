@@ -460,6 +460,7 @@ MODULE mo_nwp_phy_types
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
       ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
+      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     REAL(vp2), POINTER           &
@@ -469,7 +470,6 @@ MODULE mo_nwp_phy_types
       ::                        &
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
-      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag

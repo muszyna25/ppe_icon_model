@@ -132,7 +132,7 @@ MODULE mo_name_list_output_init
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
     &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
     &                                             timedeltaToString, calendarType,                &
-    &                                             getPTStringFromSeconds,                         &
+    &                                             getPTStringFromSeconds, OPERATOR(/=),           &
     &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
@@ -1250,7 +1250,8 @@ CONTAINS
           IF (mtime_td > mtime_day)  THEN
             CALL finish(routine, "Internal error: dtime > 1 day!")
           END IF
-          IF (mtime_output_interval < mtime_td) THEN
+          IF  ((mtime_output_interval < mtime_td) .and. &
+            &  (mtime_datetime_start /= mtime_datetime_end)) THEN
             CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
           END IF
           CALL deallocateTimedelta(mtime_output_interval)

@@ -83,7 +83,7 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                          [1/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers( mass related ones only) [kg/m**2]
-    &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
+    &  tracer_vi_avg(:,:,:),& ! average (since model start) of tracer_vi [kg/m**2]
     &  exner_pr(:,:,:),     & ! exner pressure perturbation, saved from previous step (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]

@@ -640,7 +640,7 @@ MODULE mo_nonhydro_state
             & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
             &         GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
             &         t_cf_var(TRIM(vname_prefix)//'qc',                             &
-            &          'kg kg-1', 'specific_cloud_water_content', datatype_flt),     &
+            &          'kg kg-1', 'specific cloud water content', datatype_flt),     &
 !DR                    & grib2_var(0, 1, 83, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &         grib2_var(0, 1, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &         ldims=shape3d_c,                                               &
@@ -669,7 +669,7 @@ MODULE mo_nonhydro_state
             &         TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
             &         GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
             &         t_cf_var(TRIM(vname_prefix)//'qi',                             &
-            &          'kg kg-1','specific_cloud_ice_content', datatype_flt),        &
+            &          'kg kg-1','specific cloud ice content', datatype_flt),        &
             &         grib2_var(0, 1, 82, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &         ldims=shape3d_c,                                               &
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
@@ -697,7 +697,7 @@ MODULE mo_nonhydro_state
             &           TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
             &           t_cf_var(TRIM(vname_prefix)//'qr',                             &
-            &            'kg kg-1','rain_mixing_ratio', datatype_flt),                 &
+            &            'kg kg-1','rain mixing ratio', datatype_flt),                 &
 !DR            &           grib2_var(0, 1, 85, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           grib2_var(0, 1, 24, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
@@ -724,7 +724,7 @@ MODULE mo_nonhydro_state
             &           TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
             &           t_cf_var(TRIM(vname_prefix)//'qs',                             &
-            &            'kg kg-1','snow_mixing_ratio', datatype_flt),                 &
+            &            'kg kg-1','snow mixing ratio', datatype_flt),                 &
 !DR            &           grib2_var(0, 1, 86, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           grib2_var(0, 1, 25, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
@@ -833,7 +833,7 @@ MODULE mo_nonhydro_state
             &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
             &           t_cf_var(TRIM(vname_prefix)//'qg',                             &
-            &            'kg kg-1','specific_graupel_content', datatype_flt),          &
+            &            'kg kg-1','specific graupel content', datatype_flt),          &
             &           grib2_var(0, 1, 32, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
@@ -1596,7 +1596,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('atmospheric_relative_vorticity', 'm s-1', 'vertical vorticity', &
       &          datatype_flt)
-    grib2_desc = grib2_var(0, 2, 10, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
+    grib2_desc = grib2_var(0, 2, 12, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_v, lrestart=.FALSE., in_group=groups("atmo_derived_vars") )
@@ -1605,7 +1605,7 @@ MODULE mo_nonhydro_state
     ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('normal_wind_physical_tendency', 'm s-2',             &
       &                   'normal wind physical tendency', datatype_flt)
-    grib2_desc = grib2_var(0, 2, 199, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_diag_list, 'ddt_vn_phy', p_diag%ddt_vn_phy,                 &
                 & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e )
@@ -1647,7 +1647,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('exner_dynamics_increment', '-', 'exner dynamics increment', &
          &                datatype_flt)
-    grib2_desc = grib2_var(0, 3, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_dyn_incr', p_diag%exner_dyn_incr,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE. )
@@ -1857,7 +1857,7 @@ MODULE mo_nonhydro_state
     ! vor          p_diag%vor(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('relative_vorticity_on_cells', 's-1', 'Vorticity', datatype_flt)
-    grib2_desc = grib2_var( 0, 2, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var( 0, 2, 12, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_diag_list, 'vor', p_diag%vor,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
@@ -1908,7 +1908,7 @@ MODULE mo_nonhydro_state
     ! theta_v_ic   p_diag%theta_v_ic(nproma,nlevp1,nblks_c)
     !
     cf_desc    = t_cf_var('virtual_potential_temperature_at_half_levels', 'K',&
-      &                   'virtual_potential temperature at half levels', datatype_flt)
+      &                   'virtual potential temperature at half levels', datatype_flt)
     grib2_desc = grib2_var( 0, 0, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
@@ -1919,7 +1919,7 @@ MODULE mo_nonhydro_state
       !
       cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1',               &
         &                   'normal wind at half level', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 197, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      grib2_desc = grib2_var( 0, 2, 34, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
       CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                         &
                   & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
                   & ldims=shape3d_ehalf, lrestart=.FALSE. )
@@ -1997,7 +1997,7 @@ MODULE mo_nonhydro_state
 
       cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &
         &                   'normal wind tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 203, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
                   & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_e, lrestart=lrestart )
@@ -2007,7 +2007,7 @@ MODULE mo_nonhydro_state
       !
       cf_desc    = t_cf_var('normal_mass_flux_tendency', 'kg m-2 s-2',                    &
         &                   'normal mass flux tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 203, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_mflx', p_diag%grf_tend_mflx,         &
                   & GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,     &
                   & ldims=shape3d_e, lrestart=.FALSE. )
@@ -2017,7 +2017,7 @@ MODULE mo_nonhydro_state
       !
       cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2',                  &
         &                   'vertical wind tendency (grid refinement)', datatype_flt)
-      grib2_desc = grib2_var( 0, 2, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 0, 2, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,               &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
@@ -2178,7 +2178,7 @@ MODULE mo_nonhydro_state
       ! grf_tend_tracer   p_diag%grf_tend_tracer(nproma,nlev,nblks_c,ntracer)
       !
       cf_desc    = t_cf_var('tracer_tendency', 'kg kg-1 s-1',                   &
-        &                   'tracer_tendency for grid refinement', datatype_flt)
+        &                   'tracer tendency for grid refinement', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_tracer', p_diag%grf_tend_tracer,     &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
@@ -2277,7 +2277,7 @@ MODULE mo_nonhydro_state
       ! iqv, iqc, iqi, iqr, iqs potentially unknown. Thus, explicit indexing is used.
       !
       ! Q1 vertical integral: tqv(nproma,nblks_c)
-      cf_desc    = t_cf_var('tqv', 'kg m-2', 'total_column_integrated_water_vapour', &
+      cf_desc    = t_cf_var('tqv', 'kg m-2', 'total column integrated water vapour', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqv',                             &
@@ -2286,7 +2286,7 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
       ! Q2 vertical integral: tqc(nproma,nblks_c)
-      cf_desc    = t_cf_var('tqc', 'kg m-2', 'total_column_integrated_cloud_water', &
+      cf_desc    = t_cf_var('tqc', 'kg m-2', 'total column integrated cloud water', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 69, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqc',                             &
@@ -2295,7 +2295,7 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
       ! Q3 vertical integral: tqi(nproma,nblks_c)
-      cf_desc    = t_cf_var('tqi', 'kg m-2', 'total_column_integrated_cloud_ice', &
+      cf_desc    = t_cf_var('tqi', 'kg m-2', 'total column integrated cloud ice', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_ref( p_diag_list, 'tracer_vi', 'tqi',                             &
@@ -2305,7 +2305,7 @@ MODULE mo_nonhydro_state
 
       IF ( iqm_max >= 4 ) THEN
         ! Q4 vertical integral: tqr(nproma,nblks_c)
-        cf_desc    = t_cf_var('tqr', 'kg m-2', 'total_column_integrated_rain',     &
+        cf_desc    = t_cf_var('tqr', 'kg m-2', 'total column integrated rain',     &
           &          datatype_flt)
         grib2_desc = grib2_var( 0, 1, 45, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_ref( p_diag_list, 'tracer_vi', 'tqr',                             &
@@ -2316,7 +2316,7 @@ MODULE mo_nonhydro_state
 
       IF ( iqm_max >= 5 ) THEN
         ! Q5 vertical integral: tqs(nproma,nblks_c)
-        cf_desc    = t_cf_var('tqs', 'kg m-2', 'total_column_integrated_snow',     &
+        cf_desc    = t_cf_var('tqs', 'kg m-2', 'total column integrated snow',     &
           &          datatype_flt)
         grib2_desc = grib2_var( 0, 1, 46, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
@@ -2329,7 +2329,7 @@ MODULE mo_nonhydro_state
       IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
-        cf_desc    = t_cf_var('tqg', 'kg m-2', 'total_column_integrated_graupel',  &
+        cf_desc    = t_cf_var('tqg', 'kg m-2', 'total column integrated graupel',  &
           &          datatype_flt)
         grib2_desc = grib2_var( 0, 1, 74, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_ref( p_diag_list, 'tracer_vi', 'tqg',                             &
@@ -2342,7 +2342,7 @@ MODULE mo_nonhydro_state
         !
         IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
           ! Q7 vertical integral: tqh(nproma,nblks_c)
-          cf_desc    = t_cf_var('tqh', 'kg m-2', 'total_column_integrated_hail',     &
+          cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
             &          datatype_flt)
           grib2_desc = grib2_var( 0, 1, 72, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
@@ -2355,7 +2355,8 @@ MODULE mo_nonhydro_state
 
 
       ! tracer_vi_avg(nproma,nblks_c,iqm_max)
-      cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg', datatype_flt)
+      cf_desc    = t_cf_var('tracer_vi_avg', 'kg/m**2', &
+        &                   'average  of vertically integrated tracers', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
@@ -2366,6 +2367,8 @@ MODULE mo_nonhydro_state
       ALLOCATE(p_diag%tracer_vi_avg_ptr(nqtendphy))
       DO jt =1,nqtendphy
         WRITE(ctrc,'(I2.2)')jt
+        cf_desc    = t_cf_var('tracer_vi_avg'//ctrc, 'kg/m**2', &
+          &                   'average of vertically integrated tracers', datatype_flt)
         CALL add_ref( p_diag_list, 'tracer_vi_avg', 'tracer_vi_avg'//ctrc,       &
           &           p_diag%tracer_vi_avg_ptr(jt)%p_2d,                         &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &

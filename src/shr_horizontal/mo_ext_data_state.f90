@@ -415,7 +415,7 @@ CONTAINS
       !
       ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
       cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', datatype_flt)
-      grib2_desc = grib2_var( 2, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
@@ -1010,11 +1010,12 @@ CONTAINS
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', datatype_flt)
-      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+        &            + t_grib2_int_key("typeOfGeneratingProcess", 9)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_AVG )
 
       IF (itype_vegetation_cycle > 1) THEN
         ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)

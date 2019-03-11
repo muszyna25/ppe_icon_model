@@ -1476,8 +1476,9 @@ MODULE mo_nwp_lnd_state
                & vname_prefix//'runoff_s_t_'//ADJUSTL(TRIM(csfc)),               &
                & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S,                      &
-               & t_cf_var('runoff_s_t_'//csfc, '', '', datatype_flt),          &
+               & t_cf_var('runoff_s_t_'//csfc, '', '', datatype_flt),            &
                & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+!               & isteptype=TSTEP_ACCUM,                                          &
                & var_class=CLASS_TILE_LAND,                                      &
                & ldims=shape2d )
     END DO
@@ -1500,8 +1501,9 @@ MODULE mo_nwp_lnd_state
                & vname_prefix//'runoff_g_t_'//ADJUSTL(TRIM(csfc)),               &
                & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G,                      &
-               & t_cf_var('runoff_g_t_'//csfc, '', '', datatype_flt),          &
+               & t_cf_var('runoff_g_t_'//csfc, '', '', datatype_flt),            &
                & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+!               & isteptype=TSTEP_ACCUM,                                          &
                & var_class=CLASS_TILE_LAND,                                      &
                & ldims=shape2d )
     END DO
