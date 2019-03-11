@@ -318,7 +318,9 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_
              END SELECT
            
             ELSE
-              CALL finish('mo_art_reaction_interface:art_reaction_interface', 'You have chosen ART-ozone feedback, irad_o3 = 10, but O3 is not present')
+               CALL finish('mo_art_reaction_interface:art_reaction_interface', &
+                    &      'You have chosen ART-ozone feedback, irad_o3 = 10, '&
+                    &       //'but O3 is not present')
          
             ENDIF
           ENDIF
