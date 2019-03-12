@@ -252,7 +252,7 @@ CONTAINS
         INTEGER, INTENT(IN)    :: init_mode
 
         ! fgGroup += anaGroup
-        CALL add_to_list(fgGroup, fgGroupSize, anaGroup(1:anaGroupSize), anaGroupSize)
+        CALL add_to_list(fgGroup, fgGroupSize, anaGroup, anaGroupSize)
 
         ! Remove fields 'u', 'v', 'temp', 'pres' except in VREMAP mode, where the diagnostic variable set
         ! is allowed as an alternative to the corresponding prognostic variable set (vn, theta_v, rho)
@@ -290,7 +290,7 @@ CONTAINS
                     ! lump together fgGroup and anaGroup
                     CALL mergeAnaIntoFg(anaGroup, anaGroupSize, fgGroup, fgGroupSize, init_mode)
                 ENDIF
-                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
+                IF (init_mode == MODE_ICONVREMAP) CALL add_to_list(fgGroup, fgGroupSize, 'smi')
 
             CASE(MODE_IAU, MODE_IAU_OLD)
                 ! in case of tile coldstart, we can omit snowfrac_lc
@@ -324,13 +324,13 @@ CONTAINS
                 ! when vertical remapping of the FG-fields is applied, z_ifc is required 
                 ! as FG input field
                 IF (lvert_remap_fg) THEN
-                  CALL add_to_list(fgGroup, fgGroupSize, (/'z_ifc'/) , 1)
+                  CALL add_to_list(fgGroup, fgGroupSize, 'z_ifc')
                 ENDIF
 
             CASE(MODE_COMBINED,MODE_COSMO)
                 ! add SMI to the default list
                 ! I.e. ICON tries to read SMI, with W_SO being the fallback-option
-                CALL add_to_list(fgGroup, fgGroupSize, (/'smi'/) , 1)
+                CALL add_to_list(fgGroup, fgGroupSize, 'smi')
 
                 ! no analysis group
                 anaGroupSize = 0

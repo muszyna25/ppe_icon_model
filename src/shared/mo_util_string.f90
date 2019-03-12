@@ -79,6 +79,9 @@ MODULE mo_util_string
     MODULE PROCEDURE charArray_equal_char
   END INTERFACE charArray_equal
 
+  INTERFACE add_to_list
+    MODULE PROCEDURE add_to_list, add_to_list_1
+  END INTERFACE add_to_list
   !
   ! ANSI color sequences
   !
@@ -594,6 +597,24 @@ CONTAINS
     END DO item_add_loop
 
   END SUBROUTINE add_to_list
+
+  SUBROUTINE add_to_list_1(str_list, nitems, str)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list(:)
+    INTEGER,                   INTENT(INOUT) :: nitems
+    CHARACTER(len=*),          INTENT(IN)    :: str
+    ! local variables
+    INTEGER :: iread, i
+
+
+    ! Loop over all items in the target list to
+    ! check if item is already in that list
+    DO i=1,nitems
+      IF (str_list(i) == str) RETURN
+    END DO
+    nitems = nitems+1
+    str_list(nitems) = str
+
+  END SUBROUTINE add_to_list_1
 
 
   !==============================================================================
