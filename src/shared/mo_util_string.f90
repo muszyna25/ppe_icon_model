@@ -580,25 +580,18 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nitems2
     ! local variables
     INTEGER :: iread, i
-    LOGICAL :: l_duplicate
 
 
     ! Loop over all items that should potentially be added
-    DO iread=1,nitems2
+    item_add_loop: DO iread=1,nitems2
+      ! Loop over all items in the target list (list 1) to
       ! check if item is already in string list 1:
-      l_duplicate = .FALSE.
-      ! Loop over all items in the target list (list 1)
-      CHECK_LOOP : DO i=1,nitems1
-        IF (TRIM(str_list1(i)) == TRIM(str_list2(iread))) THEN
-          l_duplicate = .TRUE.
-          EXIT CHECK_LOOP
-        END IF
-      END DO CHECK_LOOP
-      IF (.NOT. l_duplicate) THEN
-        str_list1(nitems1+1) = str_list2(iread)
-        nitems1 = nitems1+1
-      END IF
-    END DO
+      DO i=1,nitems1
+        IF (str_list1(i) == str_list2(iread)) CYCLE item_add_loop
+      END DO
+      nitems1 = nitems1+1
+      str_list1(nitems1) = str_list2(iread)
+    END DO item_add_loop
 
   END SUBROUTINE add_to_list
 
