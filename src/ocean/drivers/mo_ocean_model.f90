@@ -104,7 +104,7 @@ MODULE mo_ocean_model
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
@@ -164,6 +164,7 @@ MODULE mo_ocean_model
 
     !-------------------------------------------------------------------
     IF (isRestart() .OR. initialize_fromRestart) THEN
+      ocean_initFromRestart_OVERRIDE = initialize_fromRestart
       ! This is an resumed integration. Read model state from restart file(s).
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(1) )
       CALL message(TRIM(method_name),'normal exit from read_restart_files')

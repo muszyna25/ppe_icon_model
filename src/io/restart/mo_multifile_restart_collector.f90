@@ -89,6 +89,9 @@ MODULE mo_multifile_restart_collector
     PROCEDURE :: fetch     => multifileRestartCollector_fetch
   END TYPE t_MultifileRestartCollector
 
+  INTEGER, TARGET :: sendbuf_i_dummy(0)
+  REAL(KIND=sp), TARGET :: sendbuf_s_dummy(0)
+  REAL(KIND=dp), TARGET :: sendbuf_d_dummy(0)
   CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_collector"
 
 CONTAINS
@@ -405,18 +408,24 @@ CONTAINS
       DO iLev = lStart, lStart -1 + lCnt
         SELECT CASE(inType)
         CASE(1)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%d)) &
+            & CALL finish(routine, "Sendbuffer(d) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%d(offset+i) = &
               & input%d(iLev)%p(idx%sendIdx(i), idx%sendBlk(i))
           END DO
         CASE(2)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%s)) &
+            & CALL finish(routine, "Sendbuffer(s) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%s(offset+i) = &
               & input%s(iLev)%p(idx%sendIdx(i), idx%sendBlk(i))
           END DO
         CASE(3)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%i)) &
+            & CALL finish(routine, "Sendbuffer(i) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%i(offset+i) = &
@@ -539,15 +548,27 @@ CONTAINS
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     memSize(1) = MAX(one, this%tOffCl(4))
     CALL C_F_POINTER(cMemPtr, tmp_sp, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(1) + one))
-    memSize(1) = INT(this%wSizes(1), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%d, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(2) + one))
-    memSize(1) = INT(this%wSizes(2), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%s, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(3)+ one))
-    memSize(1) = INT(this%wSizes(3), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%i, INT(memSize))
+    IF (this%wSizes(1) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(1) + one))
+      memSize(1) = INT(this%wSizes(1), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%d, INT(memSize))
+    ELSE
+      this%sendBuffer%d => sendbuf_d_dummy
+    END IF
+    IF (this%wSizes(2) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(2) + one))
+      memSize(1) = INT(this%wSizes(2), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%s, INT(memSize))
+    ELSE
+      this%sendBuffer%s => sendbuf_s_dummy
+    END IF
+    IF (this%wSizes(3) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(3) + one))
+      memSize(1) = INT(this%wSizes(3), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%i, INT(memSize))
+    ELSE
+      this%sendBuffer%i => sendbuf_i_dummy
+    END IF
     DEALLOCATE(this%tOffCl)
     this%handshakd = .true.
     this%allocd = .true.

@@ -1350,8 +1350,16 @@ AS_IF([test "x$enable_serialization" != "xno"],
              [
               AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
                     [
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     AS_CASE([$fortran_compiler],
+                      [pgi*],
+                      [
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ],
+                      [
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ])
                      ],
                     [
                      AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
@@ -1395,7 +1403,7 @@ EOF
 read -d '' my_pp_command <<EOF
 ( cd src/;
   echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
+  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -E \\\"{}\\\" > "../${my_iconppdir}/{}")" \\\; )
 EOF
 ])
                             read -d '' my_pp_ser <<EOF
