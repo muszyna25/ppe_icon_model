@@ -19,12 +19,9 @@ MODULE mo_scatter_pattern_scatterv
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_scatter_pattern_base
     USE mo_kind, ONLY: wp, dp, sp, i8
-#ifndef NOMPI
-    USE mpi
-#endif
-    USE mo_mpi, ONLY: p_io, my_process_is_stdio, &
+    USE mo_mpi, ONLY: my_process_is_stdio, &
     &                 p_real_dp, p_real_sp, p_int, &
-    &                 p_gather, p_gatherv
+    &                 p_gather, p_gatherv, p_scatterv
     USE mo_parallel_config, ONLY: blk_no, idx_no
     USE mo_exception, ONLY: finish
 
@@ -148,16 +145,8 @@ CONTAINS
         ALLOCATE(recvArray(me%myPointCount), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-          &               p_real_dp, recvArray, me%myPointCount, &
-          &               p_real_dp, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -215,15 +204,8 @@ CONTAINS
         ALLOCATE(recvArray(me%myPointCount), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_real_sp, recvArray, me%myPointCount, p_real_sp, p_io, &
-        &                 me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -282,16 +264,8 @@ CONTAINS
         ALLOCATE(recvArray(me%myPointCount), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-             &            p_real_sp, recvArray, me%myPointCount, &
-             &            p_real_sp, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
@@ -349,16 +323,8 @@ CONTAINS
         ALLOCATE(recvArray(me%myPointCount), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
-!       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
-#ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
-             &            p_int, recvArray, me%myPointCount, &
-             &            p_int, me%root_rank, me%communicator, ierr)
-        IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
-#else
-        recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
-#endif
+        CALL p_scatterv(sendArray, me%pointCounts, me%displacements, &
+          recvArray, me%myPointCount, me%root_rank, me%communicator)
 
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
