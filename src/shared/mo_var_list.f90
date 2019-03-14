@@ -4084,7 +4084,7 @@ CONTAINS
     &                      opt_vlevel_type, opt_dom_id,     &
     &                      opt_lquiet)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(OUT)   :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
     ! loutputvars_only: If set to .TRUE. all variables in the group
     ! which have the the loutput flag equal to .FALSE. are skipped.
