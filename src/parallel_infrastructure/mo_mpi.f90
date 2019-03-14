@@ -786,6 +786,7 @@ MODULE mo_mpi
   INTERFACE p_scatterv
     MODULE PROCEDURE p_scatterv_real1D2D
     MODULE PROCEDURE p_scatterv_real1D1D
+    MODULE PROCEDURE p_scatterv_int_1d1d
     MODULE PROCEDURE p_scatterv_single1D1D
   END INTERFACE
 
@@ -10477,6 +10478,29 @@ CONTAINS
         recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
 #endif
    END SUBROUTINE p_scatterv_real1D1D
+
+   SUBROUTINE p_scatterv_int_1d1d(sendbuf, sendcounts, displs, recvbuf, &
+     recvcount, p_src, comm)
+     IMPLICIT NONE
+     INTEGER, INTENT(IN) :: sendbuf(:)
+     INTEGER, INTENT(IN) :: sendcounts(:)
+     INTEGER, INTENT(INOUT) :: recvbuf(:)
+     INTEGER, INTENT(IN)  :: recvcount
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_src
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = modname//"::p_scatterv_real1D1D"
+     INTEGER :: ierr
+
+     CALL MPI_Scatterv(sendbuf, sendcounts, displs, p_int, &
+       &               recvbuf, recvcount, p_int, p_src, comm, ierr)
+     IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
+#else
+     recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
+#endif
+   END SUBROUTINE p_scatterv_int_1d1d
 
 
   !---------------------------------------------------------------------------------------------------------------------------------
