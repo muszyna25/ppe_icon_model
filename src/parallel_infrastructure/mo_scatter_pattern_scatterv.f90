@@ -64,14 +64,9 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPatternScatterV"
         INTEGER :: comm_size, i, ierr
-        LOGICAL :: l_write_debug_info, is_scatter_root
+        LOGICAL :: l_write_debug_info
 
-        is_scatter_root = my_process_is_stdio()
-        IF (debugModule) THEN
-          l_write_debug_info = is_scatter_root
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%root_rank == me%rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -122,11 +117,7 @@ CONTAINS
         INTEGER :: i, blk, idx, ierr
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -181,11 +172,7 @@ CONTAINS
         INTEGER :: i, blk, idx, ierr
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -241,11 +228,7 @@ CONTAINS
         INTEGER :: i, blk, idx, ierr
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -300,11 +283,7 @@ CONTAINS
         INTEGER :: i, blk, idx, ierr
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
@@ -353,11 +332,7 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":destructScatterPatternScatterV"
         LOGICAL :: l_write_debug_info
 
-        IF (debugModule) THEN
-          l_write_debug_info = my_process_is_stdio()
-        ELSE
-          l_write_debug_info = .FALSE.
-        END IF
+        l_write_debug_info = debugmodule .AND. me%rank == me%root_rank
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         DEALLOCATE(me%pointCounts)
