@@ -4271,7 +4271,7 @@ enddo
         ! melting rate is limited such that the two upper soil levels are not cooled significantly below the freezing point
         zzz = t0_melt-0.25_wp
         zd  = (t_so_now(i,1)-zzz)*zroc(i,1)*zdzhs(1) + MAX(0._wp,t_so_now(i,2)-zzz)*zroc(i,2)*zdzhs(2)
-        zfr_melt = MIN(1._wp,zd/(zdt*lh_f*zrs(i)))
+        zfr_melt = zd/MAX(zdt*lh_f*zrs(i), zd)
         zsprs  (i) = - lh_f*zrs(i)*zfr_melt
         zdwidt (i) = zdwidt (i) + zrs(i)*zfr_melt
         zdwsndt(i) = zdwsndt(i) - zrs(i)*zfr_melt
