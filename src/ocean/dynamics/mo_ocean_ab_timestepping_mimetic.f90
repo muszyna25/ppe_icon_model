@@ -53,8 +53,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & PPscheme_ICON_Edge_vnPredict_type,                  &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & OceanReferenceDensity_inv, createSolverMatrix,      &
-    & select_lhs, select_lhs_matrix,                      &
-    & atm_pressure_included_in_ocedyn
+    & select_lhs, select_lhs_matrix
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -660,29 +659,12 @@ CONTAINS
 !       ENDIF
 
 
-      IF ( atm_pressure_included_in_ocedyn ) THEN
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = all_cells%start_block, all_cells%end_block
-
-          CALL get_index_range(all_cells, jb, start_index, end_index)
-
-            DO jc = start_index, end_index
-
-              DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-
-                ocean_state%p_diag%press_hyd(jc,jk,jb) = ocean_state%p_diag%press_hyd(jc,jk,jb) &
-     &                               + p_as%pao(jc,jb)
-            end do
-          end do
-        end do
-!ICON_OMP_END_PARALLEL_DO
-
-      ENDIF
 
      CALL calc_internal_press_grad( patch_3d,&
          &                          ocean_state%p_diag%rho,&
-         &                          ocean_state%p_diag%press_hyd,&         
+         &                          ocean_state%p_diag%press_hyd,& 
+         &                          p_as%pao,&
          &                          op_coeffs%grad_coeff,  &
          &                          ocean_state%p_diag%press_grad)     
       
