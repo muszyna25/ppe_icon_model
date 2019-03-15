@@ -34,7 +34,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: message, message_text
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav, salinity_fac
+  USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav, salinity_fac, rhoh2o
   USE mo_math_constants,      ONLY: dbl_eps, rad2deg
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
     &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
@@ -1320,7 +1320,6 @@ CONTAINS
         lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%w_snow   (i_startidx:i_endidx,jb)  = 0._wp
-        lnd_diag%rho_snow (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%w_i      (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%freshsnow(i_startidx:i_endidx,jb)  = 0._wp
@@ -1368,8 +1367,6 @@ CONTAINS
               &                         * lnd_prog%t_snow_t(jc,jb,isubs)
             lnd_diag%w_snow(jc,jb)    = lnd_diag%w_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%w_snow_t(jc,jb,isubs)
-            lnd_diag%rho_snow(jc,jb)  = lnd_diag%rho_snow(jc,jb) + tilefrac  &
-              &                         * lnd_prog%rho_snow_t(jc,jb,isubs)
             lnd_diag%w_i(jc,jb)       = lnd_diag%w_i(jc,jb) + tilefrac       &
               &                         * lnd_prog%w_i_t(jc,jb,isubs)
             lnd_diag%h_snow(jc,jb)    = lnd_diag%h_snow(jc,jb) + tilefrac    &
@@ -1482,6 +1479,11 @@ CONTAINS
           ENDDO
         ENDDO
 
+        ! diagnose rho_snow from aggregated values of w_snow and h_snow; 
+        ! by convention, snow density is zero in the absence of snow
+        DO jc = i_startidx, i_endidx
+          lnd_diag%rho_snow(jc,jb) = rhoh2o*(lnd_diag%w_snow(jc,jb)/MAX(dbl_eps,lnd_diag%h_snow(jc,jb)))
+        ENDDO
 
       ENDIF  ! ntiles_total == 1
 

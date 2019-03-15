@@ -1051,23 +1051,18 @@ CONTAINS
 
 
       !
-      ! height of 0 deg C level "hzerocl". Not higher than htop_moist_proc
+      ! height of 0 deg C level "hzerocl". Take uppermost freezing level in case of multiple 
+      ! occurrences, use orography height if temperature is below freezing in all levels
       !
-      ! Surface temperature below 0 deg C
-      WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
-      ELSEWHERE
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
-      END WHERE
+      ! Initialization with orography height
+      prm_diag%hzerocl(i_startidx:i_endidx,jb) = p_metrics%z_ifc(i_startidx:i_endidx,nlevp1,jb)
 
-      !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
-      DO jk = nlev, kstart_moist+1, -1
+      DO jk = kstart_moist+1, nlev
         DO jc = i_startidx, i_endidx 
-          IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
+          IF ( prm_diag%hzerocl(jc,jb) > p_metrics%z_ifc(jc,nlevp1,jb)) THEN ! freezing level found
             CYCLE
-          ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
-           &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -  &
+          ELSE IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
            &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
            &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
            &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )

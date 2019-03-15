@@ -2774,7 +2774,8 @@ MODULE mo_solve_nonhydro
       IF (use_icon_comm) THEN
         IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
 #ifdef __MIXED_PRECISION
-          CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, opt_varname="w_nnew and z_dwdz_dd")
+          CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, &
+            opt_varname="w_nnew and z_dwdz_dd")
 #else
           CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
@@ -2792,7 +2793,8 @@ MODULE mo_solve_nonhydro
           IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
             ! Synchronize w and vertical contribution to divergence damping
 #ifdef __MIXED_PRECISION
-            CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, opt_varname="w_nnew and z_dwdz_dd")
+            CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, &
+              opt_varname="w_nnew and z_dwdz_dd")
 #else
 #ifndef _OPENACC
             CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="w_nnew and z_dwdz_dd")
@@ -2954,7 +2956,8 @@ MODULE mo_solve_nonhydro
 #ifdef _OPENACC
 ! In validation mode, update all the output fields on the host
     IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
-      CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, l_child_vertnest, lprep_adv, p_nh, prep_adv )
+      CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
+                               l_child_vertnest, lprep_adv, p_nh, prep_adv )
 #endif
 
 !$ACC END DATA
@@ -2966,7 +2969,8 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 #ifdef _OPENACC
-     SUBROUTINE h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, is_iau_active, p_nh, prep_adv )
+     SUBROUTINE h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, &
+                                    is_iau_active, p_nh, prep_adv )
 
        INTEGER, INTENT(IN)       :: nnow, jstep, jg, idiv_method, grf_intmethod_e
        LOGICAL, INTENT(IN)       :: l_vert_nested, lprep_adv, is_iau_active
@@ -3052,7 +3056,8 @@ MODULE mo_solve_nonhydro
 
      END SUBROUTINE h2d_solve_nonhydro
 
-     SUBROUTINE d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, l_child_vertnest, lprep_adv, p_nh, prep_adv )
+     SUBROUTINE d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
+                                    l_child_vertnest, lprep_adv, p_nh, prep_adv )
 
        INTEGER, INTENT(IN)       :: nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method
        LOGICAL, INTENT(IN)       :: lsave_mflx, l_child_vertnest, lprep_adv
