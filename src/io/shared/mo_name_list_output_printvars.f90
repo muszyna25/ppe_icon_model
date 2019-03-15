@@ -78,21 +78,25 @@ CONTAINS
       endidx = endidx - 1
     END IF
 
-    ! second, condense two-digit suffices "01, 02, 03, ..." into "*"
     suffix_str = " "
-    IF (.NOT. is_number(var%info%name(endidx-2:endidx-2)) .AND. &
-      &       is_number(var%info%name(endidx-1:endidx-1)) .AND. &
-      &       is_number(var%info%name(endidx  :endidx  ))) THEN
-      endidx = endidx - 2
-      suffix_str = "*"
+
+    ! condense two-digit suffices "01, 02, 03, ..." into "*"
+    IF (endidx > 2) THEN
+      IF (.NOT. is_number(var%info%name(endidx-2:endidx-2)) .AND. &
+        &       is_number(var%info%name(endidx-1:endidx-1)) .AND. &
+        &       is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 2
+        suffix_str = "*"
+      END IF
     END IF
 
-    ! third, condense one-digit suffices "_1, _2, _3, ..." into "_*"
-    suffix_str = " "
-    IF ((var%info%name(endidx-1:endidx-1) == "_") .AND. &
-      &  is_number(var%info%name(endidx  :endidx  ))) THEN
-      endidx = endidx - 1
-      suffix_str = "*"
+    ! condense one-digit suffices "_1, _2, _3, ..." into "_*"
+    IF ((endidx > 1) .AND. (suffix_str == " ")) THEN
+      IF ((var%info%name(endidx-1:endidx-1) == "_") .AND. &
+        &  is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 1
+        suffix_str = "*"
+      END IF
     END IF
 
     get_var_basename = TRIM(var%info%name(1:endidx))//suffix_str
