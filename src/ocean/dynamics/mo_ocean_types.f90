@@ -496,7 +496,7 @@ MODULE mo_ocean_types
 
     onCells_2D :: Wind_Speed_10m, HeatFlux_Total, HeatFlux_Shortwave, HeatFlux_LongWave 
     onCells_2D :: HeatFlux_Sensible,HeatFlux_Latent,concSum,Tfw,heatOceW,newice
-    onCells_2D :: FrshFlux_Precipitation, FrshFlux_Evaporation, FrshFlux_SnowFall, FrshFlux_Runoff
+    onCells_2D :: FrshFlux_Precipitation, FrshFlux_Evaporation, FrshFlux_SnowFall, FrshFlux_Runoff, FrshFlux_AtmHD
 
     onCells_2D :: zUnderIce,albvisdirw, albvisdifw, albnirdirw, albnirdifw,draftave
     onCells_2D :: SaltFlux_Relax, FrshFlux_Relax, HeatFlux_Relax, TempFlux_Relax 

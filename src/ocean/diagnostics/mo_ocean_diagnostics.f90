@@ -804,12 +804,13 @@ CONTAINS
     !Local variables
     INTEGER :: start_cell_index, end_cell_index,i
     INTEGER :: jk,jc,blockNo!,je
-    REAL(wp):: ssh_global_mean,sst_global,sss_global,total_runoff_flux,total_heat_flux, &
-      &        total_fresh_water_flux,total_evaporation_flux, atmos_snowfall_flux, &
+    REAL(wp):: ssh_global_mean,sst_global,sss_global,total_heat_flux,total_precipitation_flux, &
+      &        total_evaporation_flux,total_runoff_flux,total_frshflx_atmhd,atmos_snowfall_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
       &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
+    REAL(wp) :: xscr(nproma,patch_3d%p_patch_2d(1)%nblks_c)
 !   REAL(wp) :: sflux
 
     TYPE(t_subset_range), POINTER :: owned_cells
@@ -891,15 +892,15 @@ CONTAINS
       END IF
       monitor%HeatFlux_Total = total_heat_flux
 
-      ! total fresh water flux
-      total_fresh_water_flux = 0.0_wp
+      ! total precipitation flux
+      total_precipitation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Precipitation_Global')) THEN
       call levels_horizontal_mean( p_oce_sfc%FrshFlux_Precipitation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
-          & total_fresh_water_flux)
+          & total_precipitation_flux)
       END IF
-      monitor%FrshFlux_Precipitation = total_fresh_water_flux
+      monitor%FrshFlux_Precipitation = total_precipitation_flux
 
       ! total evaporation
       total_evaporation_flux = 0.0_wp
@@ -920,6 +921,18 @@ CONTAINS
           & total_runoff_flux)
       END IF
       monitor%FrshFlux_Runoff = total_runoff_flux
+
+      ! total fresh water flux P-E+Ro of atmosphere and land (HD)
+      total_frshflx_atmhd = 0.0_wp
+      IF (isRegistered('FrshFlux_AtmHD_Global')) THEN
+      xscr(:,:) = p_oce_sfc%FrshFlux_Precipitation(:,:) + p_oce_sfc%FrshFlux_Evaporation(:,:) &
+        &         + p_oce_sfc%FrshFlux_Runoff(:,:)
+      call levels_horizontal_mean( xscr, &
+          & patch_2d%cells%area(:,:), &
+          & owned_cells, &
+          & total_frshflx_atmhd)
+      END IF
+      monitor%FrshFlux_AtmHD = total_frshflx_atmhd
 
       ! total (atmospheric) snowfall
       atmos_snowfall_flux = 0.0_wp
