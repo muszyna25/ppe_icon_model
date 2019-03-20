@@ -870,7 +870,7 @@ CONTAINS
       END IF
       monitor%sst_global = sst_global
 
-      ! sea surface height
+      ! sea surface salinity
       sss_global = 0.0_wp
       IF (isRegistered('sss_global')) THEN
 !       CALL levels_horizontal_mean( p_oce_sfc%sss, &
