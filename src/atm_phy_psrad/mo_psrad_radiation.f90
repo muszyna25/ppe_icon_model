@@ -105,8 +105,8 @@ MODULE mo_psrad_radiation
 
     TYPE(t_patch),           INTENT(in) :: p_patch
     TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
-         &                                 current_datetime       !< current time step
-    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW radiative transfer calculation has to be done at current time step
+         &                                 current_datetime      !< current date and time
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW rad. transfer calculation has to be done at current time step
     REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
          &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
@@ -272,7 +272,7 @@ MODULE mo_psrad_radiation
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = tsi/dist_sun**2 * fsolrad
+      psctm(jg) = tsi/dist_sun**2 * fsolrad
       ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
@@ -513,7 +513,7 @@ MODULE mo_psrad_radiation
       & patch,                                                              &
       & irad_aero     ,klev                                                ,& 
       & ktype                                                              ,&
-      & psctm, ssi_factor,                                                  &
+      & psctm(jg)       ,ssi_factor                                        ,&
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&

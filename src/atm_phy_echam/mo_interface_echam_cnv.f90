@@ -70,7 +70,9 @@ CONTAINS
     REAL(wp)                            :: tend_ta_cnv  (nproma,nlev)
     REAL(wp)                            :: tend_ua_cnv  (nproma,nlev)
     REAL(wp)                            :: tend_va_cnv  (nproma,nlev)
-    REAL(wp)                            :: tend_qtrc_cnv(nproma,nlev,ntracer)
+    REAL(wp), TARGET                    :: tend_qtrc_cnv(nproma,nlev,ntracer)
+    REAL(wp), POINTER, CONTIGUOUS :: tend_qtrc_cnv_iqt(:,:,:)
+    REAL(wp), TARGET :: tend_qtrc_cnv_dummy(nproma,nlev,0)
     !
     INTEGER  :: nlevm1, nlevp1
     INTEGER  :: ntrac                        !< # of tracers excluding water vapour and hydrometeors
@@ -80,12 +82,14 @@ CONTAINS
 
     REAL(wp) :: ztop(nproma)                 !< convective cloud top pressure   [Pa]
     REAL(wp) :: zta    (nproma,nlev)         !< provisional temperature         [K]
-    REAL(wp) :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
+    REAL(wp), TARGET :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
     REAL(wp) :: zua    (nproma,nlev)         !< provisional zonal      wind     [m/s]
     REAL(wp) :: zva    (nproma,nlev)         !< provisional meridional wind     [m/s]
     !
     REAL(wp) :: zqtrc_cnd(nproma,nlev)       !< cloud condensate mixing ratio   [kg/kg]
     REAL(wp) :: ztend_qv(nproma,nlev)        !< moisture tendency from dynamics and physics before convection
+    REAL(wp), POINTER, CONTIGUOUS :: zqtrc_iqt(:,:,:)
+    REAL(wp), TARGET :: zqtrc_dummy(nproma,nlev,0)
 
     IF (ltimer) CALL timer_start(timer_cnv)
 
@@ -117,6 +121,13 @@ CONTAINS
           ! land sea mask for using dlev_land or dlev_ocean
           ldland(jcs:jce)    = field% sftlf(jcs:jce,jb) > 0._wp
           !
+          IF(iqt .LT. ntracer) THEN
+            zqtrc_iqt => zqtrc(:,:,iqt:)
+            tend_qtrc_cnv_iqt => tend_qtrc_cnv  (:,:,iqt:)
+          ELSE
+            zqtrc_iqt => zqtrc_dummy
+            tend_qtrc_cnv_iqt => tend_qtrc_cnv_dummy
+          END IF
           CALL cumastr(jg, jb,                       &! in
                &       jcs, jce, nproma,             &! in
                &       nlev, nlevp1, nlevm1,         &! in
@@ -131,7 +142,8 @@ CONTAINS
                &             zva       (:,:),        &! in
                &       ntrac,                        &! in
                &             ldland    (:),          &! in
-               &             zqtrc     (:,:,   iqt:),&! in
+!               &             zqtrc     (:,:,   iqt:),&! in
+               &             zqtrc_iqt (:,:,:),&! in
                &       field% omega    (:,:,jb),     &! in
                &       field% evap     (:,  jb),     &! in
                &       field% presm_new(:,:,jb),     &! in
@@ -151,7 +163,8 @@ CONTAINS
                &        tend_ua_cnv    (:,:),        &! out
                &        tend_va_cnv    (:,:),        &! out
                &        tend_qtrc_cnv  (:,:,iqv),    &! out
-               &        tend_qtrc_cnv  (:,:,iqt:),   &! out
+!               &        tend_qtrc_cnv  (:,:,iqt:),   &! out
+               &        tend_qtrc_cnv_iqt(:,:,:),   &! out
                &        tend_qtrc_cnv  (:,:,iqc),    &! out
                &        tend_qtrc_cnv  (:,:,iqi),    &! out
                &             ztop      (:)           )! out
@@ -174,7 +187,8 @@ CONTAINS
              tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = tend_qtrc_cnv(jcs:jce,:,iqv)
              tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = tend_qtrc_cnv(jcs:jce,:,iqc)
              tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = tend_qtrc_cnv(jcs:jce,:,iqi)
-             tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = tend_qtrc_cnv(jcs:jce,:,iqt:)
+             IF(iqt .LT. ntracer) &
+               & tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = tend_qtrc_cnv(jcs:jce,:,iqt:)
           END IF
           !
        ELSE
@@ -190,7 +204,8 @@ CONTAINS
              tend_qtrc_cnv(jcs:jce,:,iqv)  = tend% qtrc_cnv(jcs:jce,:,jb,iqv)
              tend_qtrc_cnv(jcs:jce,:,iqc)  = tend% qtrc_cnv(jcs:jce,:,jb,iqc)
              tend_qtrc_cnv(jcs:jce,:,iqi)  = tend% qtrc_cnv(jcs:jce,:,jb,iqi)
-             tend_qtrc_cnv(jcs:jce,:,iqt:) = tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+             IF(iqt .LT. ntracer) &
+               & tend_qtrc_cnv(jcs:jce,:,iqt:) = tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
           END IF
           !
        END IF
@@ -216,7 +231,8 @@ CONTAINS
           tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv)
           tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc)
           tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi)
-          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)
+          IF(iqt .LT. ntracer) &
+            & tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -230,7 +246,8 @@ CONTAINS
           field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv) *pdtime
           field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc) *pdtime
           field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
+          IF(iqt .LT. ntracer) &
+            & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
        END IF
        !
     ELSE
@@ -254,7 +271,8 @@ CONTAINS
           tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0.0_wp
           tend% qtrc_cnv(jcs:jce,:,jb,iqc)  = 0.0_wp
           tend% qtrc_cnv(jcs:jce,:,jb,iqi)  = 0.0_wp
-          tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0.0_wp
+          IF(iqt .LT. ntracer) &
+            & tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0.0_wp
        END IF
        !
     END IF
