@@ -22,10 +22,10 @@ MODULE mo_interface_echam_vdf
 
   !$ser verbatim USE mo_ser_echam_vdiff_down, ONLY: serialize_vdiff_down_input => serialize_input, &
   !$ser&                                            serialize_vdiff_down_output => serialize_output
-  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
-  !$ser&                                          serialize_vdiff_up_output => serialize_output
   !$ser verbatim USE mo_ser_echam_update_surface, ONLY: serialize_update_surface_input => serialize_input, &
   !$ser&                                                serialize_update_surface_output => serialize_output
+  !$ser verbatim USE mo_ser_echam_vdiff_up, ONLY: serialize_vdiff_up_input => serialize_input, &
+  !$ser&                                          serialize_vdiff_up_output => serialize_output
   !$ser verbatim USE mo_ser_echam_nsurf_diag, ONLY: serialize_nsurf_diag_input => serialize_input, &
   !$ser&                                            serialize_nsurf_diag_output => serialize_output
 
@@ -152,8 +152,9 @@ CONTAINS
     REAL(wp) :: tend_ta_vdf  (nproma,nlev)
     REAL(wp) :: tend_ua_vdf  (nproma,nlev)
     REAL(wp) :: tend_va_vdf  (nproma,nlev)
-    REAL(wp) :: tend_qtrc_vdf(nproma,nlev,ntracer)
-
+    REAL(wp), TARGET :: tend_qtrc_vdf(nproma,nlev,ntracer)
+    REAL(wp), POINTER, CONTIGUOUS :: tend_qtrc_vdf_iqt(:,:,:)
+    REAL(wp), TARGET :: tend_qtrc_vdf_dummy(nproma,nlev,0)
     REAL(wp) :: mmr_co2
 
     IF (ltimer) CALL timer_start(timer_vdf)
@@ -458,6 +459,12 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field,&
           !$ser verbatim   cfm_tile, zaa, zcptgz, ztottevn, zbb, zthvvar, dummyx, kedisp)
           !
+          IF(ntracer .GT. iqt) THEN
+            tend_qtrc_vdf_iqt => tend_qtrc_vdf(:,:,iqt:)
+          ELSE
+            tend_qtrc_vdf_iqt => tend_qtrc_vdf_dummy
+          ENDIF
+ 
           CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
@@ -488,7 +495,8 @@ CONTAINS
                &        tend_qtrc_vdf(:,:,iqv),          &! out
                &        tend_qtrc_vdf(:,:,iqc),          &! out
                &        tend_qtrc_vdf(:,:,iqi),          &! out
-               &        tend_qtrc_vdf(:,:,iqt:),         &! out
+!               &        tend_qtrc_vdf(:,:,iqt:),         &! out
+               &        tend_qtrc_vdf_iqt, & ! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
                &        dummy(:,:),                      &! 
                &        field%      totte(:,:,jb),       &! out
@@ -518,7 +526,8 @@ CONTAINS
              tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = tend_qtrc_vdf(jcs:jce,:,iqv)
              tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = tend_qtrc_vdf(jcs:jce,:,iqc)
              tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = tend_qtrc_vdf(jcs:jce,:,iqi)
-             tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = tend_qtrc_vdf(jcs:jce,:,iqt:)
+             IF(ntracer .GT. iqt) &
+               & tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = tend_qtrc_vdf(jcs:jce,:,iqt:)
           END IF
           !
        ELSE
@@ -536,7 +545,8 @@ CONTAINS
              tend_qtrc_vdf(jcs:jce,:,iqv)  = tend% qtrc_vdf(jcs:jce,:,jb,iqv)
              tend_qtrc_vdf(jcs:jce,:,iqc)  = tend% qtrc_vdf(jcs:jce,:,jb,iqc)
              tend_qtrc_vdf(jcs:jce,:,iqi)  = tend% qtrc_vdf(jcs:jce,:,jb,iqi)
-             tend_qtrc_vdf(jcs:jce,:,iqt:) = tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
+             IF(ntracer .GT. iqt) &
+               tend_qtrc_vdf(jcs:jce,:,iqt:) = tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
           END IF
           !
        END IF
@@ -602,7 +612,8 @@ CONTAINS
           tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend_qtrc_vdf(jcs:jce,:,iqv)
           tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend_qtrc_vdf(jcs:jce,:,iqc)
           tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend_qtrc_vdf(jcs:jce,:,iqi)
-          tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)
+          IF(ntracer .GT. iqt) &
+           & tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -616,7 +627,8 @@ CONTAINS
           field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_vdf(jcs:jce,:,iqv) *pdtime
           field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_vdf(jcs:jce,:,iqc) *pdtime
           field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_vdf(jcs:jce,:,iqi) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)*pdtime
+          IF(ntracer .GT. iqt) &
+            & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)*pdtime
        END IF
        !
        !
@@ -799,7 +811,8 @@ CONTAINS
           tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0.0_wp
           tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0.0_wp
           tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0.0_wp
-          tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0.0_wp
+          IF(ntracer .GT. iqt) &
+            & tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0.0_wp
        END IF
        !
     END IF

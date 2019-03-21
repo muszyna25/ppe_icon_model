@@ -93,6 +93,7 @@ MODULE mo_restart_attributes
   LOGICAL, SAVE :: gRestartAttributes_initialized = .FALSE.
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_attributes"
+  LOGICAL, SAVE, PUBLIC :: ocean_initFromRestart_OVERRIDE = .FALSE. 
 
 CONTAINS
 
@@ -150,8 +151,10 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":setAttributesForRestarting"
 
-    IF(.NOT.isRestart()) CALL finish(routine, "setAttributesForRestarting() must only be called in a restarted run")
-    IF(gRestartAttributes_initialized) CALL finish(routine, "setAttributesForRestarting() called several times")
+    IF(.NOT.isRestart() .AND. .NOT. ocean_initFromRestart_OVERRIDE) &
+      & CALL finish(routine, "setAttributesForRestarting() must only be called in a restarted run")
+    IF(gRestartAttributes_initialized) &
+      & CALL finish(routine, "setAttributesForRestarting() called several times")
     IF(.NOT.ASSOCIATED(restartAttributes)) THEN
         CALL finish(routine, "argument to setAttributesForRestarting() must be an associated pointer")
     END IF
@@ -165,11 +168,10 @@ CONTAINS
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":getAttributesForRestarting"
 
-    IF(isRestart()) THEN
-        IF(.NOT.gRestartAttributes_initialized) THEN
-            CALL finish(routine, "assertion failed: getAttributesForRestarting() called before restart attributes were read from &
-                                 &file")
-        END IF
+    IF(isRestart() .OR. ocean_initFromRestart_OVERRIDE) THEN
+        IF (.NOT.gRestartAttributes_initialized) &
+          & CALL finish(routine, "assertion failed: getAttributesForRestarting() called before " // &
+          &                      "restart attributes were read from file")
         resultVar => gRestartAttributes
     ELSE
         resultVar => NULL()

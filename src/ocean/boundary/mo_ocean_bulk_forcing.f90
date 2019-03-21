@@ -392,6 +392,9 @@ CONTAINS
 
       IF (forcing_timescale == 28 .OR. forcing_timescale == 29 .OR. forcing_timescale == 30 .OR. forcing_timescale == 31 )  THEN
         jmon1 = 1 + ((jdmon-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
+      ELSE IF (forcing_timescale == 28*24 .OR. forcing_timescale == 29*24  &
+                               .OR. forcing_timescale == 30*24 .OR. forcing_timescale == 31*24 )  THEN
+        jmon1 = 1 + ((jdmon-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
       ELSE
         jmon1 = 1 + ((yday-1) * 86400.0_wp/forcing_frequency) + INT( sodt / forcing_frequency )
       ENDIF

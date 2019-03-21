@@ -418,7 +418,10 @@ SUBROUTINE cloudice (             &
     izdebug             !! debug level
 
   REAL    (KIND=wp   ) ::  &
-    fpvsw, fpvsi, fqvs,& ! name of statement functions
+    fpvsw,             & ! name of statement function
+#ifdef __COSMO__
+    fpvsi, fqvs,       & ! name of statement functions
+#endif
     fxna ,             & ! statement function for ice crystal number
     fxna_cooper ,      & ! statement function for ice crystal number, Cooper(1986) 
     ztx  , zpv  , zpx ,& ! dummy arguments for statement functions
@@ -565,9 +568,10 @@ SUBROUTINE cloudice (             &
 ! saturation vapour pressure over water (fpvsw), over ice (fpvsi)
 ! and specific humidity at vapour saturation (fqvs)
   fpvsw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) )
+#ifdef __COSMO__
   fpvsi(ztx)     = b1*EXP( b2i*(ztx-b3)/(ztx-b4i) )
   fqvs (zpv,zpx) = rdv*zpv/( zpx - o_m_rdv*zpv )
-  
+#endif
 ! Number of activate ice crystals;  ztx is temperature
   fxna(ztx)   = 1.0E2_wp * EXP(0.2_wp * (t0 - ztx))
   fxna_cooper(ztx) = 5.0E+0_wp * EXP(0.304_wp * (t0 - ztx))   ! FR: Cooper (1986) used by Greg Thompson(2008)

@@ -120,7 +120,7 @@ CONTAINS
     REAL(wp) :: zb(kproma,klev),   ztm(kproma,klev),   zdtdz(kproma,klev)
     REAL(wp) :: zplimb(kproma), zplimt(kproma)
 
-    REAL(wp) :: zptph, zp2km, zkappa, zkapm1, zzkap, zfaktor, zgwmo, zdeltaz
+    REAL(wp) :: zptph, zp2km, zkappa, zzkap, zfaktor, zgwmo, zdeltaz
     REAL(wp) :: zag, zbg, zdp
 
     INTEGER :: jl, jk, jj
@@ -157,7 +157,6 @@ CONTAINS
     END IF
 
     zkappa   = rd/cpd                   ! 0.286
-    zkapm1   = zkappa-1.0_wp
     zzkap    = 1.0_wp/zkappa
     zfaktor  = (-1.0_wp)*g/rd           ! -9.81/287.0
     zgwmo    = -0.002_wp
