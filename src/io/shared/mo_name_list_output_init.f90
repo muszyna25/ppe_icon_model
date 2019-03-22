@@ -1181,8 +1181,10 @@ CONTAINS
       CALL p_bcast(patch_info(1:n_dom_out)%grid_info_mode, &
         &          bcast_root, p_comm_work_2_io)
       ! A similar process as above - for the lon-lat grids
-      CALL p_bcast(lonlat_info(1:lonlat_grids%ngrids,1:n_dom)%grid_info_mode, &
-        &          bcast_root, p_comm_work_2_io)
+      IF (lonlat_grids%ngrids > 0) THEN ! may cause segfaults otherwise
+        CALL p_bcast(lonlat_info(1:lonlat_grids%ngrids,1:n_dom)%grid_info_mode, &
+          &          bcast_root, p_comm_work_2_io)
+      ENDIF
     END IF
 
     ! Set the number of domains in output and the patch reorder information
