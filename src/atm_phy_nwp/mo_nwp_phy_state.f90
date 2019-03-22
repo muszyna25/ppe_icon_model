@@ -1458,6 +1458,18 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d,                                                      &
       & in_group=groups("rad_vars"))
 
+    ! &      diag%lwflxclr_sfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('thbclr_s', 'W m-2', 'net longwave clear-sky flux at suface', datatype_flt)
+    grib2_desc = grib2_var(0, 5, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'thbclr_s', diag%lwflxclr_sfc,             &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+
+    ! &      diag%swflxclr_sfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('sobclr_s', 'W m-2', 'net shortwave clear-sky flux at suface', datatype_flt)
+    grib2_desc = grib2_var(0, 4, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'sobclr_s', diag%swflxclr_sfc,             &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,  ldims=shape2d)
+
     ! &      diag%swflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('sob_t', 'W m-2', 'shortwave net flux at TOA', datatype_flt)
     grib2_desc = grib2_var(0, 4, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1609,6 +1621,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
       &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
 
+    ! &      diag%lwflxclrsfc_a(nproma,nblks_c)
+    WRITE(name,'(A,A8)') TRIM(prefix),"thbclr_s"
+    WRITE(long_name,'(A40,A4,A18)') "clear-sky surface net thermal radiation ", meaning, &
+                                  &" since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
+      &                      TRIM(long_name), datatype_flt)
+    grib2_desc = grib2_var(0, 5, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%lwflxclrsfc_a,              &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d, isteptype=a_steptype,                              &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
+
     ! &      diag%swflxsfc_a(nproma,nblks_c)
     WRITE(name,'(A,A5)') TRIM(prefix),"sob_s"
     WRITE(long_name,'(A30,A4,A18)') "Surface net solar radiation ", meaning, &
@@ -1620,6 +1646,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
       & isteptype=a_steptype, in_group=groups("rad_vars"),                &
+      & hor_interp=create_hor_interp_metadata(                            &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
+
+    ! &      diag%swflxclrsfc_a(nproma,nblks_c)
+    WRITE(name,'(A,A8)') TRIM(prefix),"sobclr_s"
+    WRITE(long_name,'(A40,A4,A18)') "Clear-sky surface net solar radiation ", meaning, &
+                                  &" since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
+      &                    TRIM(long_name), datatype_flt)
+    grib2_desc = grib2_var(0, 4, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%swflxclrsfc_a,              &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d, isteptype=a_steptype,                              &
       & hor_interp=create_hor_interp_metadata(                            &
       &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                          &
       &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
@@ -1710,6 +1750,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
       & ldims=shape2d,                                                   &
       & isteptype=a_steptype, in_group=groups("rad_vars"),               &
+      & hor_interp=create_hor_interp_metadata(                           &
+      &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
+      &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )
+
+    ! &       diag%asod_s(nproma,nblks)
+    WRITE(name,'(A,A5)') TRIM(prefix),"sod_s"
+    WRITE(long_name,'(A30,A4,A18)') "Surface down solar rad. ", meaning, &
+                                  &" since model start"
+    cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0, 4, 7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, TRIM(name), diag%asod_s,                    &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+      & ldims=shape2d, isteptype=a_steptype,                             &
       & hor_interp=create_hor_interp_metadata(                           &
       &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                         &
       &    fallback_type=HINTP_TYPE_LONLAT_RBF ) )

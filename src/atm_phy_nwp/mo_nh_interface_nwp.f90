@@ -1204,6 +1204,7 @@ CONTAINS
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
           & swflx_par_sfc=prm_diag%swflx_par_sfc(:,jb) ,&   ! out shortwave upward flux at the surface [W/m2]
+          & swflx_clr_sfc=prm_diag%swflxclr_sfc(:,jb)  ,&   ! out clear-sky shortwave flux at the surface [W/m2]
           & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb) ) ! out shortwave diffuse downward flux at the surface [W/m2]
 
         ELSE

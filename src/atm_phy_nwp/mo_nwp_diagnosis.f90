@@ -355,6 +355,11 @@ CONTAINS
                 &                                   prm_diag%swflxsfc  (jc,jb), &
                 &                                   t_wgt)
 
+              ! time averaged clear-sky shortwave net flux at surface
+              prm_diag%swflxclrsfc_a(jc,jb) = time_avg(prm_diag%swflxclrsfc_a(jc,jb), &
+                &                                      prm_diag%swflxclr_sfc (jc,jb), &
+                &                                      t_wgt)
+
               ! time averaged shortwave diffuse downward flux at surface
               prm_diag%asodifd_s (jc,jb) = time_avg(prm_diag%asodifd_s        (jc,jb), &
                 &                                   prm_diag%swflx_dn_sfc_diff(jc,jb), &
@@ -366,11 +371,15 @@ CONTAINS
                 &                                 * prm_diag%swflxsfc    (jc,jb), &
                 &                                   t_wgt)
 
-
               ! time averaged longwave net flux at surface
               prm_diag%lwflxsfc_a(jc,jb) = time_avg(prm_diag%lwflxsfc_a(jc,jb), &
                 &                                   prm_diag%lwflxsfc  (jc,jb), &
                 &                                   t_wgt)
+
+              ! time averaged clear-sky longwave net flux at surface
+              prm_diag%lwflxclrsfc_a(jc,jb) = time_avg(prm_diag%lwflxclrsfc_a(jc,jb), &
+                &                                      prm_diag%lwflxclr_sfc (jc,jb), &
+                &                                      t_wgt)
 
               ! time averaged longwave upward flux at surface
               prm_diag%athu_s    (jc,jb) = time_avg(prm_diag%athu_s      (jc,jb), &
@@ -402,6 +411,9 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! downward solar radiation = sum of direct + diffuse
+              prm_diag%asod_s(jc,jb) = prm_diag%asodifd_s(jc,jb) + prm_diag%asodird_s(jc,jb)
 
               ! time averaged downward photosynthetically active flux at surface
               prm_diag%aswflx_par_sfc(jc,jb) = time_avg(prm_diag%aswflx_par_sfc(jc,jb), &
@@ -502,6 +514,11 @@ CONTAINS
              &                         + prm_diag%swflxsfc(jc,jb)     &
              &                         * dt_phy_jg(itfastphy)
 
+              ! accumulated clear-sky shortwave net flux at surface
+              prm_diag%swflxclrsfc_a(jc,jb) = prm_diag%swflxclrsfc_a(jc,jb) &
+             &                           + prm_diag%swflxclr_sfc(jc,jb)     &
+             &                           * dt_phy_jg(itfastphy)
+
               ! accumulated shortwave diffuse downward flux at surface
               prm_diag%asodifd_s (jc,jb) = prm_diag%asodifd_s        (jc,jb)  &
              &                           + prm_diag%swflx_dn_sfc_diff(jc,jb)  &
@@ -517,6 +534,11 @@ CONTAINS
               prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) &
                                    &   + prm_diag%lwflxsfc(jc,jb)     &
                                    &   * dt_phy_jg(itfastphy)
+
+              ! accumulated clear-sky longwave net flux at surface
+              prm_diag%lwflxclrsfc_a(jc,jb) = prm_diag%lwflxclrsfc_a(jc,jb) &
+                                     &   + prm_diag%lwflxclr_sfc(jc,jb)     &
+                                     &   * dt_phy_jg(itfastphy)
 
               ! accumulated shortwave net flux at TOA
               prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb) &
@@ -548,6 +570,9 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! downward solar radiation = sum of direct + diffuse
+              prm_diag%asod_s(jc,jb) = prm_diag%asodifd_s(jc,jb) + prm_diag%asodird_s(jc,jb)
 
               ! accumulated downward photosynthetically active flux at surface
               prm_diag%aswflx_par_sfc(jc,jb) = prm_diag%aswflx_par_sfc(jc,jb)  &
