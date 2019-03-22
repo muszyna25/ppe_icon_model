@@ -255,6 +255,7 @@ CONTAINS
       &     p_ext_atm%gamso_lk,        &
       &     p_ext_atm%sso_stdh,        &
       &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%l_pat,           &
       &     p_ext_atm%sso_gamma,       &
       &     p_ext_atm%sso_theta,       &
       &     p_ext_atm%sso_sigma,       &
@@ -555,6 +556,15 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      ! effective length scale of circulation patterns
+      ! l_pat            p_ext_atm%l_pat(nproma,nblks_c)
+      cf_desc    = t_cf_var('effective_length_scale', 'm',    &
+        &                   'effective length scale of circulation patterns', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'l_pat', p_ext_atm%l_pat,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! Anisotropy of sub-gridscale orography
       !

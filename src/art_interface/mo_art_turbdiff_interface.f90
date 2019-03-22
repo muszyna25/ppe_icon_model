@@ -29,7 +29,7 @@ MODULE mo_art_turbdiff_interface
   USE mo_exception,                     ONLY: message, message_text, finish
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE src_turbdiff,                     ONLY: modvar
+  USE turb_data,                        ONLY: modvar
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_turbdiffInt

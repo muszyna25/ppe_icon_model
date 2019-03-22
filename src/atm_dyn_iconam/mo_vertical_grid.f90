@@ -60,7 +60,7 @@ MODULE mo_vertical_grid
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
-  USE mo_data_turbdiff,        ONLY: akt
+  USE turb_data,               ONLY: akt
   USE mo_fortran_tools,        ONLY: init
   USE mo_util_string,          ONLY: int2string, real2string
   USE mo_mpi,                  ONLY: my_process_is_stdio

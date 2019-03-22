@@ -40,7 +40,7 @@ MODULE mo_surface_les
   USE mo_les_config,          ONLY: les_config
   USE mo_math_constants,      ONLY: pi_2, ln2
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_data_turbdiff,       ONLY: akt, alpha0
+  USE turb_data,              ONLY: akt, alpha0
   USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_fortran_tools,       ONLY: insert_dimension
   USE mo_io_units,            ONLY: find_next_free_unit

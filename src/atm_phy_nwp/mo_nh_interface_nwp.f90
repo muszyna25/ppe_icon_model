@@ -554,6 +554,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
+                          & pt_prog,                          & !>in
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
@@ -882,6 +883,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
+                          & pt_prog,                          & !>in
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
