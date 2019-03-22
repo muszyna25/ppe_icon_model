@@ -805,8 +805,8 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index,i
     INTEGER :: jk,jc,blockNo!,je
     REAL(wp):: ssh_global_mean,sst_global,sss_global,total_heat_flux,total_precipitation_flux, &
-      &        total_evaporation_flux,total_runoff_flux,total_frshflx_atmhd,atmos_snowfall_flux, &
-      &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
+      &        total_evaporation_flux,total_runoff_flux,total_frshflx_atmhd, total_frshflx_belowice, &
+      &        atmos_snowfall_flux, ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
       &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
@@ -895,102 +895,114 @@ CONTAINS
       ! total precipitation flux
       total_precipitation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Precipitation_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Precipitation, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & total_precipitation_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_Precipitation, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_precipitation_flux)
       END IF
       monitor%FrshFlux_Precipitation = total_precipitation_flux
 
       ! total evaporation
       total_evaporation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Evaporation_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Evaporation, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & total_evaporation_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_Evaporation, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_evaporation_flux)
       END IF
       monitor%FrshFlux_Evaporation = total_evaporation_flux
 
       ! total runoff
       total_runoff_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Runoff_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Runoff, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & total_runoff_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_Runoff, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_runoff_flux)
       END IF
       monitor%FrshFlux_Runoff = total_runoff_flux
 
-      ! total fresh water flux P-E+Ro of atmosphere and land (HD)
+      ! total fresh water flux into ocean (P-E+Ro of atmosphere and land/HD)
       total_frshflx_atmhd = 0.0_wp
       IF (isRegistered('FrshFlux_AtmHD_Global')) THEN
-      xscr(:,:) = p_oce_sfc%FrshFlux_Precipitation(:,:) + p_oce_sfc%FrshFlux_Evaporation(:,:) &
-        &         + p_oce_sfc%FrshFlux_Runoff(:,:)
-      call levels_horizontal_mean( xscr, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & total_frshflx_atmhd)
+        xscr(:,:) = p_oce_sfc%FrshFlux_Precipitation(:,:) + p_oce_sfc%FrshFlux_Evaporation(:,:) &
+          &         + p_oce_sfc%FrshFlux_Runoff(:,:)
+        call levels_horizontal_mean( xscr, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_frshflx_atmhd)
       END IF
       monitor%FrshFlux_AtmHD = total_frshflx_atmhd
+
+      ! total fresh water flux into ocean below ice
+      total_frshflx_belowice = 0.0_wp
+      IF (isRegistered('FrshFlux_BelowIce_Global')) THEN
+        xscr(:,:) = p_oce_sfc%FrshFlux_Runoff(:,:) + p_oce_sfc%FrshFlux_TotalOcean &
+          &         + p_oce_sfc%FrshFlux_VolumeIce + ice%totalsnowfall/dtime
+        call levels_horizontal_mean( xscr, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & total_frshflx_belowice)
+      END IF
+      monitor%FrshFlux_BelowIce = total_frshflx_belowice
 
       ! total (atmospheric) snowfall
       atmos_snowfall_flux = 0.0_wp
       IF (isRegistered('FrshFlux_SnowFall_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_Snowfall, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & atmos_snowfall_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_Snowfall, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & atmos_snowfall_flux)
       END IF
       monitor%FrshFlux_SnowFall = atmos_snowfall_flux
 
       ! VolumeIce   
       VolumeIce_flux = 0.0_wp
       IF (isRegistered('FrshFlux_VolumeIce_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeIce, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & VolumeIce_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeIce, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & VolumeIce_flux)
       END IF
       monitor%FrshFlux_VolumeIce = VolumeIce_flux
 
       ! TotalOcean   
       TotalOcean_flux = 0.0_wp
       IF (isRegistered('FrshFlux_TotalOcean_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalOcean, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & TotalOcean_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalOcean, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & TotalOcean_flux)
       END IF
       monitor%FrshFlux_TotalOcean = TotalOcean_flux
 
       ! TotalIce   
       TotalIce_flux = 0.0_wp
       IF (isRegistered('FrshFlux_TotalIce_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalIce, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & TotalIce_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_TotalIce, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & TotalIce_flux)
       END IF
       monitor%FrshFlux_TotalIce = TotalIce_flux
 
       ! VolumeTotal   
       VolumeTotal_flux = 0.0_wp
       IF (isRegistered('FrshFlux_VolumeTotal_Global')) THEN
-      call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeTotal, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & VolumeTotal_flux)
+        call levels_horizontal_mean( p_oce_sfc%FrshFlux_VolumeTotal, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & VolumeTotal_flux)
       END IF
       monitor%FrshFlux_VolumeTotal = VolumeTotal_flux
 
       ! totalsnowfall   
       totalsnowfall_flux = 0.0_wp
       IF (isRegistered('totalsnowfall_Global')) THEN
-      call levels_horizontal_mean( ice%totalsnowfall, &
-          & patch_2d%cells%area(:,:), &
-          & owned_cells, &
-          & totalsnowfall_flux)
+        call levels_horizontal_mean( ice%totalsnowfall, &
+            & patch_2d%cells%area(:,:), &
+            & owned_cells, &
+            & totalsnowfall_flux)
       END IF
       monitor%totalsnowfall = totalsnowfall_flux
 

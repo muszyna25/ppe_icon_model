@@ -60,6 +60,7 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: FrshFlux_Evaporation(:)
     REAL(wp), POINTER :: FrshFlux_Runoff(:)
     REAL(wp), POINTER :: FrshFlux_AtmHD(:)
+    REAL(wp), POINTER :: FrshFlux_BelowIce(:)
     REAL(wp), POINTER :: FrshFlux_TotalSalt(:)
     REAL(wp), POINTER :: FrshFlux_TotalOcean(:)
     REAL(wp), POINTER :: FrshFlux_TotalIce(:)

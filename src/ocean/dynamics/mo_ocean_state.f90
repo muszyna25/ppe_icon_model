@@ -341,6 +341,7 @@ CONTAINS
         ALLOCATE(checkpoint(i)%FrshFlux_SnowFall(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_Runoff(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_AtmHD(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%FrshFlux_BelowIce(nproma,alloc_cell_blocks),stat=status)
 
         ALLOCATE(checkpoint(i)%SaltFlux_Relax(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_Relax(nproma,alloc_cell_blocks),stat=status)
@@ -865,6 +866,12 @@ CONTAINS
     CALL add_var(ocean_default_list, 'FrshFlux_AtmHD_global', ocean_state_diag%monitor%FrshFlux_AtmHD , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_AtmHD', 'm/s', 'FrshFlux_AtmHD', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'FrshFlux_BelowIce_global', ocean_state_diag%monitor%FrshFlux_BelowIce , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('FrshFlux_BelowIce', 'm/s', 'FrshFlux_BelowIce', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
