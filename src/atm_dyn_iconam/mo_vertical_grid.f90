@@ -661,7 +661,11 @@ MODULE mo_vertical_grid
       ENDDO
       p_nh(jg)%metrics%nudge_c_dim = ic
 
-      ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(ic),p_nh(jg)%metrics%nudge_c_blk(ic))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(0:0),p_nh(jg)%metrics%nudge_c_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%nudge_c_idx(ic),p_nh(jg)%metrics%nudge_c_blk(ic))
+      ENDIF
       ic = 0
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
@@ -693,7 +697,11 @@ MODULE mo_vertical_grid
       ENDDO
       p_nh(jg)%metrics%nudge_e_dim = ic
 
-      ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(ic),p_nh(jg)%metrics%nudge_e_blk(ic))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(0:0),p_nh(jg)%metrics%nudge_e_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%nudge_e_idx(ic),p_nh(jg)%metrics%nudge_e_blk(ic))
+      ENDIF
 
       ic = 0
       DO jb = 1, nblks_e
@@ -734,7 +742,12 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%bdy_halo_c_dim = ic
 
       ! Index list for halo points belonging to the lateral boundary interpolation zone
-      ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(ic),p_nh(jg)%metrics%bdy_halo_c_blk(ic))
+
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(0:0),p_nh(jg)%metrics%bdy_halo_c_blk(0:0))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%bdy_halo_c_idx(ic),p_nh(jg)%metrics%bdy_halo_c_blk(ic))
+      ENDIF
 
       ic = 0
       DO jb = i_startblk, i_endblk
@@ -788,8 +801,13 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%bdy_mflx_e_dim = ic
 
       ! Allocate index lists and storage field for boundary mass flux
-      ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
-               p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(0:0),p_nh(jg)%metrics%bdy_mflx_e_blk(0:0), &
+                  p_nh(jg)%diag%grf_bdy_mflx(nlev,0:0,2))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
+                  p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      ENDIF
       p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
 
       ! part 3: fill index list with nest boundary points of row 9
@@ -852,9 +870,15 @@ MODULE mo_vertical_grid
 
       ic = MAXVAL(ica)
       jn = MAX(1,p_patch(jg)%n_childdom)
-      ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
-               p_nh(jg)%metrics%ovlp_halo_c_idx(ic,jn),&
-               p_nh(jg)%metrics%ovlp_halo_c_blk(ic,jn))
+      IF ( ic == 0 ) THEN
+         ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
+                  p_nh(jg)%metrics%ovlp_halo_c_idx(0:0,jn),&
+                  p_nh(jg)%metrics%ovlp_halo_c_blk(0:0,jn))
+      ELSE
+         ALLOCATE(p_nh(jg)%metrics%ovlp_halo_c_dim(jn),   &
+                  p_nh(jg)%metrics%ovlp_halo_c_idx(ic,jn),&
+                  p_nh(jg)%metrics%ovlp_halo_c_blk(ic,jn))
+      ENDIF
 
       p_nh(jg)%metrics%ovlp_halo_c_dim(1:jn) = ica(1:jn)
 

@@ -1611,8 +1611,13 @@ MODULE mo_initicon_utils
             &        sfc%skinres (nproma,nblks_c            ), &
             &        sfc%ls_mask (nproma,nblks_c            ), &
             &        sfc%seaice  (nproma,nblks_c            ), &
-            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c), &
-            &        sfc%wsoil   (nproma,  nlev_soil,nblks_c)  )
+            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c)  )
+            IF (  nlev_soil == 0 ) THEN
+               ALLOCATE(sfc%wsoil   (nproma,0:nlev_soil,nblks_c)  )
+            ELSE
+               ALLOCATE(sfc%wsoil   (nproma,1:nlev_soil,nblks_c)  )
+            ENDIF
+            
 !$OMP PARALLEL 
             CALL init(sfc%tskin(:,:))
             CALL init(sfc%tsnow(:,:))
