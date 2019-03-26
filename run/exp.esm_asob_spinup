@@ -905,6 +905,7 @@ cat > ${oce_namelist} << EOF0
   diagnostics_level               =   1
 /
 &io_nml
+  !lnetcdf_flt64_output            = .TRUE.   ! 64 bit output in all files
   !lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF0

@@ -507,6 +507,7 @@ if [[ "$output_atm_mon" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_mon"
  filename_format  = "<output_filename>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  mode             = 1                                ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  operation        = 'mean'                           ! mean over output interval
@@ -527,6 +528,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_min"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -591,6 +593,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -612,6 +615,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -647,6 +651,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -678,6 +683,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -700,6 +706,7 @@ if [[ "$output_lnd_min" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_min"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
@@ -882,7 +889,8 @@ cat > ${oce_namelist} << EOF
   diagnostics_level               =   1
 /
 &io_nml
-  !lkeep_in_sync = .TRUE.          ! sync after each timestep
+  !lnetcdf_flt64_output            = .TRUE.   ! 64 bit output in all files
+  !lkeep_in_sync                   = .TRUE.   ! sync after each timestep
 /
 EOF
 
@@ -890,9 +898,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}_oce_min"
   filename_format  = "<output_filename>_<datetime2>"
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
@@ -911,9 +919,9 @@ if [[ "$output_oce_min" == "yes" ]]; then
                       'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m'
 /
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}_oce_fx"
   filename_format  = "<output_filename>_<datetime2>"
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${start_date}"                  ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
@@ -943,18 +951,55 @@ if [[ "$output_oce_mon" == "yes" ]]; then
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oce_mon"
   filename_format  = "<output_filename>_<datetime2>"
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   ml_varlist       =  'group:ocean_monitor'
 /
 EOF
 fi
 
+## zeta/h/ssh global mean diagnostics: spot-values
+#cat >> ${oce_namelist} <<EOF
+#
+#&output_nml
+#  output_start     = "${start_date}"                  ! start date in ISO-format
+#  output_end       = "${end_date}"                    ! end date in ISO-format
+#  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+#  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+#  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+#!  operation        = 'mean'                           ! mean over output interval
+#  output_grid      = .TRUE.
+#  output_filename  = "${EXPNAME}_oce_zGL"
+#  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
+#  filename_format  = "<output_filename>_<datetime2>"
+#  ml_varlist       =  'ssh_global'
+#/
+#EOF
+
+## zeta/h/zos 2d-diagnostics: spot-values
+#cat >> ${oce_namelist} <<EOF
+#
+#&output_nml
+#  output_start     = "${start_date}"                  ! start date in ISO-format
+#  output_end       = "${end_date}"                    ! end date in ISO-format
+#  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+#  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+#  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+#!  operation        = 'mean'                           ! mean over output interval
+#  output_grid      = .TRUE.
+#  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
+#  output_filename  = "${EXPNAME}_oce_z2d"
+#  filename_format  = "<output_filename>_<datetime2>"
+#  ml_varlist       =  'zos'
+#/
+#EOF
+
 if [[ "$output_oce_def" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}_oce_def"
   filename_format  = "<output_filename>_<datetime2>"
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
@@ -976,9 +1021,9 @@ if [[ "$output_oce_moc" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
 &output_nml
-  filetype         =  4                               ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}_oce_moc"
   filename_format  = "<output_filename>_<datetime2>"
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_start     = "${start_date}"                  ! start date in ISO-format
   output_end       = "${end_date}"                    ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
