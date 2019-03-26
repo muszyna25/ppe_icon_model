@@ -201,11 +201,6 @@ CONTAINS
       IF(lexpl_endheight .AND. (nudge_start_height > nudge_end_height)) THEN
         CALL finish(TRIM(routine), 'nudge_start_height < nudge_end_height required.') 
       ENDIF
-
-    ELSE
-
-        lexpl_endheight = .FALSE.
-        lexpl_scaleheight = .FALSE.
     ENDIF  !IF (nudge_type /= indg_type%off)
 
     !-----------------------------------------------------
