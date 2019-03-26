@@ -135,7 +135,12 @@ oce_output_interval="PT6H"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
 
-# standard long-term output switches - _min=yes only:
+# standard long-term output switches
+output_atm_mon=yes
+output_oce_mon=yes
+output_oce_moc=yes  #  calc_moc is called every timestep - switch off for high resolutions
+
+# standard debug arrays
 output_atm_min=yes
 output_oce_min=yes
 output_lnd_min=yes
@@ -147,12 +152,9 @@ oce_file_interval="P20Y"
 # output switches - set to "yes" if needed
 output_atm_3d=yes
 output_atm_2d=yes
-output_atm_mon=yes
 output_phy_3d=no    #  atmosphere physics
 output_aer_3d=no    # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 output_oce_def=yes  #  yes writes much output and needs more computing time
-output_oce_mon=yes
-output_oce_moc=yes  #  calc_moc is called every timestep - switch off for high resolutions
 
 # full atmospheric output interval, normally set to general atmos interval:
 atm_output_interval_3d="$atm_output_interval"
@@ -313,10 +315,17 @@ cat > ${atm_namelist} << EOF
 &echam_vdf_nml
 /
 &echam_cnv_nml
+ echam_cnv_config(1)%entrpen    = 0.0003    ! default:  0.0002
+ echam_cnv_config(1)%cmfctop    = 0.1       ! default:  0.2
+ echam_cnv_config(1)%entrscv    = 0.0003    ! default:  0.003
 /
 &echam_cld_nml
- echam_cld_config(1)%csecfrl    = 5.e-5       ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%crs        = 0.925       ! Critical relative humidity at surface, default 0.968
+ echam_cld_config(1)%csecfrl    = 0.7e-5    ! threshold for ice and water in clouds, default 5.e-6
+ echam_cld_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
+ echam_cld_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
+ echam_cld_config(1)%ccraut     = 2.0       ! default: 15.0
+ echam_cld_config(1)%ccsaut     = 2.0       ! default: 95.0
+ echam_cld_config(1)%cauloc     = 1.0       ! default: 10.0
 /
 &sea_ice_nml
 /
@@ -853,6 +862,7 @@ cat > ${oce_namelist} << EOF
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
   leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+  pstar                           =  18000.   ! default: 27500./MPIOM: 20000
 /
 &ocean_forcing_nml
   iforc_oce                       =  14       ! ocean forcing: FORCING_FROM_COUPLED_FLUX  = 14
@@ -865,8 +875,8 @@ cat > ${oce_namelist} << EOF
   seaice_limit                    =   0.8     ! 12m surface layer: 9.6m sea-ice limit
 /
 &ocean_initialConditions_nml
-  initial_salinity_type           =   1       ! read S from initial_state.nc
-  initial_temperature_type        =   1       ! read T from initial_state.nc
+  initial_salinity_type           =   1       ! 1: read S from initial_state.nc - switch off after initialization
+  initial_temperature_type        =   1       ! 1: read T from initial_state.nc - switch off after initialization
 /                                    
 &ocean_diagnostics_nml
   diagnostics_level               =   1
