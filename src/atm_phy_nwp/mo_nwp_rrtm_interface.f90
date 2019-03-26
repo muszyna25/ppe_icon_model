@@ -282,7 +282,22 @@ CONTAINS
             prm_diag%aerosol(jc,idu,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
               & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
           ENDDO
-        ELSE ! simple prognostic aerosol; fill extra variables for climatology needed for relaxation equation
+        ELSE IF (iprog_aero == 1) THEN ! simple prognostic scheme for dust, climatology for other aerosol types
+!DIR$ IVDEP
+          DO jc = 1,i_endidx
+            prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iorg,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+            prm_diag%aerosol(jc,ibc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iso4,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+            ! fill extra field for climatology field for dust
+            prm_diag%aercl_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          ENDDO
+        ELSE ! simple prognostic scheme for all aerosol types; fill extra variables for climatology needed for relaxation equation
 !DIR$ IVDEP
           DO jc = 1,i_endidx
             prm_diag%aercl_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
@@ -300,7 +315,8 @@ CONTAINS
 
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
-            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
+            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / &
+              MAX(prm_diag%pref_aerdis(jc,jb),0.95_wp*pt_diag%pres_ifc(jc,nlevp1,jb))
           ENDDO
         ENDDO
 
@@ -562,7 +578,7 @@ CONTAINS
         & alb_nir_dir=prm_diag%albnirdir(:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=prm_diag%albnirdif(:,jb),&!< in surface albedo for near IR range, diffuse
-        & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
+        & emis_rad   =prm_diag%lw_emiss(:,jb),&!< in longwave surface emissivity
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
@@ -835,7 +851,7 @@ CONTAINS
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
-        & ext_data%atm%emis_rad, prm_diag%cosmu0,                       &
+        & prm_diag%lw_emiss, prm_diag%cosmu0,                           &
         & prm_diag%albvisdir, prm_diag%albnirdir, prm_diag%albvisdif,   &
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &

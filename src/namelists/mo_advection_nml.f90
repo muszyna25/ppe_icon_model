@@ -29,7 +29,7 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,   &
+    &                               MIURA, FFSL_HYB_MCYCL, ippm_v, ippm4gpu_v,  &
     &                               inol, ifluxl_sm, inol_v,                    &
     &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -170,7 +170,7 @@ CONTAINS
     ctracer_list    = ''
     ihadv_tracer(:) = MIURA     ! miura horizontal advection scheme
     itype_hlimit(:) = ifluxl_sm ! positive definite flux limiter
-    ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
+    ivadv_tracer(:) = ippm_v    ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     iadv_tke        = 0         ! no TKE advection
     beta_fct        = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
@@ -234,10 +234,10 @@ CONTAINS
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
-    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
+    IF ( ANY(ivadv_tracer(1:ntracer) > ippm4gpu_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
+        &  'incorrect settings for ivadv_tracer. Must be 0,1,3 or 4 ')
     ENDIF
 
 

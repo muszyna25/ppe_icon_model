@@ -111,6 +111,7 @@ MODULE mo_atmo_model
 
   ! horizontal interpolation
   USE mo_interpol_config,         ONLY: configure_interpolation
+  USE mo_gridref_config,          ONLY: configure_gridref
   USE mo_intp_state,              ONLY: construct_2d_interpol_state,                          &
     &                                   destruct_2d_interpol_state, transfer_interpol_state
   USE mo_grf_intp_state,          ONLY: construct_2d_gridref_state,                           &
@@ -421,7 +422,10 @@ CONTAINS
 
     IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
     CALL configure_interpolation( n_dom, p_patch(1:)%level, &
-                                  p_patch(1)%geometry_info )
+                                  p_patch(1:)%geometry_info )
+
+    CALL configure_gridref(n_dom, p_patch(1:)%geometry_info%mean_characteristic_length)
+
 
     ! Allocate array for interpolation state
 
@@ -557,7 +561,7 @@ CONTAINS
     ! Setup horizontal grids and tiles for JSBACH
     DO jg=1,n_dom
       IF (echam_phy_config(jg)%ljsb) THEN 
-        CALL jsbach_setup_grid( jg, p_patch(jg)) !< in
+        CALL jsbach_setup_grid( jg, p_patch(jg), type='icon') !< in
         CALL jsbach_setup_tiles(jg)
       END IF
     END DO

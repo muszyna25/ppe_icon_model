@@ -31,7 +31,7 @@ MODULE mo_multifile_restart_collector
   USE mo_impl_constants, ONLY: SUCCESS, SINGLE_T, REAL_T, INT_T
   USE mo_kind, ONLY: dp, sp, i8
   USE mo_mpi, ONLY: p_comm_work_restart, p_comm_rank, p_send, p_recv, &
-   & my_process_is_work, p_int, p_real_dp, p_real_sp
+   & my_process_is_work, p_int, p_real_dp, p_real_sp, p_barrier
   USE mo_multifile_restart_util, ONLY: iAmRestartWriter, commonBuf_t, dataPtrs_t
   USE mo_timer, ONLY: timer_start, timer_stop, timer_restart_collector_setup, &
     & timer_restart_indices_setup, timers_level
@@ -52,7 +52,7 @@ MODULE mo_multifile_restart_collector
     INTEGER(KIND=MPI_ADDRESS_KIND), ALLOCATABLE :: tOffSv(:)
     INTEGER(KIND=MPI_ADDRESS_KIND) :: facDpSp, facIntSp
     INTEGER(KIND=MPI_ADDRESS_KIND), PRIVATE, ALLOCATABLE :: tOffCl(:)
-    INTEGER, PRIVATE :: wComm, wComm_size, frstCl
+    INTEGER, PRIVATE :: wComm
     INTEGER(KIND=i8), PRIVATE :: wSizes(3)
     TYPE(ptr_arr_t), PRIVATE :: wPtr
     LOGICAL, PRIVATE :: allocd, handshakd, wPosted, wStarted
@@ -89,6 +89,9 @@ MODULE mo_multifile_restart_collector
     PROCEDURE :: fetch     => multifileRestartCollector_fetch
   END TYPE t_MultifileRestartCollector
 
+  INTEGER, TARGET :: sendbuf_i_dummy(0)
+  REAL(KIND=sp), TARGET :: sendbuf_s_dummy(0)
+  REAL(KIND=dp), TARGET :: sendbuf_d_dummy(0)
   CHARACTER(*), PARAMETER :: modname = "mo_multifile_restart_collector"
 
 CONTAINS
@@ -398,26 +401,31 @@ CONTAINS
     
     idx => me%idx(me%vGrid(iV))%p
     inType = me%vType(iV)
-    IF (.NOT. ASSOCIATED(me%glb_sendbuf%sendBuffer%d)) THEN
-      CALL finish(routine, "Unassociated send buffer!")
-    END IF
+    IF (.NOT. ASSOCIATED(me%glb_sendbuf%sendBuffer%d)) &
+      & CALL finish(routine, "Unassociated send buffer!")
     offset = ioffset(inType)
     IF (idx%sendPntCnt > 0) THEN
       DO iLev = lStart, lStart -1 + lCnt
         SELECT CASE(inType)
         CASE(1)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%d)) &
+            & CALL finish(routine, "Sendbuffer(d) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%d(offset+i) = &
               & input%d(iLev)%p(idx%sendIdx(i), idx%sendBlk(i))
           END DO
         CASE(2)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%s)) &
+            & CALL finish(routine, "Sendbuffer(s) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%s(offset+i) = &
               & input%s(iLev)%p(idx%sendIdx(i), idx%sendBlk(i))
           END DO
         CASE(3)
+          IF (offset + idx%sendPntCnt .GT. SIZE(me%glb_sendbuf%sendBuffer%i)) &
+            & CALL finish(routine, "Sendbuffer(i) too small")
 !$OMP PARALLEL DO SCHEDULE(STATIC)
           DO i = 1, idx%sendPntCnt
             me%glb_sendbuf%sendBuffer%i(offset+i) = &
@@ -482,10 +490,7 @@ CONTAINS
     idx_e%destProc = 0
     idx_v%destProc = 0
     CALL MPI_Comm_size(this%wComm, wComm_size, ierr)
-    this%wComm_size = wComm_size
-    this%frstCl = -1 !not necessary on non-writers
     IF (iAmRestartWriter()) THEN
-      this%frstCl = MERGE(0, 1, my_process_is_work())
       ALLOCATE(tmpOffSv(4*wComm_size), rank_map(wComm_size))
     ELSE
       ALLOCATE(tmpOffSv(1), rank_map(1))
@@ -543,21 +548,28 @@ CONTAINS
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     memSize(1) = MAX(one, this%tOffCl(4))
     CALL C_F_POINTER(cMemPtr, tmp_sp, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(1) + one))
-    memSize(1) = INT(this%wSizes(1), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%d, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(2) + one))
-    memSize(1) = INT(this%wSizes(2), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%s, INT(memSize))
-    cMemPtr = C_LOC(tmp_sp(this%tOffCl(3)+ one))
-    memSize(1) = INT(this%wSizes(3), addr)
-    CALL C_F_POINTER(cMemPtr, this%sendBuffer%i, INT(memSize))
-    DEALLOCATE(this%tOffCl)
-    IF (this%wComm .NE. MPI_COMM_NULL) THEN
-      CALL MPI_Comm_free(this%wComm, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      this%wComm    = MPI_COMM_NULL
+    IF (this%wSizes(1) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(1) + one))
+      memSize(1) = INT(this%wSizes(1), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%d, INT(memSize))
+    ELSE
+      this%sendBuffer%d => sendbuf_d_dummy
     END IF
+    IF (this%wSizes(2) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(2) + one))
+      memSize(1) = INT(this%wSizes(2), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%s, INT(memSize))
+    ELSE
+      this%sendBuffer%s => sendbuf_s_dummy
+    END IF
+    IF (this%wSizes(3) .GT. 0) THEN
+      cMemPtr = C_LOC(tmp_sp(this%tOffCl(3) + one))
+      memSize(1) = INT(this%wSizes(3), addr)
+      CALL C_F_POINTER(cMemPtr, this%sendBuffer%i, INT(memSize))
+    ELSE
+      this%sendBuffer%i => sendbuf_i_dummy
+    END IF
+    DEALLOCATE(this%tOffCl)
     this%handshakd = .true.
     this%allocd = .true.
 #endif
@@ -606,21 +618,13 @@ CONTAINS
 
     IF (.NOT.this%allocd) CALL finish(routine, "there is no buffer allocd to fill!")
     IF (this%wStarted) THEN
-#ifdef MFILE_RESTART_USE_LOCKALL
       CALL MPI_Win_unlock_all(this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-#else
-      DO i = this%frstCl, this%wComm_size - 1
-        CALL MPI_Win_unlock(i, this%win, ierr)
-        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      END DO
-#endif
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL p_barrier(comm=this%wComm)
       this%wStarted = .false.
+      this%wPosted = .false.
     ELSE IF (this%wPosted) THEN
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
+      CALL p_barrier(comm=this%wComm)
       this%wPosted = .false.
     END IF
 #else
@@ -638,23 +642,14 @@ CONTAINS
     assert_lock = MPI_MODE_NOCHECK
     assert_fence = MPI_MODE_NOPUT
     IF (iAmRestartWriter() .AND. .NOT. this%wStarted) THEN
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-#ifdef MFILE_RESTART_USE_LOCKALL
+      CALL p_barrier(comm=this%wComm)
       CALL MPI_Win_lock_all(assert_lock, this%win, ierr)
       IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-#else
-      DO i = this%frstCl, this%wComm_size - 1
-        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, i, assert_lock, this%win, ierr)
-        IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-      END DO
-#endif
       this%wStarted = .true.
       IF (my_process_is_work()) this%wPosted = .true.
    ELSE IF (my_process_is_work() .AND. .NOT.this%wPosted) THEN
+      CALL p_barrier(comm=this%wComm)
       this%wPosted = .true.
-      CALL MPI_Win_fence(assert_fence, this%win, ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
     END IF
 #else
     CALL finish(routine, "Not implemented!")

@@ -98,7 +98,7 @@ CONTAINS
                & klev       = nlev                           ,&! vertical dimension size
                & klevp1     = nlevp1                         ,&! vertical dimension size
                !
-               & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
+               & rsdt0      = psctm(jg)                      ,&! toa incident shortwave radiation for sun in zenith
                & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
                & daylght_frc= field%daylght_frc(:,jb)        ,&! daylight fraction
                !

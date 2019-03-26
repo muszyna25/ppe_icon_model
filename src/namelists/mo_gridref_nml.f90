@@ -142,7 +142,7 @@ CONTAINS
     rbf_vec_kern_grf_e = 1    ! 1: Gaussian, 2: 1/(1+r**2), 3: inverse multiquadric
 
     ! Initialize namelist fields for scaling factors (dimension 1:max_dom)
-    rbf_scale_grf_e(1:max_dom) = 0.5_wp  ! default setting for vector grf interpolation
+    rbf_scale_grf_e(1:max_dom) = -1.0_wp  ! dummy value; resolution-dependent defaults are set in gridref_config
 
     ! Denominator for temperature boundary diffusion
     denom_diffu_t = 135._wp

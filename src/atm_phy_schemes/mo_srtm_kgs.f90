@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE yoesrta16
+MODULE mo_yoesrta16
 
   USE mo_kind, ONLY : wp
 
@@ -59,9 +59,9 @@ MODULE yoesrta16
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta16
+END MODULE mo_yoesrta16
 
-MODULE yoesrta17
+MODULE mo_yoesrta17
 
   USE mo_kind, ONLY : wp
 
@@ -114,9 +114,9 @@ MODULE yoesrta17
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta17
+END MODULE mo_yoesrta17
 
-MODULE yoesrta18
+MODULE mo_yoesrta18
 
   USE mo_kind, ONLY : wp
 
@@ -171,9 +171,9 @@ MODULE yoesrta18
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta18
+END MODULE mo_yoesrta18
 
-MODULE yoesrta19
+MODULE mo_yoesrta19
 
   USE mo_kind, ONLY : wp
 
@@ -226,9 +226,9 @@ MODULE yoesrta19
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta19
+END MODULE mo_yoesrta19
 
-MODULE yoesrta20
+MODULE mo_yoesrta20
 
   USE mo_kind, ONLY : wp
 
@@ -283,9 +283,9 @@ MODULE yoesrta20
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   ! ABSCH4C : REAL     Reduced g-point array for ABSCH4
   !     -----------------------------------------------------------------
-END MODULE yoesrta20
+END MODULE mo_yoesrta20
 
-MODULE yoesrta21
+MODULE mo_yoesrta21
 
   USE mo_kind, ONLY : wp
 
@@ -339,9 +339,9 @@ MODULE yoesrta21
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta21
+END MODULE mo_yoesrta21
 
-MODULE yoesrta22
+MODULE mo_yoesrta22
 
   USE mo_kind, ONLY : wp
 
@@ -395,9 +395,9 @@ MODULE yoesrta22
   ! FORREFC : REAL     Reduced g-point array for FORREF
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta22
+END MODULE mo_yoesrta22
 
-MODULE yoesrta23
+MODULE mo_yoesrta23
 
   USE mo_kind, ONLY : wp
 
@@ -448,9 +448,9 @@ MODULE yoesrta23
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   ! RAYLC   : REAL     Reduced g-point array for RAYL
   !     -----------------------------------------------------------------
-END MODULE yoesrta23
+END MODULE mo_yoesrta23
 
-MODULE yoesrta24
+MODULE mo_yoesrta24
 
   USE mo_kind, ONLY : wp
 
@@ -513,9 +513,9 @@ MODULE yoesrta24
   ! RAYLAC  : REAL     Reduced g-point array for RAYLA
   ! RAYLBC  : REAL     Reduced g-point array for RAYLB
   !     -----------------------------------------------------------------
-END MODULE yoesrta24
+END MODULE mo_yoesrta24
 
-MODULE yoesrta25
+MODULE mo_yoesrta25
 
   USE mo_kind, ONLY : wp
 
@@ -564,9 +564,9 @@ MODULE yoesrta25
   ! ABSO3AC : REAL     Reduced g-point array for ABSO3A
   ! ABSO3BC : REAL     Reduced g-point array for ABSO3B
   !     -----------------------------------------------------------------
-END MODULE yoesrta25
+END MODULE mo_yoesrta25
 
-MODULE yoesrta26
+MODULE mo_yoesrta26
 
   USE mo_kind, ONLY : wp
 
@@ -600,9 +600,9 @@ MODULE yoesrta26
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   ! RAYLC   : REAL     Reduced g-point array for RAYL
   !     -----------------------------------------------------------------
-END MODULE yoesrta26
+END MODULE mo_yoesrta26
 
-MODULE yoesrta27
+MODULE mo_yoesrta27
 
   USE mo_kind, ONLY : wp
 
@@ -652,9 +652,9 @@ MODULE yoesrta27
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   ! RAYLC   : REAL     Reduced g-point array for RAYL
   !     -----------------------------------------------------------------
-END MODULE yoesrta27
+END MODULE mo_yoesrta27
 
-MODULE yoesrta28
+MODULE mo_yoesrta28
 
   USE mo_kind, ONLY : wp
 
@@ -702,9 +702,9 @@ MODULE yoesrta28
   ! KBC     : REAL     Reduced g-point array for KB
   !SFLUXREFC: REAL     Reduced g-point array for SFLUXREF
   !     -----------------------------------------------------------------
-END MODULE yoesrta28
+END MODULE mo_yoesrta28
 
-MODULE yoesrta29
+MODULE mo_yoesrta29
 
   USE mo_kind, ONLY : wp
 
@@ -761,5 +761,5 @@ MODULE yoesrta29
   ! ABSH2OC : REAL     Reduced g-point array for ABSH2O
   ! ABSCO2C : REAL     Reduced g-point array for ABSCO2
   !     -----------------------------------------------------------------
-END MODULE yoesrta29
+END MODULE mo_yoesrta29
 

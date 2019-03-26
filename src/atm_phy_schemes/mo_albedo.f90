@@ -596,6 +596,7 @@ CONTAINS
     REAL(wp):: zsnowalb_lu             !< maximum snow albedo specified in landuse table
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsnow_alb               !< snow albedo
+    REAL(wp):: zsnowfrac(nproma)       !< aggregated snow-cover fraction
 
     ! Auxiliaries for tile-specific calculation of direct beam albedo
     REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
@@ -630,7 +631,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,               &
 !$OMP            zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,                 &
 !$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu, &
-!$OMP            zalbvisdir_t,zalbnirdir_t) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            zalbvisdir_t,zalbnirdir_t,zsnowfrac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
@@ -1009,6 +1010,8 @@ CONTAINS
             ! albvisdir, albnirdir only needed for RRTM
             prm_diag%albvisdir(jc,jb) = zalbvisdir_t(jc,1)
             prm_diag%albnirdir(jc,jb) = zalbnirdir_t(jc,1)
+
+            zsnowfrac(jc) = lnd_diag%snowfrac_t(jc,jb,1)
           ENDDO
 
         ELSE ! aggregate fields over tiles
@@ -1045,8 +1048,24 @@ CONTAINS
             ENDDO
           ENDDO
 
+          ! aggregated snow-cover fraction for LW emissivity
+          zsnowfrac(:) = 0._wp
+          DO jt = 1, ntiles_total
+            DO jc = i_startidx, i_endidx
+              IF (ext_data%atm%fr_land(jc,jb) > 0._wp) THEN
+              zsnowfrac(jc) = zsnowfrac(jc) + ext_data%atm%frac_t(jc,jb,jt) * &
+                              lnd_diag%snowfrac_t(jc,jb,jt)/ext_data%atm%fr_land(jc,jb)
+              ENDIF
+            ENDDO
+          ENDDO
+
         ENDIF  ! ntiles_total = 1
 
+        ! Account for snow effect on LW emissivity
+        DO jc = i_startidx, i_endidx
+          prm_diag%lw_emiss(jc,jb) = (1._wp-zsnowfrac(jc))*ext_data%atm%emis_rad(jc,jb) + &
+                                     MIN(0.999_wp,1._wp-1.e-3_wp*prm_diag%gz0(jc,jb))*zsnowfrac(jc)
+        ENDDO
 
       ELSE  ! surface model switched OFF
 

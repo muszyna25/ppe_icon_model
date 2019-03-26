@@ -131,7 +131,8 @@ CONTAINS
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
                             & pt_prog,                             & !inout
-                            & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
+                            & pt_prog_now_rcf,                     & !inout
+                            & pt_prog_rcf,                         & !inout                            
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend, lnd_diag,    & !inout
                             & lnd_prog_now, lnd_prog_new,          & !inout
@@ -185,7 +186,7 @@ CONTAINS
     INTEGER :: jg,jgc            !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
-    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
+    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c, lvalid_data  !< switches for latent heat nudging
     LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
                                                                 ! due to grid scale microphysics 
                                                                 ! and satad for latent heat nudging
@@ -421,7 +422,8 @@ CONTAINS
         ! "new" state. The corresponding update for the dynamics variables has 
         ! already happened in the dynamical core.
         !
-        CALL tracer_add_phytend( prm_nwp_tend = prm_nwp_tend,         & !in
+        CALL tracer_add_phytend( p_rho_now    = pt_prog%rho(:,:,jb),  & !in
+          &                      prm_nwp_tend = prm_nwp_tend,         & !in
           &                      pdtime       = dt_phy_jg(itfastphy), & !in
           &                      prm_diag     = prm_diag,             & !inout phyfields
           &                      pt_prog_rcf  = pt_prog_rcf,          & !inout tracer
@@ -526,15 +528,6 @@ CONTAINS
         CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
       ENDIF
 
-      IF (iprog_aero == 1 .AND. .NOT. linit) THEN
-        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,                                         &
-                              prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
-                              prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
-                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
-                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
-                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
-                              lnd_diag%h_snow_t(:,jb,:)                                                  )
-      ENDIF
 
     ENDDO ! nblks
 
@@ -709,7 +702,11 @@ CONTAINS
                                & radar_data(jg),                   & 
                                & prm_nwp_tend,                     &
                                & mtime_datetime,                   &
-                               & lcall_lhn, lcall_lhn_v            )
+                               & lcall_lhn, lcall_lhn_v,lvalid_data)
+
+        IF (msg_level >= 7 .AND. .NOT.lvalid_data) THEN
+          CALL message('mo_nh_interface_nwp:','LHN turned off due to lack of valid data')
+        ENDIF
       ELSE IF (msg_level >= 15) THEN
         WRITE (message_text,'(a,f10.2,i5)') 'LHN not running because of specified times!',p_sim_time,jg
         CALL message('mo_nh_interface_nwp:', message_text)
@@ -717,7 +714,7 @@ CONTAINS
 
 
       lcall_lhn_c = assimilation_config(jgc)%dass_lhn%isActive(mtime_datetime)
-      lapply_lhn  = lcall_lhn .OR. lcall_lhn_c
+      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. lvalid_data
 
       IF (lapply_lhn) THEN
 
@@ -858,6 +855,18 @@ CONTAINS
         ! rediagnose pressure
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
                         jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
+
+      IF (iprog_aero >= 1 .AND. .NOT. linit) THEN
+        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,iprog_aero,                              &
+                              prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
+                              prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
+                              prm_diag%rain_gsp_rate(:,jb),prm_diag%snow_gsp_rate(:,jb),                 &
+                              prm_diag%rain_con_rate(:,jb),prm_diag%snow_con_rate(:,jb),                 &
+                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
+                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
+                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
+                              lnd_diag%h_snow_t(:,jb,:)                                                  )
       ENDIF
 
     ENDDO
@@ -1019,7 +1028,7 @@ CONTAINS
 &              ktype  = prm_diag%ktype       (:,jb)       ,       & !! in:  convection type
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
 &              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
-&              qc_tend= prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc),& !! in:  convective qc tendency
+&              rhoc_tend= prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc),& !! in:  convective rho_c tendency
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
@@ -1150,7 +1159,7 @@ CONTAINS
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
-          & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
+          & pemiss=prm_diag%lw_emiss(:,jb)         ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
@@ -1218,7 +1227,7 @@ CONTAINS
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
-          & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
+          & pemiss=prm_diag%lw_emiss(:,jb)         ,&! in     lw sfc emissivity
           & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
           & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
@@ -1416,25 +1425,15 @@ CONTAINS
                                                     ((1._wp-wfac)*sqrt_ri(jc) + wfac)
           ENDDO
         ENDDO
-#ifdef __INTEL_COMPILER
+
         DO jk = 1, nlev
 !DIR$ IVDEP
-           DO jc = i_startidx, i_endidx
-        z_ddt_temp(jc,jk) =                                                      &
-   &                                       prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
+          DO jc = i_startidx, i_endidx
+            z_ddt_temp(jc,jk) = prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) + prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
+              &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) + prm_nwp_tend%ddt_temp_pconv(jc,jk,jb)
           ENDDO
         ENDDO
-#else
-!DIR$ IVDEP
-        z_ddt_temp(i_startidx:i_endidx,:) =                                                      &
-   &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
-#endif
+
 
         IF (kstart_moist(jg) > 1) THEN
           z_qsum(:,1:kstart_moist(jg)-1)      = 0._wp
@@ -1448,9 +1447,11 @@ CONTAINS
             z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
             ! tendency of virtual increment
-            z_ddt_alpha(jc,jk) = vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) &
-             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)          &
-             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+            ! tendencies of iqr,iqs are neglected (nonzero only for ldetrain_conv_prec=.TRUE.)
+            z_ddt_alpha(jc,jk) = ( vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc)            &
+             &                 - prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) )          &
+             &                 / pt_prog%rho(jc,jk,jb)
           ENDDO
         ENDDO
 
@@ -1465,6 +1466,7 @@ CONTAINS
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
               &                             - z_qsum(jc,jk))                                 &
               &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk))
+
           ENDDO
         ENDDO
 
@@ -1475,36 +1477,15 @@ CONTAINS
         ! in the current time step, but the radiation time step should be a multiple
         ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
         IF (l_any_slowphys) THEN
-#ifdef __INTEL_COMPILER
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              z_ddt_u_tot(jc,jk,jb) =                   &
-   &              prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
-   &            + zddt_u_raylfric            (jc,jk)    &
-   &            + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) &
-   &            + prm_nwp_tend%ddt_u_pconv   (jc,jk,jb)
-              z_ddt_v_tot(jc,jk,jb) =                   &
-   &              prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
-   &            + zddt_v_raylfric            (jc,jk)    &
-   &            + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) &
-   &            + prm_nwp_tend%ddt_v_pconv   (jc,jk,jb)
+              z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) + zddt_u_raylfric(jc,jk)  &
+                &     + prm_nwp_tend%ddt_u_sso(jc,jk,jb)  + prm_nwp_tend%ddt_u_pconv(jc,jk,jb)
+              z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_gwd(jc,jk,jb) + zddt_v_raylfric(jc,jk)  &
+                &     + prm_nwp_tend%ddt_v_sso(jc,jk,jb)  + prm_nwp_tend%ddt_v_pconv(jc,jk,jb)
+            ENDDO
           ENDDO
-        ENDDO
-#else
-!DIR$ IVDEP
-          z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
-   &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + zddt_u_raylfric            (i_startidx:i_endidx,:)    &
-   &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
-!DIR$ IVDEP
-          z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
-   &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
-   &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
-#endif
         ELSE IF (is_ls_forcing) THEN
           z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
@@ -1535,7 +1516,6 @@ CONTAINS
                 &                             - z_qsum(jc,jk))                                 &
                 &                             + pt_diag%temp(jc,jk,jb) * z_ddt_alpha(jc,jk) )
 
-
               ! add u/v forcing tendency here
               z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb) &
                 &                   + prm_nwp_tend%ddt_u_ls(jk)
@@ -1550,26 +1530,11 @@ CONTAINS
 
         ! combine convective and EDMF rain and snow
         IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-#ifdef __INTEL_COMPILER
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_diag%rain_con_rate          (jc,       jb) = &
-              &   prm_diag%rain_con_rate_3d (jc,nlevp1,jb)   &
-              & + prm_diag%rain_edmf_rate_3d(jc,nlevp1,jb)
-            prm_diag%snow_con_rate          (jc,       jb) = &
-              &   prm_diag%snow_con_rate_3d (jc,nlevp1,jb)   &
-              & + prm_diag%snow_edmf_rate_3d(jc,nlevp1,jb)
+            prm_diag%rain_con_rate(jc,jb) = prm_diag%rain_con_rate_3d (jc,nlevp1,jb) + prm_diag%rain_edmf_rate_3d(jc,nlevp1,jb)
+            prm_diag%snow_con_rate(jc,jb) = prm_diag%snow_con_rate_3d (jc,nlevp1,jb) + prm_diag%snow_edmf_rate_3d(jc,nlevp1,jb)
           ENDDO
-#else
-!DIR$ IVDEP
-          prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
-            & + prm_diag%rain_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
-!DIR$ IVDEP
-          prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
-            &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
-            & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
-#endif
         ELSE IF (lcall_phy_jg(itconv)) THEN
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1627,7 +1592,7 @@ CONTAINS
         ENDIF
 
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero == 1) THEN
+        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
                                      pt_diag%exner_pr, prm_diag%aerosol,                         &
                                      f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))

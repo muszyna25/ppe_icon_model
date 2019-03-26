@@ -108,10 +108,9 @@ MODULE mo_nh_stepping
   USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
-                                         prep_bdy_nudging,                              &
-                                         outer_boundary_nudging, nest_boundary_nudging, &
+                                         prep_bdy_nudging, nest_boundary_nudging,       &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         prep_outer_bdy_nudging, save_progvars
+                                         limarea_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
@@ -212,7 +211,7 @@ MODULE mo_nh_stepping
   USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
 
@@ -333,7 +332,7 @@ MODULE mo_nh_stepping
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
 
-      IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jg))
+      IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
     IF (.NOT.isRestart()) THEN
@@ -450,8 +449,7 @@ MODULE mo_nh_stepping
 
     !AD: Also output special diagnostics for LES on torus
     IF (atm_phy_nwp_config(1)%is_les_phy &
-      .AND. sampl_freq_step>0 &
-      .AND. is_ls_forcing)THEN
+      .AND. sampl_freq_step>0)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -693,13 +691,8 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-
-  CALL save_convenience_pointers( )
-
-!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
-
-  CALL refresh_convenience_pointers( )
-  i_am_accel_node = .false.    ! Dectivate GPUs
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -1118,7 +1111,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
+    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. .NOT.(jstep == 0 .AND. iau_iter == 1)) THEN
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
         &                  p_patch             = p_patch(1),         &
@@ -1161,9 +1154,8 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  CALL save_convenience_pointers( )
-!$ACC END DATA
-  CALL refresh_convenience_pointers( )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1233,6 +1225,7 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub                ! (advective) timestep for next finer grid level
     TYPE(timedelta), POINTER :: mtime_dt_sub
     REAL(wp):: rdt_loc,  rdtmflx_loc ! inverse time step for local grid level
+    REAL(wp) :: tsrat  ! ratio between physics and dynamics time step
 
     LOGICAL :: lnest_active, lcall_rrg, lbdy_nudging
 
@@ -1449,7 +1442,7 @@ MODULE mo_nh_stepping
           &         advection_config(jg)%lfull_comp,                      &! in
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
-          &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
+          &         prep_adv(jg)%mass_flx_ic,                             &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
         CALL compute_airmass(p_patch(jg),                   &
@@ -1468,7 +1461,7 @@ MODULE mo_nh_stepping
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
           &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-          &        prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
+          &        prep_adv(jg)%mass_flx_ic,                             & !in
           &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
           &        p_nh_state(jg)%diag%airmass_new,                      & !in
           &        p_nh_state(jg)%diag%airmass_now,                      & !in
@@ -1504,8 +1497,14 @@ MODULE mo_nh_stepping
         ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
         ENDIF
 
         IF (itype_comm == 1) THEN
@@ -1519,11 +1518,20 @@ MODULE mo_nh_stepping
 
             ! diffusion at physics time steps
             !
+#ifdef _OPENACC
+            i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
+
+#ifdef _OPENACC
+            i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
+
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
@@ -1565,7 +1573,7 @@ MODULE mo_nh_stepping
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
             &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-            &          prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
+            &          prep_adv(jg)%mass_flx_ic,                             & !in
             &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &          p_nh_state(jg)%diag%airmass_new,                      & !in
             &          p_nh_state(jg)%diag%airmass_now,                      & !in
@@ -1577,14 +1585,14 @@ MODULE mo_nh_stepping
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
-          IF (iprog_aero == 1) THEN
+          IF (iprog_aero >= 1) THEN
 
-            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), dt_loc, & !in
-            &          prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,           & !inout, in
-            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,   & !in
-            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                 & !in
-            &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%airmass_new                       ) !in
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
+            &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
+            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
+            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
+            &          p_nh_state(jg)%diag%airmass_now,                          & !in
+            &          p_nh_state(jg)%diag%airmass_new                           ) !in
 
           ENDIF
 
@@ -1658,6 +1666,7 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout              
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1688,7 +1697,7 @@ MODULE mo_nh_stepping
                 &                  ext_data(jg)           ,            & !in
                 &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
                 &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-                &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+                &                  p_nh_state(jg)%prog(n_new_rcf),     & !inout
                 &                  p_nh_state(jg)%diag ,               & !inout
                 &                  prm_diag  (jg),                     & !inout
                 &                  prm_nwp_tend(jg),                   &
@@ -1789,39 +1798,41 @@ MODULE mo_nh_stepping
       ! Update nudging tendency fields for limited-area mode
       IF (jg == 1 .AND. l_limited_area) THEN
 
+         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
+
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+
+            IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
+               p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
 
             IF (num_prefetch_proc >= 1) THEN
 
               ! Asynchronous LatBC read-in:
               ! update the coefficients for the linear interpolation
               CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
+              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
                 &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,                        &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
                 &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
                 &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
             ELSE
               
               ! update the coefficients for the linear interpolation
               CALL update_lin_interc(datetime_local(jg)%ptr)
-              CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &                         p_nh_state(jg)%prog(n_new_rcf),                &  
-                &                         p_nh_state(jg)%metrics,p_nh_state(jg)%diag,    &
-                &                         p_latbc_old=p_latbc_data(last_latbc_tlev)%atm, &
-                &                         p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
 
             ENDIF
 
          ELSE ! constant lateral boundary data
 
-            CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
+                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
 
          ENDIF
-
-         ! Apply nudging at the lateral boundaries
-         CALL outer_boundary_nudging (jg, nnew(jg), n_new_rcf, REAL(ndyn_substeps,wp))
 
       ENDIF
 
@@ -2025,7 +2036,7 @@ MODULE mo_nh_stepping
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
 
-              IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
+              IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &
@@ -2101,7 +2112,6 @@ MODULE mo_nh_stepping
                                                   ! (first substep)
     LOGICAL                  :: lsave_mflx
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
-    LOGICAL                  :: l_bdy_nudge
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
     TYPE(timeDelta), POINTER :: time_diff
     !-------------------------------------------------------------------------
@@ -2111,14 +2121,6 @@ MODULE mo_nh_stepping
 
     ! compute dynamics timestep
     dt_dyn = dt_phy/ndyn_substeps_var(jg)
-
-
-    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
-      ! apply boundary nudging if feedback is turned off and in limited-area mode
-      l_bdy_nudge = .TRUE.
-    ELSE
-      l_bdy_nudge = .FALSE.
-    ENDIF
 
     IF ( idiv_method == 1 .AND. (ltransport .OR. p_patch%n_childdom > 0 .AND. grf_intmethod_e >= 5)) THEN
       lprep_adv = .TRUE. ! do computations for preparing tracer advection in solve_nh
@@ -2191,7 +2193,7 @@ MODULE mo_nh_stepping
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
-        &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+        &           nstep, ndyn_substeps_tot-1, dt_dyn)
 #ifdef _OPENACC
       i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
@@ -2213,7 +2215,7 @@ MODULE mo_nh_stepping
           &                  advection_config(jg)%lfull_comp,           &! in
           &                  p_nh_state%diag,                           &! inout
           &                  prep_adv%vn_traj, prep_adv%mass_flx_me,    &! inout
-          &                  prep_adv%w_traj,  prep_adv%mass_flx_ic,    &! inout
+          &                  prep_adv%mass_flx_ic,                      &! inout
           &                  prep_adv%topflx_tra                        )! out
 
       ! Finally, switch between time levels now and new for next iteration
@@ -2302,6 +2304,7 @@ MODULE mo_nh_stepping
         &                  p_patch(jgp),                       & !in
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout         
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout
@@ -2762,13 +2765,12 @@ MODULE mo_nh_stepping
   ! deallocate auxiliary fields for tracer transport and rcf
   !
   DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
-      &         prep_adv(jg)%topflx_tra, STAT=ist                      )
+    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,     &
+      &         prep_adv(jg)%vn_traj, prep_adv(jg)%topflx_tra, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',            &
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, topflx_tra failed' )
+        &    'topflx_tra failed' )
     ENDIF
   ENDDO
 
@@ -2856,13 +2858,12 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
       &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',           &
       &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'w_traj, topflx_tra failed' )
+      &      'topflx_tra failed' )
     ENDIF
     !
     ! initialize (as long as restart output is synchroinzed with advection,
@@ -2871,7 +2872,6 @@ MODULE mo_nh_stepping
     CALL init(prep_adv(jg)%mass_flx_me)
     CALL init(prep_adv(jg)%mass_flx_ic)
     CALL init(prep_adv(jg)%vn_traj)
-    CALL init(prep_adv(jg)%w_traj)
     CALL init(prep_adv(jg)%topflx_tra)
 !$OMP END PARALLEL
 

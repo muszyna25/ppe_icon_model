@@ -29,6 +29,7 @@ MODULE mo_extpar_nml
                                   & config_n_iter_smooth_topo       => n_iter_smooth_topo,           &
                                   & config_hgtdiff_max_smooth_topo  => hgtdiff_max_smooth_topo,      &
                                   & config_l_emiss                  => l_emiss,                      &
+                                  & config_read_nc_via_cdi          => read_nc_via_cdi,              &
                                   & config_heightdiff_threshold     => heightdiff_threshold,         &
                                   & config_extpar_filename          => extpar_filename,              &
                                   & config_extpar_varnames_map_file => extpar_varnames_map_file,     &
@@ -50,6 +51,7 @@ MODULE mo_extpar_nml
   INTEGER  :: n_iter_smooth_topo(max_dom)
   REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
   LOGICAL  :: l_emiss ! if true: read external emissivity map
+  LOGICAL  :: read_nc_via_cdi ! read netcdf input via cdi library (alternative: parallel netcdf)
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
   INTEGER  :: itype_vegetation_cycle
@@ -62,7 +64,7 @@ MODULE mo_extpar_nml
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
                         heightdiff_threshold, extpar_filename,             &
                         extpar_varnames_map_file, hgtdiff_max_smooth_topo, &
-                        lrevert_sea_height, itype_vegetation_cycle
+                        lrevert_sea_height, itype_vegetation_cycle, read_nc_via_cdi
 
 CONTAINS
   !>
@@ -82,6 +84,7 @@ CONTAINS
     n_iter_smooth_topo(:)   = 0
     hgtdiff_max_smooth_topo(:) = 0._wp
     l_emiss                 = .TRUE.
+    read_nc_via_cdi         = .FALSE.
     heightdiff_threshold(:) = 3000._wp
     lrevert_sea_height      = .FALSE.
     itype_vegetation_cycle  = 1
@@ -134,6 +137,7 @@ CONTAINS
     config_n_iter_smooth_topo = n_iter_smooth_topo
     config_hgtdiff_max_smooth_topo = hgtdiff_max_smooth_topo
     config_l_emiss            = l_emiss
+    config_read_nc_via_cdi    = read_nc_via_cdi
     config_heightdiff_threshold = heightdiff_threshold
     config_lrevert_sea_height = lrevert_sea_height
     config_itype_vegetation_cycle = itype_vegetation_cycle

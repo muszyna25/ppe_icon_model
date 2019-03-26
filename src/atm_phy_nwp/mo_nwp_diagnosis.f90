@@ -175,6 +175,7 @@ CONTAINS
     !
     ! cloud/rain
     !-----------
+    ! - total precipitation amount
     ! - time averaged precipitation rates (total, grid-scale, convective)
     ! - time averaged total cloud cover
     ! - time averaged TQV, TQC, TQI, TQR, TQS
@@ -217,34 +218,22 @@ CONTAINS
           prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
             &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
 
+          ! total precipitation
+          prm_diag%tot_prec(jc,jb) = prm_diag%prec_gsp(jc,jb) + prm_diag%prec_con(jc,jb)
+
           ! time averaged total precipitation rate
           prm_diag%tot_prec_rate_avg(jc,jb) = prm_diag%tot_prec(jc,jb) &
             &                               * r_sim_time
 
           ! time averaged grid scale precipitation rate
-          prm_diag%gsp_prec_rate_avg(jc,jb) = (prm_diag%rain_gsp(jc,jb) &
-            &                               + prm_diag%snow_gsp(jc,jb)) &
+          prm_diag%prec_gsp_rate_avg(jc,jb) = prm_diag%prec_gsp(jc,jb) &
             &                               * r_sim_time
 
           ! time averaged convective precipitation rate
-          prm_diag%con_prec_rate_avg(jc,jb) = (prm_diag%rain_con(jc,jb) & 
-            &                               + prm_diag%snow_con(jc,jb)) &
+          prm_diag%prec_con_rate_avg(jc,jb) = prm_diag%prec_con(jc,jb) &
             &                               * r_sim_time
+
         ENDDO  ! jc
-
-        !Add more precip vars in case of two moment microphysics
-        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
-         
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            prm_diag%gsp_prec_rate_avg(jc,jb) = prm_diag%gsp_prec_rate_avg(jc,jb) + &
-              &                               ( prm_diag%ice_gsp(jc,jb)  +    &
-              &                                 prm_diag%hail_gsp(jc,jb) +    &
-              &                                 prm_diag%graupel_gsp(jc,jb) ) &
-              &                               * r_sim_time
-          END DO
-
-        END IF ! inwp_gscp==4
         
 
         IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN

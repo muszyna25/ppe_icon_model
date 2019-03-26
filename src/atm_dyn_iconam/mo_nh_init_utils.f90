@@ -425,7 +425,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev)
+  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev, opt_lmask)
 
 
     ! Input fields
@@ -440,31 +440,60 @@ CONTAINS
     INTEGER , INTENT(IN) :: nblks      ! Number of blocks
     INTEGER , INTENT(IN) :: npromz     ! Length of last block
     INTEGER , INTENT(IN) :: nlev       ! Number of model levels
-
+    
+    LOGICAL , INTENT(IN), OPTIONAL :: opt_lmask(:,:) ! logical mask of points to process
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, jc
     INTEGER :: nlen
 
+    IF(PRESENT(opt_lmask)) THEN
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
 
-    DO jb = 1, nblks
-      IF (jb /= nblks) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz
-      ENDIF
-
-      DO jk = 1, nlev
-        DO jc = 1, nlen
-          w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            IF (opt_lmask(jc,jb)) THEN
+              w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+            ELSE ! fill with dummy value
+              w(jc,jk,jb) = 0._wp
+            ENDIF
+          ENDDO
         ENDDO
-      ENDDO
 
-    ENDDO
+      ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ELSE ! not present opt_lmask
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1, nblks
+        IF (jb /= nblks) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz
+        ENDIF
+
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ENDIF ! PRESENT(opt_lmask)
 
   END SUBROUTINE convert_omega2w
 
@@ -901,6 +930,7 @@ CONTAINS
                 saveinit(jg)%w(nproma,nlevp1,nblks_c),     &
                 saveinit(jg)%tke(nproma,nlevp1,nblks_c),   &
                 saveinit(jg)%vn(nproma,nlev,nblks_e),      &
+                saveinit(jg)%gz0_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%t_g_t(nproma,nblks_c,ntw),    &
                 saveinit(jg)%qv_s_t(nproma,nblks_c,ntw),   &
                 saveinit(jg)%freshsnow_t(nproma,nblks_c,ntl), &
@@ -931,10 +961,11 @@ CONTAINS
         ALLOCATE (saveinit(jg)%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntl))
       ENDIF
 
-      IF (iprog_aero == 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
+      IF (iprog_aero >= 1)     ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
       IF (lprog_albsi)         ALLOCATE (saveinit(jg)%alb_si(nproma,nblks_c))
       IF (itype_trvg == 3)     ALLOCATE (saveinit(jg)%plantevap_t(nproma,nblks_c,ntl))
-      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%snow_age(nproma,nblks_c))
+      IF (itype_snowevap == 3) ALLOCATE (saveinit(jg)%hsnow_max(nproma,nblks_c),saveinit(jg)%h_snow(nproma,nblks_c),&
+                                         saveinit(jg)%snow_age(nproma,nblks_c))
 
 !$OMP PARALLEL
       CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
@@ -957,6 +988,7 @@ CONTAINS
       CALL copy(p_nh(jg)%prog(nnow(jg))%vn, saveinit(jg)%vn)
       CALL copy(p_nh(jg)%prog(nnow_rcf(jg))%tracer, saveinit(jg)%tracer)
 
+      CALL copy(prm_diag(jg)%gz0_t, saveinit(jg)%gz0_t)
       CALL copy(lnd_prog%t_g_t, saveinit(jg)%t_g_t)
       CALL copy(lnd_diag%qv_s_t, saveinit(jg)%qv_s_t)
       CALL copy(lnd_diag%freshsnow_t, saveinit(jg)%freshsnow_t)
@@ -988,11 +1020,12 @@ CONTAINS
         CALL copy(lnd_prog%rho_snow_mult_t, saveinit(jg)%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
+      IF (iprog_aero >= 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(wtr_prog%alb_si, saveinit(jg)%alb_si)
       IF (itype_trvg == 3)  CALL copy(lnd_diag%plantevap_t, saveinit(jg)%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(lnd_diag%hsnow_max, saveinit(jg)%hsnow_max)
+        CALL copy(lnd_diag%h_snow, saveinit(jg)%h_snow)
         CALL copy(lnd_diag%snow_age, saveinit(jg)%snow_age)
       ENDIF
 
@@ -1018,7 +1051,7 @@ CONTAINS
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, ic, je, jb
 
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1055,6 +1088,7 @@ CONTAINS
       CALL copy(saveinit(jg)%vn, p_nh(jg)%prog(nnow(jg))%vn)
       CALL copy(saveinit(jg)%tracer, p_nh(jg)%prog(nnow_rcf(jg))%tracer)
 
+      CALL copy(saveinit(jg)%gz0_t, prm_diag(jg)%gz0_t)
       CALL copy(saveinit(jg)%t_g_t, lnd_prog%t_g_t)
       CALL copy(saveinit(jg)%qv_s_t, lnd_diag%qv_s_t)
       CALL copy(saveinit(jg)%freshsnow_t, lnd_diag%freshsnow_t)
@@ -1086,11 +1120,12 @@ CONTAINS
         CALL copy(saveinit(jg)%rho_snow_mult_t, lnd_prog%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
+      IF (iprog_aero >= 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
       IF (lprog_albsi)      CALL copy(saveinit(jg)%alb_si, wtr_prog%alb_si)
       IF (itype_trvg == 3)  CALL copy(saveinit(jg)%plantevap_t, lnd_diag%plantevap_t)
       IF (itype_snowevap == 3) THEN
         CALL copy(saveinit(jg)%hsnow_max, lnd_diag%hsnow_max)
+        CALL copy(saveinit(jg)%h_snow, lnd_diag%h_snow)
         CALL copy(saveinit(jg)%snow_age, lnd_diag%snow_age)
       ENDIF
 
@@ -1119,10 +1154,11 @@ CONTAINS
                   saveinit(jg)%c_t_lk, saveinit(jg)%t_b1_lk, saveinit(jg)%h_b1_lk )
 
       DEALLOCATE (saveinit(jg)%theta_v, saveinit(jg)%rho,saveinit(jg)%exner, saveinit(jg)%w, saveinit(jg)%tke,      &
-                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,               &
-                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                       &
-                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,        &
-                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t)
+                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,                   &
+                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                         &
+                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,          &
+                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t, &
+                  saveinit(jg)%gz0_t)
 
       DEALLOCATE (saveinit(jg)%tracer, saveinit(jg)%w_so_t, saveinit(jg)%w_so_ice_t, saveinit(jg)%t_so_t)
 
@@ -1133,10 +1169,19 @@ CONTAINS
         DEALLOCATE (saveinit(jg)%rho_snow_mult_t)
       ENDIF
 
-      IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
+      IF (iprog_aero >= 1) DEALLOCATE (saveinit(jg)%aerosol)
       IF (lprog_albsi)     DEALLOCATE (saveinit(jg)%alb_si)
       IF (itype_trvg == 3) DEALLOCATE (saveinit(jg)%plantevap_t)
-      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%snow_age)
+      IF (itype_snowevap == 3) DEALLOCATE (saveinit(jg)%hsnow_max, saveinit(jg)%h_snow, saveinit(jg)%snow_age)
+
+      ! For the limited-area mode and one-way nesting, we also need to reset grf_tend_vn on the nudging points
+
+      DO ic = 1, p_nh(jg)%metrics%nudge_e_dim
+        je = p_nh(jg)%metrics%nudge_e_idx(ic)
+        jb = p_nh(jg)%metrics%nudge_e_blk(ic)
+        p_nh(jg)%diag%grf_tend_vn(je,:,jb) = 0._wp
+      ENDDO
+
     ENDDO
 
     DEALLOCATE(saveinit)

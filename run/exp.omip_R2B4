@@ -1,38 +1,59 @@
-#-----------------------------------------------------------------------------
-# the namelist filename
-oce_namelist=NAMELIST_${EXPNAME}
-ocean_namelist=$oce_namelist
-#-----------------------------------------------------------------------------
-# global timing
-start_date="2000-01-01T00:00:00Z"
-  end_date="2051-01-01T00:00:00Z"                  #  51 years to ensure write of restart at end
-#-----------------------------------------------------------------------------
-# model timing
-restart_interval="P10Y"
-checkpoint_interval="P1Y"
+#--------------------------------------------------------------------------------------------------
 #
-#-----------------------------------------------------------------------------
-oce_output_interval="P1M"                              # ocean model output interval in days
-oce_file_interval="P1Y"
-oceTimeStep="PT60M"
-autoPostProcessing="FALSE"                         # submit postprocessing job
-#-----------------------------------------------------------------------------
-iforc=12                                           # OMIP forcing
-forcing_timescale=365                              # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-init_relax=1
-nproma_oce=48
-mpi_oce_io_procs=0
-#-----------------------------------------------------------------------------
+# OMIP experiment
+#
+author_list="Helmuth Haak, Rene Redler, MPIM"
+#
+#--------------------------------------------------------------------------------------------------
+#
+# This file describes an OMIP experiment based on the hydrostatic ocean.
+# The experiment is intialized with Levitus climatology and uses transient
+# boundary conditions for:
+# - radiation
+# - wind stress
+# - 
+# - 
+# - 
+# - 
+#
+#--------------------------------------------------------------------------------------------------
+
+# (0) Basic model configuration
+# -----------------------------
+
 ocean_gridID="0014"
 ocean_refinement="R02B04"
+
+nproma_oce=48
+
+# initialiseOcean="fromRestart"
+initialiseOcean="fromClimatology"
+# initialiseOcean="FALSE"
+#--------------------------------------------------------------------------------------------------
 #
-# icon_data_poolFolder
+# (1) Define the model time stepping
+# ----------------------------------
+
+oceTimeStep="PT60M"              # ocean time step:   24 time steps per day
+
+#--------------------------------------------------------------------------------------------------
+
+# (2) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
+# (3) icon_data_poolFolder
 
 # Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
+# nproma                        = blocking length for array dimensioning and inner loop lengths
+#                                 -> deprecated. nproma_atm is used here.
 
 # overwrite the default setting with the new path and handle daint (CSCS)
 
@@ -45,12 +66,46 @@ fi
 
 icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+#--------------------------------------------------------------------------------------------------
 
-ocean_vertical_levels=40
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+# (4) Set variables needed by the scripting mechanism
+# ---------------------------------------------------
+
+# horizontal grid(s)
+# ----------------
+oce_grid_name=icon_grid_${ocean_gridID}_${ocean_refinement}_O
+
 ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
+ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+
+ocean_vertical_levels=40
+
+# start and end date+time
+# -----------------------
+start_date=${start_date:="1979-01-01T00:00:00Z"}
+end_date=${end_date:="2015-01-01T00:00:00Z"}
+
+# restart intervals
+# -----------------
+checkpoint_interval="P40Y"
+restart_interval="P40Y"
+
+# output intervals
+# ----------------
+oce_output_interval="P1M"
+oce_file_interval="P1Y"
+
+# namelist files
+# --------------
+oce_namelist=NAMELIST_${EXPNAME}_oce
+
+ocean_namelist=${oce_namelist}
+#--------------------------------------------------------------------------------------------------
+
+# (5) Define the model configuration
+#-----------------------------------
+
 #-----------------------------------------------------------------------------
 # Input files (initial conditions, OMIP forcing, HAMOCC forcing)
 ocean_init_file="ts_phc3.0_annual_icon_grid_${ocean_gridID}_${ocean_refinement}_O_L40.nc"
@@ -81,11 +136,24 @@ else
 lhamocc=".FALSE."
 lbgcadv=".FALSE."
 fi
+
+#--------------------------------------------------------------------------------------------------
+
+# (6) Output control
+# ------------------
+
+# asynchronous diagnostic output processes
+# ----------------------------------------
+
+mpi_oce_io_procs=0                 # for ocean not yet supported, hence zero
+
+# Note that "mpi_oce_io_procs" must match the number of output files
 #
 #-----------------------------------------------------------------------------
 #
-# write namelist parameters
-# -------------------------
+# ocean namelist
+# --------------
+
 cat > ${oce_namelist} << EOF
 !
 &parallel_nml
@@ -106,7 +174,7 @@ cat > ${oce_namelist} << EOF
  modelTimeStep               = "${oceTimeStep}"
  output                      = 'nml'                            ! namelist controlled output scheme
  activate_sync_timers        = .TRUE.
- profiling_output            = 2
+ profiling_output            = 1                                ! aggregated: 1; detailed: 2; in files: 3
  msg_timestamp               = .FALSE.
  timers_level                = 10
  debug_check_level           = 1
@@ -217,8 +285,8 @@ cat >> ${oce_namelist} << EOF
   S_max                                      = 1.0e-3           ! 1.0
   S_d                                        = 1.0e-4           ! 5e-3 to 5e-4
                                                                 !
-  k_tracer_GM_kappa_parameter                =1000.0            !
-  k_tracer_isoneutral_parameter              =1000.0            ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter                = 1000.0           !
+  k_tracer_isoneutral_parameter              = 1000.0           ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter              = 0.0              ! 1.0E-5  !
                                                                 !
   switch_off_diagonal_vert_expl              = .TRUE.
@@ -247,9 +315,10 @@ EOF
 
 cat >> ${oce_namelist} << EOF
 &ocean_forcing_nml
-  iforc_oce                                  = ${iforc}         ! OMIP ocean forcing
-  forcing_timescale                          = ${forcing_timescale}
-  init_oce_relax                             = ${init_relax}    ! read ocean surface relaxation file, see above
+  iforc_oce                                  = 12               ! OMIP ocean forcing
+  forcing_timescale                          = 365              ! length of OMIP/NCEP dataset:
+                                                                ! 1 = annual; 12 = monthly data; 365/else = daily
+  init_oce_relax                             = 1                ! read ocean surface relaxation file
   type_surfRelax_Temp                        = 0                ! 0: no relaxation used
                                                                 ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   para_surfRelax_Temp                        = 1.0              ! strength of 2-dim relaxation for temperature (months)
@@ -263,14 +332,44 @@ cat >> ${oce_namelist} << EOF
 ! forcing_set_runoff_to_zero                 = .FALSE.          ! set runoff to zero for comparison to MPIOM; default: FALSE
 ! zero_freshwater_flux                       = .FALSE.          ! set external freshwater flux to zero; default: FALSE 
                                                                 ! salt-change due to internal fluxes only
-! limit_seaice                               = .TRUE.           ! default: TRUE
-  seaice_limit                               = 0.6              ! hard limit set to 80% of upper layer for sea ice
-  limit_elevation                            = .TRUE.
+  limit_seaice                               = .TRUE.           ! default: TRUE
+  seaice_limit                               = 0.8              ! hard limit set to 80% of upper layer for sea ice
+  limit_elevation                            = .TRUE.           ! to be checked!
 /
+EOF
+#
+if [[ "$initialiseOcean" == "fromRestart" ]]; then
+  #
+  cat >> ${oce_namelist} << EOF
+&ocean_initialConditions_nml
+  initial_salinity_type                      = 0                ! 0: none, 1: read S from initial_state.nc
+  initial_temperature_type                   = 0                ! 0: none, 1: read T from initial_state.nc
+  initialize_fromRestart                     = .TRUE.
+/
+EOF
+#
+else
+#
+  if [[ "$initialiseOcean" == "fromClimatology" ]]; then
+    cat >> ${oce_namelist} << EOF
 &ocean_initialConditions_nml
   initial_salinity_type                      = 1                ! 0: none, 1: read S from initial_state.nc
   initial_temperature_type                   = 1                ! 0: none, 1: read T from initial_state.nc
+  initialize_fromRestart                     = .FALSE.
 /
+EOF
+  else
+    cat >> ${oce_namelist} << EOF
+&ocean_initialConditions_nml
+  initial_salinity_type                      = 0                ! 0: none, 1: read S from initial_state.nc
+  initial_temperature_type                   = 0                ! 0: none, 1: read T from initial_state.nc
+  initialize_fromRestart                     = .FALSE.
+/
+EOF
+  fi
+fi
+#
+cat >> ${oce_namelist} << EOF
 &ocean_diagnostics_nml
   diagnostics_level                          = 1
   diagnose_for_horizontalVelocity            = .FALSE.
@@ -286,21 +385,28 @@ EOF
 add_required_file ${basedir}/run/${oce_namelist} ./
 
 #-----------------------------------------------------------------------------
-# Grid
-add_link_file ${ocean_grid_folder}/${ocean_grid} ./
 #
-# Initial conditions
+# Ocean initialisation input
 #
-# For a restart run the ocean does not require initial
-# conditions. initial_salinity_type and initial_temperature_type
-# above can be set to zero and the following line can be
-# commented out
+if [[ "$initialiseOcean" == "fromRestart" ]]; then
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/...<restart>.nc restart_oce_DOM01.nc 
+fi
 #
-add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/${ocean_init_file}  initial_state.nc
+if [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
+fi
+# Ocean grid
+#
+add_required_file ${ocean_grid_folder}/${ocean_grid} ./
+#
+#-----------------------------------------------------------------------------
+
 # OMIP Forcing
 add_link_file ${ocean_data_InputFolder}/surface_boundary/r0001/${ocean_flux_file}   ocean-flux.nc
 add_link_file ${ocean_data_InputFolder}/surface_boundary/r0001/${ocean_relax_file}  ocean-relax.nc
 # HAMOCC Forcing
 # add_link_file ${ocean_data_InputFolder}/${ocean_dust_file}   dust.nc
 # add_link_file ${ocean_data_InputFolder}/${ocean_nitro_file}  nitrogen.nc
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+
+

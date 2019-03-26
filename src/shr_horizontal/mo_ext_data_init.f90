@@ -41,7 +41,7 @@ MODULE mo_ext_data_init
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -52,7 +52,7 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
-    &                              itype_vegetation_cycle
+    &                              itype_vegetation_cycle, read_nc_via_cdi
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_smooth_topo,        ONLY: smooth_topo_real_data
@@ -84,7 +84,6 @@ MODULE mo_ext_data_init
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
-  USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
@@ -117,7 +116,7 @@ MODULE mo_ext_data_init
   INTEGER, PARAMETER :: num_lcc = 23, n_param_lcc = 7
 
   LOGICAL, ALLOCATABLE :: is_frglac_in(:) !< checks whether the extpar file contains fr_glac
-  LOGICAL :: read_netcdf_data             !< control variable if extpar data are in GRIB2 for NetCDF format
+  LOGICAL :: read_netcdf_parallel         !< control variable if NetCDF extpar data are read via parallel NetCDF or cdilib
 
 
   PUBLIC :: init_ext_data
@@ -186,9 +185,11 @@ CONTAINS
       IF(extpar_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
       END IF
-      read_netcdf_data = .FALSE.
+      read_netcdf_parallel = .FALSE. ! GRIB2 can only be read using cdi library
+    ELSE IF (read_nc_via_cdi) THEN
+      read_netcdf_parallel = .FALSE.
     ELSE
-      read_netcdf_data = .TRUE.
+      read_netcdf_parallel = .TRUE.
     END IF
 
     !------------------------------------------------------------------
@@ -1019,7 +1020,7 @@ CONTAINS
 
         ! Start reading external parameter data
         ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
-        IF (read_netcdf_data) THEN
+        IF (read_netcdf_parallel) THEN
           extpar_file = generate_filename(extpar_filename, getModelBaseDir(), &
             &                             TRIM(p_patch(jg)%grid_filename),    &
             &                              nroot,                             &
@@ -1183,7 +1184,7 @@ CONTAINS
 
         END SELECT ! iforcing
 
-        IF (read_netcdf_data) THEN
+        IF (read_netcdf_parallel) THEN
           CALL closeFile(stream_id)
         ELSE
           CALL deleteInputParameters(parameters)
@@ -1390,19 +1391,19 @@ CONTAINS
        ENDIF
 
        IF (PRESENT(arr2d)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D(stream_id, on_cells, TRIM(varname), arr2d)
          ELSE
            CALL read_cdi_2d(parameters, TRIM(varname), arr2d)
          ENDIF
        ELSE IF (PRESENT(arr2di)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D_int(stream_id, on_cells, TRIM(varname), arr2di)
          ELSE
            CALL read_cdi_2d(parameters, TRIM(varname), arr2di)
          ENDIF
        ELSE IF (PRESENT(arr3d)) THEN
-         IF (read_netcdf_data) THEN
+         IF (read_netcdf_parallel) THEN
            CALL read_2D_extdim(stream_id, on_cells, TRIM(varname), arr3d)
          ELSE IF (dim3_is_time) THEN
            CALL read_cdi_2d(parameters, SIZE(arr3d,3), TRIM(varname), arr3d)
@@ -1430,10 +1431,11 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(num_lcc)
-    REAL(wp) :: tile_frac(num_lcc), sum_frac
+    REAL(wp) :: tile_frac(num_lcc), sum_frac, dtdz_clim, t2mclim_hc
     INTEGER  :: lu_subs, it_count(ntiles_total)
     INTEGER  :: npoints, npoints_sea, npoints_lake
     INTEGER  :: i_lc_water
+    INTEGER, ALLOCATABLE :: icount_falseglac(:)
 
     REAL(wp), POINTER  ::  &  !< pointer to proportion of actual value/maximum
       &  ptr_ndviratio(:,:)   !< NDVI (for starting time of model integration)
@@ -1453,6 +1455,8 @@ CONTAINS
     WRITE(message_text,'(a,i4)')  'Total number of tiles: ', ntiles_total
     CALL message('', TRIM(message_text))
 
+    ! climatological temperature gradient used for height correction of T2M climatology
+    dtdz_clim = -5.e-3_wp  ! -5 K/km
 
     DO jg = 1, n_dom
 
@@ -1474,6 +1478,8 @@ CONTAINS
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
 
+       ALLOCATE(icount_falseglac(p_patch(jg)%nblks_c))
+       icount_falseglac(:) = 0
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
        !
@@ -1485,7 +1491,7 @@ CONTAINS
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in,t2mclim_hc ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1618,14 +1624,9 @@ CONTAINS
                    ext_data(jg)%atm%ndvi_max(jc,jb) = 0.8_wp
                  ENDIF
                ENDIF
-!!$               IF (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp) THEN
-!!$                 ! fix for non-dominant land points: reset soil type to sandy loam ...
-!!$                 ext_data(jg)%atm%soiltyp(jc,jb) = 4
-!!$                 ! ... and reset ndviratio to 0.5
-!!$                 ptr_ndviratio(jc,jb) = 0.5_wp
-!!$               ENDIF
 
                sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
+
 
                DO i_lu = 1, ntiles_lnd
 
@@ -1656,6 +1657,32 @@ CONTAINS
                    END IF  ! sum_frac < 1.e-10_wp
                  ENDIF  ! is_frglac_in(jg)
 
+                 ! consistency corrections for glaciered points
+                 !
+                 ! a) plausibility check for glacier points based on T2M climatology (if available):
+                 !    if the warmest month exceeds 10 deg C, then it is unlikely for glaciers to exist
+                 !    This correction requires a monthly T2M climatology, which is available only 
+                 !    if itype_vegetation_cycle > 1
+                 IF (itype_vegetation_cycle > 1) THEN
+                   IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) THEN
+                     ! Calculate height-corrected annual maximum of T2M climatology, 
+                     ! including contribution from SSO standard deviation. 
+                     ! This is used below to reset misclassified glacier points 
+                     ! (e.g. salt lakes) to bare soil
+                     !
+                     t2mclim_hc = MAXVAL(ext_data(jg)%atm_td%t2m_m(jc,jb,:)) + dtdz_clim *             &
+                       ( ext_data(jg)%atm%topography_c(jc,jb) + 1.5_wp*ext_data(jg)%atm%sso_stdh(jc,jb) - &
+                         ext_data(jg)%atm%topo_t2mclim(jc,jb) )
+
+                     IF (t2mclim_hc > (tmelt + 10._wp)) THEN
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_bare_soil
+                       ext_data(jg)%atm%fr_glac(jc,jb)     = 0._wp
+                       ext_data(jg)%atm%fr_glac_smt(jc,jb) = 0._wp
+                       icount_falseglac(jb) = icount_falseglac(jb) + 1
+                     ENDIF
+                   ENDIF
+                 ENDIF
+
                  lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
                  IF (lu_subs < 0) CYCLE
 
@@ -1680,11 +1707,14 @@ CONTAINS
                  ! soil type
                  ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu)  = ext_data(jg)%atm%soiltyp(jc,jb)
 
-                 ! consistency corrections for partly glaciered points
-                 ! a) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
+
+                 ! consistency corrections for glaciered points (continued)
+                 !
+                 ! b) set soiltype to ice if landuse = ice (already done in extpar for dominant glacier points)
                  IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_snow_ice) &
                    & ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) = 1
-                 ! b) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
+                 !
+                 ! c) set soiltype to rock or sandy loam if landuse /= ice and soiltype = ice
                  IF (ext_data(jg)%atm%soiltyp_t(jc,jb,i_lu) == 1 .AND. &
                    & ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) /= ext_data(jg)%atm%i_lc_snow_ice) THEN
                    IF (ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) == ext_data(jg)%atm%i_lc_bare_soil) THEN
@@ -1914,6 +1944,11 @@ CONTAINS
          WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
          CALL message('', TRIM(message_text))
        ENDDO
+
+       npoints = SUM(icount_falseglac(i_startblk:i_endblk))
+       npoints = global_sum_array(npoints)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of corrected false glacier points in domain',jg,':', npoints
+       CALL message('', TRIM(message_text))
 !$OMP END SINGLE NOWAIT
 
 
@@ -1948,6 +1983,8 @@ CONTAINS
        ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      DEALLOCATE(icount_falseglac)
 
     END DO  !jg
 
@@ -2322,8 +2359,12 @@ CONTAINS
           IF (itype_vegetation_cycle == 3) THEN
             IF (lnd_diag%t2m_bias(jc,jb) < 0._wp) THEN
               ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)*(1._wp-0.25_wp*lnd_diag%t2m_bias(jc,jb))
+              ext_data%atm%eai_t(jc,jb,jt)     = MERGE(c_soil_urb,c_soil,ilu == ext_data%atm%i_lc_urban) / &
+                                                 (1._wp-0.25_wp*lnd_diag%t2m_bias(jc,jb))
             ELSE
               ext_data%atm%rsmin2d_t(jc,jb,jt) = ext_data%atm%stomresmin_lcc(ilu)/(1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb))
+              ext_data%atm%eai_t(jc,jb,jt)     = MIN(MERGE(c_soil_urb,c_soil,ilu == ext_data%atm%i_lc_urban) * &
+                                                 (1._wp+0.25_wp*lnd_diag%t2m_bias(jc,jb)), 2._wp)
             ENDIF
           ENDIF
 

@@ -1,9 +1,9 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
-#PBS -l select=20:ompthreads=4
+#PBS -l select=10:ompthreads=4
 #PBS -l place=scatter
-#PBS -l walltime=03:00:00
+#PBS -l walltime=01:00:00
 #PBS -j oe
 #PBS -o LOG.exp.run_ICON_13_R2B08-dkltest.run.run.o
 # ----------------------------------------------------------------------
@@ -180,7 +180,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev                      = 75,75 ! number of full levels of vertical grid
  lvert_nest                   = .false.
- nsteps                       = 100 ! 5400
+ nsteps                       = 200 ! 5400
  dtime                        = 90    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
@@ -510,6 +510,6 @@ EOF2
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 360 -N 18 -j 2 -d 4 -m 3g icon.exe
+ aprun  -n 180 -N 18 -j 2 -d 4 -m 3g icon.exe
 
 

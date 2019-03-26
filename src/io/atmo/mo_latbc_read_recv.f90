@@ -120,7 +120,7 @@ CONTAINS
 
     ! Check variable dimensions:
     IF (dimlen(1) /= SIZE(read_buf)) THEN
-       WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(read_buf), &
+       WRITE(message_text,'(a,2i4,a,i0)') "Horizontal cells: ", dimlen(1), SIZE(read_buf), &
          &                           "nlev: ", nlevs
        CALL message(routine, message_text)
        CALL finish(routine, "Incompatible dimensions!")

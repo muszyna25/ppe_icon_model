@@ -1,0 +1,663 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+#
+# CRAY@DWD
+#
+#PBS -q xc_norm_b
+#PBS -j oe
+#PBS -l select=22:ompthreads=4
+#PBS -l place=scatter
+#PBS -l walltime=00:30:00
+#PBS -m n
+#PBS -o LOG.exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run.run.o
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+#
+# Quasi-operational single EPS member run
+#
+# Global R2B6 main run with R2B7 EU nest.
+# Starting from DWD analysis (IAU)
+# For the nest, surface analysis is read from file, while atmospheric analysis 
+# is interpolated from parent grid.
+#
+# Checks:
+# 3 forecast runs are performed:
+# I  ) forecast run with iterative IAU
+# II ) forecast run without iterative IAU, which writes a restart file
+# III) restart run, starting from the previously written restart file
+# By comparing the output files, this test case checks the correctness of
+#
+# - iterative IAU
+# - restart
+#
+# 2018-10-11: adjustment to operational Namelist settings (icon-2.3.0-nwp2)
+
+module load
+
+set -x
+
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+# disable core dumps
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+#export ATP_ENABLED=1
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+export PATH=${PATH}:~routfor/routfox/bin
+
+#
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+
+# base directory for ICON sources and binary:
+ICONDIR=${PBS_O_WORKDIR}/../
+
+
+#
+#-----------------------------------------------------------------------------
+#
+# experiment identifier (replace III with your initials and EEEE by a four 
+# digit number for the current experiment and  TTTT  by some text).
+# EXP=IIIEEEETTTT (see as well above for the job names)
+#
+EXP="NWP"     # experiment identifier
+EDIR="exp14"  # working directory
+#
+# grid directory
+GRIDDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/
+
+# external parameter directory
+EXTPDIR=/e/rhome/routfox/routfox/icon/grids/public/edzw/
+
+# absolute path to directory with plenty of space:
+EXPDIR=$TMPDIR/${EDIR}/
+
+# root directory for input data
+DATAROOT=/lustre2/rwork0/routfor/test/icon/Checksuite_data/
+
+# absolute path to input directory
+INDIR=${DATAROOT}/InidataExp14
+
+# absolute path to model binary, including the executable
+MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+
+# dictionary for model initialization
+MAP_FILE=${ICONDIR}/run/ana_varnames_map_file.txt
+
+set +x
+
+# ----------------------------------------------------------------------
+# copy input data: grids, external parameters
+# ----------------------------------------------------------------------
+
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+cd $EXPDIR
+
+# Grids
+ln -sf $GRIDDIR/icon_grid_0023_R02B05_R.nc iconR2B05_DOM00.nc
+ln -sf $GRIDDIR/icon_grid_0023_R02B05_R-grfinfo.nc iconR2B05_DOM00-grfinfo.nc
+ln -sf $GRIDDIR/icon_grid_0024_R02B06_G.nc iconR2B06_DOM01.nc
+ln -sf $GRIDDIR/icon_grid_0024_R02B06_G-grfinfo.nc iconR2B06_DOM01-grfinfo.nc
+ln -sf $GRIDDIR/icon_grid_0028_R02B07_N02.nc iconR2B07_DOM02.nc
+ln -sf $GRIDDIR/icon_grid_0028_R02B07_N02-grfinfo.nc iconR2B07_DOM02-grfinfo.nc
+
+# EXTPAR
+ln -sf $EXTPDIR/icon_extpar_0024_R02B06_G_20180625_tiles.nc extpar_iconR2B06_DOM01.nc
+ln -sf $EXTPDIR/icon_extpar_0028_R02B07_N02_20180625_tiles.nc extpar_iconR2B07_DOM02.nc
+
+# files needed for radiation
+ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc rrtm_cldopt.nc
+ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
+
+
+
+# ----------------------------------------------------------------------
+# global namelist settings
+# ----------------------------------------------------------------------
+
+# the namelist filename
+atmo_namelist=NAMELIST_${EXP}
+
+integer cymdg
+
+cymdg=2018100100
+
+echo dates $cymdg
+
+# initial data
+ln -sf $INDIR/${cymdg}/m013/igaf${cymdg}     an_R02B06_DOM01.grb
+ln -sf $INDIR/${cymdg}/m013/igfff00013000    fg_R02B06_DOM01.grb
+ln -sf $INDIR/${cymdg}/m013/iefff00013000    fg_R02B07_DOM02.grb
+
+# the grid and extpar parameters
+atmo_dyn_grids="iconR2B06_DOM01.nc iconR2B07_DOM02.nc"
+atmo_rad_grids="iconR2B05_DOM00.nc"
+
+
+# global timing
+start_date="2018-10-01T00:00:00Z"
+stop_date="2018-10-01T13:30:00Z"
+
+
+# ============================================================================
+#                        LOOP: MODEL IS EXECUTED THREE TIMES
+# ============================================================================
+
+# EXP names
+EXP1="reference"
+EXP2="iterative_IAU"
+EXP3="restart"
+
+for iter in 1 2 3 ; do
+
+
+
+if [ $iter -eq 1 ] ; then
+
+echo "##############################################################"
+echo "###            Reference run with iterative IAU            ###"
+echo "##############################################################"
+
+
+# reference run with iterative IAU
+lrestart=".FALSE."
+num_restart_procs="0"
+iterate_iau=".TRUE."
+restart_interval="P1D"
+checkpoint_interval="P1D"
+
+elif [ $iter -eq 2 ] ; then
+
+echo "#############################################################"
+echo "###     Run without iterative IAU, write restart file     ###"
+echo "#############################################################"
+
+
+# run without iterative IAU, which writes restart file after 6H
+lrestart=".FALSE."
+num_restart_procs="2"
+iterate_iau=".FALSE."
+restart_interval="P1D"
+checkpoint_interval="PT7H"
+
+else
+
+echo "#############################################################"
+echo "###                      Restart run                      ###"
+echo "#############################################################"
+
+
+# restart run
+lrestart=".TRUE."
+num_restart_procs="2"
+iterate_iau=".FALSE."
+restart_interval="P1D"
+checkpoint_interval="P1D"
+
+fi
+
+
+
+
+
+
+
+# ----------------------------------------------------------------------
+# create ICON master namelist
+# ----------------------------------------------------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart                     = $lrestart
+/
+&master_time_control_nml
+ experimentStartDate          = "$start_date"
+ experimentStopDate           = "$stop_date"
+ restartTimeIntval            = "$restart_interval"
+ checkpointTimeIntval         = "$checkpoint_interval"
+/
+&master_model_nml
+  model_type                  = 1
+  model_name                  = "ATMO"
+  model_namelist_filename     = "$atmo_namelist"
+  model_min_rank              = 1
+  model_max_rank              = 65536
+  model_inc_rank              = 1
+/
+EOF
+
+#-----------------------------------------------------------------------------
+#
+
+#-----------------------------------------------------------------------------
+#
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma				= 8
+ p_test_run			= .FALSE.
+ l_test_openmp			= .FALSE.
+ l_log_checks			= .FALSE.
+ num_restart_procs              = $num_restart_procs
+ num_io_procs			= 2
+ itype_comm			= 1
+ iorder_sendrecv		= 3
+/
+&grid_nml
+ dynamics_grid_filename		= ${dynamics_grid_filename}
+ radiation_grid_filename	= ${radiation_grid_filename}
+ dynamics_parent_grid_id	= 0,1
+ lredgrid_phys			= .TRUE.,.TRUE.
+ lfeedback			= .TRUE.
+ ifeedback_type			= 2
+ start_time			= 0., -5400.    ! ** Achtung: muss "0.,-5400." heissen, wenn Input am genesteten Gebiet gelesen werden soll **
+ end_time			= 0., 432000.   ! ** bewirkt, dass das Nest nur bis vv=120h laueft **
+/
+&synsat_nml
+ lsynsat			= .FALSE.,.FALSE.
+/
+&initicon_nml
+ init_mode			= 5           ! operation mode
+ lread_ana			= .TRUE.
+ dt_iau				= 10800
+ dt_shift			= -5400
+ iterate_iau                    = $iterate_iau
+ lconsistency_checks            = .TRUE.
+ zpbl1				= 500.
+ zpbl2				= 1000.
+ dwdfg_filename			= "<path>fg_R<nroot0>B<jlev>_DOM<idom>.grb"
+ dwdana_filename		= "<path>an_R<nroot0>B<jlev>_DOM<idom>.grb"
+ ana_varnames_map_file		= "${MAP_FILE}"
+ ltile_coldstart		= .FALSE.
+ lp2cintp_incr			= .true.
+ lp2cintp_sfcana		= .true.
+ use_lakeiceana                 = .true.
+/
+&io_nml
+ itype_pres_msl                 = 5              ! New extrapolation method to circumvent Ninjo problem with surface inversions
+ itype_rh                       = 1              ! RH w.r.t. water
+ dt_diag                        = 3600.          ! interval for totint
+/
+&run_nml
+ num_lev			= 90,60
+ lvert_nest			= .TRUE.
+ modelTimeStep                  = "PT6M"
+ ldynamics			= .TRUE.      ! dynamics
+ ltransport			= .TRUE.
+ iforcing			= 3           ! NWP forcing
+ lart                           = .FALSE.     ! ICON-ART main switch
+ ltestcase			= .FALSE.     ! false: run with real data
+ msg_level			= 12          ! default: 5, much more: 20
+ ltimer				= .TRUE.
+ timers_level			= 10
+ activate_sync_timers		= .FALSE.
+ output				= "nml","totint"
+/
+&nwp_phy_nml
+ inwp_gscp			= 1   ! 1: default, or 10
+ inwp_convection		= 1
+ inwp_radiation			= 1
+ inwp_cldcover			= 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
+ inwp_turb			= 1
+ inwp_satad			= 1
+ inwp_sso			= 1
+ inwp_gwd			= 1
+ inwp_surface			= 1
+ icapdcycl			= 3 ! apply CAPE modification to improve diurnalcycle over tropical land (optimizes NWP scores)
+ latm_above_top			= .FALSE.,.TRUE.
+ efdt_min_raylfric		= 7200.
+ itype_z0			= 2   ! 1: default, 2: turn off SSO part of z0
+ icpl_aero_conv			= 1
+ icpl_aero_gscp			= 1
+ lrtm_filename                  = 'rrtmg_lw.nc'
+ cldopt_filename                = 'rrtm_cldopt.nc'
+ dt_rad				= 2160.
+ dt_conv			= 720.,360.
+ dt_sso				= 1440.,720.
+ dt_gwd				= 1440.
+ ldetrain_conv_prec             = .false.,.false.        ! to activate detrainment of rain and snow (only R3B8)
+ mu_rain                        = 0.5
+ rain_n0_factor                 = 0.1
+/
+&turbdiff_nml
+ tkhmin				= 0.75
+ tkmmin				= 0.75
+ tkmmin_strat                   = 1.5
+ pat_len			= 750.
+ c_diff				= 0.2
+ rat_sea			= 7.0
+ ltkesso			= .true.
+ frcsmot			= 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot			= 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
+ itype_sher			= 3
+ ltkeshs			= .TRUE.
+ a_hshr				= 2.0
+ alpha0				= 0.0123
+ alpha0_max			= 0.0335
+ icldm_turb                     = 1
+/
+&lnd_nml
+ ntiles				= 3
+ nlev_snow			= 3
+ lmulti_snow			= .false.
+ itype_heatcond			= 3
+ idiag_snowfrac			= 20
+ lsnowtile			= .true.  !! later on .true. if GRIB encoding issues are solved
+ lseaice			= .true.
+ llake				= .true.
+ lprog_albsi                    = .true.
+ itype_lndtbl			= 4  ! minimizes moist/cold bias in lower tropical troposphere
+ itype_root			= 2
+ itype_evsl                     = 4
+ itype_trvg                     = 3
+ cwimax_ml                      = 5.e-4
+ c_soil                         = 1.25
+ c_soil_urb                     = 0.5
+ sstice_mode                    = 2  ! 1: constant SST; 2: with climatological SST increments
+ itype_snowevap                 = 3
+/
+&radiation_nml
+ irad_o3			= 79
+ irad_aero			= 6
+ albedo_type			= 2           ! 1: default, 2: MODIS
+ vmr_co2			= 390.e-06 ! values representative for 2012
+ vmr_ch4			= 1800.e-09
+ vmr_n2o			= 322.0e-09
+ vmr_o2				= 0.20946
+ vmr_cfc11			= 240.e-12
+ vmr_cfc12			= 532.e-12
+/
+&nonhydrostatic_nml
+ iadv_rhotheta			= 2
+ ivctype			= 2
+ itime_scheme			= 4
+ exner_expol			= 0.333
+ vwind_offctr			= 0.2
+ damp_height			= 44000.
+ rayleigh_coeff			= 0.5
+ lhdiff_rcf			= .TRUE.
+ divdamp_order			= 24
+ divdamp_type			= 32 
+ divdamp_fac			= 0.004
+ divdamp_trans_start            = 12500
+ divdamp_trans_end              = 17500
+ l_open_ubc			= .FALSE.
+ igradp_method			= 3
+ l_zdiffu_t			= .true.
+ thslp_zdiffu			= 0.02
+ thhgtd_zdiffu			= 125.
+ htop_moist_proc		= 22500.
+ hbot_qvsubstep			= 16000.
+/
+&sleve_nml
+ min_lay_thckn			= 20.
+ max_lay_thckn			= 400.   ! maximum layer thickness below htop_thcknlimit
+ htop_thcknlimit		= 14000. ! this implies that the upcoming COSMO-EU nest will have 60 levels
+ top_height			= 75000.
+ stretch_fac			= 0.9
+ decay_scale_1			= 4000.
+ decay_scale_2			= 2500.
+ decay_exp			= 1.2
+ flat_height			= 16000.
+/
+&dynamics_nml
+ iequations			= 3
+ idiv_method			= 1
+ divavg_cntrwgt			= 0.50
+ lcoriolis			= .TRUE.
+/
+&transport_nml
+ ivadv_tracer			= 3,3,3,3,3
+ itype_hlimit			= 3,4,4,4,4
+ ihadv_tracer			= 52,2,2,2,2
+/
+&diffusion_nml
+ hdiff_order                    = 5
+ itype_vn_diffu                 = 1
+ itype_t_diffu                  = 2
+ hdiff_efdt_ratio               = 24.0
+ hdiff_smag_fac                 = 0.025
+ lhdiff_vn                      = .TRUE.
+ lhdiff_temp                    = .TRUE.
+/
+&interpol_nml
+ nudge_zone_width               = 8
+ lsq_high_ord                   = 3
+ l_intp_c2l                     = .TRUE.
+ l_mono_c2l                     = .TRUE.
+ support_baryctr_intp           = .TRUE.
+/
+&gridref_nml
+ grf_intmethod_e        	= 6
+ grf_intmethod_ct        	= 2
+ grf_tracfbk       		= 2
+ denom_diffu_v		        = 150.
+/
+&extpar_nml
+ itopo                          = 1
+ itype_vegetation_cycle         = 2
+ n_iter_smooth_topo             = 1,1
+ heightdiff_threshold           = 3000.
+ hgtdiff_max_smooth_topo        = 750.,750.
+ extpar_filename                = "<path>extpar_<gridfile>"         ! filename of external parameter input file
+/
+&nwp_tuning_nml
+ itune_albedo                   = 1
+ tune_gkdrag                    = 0.075
+ tune_gkwake                    = 1.5
+ tune_gfrcrit                   = 0.425
+ tune_dust_abs                  = 1.
+ tune_zvz0i                     = 1.1
+ tune_box_liq_asy               = 3.0
+/
+&ensemble_pert_nml
+ use_ensemble_pert              = .FALSE.
+/
+&gribout_nml
+ preset                          ='ensemble'
+ ldate_grib_act                  = .true.
+ lgribout_24bit                  = .false.
+ backgroundProcess               = 0
+ localNumberOfExperiment         = 1
+ productionStatusOfProcessedData = 0
+ localTypeOfEnsembleForecast     = 101    ! -1, etyp
+ numberOfForecastsInEnsemble     = 40     ! -1, nr_member
+ perturbationNumber              = 13     ! -1, member
+ generatingProcessIdentifier     = 1,2    ! 2 .. nest
+ tablesVersion                   = 19
+/
+
+
+! OUTPUT: ICON native grid, isentropic levels, all domains: FG (tiled) to be re-read by ICON
+&output_nml
+ filetype                     =  4                         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                         ! write all domains
+ mode                         =  1                         ! 1: forecast
+ output_time_unit             =  1                         ! 1: seconds
+ output_bounds                =  48600., 360000., 48600.   ! start, end, increment
+ steps_per_file               =  10
+ include_last                 = .TRUE.
+ output_filename              = "${EXP}${iter}_winds"           ! file name base
+ ml_varlist                   = 'vn','w','t_g','w_so','t_so'
+ output_grid                  = .TRUE.
+/
+&meteogram_output_nml
+ lmeteogram_enabled= .FALSE.,.FALSE.  !.TRUE.
+ n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = ${ninc_mtgrm},${ninc_mtgrm}  ! meteogram output interval
+ ldistributed      = .false.,.false.
+ stationlist_tot   =  52.17,  14.12, 'Lindenberg',                        
+                      51.97,   4.93, 'Cabauw',
+                     -10.08, -61.93, 'LBA_Rondonia',
+                      13.50,   2.5 , 'Niamey',
+                      36.61, -97.49, 'ARM_Southern_Great_Plains',
+                     -71.32, 156.62, 'ARM_North_Slope_of_Alaska_Barrow',
+                      -2.06, 147.43, 'ARM_Tropical_W_Pacific_Manus',
+                     -12.43, 130.89, 'ARM_Tropical_W_Pacific_Darwin',
+                      60.00,  80.00, 'Snow Test Russia',
+/
+EOF
+
+
+cp -p $MODEL ./icon.exe
+
+# -n 160  : Number of MPI Tasks
+# -N 10   : Number of MPI Tasks/Node
+# -d  4   : Number of threads Threads/MPI Task
+# -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
+# -m 3g   : 3G memory
+aprun  -n 396 -N 18 -j 2 -d 4 -m 3g icon.exe
+
+
+
+# ----------------------------------------------------------------------------
+done # model run iterations
+# ----------------------------------------------------------------------------
+
+# now start with the tests
+
+# absolute path to cdo
+CDODIR="/e/uhome/dreinert/bin"
+
+
+EXIT_STATUS=0
+DIFF_STATUS_IAU=0
+DIFF_STATUS_RESTART=0
+
+# EXP1 output filenames
+FILE1_DOM01="NWP1_winds_DOM01_ML_0001.nc"
+FILE1_DOM02="NWP1_winds_DOM02_ML_0001.nc"
+# EXP2 output filenames
+FILE2_DOM01="NWP2_winds_DOM01_ML_0001.nc"
+FILE2_DOM02="NWP2_winds_DOM02_ML_0001.nc"
+# EXP3 output filenames
+FILE3_DOM01="NWP3_winds_DOM01_ML_0001.nc"
+FILE3_DOM02="NWP3_winds_DOM02_ML_0001.nc"
+
+DIFF_FILE_DOM01="NWP_winds_diff_DOM01.out"
+DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
+
+
+ echo "=================================================================="
+ echo "Check iterative IAU"
+ echo "=> Compare experiments: $EXP1 $EXP2"
+
+ ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
+ ${CDODIR}/cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} > ${DIFF_FILE_DOM02}
+
+ if [ -s ${DIFF_FILE_DOM01} ]; then
+   echo " DOM01: file 1 and file 2 differ"
+   echo " - file 1: ${FILE1_DOM01}"
+   echo " - file 2: ${FILE2_DOM01}"
+   cat ${DIFF_FILE_DOM01}
+   rm  ${DIFF_FILE_DOM01}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_IAU=1
+ else
+   echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
+ fi
+ if [ -s ${DIFF_FILE_DOM02} ]; then
+   echo " DOM02: file 1 and file 2 differ"
+   echo " - file 1: ${FILE1_DOM02}"
+   echo " - file 2: ${FILE2_DOM02}"
+   cat ${DIFF_FILE_DOM02}
+   rm  ${DIFF_FILE_DOM02}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_IAU=1
+ else
+   echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
+ fi
+
+
+ echo "=================================================================="
+ echo "Check restart"
+ echo "=> Compare experiments:" $EXP2 $EXP3
+
+ ${CDODIR}/cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} > ${DIFF_FILE_DOM01}
+ ${CDODIR}/cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} > ${DIFF_FILE_DOM02}
+
+ if [ -s ${DIFF_FILE_DOM01} ]; then
+   echo " DOM01: file 2 and file 3 differ"
+   echo " - file 1: ${FILE2_DOM01}"
+   echo " - file 2: ${FILE3_DOM01}"
+   cat ${DIFF_FILE_DOM01}
+   rm  ${DIFF_FILE_DOM01}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_RESTART=1
+ else
+   echo "DOM01: EXP $EXP2 and EXP $EXP3 are identical"
+ fi
+ if [ -s ${DIFF_FILE_DOM02} ]; then
+   echo " DOM02: file 2 and file 3 differ"
+   echo " - file 1: ${FILE2_DOM02}"
+   echo " - file 2: ${FILE3_DOM02}"
+   cat ${DIFF_FILE_DOM02}
+   rm  ${DIFF_FILE_DOM02}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_RESTART=1
+ else
+   echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
+ fi
+
+#
+#-----------------------------------------------------------------------------
+#
+ if [ $DIFF_STATUS_IAU == 0 ]; then
+   echo " "
+   echo "IAU test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "IAU test FAILED:"
+   echo " "
+ fi
+ if [ $DIFF_STATUS_RESTART == 0 ]; then
+   echo " "
+   echo "Restart test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "Restart test FAILED:"
+   echo " "
+ fi
+
+echo 'EXIT_STATUS: '$EXIT_STATUS
+exit $EXIT_STATUS
+#
+#-----------------------------------------------------------------------------

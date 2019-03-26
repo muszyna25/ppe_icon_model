@@ -116,6 +116,7 @@ MODULE mo_nh_torus_exp
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+    ptr_nh_prog%tke(:,:,:)      = 0._wp
 
     DO jb = 1, nblks_c
 

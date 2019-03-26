@@ -10254,11 +10254,12 @@ CONTAINS
      INTEGER :: newtype
      INTEGER, INTENT(IN) :: oldtypes(2), blockcounts(2)
 #if !defined(NOMPI)
-     INTEGER :: ierr, offsets(2), extent
+     INTEGER :: ierr
+     INTEGER(MPI_ADDRESS_KIND) :: typeLB, extent, offsets(2)
      ! define structured type and commit it
-     CALL MPI_TYPE_EXTENT(oldtypes(1), extent, ierr)
-     offsets(:) = (/ 0, extent /)
-     CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr)
+     CALL MPI_TYPE_GET_EXTENT(oldtypes(1), typeLB, extent, ierr)
+     offsets(:) = (/ 0_MPI_ADDRESS_KIND, extent /)
+     CALL MPI_TYPE_CREATE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr)
      CALL MPI_TYPE_COMMIT(newtype, ierr)
 #else
      newtype = 0

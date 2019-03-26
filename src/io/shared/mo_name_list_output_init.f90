@@ -31,7 +31,8 @@ MODULE mo_name_list_output_init
                                                 & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,  &
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,      &
                                                 & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,  &
-                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey
+                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey, &
+                                                & gridDefProj, GRID_PROJECTION
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -475,11 +476,12 @@ CONTAINS
         ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
         SELECT CASE(output_time_unit)
         CASE(1); output_bounds(:) = output_bounds(:)
-        CASE(2); output_bounds(:) = output_bounds(:)*60._wp
-        CASE(3); output_bounds(:) = output_bounds(:)*3600._wp
-        CASE(4); output_bounds(:) = output_bounds(:)*86400._wp
-        CASE(5); output_bounds(:) = output_bounds(:)*86400._wp*30._wp  ! Not a real calender month
-        CASE(6); output_bounds(:) = output_bounds(:)*86400._wp*365._wp ! Not a real calender year
+        ! Note: output_bounds == -1 is used later on to check for valid entries
+        CASE(2); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*60._wp
+        CASE(3); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*3600._wp
+        CASE(4); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp
+        CASE(5); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); WHERE(output_bounds(:) >= 0._wp) output_bounds(:) = output_bounds(:)*86400._wp*365._wp ! Not a real calender year
         CASE DEFAULT
           CALL finish(routine,'Illegal output_time_unit')
         END SELECT
@@ -557,9 +559,9 @@ CONTAINS
       !
       DOM_LOOP2 : DO idom = 1, max_dom
         IF ((dom(idom) < 0) .AND. (dom(1) >= 0)) EXIT DOM_LOOP2
-        
+
         ! -- Allocate next output_name_list
-        
+
         IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
           ! Allocate first name_list
           ALLOCATE(first_output_name_list)
@@ -1221,7 +1223,7 @@ CONTAINS
             &                                      TRIM(p_onl%output_end(idx)),   " / ", &
             &                                      TRIM(p_onl%output_interval(idx))
         END IF
-        
+
         CALL deallocateTimedelta(mtime_td1)
         CALL deallocateTimedelta(mtime_td2)
         CALL deallocateTimedelta(mtime_td3)
@@ -1233,34 +1235,32 @@ CONTAINS
 
       ! there may be multiple "output_bounds" intervals, consider all:
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
+
         IF (p_onl%output_start(idx) /= '') THEN
-          ! compare start date and end date: if these are equal, then
-          ! the interval does not matter and must not be checked.
-          !
+
           mtime_datetime_start => newDatetime(TRIM(strip_from_modifiers(p_onl%output_start(idx))))
           mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
 
-          IF (mtime_datetime_end > mtime_datetime_start) THEN
-            mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
-            IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)),errno=errno)
+          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
 
-            mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
-            CALL timedeltaToString(mtime_td, lower_bound_str)
-            mtime_day => newTimedelta("P1D")
-            IF (mtime_td > mtime_day)  THEN
-              CALL finish(routine, "Internal error: dtime > 1 day!")
-            END IF
-            IF (mtime_output_interval < mtime_td) THEN
-              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
-            END IF
-            CALL deallocateTimedelta(mtime_output_interval)
-            CALL deallocateTimeDelta(mtime_td)
-            CALL deallocateTimeDelta(mtime_day)
-
+          mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
+          CALL timedeltaToString(mtime_td, lower_bound_str)
+          mtime_day => newTimedelta("P1D")
+          IF (mtime_td > mtime_day)  THEN
+            CALL finish(routine, "Internal error: dtime > 1 day!")
           END IF
+          IF (mtime_output_interval < mtime_td) THEN
+            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
+          END IF
+          CALL deallocateTimedelta(mtime_output_interval)
+          CALL deallocateTimeDelta(mtime_td)
+          CALL deallocateTimeDelta(mtime_day)
+
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
         END IF
+
       END DO INTVL_LOOP
 
       p_onl => p_onl%next
@@ -1283,7 +1283,7 @@ CONTAINS
       END IF
 
       p_onl => p_onl%next
-      
+
     ENDDO
     WRITE(message_text,'(a,i4)') 'Number of name list output files: ',nfiles
     CALL message(routine,message_text)
@@ -2472,6 +2472,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
     CHARACTER(len=128)                :: comment
+    LOGICAL                           :: lrotated
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist)                  :: null_idxlist
     INTEGER                           :: grid_deco_part(2)
@@ -2543,12 +2544,20 @@ CONTAINS
       ll_dim1 = lonlat%grid%lon_dim
       ll_dim2 = lonlat%grid%lat_dim
 
-      of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim1*ll_dim2)
+      lrotated = ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
+      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL )
 
-      IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
-      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
+      IF (.NOT. lrotated) THEN
+        gridtype = GRID_LONLAT
+      ELSE
+        gridtype = GRID_PROJECTION
+      END IF
+
+      of%cdiLonLatGridID = gridCreate(gridtype, ll_dim1*ll_dim2)
+
+      IF (lrotated) THEN
         CALL gridDefParamRLL(of%cdiLonLatGridID, lonlat%grid%north_pole(1), &
-          &                  lonlat%grid%north_pole(2), 0.0_dp)
+          &                  lonlat%grid%north_pole(2), lonlat%grid%north_pole(1))
       END IF
 
       CALL gridDefXsize(of%cdiLonLatGridID, ll_dim1)
@@ -2879,9 +2888,13 @@ CONTAINS
       END IF
       zaxisID = zaxis%cdi_id
 
-      ! Currently only real valued variables are allowed, so we can always use info%missval%rval
+      IF (info%lmask_boundary .AND. config_lmask_boundary .AND. &
+        &      (info%hgrid == GRID_UNSTRUCTURED_CELL)) THEN
+        missval = BOUNDARY_MISSVAL
+      END IF
       IF (info%lmiss) THEN
-        ! set the missing value
+        ! Set the missing value. Currently only real valued variables
+        ! are allowed, so we can always use info%missval%rval
         IF ((.NOT.use_async_name_list_io .OR. is_mpi_test) .OR. use_dp_mpi2io) THEN
           missval = info%missval%rval
         ELSE
@@ -2892,8 +2905,6 @@ CONTAINS
           ! the masked data in the buffer might be different values.
           missval = REAL(REAL(info%missval%rval,sp),dp)
         END IF
-      ELSE IF (info%lmask_boundary .AND. config_lmask_boundary) THEN
-        missval = BOUNDARY_MISSVAL
       END IF
 
       this_i_lctype = 0
@@ -3312,19 +3323,18 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
     TYPE(c_ptr)                     :: c_mem_ptr
     INTEGER                         :: mpierr
-    INTEGER                         :: nbytes_real
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, typeLB, nbytes_real
 
     ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
     IF (use_dp_mpi2io) THEN
-      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_dp, typeLB, nbytes_real, mpierr)
     ELSE
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+      CALL MPI_TYPE_GET_EXTENT(p_real_sp, typeLB, nbytes_real, mpierr)
     ENDIF
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+    mem_bytes = MAX(mem_size,1_i8) * nbytes_real
 
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpierr)
 
@@ -3339,7 +3349,7 @@ CONTAINS
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
       ! Create memory window for communication
       of%mem_win%mem_ptr_dp(:) = 0._dp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
       IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 
@@ -3348,7 +3358,7 @@ CONTAINS
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
       ! Create memory window for communication
       of%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes, INT(nbytes_real), MPI_INFO_NULL,&
         &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
       IF (mpierr /= 0) CALL finish(routine, "MPI error!")
 

@@ -1054,7 +1054,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:)
     ! dimension (global length); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1176,7 +1176,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:,:)
     ! dimension (global length, nlev); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1302,7 +1302,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: in_array(:,:)
     ! dimension (global length); only required on root
     INTEGER, INTENT(INOUT) :: out_array(:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1532,7 +1532,7 @@ CONTAINS
     &                                 gather_pattern, collector_buffer_i)
     ! dimension (:, length), prepared according to gather pattern
     INTEGER, INTENT(IN) :: send_buffer_i(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
@@ -1706,7 +1706,7 @@ CONTAINS
     &                                  collector_buffer_i)
     ! dimension (:, global length); only required on root
     INTEGER, INTENT(INOUT) :: recv_buffer_i(:,:)
-    REAL(dp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+    INTEGER, INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
     ! be replaced with this value
     ! if not provided all valid
     ! points will be packed to the
