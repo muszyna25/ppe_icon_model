@@ -106,6 +106,8 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
+  USE mo_run_config,            ONLY: lart
+
   IMPLICIT NONE
 
   PRIVATE
@@ -193,6 +195,8 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
+    INTEGER :: jt_end
+
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -230,6 +234,8 @@ CONTAINS
     datetime_old      => newDatetime(datetime_new)
     datetime_old      =  datetime_new + neg_dt_loc_mtime
     CALL deallocateTimedelta(neg_dt_loc_mtime)
+
+    jt_end = ntracer
 
     !=====================================================================================
     !
@@ -794,11 +800,11 @@ CONTAINS
       END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-
+IF (lart) jt_end = 3
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt = 1,ntracer
+      DO jt = 1,jt_end
         DO jb = jbs_c,jbe_c
           !
           CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
@@ -936,7 +942,7 @@ CONTAINS
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,ntracer  
+      DO jt =1,jt_end 
         DO jb = jbs_c,jbe_c
           !
           CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
@@ -959,6 +965,28 @@ CONTAINS
       END DO   
 !$OMP END DO
 !$OMP END PARALLEL
+
+IF (lart) THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jt = jt_end+1,ntracer
+        DO jb = jbs_c,jbe_c
+
+          CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+          
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+             ! prm_tend(jg)%qtrc_phy(jc,jk,jb,4) = 0.0_wp
+
+  pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+            ENDDO
+          ENDDO
+        ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
