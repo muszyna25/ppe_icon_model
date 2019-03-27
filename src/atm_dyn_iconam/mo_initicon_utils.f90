@@ -182,8 +182,8 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(varname)
-        CALL message(TRIM(routine), TRIM(message_text))
+        WRITE(message_text,'(2a)') 'Inverse Post_op for: ', TRIM(varname)
+        CALL message(routine, message_text)
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
         CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
@@ -266,7 +266,7 @@ MODULE mo_initicon_utils
       IF ( ANY(.NOT.aerosol_fg_present(jg,1:5))) THEN
         WRITE(message_text,'(a,i3,a,i3,a)') 'Aerosol initialized from climatology, domain ',jg,', for',&
           COUNT(.NOT.aerosol_fg_present(jg,1:5)),' of 5 types'
-        CALL message('init_aerosol', TRIM(message_text))
+        CALL message('init_aerosol', message_text)
       ENDIF
 !$OMP END MASTER
     ENDDO
@@ -1120,7 +1120,7 @@ MODULE mo_initicon_utils
     ! debug output
     IF(my_process_is_stdio() .AND. msg_level>=13) THEN
       WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE average_first_guess
@@ -1183,7 +1183,7 @@ MODULE mo_initicon_utils
     ! debug output
     IF(my_process_is_stdio() .AND. msg_level>=13) THEN
       WRITE(message_text,'(a,I3)') 'step ', p_diag%nsteps_avg(1)
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
   END SUBROUTINE reinit_average_first_guess
