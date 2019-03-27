@@ -140,7 +140,7 @@ MODULE mo_initicon_utils
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
     CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
-    CHARACTER(len=100)              :: lc_varname
+    CHARACTER(len=LEN_TRIM(varname)):: lc_varname
     !-------------------------------------------------------------------------
 
 
@@ -155,30 +155,23 @@ MODULE mo_initicon_utils
     lc_varname = tolower(varname)
     ! get metadata information for field to be read
     info => NULL()
-    DO i = 1,nvar_lists
+    vlist_loop: DO i = 1,nvar_lists
       ! loop only over model level variables
       IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
 
-      element => NULL()
-      DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT
-
+      element => var_lists(i)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (TRIM(lc_varname) == TRIM(tolower(get_var_name(element%field)))) THEN
+        IF (lc_varname == tolower(get_var_name(element%field))) THEN
+          ! info handle has been found, exit list loop
           info => element%field%info
-          EXIT
+          EXIT vlist_loop
         ENDIF
+        element => element%next_list_element
       END DO
 
-      ! If info handle has been found, exit list loop
-      IF (ASSOCIATED(info)) EXIT
-    ENDDO
+    ENDDO vlist_loop
 
     IF (.NOT.ASSOCIATED(info)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
