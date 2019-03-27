@@ -51,21 +51,23 @@ fi
  while [ $i -lt $number_of_experiments ]
  do
     case x"$config[$i]" in
-        xlART*)
-           create_header ${experiment[$i]}_lart
-		   create_lart_loop_start ${experiment[$i]}_lart
-           create_body ${script[$i]} 
-           create_footer ${experiment[$i]}_lart ${walltime[$i]} ${nodes[$i]} ${queue[$i]} "${output[@]}"
-		   create_lart_loop_end ${experiment[$i]}_lart
-		   check_action ${action} ${experiment[$i]}_lart
-		   
-		   ;;
+      xlART*)
+		    experiment[$i]=${experiment[$i]}_lart
+
+        create_header ${experiment[$i]}
+		    create_lart_loop_start ${experiment[$i]}
+        create_body ${script[$i]} 
+        create_footer ${experiment[$i]} ${walltime[$i]} ${nodes[$i]} ${queue[$i]} "${output[@]}"
+		    create_lart_loop_end ${experiment[$i]}
+		    check_action ${action} ${experiment[$i]}
+		 
+		    ;;
 		 *none*)
 		   lart=.True.
 			 
-	       create_header ${experiment[$i]}
-           create_body ${script[$i]}
-           create_footer ${experiment[$i]} ${walltime[$i]} ${nodes[$i]} ${queue[$i]} "${output[@]}"
+	     create_header ${experiment[$i]}
+       create_body ${script[$i]}
+       create_footer ${experiment[$i]} ${walltime[$i]} ${nodes[$i]} ${queue[$i]} "${output[@]}"
 		   check_action ${action} ${experiment[$i]}
 		   
 		   ;;
