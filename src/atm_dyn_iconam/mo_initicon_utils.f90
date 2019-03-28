@@ -47,7 +47,7 @@ MODULE mo_initicon_utils
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io,  p_comm_work, &
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, &
     &                               p_comm_work, my_process_is_mpi_workroot, &
     &                               p_min, p_max, p_sum, num_work_procs, my_process_is_work
   USE mo_util_string,         ONLY: tolower
