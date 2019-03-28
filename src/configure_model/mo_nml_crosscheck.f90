@@ -431,10 +431,10 @@ CONTAINS
       IF (lart) THEN
         
         ntracer = ntracer + art_config(1)%iart_ntracer
-        io3    = 1     !! O3
-        ico2   = 1     !! CO2
-        ich4   = 1     !! CH4
-        in2o   = 1     !! N2O
+        io3    = 0     !! O3
+        ico2   = 0     !! CO2
+        ich4   = 0     !! CH4
+        in2o   = 0     !! N2O
 
         
         WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
