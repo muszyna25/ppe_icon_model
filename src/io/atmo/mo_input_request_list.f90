@@ -119,8 +119,9 @@ PRIVATE
     END TYPE
 
     TYPE :: t_ListEntry
-        CHARACTER(KIND = C_CHAR), POINTER :: iconVarName(:)  !< The NAME as it has been requested.
-        CHARACTER(KIND = C_CHAR), POINTER :: translatedVarName(:)   !< The NAME as it IS matched against the stored NAME. 
+      !> The name as it has been requested.
+      CHARACTER(len=:), ALLOCATABLE :: iconVarName
+        CHARACTER(KIND = C_CHAR), POINTER :: translatedVarName(:)   !< The NAME as it IS matched against the stored NAME.
                                                                     ! This has dictionary translation, trimming, AND CASE canonization applied.
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
@@ -155,7 +156,6 @@ CONTAINS
         ALLOCATE(resultVar%list(8), STAT = error)
         if(error /= SUCCESS) CALL finish(routine, "error allocating memory")
         DO i = 1, SIZE(resultVar%list, 1)
-            resultVar%list(i)%iconVarName => NULL()
             resultVar%list(i)%translatedVarName => NULL()
             resultVar%list(i)%domainData => NULL()
         END DO
@@ -205,11 +205,9 @@ CONTAINS
         DO i = 1, me%variableCount
             IF(ASSOCIATED(me%list(i)%translatedVarName)) DEALLOCATE(me%list(i)%translatedVarName)
             IF(PRESENT(opt_dict)) THEN
-                tempName => toCharacter(me%list(i)%iconVarName)
-                me%list(i)%translatedVarName => toCharArray(TRIM(opt_dict%get(tempName, tempName)))
-                DEALLOCATE(tempName)
+                me%list(i)%translatedVarName => toCharArray(TRIM(opt_dict%get(me%list(i)%iconVarName, me%list(i)%iconVarName)))
             ELSE
-                me%list(i)%translatedVarName => charArray_dup(me%list(i)%iconVarName)
+                me%list(i)%translatedVarName => toCharArray(me%list(i)%iconVarName)
             END IF
             CALL charArray_toLower(me%list(i)%translatedVarName)
         END DO
@@ -231,7 +229,7 @@ CONTAINS
 
         resultVar => NULL()
         DO i = 1, me%variableCount
-            tempName => toCharacter(me%list(i)%iconVarName)
+            tempName => me%list(i)%iconVarName
             IF(fieldName == tempName) THEN
                 IF(debugInfo) CALL message(routine, fieldName//" == "//tempName)
                 resultVar => me%list(i)
@@ -239,7 +237,6 @@ CONTAINS
             ELSE
                 IF(debugInfo) CALL message(routine, fieldName//" /= "//tempName)
             END IF
-            DEALLOCATE(tempName)
         END DO
     END FUNCTION InputRequestList_findIconName
 
@@ -272,15 +269,15 @@ CONTAINS
         !compute the concatenation of all requested variables
         concatenatedSize = 0
         DO i = 1, me%variableCount
-            concatenatedSize = concatenatedSize + SIZE(me%list(i)%iconVarName) + 1
+          concatenatedSize = concatenatedSize + LEN(me%list(i)%iconVarName) + 1
         END DO
         ALLOCATE(concatenatedNames(concatenatedSize), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
         accumulatedSize = 0
         DO i = 1, me%variableCount
-            curSize = SIZE(me%list(i)%iconVarName)
+          curSize = LEN(me%list(i)%iconVarName)
             DO j = 1, curSize
-                concatenatedNames(accumulatedSize + j) = me%list(i)%iconVarName(j)
+                concatenatedNames(accumulatedSize + j) = me%list(i)%iconVarName(j:j)
             END DO
             concatenatedNames(accumulatedSize + curSize + 1) = C_NULL_CHAR
             accumulatedSize = accumulatedSize + curSize + 1
@@ -315,7 +312,6 @@ CONTAINS
                 tempList(i) = me%list(i)
             END DO
             DO i = listSize + 1, 2*listSize
-                tempList(i)%iconVarName => NULL()
                 tempList(i)%translatedVarName => NULL()
                 tempList(i)%domainData => NULL()
             END DO
@@ -327,7 +323,7 @@ CONTAINS
         me%variableCount = me%variableCount + 1
         newEntry => me%list(me%variableCount)
 
-        newEntry%iconVarName => toCharArray(fieldName)
+        newEntry%iconVarName = fieldName
         newEntry%translatedVarName => NULL()
     END SUBROUTINE InputRequestList_request
 
@@ -576,8 +572,8 @@ CONTAINS
 
     SUBROUTINE InputRequestList_sendFieldMetadata(me, level, tileId, variableName)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tileId
+        REAL(dp), INTENT(in) :: level
+        INTEGER, INTENT(in) :: tileId
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(IN) :: variableName
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_sendFieldMetadata"
@@ -1146,7 +1142,7 @@ CONTAINS
                 curVar => me%list(i)
                 curDomain => findDomainData(curVar, jg)
                 IF(.NOT.ASSOCIATED(curDomain)) CYCLE
-                varnameString => toCharacter(curVar%iconVarName)
+                varnameString => curVar%iconVarName
 
                 ! first check the TYPE of the generating process of the DATA
                 IF(.NOT.lIsFg) THEN
@@ -1176,7 +1172,6 @@ CONTAINS
                                              &found "//foundUuid)
                     END IF
                 END IF
-                DEALLOCATE(varnameString)
             END DO
         END DO
     END SUBROUTINE InputRequestList_checkRuntypeAndUuids
@@ -1189,7 +1184,7 @@ CONTAINS
         LOGICAL :: lUntiledData
         TYPE(t_ListEntry), POINTER :: curVar
         TYPE(t_DomainData), POINTER :: curDomain
-        CHARACTER(:), POINTER :: varnameString, rtimeString, vtimeString
+        CHARACTER(:), POINTER :: rtimeString, vtimeString
         TYPE(t_table) :: table
         CHARACTER(*), PARAMETER :: domainCol = "jg", &
                                  & variableCol = "variable", &
@@ -1244,9 +1239,7 @@ CONTAINS
 
                 !domain, NAME, AND triple columns
                 CALL set_table_entry(table, curRow, domainCol, TRIM(int2string(curDomain%jg)))
-                varnameString => toCharacter(curVar%iconVarName)
-                CALL set_table_entry(table, curRow, variableCol, varnameString)
-                DEALLOCATE(varnameString)
+                CALL set_table_entry(table, curRow, variableCol, curVar%iconVarName)
                 WRITE(parameterString, '(3(I3,:,"."))') curDomain%metadata%param%discipline, curDomain%metadata%param%category, &
                 &                                    curDomain%metadata%param%number
                 CALL set_table_entry(table, curRow, tripleCol, parameterString)
@@ -1316,7 +1309,6 @@ CONTAINS
 
         DO i = 1, me%variableCount
             currentEntry => me%list(i)
-            DEALLOCATE(currentEntry%iconVarName)
             IF(ASSOCIATED(currentEntry%translatedVarName)) DEALLOCATE(currentEntry%translatedVarName)
             domainData => currentEntry%domainData
             DO
