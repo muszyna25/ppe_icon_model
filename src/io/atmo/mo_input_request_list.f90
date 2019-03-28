@@ -45,7 +45,7 @@ MODULE mo_input_request_list
                     & p_pe, p_isEqual, p_mpi_wtime
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: time_config
-    USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, &
+    USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, tolower, &
                             & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid_types, ONLY: t_uuid, uuid_string_length
@@ -121,8 +121,10 @@ PRIVATE
     TYPE :: t_ListEntry
       !> The name as it has been requested.
       CHARACTER(len=:), ALLOCATABLE :: iconVarName
-        CHARACTER(KIND = C_CHAR), POINTER :: translatedVarName(:)   !< The NAME as it IS matched against the stored NAME.
-                                                                    ! This has dictionary translation, trimming, AND CASE canonization applied.
+      !> The name as it is matched against the stored name. This has
+      !! dictionary translation, trimming, and case canonicalization
+      !! applied.
+      CHARACTER(len=:), ALLOCATABLE :: translatedVarName
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
 
@@ -156,7 +158,6 @@ CONTAINS
         ALLOCATE(resultVar%list(8), STAT = error)
         if(error /= SUCCESS) CALL finish(routine, "error allocating memory")
         DO i = 1, SIZE(resultVar%list, 1)
-            resultVar%list(i)%translatedVarName => NULL()
             resultVar%list(i)%domainData => NULL()
         END DO
     END FUNCTION InputRequestList_create
@@ -200,16 +201,15 @@ CONTAINS
         TYPE(t_dictionary), OPTIONAL, INTENT(IN) :: opt_dict
 
         INTEGER :: i
-        CHARACTER(:), POINTER :: tempName
 
         DO i = 1, me%variableCount
-            IF(ASSOCIATED(me%list(i)%translatedVarName)) DEALLOCATE(me%list(i)%translatedVarName)
-            IF(PRESENT(opt_dict)) THEN
-                me%list(i)%translatedVarName => toCharArray(TRIM(opt_dict%get(me%list(i)%iconVarName, me%list(i)%iconVarName)))
-            ELSE
-                me%list(i)%translatedVarName => toCharArray(me%list(i)%iconVarName)
-            END IF
-            CALL charArray_toLower(me%list(i)%translatedVarName)
+          IF(PRESENT(opt_dict)) THEN
+            me%list(i)%translatedVarName &
+                 = tolower(TRIM(opt_dict%get(me%list(i)%iconVarName, &
+                 &                           me%list(i)%iconVarName)))
+          ELSE
+            me%list(i)%translatedVarName = tolower(me%list(i)%iconVarName)
+          END IF
         END DO
     END SUBROUTINE InputRequestList_translateNames
 
@@ -250,10 +250,10 @@ CONTAINS
         CALL charArray_toLower(fieldName)
         resultVar => NULL()
         DO i = 1, me%variableCount
-            IF(charArray_equal(fieldName, me%list(i)%translatedVarName)) THEN
-                resultVar => me%list(i)
-                RETURN
-            END IF
+          IF(charArray_equal(fieldName, me%list(i)%translatedVarName)) THEN
+            resultVar => me%list(i)
+            RETURN
+          END IF
         END DO
     END FUNCTION InputRequestList_findTranslatedName
 
@@ -312,7 +312,6 @@ CONTAINS
                 tempList(i) = me%list(i)
             END DO
             DO i = listSize + 1, 2*listSize
-                tempList(i)%translatedVarName => NULL()
                 tempList(i)%domainData => NULL()
             END DO
             DEALLOCATE(me%list)
@@ -324,7 +323,6 @@ CONTAINS
         newEntry => me%list(me%variableCount)
 
         newEntry%iconVarName = fieldName
-        newEntry%translatedVarName => NULL()
     END SUBROUTINE InputRequestList_request
 
     SUBROUTINE InputRequestList_requestMultiple(me, fieldNames)
@@ -1309,7 +1307,6 @@ CONTAINS
 
         DO i = 1, me%variableCount
             currentEntry => me%list(i)
-            IF(ASSOCIATED(currentEntry%translatedVarName)) DEALLOCATE(currentEntry%translatedVarName)
             domainData => currentEntry%domainData
             DO
                 IF(.NOT.ASSOCIATED(domainData)) EXIT
