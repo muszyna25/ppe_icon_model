@@ -298,7 +298,7 @@ CONTAINS
         CHARACTER(LEN = *), INTENT(IN) :: fieldName
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_request"
-        INTEGER :: i, listSize, error, jg
+        INTEGER :: i, listSize, error
         TYPE(t_ListEntry), POINTER :: tempList(:), newEntry
 
         ! don't add a name twice
@@ -352,14 +352,13 @@ CONTAINS
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
         LOGICAL, INTENT(IN) :: lIsFg
 
-        INTEGER(KIND = C_INT) :: error, gridId, gridType, gridSize, tileIndex, tileAttribute
+        INTEGER(KIND = C_INT) :: error, gridId, gridType, tileIndex, tileAttribute
         REAL(KIND = C_DOUBLE) :: levelValue
         TYPE(t_MetadataCache), POINTER :: metadata
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         TYPE(t_CdiGribIterator) :: gribIterator
         TYPE(datetime), POINTER :: tempTime, iniTime, startTime
-        INTEGER(KIND = C_SIGNED_CHAR) :: gridUuid(CDI_UUID_SIZE)
         CHARACTER(:), POINTER :: vtimeString
         CHARACTER(max_datetime_str_len) :: debugDatetimeString
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_isRecordValid"
