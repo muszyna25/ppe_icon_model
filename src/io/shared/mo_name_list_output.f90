@@ -500,7 +500,7 @@ CONTAINS
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
     INTEGER :: prev_cdi_namespace
     LOGICAL :: is_io, is_test
-    LOGICAL :: lhas_output, all_print
+    LOGICAL :: lhas_output, all_print, do_sync
     LOGICAL :: ofile_is_active(SIZE(output_file)), &
          ofile_has_first_write(SIZE(output_file)), &
          ofile_is_assigned_here(SIZE(output_file))
@@ -635,11 +635,14 @@ CONTAINS
 
       IF(is_io) THEN
 #ifndef NOMPI
-        IF (ofile_is_assigned_here(i)) &
+        IF (ofile_is_assigned_here(i)) THEN
           CALL io_proc_write_name_list(output_file(i), ofile_has_first_write(i))
+          do_sync = check_write_readyfile(output_file(i)%out_event%output_event)
+        END IF
 #endif
       ELSE
         CALL write_name_list(output_file(i), ofile_has_first_write(i))
+        do_sync = lkeep_in_sync .AND. ofile_is_assigned_here(i)
       ENDIF
 
       ! -------------------------------------------------
@@ -653,6 +656,9 @@ CONTAINS
       ! -------------------------------------------------
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
+#ifndef NOMPI
+      IF (do_sync) CALL streamsync(output_file(i)%cdiFileID)
+#endif
       CALL pass_output_step(output_file(i)%out_event)
     ENDDO OUTFILE_WRITE_LOOP
 
@@ -709,6 +715,7 @@ CONTAINS
 
   SUBROUTINE write_ready_files_cdipio
     TYPE(t_par_output_event), POINTER :: ev
+    !fixme: this needs a mechanism to enforce disk flushes via streamsync
     IF (p_pe_work == 0) THEN
       ev => all_events
       DO WHILE (ASSOCIATED(ev))
@@ -1552,9 +1559,6 @@ CONTAINS
 
       END IF ! is_mpi_workroot
     END DO ! lev = 1, nlevs
-
-    IF (is_mpi_workroot .AND. lkeep_in_sync .AND. &
-       & .NOT. is_mpi_test) CALL streamSync(of%cdiFileID)
 
   END SUBROUTINE gather_on_workroot_and_write
 
