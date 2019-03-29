@@ -1486,9 +1486,9 @@ CONTAINS
           ENDDO
 
           IF ( is_work ) THEN ! avoid addidional io or restart processes
-            IF ( log_patch_id == 1 ) THEN             ! use global domain, only
+!           IF ( log_patch_id == 1 ) THEN             ! use global domain, only
               CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
-            ENDIF
+!           ENDIF
           ENDIF
 
           CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
@@ -2006,6 +2006,11 @@ CONTAINS
 
         element => var_lists(iv)%p%first_list_element
         DO WHILE (ASSOCIATED(element))
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) then
+          call print_summary('scanning variable:'//trim(element%field%info%name))
+        endif
+#endif
           ! Do not inspect element if output is disabled
           inspect = element%field%info%loutput
           IF (inspect) THEN

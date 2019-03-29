@@ -23,7 +23,7 @@
 MODULE mo_name_list_output_types
 
   USE mo_kind,                  ONLY: wp, dp, sp
-  USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
+  USE mo_impl_constants,        ONLY: vname_len,                                       &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
     &                                 MAX_TIME_LEVELS, MAX_NUM_IO_PROCS,               &
     &                                 MAX_TIME_INTERVALS, MAX_CHAR_LENGTH, MAX_NPLEVS, &
