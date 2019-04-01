@@ -63,7 +63,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,          ONLY: t_external_data
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
+  USE mo_parallel_config,         ONLY: nproma, p_test_run, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_initicon_config,         ONLY: is_iau_active
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
@@ -1583,39 +1583,19 @@ CONTAINS
 
       IF (timers_level > 10) CALL timer_start(timer_phys_sync_tracers)
 
-      IF (use_icon_comm) THEN ! use communication library
-
-        tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, pt_patch%sync_cells_not_in_domain,  &
-          & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
-        tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
-          & status=is_ready, scope=until_sync, name="pt_diag%tempv")
-
-        IF (lhdiff_rcf) THEN
-          exner_pr_comm = new_icon_comm_variable(pt_diag%exner_pr, &
-            & pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%exner_pr")
-          IF (diffusion_config(jg)%lhdiff_w) &
-            w_comm = new_icon_comm_variable(pt_prog%w, &
-              & pt_patch%sync_cells_not_in_domain, &
-              & status=is_ready, scope=until_sync, name="pt_prog%w")
-        ENDIF
-
+      IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
+                                   pt_diag%exner_pr, prm_diag%aerosol,                         &
+                                   f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+      ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
+                                   pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+      ELSE IF (lhdiff_rcf) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
+                                   pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_pr, prm_diag%aerosol,                         &
-                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE IF (lhdiff_rcf) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
-                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
-                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ENDIF
-
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
+                                   f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
       ENDIF
 
       IF (timers_level > 10) THEN
@@ -1635,42 +1615,18 @@ CONTAINS
     ENDIF
     !-------------------------------------------------------------------
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_ddt_u)
-    IF (use_icon_comm) THEN
 
-      IF (lcall_phy_jg(itturb) ) THEN
-        ddt_u_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_u_turb, &
-          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
-          & name="prm_nwp_tend%ddt_u_turb")
-        ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
-          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
-          & name="prm_nwp_tend%ddt_v_turb")
+    IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
 
-        IF ( l_any_slowphys .OR. is_ls_forcing ) THEN
-          z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
-          z_ddt_v_tot_comm = new_icon_comm_variable(z_ddt_v_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
-        ENDIF
-      ENDIF
-
-       ! sync everything here
-      CALL icon_comm_sync_all()
-
-    ELSE
-
-      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
-
-        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
 
-      ELSE IF (lcall_phy_jg(itturb) ) THEN
+    ELSE IF (lcall_phy_jg(itturb) ) THEN
 
-        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
                                  prm_nwp_tend%ddt_v_turb)
-      ENDIF
     ENDIF
+
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_ddt_u)
     !------------------------------------------------------------

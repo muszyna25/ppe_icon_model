@@ -101,10 +101,6 @@ MODULE mo_nonhydro_types
     &  vfl_tracer(:,:,:,:), & ! vertical tracer flux at cells               [kg/m/s]
                               ! (nproma,nlevp1,nblks_c,ntracer)
     &  div(:,:,:),          & ! divergence(nproma,nlev,nblks_c)     [1/s]
-    &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
-    &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
-    &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
-    &  dwdy(:,:,:),         & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
@@ -172,7 +168,12 @@ MODULE mo_nonhydro_types
     &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:)   & ! vert. wind tendency from advection
+    &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
+    ! fields for 3D elements in turbdiff
+    &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
+    &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
+    &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
+    &  dwdy(:,:,:)          & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
     REAL(vp2), POINTER      & ! single precision if "__MIXED_PRECISION_2" is defined

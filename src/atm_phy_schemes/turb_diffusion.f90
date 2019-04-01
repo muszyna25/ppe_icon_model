@@ -205,11 +205,10 @@ MODULE turb_diffusion
 !-------------------------------------------------------------------------------
 
 #ifdef __COSMO__
-USE kind_parameters, ONLY :   &
+USE kind_parameters, ONLY : wp, vp=> wp
 #elif defined(__ICON__)
-USE mo_kind,         ONLY :   &
+USE mo_kind,         ONLY : wp, vp
 #endif
-    wp              ! KIND-type parameter for real variables
 
 !-------------------------------------------------------------------------------
 ! Mathematical and physical constants
@@ -820,7 +819,7 @@ REAL (KIND=wp), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
                    ! (as input and output)
                    ! fractional cloud cover (in turbdiff)            --
 
-REAL (KIND=wp), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(IN) :: &
+REAL (KIND=vp), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(IN) :: &
   hdef2,         & ! horizontal deformation square at half levels  ( 1/s2 )
   hdiv,          & ! horizontal divergence                   ,,    ( 1/s )
 
