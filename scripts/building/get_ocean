@@ -69,8 +69,9 @@ link_source_list "src/advection/" "mo_advection_utils.f90"
 # needed by src/io/shared/mo_util_cdi
 link_source_list "src/lnd_phy_nwp/" "mo_nwp_sfc_tiles.f90"
 
+# (mo_upatmo_config.f90 just added to ensure compilability)
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
-mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90" 
+mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90 mo_upatmo_config.f90" 
 # mo_master_config.f90"
 
 link_source_list "src/drivers/" "icon.f90 mo_master_control.f90"

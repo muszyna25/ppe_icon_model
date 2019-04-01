@@ -44,6 +44,7 @@ MODULE mo_nh_supervise
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
+  USE mo_upatmo_config,       ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -191,6 +192,9 @@ CONTAINS
 
     REAL(wp) :: max_vn, max_w
     INTEGER  :: max_vn_level, max_vn_process, max_w_level, max_w_process
+
+    ! (upper-atmosphere-/deep-atmosphere-related variables)
+    REAL(wp), DIMENSION(:), POINTER :: deepatmo_vol
     !-----------------------------------------------------------------------------
 
     ! Hack [ha]:
@@ -228,6 +232,9 @@ CONTAINS
 
     nblks_c   = patch(jg)%nblks_c
     npromz_c  = patch(jg)%npromz_c
+
+    ! (deep atmosphere: metrical modification factor for height-dependence of cell volume)
+    deepatmo_vol => nh_state(jg)%metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)    
 
     ! number of vertical levels
     nlev = patch(jg)%nlev
@@ -284,8 +291,9 @@ CONTAINS
       ENDIF
       DO jk = 1, nlev
         DO jc = 1, nlen
+          ! (deep-atmosphere modification applied)
           z_help = patch(jg)%cells%area(jc,jb)*nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-            &       /patch(jg)%n_patch_cells_g
+            &       /patch(jg)%n_patch_cells_g*deepatmo_vol(jk)
           z_total_mass = z_total_mass + &
             &              prog%rho(jc,jk,jb)*z_help
           z_kin_energy = z_kin_energy + &
@@ -320,9 +328,10 @@ CONTAINS
       z5(1:nlen,jb) = 0.0_wp
       z6(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
+        ! (deep-atmosphere modification applied)
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
-          & /REAL(patch(jg)%n_patch_cells_g,wp)
+          & /REAL(patch(jg)%n_patch_cells_g,wp)*deepatmo_vol(jk)
         z1(1:nlen,jb) = z1(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*z0(1:nlen)
         z2(1:nlen,jb) = z2(1:nlen,jb)&
@@ -397,9 +406,10 @@ CONTAINS
           ! compute tracer mass in each vertical column
           DO jk = 1, nlev
             DO jc = 1, nlen
+              ! (deep-atmosphere modification applied)
               z_help = patch(jg)%cells%area(jc,jb)             &
                 &    * nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-                &    * prog%rho(jc,jk,jb)
+                &    * prog%rho(jc,jk,jb) * deepatmo_vol(jk)
 
               z_aux_tracer(jc,jb,jt) = z_aux_tracer(jc,jb,jt)    &
                 &    + prog_rcf%tracer(jc,jk,jb,jt) * z_help
@@ -492,6 +502,8 @@ CONTAINS
         ENDIF
       ENDIF
     ENDIF
+
+    deepatmo_vol => NULL()
 
   END SUBROUTINE supervise_total_integrals_nh
   !-------------------------------------------------------------------------

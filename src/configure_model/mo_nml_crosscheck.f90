@@ -46,7 +46,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                              inccn, ininact, ininpot,                          &
     &                              activate_sync_timers, timers_level, lart
-  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime
+  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
   USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
@@ -59,13 +59,14 @@ MODULE mo_nml_crosscheck
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
-  USE mo_nh_testcases_nml,   ONLY: nh_test_name
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift, &
+    &                              itype_vert_expol
+  USE mo_nh_testcases_nml,   ONLY: nh_test_name, layer_thickness
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
   USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
-    &                              nroot, is_plane_torus
+    &                              nroot, is_plane_torus, n_dom_start
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -78,6 +79,10 @@ MODULE mo_nml_crosscheck
   USE mo_interpol_config
   USE mo_sleve_config
   USE mo_nudging_nml,        ONLY: check_nudging
+  USE mo_upatmo_config,      ONLY: upatmo_config
+  USE mo_upatmo_nml,         ONLY: check_upatmo
+  USE mo_name_list_output_config, ONLY: first_output_name_list
+  USE mo_nh_testcase_check,  ONLY: check_nh_testcase
 
 #ifdef __ICON_ART
   USE mo_grid_config,        ONLY: lredgrid_phys
@@ -214,6 +219,13 @@ CONTAINS
     END IF
     !--------------------------------------------------------------------
 
+    ! Vertical grid
+    IF (ivctype == 12 .AND. (.NOT. ldeepatmo)) THEN
+      CALL finish(routine, "ivctype = 12 requires ldeepatmo = .true.")
+    ELSEIF (ivctype == 12 .AND. .NOT. (layer_thickness < 0.0_wp)) THEN
+      CALL finish(routine, "ivctype = 12 requires layer_thickness < 0.")
+    ENDIF
+
     !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
@@ -269,6 +281,8 @@ CONTAINS
       CALL finish(routine, &
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
+
+    IF (ltestcase) CALL check_nh_testcase()
 
     !--------------------------------------------------------------------
     ! Shallow water
@@ -883,6 +897,10 @@ CONTAINS
       &                 l_limited_area, latbc_config%lsparse_latbc, latbc_config%itype_latbc, & 
       &                 latbc_config%nudge_hydro_pres, LATBC_TYPE_CONST, is_plane_torus,      &
       &                 lart, ndyn_substeps                                                   )
+
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
+      &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &
+      &                ltestcase, nh_test_name, first_output_name_list, upatmo_config       ) 
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

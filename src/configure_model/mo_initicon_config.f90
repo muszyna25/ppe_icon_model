@@ -16,11 +16,13 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: finish
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMO,           &
-    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP, nclass_aero, &
+    &                              ivexpol
   USE mo_io_units,           ONLY: filename_max
   USE mo_io_util,            ONLY: get_filetype
   USE mo_model_domain,       ONLY: t_patch
@@ -31,6 +33,7 @@ MODULE mo_initicon_config
     &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
+  USE mo_upatmo_config,      ONLY: upatmo_config
 
   IMPLICIT NONE
 
@@ -78,6 +81,7 @@ MODULE mo_initicon_config
   PUBLIC :: initicon_config
   PUBLIC :: aerosol_fg_present
   PUBLIC :: lanaread_tseasfc
+  PUBLIC :: itype_vert_expol
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -164,6 +168,11 @@ MODULE mo_initicon_config
 
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
+
+  INTEGER :: itype_vert_expol ! Type of vertical extrapolation of initial data. 
+                              ! 1: Linear extrapolation (standard setting) 
+                              ! 2: Blending with climatology 
+                              ! (intended for simulations with the upper-atmosphere configuration)
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -302,6 +311,26 @@ CONTAINS
     ! transform averaging interval to ISO_8601 format
     !
     CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
+
+    !
+    ! set switch(es) for vertical extrapolation of initial data
+    !
+    ! just to make sure
+    IF (.NOT. ALLOCATED(upatmo_config)) THEN 
+      CALL finish('mo_initicon_config:configure_initicon', &
+        &         'upatmo_config is not allocated')
+    ENDIF
+    SELECT CASE(itype_vert_expol)
+    CASE(ivexpol%lin)
+      ! linear extrapolation is the standard case 
+      upatmo_config(:)%exp%l_expol = .FALSE.
+    CASE(ivexpol%upatmo) 
+      ! this case is intended for (but not necessarily limited to) 
+      ! upper-atmosphere simulations, further specifiers for 
+      ! this extrapolation can be set in 'upatmo_nml'
+      upatmo_config(:)%exp%l_expol = .TRUE.
+    END SELECT
+    upatmo_config(:)%exp%l_initicon_config  = .TRUE.
 
   END SUBROUTINE configure_initicon
 

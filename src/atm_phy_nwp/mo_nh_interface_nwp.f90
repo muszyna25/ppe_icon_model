@@ -109,6 +109,7 @@ MODULE mo_nh_interface_nwp
   USE mo_radar_data_state,        ONLY: radar_data, lhn_fields
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
+  USE mo_upatmo_config,           ONLY: upatmo_config
 
   IMPLICIT NONE
 
@@ -230,6 +231,8 @@ CONTAINS
 
     REAL(wp) :: p_sim_time      !< elapsed simulation time on this grid level
 
+    LOGICAL :: lconstgrav  !< const. gravitational acceleration?
+
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -289,6 +292,8 @@ CONTAINS
       lcompute_tt_lheat = .FALSE.
     ENDIF
 
+    lconstgrav = upatmo_config(jg)%phy%l_constgrav  ! const. gravitational acceleration?
+
 
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
@@ -323,7 +328,8 @@ CONTAINS
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
            &                              opt_calc_pres=.FALSE.,   &
-           &                              opt_rlend=min_rlcell_int )
+           &                              opt_rlend=min_rlcell_int,&
+           &                              opt_lconstgrav=lconstgrav)
 
       ! Write extensive debugging output
       CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
@@ -359,9 +365,9 @@ CONTAINS
 
         CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag,    &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
-
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
-                        jb, i_startidx, i_endidx, 1, nlev)
+        
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,                                &
+                        jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -524,7 +530,7 @@ CONTAINS
 
       IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
         ! diagnose pressure for subsequent fast-physics parameterizations
-        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
+        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
       ENDIF
 
 
@@ -853,8 +859,8 @@ CONTAINS
 
       IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
         ! rediagnose pressure
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
-                        jb, i_startidx, i_endidx, 1, nlev)
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,                                &
+                        jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
       ENDIF
 
       IF (iprog_aero >= 1 .AND. .NOT. linit) THEN
@@ -933,7 +939,8 @@ CONTAINS
         &                      opt_calc_pres     = lpres,         &
         &                      lnd_prog          = lnd_prog_new,  &
         &                      opt_calc_temp_ifc = ltemp_ifc,     &
-        &                      opt_rlend         = min_rlcell_int )
+        &                      opt_rlend         = min_rlcell_int,&
+        &                      opt_lconstgrav    = lconstgrav     )
 
     ENDIF
 

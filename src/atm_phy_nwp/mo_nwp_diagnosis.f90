@@ -67,6 +67,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
   USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
+  USE mo_upatmo_config,      ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -691,7 +692,9 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+           ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
+           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb) & 
+             &    * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
 
            ! TQV, TQC, TQI
            prm_diag%tot_cld_vi(jc, jb,iqv) = prm_diag%tot_cld_vi(jc, jb,iqv)    + &
@@ -864,9 +867,11 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       ! pre-computation of rho * \Delta z
+      ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx 
-          rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+          rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb) & 
+            &          * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)  
         ENDDO
       ENDDO
 

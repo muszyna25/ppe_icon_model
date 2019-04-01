@@ -647,6 +647,17 @@ MODULE mo_impl_constants
   ! (hard-coded in the torus grid generator)
   REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
 
+  !------------------------------------------------!
+  !  VERTICAL EXTRAPOLATION OF INITIAL DATA        !
+  !------------------------------------------------!
+
+  TYPE t_ivexpol
+    INTEGER :: lin    !< linear extrapolation
+    INTEGER :: upatmo !< blending with climatology (intended for upper-atmosphere configuration) 
+  END TYPE t_ivexpol
+  TYPE(t_ivexpol), PARAMETER :: ivexpol = t_ivexpol( 1, &  !lin 
+    &                                                2  )  !upatmo
+
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

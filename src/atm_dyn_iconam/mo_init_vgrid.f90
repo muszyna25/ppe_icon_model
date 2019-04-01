@@ -416,7 +416,7 @@ CONTAINS
          jk1 = jk + nshift
          z3d_i(1:nlen,jk,jb) = vct_a(jk1) + vct_b(jk1)*z3d_i(1:nlen,nlevp1,jb)
        ENDDO
-     ELSE IF (ivctype == 2) THEN ! SLEVE coordinate (Leuenberger et al. MWR 2010)
+     ELSE IF (ivctype == 2 .OR. ivctype == 12) THEN ! SLEVE coordinate (Leuenberger et al. MWR 2010)
        DO jk = 1, nflat
          jk1 = jk + nshift
          z3d_i(1:nlen,jk,jb) = vct_a(jk1)

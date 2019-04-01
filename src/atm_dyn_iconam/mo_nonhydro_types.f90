@@ -389,6 +389,27 @@ MODULE mo_nonhydro_types
 #endif
      :: nudgecoeff_vert(:)
 
+    ! Upper atmosphere/deep atmosphere
+    !
+    REAL(wp), POINTER     &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS        &
+#endif
+     ::                   &
+     zgpot_ifc(:,:,:)   , & ! geopotential height of the grid layer interfaces (nproma,nlevp1,nblks_c)
+     zgpot_mc(:,:,:)    , & ! geopotential height of cell centers (nproma,nlev,nblks_c)
+     dzgpot_mc(:,:,:)     & ! geopotential layer thickness (nproma,nlev,nblks_c)   
+     => NULL()
+    !
+    REAL(wp), POINTER      &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS         &
+#endif
+      ::                   &
+      deepatmo_t1mc(:,:),  & ! metrical modification factors for full levels (nlev,nitem)
+      deepatmo_t1ifc(:,:), & ! metrical modification factors for half levels (nlevp1,nitem)
+      deepatmo_t2mc(:,:)   & ! metrical modification factors for full levels (nitem,nlev)
+      => NULL()    
 
 
    ! Corresponding scalar list dimensions

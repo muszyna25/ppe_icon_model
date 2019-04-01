@@ -76,6 +76,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD, 2010-05-05
+  !! (Note: since we have not modified 'src/atm_dyn_iconam/mo_nh_feedback: feedback' 
+  !! for the deep atmosphere, there is no reason to modify 'fbk_dom_volume'.)
   !!
   SUBROUTINE complete_nesting_setup
 

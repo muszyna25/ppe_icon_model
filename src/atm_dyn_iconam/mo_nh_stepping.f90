@@ -67,7 +67,8 @@ MODULE mo_nh_stepping
     &                                    divdamp_fac, divdamp_fac_o2, ih_clch, ih_clcm, kstart_moist, &
     &                                    ndyn_substeps, ndyn_substeps_var, ndyn_substeps_max
   USE mo_diffusion_config,         ONLY: diffusion_config
-  USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
+  USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
+    &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
@@ -93,11 +94,8 @@ MODULE mo_nh_stepping
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
-  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
+  USE mo_nh_testcases_nml,         ONLY: is_toy_chem, ltestcase_update
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
-  USE mo_nh_pa_test,               ONLY: set_nh_w_rho
-  USE mo_nh_df_test,               ONLY: get_nh_df_velocity
-  USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
   USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
@@ -116,13 +114,13 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
     &                                    inoforcing, iheldsuarez, inwp, iecham,             &
     &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
-    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom
+    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom,     &
+    &                                    min_rlcell, min_rlvert
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
-  USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
@@ -214,6 +212,10 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
+  USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
+  USE mo_nh_testcase_interface,    ONLY: nh_testcase_interface
+  USE mo_upatmo_config,            ONLY: upatmo_config, idamtr
+  USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
   
@@ -274,8 +276,8 @@ MODULE mo_nh_stepping
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
   CALL diag_for_output_dyn ()
-
-
+    
+    
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   ! airmass_new required by initial physics call (init_slowphysics)
   ! airmass_now not needed, since ddt_temp_dyn is not computed during the
@@ -285,7 +287,7 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%metrics,       &
       &                  p_nh_state(jg)%prog(nnow(jg)),&
       &                  p_nh_state(jg)%diag, itlev = 2)
-
+    
     ! initialize exner_pr if the model domain is active
     IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
   ENDDO
@@ -855,9 +857,9 @@ MODULE mo_nh_stepping
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
-
+      
       CALL diag_for_output_dyn ()
-
+      
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
 
@@ -1388,57 +1390,17 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
-        SELECT CASE ( TRIM(nh_test_name) )
-
-        CASE ('PA') ! solid body rotation
-
-          ! set time-variant vertical velocity
-          CALL set_nh_w_rho( p_patch(jg),p_nh_state(jg)%metrics,                    &! in
-            & jstep_adv(jg)%marchuk_order, dt_loc, sim_time-dt_loc,                 &! in
-            &               p_nh_state(jg)%prog(nnew(jg))%w,                        &! inout
-            &               p_nh_state(jg)%diag%pres,                               &! inout
-            &               p_nh_state(jg)%diag%rho_ic                              )! inout
-
-        CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
-
-          ! get velocity field
-          CALL get_nh_df_velocity( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-            &                     nh_test_name, rotate_axis_deg,               &
-            &                     sim_time-dt_loc+dt_loc )
-
-
-          ! get mass flux and new \rho. The latter one is only computed,
-          ! if the density equation is re-integrated.
-          CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
-            &                     p_nh_state(jg)%prog(nnow(jg)),   & !in
-            &                     p_nh_state(jg)%prog(nnew(jg)),   & !in
-            &                     p_nh_state(jg)%metrics,          & !in
-            &                     p_nh_state(jg)%diag, dt_loc,     & !inout,in
-            &                     jstep_adv(jg)%marchuk_order,     & !in
-            &                     lcoupled_rho                     )
-
-
-        CASE ('DCMIP_PA_12', 'dcmip_pa_12')
-
-          ! get velocity field for the DCMIP Hadley-like meridional circulation test
-          !
-          CALL set_nh_velocity_hadley( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), & !in,inout
-            &                          p_nh_state(jg)%diag, p_int_state(jg),       & !in
-            &                          p_nh_state(jg)%metrics,                     & !in
-            &                          sim_time-dt_loc+dt_loc)                       !in
-
-          ! get mass flux and updated density for the DCMIP Hadley-like
-          ! meridional circulation test
-          !
-          CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
-            &                     p_nh_state(jg)%prog(nnow(jg)),   & !in
-            &                     p_nh_state(jg)%prog(nnew(jg)),   & !in
-            &                     p_nh_state(jg)%metrics,          & !in
-            &                     p_nh_state(jg)%diag, dt_loc,     & !inout,in
-            &                     jstep_adv(jg)%marchuk_order,     & !in
-            &                     lcoupled_rho                     )
-        END SELECT
-
+        ! Update nh-testcases
+        IF (ltestcase_update) THEN
+          CALL nh_testcase_interface( nstep_global,                &  !in
+            &                         dt_loc,                      &  !in
+            &                         sim_time,                    &  !in
+            &                         datetime_local(jg)%ptr,      &  !in
+            &                         p_patch(jg),                 &  !in 
+            &                         p_nh_state(jg),              &  !inout
+            &                         p_int_state(jg),             &  !in
+            &                         jstep_adv(jg)%marchuk_order  )  !in
+        ENDIF
 
         ! Diagnose some velocity-related quantities for the tracer
         ! transport scheme
@@ -1456,14 +1418,14 @@ MODULE mo_nh_stepping
           &                  p_nh_state(jg)%metrics,        &
           &                  p_nh_state(jg)%prog(nnow(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 1)
-
-
+        
+        
         ! Update air mass in layer.  Air mass is needed by both the transport and physics.
         CALL compute_airmass(p_patch(jg),                   &
           &                  p_nh_state(jg)%metrics,        &
           &                  p_nh_state(jg)%prog(nnew(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 2)
-
+          
         CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1478,7 +1440,9 @@ MODULE mo_nh_stepping
           &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
           &        opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
           &        opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-          &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
+          &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
+          &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
+          &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1575,17 +1539,19 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
             &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-            &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
+            &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
+            &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
+            &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
 
           IF (iprog_aero >= 1) THEN
-
+            
             CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
-            &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
-            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
-            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
-            &          p_nh_state(jg)%diag%airmass_now,                          & !in
-            &          p_nh_state(jg)%diag%airmass_new                           ) !in
-
+              &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
+              &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
+              &          p_nh_state(jg)%metrics%ddqz_z_full_e,                     & !in
+              &          p_nh_state(jg)%diag%airmass_now,                          & !in
+              &          p_nh_state(jg)%diag%airmass_new                           ) !in
+            
           ENDIF
 
         ! ART tracer sedimentation:
@@ -1777,6 +1743,18 @@ MODULE mo_nh_stepping
             &                              p_nh_state(jg)%diag,    & !inout
             &                              datetime_local(jg)%ptr, & !in
             &                              dt_loc                  ) !in
+        ENDIF
+
+        ! Update nh-testcases
+        IF (ltestcase_update) THEN
+          CALL nh_testcase_interface( nstep_global,                &  !in
+            &                         dt_loc,                      &  !in
+            &                         sim_time,                    &  !in
+            &                         datetime_local(jg)%ptr,      &  !in
+            &                         p_patch(jg),                 &  !in 
+            &                         p_nh_state(jg),              &  !inout
+            &                         p_int_state(jg),             &  !in
+            &                         jstep_adv(jg)%marchuk_order  )  !in
         ENDIF
 
 #ifdef MESSY
@@ -1998,6 +1976,7 @@ MODULE mo_nh_stepping
             CALL initialize_nest(jg, jgc)
 
             ! Apply hydrostatic adjustment, using downward integration
+            ! (deep-atmosphere modification should enter implicitly via reference state)
             CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
@@ -2118,7 +2097,7 @@ MODULE mo_nh_stepping
     ELSE
       lprep_adv = .FALSE.
     ENDIF
-
+    
     ! compute airmass \rho*\Delta z [kg m-2] for nnow
     CALL compute_airmass(p_patch,                   &
       &                  p_nh_state%metrics,        &
@@ -2181,10 +2160,17 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
       i_am_accel_node = my_process_is_work()    ! Activate GPUs
 #endif
-      CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
-        &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
-        &           lsave_mflx, lprep_adv, lclean_mflx,             &
-        &           nstep, ndyn_substeps_tot-1, dt_dyn)
+      IF (.NOT. ldeepatmo) THEN ! shallow atmosphere
+        CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
+          &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
+          &           lsave_mflx, lprep_adv, lclean_mflx,             &
+          &           nstep, ndyn_substeps_tot-1, dt_dyn)
+      ELSE                      ! deep atmosphere
+        CALL solve_nh_deepatmo(p_nh_state, p_patch, p_int_state, prep_adv,      &
+          &                    nnow(jg), nnew(jg), linit_dyn(jg), l_recompute,  &
+          &                    lsave_mflx, lprep_adv, lclean_mflx,              &
+          &                    nstep, ndyn_substeps_tot-1, dt_dyn)
+      ENDIF
 #ifdef _OPENACC
       i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
@@ -2428,6 +2414,10 @@ MODULE mo_nh_stepping
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
+    INTEGER :: jc, jv, jk, jb
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: nlev
 
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
 
@@ -2437,6 +2427,8 @@ MODULE mo_nh_stepping
 
       IF(p_patch(jg)%n_patch_cells == 0) CYCLE
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      nlev = p_patch(jg)%nlev
 
       p_vn  => p_nh_state(jg)%prog(nnow(jg))%vn
 
@@ -2450,6 +2442,62 @@ MODULE mo_nh_stepping
 
       CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
 
+      IF (ldeepatmo) THEN
+        ! Modify divergence and vorticity for spherical geometry 
+
+        ! Note: not yet Open-ACC-parallelized!
+
+#ifndef _OPENACC
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
+#endif
+        rl_start   = 1
+        rl_end     = min_rlcell
+        i_startblk = p_patch(jg)%cells%start_block(rl_start) 
+        i_endblk   = p_patch(jg)%cells%end_block(rl_end)  
+#ifndef _OPENACC
+!$OMP DO PRIVATE(jb, jc, jk, i_startidx, i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+        DO jb = i_startblk, i_endblk
+          
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+          
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              ! Multiply metrical modification factor
+              p_nh_state(jg)%diag%div(jc,jk,jb) = p_nh_state(jg)%diag%div(jc,jk,jb) & 
+                &                               * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr%t1mc%divh)
+            END DO
+          END DO
+        END DO  !jb
+#ifndef _OPENACC
+!$OMP END DO NOWAIT
+#endif
+        rl_start   = 2
+        rl_end     = min_rlvert
+        i_startblk = p_patch(jg)%verts%start_block(rl_start) 
+        i_endblk   = p_patch(jg)%verts%end_block(rl_end)  
+#ifndef _OPENACC
+!$OMP DO PRIVATE(jb, jv, jk, i_startidx, i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+        DO jb = i_startblk, i_endblk
+          
+          CALL get_indices_v(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jv = i_startidx, i_endidx
+              ! Multiply metrical modification factor
+              p_nh_state(jg)%diag%omega_z(jv,jk,jb) = p_nh_state(jg)%diag%omega_z(jv,jk,jb) &
+                &                                   * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr%t1mc%gradh)
+            END DO
+          END DO
+        END DO  !jb
+#ifndef _OPENACC
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+        
+      ENDIF  !IF (ldeepatmo)
+
       ! Diagnose relative vorticity on cells
       CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
         p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
@@ -2459,7 +2507,8 @@ MODULE mo_nh_stepping
         &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
         &                      p_nh_state(jg)%diag,p_patch(jg),                       &
         &                      opt_calc_temp=.TRUE.,                                  &
-        &                      opt_calc_pres=.TRUE.                                   )
+        &                      opt_calc_pres=.TRUE.,                                  &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav       )
 
     ENDDO ! jg-loop
 
@@ -2643,7 +2692,8 @@ MODULE mo_nh_stepping
         &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
         &                      p_nh_state(jg)%diag,p_patch(jg),                       &
         &                      opt_calc_temp=.TRUE.,                                  &
-        &                      opt_calc_pres=.TRUE.                                   )
+        &                      opt_calc_pres=.TRUE.,                                  &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav       )
 
       CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(nnow(jg))%vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)

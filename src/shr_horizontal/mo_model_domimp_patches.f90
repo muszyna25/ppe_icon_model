@@ -106,16 +106,18 @@ MODULE mo_model_domimp_patches
     &                              t_grid_domain_decomp_info, get_local_index
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_model_domimp_setup, ONLY: init_quad_twoadjcells, init_coriolis, &
-    & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
+    & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets,          & 
+    & init_centrifugal
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
     & max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
     & use_duplicated_connectivity, set_patches_grid_filename
-  USE mo_dynamics_config,    ONLY: lcoriolis
+  USE mo_dynamics_config,    ONLY: lcoriolis, ldeepatmo
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, ICON_grid_file_uri,         &
     &                              msg_level, check_uuid_gracefully
+  USE mo_upatmo_config,      ONLY: upatmo_dyn_config
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_reshuffle,          ONLY: reshuffle
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
@@ -615,7 +617,12 @@ CONTAINS
           CALL init_butterfly_idx( patch(jg) )
         ENDIF
 
-        CALL init_coriolis( lcoriolis, lplane, patch(jg) )
+        CALL init_coriolis( lcoriolis, lplane, patch(jg),                  & 
+          &                 ldeepatmo .AND. upatmo_dyn_config(jg)%lnontrad )
+
+        ! initialize components of centrifugal acceleration
+        CALL init_centrifugal( ldeepatmo .AND.  upatmo_dyn_config(jg)%lcentrifugal, &
+          &                    lplane, patch(jg)                                    )
 
         ! The same has to be done for local parents in parallel runs
         !
@@ -627,7 +634,11 @@ CONTAINS
 
         IF (jg>n_dom_start) THEN
           CALL disable_sync_checks
-          CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
+          CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg),   &
+            &                 ldeepatmo .AND. upatmo_dyn_config(jg)%lnontrad )
+
+          CALL init_centrifugal( ldeepatmo .AND. upatmo_dyn_config(jg)%lcentrifugal, &
+            &                    lplane, p_patch_local_parent(jg)                    )
           
           ! set phys_id for verts since this is not read from input
           CALL set_verts_phys_id( p_patch_local_parent(jg) )

@@ -573,6 +573,16 @@ Reference height of shallow water model used for
 linearization in the semi-implicit time stepping scheme&
 \tabularnewline
 
+%\hline
+ldeepatmo &
+L & .FALSE. & &
+Switch for deep-atmosphere modification of non-hydrostatic atmosphere. 
+Specific settings can be found in upatmo\_nml. &
+iequations = 3 \\
+iforcing = 0, 2, 3 \\
+is\_plane\_torus = .FALSE.
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_dynamics_nml.f90+
@@ -2503,6 +2513,18 @@ left column: ICON variable name, right column: GRIB2 short name or NetCDF var na
 &
 \tabularnewline
 
+%\hline
+itype\_vert\_expol&
+I & 1 & &
+Type of vertical extrapolation of initial data: \\
+1: Linear extrapolation (standard) \\
+2: Blend of linear extrapolation and simple climatology. 
+Intended for upper-atmosphere simulations and specific settings 
+can be found in upatmo\_nml. Requires: 
+ivctype = 2, 12; l\_limited\_area = .FALSE.
+& 
+\tabularnewline
+
 
 \end{longtab}
 
@@ -3840,7 +3862,19 @@ ivctype&
 I& 2& &
 Type of vertical coordinate:\\
 1: Gal-Chen hybrid \\
-2: SLEVE (uses sleve\_nml)&
+2: SLEVE (uses sleve\_nml)\\
+12: as 2, but nominal interface heights (vct\_a (\& vct\_b)) from file, as in
+case of 1.
+Requires: ldeepatmo = .TRUE. (and layer\_thickness < 0, 
+to trigger read-in of vertical coordinates from file). 
+Please, see <icon\_home>/vertical\_coord\_tables/README: 
+section ``atm\_hyb\_sz\_<nlev>'' for the format of the coordinate file, 
+and \\
+<icon\_home>/src/atm\_dyn\_iconam$\ldots$ \\
+$\ldots$/mo\_init\_vgrid: init\_sleve\_coord 
+for the entrie to the column ``vct\_b'' of the file. 
+(Please, use with care. It has not been thoroughly checked for all possible
+negative interferences with other parts of the code.)&
 \tabularnewline
 
 %\hline
@@ -4282,7 +4316,8 @@ I (max\_ dom)&
 subgrid scale orographic drag\\
 0: none\\
 1: Lott and Miller scheme (COSMO)
-&run\_nml:iforcing = inwp
+&run\_nml:iforcing = inwp\\
+inwp\_turb > 0
 \tabularnewline
 
 %\hline
@@ -4293,7 +4328,8 @@ I (max\_ dom)&
 non-orographic gravity wave drag\\
 0: none\\
 1: Orr-Ern-Bechtold-scheme (IFS)
-&run\_nml:iforcing = inwp
+&run\_nml:iforcing = inwp\\
+inwp\_turb > 0
 \tabularnewline
 
 
@@ -6680,6 +6716,128 @@ consideration of fluctuations of the heat capacity of air &
 
 Defined and used in: \verb+src/namelists/mo_turbdiff_nml.f90+
 
+%------------------------------------------------------------------------------
+% upatmo_nml:
+%------------------------------------------------------------------------------
+\subsection{upatmo\_nml}
+
+\begin{longtab}
+
+%
+% deep-atmosphere dynamics
+%
+
+%\hline
+lnontrad &
+L & .TRUE. &  
+&
+.TRUE.: Non-traditional terms in horizontal and vertical components of 
+momentum budget (underlined) are switched on (standard for deep atmosphere):\\
+$\partial v_n/\partial t \underline{ + w[v_{\mathrm{n}}/(a+z) - f_{\mathrm{t}}]} +\cdots = \cdots$ \\
+$\partial w/\partial t \underline{+ v_{\mathrm{n}}[-v_{\mathrm{n}}/(a+z)+f_{\mathrm{t}}] +} \linebreak 
+\underline{v_{\mathrm{t}}[-v_{\mathrm{t}}/(a+z) - f_{\mathrm{n}}] }+\cdots = \cdots$, \\
+where $a$ is radius of model Earth, 
+$f_{{\mathrm{n}},{\mathrm{t}}}=2\Omega\cos(\varphi)\boldsymbol{e_\varphi\cdot e_{\mathrm{n},\mathrm{t}}}$ 
+are non-traditional Coriolis parameters, with edge-normal and edge-tangential 
+components denoted by $\mathrm{n}$ and $\mathrm{t}$, the angular velocity of 
+the model Earth $\Omega$, the latitude $\varphi$, and unit vectors 
+$\boldsymbol{e_{\ldots}}$.
+& ldeepatmo = .TRUE.
+\tabularnewline
+
+%\hline
+lconstgrav &
+L & .FALSE. &  
+&
+.FALSE.: gravitational acceleration varies with height (standard for deep atmosphere) \\
+.TRUE.: gravitational acceleration is constant (as in case of shallow atmosphere). 
+I.e. underlined factor in gravitational acceleration is set to 1:\\
+$\text{grav}=\text{const.}*\underline{[a/(a+z)]^2}$.
+& ldeepatmo = .TRUE.
+\tabularnewline
+
+%\hline
+lcentrifugal &
+L & .FALSE. & &
+.TRUE.: Explicit centrifugal acceleration is switched on. 
+I.e. underlined terms in horizontal and vertical components of 
+momentum budget are taken into account:\\
+$\partial v_n/\partial t \underline{+ \Omega^2 (a+z)\sin(\varphi)\cos(\varphi)
+\boldsymbol{e_\varphi\cdot e_{\mathrm{n}}}} +\cdots = \cdots$ \\
+$\partial w/\partial t \underline{-\Omega^2 (a+z) \cos^2(\varphi)} +\cdots = \cdots$. \\
+(If the factor const. in the gravitational acceleration of the model Earth, 
+$\text{grav}=\text{const.}*[a/(a+z)]^2$,
+is assumed to be implicitly composed of a purely gravitational part and 
+a centrifugal part, the latter is not subtracted out for lcentrifugal = .TRUE.!)
+&
+ldeepatmo = .TRUE.
+\tabularnewline
+
+%\hline
+ldeepatmo2phys &
+L & .FALSE. &  
+&
+.FALSE.: input fields to the physics parameterizations are computed 
+in accordance with the shallow-atmosphere approximation in any case \\ 
+.TRUE.: input fields to the physics parameterizations are modified 
+for the deep atmosphere. (Please note: the physics parameterizations themselves 
+are not explicitly modified for the deep atmosphere!)
+& ldeepatmo = .TRUE. .AND. iforcing = 2 (ECHAM)
+\tabularnewline
+
+%
+% upper-atmosphere extrapolation
+%
+
+%\hline
+expol\_start\_height &
+R & 70000 & m
+&
+Height above which extrapolation of initial data starts.
+& itype\_vert\_expol = 2
+\tabularnewline
+
+%\hline
+expol\_blending\_scale &
+R & 10000 & m
+&
+Vertical distance above expol\_start\_height within which blending of linearly
+extrapolated state and climatological state takes place.
+& itype\_vert\_expol = 2
+\tabularnewline
+
+%\hline
+expol\_vn\_decay\_scale  &
+R & 10000 & m
+&
+Scale height of vertically exponentially decaying factor multiplied to the
+extrapolated horizontal wind (to alleviate stability-endangering wind magnitudes).
+& itype\_vert\_expol = 2
+\tabularnewline
+
+%\hline
+expol\_temp\_infty&
+R & 400 & K
+&
+Exospheric mean reference temperature of the climatology for the extrapolation blending.
+& itype\_vert\_expol = 2
+\tabularnewline
+
+%\hline
+lexpol\_sanitycheck&
+L & .FALSE. & 
+&
+.TRUE.: Apply some rudimentary sanity check to the extrapolated atmospheric state 
+in the region above expol\_start\_height 
+(e.g., temperature values everywhere > 0). 
+(Please, apply with care, since it is computationally relatively expensive.) 
+& itype\_vert\_expol = 2
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_upatmo_nml.f90+
+
 % =============================================================================
 %
 \input{\basepath icon_ocean_nml_tables.tex}
@@ -7062,6 +7220,12 @@ lcoriolis = .TRUE.
 \tabularnewline
 &&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
 is\_plane\_torus= .TRUE.
+\tabularnewline
+&&&&'\textbf{lahade}': deep-atmosphere sound wave testcase providing
+comparison of numerical with analytical solution according to method of
+Laeuter, Handorf and Dethloff, J. Comp. Phys.(2005) (requires to set
+src/shared/mo\_physical\_constants: grav to a very small value, e.g. grav = 1.0E-30)&
+ldeepatmo = .TRUE. .AND. lcoriolis = .TRUE. .AND. lcentrifugal = .TRUE.
 \tabularnewline
 
 is\_toy\_chem & 
@@ -7654,6 +7818,96 @@ R& 290:0.006 & K and K/m &
 to prescribe initial potential temperature profile for convective boundary layer simulations where th\_cbl(1)
 sets the constant and th\_cbl(2) sets the gradient &
 nh\_test\_name=CBL
+\tabularnewline
+
+%\hline
+lahade\%icase &
+I & 1 & &
+lahade sub-cases: \\ 
+1: spherical sound wave (currently the only sub-case) &
+nh\_test\_name=`lahade'
+\tabularnewline
+
+%\hline
+lahade\%omega &
+R & 0 & m/s &
+Model Earth's angular velocity in units of the velocity the center 
+of the sound wave is advected according to the rotation &
+\tabularnewline
+
+%\hline
+lahade\%bkg\_temp &
+R & 250 & K &
+Temperature of background atmosphere &
+\tabularnewline
+
+%\hline
+lahade\%bkg\_pres &
+R & 100000 & Pa &
+Pressure of background atmosphere &
+\tabularnewline
+
+%\hline
+lahade\%ptb\_ctr\_lat &
+R & 0 & deg &
+Center latitude of spherical sound wave perturbation &
+\tabularnewline
+
+%\hline
+lahade\%ptb\_ctr\_lon &
+R & 0 & deg &
+Center longitude of spherical sound wave perturbation &
+\tabularnewline
+
+%\hline
+lahade\%ptb\_ctr\_hgt &
+R & 0.5 & -> &
+Center height of spherical sound wave perturbation,  
+in units of the model top height [top\_height] &
+\tabularnewline
+
+%\hline
+lahade\%ptb\_rad\_min &
+R & 0.04 & -> &
+Min. radius of spherical shell within which initial perturbation is non-zero, 
+in units of distance from center to model bottom or model top, whichever is
+shorter [min\{ptb\_ctr\_hgt,(1-ptb\_ctr\_hgt)\} * top\_height] &
+\tabularnewline
+
+%\hline
+lahade\%ptb\_rad\_max &
+R & 0.6 & -> &
+Max. radius of spherical shell ... [min\{ptb\_ctr\_hgt,(1-ptb\_ctr\_hgt)\} * top\_height]&
+\tabularnewline
+
+%\hline
+lahade\%ptb\_amp\_temp &
+R & 0.05 & K &
+Temperature amplitude of initial sound wave perturbation&
+\tabularnewline
+
+%\hline
+lahade\%ptb\_n\_rad &
+R & 1 & 1 &
+Number of radial wave crests of initial perturbation 
+= (ptb\_rad\_max - ptb\_rad\_min) / radial wave length &
+\tabularnewline
+
+%\hline
+lahade\%output\_ptb\_var&
+C & ""  &  &
+Select, if the numerical and analytical solutions of a sound-wave-perturbation-variable 
+shall be output. Currently available variables are: \\
+\begin{itemize}
+\item "temp": temperature perturbation
+\item "rho": density perturbation
+\item "pres": pressure perturbation
+\end{itemize}
+Requirements: the fields "extra\_3d1" and "extra\_3d2" will contain the numerical 
+and the analytical solutions, respectively. 
+Both have to be added to the ml\_varlist of the output\_nml of your choice 
+in combination with inextra\_3d = 2.
+&
 \tabularnewline
 
 \end{longtab}

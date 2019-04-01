@@ -163,6 +163,9 @@ MODULE mo_timer
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
 
+  ! upper atmosphere / deep atmosphere
+  PUBLIC :: timer_deepatmo_ztrafo, timer_expol
+
   ! ocean
   PUBLIC :: timer_gmres_p_sum
   PUBLIC :: timer_scalar_prod_veloc
@@ -346,6 +349,9 @@ MODULE mo_timer
   INTEGER :: timer_feedback
 
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
+
+  ! upper atmosphere / deep atmosphere
+  INTEGER :: timer_deepatmo_ztrafo, timer_expol
 
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
@@ -699,6 +705,10 @@ CONTAINS
     timer_nudging    = new_timer("nesting.nudging")
     timer_bdy_interp = new_timer("nesting.bdy_interp")
     timer_feedback   = new_timer("nesting.feedback")
+
+    ! upper atmosphere / deep atmosphere
+    timer_deepatmo_ztrafo = new_timer("deepatmo_ztrafo")
+    timer_expol           = new_timer("upatmo_expol") 
 
     !ocean timers
     timer_gmres     = new_timer("gmres")

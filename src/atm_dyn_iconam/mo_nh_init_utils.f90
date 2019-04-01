@@ -98,6 +98,8 @@ CONTAINS
 
 
     ! 1. Compute pressure and height of input data, using the IFS routines
+    ! (note: no deep-atmosphere modifications are applied to these subroutines, 
+    ! because they are assumed to be still on an "IFS-model-internal" level)
 
     ! If mask field is provided, fill data-void points (mask=.FALSE.) 
     ! with dummy value.

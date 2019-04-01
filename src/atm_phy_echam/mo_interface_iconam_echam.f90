@@ -106,6 +106,8 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
+  USE mo_upatmo_config         ,ONLY: upatmo_config, idamtr
+
   IMPLICIT NONE
 
   PRIVATE
@@ -189,6 +191,9 @@ CONTAINS
 
     INTEGER  :: return_status
 
+    ! (For deep-atmosphere modification)
+    REAL(wp) :: deepatmo_vol(patch%nlev)
+
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
@@ -230,6 +235,24 @@ CONTAINS
     datetime_old      => newDatetime(datetime_new)
     datetime_old      =  datetime_new + neg_dt_loc_mtime
     CALL deallocateTimedelta(neg_dt_loc_mtime)
+
+    ! Preparation for deep-atmosphere modifications:
+    ! - We could do without deepatmo_vol and access p_metrics%deepatmo_t1mc directly. 
+    !   However, we introduced deepatmo_vol as a further safety barrier.
+    ! - Independent of l_shallowatmo the modifications are computationally expensive!
+    !   The computation of field%mair and field/pt_prog_new%rho include 
+    !   an additional multiplication or division, respectively.
+    ! - The computational overhead could be avoided by the implementation 
+    !   of an additional metric 3d-array in field, which contains the values 
+    !   of the product field%dz(jc,jk,jb) * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol). 
+    !   However, at the cost of the considerable memory consumption of an additional 3d-array.
+    IF (upatmo_config(jg)%phy%l_shallowatmo) THEN
+      ! no cell volume modification
+      deepatmo_vol(1:patch%nlev) = 1._wp
+    ELSE
+      ! cell volume modification factors from 'p_metrics'
+      deepatmo_vol(1:patch%nlev) = p_metrics%deepatmo_t1mc(1:patch%nlev,idamtr%t1mc%vol)
+    END IF
 
     !=====================================================================================
     !
@@ -318,7 +341,8 @@ CONTAINS
       &                      patch                    ,&
       &                      opt_calc_temp=.TRUE.     ,&
       &                      opt_calc_pres=.TRUE.     ,&
-      &                      opt_rlend=min_rlcell_int )
+      &                      opt_rlend=min_rlcell_int ,& 
+      &                      opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav )
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
 
@@ -370,7 +394,8 @@ CONTAINS
       &                      patch                    ,&
       &                      opt_calc_temp=.TRUE.     ,&
       &                      opt_calc_pres=.TRUE.     ,&
-      &                      opt_rlend=min_rlcell_int )
+      &                      opt_rlend=min_rlcell_int ,& 
+      &                      opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav )
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
 
@@ -435,7 +460,9 @@ CONTAINS
           !
           ! air mass
           field%      mair(jc,jk,jb) = pt_prog_new% rho(jc,jk,jb) &
-            &                         *field%        dz(jc,jk,jb)
+            &                         *field%        dz(jc,jk,jb) &
+            ! (deep-atmosphere modification factor for cell volume)
+            &                         *deepatmo_vol(jk)
           !
           ! H2O mass (vap+liq+ice)
           field%      mh2o(jc,jk,jb) = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqv)  &
@@ -458,6 +485,7 @@ CONTAINS
           END IF
           !
           ! vertical velocity in p-system
+          ! (deep-atmosphere modification of 'grav' is assumed to be negligible here)
           field%     omega(jc,jk,jb) = -0.5_wp                                                  &
             &                         * (pt_prog_new% w(jc,jk,jb) + pt_prog_new% w(jc,jk+1,jb)) &
             &                         *  pt_prog_new% rho(jc,jk,jb) * grav
@@ -896,11 +924,15 @@ CONTAINS
               !
               ! new density
               field%       rho (jc,jk,jb) = field% mair(jc,jk,jb) &
-                &                          /field% dz  (jc,jk,jb)
+                &                          /field% dz  (jc,jk,jb) &
+                ! (deep-atmosphere modification factor for cell volume)
+                &                          /deepatmo_vol(jk)
               !
               ! new density
               pt_prog_new% rho (jc,jk,jb) = field% mair(jc,jk,jb) &
-                &                          /field% dz  (jc,jk,jb)
+                &                          /field% dz  (jc,jk,jb) &
+                ! (deep-atmosphere modification factor for cell volume)
+                &                          /deepatmo_vol(jk)
               !
             ELSE
               !

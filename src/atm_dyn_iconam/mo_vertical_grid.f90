@@ -67,6 +67,8 @@ MODULE mo_vertical_grid
   USE mo_util_table,           ONLY: t_table, initialize_table, add_table_column, &
     &                                set_table_entry, print_table, finalize_table
   USE mo_nudging_config,       ONLY: nudging_config, indg_profile
+  USE mo_dynamics_config,      ONLY: ldeepatmo
+  USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
 
   IMPLICIT NONE
 
@@ -1671,7 +1673,14 @@ MODULE mo_vertical_grid
       ENDIF
       DEALLOCATE(z_me,flat_idx)
 
-    ENDDO
+      ! deep-atmosphere modifications
+      IF (ldeepatmo) THEN 
+        CALL set_deepatmo_metrics( p_patch(jg), p_nh(jg)%metrics, p_int(jg),         &
+          &                        igradp_method, atm_phy_nwp_config(jg)%is_les_phy, &
+          &                        h_scal_bg, t0sl_bg, del_t_bg                      )
+      ENDIF
+
+    ENDDO  !jg
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom

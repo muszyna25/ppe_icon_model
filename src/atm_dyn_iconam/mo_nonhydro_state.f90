@@ -94,6 +94,7 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
+  USE mo_upatmo_config,        ONLY: upatmo_config, idamtr, istatus
 
   IMPLICIT NONE
 
@@ -2892,7 +2893,13 @@ MODULE mo_nonhydro_state
     &       p_metrics%bdy_mflx_e_idx, &
     &       p_metrics%bdy_mflx_e_blk, &
     &       p_metrics%nudgecoeff_vert, &
-    &       p_metrics%mask_prog_halo_c)
+    &       p_metrics%mask_prog_halo_c, &
+    &       p_metrics%zgpot_ifc, &
+    &       p_metrics%zgpot_mc, &
+    &       p_metrics%dzgpot_mc, &
+    &       p_metrics%deepatmo_t1mc, &
+    &       p_metrics%deepatmo_t1ifc, &
+    &       p_metrics%deepatmo_t2mc)
 
 
     !
@@ -3657,6 +3664,75 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
     END IF !if is_les_phy 
+
+    !----------------------------------------------------------------------------
+
+    ! Upper atmosphere/deep atmosphere
+
+    IF (.NOT. upatmo_config(jg)%l_status(istatus%configured)) THEN 
+      ! this happens early in the program sequence, 
+      ! so to be on a somewhat safer side, we check, if the upper atmosphere 
+      ! has been configured
+      CALL finish(TRIM(routine), 'upper/deep atmosphere: information required is not yet available')
+    ELSEIF (.NOT. upatmo_config(jg)%dyn%l_constgrav) THEN
+      ! gravitational acceleration varies vertically, 
+      ! so the following fields are required
+      
+      ! geopotential height of cell interfaces
+      ! p_metrics%zgpot_ifc(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('geopotential_height_at_half_level_center', 'm',          &
+        &                   'geopotential height at half level center', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'zgpot_ifc', p_metrics%zgpot_ifc,                 &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,   &
+        &           ldims=shape3d_chalf, loutput=.FALSE.,                             &
+        &           isteptype=TSTEP_CONSTANT )       
+      
+      ! geopotential height of cell centers 
+      ! p_metrics%zgpot_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('geopotential_height_at_full_level_center', 'm',          &
+        &                   'geopotential height at full level center', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'zgpot_mc', p_metrics%zgpot_mc,                   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+        &           ldims=shape3d_c, loutput=.FALSE.,                                 &
+        &           isteptype=TSTEP_CONSTANT )
+      
+      ! geopotential layer thickness 
+      ! p_metrics%dzgpot_mc(nproma,nlev,nblks_c)   
+      !
+      cf_desc    = t_cf_var('geopotential_layer_thickness_at_full_level_center', 'm',          &
+        &                   'geopotential layer thickness at full level center', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'dzgpot_mc', p_metrics%dzgpot_mc,                          &
+        &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,                 &
+        &           ldims=shape3d_c, loutput=.FALSE.,                                          &
+        &           isteptype=TSTEP_CONSTANT )
+    ENDIF  !IF (.NOT. upatmo_config(jg)%l_status(istatus%configured))
+    
+    ! metrical modification factors for the deep-atmosphere equations 
+    ! note: no explicit deallocation implemented!
+    ALLOCATE(p_metrics%deepatmo_t1mc(nlev,idamtr%t1mc%nitem),STAT=ist)
+    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1mc failed')
+    ALLOCATE(p_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%nitem),STAT=ist)
+    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t1ifc failed')
+    ALLOCATE(p_metrics%deepatmo_t2mc(idamtr%t2mc%nitem,nlev),STAT=ist)
+    IF (ist/=SUCCESS) CALL finish(TRIM(routine), 'allocation of deepatmo_t2mc failed')
+    
+    ! assign default values
+    ! (mostly factor = 1 means no metrical modification -> shallow atmosphere)
+    p_metrics%deepatmo_t1mc(:,idamtr%t1mc%gradh)    = 1._wp
+    p_metrics%deepatmo_t1mc(:,idamtr%t1mc%divh)     = 1._wp
+    p_metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)      = 1._wp
+    p_metrics%deepatmo_t1mc(:,idamtr%t1mc%invr)     = 0._wp  ! here 0 means shallow atmosphere
+    p_metrics%deepatmo_t1mc(:,idamtr%t1mc%centri)   = 0._wp  ! here 0 means shallow atmosphere
+    p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%gradh)  = 1._wp
+    p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%invr)   = 0._wp  ! here 0 means shallow atmosphere
+    p_metrics%deepatmo_t1ifc(:,idamtr%t1ifc%centri) = 0._wp  ! here 0 means shallow atmosphere
+    p_metrics%deepatmo_t2mc(idamtr%t2mc%divzU,:)    = 1._wp
+    p_metrics%deepatmo_t2mc(idamtr%t2mc%divzL,:)    = 1._wp
 
 
   END SUBROUTINE new_nh_metrics_list
