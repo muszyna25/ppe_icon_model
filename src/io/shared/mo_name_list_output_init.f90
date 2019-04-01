@@ -2006,11 +2006,6 @@ CONTAINS
 
         element => var_lists(iv)%p%first_list_element
         DO WHILE (ASSOCIATED(element))
-#ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) then
-          call print_summary('scanning variable:'//trim(element%field%info%name))
-        endif
-#endif
           ! Do not inspect element if output is disabled
           inspect = element%field%info%loutput
           IF (inspect) THEN
