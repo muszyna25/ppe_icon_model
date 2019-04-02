@@ -4283,24 +4283,39 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
 
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler supports the CONTIGUOUS attribute" >&5
-$as_echo_n "checking whether Fortran compiler supports the CONTIGUOUS attribute... " >&6; }
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking wether $FC supports CONTIGUOUS attribute" >&5
+$as_echo_n "checking wether $FC supports CONTIGUOUS attribute... " >&6; }
 if ${acx_cv_fc_attribute_contiguous+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  cat > conftest.$ac_ext <<_ACEOF
-      subroutine conftest_routine(x)
-      implicit none
-      real, contiguous, target, intent(in) :: x(:, :)
-      real, contiguous, pointer :: p(:, :)
-      integer :: i, j
+  ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      cat > conftest.$ac_ext <<_ACEOF
+      SUBROUTINE f(x)
+      REAL, CONTIGUOUS, TARGET, INTENT(IN) :: x(:, :)
+      REAL, CONTIGUOUS, POINTER :: p(:, :)
+      INTEGER :: i, j
       p => x
-      do j = 1, size(p, 2)
-      do i = 1, size(p, 1)
+      DO j = 1, SIZE(p, 2)
+      DO i = 1, SIZE(p, 1)
       p(i, j) = p(i, j) * 0.1
-      end do
-      end do
-      end subroutine
+      END DO
+      END DO
+      END SUBROUTINE f
+
+      SUBROUTINE bar(b)
+      REAL, POINTER, CONTIGUOUS :: b(:)
+      CALL foo(b(1))
+      END SUBROUTINE bar
+
+      SUBROUTINE foo(x)
+      REAL, INTENT(in) :: x
+      WRITE (0, *) x
+      END SUBROUTINE foo
+
 _ACEOF
 if ac_fn_fc_try_compile "$LINENO"; then :
   acx_cv_fc_attribute_contiguous=yes
@@ -4308,10 +4323,15 @@ else
   acx_cv_fc_attribute_contiguous=no
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_attribute_contiguous" >&5
 $as_echo "$acx_cv_fc_attribute_contiguous" >&6; }
-   if test "x$acx_cv_fc_attribute_contiguous" = xyes; then :
+    if test x"$acx_cv_fc_attribute_contiguous" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"
 else
   :
