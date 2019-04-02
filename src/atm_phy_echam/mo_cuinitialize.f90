@@ -107,7 +107,9 @@ CONTAINS
     !
     DO jk=1,klev
 
-      CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(1,jk),idx(1),za(1))
+      CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(1,jk),idx(1),za(1), &
+                                   klev=jk,kblock=jb,kblock_size=kbdim)
+
       CALL lookup_ua_spline(jcs,kproma,idx(1),za(1),ua(1))
 
 
