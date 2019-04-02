@@ -515,6 +515,7 @@ SUBROUTINE graupel     (             &
     zprvs       (nvec),     & !
     zprvg       (nvec),     & !
     zprvi       (nvec),     & !
+    zqvsw_up    (nvec),     & ! sat. specitic humidity at ice and water saturation
 #ifdef __COSMO__
     zdummy      (nvec,8),   & !
 #endif
@@ -744,6 +745,7 @@ SUBROUTINE graupel     (             &
     zvzg(iv)     = 0.0_wp
     zvzi(iv)     = 0.0_wp
     dist_cldtop(iv) = 0.0_wp
+    zqvsw_up(iv) = 0.0_wp
   END DO
 
 ! *********************************************************************
@@ -1158,14 +1160,14 @@ SUBROUTINE graupel     (             &
           END IF
         ENDIF
         ! Calculation of reduction of depositional growth at cloud top (Forbes 2012)
-        IF( k>1 .AND. k<ke .AND. lred_depgrow ) THEN
+        IF( k>k_start .AND. k<ke .AND. lred_depgrow ) THEN
           znin = MIN(fxna_cooper(tg), znimax )
           fnuc = MIN(znin/znimix, 1.0_wp)
 
-          qcgk_1 = qc(iv,k-1) + qi(iv,k-1) + qs(iv,k-1)
+          qcgk_1 = qi(iv,k-1) + qs(iv,k-1) + qg(iv,k-1)
 
           !! distance from cloud top
-          IF( qcgk_1 .LT. zqmin ) THEN      ! upper cloud layer
+          IF( qv(iv,k-1) + qc(iv,k-1) < zqvsw_up(iv) .AND. qcgk_1 .LT. zqmin ) THEN      ! upper cloud layer
             dist_cldtop(iv) = 0.0_wp    ! reset distance to upper cloud layer
           ELSE
             dist_cldtop(iv) = dist_cldtop(iv) + dz(iv,k)
@@ -1346,6 +1348,7 @@ SUBROUTINE graupel     (             &
 #ifdef __ICON__
             zqvsw      = sat_pres_water(tg)/(rhog * r_v *tg)
 #endif
+            zqvsw_up(iv) = zqvsw
             zqvsidiff  = qvg-zqvsw
             ssdep = (0.28003_wp-ppg*0.146293E-6_wp) &
                      * zqvsidiff * zeln8qsk
@@ -1370,6 +1373,7 @@ SUBROUTINE graupel     (             &
 #ifdef __ICON__
         zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
 #endif
+        zqvsw_up(iv) = zqvsw
 
       IF( (llqr) .AND. (qvg+qcg <= zqvsw)) THEN
 

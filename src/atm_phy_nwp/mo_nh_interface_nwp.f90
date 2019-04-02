@@ -1027,6 +1027,7 @@ CONTAINS
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
 &              t_g    = lnd_prog_new%t_g     (:,jb)       ,       & !! in:  surface temperature
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
+&              deltaz = p_metrics%ddqz_z_full(:,:,jb)     ,       & !! in:  layer thickness
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
 &              rcld   = prm_diag%rcld        (:,:,jb)     ,       & !! in:  standard deviation of saturation deficit
 &              ldland = ext_data%atm%llsm_atm_c (:,jb)    ,       & !! in:  land/sea mask

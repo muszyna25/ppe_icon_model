@@ -52,7 +52,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_texc        => tune_texc,        &  
     &                               config_tune_qexc        => tune_qexc,        &  
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
-    &                               config_tune_box_liq   => tune_box_liq,       &  
+    &                               config_tune_box_liq   => tune_box_liq,       &
     &                               config_tune_box_liq_asy => tune_box_liq_asy, &
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
     &                               config_tune_gust_factor => tune_gust_factor, &  
@@ -232,8 +232,7 @@ CONTAINS
     tune_zceff_min   = 0.01_wp
     tune_v0snow      = 25.0_wp      ! previous ICON value was 20
     tune_zvz0i       = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
-    tune_icesedi_exp = 0.33_wp      ! exponent for density correction of cloud ice sedimentation
-
+    tune_icesedi_exp = 0.30_wp      ! exponent for density correction of cloud ice sedimentation
     !
     ! convection
     !
@@ -281,7 +280,7 @@ CONTAINS
     !
     ! cloud cover
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds
-    tune_box_liq_asy = 2.5_wp      ! asymmetry factor for liquid cloud parameterization
+    tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
 
     tune_gust_factor = 8.0_wp      ! tuning factor for gust parameterization
