@@ -363,7 +363,7 @@ CONTAINS
             !
             ! find the standard pressure field:
             element_pres => find_list_element (p_nh_state_lists(jg)%diag_list, 'pres')
-            IF (ASSOCIATED (element)) THEN
+            IF (ASSOCIATED (element_pres)) THEN
               ! register task for interpolation to z=0:
               CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
                 &                         job_type=TASK_INTP_MSL,                                 &
