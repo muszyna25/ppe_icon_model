@@ -1847,7 +1847,7 @@ CONTAINS
     CALL getPTStringFromSeconds(NINT(start_time(of%log_patch_id),i8), time_offset_str)
     mtime_td   => newTimedelta(time_offset_str)
     mtime_date = mtime_date + mtime_td
-    CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
+    dom_sim_step_info%dom_start_time = mtime_date
     CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(mtime_td)
 
@@ -1856,7 +1856,7 @@ CONTAINS
       CALL getPTStringFromSeconds(NINT(end_time(of%log_patch_id),i8), time_offset_str)
       mtime_td   => newTimedelta(time_offset_str)
       mtime_date = mtime_date + mtime_td
-      CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
+      dom_sim_step_info%dom_end_time = mtime_date
       CALL deallocateDatetime(mtime_date)
       CALL deallocateTimedelta(mtime_td)
     ELSE

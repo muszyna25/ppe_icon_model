@@ -78,10 +78,10 @@ MODULE mo_ps_radiation_model
 !     IF (output_mode%l_nml) THEN
 !       CALL parse_variable_groups()
 !       ! compute sim_start, sim_end
-!       CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-!       CALL datetimeToString(time_config%tc_stopdate, sim_step_info%sim_end)
-!       CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-!       CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+!       sim_step_info%sim_start = time_config%tc_exp_startdate
+!       sim_step_info%sim_end = time_config%tc_stopdate
+!       sim_step_info%run_start = time_config%tc_startdate
+!       sim_step_info%restart_time = time_config%tc_stopdate
 ! 
 !       sim_step_info%dtime      = dtime
 !       jstep0 = 0

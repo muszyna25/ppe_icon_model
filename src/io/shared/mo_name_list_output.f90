@@ -139,7 +139,7 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, MAX_DATETIME_STR_LEN
+    &                                     timedelta, max_datetime_str_len, datetimeToString
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
@@ -479,7 +479,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(datetime),           POINTER :: io_datetime
+    TYPE(datetime) :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, io_proc_id
@@ -490,6 +490,7 @@ CONTAINS
     LOGICAL :: ofile_is_active(SIZE(output_file)), &
          ofile_has_first_write(SIZE(output_file)), &
          ofile_is_assigned_here(SIZE(output_file))
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: current_date_string
 
     IF (ltimer) CALL timer_start(timer_write_output)
 
@@ -581,20 +582,22 @@ CONTAINS
 
         ! Notify user
         IF (msg_level >= 8) THEN
+          CALL datetimeToString(get_current_date(output_file(i)%out_event), &
+            &                   current_date_string)
 #ifdef HAVE_CDI_PIO
           IF (pio_type == pio_type_cdipio) THEN
             WRITE(text,'(4a)')                                               &
               & 'Collective asynchronous output to ',                        &
               & TRIM(get_current_filename(output_file(i)%out_event)),        &
               & ' at simulation time ',                                      &
-              & TRIM(get_current_date(output_file(i)%out_event))
+              & TRIM(current_date_string)
           ELSE
 #endif
             WRITE(text,'(5a,i0)')                                            &
               & 'Output to ',                                                &
               & TRIM(get_current_filename(output_file(i)%out_event)),        &
               & ' at simulation time ',                                      &
-              & TRIM(get_current_date(output_file(i)%out_event)), &
+              & TRIM(current_date_string), &
               & ' by PE ', p_pe
 #ifdef HAVE_CDI_PIO
           END IF
@@ -605,14 +608,13 @@ CONTAINS
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
-        io_datetime => newDatetime(TRIM(get_current_date(output_file(i)%out_event)))
+        io_datetime = get_current_date(output_file(i)%out_event)
         idate = cdiEncodeDate(INT(io_datetime%date%year),   &
           &                   INT(io_datetime%date%month),  &
           &                   INT(io_datetime%date%day))
         itime = cdiEncodeTime(INT(io_datetime%time%hour),   &
           &                   INT(io_datetime%time%minute), &
           &                   INT(io_datetime%time%second))
-        CALL deallocateDatetime(io_datetime)
         CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
@@ -753,18 +755,16 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER         :: routine = modname//"::write_ready_file"
     CHARACTER(LEN=FILENAME_MAX)         :: rdy_filename
     CHARACTER(LEN=8)         :: forecast_delta_str
-    TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
+    TYPE(datetime)           :: mtime_begin, mtime_date, current_date
     TYPE(timedelta)                     :: forecast_delta
     INTEGER                             :: iunit, tlen
     TYPE (t_keyword_list), POINTER      :: keywords
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: current_date
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, current_date_string
 
     current_date = get_current_date(ev)
-    tlen = LEN_TRIM(current_date)
     ! compute current forecast time (delta):
-    mtime_date     => newDatetime(current_date(1:tlen))
-    mtime_begin    => newDatetime(TRIM(ev%output_event%event_data%sim_start))
+    mtime_date     = current_date
+    mtime_begin    = ev%output_event%event_data%sim_start
     forecast_delta = mtime_date - mtime_begin
 
     WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
@@ -773,15 +773,13 @@ CONTAINS
       &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
       &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
 
-    CALL deallocateDatetime(mtime_date)
-    CALL deallocateDatetime(mtime_begin)
-
     NULLIFY(keywords)
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),    keywords)
-    CALL associate_keyword("<datetime>",        current_date(1:tlen),    keywords)
-    CALL associate_keyword("<ddhhmmss>",        forecast_delta_str,         keywords)
-    CALL associate_keyword("<datetime2>",       TRIM(dtime_string),         keywords)
+    CALL associate_keyword("<path>",      TRIM(getModelBaseDir()),    keywords)
+    CALL datetimeToString(current_date, current_date_string)
+    CALL associate_keyword("<datetime>",  TRIM(current_date_string),  keywords)
+    CALL associate_keyword("<ddhhmmss>",  forecast_delta_str,         keywords)
+    CALL associate_keyword("<datetime2>", TRIM(dtime_string),         keywords)
     rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     tlen = LEN_TRIM(rdy_filename)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &

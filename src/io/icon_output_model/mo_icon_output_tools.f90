@@ -38,7 +38,6 @@ MODULE mo_icon_output_tools
 #endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
   USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
@@ -162,10 +161,10 @@ MODULE mo_icon_output_tools
       IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
 
         ! compute sim_start, sim_end
-        CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-        CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-        CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+        sim_step_info%sim_start = time_config%tc_exp_startdate
+        sim_step_info%sim_end = time_config%tc_exp_stopdate
+        sim_step_info%run_start = time_config%tc_startdate
+        sim_step_info%restart_time = time_config%tc_stopdate
 
         sim_step_info%dtime      = dtime
         jstep0 = 0
@@ -238,10 +237,10 @@ MODULE mo_icon_output_tools
 !       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
       ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+      sim_step_info%sim_start = time_config%tc_exp_startdate
+      sim_step_info%sim_end = time_config%tc_exp_stopdate
+      sim_step_info%run_start = time_config%tc_startdate
+      sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
       jstep0 = 0

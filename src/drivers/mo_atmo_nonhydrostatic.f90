@@ -15,7 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish, print_value
-USE mtime,                   ONLY: datetimeToString, OPERATOR(>)
+USE mtime,                   ONLY: OPERATOR(>)
 USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_init_latbc, &
@@ -602,10 +602,10 @@ CONTAINS
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+      sim_step_info%sim_start = time_config%tc_exp_startdate
+      sim_step_info%sim_end = time_config%tc_exp_stopdate
+      sim_step_info%run_start = time_config%tc_startdate
+      sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
       jstep0 = 0

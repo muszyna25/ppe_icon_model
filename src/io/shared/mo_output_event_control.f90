@@ -85,56 +85,40 @@ CONTAINS
     TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info                        !< definitions: time step size, etc.
     INTEGER,              INTENT(OUT) :: result_steps(:)                      !< resulting step indices (+last sim step)
     !> resulting (exact) time step strings  (+last sim step)
-    CHARACTER(LEN=*),     INTENT(OUT) :: result_exactdate(:)
+    TYPE(datetime),        INTENT(OUT)   :: result_exactdate(:)
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_matching_sim_steps"
-    INTEGER                  :: idtime_ms, ilist
-    TYPE(datetime),  POINTER :: mtime_begin, mtime_end, &
-         &                      mtime_dom_start, mtime_dom_end
-    TYPE(timedelta), POINTER :: delta
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
-
-    ! build an ISO 8601 duration string from the given "dtime" value:
-    idtime_ms = NINT(sim_step_info%dtime*1000._wp)
-    CALL getPTStringFromMS(INT(idtime_ms,i8), dtime_string)
-    ! create a time delta of "dtime" seconds length
-    delta => newTimedelta(TRIM(dtime_string))
+    INTEGER                  :: ilist
+    TYPE(datetime) :: mtime_begin, mtime_end, mtime_dom_start, mtime_dom_end
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
     ! Domains (and their output) can be activated and deactivated
     ! during the simulation. This is determined by the parameters
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
-    mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
-    mtime_dom_end   => newDatetime(TRIM(sim_step_info%dom_end_time))
-    mtime_begin     => newDatetime(TRIM(sim_step_info%run_start))
-    mtime_end       => newDatetime(TRIM(sim_step_info%sim_end  ))
+    mtime_dom_start = sim_step_info%dom_start_time
+    mtime_dom_end   = sim_step_info%dom_end_time
+    mtime_begin     = sim_step_info%run_start
+    mtime_end       = sim_step_info%sim_end
 
     DO ilist = 1,num_dates
       ! check if domain is inactive:
       IF (((dates(ilist) >= mtime_dom_start) .AND. (dates(ilist) >= mtime_begin)) .OR.  &
         & ((dates(ilist) <= mtime_end) .AND. (dates(ilist) <= mtime_dom_end))) THEN 
         CALL compute_step(dates(ilist), mtime_begin, mtime_end,                &
-          &               sim_step_info%dtime, delta,                         &
-          &               sim_step_info%jstep0,                               &
+          &               sim_step_info%dtime, sim_step_info%jstep0,           &
           &               result_steps(ilist), result_exactdate(ilist))
         IF (ldebug) THEN
-          WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
+          CALL datetimetostring(result_exactdate(ilist), datetime_string)
+          WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", &
+            &         TRIM(datetime_string)
         END IF
       ELSE
         result_steps(ilist)     = -1
-        result_exactdate(ilist) = ""
       END IF
     END DO
     result_steps(num_dates+1:)     = -1
-    result_exactdate(num_dates+1:) = ""
-
-    ! clean up
-    CALL deallocateDatetime(mtime_dom_start)
-    CALL deallocateDatetime(mtime_dom_end)
-    CALL deallocateDatetime(mtime_begin)
-    CALL deallocateDatetime(mtime_end)
-    CALL deallocateTimedelta(delta)
 
   END SUBROUTINE compute_matching_sim_steps
 
@@ -145,18 +129,18 @@ CONTAINS
   !  @author F. Prill, DWD
   ! --------------------------------------------------------------------------------------------------
   SUBROUTINE compute_step(mtime_current, mtime_begin, mtime_end, dtime,  &
-    &                     delta, step_offset, step, exact_date)
+    &                     step_offset, step, exact_date)
     TYPE(datetime),  INTENT(in)                      :: mtime_current       !< input date to translated into step
-    TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
-    TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
+    TYPE(datetime),  INTENT(in)                      :: mtime_begin         !< begin of run (note: restart cases!)
+    TYPE(datetime),  INTENT(in)                      :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
-    TYPE(timedelta), POINTER                         :: delta
     INTEGER,                             INTENT(IN)  :: step_offset
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
-    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
+    !> result: corresponding simulation date
+    TYPE(datetime),                      INTENT(OUT) :: exact_date
     ! local variables
     REAL                                 :: intvlmillisec
-    TYPE(datetime),  POINTER             :: mtime_step
+    TYPE(datetime)                       :: mtime_step
     CHARACTER(len=max_timedelta_str_len) :: td_string
     TYPE(divisionquotienttimespan)       :: tq     
     TYPE(timedelta), POINTER             :: vlsec => NULL()
@@ -174,13 +158,8 @@ CONTAINS
     CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)
 
     step = INT(tq%quotient,i4)
-    
-    mtime_step => newDatetime('0001-01-01T00:00:00')
-    IF (step >= 0) THEN
-      mtime_step = mtime_begin + step * vlsec
-      CALL datetimeToString(mtime_step, exact_date)
-    END IF
-    CALL deallocateDatetime(mtime_step)
+
+    IF (step >= 0) exact_date = mtime_begin + step * vlsec
 
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
@@ -213,15 +192,14 @@ CONTAINS
     INTEGER                             :: i, j, ifile, ipart, total_index, this_jfile, errno
     CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename
     TYPE (t_keyword_list), POINTER      :: keywords
-    TYPE(datetime),  POINTER            :: run_start, sim_start, &
-      &                                    step_date, mtime_begin, &
-      &                                    mtime_first, mtime_date
+    TYPE(datetime) :: run_start, sim_start
+    TYPE(datetime), POINTER :: step_date, mtime_begin, mtime_first, mtime_date
     TYPE(datetime) :: file_end
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
-    run_start  => newDatetime(TRIM(sim_step_info%run_start))
-    sim_start  => newDatetime(TRIM(sim_step_info%sim_start))
+    run_start  = sim_step_info%run_start
+    sim_start  = sim_step_info%sim_start
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -388,9 +366,6 @@ CONTAINS
     END DO
     CALL deallocateTimedelta(forecast_delta)
 
-    ! clean up
-    CALL deallocateDatetime(run_start)
-    CALL deallocateDatetime(sim_start)
 
   END SUBROUTINE generate_output_filenames
 

@@ -387,6 +387,7 @@ MODULE mo_mpi
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp, p_real
   PUBLIC :: p_int
+  PUBLIC :: p_int_i4
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind

@@ -147,7 +147,7 @@ MODULE mo_atmo_model
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
+  USE mtime,                      ONLY: OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
   USE mo_async_latbc_types,       ONLY: t_latbc_data
@@ -399,10 +399,10 @@ CONTAINS
           IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
-          CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-          CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-          CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-          CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+          sim_step_info%sim_start = time_config%tc_exp_startdate
+          sim_step_info%sim_end = time_config%tc_exp_stopdate
+          sim_step_info%run_start = time_config%tc_startdate
+          sim_step_info%restart_time = time_config%tc_stopdate
           sim_step_info%dtime      = dtime
           jstep0 = 0
 
