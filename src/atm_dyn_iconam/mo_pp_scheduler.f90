@@ -271,12 +271,12 @@ CONTAINS
           ! mean sea level pressure
           ! find the standard pressure field:
           elem_pres => find_list_element(p_nh_state_lists(jg)%diag_list, 'pres')
-          IF (ASSOCIATED (elem)) &
+          IF (ASSOCIATED (elem_pres)) &
             ! register task for interpolation to z=0:
             & CALL pp_scheduler_register(name=elem%info%name, jg=jg, p_out_var=elem, &
               & job_type=TASK_INTP_MSL, l_init_prm_diag=l_init_prm_diag, opt_p_in_var=elem_pres)
         CASE DEFAULT
-            CALL finish(routine, "Unknown pp task type!")
+          CALL finish(routine, "Unknown pp task type!")
         END SELECT
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
