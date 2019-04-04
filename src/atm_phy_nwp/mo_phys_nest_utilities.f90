@@ -2562,10 +2562,13 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
 !$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
-    CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
+    CALL sync_patch_array_mult(SYNC_C,ptr_pp,2,z_aux3d_p,prm_diagp%rcld)
 
     CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
       &                     lnoshift=.TRUE.)
+
+    ! needed for cloud-cover scheme
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, prm_diagp%rcld, prm_diagc%rcld, llimit_nneg=(/.TRUE./))
 
 
   i_startblk = ptr_pc%cells%start_blk(1,1)
