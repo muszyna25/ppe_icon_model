@@ -25,7 +25,7 @@ MODULE mo_output_event_control
   USE mo_exception,          ONLY: finish, message_text
   USE mo_kind,               ONLY: wp, i4, i8
   USE mo_master_config,      ONLY: getModelBaseDir
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, MAX_DATETIME_STR_LEN,          &
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN,          &
     &                              MAX_TIMEDELTA_STR_LEN, datetime,                     &
     &                              deallocateDatetime, datetimeToString,                &
     &                              newDatetime, OPERATOR(>=), OPERATOR(*),              &
