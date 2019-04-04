@@ -103,7 +103,7 @@ CONTAINS
     in_str_upper = toupper(in_str)
     n = SIZE(VINTP_TYPE_LIST)
     LOOP_VINTP_TYPES : DO ivintp_type=1,n
-      IF (in_str_upper == toupper(VINTP_TYPE_LIST(ivintp_type))) THEN
+      IF (in_str_upper == VINTP_TYPE_LIST(ivintp_type)) THEN
         vintp_type_id = ivintp_type
         EXIT LOOP_VINTP_TYPES
       END IF
