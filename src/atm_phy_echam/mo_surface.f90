@@ -244,7 +244,7 @@ CONTAINS
       & zshflx_lnd(kbdim), zshflx_lwtr(kbdim), zshflx_lice(kbdim), &
       & zevap_lnd(kbdim), zevap_lwtr(kbdim), zevap_lice(kbdim),    &
       & qsat_lnd(kbdim), qsat_lwtr(kbdim), qsat_lice(kbdim),       &
-      & dry_static_energy(kbdim),                                  &
+      & zcpt_lnd(kbdim), zcpt_lwtr(kbdim), zcpt_lice(kbdim),      &
       & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),                    &
       & ztsfc_wtr(kbdim), ztsfc_lwtr(kbdim), ztsfc_lice(kbdim),    &
       & rvds(kbdim), rnds(kbdim), rpds(kbdim),                     &
@@ -365,11 +365,13 @@ CONTAINS
       qsat_lnd(:)          = 0._wp
       qsat_lwtr(:)         = 0._wp
       qsat_lice(:)         = 0._wp
-      dry_static_energy(:) = 0._wp
       ztsfc_lnd(:)         = 0._wp
       ztsfc_lnd_eff(:)     = 0._wp
       ztsfc_lwtr(:)        = 0._wp
       ztsfc_lice(:)        = 0._wp
+      zcpt_lnd(:)          = 0._wp
+      zcpt_lwtr(:)         = 0._wp
+      zcpt_lice(:)         = 0._wp
       z0m_tile(:,idx_lnd)  = 0._wp
 
       zwindspeed_lnd(:)        = 0._wp
@@ -409,7 +411,7 @@ CONTAINS
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp
                                                                                              ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
-          & s_srf             = dry_static_energy(jcs:kproma),                               & ! out (s_s^star, for vdiff scheme)
+          & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(jcs:kproma),                                           & ! out
           & evapotrans        = zevap_lnd(jcs:kproma),                                       & ! out
@@ -438,12 +440,14 @@ CONTAINS
           & q_bcoef_ice       = zfn_qv(jcs:kproma, idx_ice),                                 & ! in
           & t_lwtr            = ztsfc_lwtr(jcs:kproma),                                      & ! out
           & qsat_lwtr         = qsat_lwtr(jcs:kproma),                                       & ! out
+          & s_lwtr            = zcpt_lwtr(jcs:kproma),                                       & ! out
           & evapo_wtr         = zevap_lwtr(jcs:kproma),                                      & ! out
           & latent_hflx_wtr   = zlhflx_lwtr(jcs:kproma),                                     & ! out
           & sensible_hflx_wtr = zshflx_lwtr(jcs:kproma),                                     & ! out
           & albedo_lwtr       = zalbedo_lwtr(jcs:kproma),                                    & ! out
           & t_lice            = ztsfc_lice(jcs:kproma),                                      & ! out
           & qsat_lice         = qsat_lice(jcs:kproma),                                       & ! out
+          & s_lice            = zcpt_lice(jcs:kproma),                                       & ! out
           & evapo_ice         = zevap_lice(jcs:kproma),                                      & ! out
           & latent_hflx_ice   = zlhflx_lice(jcs:kproma),                                     & ! out
           & sensible_hflx_ice = zshflx_lice(jcs:kproma),                                     & ! out
@@ -477,7 +481,7 @@ CONTAINS
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp 
                                                                                              ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
-          & s_srf             = dry_static_energy(jcs:kproma),                               & ! out (s_s^star, for vdiff scheme)
+          & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(jcs:kproma),                                           & ! out
           & evapotrans        = zevap_lnd(jcs:kproma),                                       & ! out
@@ -500,12 +504,13 @@ CONTAINS
       pco2_flux_tile(jcs:kproma, idx_ice) =  0._wp
 
       ptsfc_tile(jcs:kproma,idx_lnd) = ztsfc_lnd(jcs:kproma)
-      pcpt_tile (jcs:kproma,idx_lnd) = dry_static_energy(jcs:kproma)
+      pcpt_tile (jcs:kproma,idx_lnd) = zcpt_lnd(jcs:kproma)
       pqsat_tile(jcs:kproma,idx_lnd) = qsat_lnd(jcs:kproma)
       IF (echam_phy_config(jg)%llake) THEN
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(jcs:kproma) > 0._wp)
             ptsfc_tile    (jcs:kproma, idx_wtr) = ztsfc_lwtr   (jcs:kproma)
+            pcpt_tile     (jcs:kproma, idx_wtr) = zcpt_lwtr    (jcs:kproma)
             pqsat_tile    (jcs:kproma, idx_wtr) = qsat_lwtr    (jcs:kproma)
             albvisdir_tile(jcs:kproma, idx_wtr) = zalbedo_lwtr (jcs:kproma)
             albvisdif_tile(jcs:kproma, idx_wtr) = zalbedo_lwtr (jcs:kproma)
@@ -518,6 +523,7 @@ CONTAINS
         IF (idx_ice <= ksfc_type) THEN
           WHERE (alake(jcs:kproma) > 0._wp)
             ptsfc_tile    (jcs:kproma, idx_ice) = ztsfc_lice   (jcs:kproma)
+            pcpt_tile     (jcs:kproma, idx_ice) = zcpt_lice    (jcs:kproma)
             pqsat_tile    (jcs:kproma, idx_ice) = qsat_lice    (jcs:kproma)
             albvisdir_tile(jcs:kproma, idx_ice) = zalbedo_lice (jcs:kproma)
             albvisdif_tile(jcs:kproma, idx_ice) = zalbedo_lice (jcs:kproma)
@@ -750,6 +756,11 @@ CONTAINS
       ELSE ! only open water
         zfrc_oce(jcs:kproma) = pfrc(jcs:kproma,idx_wtr)
       ENDIF
+      IF (idx_lnd <= ksfc_type) THEN
+        WHERE (alake(jcs:kproma) > 0._wp)
+          zfrc_oce(jcs:kproma) = 0._wp
+        END WHERE
+      END IF
       bb(jcs:kproma,klev,iu) =   bb(jcs:kproma,klev,iu)                   &
                            & - pocu(jcs:kproma)*zfrc_oce(jcs:kproma)*tpfac2
       bb(jcs:kproma,klev,iv) =   bb(jcs:kproma,klev,iv)                   &
