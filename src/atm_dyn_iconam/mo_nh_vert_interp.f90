@@ -908,7 +908,7 @@ CONTAINS
 !$OMP END PARALLEL
 
     ! If the input data is corrupted, no kpbl1 or kpbl2 is found, i.e. still equal -1
-    IF ( ANY(kpbl1 < 0) .OR. ANY(kpbl2 < 0) ) THEN
+    IF ( ANY(kpbl1(:,1:nblks) < 0) .OR. ANY(kpbl2(:,1:nblks) < 0) ) THEN
       CALL finish("prepare_extrap:", &
         &         "No kpbl found, check vertical coordinate input data.")
     ENDIF
