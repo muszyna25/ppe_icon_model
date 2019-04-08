@@ -615,7 +615,7 @@ CONTAINS
     !         "master_time_control_nml") is unspecified, then the
     !         reference date is set to the experiment start date.
     !
-    IF (TRIM(experimentReferenceDate) == '') THEN
+    IF (experimentReferenceDate == '') THEN
       exp_ref_datetime_string = exp_start_datetime_string
     ELSE
       exp_ref_datetime_string = experimentReferenceDate
