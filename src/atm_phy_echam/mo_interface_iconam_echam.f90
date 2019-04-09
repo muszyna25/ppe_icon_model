@@ -69,7 +69,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -107,6 +107,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
   USE mo_run_config,            ONLY: lart
+  USE mo_art_config,            ONLY: art_config
 
   IMPLICIT NONE
 
@@ -800,7 +801,7 @@ CONTAINS
       END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-IF (lart) jt_end = 3
+IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -976,9 +977,9 @@ IF (lart) THEN
           
           DO jk = 1,nlev
             DO jc = jcs, jce
-             ! prm_tend(jg)%qtrc_phy(jc,jk,jb,4) = 0.0_wp
 
-  pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+               pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+
             ENDDO
           ENDDO
         ENDDO

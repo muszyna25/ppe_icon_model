@@ -112,6 +112,11 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
+  INTEGER :: iart_echam_ghg          !< integer for number tracers of hard coded echam greenhouse gases
+  
+
+
+
   NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_passive,                        &
    &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
@@ -125,7 +130,7 @@ MODULE mo_art_nml
    &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                iart_init_passive, lart_psc
+   &                iart_init_passive, lart_psc, iart_echam_ghg
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -214,6 +219,8 @@ CONTAINS
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
+
+    iart_echam_ghg      = 0
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -425,6 +432,9 @@ CONTAINS
 
       ! art number of tracers
       art_config(jg)%iart_ntracer        = auto_ntracer 
+
+
+      art_config(jg)%iart_echam_ghg      = iart_echam_ghg 
     ENDDO !jg
 
     !-----------------------------------------------------

@@ -126,6 +126,8 @@ MODULE mo_art_config
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
     INTEGER :: nturb_tracer            !< number of tracers in turbulence
+
+    INTEGER :: iart_echam_ghg
     
   END TYPE t_art_config
 

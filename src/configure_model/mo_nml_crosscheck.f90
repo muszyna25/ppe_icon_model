@@ -430,11 +430,33 @@ CONTAINS
 
       IF (lart) THEN
         
-        ntracer = ntracer + art_config(1)%iart_ntracer
-        io3    = 0     !! O3
-        ico2   = 0     !! CO2
-        ich4   = 0     !! CH4
-        in2o   = 0     !! N2O
+        ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
+            io3    = 0     !! O3
+            ico2   = 0     !! CO2
+            ich4   = 0     !! CH4
+            in2o   = 0     !! N2O
+
+
+        SELECT CASE (art_config(1)%iart_echam_ghg)  
+
+        CASE(1)
+            io3    = 4
+        CASE(2)
+            ico2   = 5
+        CASE(3)
+            ich4   = 6
+        CASE(4)
+            in2o   = 7
+
+        CASE(0)
+
+        CASE DEFAULT
+          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
+
+        END SELECT
+
+
+
 
         
         WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
