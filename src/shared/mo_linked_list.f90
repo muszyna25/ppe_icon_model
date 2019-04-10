@@ -137,11 +137,11 @@ CONTAINS
     this_list%p%first_list_element => NULL()
     !
     IF (this_list%p%memory_used /= 0_i8) THEN
-      CALL finish ('delete_list', 'List delete didnt work proper (memory counter)')
+      CALL finish ('delete_list', 'List delete didnt work properly (memory counter)')
     ENDIF
     !
     IF (this_list%p%list_elements /= 0) THEN
-      CALL finish ('delete_list', 'List delete didnt work proper (element counter)')
+      CALL finish ('delete_list', 'List delete didnt work properly (element counter)')
     ENDIF
     !
   END SUBROUTINE delete_list
