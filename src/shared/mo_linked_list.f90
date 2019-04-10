@@ -199,7 +199,7 @@ CONTAINS
   SUBROUTINE create_list_element (this_list, current_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: current_list_element
+    TYPE(t_list_element), POINTER, INTENT(out) :: current_list_element
     !
     INTEGER :: ist
     !
@@ -223,31 +223,28 @@ CONTAINS
   SUBROUTINE append_list_element (this_list, new_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: new_list_element
+    TYPE(t_list_element), POINTER, INTENT(out) :: new_list_element
     !
-    TYPE(t_list_element), POINTER :: current_list_element
+    TYPE(t_list_element), POINTER :: last_list_element
     !
     ! insert as first element if list is empty
     !
-    IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
-      CALL create_list_element (this_list, this_list%p%first_list_element)
-      new_list_element => this_list%p%first_list_element
-      this_list%p%nvars = this_list%p%nvars + 1
-      RETURN
+    CALL create_list_element(this_list, new_list_element)
+    IF (ASSOCIATED(this_list%p%first_list_element)) THEN
+      !
+      ! loop over list elements to find position
+      !
+      last_list_element => this_list%p%first_list_element
+      DO WHILE (ASSOCIATED(last_list_element%next_list_element))
+        last_list_element => last_list_element%next_list_element
+      ENDDO
+      !
+      ! append element
+      !
+      last_list_element%next_list_element => new_list_element
+    ELSE
+      this_list%p%first_list_element => new_list_element
     ENDIF
-    !
-    ! loop over list elements to find position
-    !
-    current_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
-      current_list_element => current_list_element%next_list_element
-    ENDDO
-    !
-    ! insert element
-    !
-    CALL create_list_element (this_list, new_list_element)
-    new_list_element%next_list_element => current_list_element%next_list_element
-    current_list_element%next_list_element => new_list_element
     !
     this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element
