@@ -144,6 +144,8 @@ CONTAINS
     INTEGER,  ALLOCATABLE :: ibuffer(:)
     INTEGER,  ALLOCATABLE :: field_ids_total(:)
 
+    REAL(wp), ALLOCATABLE :: lsmnolake(:,:)
+
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
@@ -200,6 +202,8 @@ CONTAINS
     ALLOCATE(buffer_lon(nproma*nblks))
     ALLOCATE(buffer_lat(nproma*nblks))
     ALLOCATE(buffer_c(3,nproma*nblks))
+
+    ALLOCATE(lsmnolake(nproma,nblks))
 
     nbr_vertices_per_cell = 3
 
@@ -314,11 +318,22 @@ CONTAINS
     ! These points are not touched by yac.
     !
 
+    !  slo: caution - lsmask includes alake, must be added to refetch pure lsm:
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) ICON_OMP_RUNTIME_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        lsmnolake(idx, BLOCK) = prm_field(1)%lsmask(idx,BLOCK) + prm_field(1)%alake(idx,BLOCK)
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_RUNTIME_SCHEDULE
     DO BLOCK = 1, patch_horz%nblks_c
       DO idx = 1, nproma
-        mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
+!       mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx, BLOCK))
+        mask_checksum = mask_checksum + ABS( lsmnolake(idx,BLOCK))
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -331,11 +346,14 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point (lsm_ctr_c = -1 or -2) is valid
+             ! Ocean point (lsm_ctr_c = -1 or -2) is valid
+!            IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
+             ! Ocean point (fraction of ocean is greater than zero) is valid
+             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point (lsm_ctr_c = 1 or 2) is undef
+             ! Land point (lsm_ctr_c = 1 or 2) is undef
+             ! Land point (fraction of land is one) is undef
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -348,6 +366,8 @@ CONTAINS
        ENDDO
 !ICON_OMP_END_PARALLEL_DO
     ENDIF
+
+    DEALLOCATE (lsmnolake)
 
     CALL yac_fdef_mask (           &
       & patch_horz%n_patch_cells,  &
