@@ -58,8 +58,8 @@ nproma_atm=48
 nproma_oce=48
 
 # initialiseOcean="fromRestart"
-# initialiseOcean="fromClimatology"
-initialiseOcean="FALSE"
+initialiseOcean="fromClimatology"
+# initialiseOcean="FALSE"
 #
 mpi_oce_nodes=1                    # nodes for the ocean model
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
