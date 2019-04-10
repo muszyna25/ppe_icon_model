@@ -55,7 +55,7 @@ MODULE mo_ensemble_pert_config
             range_tkred_sfc, range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,           &
             range_lowcapefac, range_negpblcape, stdev_sst_pert, sst_pert_corrfac, range_rdepths,        &
             range_rprcon, range_qexc, range_turlen, range_a_hshr, range_rain_n0fac, range_box_liq_asy,  &
-            itype_pert_gen, timedep_pert, range_a_stab, range_c_diff
+            itype_pert_gen, timedep_pert, range_a_stab, range_c_diff, range_q_crit
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -152,6 +152,9 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< Length scale factor for vertical diffusion in turbulence scheme
     &  range_c_diff
+
+  REAL(wp) :: &                    !< Critical value for normalized supersaturation in turbulent cloud scheme
+    &  range_q_crit
 
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock
@@ -328,6 +331,9 @@ MODULE mo_ensemble_pert_config
         turbdiff_config(1:max_dom)%c_diff = turbdiff_config(1:max_dom)%c_diff * rnd_fac
       ENDIF
 
+      IF (range_q_crit > 0._wp) CALL random_gen(rnd_num)
+      turbdiff_config(1:max_dom)%q_crit = turbdiff_config(1:max_dom)%q_crit + 2._wp*ABS(rnd_num-0.5_wp)*range_q_crit
+
       CALL random_gen(rnd_num)
       rnd_fac   = range_charnock**(2._wp*(rnd_num-0.5_wp))
       alpha0_sv = turbdiff_config(1)%alpha0
@@ -373,9 +379,9 @@ MODULE mo_ensemble_pert_config
         turbdiff_config(1)%alpha0_max, turbdiff_config(1)%alpha0_pert
       CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, alpha0_min/max/pert', TRIM(message_text))
 
-      WRITE(message_text,'(f8.2,5f8.4)') turbdiff_config(1)%tur_len, turbdiff_config(1)%a_hshr, &
-        turbdiff_config(1)%a_stab, turbdiff_config(1)%c_diff, tune_box_liq, tune_box_liq_asy
-      CALL message('Perturbed values, tur_len, a_hshr, a_stab, c_diff, box_liq, box_liq_asy', TRIM(message_text))
+      WRITE(message_text,'(f8.2,6f8.4)') turbdiff_config(1)%tur_len, turbdiff_config(1)%a_hshr, &
+        turbdiff_config(1)%a_stab, turbdiff_config(1)%c_diff, turbdiff_config(1)%q_crit, tune_box_liq, tune_box_liq_asy
+      CALL message('Perturbed values, tur_len, a_hshr, a_stab, c_diff, q_crit, box_liq, box_liq_asy', TRIM(message_text))
 
       WRITE(message_text,'(2f8.4,e11.4)') tune_minsnowfrac, c_soil, cwimax_ml
       CALL message('Perturbed values, minsnowfrac, c_soil, cwimax_ml', TRIM(message_text))
