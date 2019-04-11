@@ -173,7 +173,7 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_name_list_output_printvars,        ONLY: print_var_list
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
-  USE mo_derived_variable_handling,         ONLY: process_mean_stream
+  USE mo_derived_variable_handling,         ONLY: process_statistics_stream
   USE self_vector
   USE self_map
   USE self_assert
@@ -1486,9 +1486,7 @@ CONTAINS
           ENDDO
 
           IF ( is_work ) THEN ! avoid addidional io or restart processes
-!           IF ( log_patch_id == 1 ) THEN             ! use global domain, only
-              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
-!           ENDIF
+            CALL process_statistics_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
           ENDIF
 
           CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)

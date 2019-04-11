@@ -93,7 +93,7 @@ MODULE mo_ps_radiation_model
 !         jstep0 = restartAttributes%getInteger("jstep")
 !       END IF
 !       sim_step_info%jstep0    = jstep0
-!       CALL init_mean_stream(ps_radiation_model_patch_3d%p_patch_2d(1))
+!       CALL init_statistics_stream
 !       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ps_radiation_model=.TRUE.)
 !       CALL create_mipz_level_selections(output_file)
 !     ENDIF

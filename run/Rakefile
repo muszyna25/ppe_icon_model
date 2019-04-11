@@ -392,140 +392,7 @@ task :showSuites, :name do |t,args|
   puts '='*LINEWIDTH
 end
 # }}}
-# HOST CONFIG: start, stop, check jobs {{{ ====================================
-# may require local port forwarding 
-RemoteQStat = {
-  :blizzard => {host: 'passat.dkrz.de', user: 'm300064',             command: '/usr/bin/llq'},
-  :thunder  => {host: 'localhost',      user: 'm300064',port: 50022, command: '/usr/bin/squeue'},
-  :wizard   => {host: 'wizard.dkrz.de', user: 'm300064',             command: '/usr/bin/squeue'},
-}
-STATE_COLUMNS_WIDTH = 12
-NAME_COLUMN_WIDTH   = 65
-DATE_COLUMN_WIDTH   = 20
-#@log                = Logger.new("#{ENV['HOME']}/rllq.log")
 #==============================================================================
-def getAdditionalInfo(logfile,tag)# {{{
-  info =[]
-# info_  = ssh.exec!("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").split(' ')[-4,-1]
-  info_  = IO.popen("head -n 5000 #{logfile}  | grep #{tag} | tail -n 1").read
-
-  if info.empty? then
-    return ''
-  end
-
-  info_  = info_.split(' ') unless info_.nil?
-  info_  = info_.values_at(-3,-2,-1).map(&:to_f).map {|v| "%E"%v}.join(' ') unless info_.nil?
-  
-  info << "#{tag}: #{info_}"
-  info.join(' - ')
-end
-def checkAll
-# RemoteQStat.each {|hpc,setup|
-      host, user, command, port = RemoteQStat[:thunder][:host], RemoteQStat[:thunder][:user], RemoteQStat[:thunder][:command], RemoteQStat[:thunder][:port]
-
-      log = ''
-#     log << "# #{hpc} ".ljust(80,'=') << "\n"
-
-      #Net::SSH.start(host,user,port: port) do |ssh|
-        case `hostname`.chomp
-        when /thunder|wizard/ then
-          sh('source /etc/profile; source /client/etc/profile.zmaw')
-          columns = [:state,:name,:id,:nodes,:time]
-          results = {}
-          status = IO.popen("#{command}  -u $USER -o \"%T %j %i %D %M\"").read
-          return if status.chomp.split.size == 1
-          status.chomp.split("\n").each_with_index {|line,lineIndex|
-            next if 0 == lineIndex
-            state,name,id,nodes,time = line.split
-            if 'RUNNING' == state then
-              scontrol = sh("/usr/bin/scontrol show job #{id}").split("\n")
-              workdir = scontrol.grep(/WorkDir/).first.split('=').last.chomp
-              script  = scontrol.grep(/Command/).first.split('=').last.chomp
-              logfile = workdir + '/' + sh("grep 'error=' #{script}").chomp.split('=').last.sub(/%j/,id)
-              lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
-              if 'default' == @info then
-                myLog = [
-                  state.ljust(STATE_COLUMNS_WIDTH,' '),
-                  name.ljust(NAME_COLUMN_WIDTH,' '),
-                  id,
-                  nodes,
-                  lastDate.nil? ? '' : lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                  info,
-                ].join(' | ') << "\n"
-              else
-                myLog = [
-                  state.ljust(STATE_COLUMNS_WIDTH,' '),
-                  name.ljust(NAME_COLUMN_WIDTH,' '),
-                  id,
-                  nodes,
-                  lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                  info,script,logfile,
-                ].join(' | ') << "\n"
-              end
-              log << myLog 
-              # [
-              #   state.ljust(STATE_COLUMNS_WIDTH,' '),
-              #   name.ljust(NAME_COLUMN_WIDTH,' '),
-              #   id,
-              #   nodes,
-              #   lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-              #   info,
-              # ].join(' | ') << "\n"
-            else
-              log << [state.ljust(STATE_COLUMNS_WIDTH,' '),name.ljust(NAME_COLUMN_WIDTH,' '),id,nodes].join(' | ') << "\n"
-            end
-          }
-        when /blizzard/ then
-          sh('source ~/.profile;')
-          myJobs = sh "#{command} -u $USER | grep $USER"
-          #next if myJobs.nil?
-          myJobs =  myJobs.split("\n").map {|l| l.split(' ').first }
-          myJobs.each {|job|
-            jobList = sh("#{command} #{job} -l").chomp.split("\n")
-            name    = jobList.grep(/Job Name/).first.split(':').last.strip
-            status  = jobList.grep(/Status/).first.split(':').last.strip.upcase
-            script  = (not jobList.grep(/Executable/).empty?) ? jobList.grep(/Executable/).first.split(':').last : jobList.grep(/Cmd/).first.split(':').last
-            id      = jobList.grep(/Job Step Id/).first.split(':').last.strip
-
-            logfile     = [
-              jobList.grep(/Initial Working Dir:/).first.split(':').last,
-              jobList.grep(/Err:/).first.split(':').last.strip.chomp
-            ].join('/')
-            if 'RUNNING' == status then
-              lastDate = sh("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last.to_s
-              #puts name
-              #pp ssh.exec!("tail -n 3000 #{logfile} | grep datetime | tail -n 1").to_s.split(' ').last
-              info = @options.has_key?("tag") ? getAdditionalInfo(logfile,@options["tag"]) : ''
-            else
-              lastDate = ''
-            end
-            if 'default' == @info then
-              log << [
-                status.ljust(STATE_COLUMNS_WIDTH,' '),
-                name.ljust(NAME_COLUMN_WIDTH,' '),
-                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                info,
-              ].join(' | ') << "\n"
-            else
-              log << [
-                status.ljust(STATE_COLUMNS_WIDTH,' '),
-                name.ljust(NAME_COLUMN_WIDTH,' '),
-                lastDate.rjust(DATE_COLUMN_WIDTH,' '),
-                id,info,script,logfile,
-              ].join(' | ') << "\n"
-            end
-          }
-        end
-#     end
-      puts log
-      #lock.synchronize {
-      #  File.open(@logfile,"a") {|logfile| logfile << log }
-      #}
-      #@log.info(log)
-#   }
-end # }}}
-# }}}
 # RUNNING TESTS {{{ ===========================================================
 # config first
 @hostname = (`hostname -d`.chomp[0] =='(') ? \
@@ -601,7 +468,15 @@ end
   'meanEachTimeStep'      => 'mean1TS',
   'meanEachSecondTimeStep'=> 'mean2TS',
   'meanEachThirdTimeStep' => 'mean3TS',
-  'meanEachForthTimeStep' => 'mean4TS'
+  'meanEachForthTimeStep' => 'mean4TS',
+  'maxEachTimeStep'      => 'max1TS',
+  'maxEachSecondTimeStep'=> 'max2TS',
+  'maxEachThirdTimeStep' => 'max3TS',
+  'maxEachForthTimeStep' => 'max4TS',
+  'minEachTimeStep'      => 'min1TS',
+  'minEachSecondTimeStep'=> 'min2TS',
+  'minEachThirdTimeStep' => 'min3TS',
+  'minEachForthTimeStep' => 'min4TS'
 }
 @times2Compare = {
   'meanEachSecondTimeStep' => [
@@ -728,7 +603,6 @@ class Analyzer
     end
   end
   def logFiles(varlist,spotFileVarNames)
-
     puts '#'+'='*80
     puts "Compare mean file " + @meanFile.colorize(:color => :dark_blue, :background => :white) +" with spot file "+@spotFile.colorize(:color => :dark_blue, :background => :white)
     puts "\t #{@meanPeriod}".colorize(:color => :black, :background => :light_yellow)
@@ -812,6 +686,221 @@ module MeanAnalyzer
     }
   end
 end
+class TimeAnalyser
+  PERIODS = ['eachTimeStep','eachSecondTimeStep','eachThirdTimeStep','eachForthTimeStep']
+  TIMES2COMPARE = { #{{{
+    'eachTimeStep' => [{:ref => 'all', :time => 'all'}],
+    'eachSecondTimeStep' => [
+      { :ref => '2,3', :time => '2'},
+      { :ref => '4,5', :time => '3'},
+      #     { :ref => '6,7', :time => '4'},
+    ],
+    'eachThirdTimeStep' => [
+      { :ref => '2,3,4', :time => '2'},
+      #     { :ref => '5,6,7', :time => '3'},
+    ],
+    'eachForthTimeStep' => [
+      { :ref => '2,3,4,5', :time => '2'},
+    ]
+  } #}}}
+  OPERATIONS   = ['mean','max','min']
+  OPERATORS = {
+    'mean' => 'timmean',
+    'min'  => 'timmin' ,
+    'max'  => 'timmax'
+  } #}}}
+
+# private
+  def getTimeAndSpotFiles(dir,periods=@periodsFileTags) #{{{
+    dir = '.' if dir.nil?
+   
+    result = {}
+
+    spotIDs = periods.values_at(*periods.keys.grep(/spot/))
+
+    OPERATIONS.each {|operation|
+
+      timeIDs = periods.values_at(*periods.keys.grep(/#{operation}/))
+
+      reversePeriodIDs = Hash[periods.to_a.map(&:reverse)]
+      dbg([timeIDs,spotIDs])
+
+      experimentName = File.expand_path(dir).split(File::SEPARATOR).last
+      allFiles       = Dir.glob("#{dir}/#{experimentName}*nc")
+      dbg(allFiles)
+
+      spotFiles = allFiles.find_all {|f| spotIDs.map {|spotID| f.match(spotID).nil?}.include?(false) or f.include?('_restart_')}
+      timeFiles = allFiles.find_all {|f| timeIDs.map {|timeID| f.match(timeID).nil?}.include?(false) or f.include?('_restart_')}
+
+      dbg("instant    Values in:".colorize(:green));dbg(spotFiles)
+      dbg("integrated Values in:".colorize(:green));dbg(timeFiles)
+      dbg("timeIDs:".colorize(:green));dbg(timeIDs)
+
+      spotID = spotIDs.first
+      spotFiles.each {|spotFile|
+        # compute uniq id for the time files related to THIS spot file
+        # this is the rest of the filename
+        timeIDs.each {|timeID|
+          timeFile = spotFile.split(spotID).join(timeID)
+          if File.exists?(timeFile) then
+            (result[reversePeriodIDs[timeID]] ||= [] ) << {time: timeFile, spot: spotFile}
+          end
+        }
+      }
+    }
+    dbg(result)
+    result
+  end #}}}
+
+  def getVarlists(ifile, varname=nil) #{{{
+    fileVarNames = @cdo.showname(input: "-seltimestep,1 #{ifile}",autoSplit: ' ')
+    #
+    # loop over all input variables
+    if varname.nil? then
+      varlist = fileVarNames
+    else
+      varlist = [varname]
+    end
+    [varlist, fileVarNames]
+  end #}}}
+  def logFiles(spotfile,timefile,period)
+    puts '#'+'='*80
+    puts "Compare #{period.split('|')[0]} file " + timefile.colorize(:color => :black, :background => :white) +" with spot file "+spotfile.colorize(:color => :black, :background => :white)
+    puts "\t #{period}".colorize(:color => :black, :background => :light_yellow)
+  end
+
+  public
+  def initialize
+    @periodsFileTags = {'spotEachTimeStep' => 'spot'}
+    PERIODS.each_with_index {|period,pi|
+      OPERATIONS.each {|op|
+        @periodsFileTags["#{op}|#{period}"] = "#{op}#{pi+1}TS"
+      }
+    }
+    @cdo = Cdo.new
+  end
+
+  #TODO: implement the SPOT=ANALYSER!!!
+  def run(directory='.')
+    variable = ENV['VAR']
+    getTimeAndSpotFiles(directory).each {|operation_period,filelist|
+      filelist.each {|files|
+        operation, period         = operation_period.split('|')
+        operator                  = OPERATORS[operation]
+        spotFile, timeFile        = files[:spot], files[:time]
+        varlist, spotFileVarNames = getVarlists(spotFile, variable)
+ 
+        # delete the known time-constant variable from the spot files
+        ['zg'].each {|v| spotFileVarNames.delete(v)}
+        # exit if the selected variable is not in the model output
+        return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )
+
+        logFiles(spotFile, timeFile, operation_period) #pp varlist if $DEBUG
+
+        if 'eachTimeStep' == period then
+          puts @cdo.diffv(input: [spotFile, timeFile])
+          next
+        end
+        # filter time constant variables
+        varlist = Parallel.map(varlist,in_threads: 10) {|varname|
+          varname if spotFileVarNames.include?(varname)
+        }.select {|v| not v.nil?}
+
+#       next if 'eachTimeStep' == period
+        TIMES2COMPARE[period].each {|timeStepPair|# list of timestep relations
+          s = "\tref tstep:#{timeStepPair[:ref]} | #{operation} tstep:#{timeStepPair[:time]}".colorize(:color => :black, :background => :yellow)
+          puts ['#'+'-'*75,s].join("\n")
+
+          Parallel.map(varlist,in_threads: 10) {|varname|
+#         varlist.each {|varname|
+            pp timeStepPair if $DEBUG
+            timeSelectionRef  = ('eachTimeStep' != period) ? "-seltimestep,#{timeStepPair[:ref]}"  : ''
+            timeSelectionMean = ('eachTimeStep' != period) ? "-seltimestep,#{timeStepPair[:time]}" : ''
+            operator = 'copy' if 'eachTimeStep' == period
+
+            delNans           = ''#"-setvals,nan,0,-nan,0"
+
+            diff = @cdo.diffv(
+                              input: [ "   -#{operator} #{timeSelectionRef}   #{delNans} -selname,#{varname} #{spotFile}   ",
+                                       "             #{timeSelectionMean} #{delNans} -selname,#{varname} #{timeFile}" ].join(' '),
+                              :options => '-L -s')
+            valueRange = "(%g)" % @cdo.send(operator.to_sym,
+                                            input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{spotFile}",
+                                            returnMaArray: varname).mean
+
+            unless diff.empty? then
+              # compute the difference 
+              diffVal = @cdo.sub(input: [ "-#{operator} #{timeSelectionRef}  #{delNans} -selname,#{varname} #{spotFile}",
+                                              "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{timeFile}" ].join(' '),
+                                 :returnArray => varname, :options => '-L -s', :output => [period, varname, File.basename(spotFile)].map(&:to_s).join('_'))
+              diffMax =  diffVal.abs.max.to_s
+
+              puts [varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow),"\t"+diffMax.colorize(:blue)]
+            else
+              puts [varname.colorize(:green),valueRange.colorize(:blue)].join("\t")
+            end
+          }
+        }
+      }
+    }
+  end
+end
+module MaxAnalyser
+  def run
+    varlist, spotFileVarNames = getVarlists
+    
+    # exit if the selected variable is not in the model output
+    return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )
+
+    logFiles(varlist,spotFileVarNames)
+
+    pp varlist if $DEBUG
+
+    # filter time constant variables
+    varlist = Parallel.map(varlist,in_threads: 10) {|varname|
+      varname if spotFileVarNames.include?(varname)
+    }.select {|v| not v.nil?}
+
+    #varlist.each {|varname|
+    Analyzer::TIMES2COMPARE[@meanPeriod].each {|timeStepPair|# list of timestep relations
+
+      s = "\tref tstep:#{timeStepPair[:ref]} | mean tstep:#{timeStepPair[:mean]}".colorize(:color => :black, :background => :yellow)
+      puts ['#'+'-'*75,s].join("\n")
+
+      Parallel.map(varlist,in_threads: 10) {|varname|
+#       pp timeStepPair
+        next if 'zg' == varname
+
+          timeSelectionRef  = "-seltimestep,#{timeStepPair[:ref]}"
+          timeSelectionMean = "-seltimestep,#{timeStepPair[:mean]}"
+
+          delNans           = ''#"-setvals,nan,0,-nan,0"
+
+          diff = @cdo.diffv(input: [ "-timmax #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
+                                     "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
+                           :options => '-L -s')
+          meanValueRange = "(%g)" % @cdo.timmax(input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",returnMaArray: varname).mean
+
+          unless diff.empty? then
+            # compute the difference 
+            diffVal = @cdo.sub(input: [ "-timmax #{timeSelectionRef}  #{delNans} -selname,#{varname} #{@spotFile}",
+                                        "         #{timeSelectionMean} #{delNans} -selname,#{varname} #{@meanFile}" ].join(' '),
+                              :returnArray => varname,
+                              :options => '-L -s',
+                              :output => [@meanPeriod, varname, File.basename(@spotFile)].map(&:to_s).join('_'))
+
+            diffMax =  diffVal.abs.max.to_s
+#           diff << diffMax
+
+            puts [varname.colorize(:red), "\t#{diff.join("\n\t")}".colorize(:yellow),"\t"+diffMax.colorize(:blue)]
+          else
+            puts [varname.colorize(:green),meanValueRange.colorize(:blue)].join("\t")
+          end
+        }
+#     }
+    }
+  end
+end
 
 def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
   dir = '.' if dir.nil?
@@ -847,18 +936,6 @@ def getMeanAndSpotFiles(dir,periods=@defaultPeriodsIDs)
       end
     }
   }
- #meanIDs.each {|meanID|
- #  # iterate ov all meanFiles with that periodID
- #  meanFiles.grep(/#{meanID}/).each {|meanFile|
- #    # find the corr. spot file
- #    fileTags = meanFile.split(meanID)
- #    spotFile = fileTags.reduce(spotFiles) {|memo,item|
- #      md = memo.grep(/#{item}/)
- #      md.nil? ? memo : md
- #    }.first
- #    (result[reversePeriodIDs[meanID]] ||= [] ) << {mean: meanFile, spot: spotFile}
- #  }
- #}
   dbg(result)
   result
 end
@@ -877,6 +954,14 @@ task :checkMeanStream do |t,args|
   # compare spot values with timemean over a single model timestep:
   # -> should be identical
 
+end
+desc "TEST"
+task :checkMVStream do |t,args|
+  t = TimeAnalyser.new
+  t.run
+end
+task :check, :routine do |t,args|
+  Module.module_eval(args.routine)
 end
 
 desc "plot the memCheck output of an experiment"
@@ -934,43 +1019,6 @@ task :checkMem do
   puts File.expand_path(image)
 end
 
-task :mk, :dir, :varname do |t,args|
-  # search for varname in regular files
-  regularFiles, meanFiles = getResultFiles(args.dir)
-  pp meanFiles
-  basefile = Parallel.map(regularFiles) {|rfile| 
-    rfile if @cdo.showname(:input => rfile)[0].split.include?(args.varname)
-  }.find     {|i| not i.nil?}
-
-  pp basefile
-
-  selection = "-select,levidx=30 "
-  selection = ''
-  selection << "-select,name=#{args.varname} "
-  %w[base PT10M PT20M].map(&:to_sym).each {|period|
-    puts meanFiles[basefile][period].colorize(:green)
-    puts @cdo.infov(:input => "#{selection} #{meanFiles[basefile][period]}")
-  }
-  puts "cdo -sub #{selection} -seltimestep,2 #{meanFiles[basefile][:PT20M]} #{selection} -seltimestep,3 #{meanFiles[basefile][:PT20M]}".colorize(:blue)
-  puts @cdo.infov(:input => "-sub #{selection} -seltimestep,2 #{meanFiles[basefile][:PT20M]} #{selection} -seltimestep,3 #{meanFiles[basefile][:PT20M]}")
-  puts ["-sub ",
-   "#{selection} -seltimestep,3,5 #{meanFiles[basefile][:base]}",
-   "#{selection} -seltimestep,2,3 #{meanFiles[basefile][:PT20M]}"].join(' ').colorize(:blue)
-  puts @cdo.infov(:input => ["-sub ",
-                            "#{selection} -seltimestep,3,5 #{meanFiles[basefile][:base]}",
-                            "#{selection} -seltimestep,2,3 #{meanFiles[basefile][:PT20M]}"].join(' '))
-end
-
-desc "Check status of given of all experiments"
-task :stat, :expname do |t,args|
-  expname = args.expname.nil? ? '' : args.expname
-
-  just = lambda {|width,l,r| [l.ljust(width,' '),r].join}
-  started   = Dir['../experiments/*/'].map {|item| item.split('/')[-1]}.sort
-  finished  = IO.popen("find ../experiments/#{expname} -name finish.status").readlines.map(&:chomp).map {|item| item.split('/')[-2]}.sort
-  started.each {|exp|  puts  just[12,"STARTED:",exp]}
-  finished.each {|exp| puts  just[12,"FINISHED:",exp]}
-end
 desc "Show runscript generator keys"
 task :showRunscriptKeys do
   puts RUNSCRIPT_KEYS.join(' ')

@@ -16,7 +16,7 @@ MODULE mo_derived_variable_handling
   USE mo_model_domain, ONLY: t_patch
   USE mo_io_config, ONLY: lnetcdf_flt64_output
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
-  USE mo_statistics, ONLY: add_fields
+  USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields
   USE mo_var_metadata_types, ONLY: VARNAME_LEN
   USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
     &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
@@ -49,20 +49,23 @@ MODULE mo_derived_variable_handling
 
   TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter, meanPrognosticPointers
   TYPE(vector), SAVE :: meanPrognostics
-  TYPE(t_var_list)   :: mean_stream_list
+  TYPE(map), SAVE    :: maxMap, maxEvents, maxEventsActivity, maxPrognosticPointers, maxVarCounter
+  TYPE(vector), SAVE :: maxPrognostics
+  TYPE(map), SAVE    :: minMap, minEvents, minEventsActivity, minVarCounter, minPrognosticPointers
+  TYPE(vector), SAVE :: minPrognostics
   CHARACTER(1), PARAMETER :: separator = achar(124)
 
-  PUBLIC :: init_mean_stream
-  PUBLIC :: finish_mean_stream
-  PUBLIC :: perform_accumulation
-  PUBLIC :: reset_accumulation
-  PUBLIC :: process_mean_stream
+  PUBLIC :: init_statistics_streams
+  PUBLIC :: finish_statistics_streams
+  PUBLIC :: update_statistics
+  PUBLIC :: reset_statistics
+  PUBLIC :: process_statistics_stream
 
-  TYPE :: t_accumulation_pair
+  TYPE :: t_mvstream_pair
     TYPE(t_list_element), POINTER :: source
     TYPE(t_list_element), POINTER :: destination
     INTEGER                       :: counter = 0
-  END TYPE t_accumulation_pair
+  END TYPE t_mvstream_pair
 
   !>
   ! wrapper for bind_c event type - needed because bind_c types are not allowed
@@ -72,6 +75,43 @@ MODULE mo_derived_variable_handling
   end type
 
 CONTAINS
+
+  !>
+  !! Create all needed lists and maps
+  !!
+  SUBROUTINE init_statistics_streams()
+    CHARACTER(LEN=max_char_length) :: listname
+
+    ! main map for automatical mean value computation:
+    ! key: eventString
+    ! value: self-vector of t_list_elements objects that belong to that event
+    call meanMap%init(verbose=.false.)
+    call maxMap%init(verbose=.false.)
+    call minMap%init(verbose=.false.)
+
+    ! map for holding the events itself
+    ! since the events cannot be saved a keys for a map because they are only
+    ! C-pointers the same string representation of events is used as for
+    ! "meanMap"
+    call meanEvents%init(verbose=.false.)
+    call meanEventsActivity%init(verbose=.false.)
+    call meanVarCounter%init(verbose=.false.)
+    call meanPrognostics%init(verbose=.false.)
+    call meanPrognosticPointers%init(verbose=.false.)
+
+    call maxEvents%init(verbose=.false.)
+    call maxEventsActivity%init(verbose=.false.)
+    call maxVarCounter%init(verbose=.false.)
+    call maxPrognostics%init(verbose=.false.)
+    call maxPrognosticPointers%init(verbose=.false.)
+
+    call minEvents%init(verbose=.false.)
+    call minEventsActivity%init(verbose=.false.)
+    call minVarCounter%init(verbose=.false.)
+    call minPrognostics%init(verbose=.false.)
+    call minPrognosticPointers%init(verbose=.false.)
+
+  END SUBROUTINE init_statistics_streams
 
   !>
   !! Print contents of a vector, just giving the name for t_list_elements
@@ -93,9 +133,9 @@ CONTAINS
       SELECT TYPE(my_buffer)
       TYPE is (t_list_element)
         PRINT *,'t_list_element:varname:',         trim(my_buffer%field%info%name)
-      TYPE is (t_accumulation_pair)
-        PRINT *,'t_accumulation_pair:source     :',trim(my_buffer%source%field%info%name)
-        PRINT *,'t_accumulation_pair:destination:',trim(my_buffer%destination%field%info%name)
+      TYPE is (t_mvstream_pair)
+        PRINT *,'t_mvstream_pair:source     :',trim(my_buffer%source%field%info%name)
+        PRINT *,'t_mvstream_pair:destination:',trim(my_buffer%destination%field%info%name)
       CLASS default
         PRINT *,' default class print  :'
         print *,object_string (my_buffer)
@@ -104,27 +144,44 @@ CONTAINS
   END SUBROUTINE var_print
 
   !>
-  !! function to check if a varable is prognostic and saved for accumulation
+  !! return the event string from given output name list, based on output_start, -end and -interval
   !!
-  logical function is_meanPrognosticVariable(variable)
+  FUNCTION get_event_key(output_name_list) RESULT(event_key)
+    TYPE(t_output_name_list) :: output_name_list
+    CHARACTER(LEN=1000) :: event_key
+    CHARACTER(LEN=1)    :: separator
+
+    separator = '_'
+    event_key = &
+      &trim(output_name_list%output_start(1))//separator//&
+      &trim(output_name_list%output_end(1))//separator//&
+      &trim(output_name_list%output_interval(1))
+  END FUNCTION get_event_key
+
+  !>
+  !! function to check if a varable is prognostic and saved for stats
+  !!
+  logical function is_statsPrognosticVariable(variable,statList)
     type(t_list_element), intent(in) :: variable
-    ! search for the original add-var-name
-    is_meanPrognosticVariable = meanPrognostics%includes(variable%field%info%name)
-  end function is_meanPrognosticVariable
+    type(vector), intent(in) :: statList
+
+    is_statsPrognosticVariable = statList%includes(variable%field%info%name)
+  end function
 
   !>
   !! return pointer to prognostic accumulation copy for given timelevel
   !!
-  function get_prognostics_source_pointer(destinationVariable, timelevelIndex) result(sourcePointer)
+  function get_prognostics_source_pointer(destinationVariable, timelevelIndex, pointerMap) result(sourcePointer)
     type(t_list_element), pointer :: sourcePointer
     type(t_list_element)          :: destinationVariable
+    type(map)                     :: pointerMap
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::get_prognostics_source_pointer"
     INTEGER , INTENT(IN) :: timelevelIndex
 
     class(*), pointer :: dummy
 
-    dummy => meanPrognosticPointers%get( &
+    dummy => pointerMap%get( &
       & get_varname_with_timelevel( &
       &   destinationVariable%field%info%name, &
       &   timelevelIndex) &
@@ -143,10 +200,10 @@ CONTAINS
   !!   * on the global domain (dom = 1)
   !!   * without stream partitioning
   !! the model should abort under these circumstances
-  SUBROUTINE meanStreamCrossCheck(p_onl)
+  SUBROUTINE statStreamCrossCheck(p_onl)
     TYPE(t_output_name_list) :: p_onl
 
-    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::meanStreamCrossCheck"
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::statStreamCrossCheck"
     LOGICAL :: abort
 
     abort = .FALSE.
@@ -159,47 +216,18 @@ CONTAINS
     IF (abort) THEN
       call finish(routine,"meanValues are only supported on global domain 1 and without stream partitioning!")
     END IF
-  END SUBROUTINE meanStreamCrossCheck
-
-  !>
-  !! Create a variable list
-  !!
-  SUBROUTINE init_mean_stream(patch_2d)
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
-
-    CHARACTER(LEN=max_char_length) :: listname
-
-    ! main map for automatical mean value computation:
-    ! key: eventString
-    ! value: self-vector of t_list_elements objects that belong to that event
-    call meanMap%init(verbose=.false.)
-
-    ! map for holding the events itself
-    ! since the events cannot be saved a keys for a map because they are only
-    ! C-pointers the same string representation of events is used as for
-    ! "meanMap"
-    call meanEvents%init(verbose=.false.)
-    call meanEventsActivity%init(verbose=.false.)
-    call meanVarCounter%init(verbose=.false.)
-    call meanPrognostics%init(verbose=.false.)
-    call meanPrognosticPointers%init(verbose=.false.)
-
-    listname = 'mean_stream_list'
-    CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( mean_stream_list,lrestart=.FALSE.,loutput=.TRUE.)
-  END SUBROUTINE init_mean_stream
+  END SUBROUTINE statStreamCrossCheck
 
   !>
   !! Delete internal mean value fields
   !!
-  SUBROUTINE finish_mean_stream()
+  SUBROUTINE finish_statistics_streams()
 
 #ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) CALL print_summary('destruct mean stream variables')
 #endif
 
-    CALL delete_var_list(mean_stream_list)
-  END SUBROUTINE finish_mean_stream
+  END SUBROUTINE finish_statistics_streams
 
   integer function output_varlist_length(in_varlist)
     CHARACTER(LEN=vname_len), intent(in) :: in_varlist(:)
@@ -211,261 +239,182 @@ CONTAINS
     END DO
   end function output_varlist_length
 
-  !>
-  !! Go through the output namelists and create events and accumulation fields if needed
-  !!
-  SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info, patch_2d)
-    TYPE (t_output_name_list), target  :: p_onl
-    INTEGER                            :: i_typ
-    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    TYPE(t_patch), INTENT(IN)          :: patch_2d
+  SUBROUTINE fill_list_of_output_varnames(varlist,in_varlist,ntotal_vars)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: varlist(:)
+    CHARACTER(LEN=vname_len), POINTER, INTENT(IN) :: in_varlist(:)
+    INTEGER, INTENT(IN)               :: ntotal_vars
 
-    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
-    INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
-    INTEGER :: timelevel, timelevels(3)
-    type(vector_ref) :: meanVariables, prognosticVariables
-    CHARACTER(LEN=100) :: eventKey
-    type(t_event_wrapper) :: event_wrapper
-    class(*), pointer :: myBuffer
+    INTEGER :: output_variables
+
+    ! count variables {{{
+    output_variables = 0
+    DO
+      IF (in_varlist(output_variables+1) == ' ') EXIT
+      output_variables = output_variables + 1
+    END DO
+
+    IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
+    varlist((output_variables+1):ntotal_vars) = " "
+    ! }}}
+  END SUBROUTINE fill_list_of_output_varnames
+
+  SUBROUTINE print_src_dest_info(src_element, dest_element, dest_element_name,in_varlist,i)
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
-    LOGICAL :: foundPrognostic
+    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
+    INTEGER,INTENT(IN) :: i
+
+      if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(dims:1)   :|'//int2string(src_element%field%info%used_dimensions(1))//'|',&
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(dims:2)   :|'//int2string(src_element%field%info%used_dimensions(2))//'|',&
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(dims:3)   :|'//int2string(src_element%field%info%used_dimensions(3))//'|',&
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(dims:4)   :|'//int2string(src_element%field%info%used_dimensions(4))//'|',&
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('src(dims:5)   :|'//int2string(src_element%field%info%used_dimensions(5))//'|',&
+          & stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
+      if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
+          & stderr=.true.)
+  END SUBROUTINE
+
+  SUBROUTINE find_src_element(src_element, varlist_element, dest_element_name, &
+          &  dom, src_list, prognosticsList, prognosticsPointerList)
+    TYPE(t_list_element), POINTER :: src_element
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varlist_element
+    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    INTEGER, INTENT(IN) :: dom
     TYPE(t_var_list), POINTER :: src_list
-    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
+    TYPE(vector) :: prognosticsList
+    TYPE(map)    :: prognosticsPointerList
+
+    LOGICAL :: foundPrognostic
+    INTEGER :: timelevel, timelevels(3)
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::find_src_element"
+
+    ! find existing source variable on all possible ICON grids with the identical name {{{
+    src_element => find_element ( TRIM(varlist_element), &
+        &                         opt_patch_id=dom, &
+        &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
+        &                         opt_caseInsensitive=.true., &
+        &                         opt_returnList=src_list)
+    IF (.not. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( TRIM(varlist_element),&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.not. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( TRIM(varlist_element),&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.not. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( TRIM(varlist_element),&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_LONLAT, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    IF (.not. ASSOCIATED(src_element) ) &
+        & src_element => find_element ( TRIM(varlist_element),&
+        &                               opt_patch_id=dom, &
+        &                               opt_hgrid=GRID_ZONAL, &
+        &                               opt_caseInsensitive=.true., &
+        &                               opt_returnList=src_list)
+    ! }}}
+
+    ! if not found: maybe it is a prognostic variable, so it has the
+    ! time-level in its name
+    ! ATTENTION: this is only a placeholder, because it catches the first match
+    ! the correct pointer is the one with nnew(), but its value changes each timestep
+    IF (.not. ASSOCIATED (src_element)) THEN
+      foundPrognostic = .false.
+      timelevels = (/nold(1),nnow(1),nnew(1)/)
+      DO timelevel=1,3
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_routine(routine,'start')
+          if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
 #endif
-
-    IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
-
+          src_element => find_element(get_varname_with_timelevel(varlist_element,timelevels(timelevel)),&
+              &                       opt_patch_id=dom, opt_returnList=src_list)
+          if ( ASSOCIATED(src_element) ) then
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'found "mean" operation')
+            if (my_process_is_stdio()) write(0,*)'found prognostic:',&
+                & TRIM(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
 #endif
-      call meanStreamCrossCheck(p_onl)
-
-      ntotal_vars = total_number_of_variables()
-      ! temporary variables needed for variable group parsing
-      ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-      IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
-      IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
-      IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
-      IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
-
-      ! count variables {{{
-      output_variables = 0
-      DO
-        IF (in_varlist(output_variables+1) == ' ') EXIT
-        output_variables = output_variables + 1
+            if ( .not. foundPrognostic ) then
+              ! save the name of the original output variable if a prognosting version was found
+              call prognosticsList%add(dest_element_name)
+              foundPrognostic = .true.
+#ifdef DEBUG_MVSTREAM
+              if (my_process_is_stdio()) call print_error('prognosticsList%add():'//varlist_element)
+#endif
+            end if
+            ! save the the pointers for all time levels of a prognostic variable
+            ! these must be used for correct accumulation during the time loop
+            call prognosticsPointerList%add(get_varname_with_timelevel(dest_element_name,timelevels(timelevel)),src_element)
+          end if
       END DO
-
-      IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
-      varlist((output_variables+1):ntotal_vars) = " "
-      ! }}}
-
-      ! uniq identifier for an event based on output start/end/interval
-      eventKey = get_event_key(p_onl)
-      ! this has the advantage that we can compute a uniq id without creating
-      ! the event itself
-
-#ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
-#endif
-
-      ! fill main dictionary of variables for different events
-      IF ( meanMap%has_key(eventKey) ) THEN
-        myBuffer => meanMap%get(eventKey)
-        select type (myBuffer)
-        type is (vector_ref)
-          ! use exiting list
-          meanVariables = myBuffer
-        end select
-      ELSE
-        ! create new variable list
-        call meanVariables%init()
-
-        ! wrap c-pointer for events into a fortran type - look weird, but does the trick
-        event_wrapper = t_event_wrapper(this=newEvent(eventKey, &
-          &                 p_onl%output_start(1), &
-          &                 p_onl%output_start(1), &
-          &                 p_onl%output_end(1), &
-          &                 p_onl%output_interval(1) &
-          &                ))
-
-        ! collect the new event
-        call meanEvents%add(eventKey,event_wrapper)
-      END IF
-      ! initialize all events as in-active
-      call meanEventsActivity%add(eventKey,.false.)
-
-      ! create adhoc copies of all variables for later accumulation
-      !
-      ! varlist MUST by a list of add_var-identifiers, i.e. the given name
-      DO i=1, output_variables
-        ! collect data variables only
-        ! variables names like 'grid:clon' which should be excluded
-        IF ( INDEX(varlist(i),':') > 0) CYCLE
-
-        ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
-        ! names consist of original spot-value names PLUS event information (start + interval of output)
-        ! TODO: unify with eventKey definition if possible
-        dest_element_name = get_accumulation_varname(varlist(i),p_onl)
-        dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
-#ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
-#endif
-        IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
-          ! find existing source variable on all possible ICON grids with the identical name
-          src_element => find_element ( TRIM(varlist(i)), &
-              &                         opt_patch_id=p_onl%dom, &
-              &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
-              &                         opt_caseInsensitive=.true., &
-              &                         opt_returnList=src_list)
-          IF (.not. ASSOCIATED(src_element) ) &
-              & src_element => find_element ( TRIM(varlist(i)),&
-              &                               opt_patch_id=p_onl%dom, &
-              &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
-              &                               opt_caseInsensitive=.true., &
-              &                               opt_returnList=src_list)
-          IF (.not. ASSOCIATED(src_element) ) &
-              & src_element => find_element ( TRIM(varlist(i)),&
-              &                               opt_patch_id=p_onl%dom, &
-              &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
-              &                               opt_caseInsensitive=.true., &
-              &                               opt_returnList=src_list)
-          IF (.not. ASSOCIATED(src_element) ) &
-              & src_element => find_element ( TRIM(varlist(i)),&
-              &                               opt_patch_id=p_onl%dom, &
-              &                               opt_hgrid=GRID_LONLAT, &
-              &                               opt_caseInsensitive=.true., &
-              &                               opt_returnList=src_list)
-          IF (.not. ASSOCIATED(src_element) ) &
-              & src_element => find_element ( TRIM(varlist(i)),&
-              &                               opt_patch_id=p_onl%dom, &
-              &                               opt_hgrid=GRID_ZONAL, &
-              &                               opt_caseInsensitive=.true., &
-              &                               opt_returnList=src_list)
-
-          ! if not found: maybe it is a prognostic variable, so it has the
-          ! time-level in its name
-          ! ATTENTION: this is only a placeholder, because it catches the first match
-          ! the correct pointer is the one with nnew(), but its value changes each timestep
-          IF (.not. ASSOCIATED (src_element)) THEN
-            foundPrognostic = .false.
-            timelevels = (/nold(1),nnow(1),nnew(1)/)
-            do timelevel=1,3
-
-#ifdef DEBUG_MVSTREAM
-              if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
-#endif
-              src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)),&
-                  &                       opt_patch_id=p_onl%dom, opt_returnList=src_list)
-              if ( ASSOCIATED(src_element) ) then
-#ifdef DEBUG_MVSTREAM
-                if (my_process_is_stdio()) write(0,*)'found prognostic:',&
-                    & TRIM(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
-#endif
-                if ( .not. foundPrognostic ) then
-                  ! save the name of the original output variable if a prognosting version was found
-                  call meanPrognostics%add(dest_element_name)
-                  foundPrognostic = .true.
-#ifdef DEBUG_MVSTREAM
-                  if (my_process_is_stdio()) call print_error('meanPrognostics%add():'//varlist(i))
-#endif
-                end if
-                ! save the the pointers for all time levels of a prognostic variable
-                ! these must be used for correct accumulation during the time loop
-                call meanPrognosticPointers%add(get_varname_with_timelevel(dest_element_name,timelevels(timelevel)),src_element)
-              end if
-            end do
-          END IF
-          ! in case nothing appropriate could be found, throw an error
-          IF (.not. ASSOCIATED (src_element)) THEN
-            call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
-          END IF
-
-          ! avoid mean processing for instantaneous fields
-          if (TSTEP_CONSTANT .eq. src_element%field%info%isteptype) CYCLE
-
-
-          ! add new mean variable, copy the meta-data from the existing variable
-          ! 1. copy the source variable to destination pointer
-!TODO     dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
-          dest_element => copy_var_to_list(src_list,dest_element_name,src_element, patch_2d)
-
-#ifdef DEBUG_MVSTREAM
-if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|',stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(grid)     :|'//int2string(src_element%field%info%hgrid)//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(dims:1)   :|'//int2string(src_element%field%info%used_dimensions(1))//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(dims:2)   :|'//int2string(src_element%field%info%used_dimensions(2))//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(dims:3)   :|'//int2string(src_element%field%info%used_dimensions(3))//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(dims:4)   :|'//int2string(src_element%field%info%used_dimensions(4))//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('src(dims:5)   :|'//int2string(src_element%field%info%used_dimensions(5))//'|', &
-    & stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|',stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|',stderr=.true.)
-if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(dest_element%field%info%hgrid)//'|',&
-    & stderr=.true.)
-#endif
-
-          ! set output to double precission if necessary
-          dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
-
-          ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
-          IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
-
-          ! Collect variable pointers for source and destination in the same list {{{
-          CALL meanVariables%add(src_element)
-          CALL meanVariables%add(dest_element)
-          ! collect the counter for each destination in a separate list
-          CALL meanVarCounter%add(dest_element%field%info%name,0)
-
-        ! replace existince varname in output_nml with the meanStream Variable
-#ifdef DEBUG_MVSTREAM
-          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
-              & stderr=.true.)
-          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
-              & stderr=.true.)
-#endif
-        END IF
-        in_varlist(i) = trim(dest_element%field%info%name)
-      END DO
-
-      call meanMap%add(eventKey,meanVariables)
-#ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_error(routine//": meanPrognostics%to_string()")
-      if (my_process_is_stdio()) call print_error(meanPrognostics%to_string())
-#endif
-    ELSE
-#ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'NO "mean" operation found')
-#endif
     END IF
+    ! in case nothing appropriate could be found, throw an error
+    IF (.not. ASSOCIATED (src_element)) THEN
+      call finish(routine,'Could not find source variable:'//TRIM(varlist_element))
+    END IF
+  END SUBROUTINE
 
-#ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) then
-      call var_print(meanVariables)
-      call print_routine(routine, 'meanMap%to_string()')
-      call print_routine(routine, meanMap%to_string())
-      call print_routine(routine, 'meanVariables%to_string()')
+  SUBROUTINE setup_statistics_events_and_lists(statsMap, eventTag, statisticsVariablesForEvent, eventMap, eventsActivityMap,p_onl)
+    TYPE(map) :: statsMap, eventMap, eventsActivityMap
+    CHARACTER(LEN=100), intent(in) :: eventTag
+    TYPE(vector_ref) :: statisticsVariablesForEvent
+    TYPE (t_output_name_list), intent(in),target  :: p_onl
 
-      call print_routine(routine, meanPrognosticPointers%to_string())
-      call var_print(meanPrognosticPointers%values())
-      call print_routine(routine, 'meanPrognosticPointers%to_string()')
-      call print_routine(routine, meanPrognosticPointers%to_string())
-    endif
-    if (my_process_is_stdio()) call print_routine(routine,'end',stderr=.true.)
-#endif
+    class(*), pointer :: myBuffer
+    type(t_event_wrapper) :: event_wrapper
 
-  END SUBROUTINE process_mean_stream
+    IF ( statsMap%has_key(eventTag) ) THEN
+      myBuffer => statsMap%get(eventTag)
+      select type (myBuffer)
+      type is (vector_ref)
+        ! use exiting list
+        statisticsVariablesForEvent = myBuffer
+      end select
+    ELSE
+      ! create new variable list
+      call statisticsVariablesForEvent%init()
+
+      ! wrap c-pointer for events into a fortran type - look weird, but does the trick
+      event_wrapper = t_event_wrapper(this=newEvent(eventTag, &
+        &                 p_onl%output_start(1), &
+        &                 p_onl%output_start(1), &
+        &                 p_onl%output_end(1), &
+        &                 p_onl%output_interval(1) &
+        &                ))
+
+      ! collect the new event
+      call eventMap%add(eventTag,event_wrapper)
+    END IF
+    ! initialize all events as in-active
+    call eventsActivityMap%add(eventTag,.false.)
+  END SUBROUTINE
+
+  SUBROUTINE print_prognosticLists(varlist,progMap,progPointers)
+    TYPE(vector_ref) :: varlist
+    TYPE(map) :: progPointers, progMap
+
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::print_prognosticLists"
+
+    call var_print(varlist)
+    call print_routine(routine, 'progMap%to_string()')
+    call print_routine(routine, progMap%to_string())
+    call print_routine(routine, progPointers%to_string())
+    call var_print(progPointers%values())
+  END SUBROUTINE
 
   !>
   !! copy varlist element (source_element) to target varlist (list) with given name
@@ -525,20 +474,20 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
   !>
   !! return internal name for accumulation variables
   !!
-  FUNCTION get_accumulation_varname(varname,output_setup)
+  FUNCTION get_statistics_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
     type(t_output_name_list) :: output_setup
 
-    CHARACTER(LEN=VARNAME_LEN)  :: get_accumulation_varname
+    CHARACTER(LEN=VARNAME_LEN)  :: get_statistics_varname
 
-    get_accumulation_varname = &
+    get_statistics_varname = &
       &TRIM(varname)//separator//&
       &TRIM(output_setup%operation)//separator//&
       &TRIM(output_setup%output_interval(1))//separator//&
       &TRIM(output_setup%output_start(1))//separator//&
       &'DOM'//TRIM(int2string(output_setup%dom))
 
-  END FUNCTION get_accumulation_varname
+  END FUNCTION get_statistics_varname
 
   !>
   !! return internal name from accumulation variable name
@@ -550,11 +499,202 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
 
     get_real_varname = mean_varname(1:INDEX(mean_varname,separator)-1)
   END FUNCTION get_real_varname
+ 
+  SUBROUTINE process_mvstream(p_onl,i_typ, sim_step_info, patch_2d, &
+           & statisticMap, &
+           & statisticEvents, &
+           & statisticEventsActivity, &
+           & statisticVarCounter, &
+           & statisticPrognostics, &
+           & statisticPrognosticPointers, &
+           & operation)
+    TYPE (t_output_name_list), target  :: p_onl
+    INTEGER                            :: i_typ
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE(t_patch), INTENT(IN)          :: patch_2d
 
+    type(map) :: statisticMap
+    type(map) :: statisticEvents
+    type(map) :: statisticEventsActivity
+    type(map) :: statisticVarCounter
+    type(vector) :: statisticPrognostics
+    type(map) :: statisticPrognosticPointers
+    CHARACTER(len=*), intent(in) :: operation
+
+    !-----------------------------------------------------------------------------
+    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
+    INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
+    INTEGER :: timelevel, timelevels(3)
+    type(vector_ref) :: statisticVariables, prognosticVariables
+    CHARACTER(LEN=100) :: eventKey
+    type(t_event_wrapper) :: event_wrapper
+    class(*), pointer :: myBuffer
+    TYPE(t_list_element), POINTER :: src_element, dest_element
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
+    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    LOGICAL :: foundPrognostic
+    TYPE(t_var_list), POINTER :: src_list
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"
+
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'start')
+#endif
+
+    IF (trim(operation) .EQ. TRIM(p_onl%operation)) THEN
+
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_routine(routine,'found "mean" operation')
+#endif
+      call statStreamCrossCheck(p_onl)
+
+      ntotal_vars = total_number_of_variables()
+      ! temporary variables needed for variable group parsing
+      ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
+      IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
+      IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
+      IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
+
+      ! count variables {{{
+      output_variables = 0
+      DO
+        IF (in_varlist(output_variables+1) == ' ') EXIT
+        output_variables = output_variables + 1
+      END DO
+
+      IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
+      varlist((output_variables+1):ntotal_vars) = " "
+      ! }}}
+
+      ! uniq identifier for an event based on output start/end/interval
+      eventKey = get_event_key(p_onl)
+      ! this has the advantage that we can compute a uniq id without creating
+      ! the event itself
+
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
+#endif
+
+      ! fill main dictionary of variables for different events
+       CALL setup_statistics_events_and_lists(statisticMap, &
+                                           & eventKey, &
+                                           & statisticVariables, &
+                                           & statisticEvents, &
+                                           & statisticEventsActivity, &
+                                           & p_onl)
+
+      ! create adhoc copies of all variables for later accumulation
+      !
+      ! varlist MUST by a list of add_var-identifiers, i.e. the given name
+      DO i=1, output_variables
+        ! collect data variables only
+        ! variables names like 'grid:clon' which should be excluded
+        IF ( INDEX(varlist(i),':') > 0) CYCLE
+
+        ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
+        ! names consist of original spot-value names PLUS event information (start + interval of output)
+        ! TODO: unify with eventKey definition if possible
+        dest_element_name = get_statistics_varname(varlist(i),p_onl)
+        dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
+#endif
+        IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
+          ! find existing source variable on all possible ICON grids with the identical name
+          CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
+            & statisticPrognostics, statisticPrognosticPointers)
+          ! avoid mean processing for instantaneous fields
+          IF (TSTEP_CONSTANT .eq. src_element%field%info%isteptype) CYCLE
+
+          ! add new mean variable, copy the meta-data from the existing variable
+          ! 1. copy the source variable to destination pointer
+          dest_element => copy_var_to_list(src_list,dest_element_name,src_element, patch_2d)
+
+#ifdef DEBUG_MVSTREAM
+          CALL print_src_dest_info(src_element, dest_element, dest_element_name, in_varlist, i)
+#endif
+
+          ! set output to double precission if necessary
+          dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
+
+          ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
+          IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
+
+          ! Collect variable pointers for source and destination in the same list {{{
+          CALL statisticVariables%add(src_element)
+          CALL statisticVariables%add(dest_element)
+          ! collect the counter for each destination in a separate list
+          CALL statisticVarCounter%add(dest_element%field%info%name,0)
+
+        ! replace existince varname in output_nml with the meanStream Variable
+#ifdef DEBUG_MVSTREAM
+          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
+              & stderr=.true.)
+          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
+              & stderr=.true.)
+#endif
+        END IF
+        in_varlist(i) = trim(dest_element%field%info%name)
+      END DO
+      CALL statisticMap%add(eventKey,statisticVariables)
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_error(routine//": statisticPrognostics%to_string()")
+      if (my_process_is_stdio()) call print_error(statisticPrognostics%to_string())
+#endif
+      DEALLOCATE(varlist)
+    ELSE
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_routine(routine,'NO "statistic" operation found')
+#endif
+    END IF
+
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) then
+      call print_prognosticLists(statisticVariables, statisticMap, statisticPrognosticPointers)
+    endif
+    if (my_process_is_stdio()) call print_routine(routine,'end',stderr=.true.)
+#endif
+
+  END SUBROUTINE process_mvstream
+  SUBROUTINE process_statistics_stream(p_onl, i_typ, sim_step_info, patch_2d)
+    TYPE (t_output_name_list), target  :: p_onl
+    INTEGER                            :: i_typ
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE(t_patch), INTENT(IN)          :: patch_2d
+
+    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
+                        & meanMap, &
+                        & meanEvents, &
+                        & meanEventsActivity, &
+                        & meanVarCounter, &
+                        & meanPrognostics, &
+                        & meanPrognosticPointers, &
+                        & "mean")
+    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
+                        & maxMap, &
+                        & maxEvents, &
+                        & maxEventsActivity, &
+                        & maxVarCounter, &
+                        & maxPrognostics, &
+                        & maxPrognosticPointers, &
+                        & "max")
+    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
+                        & minMap, &
+                        & minEvents, &
+                        & minEventsActivity, &
+                        & minVarCounter, &
+                        & minPrognostics, &
+                        & minPrognosticPointers, &
+                        & "min")
+  END SUBROUTINE process_statistics_stream
+
+  ! methods needed for update statistics each timestep
   !>
   !! implement addition for source fields to the internal accumulation fields
   !!
-  SUBROUTINE accumulation_add(source, destination, counter)
+  SUBROUTINE statistics_add(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
     integer, intent(inout)               :: counter
@@ -580,7 +720,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
         destination%field%r_ptr(:,:,:,:,:) = &
           & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
       END SELECT
-    ELSe
+    ELSE
       ! tackle 1d, 2d and 3d
       SELECT CASE(destination%field%info%ndims)
       CASE(3)
@@ -624,23 +764,269 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
       END SELECT
     endif
     counter                 = counter + 1
-  END SUBROUTINE accumulation_add
+  END SUBROUTINE statistics_add
+  SUBROUTINE statistics_assign(source, destination, counter)
+    type(t_list_element) , INTENT(IN)    :: source
+    type(t_list_element) , INTENT(INOUT) :: destination
+    integer, intent(inout)               :: counter
 
+    integer :: index
+
+    index = -1
+    if (source%field%info%lcontained) then
+      index = source%field%info%ncontained
+
+      ! tackle 4d containers
+      SELECT CASE(source%field%info%var_ref_pos)
+      CASE(1)
+        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(index:index,:,:,:,:)
+      CASE(2)
+        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,index:index,:,:,:)
+      CASE(3)
+        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,index:index,:,:)
+      CASE(4)
+        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,index:index,:)
+      END SELECT
+    ELSE
+      ! tackle 1d, 2d and 3d
+      SELECT CASE(destination%field%info%ndims)
+      CASE(3)
+       !hack for sea ice variables which uses vertical level for ice class
+        IF (1 == destination%field%info%used_dimensions(2)) THEN
+          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=1, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=destination%field%info%used_dimensions(2), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE(2)
+        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+          call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE DEFAULT
+        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,:,:)
+      END SELECT
+    endif
+    counter = counter + 1
+  END SUBROUTINE statistics_assign
+  SUBROUTINE statistics_max(source, destination, counter)
+    type(t_list_element) , INTENT(IN)    :: source
+    type(t_list_element) , INTENT(INOUT) :: destination
+    integer, intent(inout)               :: counter
+
+    integer :: index
+
+    index = -1
+    if (source%field%info%lcontained) then
+      index = source%field%info%ncontained
+
+      ! tackle 4d containers
+      SELECT CASE(source%field%info%var_ref_pos)
+      CASE(1)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(index:index,:,:,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(index:index,:,:,:,:))
+      CASE(2)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,index:index,:,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,index:index,:,:,:))
+      CASE(3)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,:,index:index,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,index:index,:,:))
+      CASE(4)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,:,:,index:index,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,:,index:index,:))
+      END SELECT
+    ELSE
+      ! tackle 1d, 2d and 3d
+      SELECT CASE(destination%field%info%ndims)
+      CASE(3)
+       !hack for sea ice variables which uses vertical level for ice class
+        IF (1 == destination%field%info%used_dimensions(2)) THEN
+          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=1, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=destination%field%info%used_dimensions(2), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE(2)
+        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+          call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE DEFAULT
+        destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr, &
+            &       source%field%r_ptr, &
+            &       destination%field%r_ptr.gt.source%field%r_ptr)
+      END SELECT
+    endif
+    counter = counter + 1
+  END SUBROUTINE statistics_max
+  SUBROUTINE statistics_min(source, destination, counter)
+    type(t_list_element) , INTENT(IN)    :: source
+    type(t_list_element) , INTENT(INOUT) :: destination
+    integer, intent(inout)               :: counter
+
+    integer :: index
+
+    index = -1
+    if (source%field%info%lcontained) then
+      index = source%field%info%ncontained
+
+      ! tackle 4d containers
+      SELECT CASE(source%field%info%var_ref_pos)
+      CASE(1)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(index:index,:,:,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(index:index,:,:,:,:))
+      CASE(2)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,index:index,:,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,index:index,:,:,:))
+      CASE(3)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,:,index:index,:,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,index:index,:,:))
+      CASE(4)
+        destination%field%r_ptr(:,:,:,:,:) = &
+        & merge(destination%field%r_ptr (:,:,:,:,:), &
+        &       source%field%r_ptr(:,:,:,index:index,:), &
+        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,:,index:index,:))
+      END SELECT
+    ELSE
+      ! tackle 1d, 2d and 3d
+      SELECT CASE(destination%field%info%ndims)
+      CASE(3)
+       !hack for sea ice variables which uses vertical level for ice class
+        IF (1 == destination%field%info%used_dimensions(2)) THEN
+          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=1, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=destination%field%info%used_dimensions(2), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE(2)
+        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+          call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE DEFAULT
+        destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr, &
+            &       source%field%r_ptr, &
+            &       destination%field%r_ptr.lt.source%field%r_ptr)
+      END SELECT
+    endif
+    counter = counter + 1
+  END SUBROUTINE statistics_min
   !>
   !! Execute the accumulation forall internal variables and compute mean values
   !! if the corresponding event is active
   !!
-  SUBROUTINE perform_accumulation(timelevelIndex, timelevelIndex_rcf)
-    INTEGER :: timelevelIndex
-    INTEGER :: timelevelIndex_rcf
+  subroutine update_statistics()
+    call update_mvstream(meanMap, meanEvents, meanEventsActivity, meanPrognostics, meanPrognosticPointers,  meanVarCounter,"mean")
+    call update_mvstream(maxMap, maxEvents, maxEventsActivity, maxPrognostics, maxPrognosticPointers,  maxVarCounter,"max")
+    call update_mvstream(minMap, minEvents, minEventsActivity, minPrognostics, minPrognosticPointers,  minVarCounter,"min")
+  end subroutine update_statistics
 
+  SUBROUTINE update_mvstream(statisticMap, statisticEvents, statisticEventsActivity, &
+          & statisticPrognostics, statisticPrognosticPointers, &
+          & statisticVarCounter, operation)
+    TYPE(map) :: statisticMap
+    TYPE(map) :: statisticEvents
+    TYPE(map) :: statisticEventsActivity
+    TYPE(vector) :: statisticPrognostics
+    TYPE(map) :: statisticPrognosticPointers
+    TYPE(map) :: statisticVarCounter
+    CHARACTER(LEN=*), INTENT(IN) :: operation
+
+    !----------------------------------------------------------------------------------
     INTEGER :: element_counter
-    class(*),pointer :: varListForMeanEvent, meanEventKey
+    class(*),pointer :: varListForMeanEvent, statisticEventKey
     class(*),pointer :: sourceVariable, destinationVariable, sourceVariable4Prognostics
-    class(*),pointer :: counter, meanEvent, myItem
+    class(*),pointer :: counter, statisticEvent, myItem
     class(*),pointer :: eventActive
     type(t_list_element), pointer :: source, destination
-    type(vector_iterator) :: meanMapIterator, meanEventIterator
+    type(vector_iterator) :: statisticMapIterator, statisticEventIterator
+    class(*), pointer :: mvstream_pair
+
     TYPE(datetime), POINTER :: mtime_date
     logical :: isactive
     integer :: varcounter
@@ -649,14 +1035,14 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
     character(len=max_datetime_str_len) :: datetimestring
 #endif
 
-    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::update_statistics"
 
 #ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) call print_routine(routine,'start',stderr=.true.)
 #endif
 
-    meanMapIterator   = meanMap%iter()
-    meanEventIterator = meanEvents%iter()
+    statisticMapIterator   = statisticMap%iter()
+    statisticEventIterator = statisticEvents%iter()
 
     ! Check events first {{{
     ! this is necessary because of mtime internals
@@ -669,34 +1055,34 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
 #endif
 
     ! Save results for (not so much) later
-    do while (meanEventIterator%next(myItem))
+    do while (statisticEventIterator%next(myItem))
       select type (myItem)
       type is (map_item)
-        meanEventKey => myItem%key
-        meanEvent    => myItem%value
-        select type (meanEvent)
+        statisticEventKey => myItem%key
+        statisticEvent    => myItem%value
+        select type (statisticEvent)
         type is (t_event_wrapper)
-          isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
+          isactive = LOGICAL(isCurrentEventActive(statisticEvent%this,mtime_date))
         end select
-        call meanEventsActivity%add(meanEventKey,isactive)
+        call statisticEventsActivity%add(statisticEventKey,isactive)
       end select
     end do
 
 #ifdef DEBUG_MVSTREAM
-    if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string(),stderr=.true.)
+    if (my_process_is_stdio()) call print_error(statisticEventsActivity%to_string(),stderr=.true.)
 #endif
     ! }}}
 
-    do while (meanMapIterator%next(myItem))
+    do while (statisticMapIterator%next(myItem))
 
       select type (myItem)
       type is (map_item)
 
-        meanEventKey        => myItem%key
+        statisticEventKey        => myItem%key
         varListForMeanEvent => myItem%value
 
 #ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU",stderr=.true.) !TODO
+        if (my_process_is_stdio()) call print_summary(object_pointer_string(statisticEventKey)//"PERFORM ACCU",stderr=.true.) !TODO
 #endif
 
         select type(varListForMeanEvent)
@@ -704,19 +1090,17 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
           do element_counter=1,varListForMeanEvent%length(),2
 
 #ifdef DEBUG_MVSTREAM
-          if (my_process_is_stdio()) call print_routine("perform_accumulation",object_string(element_counter),stderr=.true.)
+          if (my_process_is_stdio()) call print_routine("update_statistics",object_string(element_counter),stderr=.true.)
 #endif
-
             sourceVariable      => varListForMeanEvent%at(element_counter)
             destinationVariable => varListForMeanEvent%at(element_counter+1)
-
             if (associated(sourceVariable) .and. associated(destinationVariable)) then
               select type (sourceVariable)
               type is (t_list_element)
                 select type (destinationVariable)
                 type is (t_list_element)
                   ! check for prognostics, pointer must be shifted according to given timelevelIndex {{{
-                  if (is_meanPrognosticVariable(destinationVariable)) then
+                  if (is_statsPrognosticVariable(destinationVariable,statisticPrognostics)) then
                     ! find the correct pointer:
                     ! check f reduced calling freq. variables are used for
                     ! output? if true, theses variables should be used for
@@ -731,7 +1115,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
                     timelevel =  metainfo_get_timelevel(destinationVariable%field%info, &
                         & destinationVariable%field%info%dom)
 
-                    source    => get_prognostics_source_pointer(destinationVariable, timelevel)
+                    source    => get_prognostics_source_pointer(destinationVariable, timelevel, statisticPrognosticPointers)
 
                   else
                   ! }}}
@@ -743,7 +1127,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
 #endif
                   end if
                   destination => destinationVariable
-                  counter     => meanVarCounter%get(destination%field%info%name)
+                  counter     => statisticVarCounter%get(destination%field%info%name)
                   select type (counter)
                   type is (integer)
 
@@ -757,9 +1141,25 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
                     IF ( my_process_is_stdio() ) write (0,*)'old counter: ',counter
 #endif
 
-                    ! FIELD ACCUMULATION {{
+                    ! update of internal fields according to the operator {{{
                     varcounter = counter !TODO work around for integer pointer, ugly
-                    CALL accumulation_add(source, destination, varcounter)
+                    if ("mean".EQ.operation) then
+                      CALL statistics_add(source, destination, varcounter)
+                    elseif ("max".EQ.operation) then
+                      if (0 .EQ. varcounter) then
+                        CALL statistics_assign(source, destination, varcounter)
+                      else
+                        CALL statistics_max(source, destination, varcounter)
+                      endif
+                    elseif ("min".EQ.operation) then
+                      if (0 .EQ. varcounter) then
+                        CALL statistics_assign(source, destination, varcounter)
+                      else
+                        CALL statistics_min(source, destination, varcounter)
+                      endif
+                    else
+                      CALL finish('update_mvstream','Found unknown operation:'//trim(operation))
+                    endif
                     counter = varcounter
                     ! }}}
 #ifdef DEBUG_MVSTREAM
@@ -770,7 +1170,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
 
                   ! MEAN VALUE COMPUTAION {{{
                   ! check if the field will be written to disk this timestep {{{
-                  eventActive => meanEventsActivity%get(meanEventKey)
+                  eventActive => statisticEventsActivity%get(statisticEventKey)
                   select type (eventActive)
                   type is (logical)
                     isactive = eventActive
@@ -781,14 +1181,20 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
                         & CALL print_summary(" --> PERFORM MEAN VALUE COMP for"//trim(destination%field%info%name),stderr=.true.)
 #endif
 
-                      counter => meanVarCounter%get(destination%field%info%name)
+                      counter => statisticVarCounter%get(destination%field%info%name)
                       select type(counter)
                       type is (integer)
 #ifdef DEBUG_MVSTREAM
                         IF ( my_process_is_stdio() ) write (0,*)' ------> MEAN VALUE counter:',counter
 #endif
+                      if ("mean".EQ.operation) then
                         destination%field%r_ptr = destination%field%r_ptr / REAL(counter,wp)
-                        counter = 0
+                      elseif ("max".EQ.operation) then
+                      elseif ("min".EQ.operation) then
+                      else
+                        CALL finish('update_mvstream','Found unknown operation:'//trim(operation))
+                      endif
+                      counter = 0
                       end select
                     end if
                   end select
@@ -796,7 +1202,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
                 end select
                 ! ! }}}
               class default
-                call finish('perform_accumulation','Found unknown source variable type')
+                call finish('update_statistics','Found unknown source variable type')
               end select
             else
               call finish(routine,'source or destination variable cannot be found')
@@ -810,12 +1216,17 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
     if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
 
-  END SUBROUTINE perform_accumulation
+  END SUBROUTINE update_mvstream
 
   !>
   !! reset internal fields to zero, if the corresponding event is active
   !!
-  SUBROUTINE reset_accumulation
+  ! min/max do not need extra reset due to JEFs implementation idea
+  SUBROUTINE reset_statistics
+    call reset_mean
+  END SUBROUTINE reset_statistics
+
+  SUBROUTINE reset_mean
     INTEGER :: element_counter
     type(t_list_element), pointer :: destination
     class(*),pointer :: varListForMeanEvent, meanEventKey
@@ -824,7 +1235,7 @@ if (my_process_is_stdio()) CALL print_summary('new grid      :|'//int2string(des
     class(*), pointer :: eventActive
     type(vector_iterator) :: meanMapIterator
 
-    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_statistics"
 
 #ifdef DEBUG_MVSTREAM
     if (my_process_is_stdio()) call print_routine(routine,'start')
@@ -923,22 +1334,7 @@ if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : -->
     if (my_process_is_stdio()) call print_routine(routine,'finish',stderr=.true.)
 #endif
 
-  END SUBROUTINE reset_accumulation
-
-  !>
-  !! return the event string from given output name list, based on output_start, -end and -interval
-  !!
-  FUNCTION get_event_key(output_name_list) RESULT(event_key)
-    TYPE(t_output_name_list) :: output_name_list
-    CHARACTER(LEN=1000) :: event_key
-    CHARACTER(LEN=1)    :: separator
-
-    separator = '_'
-    event_key = &
-      &trim(output_name_list%output_start(1))//separator//&
-      &trim(output_name_list%output_end(1))//separator//&
-      &trim(output_name_list%output_interval(1))
-  END FUNCTION get_event_key
+  END SUBROUTINE
 
 END MODULE mo_derived_variable_handling
 
