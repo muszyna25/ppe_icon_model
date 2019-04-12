@@ -630,6 +630,14 @@ AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION"])])
 
+dnl switch to disable MPI_Rget for systems where it doesn't work
+AC_ARG_ENABLE([mpi-rget],
+  [AS_HELP_STRING([--disable-mpi-rget],
+     [MPI_Rget is normally used on systems with MPI standard 3.0 or later, but can be disabled unconditionally with this switch])],
+     [AS_IF([test x"$enable_mpi_rget" != xyes -a x"$enable_mpi_rget" != xauto],
+        [enable_mpi_rget=no])],
+     [enable_mpi_rget=auto])
+
 ######################### C COMPILER COMMAND AND FLAGS #########################
 dnl Override the default flags set by AC_PROG_CC:
 CFLAGS=${CFLAGS-}
@@ -774,6 +782,13 @@ AS_VAR_IF([enable_mpi], [yes],
      [ICON_MPI_SUBVERSION],[1],[The value of Fortran parameter MPI_SUBVERSION])
    ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"])
 
+dnl ######################################################################
+AS_VAR_IF([enable_mpi_rget], [auto],
+  [AS_IF([test $ICON_MPI_VERSION -ge 3],
+     [enable_mpi_rget=yes],
+     [enable_mpi_rget=no])])
+AS_VAR_IF([enable_mpi_rget], [no],
+  [ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}NO_MPI_RGET"])
 dnl ######################################################################
 
 dnl The configure scripts of the most of the bundled libraries expect

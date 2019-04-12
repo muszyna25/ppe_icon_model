@@ -755,6 +755,7 @@ with_external_yac
 with_external_tixi
 with_external_self
 with_external_cub
+enable_mpi_rget
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1483,6 +1484,9 @@ Optimization Features:
                           [default=no]
   --enable-mixed-precision
                           enable mixed precision dycore [default=no]
+  --disable-mpi-rget      MPI_Rget is normally used on systems with MPI
+                          standard 3.0 or later, but can be disabled
+                          unconditionally with this switch
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -4494,6 +4498,16 @@ if test "x$enable_mixed_precision" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
 fi
 
+# Check whether --enable-mpi-rget was given.
+if test "${enable_mpi_rget+set}" = set; then :
+  enableval=$enable_mpi_rget; if test x"$enable_mpi_rget" != xyes -a x"$enable_mpi_rget" != xauto; then :
+  enable_mpi_rget=no
+fi
+else
+  enable_mpi_rget=auto
+fi
+
+
 ######################### C COMPILER COMMAND AND FLAGS #########################
 CFLAGS=${CFLAGS-}
 ac_ext=c
@@ -6001,6 +6015,16 @@ _ACEOF
    ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"
 fi
 
+if test "x$enable_mpi_rget" = xauto; then :
+  if test $ICON_MPI_VERSION -ge 3; then :
+  enable_mpi_rget=yes
+else
+  enable_mpi_rget=no
+fi
+fi
+if test "x$enable_mpi_rget" = xno; then :
+  ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}NO_MPI_RGET"
+fi
 
 if test -n "$MPI_LAUNCH"; then :
   case "$MPI_LAUNCH" in #(
