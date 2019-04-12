@@ -48,7 +48,7 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz"
 # (0) Basic model configuration
 # -----------------------------
 
-atmos_gridID="0004"
+atmos_gridID="0030"
 atmos_refinement="R02B03"
 
 ocean_gridID="0014"
