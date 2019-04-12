@@ -765,6 +765,16 @@ test x"$enable_rttov" = xyes],
 interface of MPI library: either disable MPI support (--disable-mpi) or set dnl
 FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
+dnl ######################################################################
+dnl test for MPI standard implementation version
+AS_VAR_IF([enable_mpi], [yes],
+  [ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_VERSION],[0],[100],[1],[use mpi],
+     [ICON_MPI_VERSION],[1],[The value of Fortran parameter MPI_VERSION])
+   ACX_FORTRAN_CHECK_INTEGER_PARAMETER([MPI_SUBVERSION],[0],[100],[1],[use mpi],
+     [ICON_MPI_SUBVERSION],[1],[The value of Fortran parameter MPI_SUBVERSION])
+   ICON_FCFLAGS="${ICON_FCFLAGS+$ICON_FCFLAGS }${FC_PP_DEF}ICON_MPI_VERSION=$ICON_MPI_VERSION ${FC_PP_DEF}ICON_MPI_SUBVERSION=$ICON_MPI_SUBVERSION"])
+
+dnl ######################################################################
 
 dnl The configure scripts of the most of the bundled libraries expect
 dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
