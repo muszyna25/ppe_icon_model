@@ -367,8 +367,6 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     ENDIF
 
-    DEALLOCATE (lsmnolake)
-
     CALL yac_fdef_mask (           &
       & patch_horz%n_patch_cells,  &
       & ibuffer,                   &
@@ -411,7 +409,10 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
         DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
+!            IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
+             ! preliminary: fractional lsm (0<lsf<1) is a coastal point
+             IF ( ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) .AND. &
+               &  ( lsmnolake(idx, BLOCK) .GT. 0.0_wp ) ) THEN
 !            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
 !            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
 !            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
@@ -442,6 +443,8 @@ CONTAINS
 #endif
 
     DEALLOCATE (ibuffer)
+
+    DEALLOCATE (lsmnolake)
 
     ! End definition of coupling fields and search
     CALL yac_fget_nbr_fields(no_of_fields_total)
