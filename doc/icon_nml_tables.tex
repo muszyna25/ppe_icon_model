@@ -4926,17 +4926,20 @@ C(:)&\'' \''& &
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
-
+\hline
 \textbf{operation }&
 C&None& &
- Use this variable for internal diagnostics applied on all given output
- variables or groups: \texttt{mean} for generating time averaged, \texttt{max}
- or \texttt{min} for maximum and minimum values within the corresponding
- interval, i.e. \texttt{output\_interval}. \\Supported are 2D, 3D and single
- value like global means on model levels of all components. All operations can
- be used on global and nested grids.
+ Use this variable for internal diagnostics applied on all given
+ output variables or groups except time-constant ones: \texttt{mean}
+ for generating time averaged, \texttt{square} for time averaged
+ square values, \texttt{max} or \texttt{min} for maximum and minimum
+ values within the corresponding interval, i.e.
+ \texttt{output\_interval}.  \\Supported are 2D, 3D and single values
+ like global means on model levels of all components. All operations
+ can be used on global and nested grids.
 &
 \tabularnewline
+\hline
 
 %\hline
  pe\_placement\_il &
