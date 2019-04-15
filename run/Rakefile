@@ -703,11 +703,12 @@ class TimeAnalyser
       { :ref => '2,3,4,5', :time => '2'},
     ]
   } #}}}
-  OPERATIONS   = ['mean','max','min']
+  OPERATIONS   = ['mean','max','min','square']
   OPERATORS = {
     'mean' => 'timmean',
     'min'  => 'timmin' ,
-    'max'  => 'timmax'
+    'max'  => 'timmax',
+    'square' => ['timmean','pow,2']
   } #}}}
 
 # private
@@ -770,7 +771,7 @@ class TimeAnalyser
   end
 
   public
-  def initialize
+  def initialize(absolute_limit=nil)
     @periodsFileTags = {'spotEachTimeStep' => 'spot'}
     PERIODS.each_with_index {|period,pi|
       OPERATIONS.each {|op|
@@ -778,6 +779,20 @@ class TimeAnalyser
       }
     }
     @cdo = Cdo.new
+    @absolute_limit = absolute_limit
+  end
+
+  def diffBelow(inputs, limit=@absolute_limit)
+    options = '-L'
+    unless @absolute_limit.nil? then
+      @cdo.diffv(@absolute_limit, input: inputs, :options => options)
+    else
+      @cdo.diffv(input: inputs, :options => options)
+    end
+  end
+  def spotCheck(preproc,spotfile,timefile,ignoreVariables)
+    ignoreString = ignoreVariables.empty? ? "" : "-delname,#{ignoreVariables.join(',')}"
+    puts diffBelow(["#{preproc} #{ignoreString} #{spotfile} ",[ignoreString,timefile]])
   end
 
   #TODO: implement the SPOT=ANALYSER!!!
@@ -790,15 +805,23 @@ class TimeAnalyser
         spotFile, timeFile        = files[:spot], files[:time]
         varlist, spotFileVarNames = getVarlists(spotFile, variable)
  
+        # setup addition preprocessing if needed
+        preproc = ''
+        if operator.kind_of?(Array) then
+          preproc = "-#{operator.last}"
+          operator = operator.first
+        end
+
         # delete the known time-constant variable from the spot files
-        ['zg'].each {|v| spotFileVarNames.delete(v)}
+        ignoreVariables = ['zg']
+        ignoreVariables.each {|v| spotFileVarNames.delete(v)}
         # exit if the selected variable is not in the model output
         return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )
 
-        logFiles(spotFile, timeFile, operation_period) #pp varlist if $DEBUG
+        logFiles(spotFile, timeFile, operation_period)
 
         if 'eachTimeStep' == period then
-          puts @cdo.diffv(input: [spotFile, timeFile])
+          spotCheck(preproc, spotFile, timeFile,ignoreVariables)
           next
         end
         # filter time constant variables
@@ -814,16 +837,15 @@ class TimeAnalyser
           Parallel.map(varlist,in_threads: 10) {|varname|
 #         varlist.each {|varname|
             pp timeStepPair if $DEBUG
-            timeSelectionRef  = ('eachTimeStep' != period) ? "-seltimestep,#{timeStepPair[:ref]}"  : ''
-            timeSelectionMean = ('eachTimeStep' != period) ? "-seltimestep,#{timeStepPair[:time]}" : ''
-            operator = 'copy' if 'eachTimeStep' == period
+
+            timeSelectionRef   = "#{preproc} -seltimestep,#{timeStepPair[:ref]}"
+            timeSelectionMean  = "-seltimestep,#{timeStepPair[:time]}"
 
             delNans           = ''#"-setvals,nan,0,-nan,0"
 
-            diff = @cdo.diffv(
-                              input: [ "   -#{operator} #{timeSelectionRef}   #{delNans} -selname,#{varname} #{spotFile}   ",
-                                       "             #{timeSelectionMean} #{delNans} -selname,#{varname} #{timeFile}" ].join(' '),
-                              :options => '-L -s')
+            diff = diffBelow([ "   -#{operator} #{timeSelectionRef}   #{delNans} -selname,#{varname} #{spotFile}   ",
+                                  "             #{timeSelectionMean} #{delNans} -selname,#{varname} #{timeFile}" ].join(' '))
+
             valueRange = "(%g)" % @cdo.send(operator.to_sym,
                                             input: "#{timeSelectionRef}  #{delNans} -selname,#{varname} #{spotFile}",
                                             returnMaArray: varname).mean
@@ -957,7 +979,7 @@ task :checkMeanStream do |t,args|
 end
 desc "TEST"
 task :checkMVStream do |t,args|
-  t = TimeAnalyser.new
+  t = TimeAnalyser.new('abslim=1.0E-200')
   t.run
 end
 task :check, :routine do |t,args|

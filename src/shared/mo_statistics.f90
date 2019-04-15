@@ -254,6 +254,8 @@ MODULE mo_statistics
 
   INTERFACE add_sqr_fields
     MODULE PROCEDURE add_sqr_fields_2d
+    MODULE PROCEDURE add_sqr_fields_3d
+    MODULE PROCEDURE add_sqr_fields_2d_nosubset
   END INTERFACE add_sqr_fields
 
   INTERFACE assign_fields
@@ -2022,22 +2024,95 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_nosubset
 
-  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
+  SUBROUTINE add_sqr_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+    ! use constant levels
+    mylevels                       = SIZE(sum_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        sum_field(idx,level,block) = MERGE(my_miss, &
+                                        & sum_field(idx,level,block) + field(idx,level,block)**2, &
+                                        & my_has_missvals .AND. (field(idx,level,block) == my_miss))
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE add_sqr_fields_3d
+
+  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)
     REAL(wp),INTENT(in)             :: field(:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
 
     INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
       DO jc = start_index, end_index
-        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)**2
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_sqr_fields_2d
+
+  SUBROUTINE add_sqr_fields_2d_nosubset(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d_nosubset
 
   !-----------------------------------------------------------------------
   SUBROUTINE add_verticallyIntegrated_field(vint_field_acc,field_3D,subset,height,levels)

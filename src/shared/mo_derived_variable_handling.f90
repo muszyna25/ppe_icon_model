@@ -16,7 +16,7 @@ MODULE mo_derived_variable_handling
   USE mo_model_domain, ONLY: t_patch
   USE mo_io_config, ONLY: lnetcdf_flt64_output
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
-  USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields
+  USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields, add_sqr_fields
   USE mo_var_metadata_types, ONLY: VARNAME_LEN
   USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
     &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
@@ -53,6 +53,8 @@ MODULE mo_derived_variable_handling
   TYPE(vector), SAVE :: maxPrognostics
   TYPE(map), SAVE    :: minMap, minEvents, minEventsActivity, minVarCounter, minPrognosticPointers
   TYPE(vector), SAVE :: minPrognostics
+  TYPE(map), SAVE    :: squareMap, squareEvents, squareEventsActivity, squareVarCounter, squarePrognosticPointers
+  TYPE(vector), SAVE :: squarePrognostics
   CHARACTER(1), PARAMETER :: separator = achar(124)
 
   PUBLIC :: init_statistics_streams
@@ -67,6 +69,10 @@ MODULE mo_derived_variable_handling
     INTEGER                       :: counter = 0
   END TYPE t_mvstream_pair
 
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MEAN   = "mean"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MAX    = "max"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: MIN    = "min"
+  CHARACTER(LEN = MAX_CHAR_LENGTH), PARAMETER :: SQUARE = "square"
   !>
   ! wrapper for bind_c event type - needed because bind_c types are not allowed
   ! in "select type" - this is kind of a hack
@@ -86,9 +92,6 @@ CONTAINS
     ! key: eventString
     ! value: self-vector of t_list_elements objects that belong to that event
     call meanMap%init(verbose=.false.)
-    call maxMap%init(verbose=.false.)
-    call minMap%init(verbose=.false.)
-
     ! map for holding the events itself
     ! since the events cannot be saved a keys for a map because they are only
     ! C-pointers the same string representation of events is used as for
@@ -99,18 +102,26 @@ CONTAINS
     call meanPrognostics%init(verbose=.false.)
     call meanPrognosticPointers%init(verbose=.false.)
 
+    call maxMap%init(verbose=.false.)
     call maxEvents%init(verbose=.false.)
     call maxEventsActivity%init(verbose=.false.)
     call maxVarCounter%init(verbose=.false.)
     call maxPrognostics%init(verbose=.false.)
     call maxPrognosticPointers%init(verbose=.false.)
 
+    call minMap%init(verbose=.false.)
     call minEvents%init(verbose=.false.)
     call minEventsActivity%init(verbose=.false.)
     call minVarCounter%init(verbose=.false.)
     call minPrognostics%init(verbose=.false.)
     call minPrognosticPointers%init(verbose=.false.)
 
+    call squareMap%init(verbose=.false.)
+    call squareEvents%init(verbose=.false.)
+    call squareEventsActivity%init(verbose=.false.)
+    call squareVarCounter%init(verbose=.false.)
+    call squarePrognostics%init(verbose=.false.)
+    call squarePrognosticPointers%init(verbose=.false.)
   END SUBROUTINE init_statistics_streams
 
   !>
@@ -543,7 +554,7 @@ CONTAINS
     IF (trim(operation) .EQ. TRIM(p_onl%operation)) THEN
 
 #ifdef DEBUG_MVSTREAM
-      if (my_process_is_stdio()) call print_routine(routine,'found "mean" operation')
+      if (my_process_is_stdio()) call print_routine(routine,'found "'//trim(operation)//'" operation')
 #endif
       call statStreamCrossCheck(p_onl)
 
@@ -671,7 +682,7 @@ CONTAINS
                         & meanVarCounter, &
                         & meanPrognostics, &
                         & meanPrognosticPointers, &
-                        & "mean")
+                        & MEAN)
     CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
                         & maxMap, &
                         & maxEvents, &
@@ -679,7 +690,7 @@ CONTAINS
                         & maxVarCounter, &
                         & maxPrognostics, &
                         & maxPrognosticPointers, &
-                        & "max")
+                        & MAX)
     CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
                         & minMap, &
                         & minEvents, &
@@ -687,7 +698,15 @@ CONTAINS
                         & minVarCounter, &
                         & minPrognostics, &
                         & minPrognosticPointers, &
-                        & "min")
+                        & MIN)
+    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, &
+                        & squareMap, &
+                        & squareEvents, &
+                        & squareEventsActivity, &
+                        & squareVarCounter, &
+                        & squarePrognostics, &
+                        & squarePrognosticPointers, &
+                        & SQUARE)
   END SUBROUTINE process_statistics_stream
 
   ! methods needed for update statistics each timestep
@@ -765,6 +784,82 @@ CONTAINS
     endif
     counter                 = counter + 1
   END SUBROUTINE statistics_add
+
+  ! methods needed for update statistics each timestep
+  !>
+  !! implement addition for source fields to the internal accumulation fields
+  !!
+  SUBROUTINE statistics_add_sqr(source, destination, counter)
+    type(t_list_element) , INTENT(IN)    :: source
+    type(t_list_element) , INTENT(INOUT) :: destination
+    integer, intent(inout)               :: counter
+
+    integer :: index
+
+    index = -1
+    if (source%field%info%lcontained) then
+      index = source%field%info%ncontained
+
+      ! tackle 4d containers
+      SELECT CASE(source%field%info%var_ref_pos)
+      CASE(1)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)**2
+      CASE(2)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)**2
+      CASE(3)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)**2
+      CASE(4)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)**2
+      END SELECT
+    ELSE
+      ! tackle 1d, 2d and 3d
+      SELECT CASE(destination%field%info%ndims)
+      CASE(3)
+       !hack for sea ice variables which uses vertical level for ice class
+        IF (1 == destination%field%info%used_dimensions(2)) THEN
+          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=1, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             levels=destination%field%info%used_dimensions(2), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+            &             source%field%r_ptr(:,:,:,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE(2)
+        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+          call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ELSE
+          call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+            &             source%field%r_ptr(:,:,1,1,1), &
+            &             destination%field%info%subset, &
+            &             has_missvals=destination%field%info%lmiss, &
+            &             missval=destination%field%info%missval%rval)
+        ENDIF
+      CASE DEFAULT
+        destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
+      END SELECT
+    endif
+    counter                 = counter + 1
+  END SUBROUTINE statistics_add_sqr
   SUBROUTINE statistics_assign(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
@@ -1001,9 +1096,16 @@ CONTAINS
   !! if the corresponding event is active
   !!
   subroutine update_statistics()
-    call update_mvstream(meanMap, meanEvents, meanEventsActivity, meanPrognostics, meanPrognosticPointers,  meanVarCounter,"mean")
-    call update_mvstream(maxMap, maxEvents, maxEventsActivity, maxPrognostics, maxPrognosticPointers,  maxVarCounter,"max")
-    call update_mvstream(minMap, minEvents, minEventsActivity, minPrognostics, minPrognosticPointers,  minVarCounter,"min")
+    call update_mvstream(meanMap, meanEvents, meanEventsActivity, meanPrognostics, meanPrognosticPointers,  meanVarCounter,MEAN)
+    call update_mvstream(maxMap, maxEvents, maxEventsActivity, maxPrognostics, maxPrognosticPointers,  maxVarCounter,MAX)
+    call update_mvstream(minMap, minEvents, minEventsActivity, minPrognostics, minPrognosticPointers,  minVarCounter,MIN)
+    call update_mvstream(squareMap, &
+      &                  squareEvents, &
+      &                  squareEventsActivity, &
+      &                  squarePrognostics, &
+      &                  squarePrognosticPointers, &
+      &                  squareVarCounter, &
+      &                  SQUARE)
   end subroutine update_statistics
 
   SUBROUTINE update_mvstream(statisticMap, statisticEvents, statisticEventsActivity, &
@@ -1143,22 +1245,29 @@ CONTAINS
 
                     ! update of internal fields according to the operator {{{
                     varcounter = counter !TODO work around for integer pointer, ugly
-                    if ("mean".EQ.operation) then
+                    if (MEAN.EQ.operation) then
                       CALL statistics_add(source, destination, varcounter)
-                    elseif ("max".EQ.operation) then
+
+                    elseif (MAX.EQ.operation) then
                       if (0 .EQ. varcounter) then
                         CALL statistics_assign(source, destination, varcounter)
                       else
                         CALL statistics_max(source, destination, varcounter)
                       endif
-                    elseif ("min".EQ.operation) then
+
+                    elseif (MIN.EQ.operation) then
                       if (0 .EQ. varcounter) then
                         CALL statistics_assign(source, destination, varcounter)
                       else
                         CALL statistics_min(source, destination, varcounter)
                       endif
+
+                    elseif (SQUARE.EQ.operation) then
+                      CALL statistics_add_sqr(source, destination, varcounter)
+
                     else
                       CALL finish('update_mvstream','Found unknown operation:'//trim(operation))
+
                     endif
                     counter = varcounter
                     ! }}}
@@ -1185,14 +1294,10 @@ CONTAINS
                       select type(counter)
                       type is (integer)
 #ifdef DEBUG_MVSTREAM
-                        IF ( my_process_is_stdio() ) write (0,*)' ------> MEAN VALUE counter:',counter
+                      IF ( my_process_is_stdio() ) write (0,*)' ------> MEAN VALUE counter:',counter
 #endif
-                      if ("mean".EQ.operation) then
+                      if (MEAN.EQ.operation .OR. SQUARE.EQ.operation) then
                         destination%field%r_ptr = destination%field%r_ptr / REAL(counter,wp)
-                      elseif ("max".EQ.operation) then
-                      elseif ("min".EQ.operation) then
-                      else
-                        CALL finish('update_mvstream','Found unknown operation:'//trim(operation))
                       endif
                       counter = 0
                       end select
@@ -1223,8 +1328,121 @@ CONTAINS
   !!
   ! min/max do not need extra reset due to JEFs implementation idea
   SUBROUTINE reset_statistics
-    call reset_mean
+    call reset_mvstream(meanMap, meanEventsActivity)
+    call reset_mvstream(squareMap, squareEventsActivity)
   END SUBROUTINE reset_statistics
+
+
+  SUBROUTINE reset_mvstream(statisticMap, statisticEventsActivity)
+    type(map) :: statisticMap, statisticEventsActivity
+
+    INTEGER :: element_counter
+    type(t_list_element), pointer :: destination
+    class(*),pointer :: varListForStatisticEvent, statisticEventKey
+    class(*),pointer :: destinationVariable
+    class(*),pointer :: statisticEvent, myItem
+    class(*), pointer :: eventActive
+    type(vector_iterator) :: statisticMapIterator
+
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_statistics"
+
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'start')
+#endif
+
+    statisticMapIterator = statisticMap%iter()
+
+    do while (statisticMapIterator%next(myItem))
+
+#ifdef DEBUG_MVSTREAM
+      if (my_process_is_stdio()) call print_error("started event loop",stderr=.true.)
+#endif
+      select type (myItem)
+      type is (map_item)
+
+        statisticEventKey   => myItem%key
+        varListForStatisticEvent => myItem%value
+
+        select type(varListForStatisticEvent)
+        class is (vector_ref)
+
+          do element_counter=1,varListForStatisticEvent%length(),2 !start at 2 because the event is at index 1
+
+            destinationVariable => varListForStatisticEvent%at(element_counter+1)
+
+#ifdef DEBUG_MVSTREAM
+            if (my_process_is_stdio()) call print_error("got destinationVariable",stderr=.true.)
+#endif
+
+            if (associated(destinationVariable)) then
+
+#ifdef DEBUG_MVSTREAM
+            if (my_process_is_stdio()) call print_error("    destinationVariable is associated",stderr=.true.)
+#endif
+
+              select type (destinationVariable)
+              type is (t_list_element)
+                  destination => destinationVariable
+
+#ifdef DEBUG_MVSTREAM
+                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element",stderr=.true.)
+#endif
+
+                  eventActive => statisticEventsActivity%get(statisticEventKey)
+
+#ifdef DEBUG_MVSTREAM
+                  if (.not.associated(eventActive)) then
+                    if (my_process_is_stdio()) call print_error("       eventActive not associated",stderr=.true.)
+                  end if
+#endif
+
+                  select type (eventActive)
+                  type is (logical)
+
+#ifdef DEBUG_MVSTREAM
+                    if (my_process_is_stdio()) call print_error("       eventActive is logical",stderr=.true.)
+#endif
+
+                    if ( LOGICAL(eventActive) ) then
+
+#ifdef DEBUG_MVSTREAM
+                      if (my_process_is_stdio()) call print_error("       eventActive is true",stderr=.true.)
+                      if (my_process_is_stdio()) call print_error(object_string(statisticEventKey)//' : --> PERFORM RESET',&
+                          & stderr=.true.)
+if (my_process_is_stdio()) call print_error(object_string(statisticEventKey)//' : --> '//trim(destination%field%info%name),&
+    & stderr=.true.)
+#endif
+
+                      destination%field%r_ptr = 0.0_wp ! take the neutral element of addition
+#ifdef DEBUG_MVSTREAM
+                    else
+                      if (my_process_is_stdio()) call print_error("       eventActive is false",stderr=.true.)
+#endif
+                    end if
+                  class default
+#ifdef DEBUG_MVSTREAM
+                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type",stderr=.true.)
+#endif
+                  end select
+              class default
+#ifdef DEBUG_MVSTREAM
+                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element",stderr=.true.)
+#endif
+              end select
+            else
+#ifdef DEBUG_MVSTREAM
+              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"),stderr=.true.)
+#endif
+            end if
+          end do
+        end select
+      end select
+    end do
+
+#ifdef DEBUG_MVSTREAM
+    if (my_process_is_stdio()) call print_routine(routine,'finish',stderr=.true.)
+#endif
+  END SUBROUTINE
 
   SUBROUTINE reset_mean
     INTEGER :: element_counter
