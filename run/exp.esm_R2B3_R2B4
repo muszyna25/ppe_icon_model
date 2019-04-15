@@ -105,7 +105,8 @@ else
     poolFolder_prefix=
 fi
 
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+#icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/rene/mpim"
 
 # horizontal grid(s)
 # ------------------
@@ -131,10 +132,12 @@ restart_interval="P1Y"
 checkpoint_interval="P20Y"
 
 atm_file_interval="P20Y"
-atm_output_interval="P1M"
-
 oce_file_interval="P20Y"
+lnd_file_interval="P20Y"
+
+atm_output_interval="P1M"
 oce_output_interval="P1M"
+lnd_output_interval="P1M"
 
 # asynchronous diagnostic output processes
 # ----------------------------------------
@@ -156,12 +159,17 @@ output_oce_moc=yes      #  calc_moc is called every timestep - switch off for hi
 # sea ice, snow, SST and some deeper levels ocean output
 output_oce_ice=yes
 
+# standard debug-flux arrays at surface
+output_atm_dbg=yes
+output_oce_dbg=yes
+output_lnd_dbg=yes
+
 # output switches for large atm/oce files - set to "yes" if needed for standard quickplots
 #  - yes writes much output and needs more computing time at least in high resolution
 output_atm_cgrid=no     # produces 1 atm file 
 output_atm_3d=yes
 output_atm_2d=yes
-output_lnd=no           # produces 1 lnd file
+output_lnd_amip=no      #  land output for atm_amip experiment
 output_phy_3d=no        #  atmosphere physics, note: "yes" increases the output volume significantly!
 output_oce_def=yes      #  annual mean is sufficient
 
@@ -910,6 +918,50 @@ if [[ "$output_atm_mon" == "yes" ]]; then
 /
 EOF
 fi
+
+# interface debug output
+if [[ "$output_atm_dbg" == "yes" ]]; then
+  cat >> ${atm_namelist} <<EOF
+&output_nml 
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
+ output_filename  = "${EXPNAME}_atm_dbg"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'orog'    , 'ps'      ,
+                    'frac_wtr', 'frac_ice', 'frac_lnd', 'alake', 'lake_ice_frc',
+                    'hs_icecl', 'ts_icecl', 'qtop_icecl','qbot_icecl',
+                    'sic'     , 'sit'     , 'sic_icecl', 'sit_icecl',
+                    'clt'     , 'psl'     , 'tas'     , 'ts'      ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'tauu'    , 'tauv'    , 'albedo'  ,
+                    'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
+                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'rvds_dir','rvds_dif','rnds_dir','rnds_dif','rvus','rnus',
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs',
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs',
+                    'rsus'    , 'rsuscs'  , 'rlus'    , 'rsdt'  ,
+                    'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'sfcwind' , 'uas'     , 'vas'
+/
+EOF
+fi
 #
 # Standard AMIP output...
 #
@@ -1011,11 +1063,36 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 EOF
 fi
 
+if [[ "$output_lnd_dbg" == "yes" ]]; then
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
+ output_filename  = "${EXPNAME}_lnd_dbg"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${lnd_output_interval}"
+ file_interval    = "${lnd_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'fract_box',
+                    'seb_t_box'                   , 'seb_qsat_star_box'      ,
+                    'rad_alb_vis_box'             , 'rad_alb_nir_box'        ,
+                    'rad_rad_srf_net_box'         , 'rad_lw_srf_net_box'     , 'rad_sw_srf_net_box',
+                    'seb_latent_hflx_box'         , 'seb_sensible_hflx_box'  , 'pheno_lai_box'     ,
+                    'hydro_evapotrans_box'        , 'hydro_w_soil_column_box',
+                    'hydro_runoff_box'            , 'hydro_drainage_box'     ,
+                    'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
+/
+EOF
+fi
 
 # minimal jsbach output for running atm_amip experiment
 # for more jsbach output see exp.atm_amip_les
 #
-if [[ "$output_lnd" == "yes" ]]; then
+if [[ "$output_lnd_amip" == "yes" ]]; then
   cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_lnd"
@@ -1026,8 +1103,8 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
+ output_interval  = "${lnd_output_interval}"
+ file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
                     'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
@@ -1163,6 +1240,33 @@ if [[ "$output_oce_moc" == "yes" ]]; then
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
   ml_varlist                 = 'group:ocean_moc'
+/
+EOF
+fi
+
+if [[ "$output_oce_dbg" == "yes" ]]; then
+  cat >> ${oce_namelist} <<EOF
+
+&output_nml
+  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
+  output_filename  = "${EXPNAME}_oce_dbg"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start date in ISO-format
+  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
+  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
+  output_grid      = .TRUE.
+  mode             =  1                               ! 1: forecast mode (relative t-axis); 2: climate mode
+  operation        = 'mean'                           ! mean over output interval
+  include_last     = .false.
+  m_levels         = "1,2"                            ! surface and subsurface level only
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'Qtop', 'Qbot','Qbot_slow', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
+                      'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
+                      'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
+                      'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
+                      'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
+                      'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m'
 /
 EOF
 fi
