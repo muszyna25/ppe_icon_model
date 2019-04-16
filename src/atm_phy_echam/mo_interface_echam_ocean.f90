@@ -951,22 +951,37 @@ CONTAINS
           nlen = p_patch%npromz_c
         END IF
         DO n = 1, nlen
+
+          !  - lake part is included in land part, must be subtracted as well
+          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            ! Workaround for missing discrimination between tile_wtr and tile_lake:
-            !   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
-            !     by default values (buffer_wtr) from ocean
-            !   > ts_tile(wtr) is set over ocean (not lake) points only
-            IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
-            !  for dbg_print only
-            IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
-              IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
-                scr(n,i_blk) = buffer(nn+n,1)
-              ELSE
-                scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
-              ENDIF
-            ENDIF
+           !! Workaround for missing discrimination between tile_wtr and tile_lake:
+           !!   > background: surface temp. ts_tile(lake)=ts_tile(wtr) is calculated in jsbach and was overwritten
+           !!     by default values (buffer_wtr) from ocean
+           !!   > ts_tile(wtr) is set over ocean (not lake) points only
+           !IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+           !!  for dbg_print only
+           !IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+           !  IF ( ext_data(1)%atm%lsm_ctr_c(n,i_blk) < 0 ) THEN
+           !    scr(n,i_blk) = buffer(nn+n,1)
+           !  ELSE
+           !    scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+           !  ENDIF
+           !ENDIF
+           !
+           !!   > slo: using frac_oce>0., constant fractional lsm contains ocean part
+           IF ( frac_oce(n,i_blk) > 0.0_wp ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+           !  for dbg_print only
+           IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
+             IF ( frac_oce(n,i_blk) > 0.0_wp ) THEN
+               scr(n,i_blk) = buffer(nn+n,1)
+             ELSE
+               scr(n,i_blk) = 285.0_wp  !  value over land - for dbg_print
+             ENDIF
+           ENDIF
           ENDIF
         ENDDO
       ENDDO
