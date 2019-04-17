@@ -90,6 +90,10 @@ min1TS=${output_interval}
 min2TS="PT8M"
 min3TS="PT12M"
 min4TS="PT16M"
+square1TS=${output_interval}
+square2TS="PT8M"
+square3TS="PT12M"
+square4TS="PT16M"
 file_interval="P4M"
 
 # namelist files
@@ -1391,6 +1395,90 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
                     !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d_square1TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square1TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d_square2TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square2TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d_square3TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square3TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d_square4TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square4TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'        , 'pfull'     , 'zg'        ,
+                    'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
 EOF
 fi
 
@@ -1616,6 +1704,66 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${min4TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_square1TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square1TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_square2TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square2TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_square3TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square3TS}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_square4TS"
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ operation        = "square"
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${square4TS}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
