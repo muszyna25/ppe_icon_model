@@ -264,7 +264,7 @@ cat > coupling_${EXPNAME}.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	  xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
+          xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
    <redirect redirect_of_root="false" redirect_stdout="false"/>
    <components>
       <component id="1">
@@ -353,6 +353,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -372,6 +373,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -391,6 +393,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -410,6 +413,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -429,6 +433,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -448,7 +453,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -467,7 +472,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -486,7 +491,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -505,7 +510,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -524,6 +529,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </timestep>
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="bernstein_bezier"/>
                <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
@@ -533,7 +539,7 @@ cat > coupling_${EXPNAME}.xml << EOF
          </transient_couple>
       </couple>
    </couples>
-   <created date="20-03-2018 11:54" tool="YAC-CouplingGUI v.1.3.0"/>
+   <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
 </coupling>
 EOF
 
