@@ -422,31 +422,8 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
-    LOGICAL :: is_output_process
 
-    ! GRB2 format: define geographical longitude, latitude as special
-    ! variables "RLON", "RLAT"
-    is_output_process = ((use_async_name_list_io .and. my_process_is_io()) &
-#ifdef HAVE_CDI_PIO
-      &            .OR. (pio_type == pio_type_cdipio) &
-#endif
-      &            .OR. ((.NOT. use_async_name_list_io) &
-      &                   .AND. my_process_is_mpi_workroot())) &
-      &      .AND. .NOT. my_process_is_mpi_test()
-
-    IF(of%cdiFileID /= CDI_UNDEFID) THEN
-#ifndef __NO_ICON_ATMO__
-      IF ((of%name_list%output_grid)                                      .AND. &
-        & (patch_info(of%phys_patch_id)%grid_info_mode /= GRID_INFO_NONE) .AND. &
-        & is_output_process                                               .AND. &
-        & (of%name_list%filetype == FILETYPE_GRB2)) THEN
-        CALL write_grid_info_grb2(of, patch_info)
-      END IF
-#endif
-
-      CALL streamClose(of%cdiFileID)
-    END IF
-
+    IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
     of%cdiFileID = CDI_UNDEFID
 
   END SUBROUTINE close_output_file
@@ -652,6 +629,20 @@ CONTAINS
         noutput_pe_list = noutput_pe_list + 1
         output_pe_list(noutput_pe_list) = io_proc_id
       END IF
+
+      ! GRB2 format: define geographical longitude, latitude as special
+      ! variables "RLON", "RLAT"
+#ifndef __NO_ICON_ATMO__
+      IF (ofile_is_assigned_here(i) &
+        .AND. patch_info(output_file(i)%phys_patch_id)%grid_info_mode         &
+        &     /= GRID_INFO_NONE                                               &
+        .AND. output_file(i)%name_list%output_grid                            &
+        .AND. output_file(i)%name_list%filetype == FILETYPE_GRB2              &
+        .AND. check_close_file(output_file(i)%out_event,                      &
+        &           output_file(i)%out_event%output_event%i_event_step+1)) THEN
+        CALL write_grid_info_grb2(output_file(i), patch_info)
+      END IF
+#endif
 
       ! -------------------------------------------------
       ! hand-shake protocol: step finished!
