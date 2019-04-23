@@ -46,6 +46,7 @@ MODULE mo_util_cdi
                                  & vlistDefVarIntKey, &
                                  & streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
                                  & vlistInqVarSubtype, subtypeInqSize, &
+                                 & cdi_max_name, &
                                  & subtypeDefActiveIndex, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, cdiStringError, &
                                  & FILETYPE_GRB2, vlistDefVar, cdiEncodeParam, &
                                  & vlistDefVarName, vlistDefVarLongname,        &
@@ -387,7 +388,7 @@ CONTAINS
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
+    CHARACTER(len=CDI_MAX_NAME) :: zname
     INTEGER                         :: nvars, varID, vlistID
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
 
