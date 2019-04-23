@@ -128,11 +128,11 @@ MODULE mo_ocean_model
     PUBLIC :: construct_ocean_model, destruct_ocean_model
     PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
-    TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
+    TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d => NULL()
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
-    TYPE(t_operator_coeff)                          :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
+    TYPE(t_operator_coeff), POINTER :: operators_coefficients => NULL()
+    TYPE(t_solverCoeff_singlePrecision), POINTER :: solverCoefficients_sp  => NULL()
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     
   !  TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -145,7 +145,6 @@ MODULE mo_ocean_model
   SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
-
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
 
     !-------------------------------------------------------------------
@@ -304,7 +303,7 @@ MODULE mo_ocean_model
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
-
+    DEALLOCATE(operators_coefficients, solverCoefficients_sp)
     ! close memory logging files
     CALL memory_log_terminate
 
@@ -481,8 +480,8 @@ MODULE mo_ocean_model
     TYPE(t_atmos_fluxes ),      INTENT(inout)  :: atmos_fluxes
     TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
     TYPE(t_ocean_surface),      INTENT(inout)  :: p_oce_sfc
-    TYPE(t_operator_coeff),     INTENT(inout), TARGET  :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_operator_coeff),     INTENT(inout), POINTER :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout), POINTER :: solverCoeff_sp
 
     ! local variables
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: datestring
@@ -515,8 +514,8 @@ MODULE mo_ocean_model
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
-
-    CALL construct_operators_coefficients     ( patch_3d, operators_coefficients, solverCoeff_sp, ocean_default_list)
+    ALLOCATE(operators_coefficients, solverCoeff_sp)
+    CALL construct_operators_coefficients( patch_3d, operators_coefficients, solverCoeff_sp, ocean_default_list)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------

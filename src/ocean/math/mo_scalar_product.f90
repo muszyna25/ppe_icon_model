@@ -110,7 +110,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(in)      :: vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     TYPE(t_hydro_ocean_diag)  :: p_diag
-    TYPE(t_operator_coeff)    :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in)    :: operators_coefficients
     !Local variables
     INTEGER :: startLevel, endLevel
     INTEGER :: start_cell_index, end_cell_index
@@ -319,11 +319,11 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE nonlinear_coriolis_3d_fast(patch_3d, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
-    TYPE(t_patch_3d ),TARGET,INTENT(in) :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)                    :: vn(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
-    TYPE(t_cartesian_coordinates), INTENT(inout)  :: p_vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
+    TYPE(t_cartesian_coordinates), INTENT(inout):: p_vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
     REAL(wp), INTENT(inout)                    :: vort_v   (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff),INTENT(in)          :: operators_coefficients
+    TYPE(t_operator_coeff),INTENT(in), POINTER :: operators_coefficients
     REAL(wp), INTENT(inout)                    :: vort_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -588,11 +588,11 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE nonlinear_coriolis_3d(patch_3d, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
-    TYPE(t_patch_3d ),TARGET,INTENT(in) :: patch_3d
+    TYPE(t_patch_3d ),POINTER,INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)                    :: vn(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(inout)  :: p_vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
     REAL(wp), INTENT(inout)                    :: vort_v   (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff),INTENT(in)          :: operators_coefficients
+    TYPE(t_operator_coeff),POINTER,INTENT(in) :: operators_coefficients
     REAL(wp), INTENT(inout)                    :: vort_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -1516,6 +1516,8 @@ CONTAINS
     startLevel = 1
     endLevel = startLevel!n_zlev
 
+!$OMP PARALLEL DO PRIVATE(start_edge_index,end_edge_index,je,endLevel,level,&
+!$OMP & ictr,il_c,ib_c,ie,il_e,ib_e,thick_edge) SCHEDULE(GUIDED)
     DO blockNo = edges_inDomain%start_block, edges_inDomain%end_block
       CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
       
@@ -2072,7 +2074,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)                      :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
-    TYPE(t_operator_coeff)                     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in)                     :: operators_coefficients
     INTEGER, INTENT(in), OPTIONAL :: opt_startLevel        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_endLevel        ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
@@ -2151,7 +2153,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_cartesian_coordinates), INTENT(in)  :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)                      :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
-    TYPE(t_operator_coeff)                     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in)                     :: operators_coefficients
     INTEGER, INTENT(in) :: level          ! vertical level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     

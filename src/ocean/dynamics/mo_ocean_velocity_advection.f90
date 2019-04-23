@@ -81,12 +81,12 @@ CONTAINS
     & ocean_coefficients)
     !
     !
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    TYPE(t_patch_3D ), POINTER, INTENT(IN) :: patch_3D
     REAL(wp), POINTER, INTENT(inout)     :: vn_old(:,:,:)
     REAL(wp), POINTER, INTENT(inout)     :: vn_new(:,:,:)
     TYPE(t_hydro_ocean_diag)             :: p_diag
     REAL(wp), POINTER, INTENT(inout)     :: veloc_adv_horz_e(:,:,:) ! out
-    TYPE(t_operator_coeff), INTENT(in)   :: ocean_coefficients
+    TYPE(t_operator_coeff), POINTER, INTENT(in) :: ocean_coefficients
     !-----------------------------------------------------------------------
 
     IF (velocity_advection_form == rotational_form) THEN
@@ -194,11 +194,11 @@ CONTAINS
     & veloc_adv_horz_e,&
     & ocean_coefficients)
     
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
+    TYPE(t_patch_3D ), POINTER, INTENT(IN)   :: patch_3D
     REAL(wp), POINTER, INTENT(inout)  :: vn(:,:,:)
     TYPE(t_hydro_ocean_diag) :: p_diag
     REAL(wp), POINTER, INTENT(inout)  :: veloc_adv_horz_e(:,:,:) ! out
-    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
+    TYPE(t_operator_coeff), INTENT(in), POINTER :: ocean_coefficients
 
     INTEGER :: jk, blockNo, cell_index,start_cell_index, end_cell_index, level,startLevel
     INTEGER :: start_edge_index, end_edge_index

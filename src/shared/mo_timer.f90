@@ -64,7 +64,7 @@ MODULE mo_timer
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
        &    timer_preradiaton, timer_synsat
 
-  PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
+  PUBLIC :: timer_div, timer_grad, timer_gmres
   PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
@@ -164,7 +164,6 @@ MODULE mo_timer
   PUBLIC :: timer_feedback
 
   ! ocean
-  PUBLIC :: timer_gmres_p_sum
   PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
@@ -227,7 +226,6 @@ MODULE mo_timer
        &     timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
        &     timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
-  INTEGER :: timer_gmres_p_sum
 
   INTEGER :: timer_nh_hdiffusion
 
@@ -269,10 +267,7 @@ MODULE mo_timer
   INTEGER :: timer_radheat
 
   ! Timer ID's for horizontal operators
-  INTEGER :: timer_div
-  INTEGER :: timer_grad
-  INTEGER :: timer_gmres
-  INTEGER :: timer_lhs, timer_lhs_sp
+  INTEGER :: timer_div, timer_grad, timer_gmres
   INTEGER :: timer_corio
   INTEGER :: timer_intp
 
@@ -526,7 +521,6 @@ CONTAINS
     timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
-    timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_write_output  = new_timer("wrt_output")
 
@@ -702,8 +696,7 @@ CONTAINS
 
     !ocean timers
     timer_gmres     = new_timer("gmres")
-    timer_lhs       = new_timer("lhs")
-    timer_lhs_sp    = new_timer("lhs_sp")
+
     timer_scalar_prod_veloc =new_timer("veloc_prod")
     
     ! Timer IDs for sea ice

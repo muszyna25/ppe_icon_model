@@ -35,7 +35,7 @@ MODULE mo_operator_ocean_coeff_3d
     &  arc_length, cvec2gvec
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
-    & select_solver, select_restart_mixedPrecision_gmres, &
+    & select_solver, select_gmres_mp_r, &
     & select_lhs, select_lhs_matrix
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -639,16 +639,15 @@ CONTAINS
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2edge_viacell_coeff_all failed')
     ENDIF
 
-    IF (select_lhs == select_lhs_matrix) THEN
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) THEN
       IF ( patch_2D%cells%max_connectivity /= 3 ) &
         CALL finish("select_lhs_matrix","this works only for triangles")
       ALLOCATE(operators_coefficients%lhs_all(0:9, nproma, alloc_cell_blocks),              &
                operators_coefficients%lhs_CellToCell_index(1:9, nproma, alloc_cell_blocks), &
                operators_coefficients%lhs_CellToCell_block(1:9, nproma, alloc_cell_blocks), &
                 stat=return_status)
-      IF (return_status /= success) THEN
-        CALL finish ('mo_operator_ocean_coeff_3d:allocating lhs_all failed')
-      ENDIF
+      IF (return_status /= success) &
+        & CALL finish ('mo_operator_ocean_coeff_3d:allocating lhs_all failed')
     ENDIF
       
      
@@ -762,7 +761,7 @@ CONTAINS
 
     !---------------------------------------------------------------
     ! allocate single precision operators
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 
       ALLOCATE(solverCoeff_sp%div_coeff(nproma,alloc_cell_blocks,no_primal_edges),&
         & solverCoeff_sp%grad_coeff(nproma,nblks_e),                    &
@@ -865,11 +864,10 @@ CONTAINS
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_top)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_integrated)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_all)
-    IF (select_lhs == select_lhs_matrix) THEN
-      DEALLOCATE(operators_coefficients%lhs_all,              &
-               operators_coefficients%lhs_CellToCell_index, &
-               operators_coefficients%lhs_CellToCell_block)
-    ENDIF
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) &
+      & DEALLOCATE(operators_coefficients%lhs_all, &
+        & operators_coefficients%lhs_CellToCell_index, &
+        & operators_coefficients%lhs_CellToCell_block)
  
     DEALLOCATE(operators_coefficients%edge2cell_coeff_cc)
 
@@ -888,7 +886,7 @@ CONTAINS
 !     DEALLOCATE(operators_coefficients%variable_vol_norm)
 !     DEALLOCATE(operators_coefficients%variable_dual_vol_norm)
 
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 
       DEALLOCATE(solverCoeff_sp%div_coeff,              &
         & solverCoeff_sp%grad_coeff,                    &
@@ -937,7 +935,7 @@ CONTAINS
 
     CALL init_verticalAdvection_ppm_coefficients(patch_3D, operators_coefficients%verticalAdvectionPPMcoeffs)
     
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
       solverCoeff_sp%grad_coeff(:,:)   = REAL(operators_coefficients%grad_coeff(:,1,:), sp)
       solverCoeff_sp%div_coeff(:,:,:)  = REAL(operators_coefficients%div_coeff(:,1,:,:), sp)
       solverCoeff_sp%edge2edge_viacell_coeff_all(:,:,:)  = REAL(operators_coefficients%edge2edge_viacell_coeff_all(:,:,:), sp)

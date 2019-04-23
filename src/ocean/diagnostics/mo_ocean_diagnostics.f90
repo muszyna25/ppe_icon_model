@@ -1918,8 +1918,8 @@ CONTAINS
 
 
     REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z, rsmth
-    REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
-    REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
+    REAL(wp), ALLOCATABLE :: z_uint_reg(:,:)                     ! vertical integral on regular grid
+    REAL(wp), ALLOCATABLE :: psi_reg(:,:)                        ! horizontal stream function
 
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
@@ -1927,9 +1927,6 @@ CONTAINS
     !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi')
 
     !-----------------------------------------------------------------------
-
-    psi_reg(:,:)    = 0.0_wp
-    z_uint_reg(:,:) = 0.0_wp
 
     jsmth2          = 2*jsmth + 1
     rsmth           = REAL(jsmth2*jsmth2, wp)
@@ -1963,10 +1960,16 @@ CONTAINS
 
     IF (idiag_psi == 1) RETURN
 
+    ALLOCATE(z_uint_reg(nlon,nlat), psi_reg(nlon,nlat))
+    !$OMP PARALLEL WORKSHARE
+    z_uint_reg(:,:) = 0.0_wp
+    !$OMP END PARALLEL WORKSHARE
     ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
     !     this code is not mature yet
 
     ! in domain: count all cells only once
+    !$OMP PARALLEL DO PRIVATE(start_index,end_index,jc,z_lat_deg,z_lon_deg, &
+    !$OMP & jlat,jlon,jltx,jlt,jlnx,jln)
     DO blockNo = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, blockNo, start_index, end_index)
       DO jc = start_index, end_index
@@ -1996,7 +1999,7 @@ CONTAINS
             jln = jlnx
             IF (jln <    1) jln = jln+nlon  ! circular boundary
             IF (jln > nlon) jln = jln-nlon  ! circular boundary
-
+            !$OMP ATOMIC
             z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + u_vint(jc,blockNo) / rsmth
 
 
@@ -2005,6 +2008,7 @@ CONTAINS
 
       END DO
     END DO
+    !$OMP END PARALLEL DO
 
     ! (3) calculate meridional integral on regular grid starting from south pole:
 
@@ -2017,9 +2021,9 @@ CONTAINS
     ! meridional distance of 1 deg
     ! ATTENTION - fixed 1 deg resolution should be related to icon-resolution
     z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
-
+    !$OMP PARALLEL WORKSHARE
     psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * OceanReferenceDensity
-
+    !$OMP END PARALLEL WORKSHARE
     ! stream function on icon grid without calculation of meridional integral
     !  - tbd after interpolation to regular grid externally
     !  psi    (:,:) = u_vint    (:,:)              * OceanReferenceDensity
@@ -2091,14 +2095,14 @@ CONTAINS
     patch_2d  => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
     all_cells => patch_2d%cells%ALL
-
+    !$OMP PARALLEL WORKSHARE
     vn_vint  (:,:,:)    = 0.0_wp
     vint_cc(:,:,:)%x(1) = 0.0_wp
     vint_cc(:,:,:)%x(2) = 0.0_wp
     vint_cc(:,:,:)%x(3) = 0.0_wp
     u_2d       (:,:)    = 0.0_wp
     v_2d       (:,:)    = 0.0_wp
-
+    !$OMP END PARALLEL WORKSHARE
     ! (1) barotropic system:
     !     vertical integration of normal velocity times vertical layer thickness [m/s*m]
 !ICON_OMP_PARALLEL_DO PRIVATE(je, jk, start_index, end_index) SCHEDULE(dynamic)

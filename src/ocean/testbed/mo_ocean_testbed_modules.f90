@@ -109,7 +109,7 @@ CONTAINS
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solvercoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
@@ -195,7 +195,6 @@ CONTAINS
 
   END SUBROUTINE ocean_test_modules
   !-------------------------------------------------------------------------
-
 
 !   !-------------------------------------------------------------------------
 !   !>
@@ -483,13 +482,13 @@ CONTAINS
     & this_datetime, ocean_surface, physics_parameters,             &
     & ocean_ice,operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_ocean_surface)                            :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -601,11 +600,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> surface only call, regular output, restart, checkpoints
-  SUBROUTINE test_output( patch_3d, p_os,           &
+  SUBROUTINE test_output(patch_3d, p_os,           &
     & this_datetime, physics_parameters, &
     & p_as, atmos_fluxes, p_oce_sfc, p_ice, hamocc_state,operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE (t_ho_params)                               :: physics_parameters
@@ -614,7 +613,7 @@ CONTAINS
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
     TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
     
     ! local variables
     INTEGER                       :: jstep
@@ -726,7 +725,7 @@ CONTAINS
     & p_as, p_atm_f, sea_ice, &
     & hamocc_state,operators_coefficients,solvercoeff_sp)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
     TYPE(datetime), POINTER                          :: this_datetime
@@ -1009,14 +1008,14 @@ CONTAINS
     & this_datetime, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(datetime),           POINTER                :: this_datetime
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -1306,13 +1305,13 @@ CONTAINS
     & this_datetime, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(IN) :: operators_coefficients
     TYPE(datetime), POINTER                          :: this_datetime
 
     TYPE (t_hamocc_state)        :: hamocc_State
@@ -1615,7 +1614,7 @@ CONTAINS
     & this_datetime, physics_parameters, &
     & p_as, atmos_fluxes, p_oce_sfc, p_ice, hamocc_state,operators_coefficients)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
     TYPE(datetime), POINTER                          :: this_datetime
     TYPE (t_ho_params)                               :: physics_parameters
@@ -1624,7 +1623,7 @@ CONTAINS
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
     TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
 
     IF (output_mode%l_nml) THEN
       CALL write_initial_ocean_timestep(patch_3d,ocean_state, &

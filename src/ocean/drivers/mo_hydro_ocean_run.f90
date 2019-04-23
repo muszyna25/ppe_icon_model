@@ -73,7 +73,6 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   USE mo_master_config,          ONLY: isRestart
   USE mo_time_config,            ONLY: time_config, t_time_config
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
@@ -90,6 +89,7 @@ MODULE mo_hydro_ocean_run
   USE mo_hamocc_nml,             ONLY: io_stdo_bgc
   USE mo_end_bgc,                ONLY: cleanup_hamocc
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
 
 
   IMPLICIT NONE
@@ -116,7 +116,7 @@ CONTAINS
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_ocean_surface)             :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(in)   :: p_as
-    TYPE(t_operator_coeff)            :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(INOUT) :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE (t_sea_ice),   INTENT(inout) :: sea_ice
     TYPE(t_external_data), TARGET, INTENT(in) :: ext_data
@@ -159,7 +159,6 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
 
     ! this is needed as initial condition or restart 
 !     CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -176,7 +175,6 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-    CALL destruct_ho_lhs_fields_mimetic()
     if(lhamocc)call cleanup_hamocc
     
   END SUBROUTINE end_ho_stepping
@@ -197,17 +195,17 @@ CONTAINS
     & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients,     &
     & solvercoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_ocean_surface)                            :: p_oce_sfc
-    TYPE(t_ho_params)                                :: p_phys_param
+    TYPE(t_ocean_surface)   ,  INTENT(inout)                         :: p_oce_sfc
+    TYPE(t_ho_params)                       ,  INTENT(inout)         :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
     TYPE(t_hamocc_state), INTENT(INOUT)              :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    TYPE(t_operator_coeff), INTENT(inout), POINTER :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout), POINTER :: solvercoeff_sp
 
     ! local variables
     INTEGER :: jstep, jg, return_status
@@ -317,6 +315,8 @@ CONTAINS
 
 
     END SELECT
+
+    CALL clear_ocean_ab_timestepping_mimetic()
 
     CALL restartDescriptor%destruct()
  
@@ -712,7 +712,7 @@ CONTAINS
     TYPE(t_ocean_surface) , INTENT(INOUT)       :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(INOUT)     :: sea_ice
     TYPE(t_hamocc_state), INTENT(INOUT)         :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
+    TYPE(t_operator_coeff),   INTENT(in)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
     
     TYPE(t_patch), POINTER :: patch_2d
