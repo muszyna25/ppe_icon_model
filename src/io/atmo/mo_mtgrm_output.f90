@@ -1904,7 +1904,7 @@ CONTAINS
        meteogram_file_info, meteogram_data, jg)
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: &
          meteogram_output_config
-    TYPE(t_ncid), INTENT(inout) :: ncid
+    TYPE(t_ncid), INTENT(out) :: ncid
     TYPE(t_cf_global), INTENT(in) :: cf
     TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
@@ -2178,7 +2178,7 @@ CONTAINS
 
   SUBROUTINE meteogram_append_file(ncid, &
        meteogram_file_info, meteogram_data)
-    TYPE(t_ncid), INTENT(inout) :: ncid
+    TYPE(t_ncid), INTENT(out) :: ncid
     TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
 
