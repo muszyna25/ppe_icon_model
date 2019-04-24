@@ -210,6 +210,7 @@ MODULE mo_name_list_output
   INTEGER,          PARAMETER                 :: iREAL    = 2
   INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
+#ifndef NOMPI
   INTERFACE set_boundary_mask
     MODULE PROCEDURE set_boundary_mask_dp
     MODULE procedure set_boundary_mask_sp
@@ -246,6 +247,7 @@ MODULE mo_name_list_output
     MODULE PROCEDURE var_copy_i42sp_ls
     MODULE PROCEDURE var_copy_i42sp_ls_miss
   END INTERFACE var_copy
+#endif
 
 CONTAINS
 
@@ -1591,6 +1593,7 @@ CONTAINS
     END IF
   END SUBROUTINE set_time_varying_metadata
 
+#ifndef NOMPI
   SUBROUTINE var2buf_sp(buf, ioff, level_selection, &
        idata_type, r_ptr, s_ptr, i_ptr, &
        nlevs, var_ignore_level_selection, ri, info, i_log_dom)
@@ -1694,7 +1697,6 @@ CONTAINS
     REAL(dp) :: missval
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     LOGICAL :: apply_missval, make_level_selection
-#ifndef NOMPI
 
     ! ------------------------
     ! Asynchronous I/O is used
@@ -1765,7 +1767,6 @@ CONTAINS
         END IF
       END IF
     END SELECT
-#endif
   END SUBROUTINE var2buf_dp
 
   SUBROUTINE var_copy_dp2dp(buf, ioff, r, ri, nlevs)
@@ -2364,6 +2365,7 @@ CONTAINS
       END IF
     END IF
   END FUNCTION get_bdry_missval
+#endif
 
   SUBROUTINE get_bdry_blk_idx(i_log_dom, &
        i_startblk, i_endblk, i_startidx, i_endidx)
