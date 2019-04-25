@@ -115,8 +115,9 @@ CONTAINS
       &                                grid_filename
     INTEGER,          INTENT(IN)   :: nroot, jlev, idom
     CHARACTER(len=MAX_CHAR_LENGTH)  :: result_str
-    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER  :: keywords
 
+    NULLIFY(keywords)
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
     CALL associate_keyword("<nroot>",  TRIM(int2string(nroot,"(i0)")),   keywords)
@@ -138,7 +139,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL   :: year
     LOGICAL, INTENT(IN), OPTIONAL   :: clim
     CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER :: keywords
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = modname//':generate_td_filename:'
 
@@ -151,7 +152,7 @@ CONTAINS
             & 'Missing year for a non climatological run')     
     END IF
     WRITE(smonth,'(i2.2)') month
-
+    NULLIFY(keywords)
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
     CALL associate_keyword("<year>", TRIM(syear),  keywords)
