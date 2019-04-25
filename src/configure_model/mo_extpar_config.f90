@@ -141,17 +141,19 @@ CONTAINS
     CHARACTER(len=4) :: syear
     CHARACTER(len=2) :: smonth
     CHARACTER(len=MAX_CHAR_LENGTH) :: result_str
-    TYPE (t_keyword_list), POINTER :: keywords
+    TYPE(t_keyword_list), POINTER :: keywords
+    LOGICAL :: lclim
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = modname//':generate_td_filename:'
 
+    lclim = .FALSE.
+    IF (PRESENT(clim)) lclim = clim
     IF (PRESENT (year)) THEN
      WRITE(syear, '(i4.4)') year
-    ELSEIF ( PRESENT(clim) .AND. clim) THEN
-     syear="CLIM"
+    ELSEIF (lclim) THEN
+      syear="CLIM"
     ELSE
-          CALL finish(TRIM(ROUTINE),&
-            & 'Missing year for a non climatological run')     
+      CALL finish(routine, 'Missing year for a non climatological run')
     END IF
     WRITE(smonth,'(i2.2)') month
     NULLIFY(keywords)
