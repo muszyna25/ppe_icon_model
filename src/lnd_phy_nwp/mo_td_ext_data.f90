@@ -404,14 +404,15 @@ CONTAINS
       CALL finish(TRIM(ROUTINE),&
         & 'Hexagonal grid is not supported, yet.')
     ENDIF
-    WRITE( message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
-      &                              p_patch%id, TRIM(p_patch%grid_filename)
+    tlen = LEN_TRIM(p_patch%grid_filename)
+    WRITE (message_text,'(a,2i6,a)') 'n_dom, jg, grid_filename ',n_dom, &
+      &                              p_patch%id, p_patch%grid_filename(1:tlen)
     CALL message  (routine, TRIM(message_text))
 
     !! READ SST files
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
 
     CALL message  (routine, TRIM(extpar_file))
@@ -422,7 +423,7 @@ CONTAINS
 
     extpar_file = generate_td_filename(sst_td_filename,                   &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m2, y2                   )
     CALL message  (routine, TRIM(extpar_file))
     call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
@@ -434,7 +435,7 @@ CONTAINS
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                                TRIM(p_patch%grid_filename),   &
+      &                                p_patch%grid_filename(1:tlen),   &
       &                                m1,y1                   )
     CALL message  (routine, TRIM(extpar_file))
     call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
@@ -444,7 +445,7 @@ CONTAINS
 
     extpar_file = generate_td_filename(ci_td_filename,                    &
       &                                getModelBaseDir(),                 &
-      &                             TRIM(p_patch%grid_filename),      &
+      &                             p_patch%grid_filename(1:tlen),      &
       &                             m2,y2                   )
     CALL message  (routine, TRIM(extpar_file))
     call openInputFile(stream_id, extpar_file, p_patch, default_read_method)
