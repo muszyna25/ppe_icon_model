@@ -138,7 +138,9 @@ CONTAINS
     INTEGER, INTENT(IN)             :: month
     INTEGER, INTENT(IN), OPTIONAL   :: year
     LOGICAL, INTENT(IN), OPTIONAL   :: clim
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
+    CHARACTER(len=4) :: syear
+    CHARACTER(len=2) :: smonth
+    CHARACTER(len=MAX_CHAR_LENGTH) :: result_str
     TYPE (t_keyword_list), POINTER :: keywords
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = modname//':generate_td_filename:'
@@ -155,8 +157,8 @@ CONTAINS
     NULLIFY(keywords)
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
-    CALL associate_keyword("<year>", TRIM(syear),  keywords)
-    CALL associate_keyword("<month>", TRIM(smonth),  keywords)
+    CALL associate_keyword("<year>", syear,  keywords)
+    CALL associate_keyword("<month>", smonth,  keywords)
     ! replace keywords in "extpar_filename", which is by default
     ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"
     ! if clim ist present and clim=.TRUE., <year> ist subst. by "CLIM"
