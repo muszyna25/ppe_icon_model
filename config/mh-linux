@@ -1242,7 +1242,7 @@ case "$ac_sitename" in
                                 F77FLAGS = $F77FLAGS -Wc,-fPIC
                                 CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
                                 LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
-                                MPIROOT = $software_tree/mpi/mpich3-3.2-static-${compiler_version}
+                                MPIROOT = $software_tree/mpi/mpich3-3.2.1-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS -Wl,-Wl,,-rpath,$NETCDFROOT/lib -Wl,-Wl,,-rpath,$NETCDFFROOT/lib -Wl,-Wl,,-rpath,$HDF5ROOT/lib
                                 NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.4-${compiler_version}
                                ;;
