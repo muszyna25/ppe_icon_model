@@ -15,10 +15,6 @@ else
   vendors=$@
 fi
 
-case " $vendors " in
-  *\ nag\ *) export NAG_KUSARI_FILE='license.mpimet.mpg.de:';;
-esac
-
 for vendor in ${vendors}; do
   vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
   for vendor_test in ${vendor_tests}; do

@@ -46,4 +46,4 @@ CFLAGS="$CFLAGS $(echo ${LDFLAGS} | sed 's%-L\s*\(\S\+\)%-Wl,-rpath -Wl,\1%g')"
 
 LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --enable-sct --enable-grib2 "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --enable-sct --enable-grib2 BUILD_ENV='export NAG_KUSARI_FILE="license.mpimet.mpg.de:";' "$@"
