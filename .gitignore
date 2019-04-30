@@ -15,6 +15,7 @@
 /depgen.c.config
 config.log
 config.status
+config.cache*
 config/mh-config-use
 config/set-up.info
 src/lnd_phy_jsbach
