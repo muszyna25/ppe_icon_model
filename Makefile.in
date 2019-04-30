@@ -1,6 +1,8 @@
-# Source file root directories:
-srcroots:= @srcdir@/src \
-           @srcdir@/support
+# Source file directory:
+srcdir:= @srcdir@
+
+# Source file subdirectories:
+subdirs:= src support
 
 # Installation directories:
 prefix:= @prefix@
@@ -9,17 +11,24 @@ exec_prefix:= @exec_prefix@
 # Fortran module file directory:
 moddir:= mod
 
-#Compilers and flags:
+# Compilers and flags:
 FC= @FC@
 FCFLAGS= @FCFLAGS@
 LDFLAGS= @LDFLAGS@
 LIBS= @LIBS@
-icon_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
+config_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
 
 CC= @CC@
 CFLAGS= @CFLAGS@
 CPPFLAGS= @CPPFLAGS@
-icon_CPPFLAGS:= -I. @DEFS@
+config_CPPFLAGS:= -I. @DEFS@
+
+# Other utilities:
+INSTALL= @INSTALL@
+PYTHON= @PYTHON@
+DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
+DEPGEN= $(PYTHON) $(srcdir)/utils/mkhelper/depgen.py
+PERL= @PERL@
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
@@ -37,23 +46,22 @@ bundled_LIBS:=@BUNDLED_LIBS@
 bundled_subdirs:=@subdirs_extra@
 
 # Source files:
-FC_srcs:= $(shell find $(srcroots) -name '*.f90')
-C_srcs:= $(shell find $(srcroots) -name '*.c')
+FC_srcs:= $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.f90')
+C_srcs:= $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.c')
 
 # Stamp files of the build directories:
-build_dirstamps:= $(patsubst @srcdir@/%/, %/.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs)))) $(moddir)/.dirstamp
+dirstamps:= $(patsubst $(srcdir)/%, %.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs)))) $(moddir)/.dirstamp
 
 # Dependency files:
-depfiles:= $(patsubst @srcdir@/%.f90, %.f90.d, $(FC_srcs))
-depfiles+= $(patsubst @srcdir@/%.c, %.c.d, $(C_srcs))
+depfiles:= $(patsubst $(srcdir)/%, %.d, $(FC_srcs) $(C_srcs))
 
 # List of the required object files:
 rootobj:= src/drivers/icon.o
-objfiles:=$(shell @PYTHON@ @top_srcdir@/utils/mkhelper/deplist.py -p '*.o' -t $(rootobj) --inc-oo -f $(depfiles) Makefile)
+objs:= $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' --inc-oo -f $(depfiles) Makefile)
 
 # Source file selective search paths:
-vpath %.f90 @srcdir@
-vpath %.c @srcdir@
+vpath %.f90 $(srcdir)
+vpath %.c $(srcdir)
 
 # Disable built-in suffix rules:
 .SUFFIXES:
@@ -68,27 +76,33 @@ all: icon
 depend: $(depfiles)
 
 clean: $(bundled_subdirs)
-	rm -f icon version.o $(depfiles) $(shell find $(dir $(build_dirstamps)) -name '*.o' -o -name '.dirstamp') $(shell find $(moddir) -name '*.@FC_MOD_FILE_EXT@')
-	-for dir in $(patsubst /scratch/local1/icon-cimd/config.examples/../%, %, $(srcroots)) $(moddir) $(bundled_subdirs); do if test -d "$$dir"; then find "$$dir" -type d -empty -delete || exit 1; else true; fi; done
+	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs))
+	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
 
 distclean: clean
-	rm -rf config.log config.status Makefile config.h version.c depgen.f90.config depgen.c.config $(shell find . -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
+	rm -f config.log config.status Makefile config.h version.c
+	rm -f depgen.f90.config depgen.c.config $(depfiles)
+	rm -rf $(dirstamps) $(shell find . -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
+	@for dir in $(subdirs) $(moddir) externals; do \
+	  echo "find '$$dir' -type d -empty -delete"; \
+	  find "$$dir" -type d -empty -delete; \
+	done
 
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
 
 install: all
-	@INSTALL@ -d @bindir@ && @INSTALL@ icon @bindir@/icon
+	$(INSTALL) -d @bindir@ && $(INSTALL) icon @bindir@/icon
 
 # Main building rules:
-icon: $(rootobj) $(objfiles) $(bundled_LIBS)
-	$(silent_FCLD)$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+icon: $(objs) $(bundled_LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(config_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
-%.o: %.f90 | $(build_dirstamps) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+%.o: %.f90 | $(dirstamps) $(bundled_subdirs)
+	$(silent_FC)$(FC) -o $@ -c $(config_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
-%.o: %.c | $(build_dirstamps)
-	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
+%.o: %.c | $(dirstamps)
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(config_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@:
@@ -100,17 +114,17 @@ $(moddir)/%.@FC_MOD_FILE_EXT@:
 
 # Version source file generation rule:
 version.c: force-create-version
-	$(silent_GEN)@PERL@ @top_srcdir@/utils/pvcs.pl --srcdir @top_srcdir@
+	$(silent_GEN)$(PERL) $(srcdir)/utils/pvcs.pl --srcdir $(srcdir)
 
-$(build_dirstamps):
+$(dirstamps):
 	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
 # Dependency generation rules:
-%.f90.d: %.f90 | $(build_dirstamps)
-	$(silent_DEPGEN)@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) --src-name $(@:.f90.d=.f90) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
+%.f90.d: %.f90 | $(dirstamps)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- @DEPGEN_DEFS@ $(config_FCFLAGS) $(FCFLAGS)
 
-%.c.d: %.c | $(build_dirstamps)
-	$(silent_DEPGEN)@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) --src-name $(@:.c.d=.c) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
+%.c.d: %.c | $(dirstamps)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(config_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
 $(bundled_subdirs):
