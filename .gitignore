@@ -6,6 +6,8 @@
 /tempList
 .DS_Store
 /Makefile
+/externals/jsbach.dsl
+/externals/jsbach.mk
 /config.h
 /version.c
 /depgen.f90.config

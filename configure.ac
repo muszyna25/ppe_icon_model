@@ -48,7 +48,7 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
 AC_ARG_ENABLE([silent-rules],
-  [AS_HELP_STRING([--enable-silent-rules],
+  [AC_HELP_STRING([--enable-silent-rules],
      [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])], [],
   [enable_silent_rules=yes])
 AS_VAR_IF([enable_silent_rules], [yes],
@@ -85,11 +85,10 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
 FCFLAGS, LDGLAGS and LIBS accordingly])])
 
 AC_SUBST([OPTION_FCFLAGS],
-  ["${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_JSBACH__ dnl
-${FC_PP_DEF}__NO_ICON_TESTBED__"])
+  ["${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
 
 AC_ARG_ENABLE([mpi],
-  [AS_HELP_STRING([--enable-mpi],
+  [AC_HELP_STRING([--enable-mpi],
      [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
      [enable_mpi=yes])
 AS_VAR_IF([enable_mpi], [yes],
@@ -106,7 +105,7 @@ wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
 
 AC_ARG_ENABLE([openmp],
-  [AS_HELP_STRING([--enable-openmp],
+  [AC_HELP_STRING([--enable-openmp],
      [enable OpenMP (parallelization) support @<:@default=yes@:>@])], [],
      [enable_openmp=yes])
 AS_VAR_IF([enable_openmp], [yes],
@@ -133,7 +132,7 @@ preprocessor macro])])])],
 FCFLAGS accordingly to disable it])])])
 
 AC_ARG_ENABLE([atmo],
-  [AS_HELP_STRING([--enable-atmo],
+  [AC_HELP_STRING([--enable-atmo],
      [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
   [enable_atmo=yes])
 AS_VAR_IF([enable_atmo], [yes], [],
@@ -141,15 +140,27 @@ AS_VAR_IF([enable_atmo], [yes], [],
    AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
 
 AC_ARG_ENABLE([ocean],
-  [AS_HELP_STRING([--enable-ocean],
+  [AC_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])], [],
   [enable_ocean=yes])
 AS_VAR_IF([enable_ocean], [yes], [],
   [AC_MSG_NOTICE([the ocean component is disabled])
    AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
+AC_ARG_ENABLE([jsbach],
+  [AC_HELP_STRING([--enable-jsbach],
+     [enable the land component JSBACH @<:@default=yes@:>@])], [],
+  [enable_jsbach=yes])
+AC_SUBST([JSBACH_ENABLED])
+AS_VAR_IF([enable_jsbach], [yes],
+  [JSBACH_ENABLED=
+   AC_CONFIG_FILES([externals/jsbach.mk])],
+  [AC_MSG_NOTICE([the land component JSBACH is disabled])
+   JSBACH_ENABLED='#'
+   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+
 AC_ARG_ENABLE([coupling],
-  [AS_HELP_STRING([--enable-coupling],
+  [AC_HELP_STRING([--enable-coupling],
      [enable the coupling with YAC @<:@default=yes@:>@])], [],
   [enable_coupling=yes])
 AS_VAR_IF([enable_coupling], [yes],
@@ -157,7 +168,7 @@ AS_VAR_IF([enable_coupling], [yes],
   [AC_MSG_NOTICE([the coupling is disabled])])
 
 AC_ARG_ENABLE([psrad],
-  [AS_HELP_STRING([--enable-psrad],
+  [AC_HELP_STRING([--enable-psrad],
      [enable the PSRAD component of ICON @<:@default=yes@:>@])], [],
   [enable_psrad=yes])
 AS_VAR_IF([enable_psrad], [yes], [],
@@ -165,7 +176,7 @@ AS_VAR_IF([enable_psrad], [yes], [],
    AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
 AC_ARG_ENABLE([sct],
-  [AS_HELP_STRING([--enable-sct],
+  [AC_HELP_STRING([--enable-sct],
      [enable the SCT timer @<:@default=no@:>@])], [],
   [enable_sct=no])
 AS_VAR_IF([enable_sct], [yes],
@@ -181,25 +192,25 @@ AS_VAR_IF([enable_sct], [yes],
 set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AC_ARG_WITH([external-mtime],
-  [AS_HELP_STRING([--with-external-mtime],
+  [AC_HELP_STRING([--with-external-mtime],
      [use an external mtime library instead of the bundled one ]dnl
 [@<:@default=no@:>@])], [],
   [with_external_mtime=no])
 
 AC_ARG_WITH([external-self],
-  [AS_HELP_STRING([--with-external-self],
+  [AC_HELP_STRING([--with-external-self],
      [use an external self library instead of the bundled one ]dnl
 [@<:@default=no@:>@])], [],
   [with_external_self=no])
 
 AC_ARG_WITH([external-cdi],
-  [AS_HELP_STRING([--with-external-cdi],
+  [AC_HELP_STRING([--with-external-cdi],
      [use an external CDI library instead of the bundled one ]dnl
 [@<:@default=no@:>@])], [],
   [with_external_cdi=no])
 
 AC_ARG_WITH([external-yac],
-  [AS_HELP_STRING([--with-external-yac],
+  [AC_HELP_STRING([--with-external-yac],
      [use an external YAC library (when the coupling is enabled) instead ]dnl
 [of the bundled one @<:@default=no@:>@])], [],
   [with_external_yac=no])

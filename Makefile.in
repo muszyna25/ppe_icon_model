@@ -1,4 +1,4 @@
-# Source file directory:
+# Source file root directory:
 srcdir:= @srcdir@
 
 # Source file subdirectories:
@@ -16,12 +16,12 @@ FC= @FC@
 FCFLAGS= @FCFLAGS@
 LDFLAGS= @LDFLAGS@
 LIBS= @LIBS@
-config_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
+icon_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I$(srcdir)/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
 
 CC= @CC@
 CFLAGS= @CFLAGS@
 CPPFLAGS= @CPPFLAGS@
-config_CPPFLAGS:= -I. @DEFS@
+icon_CPPFLAGS:= -I. @DEFS@
 
 # Other utilities:
 INSTALL= @INSTALL@
@@ -55,9 +55,15 @@ dirstamps:= $(patsubst $(srcdir)/%, %.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs
 # Dependency files:
 depfiles:= $(patsubst $(srcdir)/%, %.d, $(FC_srcs) $(C_srcs))
 
+# Default rule:
+all: icon
+
+# Additional rules for external packages that do not have their
+# own building systems:
+@JSBACH_ENABLED@include externals/jsbach.mk
+
 # List of the required object files:
 rootobj:= src/drivers/icon.o
-objs:= $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' --inc-oo -f $(depfiles) Makefile)
 
 # Source file selective search paths:
 vpath %.f90 $(srcdir)
@@ -66,26 +72,29 @@ vpath %.c $(srcdir)
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
-.PHONY: all depend clean distclean maintainer-clean install force-create-version
+.PHONY: all depend mostlyclean clean distclean maintainer-clean install force-create-version
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
+# Keep directory stamps:
+.PRECIOUS: $(dirstamps)
 
 # User interface rules:
-all: icon
-
 depend: $(depfiles)
 
-clean: $(bundled_subdirs)
-	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs))
-	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
+mostlyclean: $(bundled_subdirs)
+	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs)) $(moddir)/*.@FC_MOD_FILE_EXT@
+
+clean: mostlyclean
+	rm -f version.c $(depfiles) $(dirstamps)
 
 distclean: clean
-	rm -f config.log config.status Makefile config.h version.c
-	rm -f depgen.f90.config depgen.c.config $(depfiles)
-	rm -rf $(dirstamps) $(shell find . -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
+	rm -f config.log config.status Makefile config.h depgen.f90.config depgen.c.config
+	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 	@for dir in $(subdirs) $(moddir) externals; do \
-	  echo "find '$$dir' -type d -empty -delete"; \
-	  find "$$dir" -type d -empty -delete; \
+	  if test -d "$$dir"; then \
+	    echo "find '$$dir' -type d -empty -delete"; \
+	    find "$$dir" -type d -empty -delete; \
+	  fi; \
 	done
 
 maintainer-clean: distclean
@@ -95,19 +104,19 @@ install: all
 	$(INSTALL) -d @bindir@ && $(INSTALL) icon @bindir@/icon
 
 # Main building rules:
-icon: $(objs) $(bundled_LIBS)
-	$(silent_FCLD)$(FC) -o $@ $(config_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' --inc-oo -f $(depfiles) Makefile) $(bundled_LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 %.o: %.f90 | $(dirstamps) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(config_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_FC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
 %.o: %.c | $(dirstamps)
-	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(config_CPPFLAGS) $(CPPFLAGS) $<
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@:
 	@if test -z $<; then \
-	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'."; \
+	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
 	elif test ! -f $@; then \
 	  rm -f $<; $(MAKE) $<; \
 	fi
@@ -116,19 +125,20 @@ $(moddir)/%.@FC_MOD_FILE_EXT@:
 version.c: force-create-version
 	$(silent_GEN)$(PERL) $(srcdir)/utils/pvcs.pl --srcdir $(srcdir)
 
-$(dirstamps):
+# Directory generation rule:
+%/.dirstamp:
 	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
 # Dependency generation rules:
 %.f90.d: %.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- @DEPGEN_DEFS@ $(config_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
 
 %.c.d: %.c | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(config_CPPFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
 $(bundled_subdirs):
-	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean) V=$(V)
+	@$(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V)
 
 # Build the bundled mtime before the bundled yac
 # (currently redundant since yac is a static library):
@@ -177,6 +187,6 @@ src/ocean/drivers/mo_hydro_ocean_run.o:|  \
   src/hamocc/icon_specific/bgc_icon.o     \
   src/hamocc/icon_specific/ini_bgc_icon.o
 
-ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
+ifeq (,$(filter $(MAKECMDGOALS), depend mostlyclean clean distclean maintainer-clean))
 -include $(depfiles)
 endif

@@ -602,6 +602,7 @@ CFLAGS
 CC
 BUNDLED_LIBS
 BUNDLED_FCFLAGS
+JSBACH_ENABLED
 OPTION_FCFLAGS
 DEFAULT_VERBOSITY
 FC_PP_DEF
@@ -669,6 +670,7 @@ enable_mpi
 enable_openmp
 enable_atmo
 enable_ocean
+enable_jsbach
 enable_coupling
 enable_psrad
 enable_sct
@@ -1306,6 +1308,7 @@ Optional Features:
   --enable-atmo           enable the atmosphere component of ICON
                           [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
+  --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling with YAC [default=yes]
   --enable-psrad          enable the PSRAD component of ICON [default=yes]
   --enable-sct            enable the SCT timer [default=no]
@@ -3114,7 +3117,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 
-OPTION_FCFLAGS="${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_JSBACH__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
+OPTION_FCFLAGS="${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
 
 
 # Check whether --enable-mpi was given.
@@ -3407,6 +3410,25 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
 $as_echo "$as_me: the ocean component is disabled" >&6;}
    as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
+fi
+
+# Check whether --enable-jsbach was given.
+if test "${enable_jsbach+set}" = set; then :
+  enableval=$enable_jsbach;
+else
+  enable_jsbach=yes
+fi
+
+
+if test "x$enable_jsbach" = xyes; then :
+  JSBACH_ENABLED=
+   ac_config_files="$ac_config_files externals/jsbach.mk"
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: the land component JSBACH is disabled" >&5
+$as_echo "$as_me: the land component JSBACH is disabled" >&6;}
+   JSBACH_ENABLED='#'
+   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
 fi
 
 # Check whether --enable-coupling was given.
@@ -6592,6 +6614,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;
+    "externals/jsbach.mk") CONFIG_FILES="$CONFIG_FILES externals/jsbach.mk" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
