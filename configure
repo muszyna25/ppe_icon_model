@@ -597,6 +597,8 @@ ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
+OPENMP_FCFLAGS
+DEPGEN_DEFS
 PP_INC_ORDER_f90
 FC_INC_ORDER
 FC_MODULE_EXT
@@ -653,6 +655,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_mpi
+enable_openmp
 enable_atmo
 enable_ocean
 '
@@ -1278,6 +1281,8 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-mpi            enable MPI (parallelization) support [default=yes]
+  --enable-openmp         enable OpenMP (parallelization) support
+                          [default=yes]
   --enable-atmo           enable the atmosphere component of ICON
                           [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
@@ -3207,6 +3212,173 @@ rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
   FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"
+fi
+
+
+
+# Check whether --enable-openmp was given.
+if test "${enable_openmp+set}" = set; then :
+  enableval=$enable_openmp;
+else
+  enable_openmp=yes
+fi
+
+if test "x$enable_openmp" = "xyes"; then :
+
+OPENMP_FCFLAGS=
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $FC flag to enable OpenMP support" >&5
+$as_echo_n "checking for $FC flag to enable OpenMP support... " >&6; }
+if ${acx_cv_prog_fc_openmp+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_prog_fc_openmp="unsupported"
+  acx_FCFLAGS_save=$FCFLAGS
+  for acx_openmp_flag in '' -qopenmp -openmp -fopenmp -homp \
+                         -mp -xopenmp -omp -qsmp=omp -Popenmp --openmp; do
+    FCFLAGS="$acx_FCFLAGS_save $acx_openmp_flag"
+    cat > conftest.$ac_ext <<_ACEOF
+
+      program main
+      implicit none
+!$    integer tid
+      tid = 42
+      call omp_set_num_threads(2)
+      end
+
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  if test "x$acx_openmp_flag" = "x"; then :
+  acx_cv_prog_fc_openmp="none needed"
+else
+  acx_cv_prog_fc_openmp=$acx_openmp_flag
+fi
+      break
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  done
+  FCFLAGS=$acx_FCFLAGS_save
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fc_openmp" >&5
+$as_echo "$acx_cv_prog_fc_openmp" >&6; }
+if test "x$acx_cv_prog_fc_openmp" != "xunsupported"; then :
+  if test "x$acx_cv_prog_fc_openmp" != "xnone needed"; then :
+  OPENMP_FCFLAGS=$acx_cv_prog_fc_openmp
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for the value of the preprocessor macro _OPENMP set by $FC" >&5
+$as_echo_n "checking for the value of the preprocessor macro _OPENMP set by $FC... " >&6; }
+if ${acx_cv_prog_fc_openmp_macro+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  acx_cv_prog_fc_openmp_macro="unsupported"
+  acx_FCFLAGS_save=$FCFLAGS
+    FCFLAGS="$acx_FCFLAGS_save $OPENMP_FCFLAGS"
+  if test "x$cross_compiling" = "xno"; then :
+  cat > conftest.$ac_ext <<_ACEOF
+
+      program main
+      implicit none
+      integer ompver
+      ompver = _OPENMP
+      write (*, "(i0)") ompver
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  acx_cv_prog_fc_openmp_macro=`./conftest$ac_exeext`
+      if test $? -ne 0; then :
+  acx_cv_prog_fc_openmp_macro="unsupported"
+fi
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+  if test "x$acx_cv_prog_fc_openmp_macro" = "xunsupported"; then :
+  for acx_openmp_ver in 201511 201307 201107 200805 200505; do
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+#if _OPENMP != $acx_openmp_ver
+      choke me
+#endif
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_prog_fc_openmp_macro=$acx_openmp_ver
+        break
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+    done
+fi
+  if test "x$acx_cv_prog_fc_openmp_macro" = "xunsupported"; then :
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+#ifndef _OPENMP
+      choke me
+#endif
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_prog_fc_openmp_macro=unknown
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+  FCFLAGS=$acx_FCFLAGS_save
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fc_openmp_macro" >&5
+$as_echo "$acx_cv_prog_fc_openmp_macro" >&6; }
+if test "x$acx_cv_prog_fc_openmp_macro" != unknown; then :
+  if test "x$acx_cv_prog_fc_openmp_macro" = "xunknown"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to detect supported OpenMP version" >&5
+$as_echo "$as_me: WARNING: unable to detect supported OpenMP version" >&2;}
+        as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP"
+else
+  if test "$acx_cv_prog_fc_openmp_macro" -lt 201307; then :
+  as_fn_error $? "$FC does not support OpenMP 4.0 (201307): you have to disable OpenMP support (--disable-openmp)" "$LINENO" 5
+fi
+        as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"
+fi
+else
+  as_fn_error $? "the preprocessor used by $FC does not set the macro _OPENMP" "$LINENO" 5
+fi
+
+else
+  as_fn_error $? "unable to detect flag needed to enable OpenMP support for $FC" "$LINENO" 5
+fi
+
+
+  FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"
+else
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether OpenMP support is disabled for $FC" >&5
+$as_echo_n "checking whether OpenMP support is disabled for $FC... " >&6; }
+if ${acx_cv_prog_fc_openmp_disabled+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+#ifndef _OPENMP
+      choke me
+#endif
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_prog_fc_openmp_disabled=no
+else
+  acx_cv_prog_fc_openmp_disabled=yes
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fc_openmp_disabled" >&5
+$as_echo "$acx_cv_prog_fc_openmp_disabled" >&6; }
+if test "x$acx_cv_prog_fc_openmp_disabled" = "xyes"; then :
+
+else
+  as_fn_error $? "OpenMP support for $FC is enabled by default: set FCFLAGS accordingly to disable it" "$LINENO" 5
+fi
+
 fi
 
 # Check whether --enable-atmo was given.

@@ -134,6 +134,24 @@ either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"])
 
+AC_SUBST([DEPGEN_DEFS])
+
+AC_ARG_ENABLE([openmp],
+  [AS_HELP_STRING([--enable-openmp], [enable OpenMP (parallelization) support @<:@default=yes@:>@])],
+  [], [enable_openmp=yes])
+AS_IF([test "x$enable_openmp" = "xyes"],
+  [ACX_OPENMP(
+    [ACX_OPENMP_MACRO_VAL(
+      [$OPENMP_FCFLAGS],
+      [AS_IF([test "x$acx_cv_prog_fc_openmp_macro" = "xunknown"],
+        [AC_MSG_WARN([unable to detect supported OpenMP version])
+        AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP"])],
+        [AS_IF([test "$acx_cv_prog_fc_openmp_macro" -lt 201307],
+          [AC_MSG_ERROR([$FC does not support OpenMP 4.0 (201307): you have to disable OpenMP support (--disable-openmp)])])
+        AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"])])])])
+  FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"],
+  [ACX_OPENMP_CHECK_DISABLED])
+
 AC_ARG_ENABLE([atmo],
   [AS_HELP_STRING([--enable-atmo], [enable the atmosphere component of ICON @<:@default=yes@:>@])],
   [], [enable_atmo=yes])

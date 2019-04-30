@@ -35,11 +35,11 @@ EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_v
 
 # Dependency generation command for Fortran source files:
 DEPGEN_f90=$(DEPGEN) $< @depgen.f90.config -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) \
-           --src-name $(<F) --fc-external-mods='$(EXTERNAL_MODS)'
+           --src-name $(<F) --fc-external-mods='$(EXTERNAL_MODS)' -- @DEPGEN_DEFS@
 
 # Dependency generation command for C source files:
 DEPGEN_c=$(DEPGEN) $< -o $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
-         --src-root='@srcdir@' --pp-enable --pp-eval-expr
+         --src-root='@srcdir@' --pp-enable --pp-eval-expr --
 
 # List of the dependency files:
 src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
@@ -82,7 +82,7 @@ install: $(BIN_DIR)/icon
 
 # Main building rules:
 $(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d) | $(BIN_DIR)/.sentinel
-	$(FC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(FC) $(FCFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(OBJ_DIR)/%.o: %.f90 | $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
 	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
@@ -106,10 +106,10 @@ $(MOD_DIR)/%.@FC_MODULE_EXT@:
 
 # Common dependency generation rules:
 $(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS)
+	@$(DEPGEN_f90) $(FCFLAGS)
 
 $(DEP_DIR)/%.c.d: %.c | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_c) -- $(CPPFLAGS) $(CFLAGS)
+	@$(DEPGEN_c) $(CPPFLAGS) $(CFLAGS)
 
 # Undetectable dependencies:
 $(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.sentinel
