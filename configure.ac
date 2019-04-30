@@ -89,6 +89,51 @@ FCFLAGS, LDGLAGS and LIBS accordingly])])
 AC_SUBST([OPTION_FCFLAGS],
   ["${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
 
+m4_divert_once([HELP_ENABLE], [[
+Model Features:]])
+
+AC_ARG_ENABLE([atmo],
+  [AC_HELP_STRING([--enable-atmo],
+     [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
+  [enable_atmo=yes])
+AS_VAR_IF([enable_atmo], [yes], [],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
+
+AC_ARG_ENABLE([ocean],
+  [AC_HELP_STRING([--enable-ocean],
+     [enable the ocean component of ICON @<:@default=yes@:>@])], [],
+  [enable_ocean=yes])
+AS_VAR_IF([enable_ocean], [yes], [],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
+
+AC_ARG_ENABLE([jsbach],
+  [AC_HELP_STRING([--enable-jsbach],
+     [enable the land component JSBACH @<:@default=yes@:>@])], [],
+  [enable_jsbach=yes])
+AC_SUBST([JSBACH_ENABLED])
+AS_VAR_IF([enable_jsbach], [yes],
+  [JSBACH_ENABLED=
+   AC_CONFIG_FILES([externals/jsbach.mk])],
+  [JSBACH_ENABLED='#'
+   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+
+AC_ARG_ENABLE([coupling],
+  [AC_HELP_STRING([--enable-coupling],
+     [enable the coupling @<:@default=yes@:>@])], [],
+  [enable_coupling=yes])
+AS_VAR_IF([enable_coupling], [yes],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
+
+AC_ARG_ENABLE([psrad],
+  [AC_HELP_STRING([--enable-psrad],
+     [enable the PSRAD component of ICON @<:@default=yes@:>@])], [],
+  [enable_psrad=yes])
+AS_VAR_IF([enable_psrad], [yes], [],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
+
+m4_divert_once([HELP_ENABLE], [[
+Infrastructural Features:]])
+
 AC_ARG_ENABLE([mpi],
   [AC_HELP_STRING([--enable-mpi],
      [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
@@ -108,7 +153,7 @@ wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 
 AC_ARG_ENABLE([openmp],
   [AC_HELP_STRING([--enable-openmp],
-     [enable OpenMP (parallelization) support @<:@default=yes@:>@])], [],
+     [enable OpenMP support @<:@default=yes@:>@])], [],
      [enable_openmp=yes])
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -133,49 +178,13 @@ preprocessor macro])])])],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
 FCFLAGS accordingly to disable it])])])
 
-AC_ARG_ENABLE([atmo],
-  [AC_HELP_STRING([--enable-atmo],
-     [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
-  [enable_atmo=yes])
-AS_VAR_IF([enable_atmo], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])
-   AC_MSG_NOTICE([the atmosphere component is disabled])])
-
-AC_ARG_ENABLE([ocean],
-  [AC_HELP_STRING([--enable-ocean],
-     [enable the ocean component of ICON @<:@default=yes@:>@])], [],
-  [enable_ocean=yes])
-AS_VAR_IF([enable_ocean], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])
-   AC_MSG_NOTICE([the ocean component is disabled])])
-
-AC_ARG_ENABLE([jsbach],
-  [AC_HELP_STRING([--enable-jsbach],
-     [enable the land component JSBACH @<:@default=yes@:>@])], [],
-  [enable_jsbach=yes])
-AC_SUBST([JSBACH_ENABLED])
-AS_VAR_IF([enable_jsbach], [yes],
-  [JSBACH_ENABLED=
-   AC_CONFIG_FILES([externals/jsbach.mk])],
-  [JSBACH_ENABLED='#'
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])
-   AC_MSG_NOTICE([the land component JSBACH is disabled])])
-
-AC_ARG_ENABLE([coupling],
-  [AC_HELP_STRING([--enable-coupling],
-     [enable the coupling with YAC @<:@default=yes@:>@])], [],
-  [enable_coupling=yes])
-AS_VAR_IF([enable_coupling], [yes],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])],
-  [AC_MSG_NOTICE([the coupling is disabled])])
-
-AC_ARG_ENABLE([psrad],
-  [AC_HELP_STRING([--enable-psrad],
-     [enable the PSRAD component of ICON @<:@default=yes@:>@])], [],
-  [enable_psrad=yes])
-AS_VAR_IF([enable_psrad], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])
-   AC_MSG_NOTICE([the PSRAD component is disabled])])
+AC_ARG_ENABLE([grib2],
+  [AC_HELP_STRING([--enable-grib2],
+     [enable GRIB2 I/O @<:@default=no@:>@])],
+dnl We pass this variable to the configure scripts of libcdi, therefore, we
+dnl need to make sure that it's either 'yes' or 'no'.
+  [AS_IF([test x"$enablevar" != xno], [enable_grib2=yes])],
+  [enable_grib2=no])
 
 AC_ARG_ENABLE([yaxt],
   [AC_HELP_STRING([--enable-yaxt],
@@ -331,14 +340,6 @@ file ${srcdir}/externals/mtime/configure not found])])],
       AC_MSG_FAILURE([unable to compile test program using mtime library: dnl
 enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])])
-
-AC_ARG_ENABLE([grib2],
-  [AC_HELP_STRING([--enable-grib2],
-     [enable GRIB2 I/O @<:@default=no@:>@])],
-dnl We pass this variable to the configure scripts of libcdi, therefore, we
-dnl need to make sure that it's either 'yes' or 'no'.
-  [AS_IF([test x"$enablevar" != xno], [enable_grib2=yes])],
-  [enable_grib2=no])
 
 AS_VAR_IF([with_external_cdi], [no],
   [AS_IF([test -f "${srcdir}/externals/cdi/configure"],

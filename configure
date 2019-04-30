@@ -666,13 +666,14 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_silent_rules
-enable_mpi
-enable_openmp
 enable_atmo
 enable_ocean
 enable_jsbach
 enable_coupling
 enable_psrad
+enable_mpi
+enable_openmp
+enable_grib2
 enable_yaxt
 enable_sct
 with_external_mtime
@@ -680,7 +681,6 @@ with_external_self
 with_external_cdi
 with_external_yac
 with_external_yaxt
-enable_grib2
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1305,18 +1305,21 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-silent-rules   less verbose build output (undo: "make V=1")
                           [default=yes]
-  --enable-mpi            enable MPI (parallelization) support [default=yes]
-  --enable-openmp         enable OpenMP (parallelization) support
-                          [default=yes]
+
+Model Features:
   --enable-atmo           enable the atmosphere component of ICON
                           [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
   --enable-jsbach         enable the land component JSBACH [default=yes]
-  --enable-coupling       enable the coupling with YAC [default=yes]
+  --enable-coupling       enable the coupling [default=yes]
   --enable-psrad          enable the PSRAD component of ICON [default=yes]
+
+Infrastructural Features:
+  --enable-mpi            enable MPI (parallelization) support [default=yes]
+  --enable-openmp         enable OpenMP support [default=yes]
+  --enable-grib2          enable GRIB2 I/O [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
   --enable-sct            enable the SCT timer [default=no]
-  --enable-grib2          enable GRIB2 I/O [default=no]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3083,6 +3086,77 @@ rm -f core conftest.err conftest.$ac_objext \
 OPTION_FCFLAGS="${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
 
 
+
+
+# Check whether --enable-atmo was given.
+if test "${enable_atmo+set}" = set; then :
+  enableval=$enable_atmo;
+else
+  enable_atmo=yes
+fi
+
+if test "x$enable_atmo" = xyes; then :
+
+else
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
+fi
+
+# Check whether --enable-ocean was given.
+if test "${enable_ocean+set}" = set; then :
+  enableval=$enable_ocean;
+else
+  enable_ocean=yes
+fi
+
+if test "x$enable_ocean" = xyes; then :
+
+else
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
+fi
+
+# Check whether --enable-jsbach was given.
+if test "${enable_jsbach+set}" = set; then :
+  enableval=$enable_jsbach;
+else
+  enable_jsbach=yes
+fi
+
+
+if test "x$enable_jsbach" = xyes; then :
+  JSBACH_ENABLED=
+   ac_config_files="$ac_config_files externals/jsbach.mk"
+
+else
+  JSBACH_ENABLED='#'
+   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
+fi
+
+# Check whether --enable-coupling was given.
+if test "${enable_coupling+set}" = set; then :
+  enableval=$enable_coupling;
+else
+  enable_coupling=yes
+fi
+
+if test "x$enable_coupling" = xyes; then :
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}YAC_coupling"
+fi
+
+# Check whether --enable-psrad was given.
+if test "${enable_psrad+set}" = set; then :
+  enableval=$enable_psrad;
+else
+  enable_psrad=yes
+fi
+
+if test "x$enable_psrad" = xyes; then :
+
+else
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
+fi
+
+
+
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
   enableval=$enable_mpi;
@@ -3346,83 +3420,15 @@ $as_echo "$acx_cv_fc_macro__OPENMP_defined" >&6; }
 fi
 fi
 
-# Check whether --enable-atmo was given.
-if test "${enable_atmo+set}" = set; then :
-  enableval=$enable_atmo;
+# Check whether --enable-grib2 was given.
+if test "${enable_grib2+set}" = set; then :
+  enableval=$enable_grib2;   if test x"$enablevar" != xno; then :
+  enable_grib2=yes
+fi
 else
-  enable_atmo=yes
+  enable_grib2=no
 fi
 
-if test "x$enable_atmo" = xyes; then :
-
-else
-  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: the atmosphere component is disabled" >&5
-$as_echo "$as_me: the atmosphere component is disabled" >&6;}
-fi
-
-# Check whether --enable-ocean was given.
-if test "${enable_ocean+set}" = set; then :
-  enableval=$enable_ocean;
-else
-  enable_ocean=yes
-fi
-
-if test "x$enable_ocean" = xyes; then :
-
-else
-  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
-$as_echo "$as_me: the ocean component is disabled" >&6;}
-fi
-
-# Check whether --enable-jsbach was given.
-if test "${enable_jsbach+set}" = set; then :
-  enableval=$enable_jsbach;
-else
-  enable_jsbach=yes
-fi
-
-
-if test "x$enable_jsbach" = xyes; then :
-  JSBACH_ENABLED=
-   ac_config_files="$ac_config_files externals/jsbach.mk"
-
-else
-  JSBACH_ENABLED='#'
-   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: the land component JSBACH is disabled" >&5
-$as_echo "$as_me: the land component JSBACH is disabled" >&6;}
-fi
-
-# Check whether --enable-coupling was given.
-if test "${enable_coupling+set}" = set; then :
-  enableval=$enable_coupling;
-else
-  enable_coupling=yes
-fi
-
-if test "x$enable_coupling" = xyes; then :
-  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}YAC_coupling"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: the coupling is disabled" >&5
-$as_echo "$as_me: the coupling is disabled" >&6;}
-fi
-
-# Check whether --enable-psrad was given.
-if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad;
-else
-  enable_psrad=yes
-fi
-
-if test "x$enable_psrad" = xyes; then :
-
-else
-  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: the PSRAD component is disabled" >&5
-$as_echo "$as_me: the PSRAD component is disabled" >&6;}
-fi
 
 # Check whether --enable-yaxt was given.
 if test "${enable_yaxt+set}" = set; then :
@@ -4259,16 +4265,6 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-
-# Check whether --enable-grib2 was given.
-if test "${enable_grib2+set}" = set; then :
-  enableval=$enable_grib2;   if test x"$enablevar" != xno; then :
-  enable_grib2=yes
-fi
-else
-  enable_grib2=no
-fi
-
 
 if test "x$with_external_cdi" = xno; then :
   if test -f "${srcdir}/externals/cdi/configure"; then :
