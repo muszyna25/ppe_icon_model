@@ -147,18 +147,17 @@ externals/yac: $(filter externals/mtime, $(bundled_subdirs))
 $(bundled_LIBS): $(bundled_subdirs);
 
 # Fortran to C dependencies (see $(objfiles)):
-src/atm_dyn_icoham/mo_hierarchy_management.o:| support/util_timer.o
 src/io/restart/mo_c_restart_util.o:| support/util_multifile_restart.o
 src/io/shared/mo_util_file.o:| support/util_file.o
 src/io/shared/mo_util_nml.o:| support/nml_annotate.o
 src/shared/mo_expression.o:| support/util_arithmetic_expr.o
-src/shared/mo_real_timer.o:| support/util_timer.o
 src/shared/mo_util_backtrace.o:| support/util_backtrace.o
 src/shared/mo_util_hash.o:| support/util_hash.o
 src/shared/mo_util_stride.o:| support/util_stride.o
 src/shared/mo_util_string_parse.o:| support/util_string_parse.o
 src/shared/mo_util_sysinfo.o:| support/util_sysinfo.o
 src/shared/mo_util_system.o:| support/util_system.o
+src/shared/mo_util_timer.o:| support/util_timer.o
 src/shared/mo_util_uuid.o:| support/util_uuid.o
 src/shared/mo_util_vcs.o:| version.o
 
