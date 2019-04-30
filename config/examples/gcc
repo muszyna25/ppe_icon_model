@@ -1,0 +1,35 @@
+#!/bin/bash
+
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netcdf-fortran-4.4.4-pox6ya6'
+NETCDFF_LIBS='-lnetcdff'
+
+MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libmtime-1.0.8-gii6qtk'
+MTIME_LIBS='-lmtime'
+
+SELF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libself-0.2-7sqvry5'
+SELF_LIBS='-lself'
+
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+BLAS_LIBS='-lblas'
+
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+LAPACK_LIBS='-llapack'
+
+CDI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libcdi-1.8.2-nii6m5x'
+CDI_LIBS='-lcdi_f2003 -lcdi'
+
+MPI_FC='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/mpich-3.2.1-hxsnurs/bin/mpif90'
+
+######################
+
+CC=/sw/jessie-x64/gcc/gcc-6.2.0/bin/gcc
+FC=$MPI_FC
+
+FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include"
+
+LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib"
+LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
+
+LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS}"
+
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS"
