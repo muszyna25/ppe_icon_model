@@ -20,6 +20,7 @@
 [submodule "externals/yaxt"]
 	path = externals/yaxt
 	url = git@gitlab.dkrz.de:dkrz-sw/yaxt.git
+	branch = release-0.7.0-patched
 [submodule "externals/rte-rrtmgp"]
 	path = externals/rte-rrtmgp
 	url = https://github.com/RobertPincus/rte-rrtmgp.git
