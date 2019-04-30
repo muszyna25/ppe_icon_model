@@ -143,6 +143,8 @@ version.c: force-create-version
 %.c.d: %.c | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS)
 
+$(depfiles): icon.mk
+
 # Make bundled libraries:
 $(bundled_subdirs):
 	@if test -f '$@/Makefile'; then \
