@@ -32,6 +32,9 @@ BUNDLED_LIBS= @BUNDLED_LIBS@
 # Other utilities:
 SHELL= /bin/sh
 INSTALL= @INSTALL@
+AR= @AR@
+ARFLAGS= @ARFLAGS@
+RANLIB= @RANLIB@
 PYTHON= @PYTHON@
 DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
 DEPGEN= $(PYTHON) $(srcdir)/utils/mkhelper/depgen.py
@@ -40,6 +43,8 @@ PERL= @PERL@
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V), 0)
+silent_at=     @
+silent_AR=     @echo "  AR      " $@;
 silent_FCLD=   @echo "  FCLD    " $@;
 silent_FC=     @echo "  FC      " $@;
 silent_CC=     @echo "  CC      " $@;
@@ -85,7 +90,7 @@ vpath %.c $(srcdir)
 depend: $(depfiles)
 
 mostlyclean: $(bundled_subdirs)
-	rm -f icon@EXEEXT@ version.@OBJEXT@ $(patsubst $(srcdir)/%.c, %.@OBJEXT@, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.@OBJEXT@, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f icon@EXEEXT@ libicon.a version.@OBJEXT@ $(patsubst $(srcdir)/%.c, %.@OBJEXT@, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.@OBJEXT@, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
 
 clean: mostlyclean
 	rm -f version.c srclist $(depfiles) $(dirstamps)
@@ -111,8 +116,13 @@ srclist: $(depfiles) $(extra_deps)
 	$(silent_GEN)$(DEPLIST) -t $(rootobj) -p '*.f90' -p '*.c' -f $^ | sort > $@
 
 # Main building rules:
-icon@EXEEXT@: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.@OBJEXT@' --inc-oo -f $(depfiles) icon.mk) $(BUNDLED_LIBS)
+icon@EXEEXT@: $(rootobj) libicon.a $(BUNDLED_LIBS)
 	$(silent_FCLD) $(FC) -o $@ $(ICON_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+
+libicon.a: $(shell $(DEPLIST) -t $(rootobj) -p '*.@OBJEXT@' --inc-oo -f $(depfiles) icon.mk)
+	$(silent_at)rm -f $@
+	$(silent_AR)$(AR) $(ARFLAGS) $@ $^
+	$(silent_at)$(RANLIB) $@
 
 %.@OBJEXT@: %.f90 | $(dirstamps) $(bundled_subdirs)
 	$(silent_FC) $(FC) -o $@ -c $(ICON_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
