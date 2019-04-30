@@ -209,6 +209,16 @@ AS_VAR_IF([enable_sct], [yes],
       AC_MSG_FAILURE([unable to compile test program using SCT: dnl
 set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
+m4_divert_once([HELP_ENABLE], [[
+Optimization Features:]])
+
+AC_ARG_ENABLE([loop-exchange],
+  [AC_HELP_STRING([--enable-loop-exchange],
+     [enable loop exchange @<:@default=yes@:>@])], [],
+  [enable_loop_exchange=yes])
+AS_VAR_IF([enable_loop_exchange], [yes],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
+
 AC_ARG_WITH([external-mtime],
   [AC_HELP_STRING([--with-external-mtime],
      [use an external mtime library instead of the bundled one ]dnl

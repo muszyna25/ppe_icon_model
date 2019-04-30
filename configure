@@ -676,6 +676,7 @@ enable_openmp
 enable_grib2
 enable_yaxt
 enable_sct
+enable_loop_exchange
 with_external_mtime
 with_external_self
 with_external_cdi
@@ -1320,6 +1321,9 @@ Infrastructural Features:
   --enable-grib2          enable GRIB2 I/O [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
   --enable-sct            enable the SCT timer [default=no]
+
+Optimization Features:
+  --enable-loop-exchange  enable loop exchange [default=yes]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -3473,6 +3477,19 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+
+
+
+# Check whether --enable-loop-exchange was given.
+if test "${enable_loop_exchange+set}" = set; then :
+  enableval=$enable_loop_exchange;
+else
+  enable_loop_exchange=yes
+fi
+
+if test "x$enable_loop_exchange" = xyes; then :
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
 fi
 
 
