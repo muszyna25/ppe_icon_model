@@ -658,6 +658,7 @@ enable_mpi
 enable_openmp
 enable_atmo
 enable_ocean
+enable_sct
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1286,6 +1287,7 @@ Optional Features:
   --enable-atmo           enable the atmosphere component of ICON
                           [default=yes]
   --enable-ocean          enable the ocean component of ICON [default=yes]
+  --enable-sct            enable SCT timer [default=no]
 
 Some influential environment variables:
   FC          Fortran compiler command
@@ -3409,6 +3411,37 @@ else
   { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
 $as_echo "$as_me: the ocean component is disabled" >&6;}
   FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"
+fi
+
+# Check whether --enable-sct was given.
+if test "${enable_sct+set}" = set; then :
+  enableval=$enable_sct;
+else
+  enable_sct=no
+fi
+
+if test "x$enable_sct" = "xyes"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SCT library is available" >&5
+$as_echo_n "checking whether the Fortran interface of SCT library is available... " >&6; }
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use sct, only: sct_init
+      implicit none
+      call sct_init(timer_max=512)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+    FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+     as_fn_error $? "unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 fi
 
 ac_ext=c

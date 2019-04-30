@@ -166,6 +166,20 @@ AS_IF([test "x$enable_ocean" = "xyes"], [],
   [AC_MSG_NOTICE([the ocean component is disabled])
   FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
 
+AC_ARG_ENABLE([sct],
+  [AS_HELP_STRING([--enable-sct], [enable SCT timer @<:@default=no@:>@])],
+  [], [enable_sct=no])
+AS_IF([test "x$enable_sct" = "xyes"],
+  [AC_MSG_CHECKING([whether the Fortran interface of SCT library is available])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use sct, only: sct_init
+      implicit none
+      call sct_init(timer_max=512)]])],
+    [AC_MSG_RESULT([yes])
+    FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+
 AC_PROG_CC
 AC_LANG([C])
 dnl Supporting ISO C89 means that the following header files are available:
