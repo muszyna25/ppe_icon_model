@@ -48,7 +48,10 @@ ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
 AC_ARG_ENABLE([silent-rules],
   [AC_HELP_STRING([--enable-silent-rules],
-     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])], [],
+     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
+dnl We pass this variable to the configure scripts of the bundled libraries,
+dnl therefore, we need to make sure that it's either 'yes' or 'no'.
+     [AS_IF([test x"$enablevar" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
 AS_VAR_IF([enable_silent_rules], [yes],
   [DEFAULT_VERBOSITY=0], [DEFAULT_VERBOSITY=1])
@@ -316,21 +319,42 @@ file ${srcdir}/externals/mtime/configure not found])])],
 enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])])
 
+AC_ARG_ENABLE([grib2],
+  [AC_HELP_STRING([--enable-grib2],
+     [enable GRIB2 I/O @<:@default=no@:>@])],
+dnl We pass this variable to the configure scripts of libcdi, therefore, we
+dnl need to make sure that it's either 'yes' or 'no'.
+  [AS_IF([test x"$enablevar" != xno], [enable_grib2=yes])],
+  [enable_grib2=no])
+
 AS_VAR_IF([with_external_cdi], [no],
   [AS_IF([test -f "${srcdir}/externals/cdi/configure"],
      [AX_SUBDIRS_CONFIGURE([externals/cdi], [], [],
+dnl Currently, we don't have full control on choosing the GRIB2 backend (e.g.
+dnl grib_api, eccodes) due to the limitations of the configure script of
+dnl libcdi. Therefore, we set --with-grib_api=$enable_grib2 --with-eccodes=no
+dnl unconditionally. This way, the configure script of libcdi enables support
+dnl for grib2 regardless of whether grib_api or eccodes librariy is provided
+dnl with the LDFLAGS and LIBS variables.
         [[--enable-static=yes], [--enable-shared=no],
+         [--enable-silent-rules=$enable_silent_rules],
          [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
-         [--enable-cdi-app=no], [--with-threads=no],
-         [--with-netcdf=yes], [--enable-silent-rules=$enable_silent_rules]],
+         [--enable-cdi-app=no],  [--enable-grib=yes],
+         [--enable-cgribex=yes], [--with-grib_api=$enable_grib2],
+         [--with-eccodes=no], [--with-threads=no],
+         [--with-netcdf=yes]],
         [[--enable-static], [--disable-static],
          [--enable-shared], [--disable-shared],
+         [--enable-silent-rules], [--disable-silent-rules],
          [--enable-iso-c-interface], [--disable-iso-c-interface],
          [--enable-cf-interface], [--disable-cf-interface],
          [--enable-cdi-app], [--disable-cdi-app],
+         [--enable-grib], [--disable-grib],
+         [--enable-cgribex], [--disable-cgribex],
+         [--with-grib_api], [--without-grib_api],
+         [--with-eccodes], [--without-eccodes],
          [--with-threads], [--without-threads],
          [--with-netcdf], [--without-netcdf],
-         [--enable-silent-rules], [--disable-silent-rules],
          [--enable-mpi], [--disable-mpi]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
       AS_VAR_APPEND([BUNDLED_LIBS],
@@ -355,7 +379,7 @@ is available])
 enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    AC_MSG_CHECKING(
-     [whether the Fortran 2003 interface of CDI 1.8.x is patched])
+     [whether the provided version of CDI 1.8.x is patched])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
       implicit none
@@ -365,7 +389,27 @@ and LIBS accordingly])])
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
-required patches])])])
+required patches])])
+   AS_VAR_IF([enable_grib2], [yes],
+     [AC_MSG_CHECKING(
+        [whether the provided version of CDI is built with GRIB2 support])
+      icon_cdi_supports_grib2=unknown
+      AS_VAR_IF([cross_compiling], [no],
+        [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: cdiHaveFiletype, CDI_FILETYPE_GRB2
+      write(*, "(i0)") cdiHaveFiletype(CDI_FILETYPE_GRB2)]])],
+           [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+            AS_IF([test $? -eq 0],
+              [AS_IF([test $icon_exec_result -eq 1],
+                 [icon_cdi_supports_grib2=yes],
+                 [icon_cdi_supports_grib2=no])])])])
+      AC_MSG_RESULT([$icon_cdi_supports_grib2])
+      AS_CASE([$icon_cdi_supports_grib2],
+        [no],
+        [AC_MSG_FAILURE([the provided version of CDI does not support GRIB2])],
+        [unknown],
+        [AC_MSG_WARN([unable to check whether the provided version of dnl
+CDI supports GRIB2])])])])
 
 AC_PROG_CC
 dnl Supporting ISO C89 means that the following header files are available:
