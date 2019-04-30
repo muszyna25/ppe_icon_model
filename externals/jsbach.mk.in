@@ -4,17 +4,17 @@ ifeq ($(V), 0)
 silent_DSL4JSB= @echo "  DSL4JSB " $@;
 endif
 
-jsb_srcdir:= @abs_srcdir@/jsbach
+jsb_srcdir= @abs_srcdir@/jsbach
 
 # We want to make sure that we always use the post-processed files from the
 # current build directory but not from the possibly "dirty" source directory.
 # Therefore, we MUST use an absolute path here:
-jsb_builddir:= @abs_builddir@/jsbach.dsl
+jsb_builddir= @abs_builddir@/jsbach.dsl
 
-jsb_DSL_srcs:= $(shell find $(jsb_srcdir)/src -name '*.f90')
-jsb_FC_srcs:= $(patsubst $(jsb_srcdir)/%.f90, $(jsb_builddir)/%.f90, $(jsb_DSL_srcs))
-jsb_dirstamps:= $(patsubst %, %.dirstamp, $(sort $(dir $(jsb_FC_srcs))))
-jsb_depfiles:= $(patsubst %, %.d, $(jsb_FC_srcs))
+jsb_DSL_srcs= $(shell find $(jsb_srcdir)/src -name '*.f90')
+jsb_FC_srcs= $(patsubst $(jsb_srcdir)/%.f90, $(jsb_builddir)/%.f90, $(jsb_DSL_srcs))
+jsb_dirstamps= $(patsubst %, %.dirstamp, $(sort $(dir $(jsb_FC_srcs))))
+jsb_depfiles= $(patsubst %, %.d, $(jsb_FC_srcs))
 
 .PHONY: jsb-mostlyclean jsb-clean jsb-distclean
 .PRECIOUS: $(jsb_FC_srcs) $(jsb_dirstamps)

@@ -312,7 +312,13 @@ AS_VAR_IF([enable_ocean], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
 AS_VAR_IF([enable_jsbach], [yes],
-  [AC_SUBST([JSBACH_ENABLED], [''])
+  [icon_subdir_srcdir="$srcdir/externals/jsbach"
+   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-jsbach)])])
+   AC_SUBST([JSBACH_ENABLED], [''])
    AC_CONFIG_FILES([externals/jsbach.mk])],
   [AC_SUBST([JSBACH_ENABLED], ['#'])
    AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
@@ -434,7 +440,15 @@ disable the YAXT data exchange (--disable-yaxt) or use the bundled version dnl
 of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])],
 dnl
-     [ACX_CONFIG_SUBDIR([externals/yaxt],
+     [icon_subdir_srcdir="$srcdir/externals/yaxt"
+      icon_subdir_unique_file="src/xt_idxlist.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
+version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      ACX_CONFIG_SUBDIR([externals/yaxt],
         [[LDFLAGS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
@@ -497,7 +511,14 @@ dnl
         [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
 supports GRIB2])])])],
 dnl
-  [ACX_CONFIG_SUBDIR([externals/cdi],
+  [icon_subdir_srcdir="$srcdir/externals/cdi"
+   icon_subdir_unique_file="src/cdi.h"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/cdi],
      [[LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
@@ -554,7 +575,14 @@ AS_VAR_IF([with_external_mtime], [yes],
 the bundled version of mtime (--without-external-mtime) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])],
 dnl
-  [ACX_CONFIG_SUBDIR([externals/mtime],
+  [icon_subdir_srcdir="$srcdir/externals/mtime"
+   icon_subdir_unique_file="include/mtime_calendar.h"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of mtime dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of mtime (--with-external-mtime) by setting CFLAGS, dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/mtime],
      [[LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
@@ -592,9 +620,16 @@ available])
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
          AC_MSG_FAILURE([unable to link a test program using YAC: either dnl
-use the bundled version of YAC (--without-external-yac) or set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])],
-     [yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
+disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
+(--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/yac"
+      icon_subdir_unique_file="src/grid.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of YAC dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the coupling (--disable-coupling) or provide an external version of dnl
+YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+      yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
       AS_VAR_IF([with_external_mtime], [no],
         [dnl Set $ac_abs_top_srcdir and $ac_abs_top_builddir:
          _AC_SRCDIRS([.])
@@ -641,11 +676,17 @@ AS_VAR_IF([with_external_self], [yes],
       call a%init()]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using self 0.2 dnl
-library: enable usage of the bundled version of the library or set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])],
-dnl
-  [ACX_CONFIG_SUBDIR([externals/self],
+      AC_MSG_FAILURE([unable to link a test program using self 0.2 dnl
+library: either use the bundled version of self (--without-external-self) dnl
+or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+  [icon_subdir_srcdir="$srcdir/externals/self"
+   icon_subdir_unique_file="src/self_object.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of self dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of self (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/self],
      [[LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
      [[LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],

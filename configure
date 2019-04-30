@@ -4620,7 +4620,12 @@ else
 fi
 
 if test "x$enable_jsbach" = xyes; then :
-  JSBACH_ENABLED=''
+  icon_subdir_srcdir="$srcdir/externals/jsbach"
+   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the land component JSBACH ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-jsbach)" "$LINENO" 5
+fi
+   JSBACH_ENABLED=''
 
    ac_config_files="$ac_config_files externals/jsbach.mk"
 
@@ -4977,7 +4982,12 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-          acx_config_subdir_args_externals_yaxt=
+       icon_subdir_srcdir="$srcdir/externals/yaxt"
+      icon_subdir_unique_file="src/xt_idxlist.c"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+         acx_config_subdir_args_externals_yaxt=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -5129,7 +5139,12 @@ $as_echo "$as_me: WARNING: unable to check whether the provided version of CDI s
 fi
 fi
 else
-       acx_config_subdir_args_externals_cdi=
+    icon_subdir_srcdir="$srcdir/externals/cdi"
+   icon_subdir_unique_file="src/cdi.h"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      acx_config_subdir_args_externals_cdi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -5255,7 +5270,12 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-       acx_config_subdir_args_externals_mtime=
+    icon_subdir_srcdir="$srcdir/externals/mtime"
+   icon_subdir_unique_file="include/mtime_calendar.h"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of mtime library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of mtime (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
@@ -5375,13 +5395,18 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAC: either use the bundled version of YAC (--without-external-yac) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-  yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
+  icon_subdir_srcdir="$srcdir/externals/yac"
+      icon_subdir_unique_file="src/grid.c"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of YAC library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the coupling (--disable-coupling) or provide an external version of YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
       if test "x$with_external_mtime" = xno; then :
            ac_builddir=.
 
@@ -5521,13 +5546,18 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to compile test program using self 0.2 library: enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using self 0.2 library: either use the bundled version of self (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-       acx_config_subdir_args_externals_self=
+  icon_subdir_srcdir="$srcdir/externals/self"
+   icon_subdir_unique_file="src/self_object.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of self library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of self (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      acx_config_subdir_args_externals_self=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
    for acx_config_subdir_arg; do
