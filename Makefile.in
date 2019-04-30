@@ -11,6 +11,10 @@ exec_prefix:= @exec_prefix@
 # Fortran module file directory:
 moddir:= mod
 
+# Shell and environment:
+SHELL= @SHELL@
+BUILD_ENV= @BUILD_ENV@
+
 # Compilers and flags:
 FC= @FC@
 FCFLAGS= @FCFLAGS@
@@ -24,7 +28,6 @@ CPPFLAGS= @CPPFLAGS@
 icon_CPPFLAGS:= -I. @DEFS@
 
 # Other utilities:
-SHELL= /bin/sh
 INSTALL= @INSTALL@
 PYTHON= @PYTHON@
 DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
@@ -106,13 +109,13 @@ install: all
 
 # Main building rules:
 icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' --inc-oo -f $(depfiles) Makefile) $(bundled_LIBS)
-	$(silent_FCLD)$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+	$(silent_FCLD)$(BUILD_ENV) $(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 %.o: %.f90 | $(dirstamps) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_FC)$(BUILD_ENV) $(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
 %.o: %.c | $(dirstamps)
-	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
+	$(silent_CC)$(BUILD_ENV) $(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@:
@@ -140,7 +143,7 @@ version.c: force-create-version
 # Make bundled libraries:
 $(bundled_subdirs):
 	@if test -f '$@/Makefile'; then \
-	  $(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V); \
+	  $(BUILD_ENV) $(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V); \
 	else \
 	  test xdistclean = x$(filter distclean, $(MAKECMDGOALS)); \
 	fi

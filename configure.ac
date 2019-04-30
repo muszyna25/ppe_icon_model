@@ -9,6 +9,8 @@ AC_CONFIG_FILES([Makefile depgen.f90.config depgen.c.config])
 
 AC_PREFIX_DEFAULT(["`pwd`/install"])
 
+ACX_BUILD_ENV
+
 AC_PROG_FC
 AC_LANG([Fortran])
 AC_FC_PP_SRCEXT([f90])
@@ -505,7 +507,7 @@ dnl util_postgresql.c: libpq-fe.h
 dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
 AC_ARG_VAR([PYTHON],
-  [Python interpreter command (used for Fortran dependency generation)])
+  [Python interpreter command])
 ACX_PROG_SEARCH([PYTHON], [python python3],
   [acx_depgen_try=dnl
 '$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
@@ -513,7 +515,7 @@ ACX_PROG_SEARCH([PYTHON], [python python3],
   [PYTHON=$acx_candidate])
 
 AC_ARG_VAR([PERL],
-  [Perl interpreter command (used to generate version information)])
+  [Perl interpreter command])
 ACX_PROG_SEARCH([PERL], [perl],
   [acx_depgen_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
    AC_TRY_EVAL([acx_depgen_try])
