@@ -6,7 +6,7 @@
 /tempList
 .DS_Store
 /Makefile
-/Makefile.main
+/icon.mk
 /externals/jsbach.dsl
 /externals/jsbach.mk
 /config.h

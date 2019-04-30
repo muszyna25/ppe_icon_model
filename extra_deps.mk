@@ -1,6 +1,6 @@
 # This file contains dependencies that can not be detected automatically.
-# The file is not included by the Makefile.main but is only parsed
-# with './utils/mkhelper/deplist.py'.
+# The file is not included by 'icon.mk' but is only parsed with
+# './utils/mkhelper/deplist.py'.
 
 # Fortran to C dependencies:
 src/io/restart/mo_c_restart_util.o: support/util_multifile_restart.o

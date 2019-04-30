@@ -4,26 +4,273 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
-AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile Makefile.main depgen.f90.config depgen.c.config])
-
 AC_PREFIX_DEFAULT(["`pwd`/install"])
 
-ACX_BUILD_ENV
+AC_ARG_ENABLE([rpaths],
+  [AC_HELP_STRING([--enable-rpaths],
+     [prepend LDFLAGS with additional linker flags to add directories specified
+with -L flags to the runtime library search path (RPATH)
+@<:@default=yes@:>@])], [],
+  [enable_rpaths=yes])
+
+AC_ARG_ENABLE([silent-rules],
+  [AC_HELP_STRING([--enable-silent-rules],
+     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])], [],
+  [enable_silent_rules=yes])
+
+m4_divert_once([HELP_ENABLE], [[
+Model Features:]])
+
+AC_ARG_ENABLE([atmo],
+  [AC_HELP_STRING([--enable-atmo],
+     [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
+  [enable_atmo=yes])
+
+AC_ARG_ENABLE([ocean],
+  [AC_HELP_STRING([--enable-ocean],
+     [enable the ocean component of ICON @<:@default=yes@:>@])], [],
+  [enable_ocean=yes])
+
+AC_ARG_ENABLE([jsbach],
+  [AC_HELP_STRING([--enable-jsbach],
+     [enable the land component JSBACH @<:@default=yes@:>@])], [],
+  [enable_jsbach=yes])
+
+AC_ARG_ENABLE([coupling],
+  [AC_HELP_STRING([--enable-coupling],
+     [enable the coupling @<:@default=yes@:>@])], [],
+  [enable_coupling=yes])
+
+AC_ARG_ENABLE([psrad],
+  [AC_HELP_STRING([--enable-psrad],
+     [enable the radiation component PSRAD @<:@default=yes@:>@])], [],
+  [enable_psrad=yes])
+
+m4_divert_once([HELP_ENABLE], [[
+Infrastructural Features:]])
+
+AC_ARG_ENABLE([mpi],
+  [AC_HELP_STRING([--enable-mpi],
+     [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
+  [enable_mpi=yes])
+
+AC_ARG_ENABLE([openmp],
+  [AC_HELP_STRING([--enable-openmp],
+     [enable OpenMP support @<:@default=yes@:>@])], [],
+  [enable_openmp=yes])
+
+AC_ARG_ENABLE([grib2],
+  [AC_HELP_STRING([--enable-grib2],
+     [enable GRIB2 I/O @<:@default=no@:>@])], [],
+  [enable_grib2=no])
+
+AC_ARG_ENABLE([sct],
+  [AC_HELP_STRING([--enable-sct],
+     [enable the SCT timer @<:@default=no@:>@])], [],
+  [enable_sct=no])
+
+AC_ARG_ENABLE([yaxt],
+  [AC_HELP_STRING([--enable-yaxt],
+     [enable the YAXT data exchange @<:@default=no@:>@])], [],
+  [enable_yaxt=no])
+
+m4_divert_once([HELP_ENABLE], [[
+Optimization Features:]])
+
+AC_ARG_ENABLE([loop-exchange],
+  [AC_HELP_STRING([--enable-loop-exchange],
+     [enable loop exchange @<:@default=yes@:>@])], [],
+  [enable_loop_exchange=yes])
+
+AC_ARG_WITH([external-yaxt],
+  [AC_HELP_STRING([--with-external-yaxt],
+     [use external YAXT library (when the YAXT data exchange is enabled)
+@<:@default=no@:>@])], [],
+  [with_external_yaxt=no])
+
+AC_ARG_WITH([external-cdi],
+  [AC_HELP_STRING([--with-external-cdi],
+     [use external CDI library @<:@default=no@:>@])], [],
+  [with_external_cdi=no])
+
+AC_ARG_WITH([external-mtime],
+  [AC_HELP_STRING([--with-external-mtime],
+     [use external mtime library @<:@default=no@:>@])], [],
+  [with_external_mtime=no])
+
+AC_ARG_WITH([external-yac],
+  [AC_HELP_STRING([--with-external-yac],
+     [use external YAC library (when the coupling is enabled) of the bundled
+one @<:@default=no@:>@])], [],
+  [with_external_yac=no])
+
+AC_ARG_WITH([external-self],
+  [AC_HELP_STRING([--with-external-self],
+     [use external self library @<:@default=no@:>@])], [],
+  [with_external_self=no])
+
+ACX_BUILD_ENVIRONMENT
+
+dnl Delay the cross-compilation check before we add RPATH flags for ICON.
+ACX_COMPILER_CROSS_CHECK_DELAY
+
+AC_PROG_CC
+dnl Supporting ISO C89 means that the following header files are available:
+dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
+dnl errno.h, ctype.h assert.h.
+AS_VAR_IF([ac_cv_prog_cc_c89], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
+
+dnl Some of the C source files require support for ISO C99. Supporting ISO C99
+dnl also means that the following header files are available:
+dnl stdbool.h.
+AC_PROG_CC_C99
+AS_VAR_IF([ac_cv_prog_cc_c99], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
+
+ACX_COMPILER_CC_VERSION
+icon_libdirs=
+AS_VAR_IF([enable_rpaths], [yes],
+  [ACX_SHLIB_CC_RPATH_FLAG
+   eval icon_link_cmd="\"$ac_link\""
+   ASX_EXTRACT_ARGS([icon_L_args], [`echo $icon_link_cmd`], ['-L@<:@ @:>@*'])
+   for icon_L_arg in $icon_L_args; do
+     if test -d "$icon_L_arg"; then
+       ASX_VAR_APPEND_UNIQ([icon_libdirs], ["$icon_L_arg"], [' '])
+     fi
+   done])
+
+dnl Check for headers that are protected with HAVE_* macros in the code
+dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
+dnl annoying checks; already fixed in the autoconf master branch).
+AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
+  [[// override default includes]])
+
+dnl Check for headers that are not protected at all.
+AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
+  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
+  [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
+  [[// override default includes]])
+
+dnl Other header files that are protected in the code but not with the HAVE_*
+dnl macros:
+dnl util_hash.c: endian.h
+dnl util_sysinfo.c: mcheck.h sys/systemcfg.h
+dnl util_timer.c: sys/systemcfg.h asm/msr.h
+
+dnl Header files that are included from non-mandatory files
+dnl util_pbio.c: ffio.h pthread.h
+dnl util_postgresql.c: libpq-fe.h
+dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
 AC_PROG_FC
 AC_LANG([Fortran])
 AC_FC_PP_SRCEXT([f90])
+ACX_COMPILER_FC_VERSION
 
-AC_SUBST([DEPGEN_DEFS])
-AC_SUBST([DEPGEN_INTRINSIC_MODS],
-  [[iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,]]dnl
-[[ieee_features,omp_lib,omp_lib_kinds,openacc]])
-AC_SUBST([DEPGEN_EXTERNAL_MODS],
-  [[mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,]]dnl
-[[self_vector,self_map,self_assert,sct,mo_yac_finterface,yaxt]])
+AS_VAR_IF([enable_rpaths], [yes],
+  [ACX_SHLIB_FC_RPATH_FLAG
+   eval link_cmd="\"$ac_link\""
+   ASX_EXTRACT_ARGS([icon_L_args], [`echo $link_cmd`], ['-L@<:@ @:>@*'])
+   for icon_L_arg in $icon_L_args; do
+     if test -d "$icon_L_arg"; then
+       ASX_VAR_APPEND_UNIQ([icon_libdirs], ["$icon_L_arg"], [' '])
+     fi
+   done])
 
-ACX_LANG_VENDOR
+dnl Notes on RPATHs for the bundled libraries:
+dnl
+dnl 1. RPATH flags must be valid at least for the primary compiler, i.e. the
+dnl    compiler that is checked first by the configure script of the bundled
+dnl    library (the standard cross-compilation check): if AC_PROG_CC is
+dnl    expanded first then the primary compiler is the C compiler, if
+dnl    AC_PROG_FC is expanded first, then the promary compiler is the Fortran
+dnl    compiler. The primary compiler for a package using libtool is the C
+dnl    compiler.
+dnl
+dnl 2. RPATH flags must not break the compilation and linking with a secondary,
+dnl    which means that the absence of any RPATH flags might be better if the
+dnl    configure script of a bundled library does not run programs linked with
+dnl    them.
+dnl
+dnl 3. RPATH flags must be correctly interpreted by libtool if the configure
+dnl    script of a bundled library uses it for the checks. First, this means
+dnl    that such script is most likely unable to process RPATH flags correctly
+dnl    if their prefixes differ from '-Wl,-rpath -Wl,' (or '-Wl,-rpath,'). For
+dnl    example, we cannot run such configure script with CC='nagfor =C',
+dnl    because LDFLAGS='-Wl,-Wl,,-rpath -Wl,-Wl,,<lib dir>', which are valid
+dnl    for the compiler itself, are incorrectly transformed by libtool into
+dnl    '-Wl,-Wl -Wl,"" -Wl,-rpath -Wl,-Wl -Wl,"" -Wl,<lib dir>'. Moreover,
+dnl    NAG compiler doesn't get special treatment by libtool if it is used as
+dnl    C compiler, because ac_cv_c_compiler_gnu equals 'yes' in this case (see
+dnl    the implementation of libtool). The second problem is that libtool
+dnl    relies on the name of the compiler executable. This means that depending
+dnl    on whether we are using the MPI compiler wrappers or not, we need to
+dnl    specify RPATH flags differently.
+dnl
+dnl 4. The configure script of a bundled library might have its non-standard
+dnl    solutions for the problems above.
+dnl
+dnl Currently, the configure scripts of the bundled libraries need the
+dnl following treatment regarding RPATH flags:
+dnl
+dnl 1. YAXT: libtool-based, runs checks using libtool for both C and Fortran
+dnl    compilers, implements custom workarounds that transform FCFLAGS, which
+dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
+dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
+dnl    script of YAXT with LDFLAGS containing RPATH flags in the form
+dnl    understood by libtool and expect the latter to take care of the correct
+dnl    transformations. Unfortunately, this will not work if we are using NAG
+dnl    compiler with MPI wrappers.
+dnl
+dnl 2. CDI: libtool-based, runs checks using libtool only for C compiler.
+dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
+dnl    by libtool. Since no checks requiring linking with Fortran compiler are
+dnl    run, we are safe even when using MPI wrappers.
+dnl
+dnl 3. MTIME: libtool-based, no checks using libtool, no linking checks with
+dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
+dnl    the original form of the C compiler. Works even with CC='nagfor =C'.
+dnl
+dnl 4. YAC: does not use libtool, runs linking checks for both C and Fortran
+dnl    compilers. If the original forms of RPATH flags for C and Fortran
+dnl    compilers are the same, we set LDFLAGS, otherwise we append the flags to
+dnl    CFLAGS and FCFLAGS.
+dnl
+dnl 5. SELF: does not use libtool, needs only Fortran compiler. We just pass
+dnl    LDFLAGS containing RPATH flags in the original form understood by the
+dnl    the Fortran compiler.
+dnl
+dnl Another possible solution is to rely on the fact that we do not install the
+dnl bundled libraries and link them statically, therefore all we need is their
+dnl configure scripts to succeed, which can be done by extending
+dnl LD_LIBRARY_PATH (or its analogue):
+dnl
+dnl   ACX_SHLIB_PATH_VAR
+dnl   for icon_libdir in $icon_libdirs; do
+dnl     ASX_VAR_APPEND_UNIQ([$acx_cv_shlib_path_var],
+dnl       ["$icon_libdir"], ["$PATH_SEPARATOR"])
+dnl   done
+dnl   eval export $acx_cv_shlib_path_var
+dnl
+dnl The drawback of this approach is that we modify the environment, which a
+dnl user doesn't expect and might not want.
+
+icon_c_rpaths= ; icon_fc_rpaths= ; icon_lt_rpaths=
+for icon_libdir in $icon_libdirs; do
+  AS_VAR_APPEND([icon_c_rpaths], ["$acx_cv_c_rpath_flag$icon_libdir "])
+  AS_VAR_APPEND([icon_fc_rpaths], ["$acx_cv_fc_rpath_flag$icon_libdir "])
+  AS_VAR_APPEND([icon_lt_rpaths], ["-Wl,-rpath -Wl,$icon_libdir "])
+done
+
+dnl Original LDFLAGS to be passed to the configure scripts in subdirectories:
+subdir_LDFLAGS=$LDFLAGS
+
+dnl Add RPATH flags:
+LDFLAGS="$icon_fc_rpaths$LDFLAGS"
+
+dnl Run the delayed cross-compilation check:
+ACX_COMPILER_CROSS_CHECK_NOW
 
 ACX_FC_MODULE_IN_FLAG([AC_SUBST([FC_MOD_IN], [$acx_cv_fc_module_in_flag])])
 ACX_FC_MODULE_OUT_FLAG([AC_SUBST([FC_MOD_OUT], [$acx_cv_fc_module_out_flag])])
@@ -48,98 +295,82 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
-AC_ARG_ENABLE([silent-rules],
-  [AC_HELP_STRING([--enable-silent-rules],
-     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
+AC_SUBST([DEFAULT_VERBOSITY], [0])
+AS_VAR_IF([enable_silent_rules], [yes], [],
+  [DEFAULT_VERBOSITY=1
 dnl We pass this variable to the configure scripts of the bundled libraries,
 dnl therefore, we need to make sure that it's either 'yes' or 'no'.
-     [AS_IF([test x"$enablevar" != xno], [enable_silent_rules=yes])],
-  [enable_silent_rules=yes])
-AS_VAR_IF([enable_silent_rules], [yes],
-  [DEFAULT_VERBOSITY=0], [DEFAULT_VERBOSITY=1])
-AC_SUBST([DEFAULT_VERBOSITY])
+   enable_silent_rules=no])
 
-AC_MSG_CHECKING([whether Fortran BLAS library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      real :: a(2,2), b(2,2), c(2,2)
-      call dgemm('n','n',2,2,2,1.,a,2,b,2,0.,c,2)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to compile test program using BLAS: set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
+AS_VAR_APPEND([FCFLAGS],
+  [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
 
-AC_MSG_CHECKING([whether Fortran LAPACK library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      real :: a(2,2), b(2,2), c(2,2), d(2), e(2), f(2)
-      call dgeev('n','n',2,a,2,d,e,b,2,c,2,f,2,0)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to compile test program using LAPACK: set dnl
-FCFLAGS, LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library dnl
-is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to compile test program using NetCDF: set dnl
-FCFLAGS, LDGLAGS and LIBS accordingly])])
-
-AC_SUBST([OPTION_FCFLAGS],
-  ["${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
-
-m4_divert_once([HELP_ENABLE], [[
-Model Features:]])
-
-AC_ARG_ENABLE([atmo],
-  [AC_HELP_STRING([--enable-atmo],
-     [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
-  [enable_atmo=yes])
 AS_VAR_IF([enable_atmo], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
 
-AC_ARG_ENABLE([ocean],
-  [AC_HELP_STRING([--enable-ocean],
-     [enable the ocean component of ICON @<:@default=yes@:>@])], [],
-  [enable_ocean=yes])
 AS_VAR_IF([enable_ocean], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
-AC_ARG_ENABLE([jsbach],
-  [AC_HELP_STRING([--enable-jsbach],
-     [enable the land component JSBACH @<:@default=yes@:>@])], [],
-  [enable_jsbach=yes])
-AC_SUBST([JSBACH_ENABLED])
 AS_VAR_IF([enable_jsbach], [yes],
-  [JSBACH_ENABLED=
+  [AC_SUBST([JSBACH_ENABLED], [''])
    AC_CONFIG_FILES([externals/jsbach.mk])],
-  [JSBACH_ENABLED='#'
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+  [AC_SUBST([JSBACH_ENABLED], ['#'])
+   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 
-AC_ARG_ENABLE([coupling],
-  [AC_HELP_STRING([--enable-coupling],
-     [enable the coupling @<:@default=yes@:>@])], [],
-  [enable_coupling=yes])
 AS_VAR_IF([enable_coupling], [yes],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AC_ARG_ENABLE([psrad],
-  [AC_HELP_STRING([--enable-psrad],
-     [enable the PSRAD component of ICON @<:@default=yes@:>@])], [],
-  [enable_psrad=yes])
 AS_VAR_IF([enable_psrad], [yes], [],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
-m4_divert_once([HELP_ENABLE], [[
-Infrastructural Features:]])
+AS_VAR_IF([enable_mpi], [yes], [],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])
+dnl We pass this variable to the configure scripts of yac, therefore, we
+dnl need to make sure that it's either 'yes' or 'no'.
+   enable_mpi=no])
 
-AC_ARG_ENABLE([mpi],
-  [AC_HELP_STRING([--enable-mpi],
-     [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
-     [enable_mpi=yes])
+AS_VAR_IF([enable_grib2], [yes], [],
+dnl We pass this variable to the configure scripts of libcdi, therefore, we
+dnl need to make sure that it's either 'yes' or 'no'.
+  [enable_grib2=no])
+
+AS_VAR_IF([enable_sct], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__SCT__"])])
+
+AS_VAR_IF([enable_yaxt], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
+
+AS_VAR_IF([enable_loop_exchange], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
+
+dnl One of the topological orderings of the ICON dependency graph:
+dnl
+dnl '-lself', '-lyac', '-llapack -lblas (or other)', '-lmtime', '-lnetcdff',
+dnl '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct', '-lgomp (or other)',
+dnl '-lmpifort -lmpi (or other)'
+dnl
+dnl We check these dependencies in the reverse order.
+
+dnl A list of enabled bundled libraries:
+AC_SUBST([BUNDLED_LIBS], [])
+dnl A list of flags enabling location of the Fortran modules of the bundled
+dnl libraries:
+AC_SUBST([BUNDLED_FCFLAGS], [])
+
+dnl Additional macro definitions to aid the dependency generator,
+dnl e.g. compiler intrinsic macros:
+AC_SUBST([DEPGEN_FCFLAGS], [])
+
+dnl A list of Fortran modules that are used in ICON but are not part of it:
+AC_SUBST([DEPGEN_EXTERNAL_MODS],
+  [[self_assert,self_map,self_object,self_vector,self_vector_ref,]dnl
+[mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
+
+dnl A list of Fortran intrinsic modules:
+AC_SUBST([DEPGEN_INTRINSIC_MODS],
+  [[iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,]]dnl
+[[ieee_features,omp_lib,omp_lib_kinds,openacc]])
+
 AS_VAR_IF([enable_mpi], [yes],
   [AC_MSG_CHECKING([whether Fortran MPI library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -148,15 +379,10 @@ AS_VAR_IF([enable_mpi], [yes],
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using MPI: either dnl
+      AC_MSG_FAILURE([unable to link a test program using MPI: either dnl
 disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler dnl
-wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
+wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
-AC_ARG_ENABLE([openmp],
-  [AC_HELP_STRING([--enable-openmp],
-     [enable OpenMP support @<:@default=yes@:>@])], [],
-     [enable_openmp=yes])
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
      [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openmp_flag"])
@@ -166,228 +392,62 @@ AS_VAR_IF([enable_openmp], [yes],
            [201511 201307 201107 200805 200505])
          AS_VAR_IF([acx_macro_value], [unknown],
            [AC_MSG_WARN([unable to detect supported OpenMP version])
-            AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_PP_DEF}_OPENMP"])],
-           [AS_IF([test "$acx_macro_value" -lt 201307],
+            AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENMP"])],
+           [AS_IF([test "$acx_macro_value" -lt 201307 2>/dev/null],
               [AC_MSG_WARN([Fortran compiler does not support OpenMP 4.0 dnl
 (201307): it is strongly recommended to disable OpenMP support dnl
 (--disable-openmp)])])
-            AS_VAR_APPEND([DEPGEN_DEFS],
+            AS_VAR_APPEND([DEPGEN_FCFLAGS],
               [" ${FC_PP_DEF}_OPENMP=$acx_macro_value"])])],
-         [AC_MSG_FAILURE([Fortran compiler does not define the _OPENMP dnl
+        [AC_MSG_FAILURE([Fortran compiler does not define the _OPENMP dnl
 preprocessor macro])])])],
   [ACX_LANG_MACRO_CHECK_DEFINED([_OPENMP])
    AS_VAR_IF([acx_macro_defined], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
 FCFLAGS accordingly to disable it])])])
 
-AC_ARG_ENABLE([grib2],
-  [AC_HELP_STRING([--enable-grib2],
-     [enable GRIB2 I/O @<:@default=no@:>@])],
-dnl We pass this variable to the configure scripts of libcdi, therefore, we
-dnl need to make sure that it's either 'yes' or 'no'.
-  [AS_IF([test x"$enablevar" != xno], [enable_grib2=yes])],
-  [enable_grib2=no])
-
-AC_ARG_ENABLE([yaxt],
-  [AC_HELP_STRING([--enable-yaxt],
-     [enable the YAXT data exchange @<:@default=no@:>@])], [],
-  [enable_yaxt=no])
-AS_VAR_IF([enable_yaxt], [yes],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
-
-AC_ARG_ENABLE([sct],
-  [AC_HELP_STRING([--enable-sct],
-     [enable the SCT timer @<:@default=no@:>@])], [],
-  [enable_sct=no])
 AS_VAR_IF([enable_sct], [yes],
   [AC_MSG_CHECKING([whether the Fortran interface of SCT library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use sct, only: sct_init
       implicit none
       call sct_init(timer_max=512)]])],
-     [AC_MSG_RESULT([yes])
-      AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__SCT__"])],
-     [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using SCT: dnl
-set FCFLAGS, LDFLAGS and LIBS accordingly])])])
-
-m4_divert_once([HELP_ENABLE], [[
-Optimization Features:]])
-
-AC_ARG_ENABLE([loop-exchange],
-  [AC_HELP_STRING([--enable-loop-exchange],
-     [enable loop exchange @<:@default=yes@:>@])], [],
-  [enable_loop_exchange=yes])
-AS_VAR_IF([enable_loop_exchange], [yes],
-  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
-
-AC_ARG_WITH([external-mtime],
-  [AC_HELP_STRING([--with-external-mtime],
-     [use an external mtime library instead of the bundled one ]dnl
-[@<:@default=no@:>@])], [],
-  [with_external_mtime=no])
-
-AC_ARG_WITH([external-self],
-  [AC_HELP_STRING([--with-external-self],
-     [use an external self library instead of the bundled one ]dnl
-[@<:@default=no@:>@])], [],
-  [with_external_self=no])
-
-AC_ARG_WITH([external-cdi],
-  [AC_HELP_STRING([--with-external-cdi],
-     [use an external CDI library instead of the bundled one ]dnl
-[@<:@default=no@:>@])], [],
-  [with_external_cdi=no])
-
-AC_ARG_WITH([external-yac],
-  [AC_HELP_STRING([--with-external-yac],
-     [use an external YAC library (when the coupling is enabled) instead ]dnl
-[of the bundled one @<:@default=no@:>@])], [],
-  [with_external_yac=no])
-
-AC_ARG_WITH([external-yaxt],
-  [AC_HELP_STRING([--with-external-yaxt],
-     [use an external YAXT library (when the YAXT data exchange is ]dnl
-[enabled) instead of the bundled one @<:@default=no@:>@])], [],
-  [with_external_yaxt=no])
-
-AC_SUBST([BUNDLED_FCFLAGS])
-AC_SUBST([BUNDLED_LIBS])
-
-dnl Set $ac_abs_top_srcdir and $ac_abs_top_builddir
-_AC_SRCDIRS([.])
-
-AS_VAR_IF([with_external_self], [no],
-  [AS_IF([test -f "${srcdir}/externals/self/configure"],
-     [AX_SUBDIRS_CONFIGURE([externals/self], [], [],
-        [[--enable-silent-rules=$enable_silent_rules]],
-        [[--enable-silent-rules], [--disable-silent-rules]])
-      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
-      AS_VAR_APPEND([BUNDLED_LIBS], [" externals/self/src/libself.a"])],
-     [AC_MSG_ERROR([unable to use the bundled version of self library: dnl
-file ${srcdir}/externals/self/configure not found])])],
-  [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use self_object
-      use self_vector_ref
-      use self_vector
-      use self_map
-      use self_assert
-      implicit none
-      type(map) :: a
-      call a%init()]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using self 0.2 dnl
-library: enable usage of the bundled version of the library or set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])])
+      AC_MSG_FAILURE([unable to link a test program using SCT: either dnl
+disable SCT timer (--disable-sct) or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])])
 
-AS_VAR_IF([enable_coupling], [yes],
-  [AS_VAR_IF([with_external_yac], [no],
-     [AS_IF([test -f "${srcdir}/externals/yac/configure"],
-        [AS_VAR_IF([with_external_mtime], [no],
-           [yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
-            yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/dnl
-.libs/libmtime.a"],
-           [yac_MTIME_CFLAGS=
-            yac_MTIME_CLIBS=])
-         AX_SUBDIRS_CONFIGURE([externals/yac], [], [],
-           [[--enable-lib-only=yes], [--enable-xml=yes],
-            [--enable-netcdf=yes], [--enable-mpi=$enable_mpi],
-            [--with-external-lapack=fortran], [--with-external-mtime=yes],
-            [--enable-silent-rules=$enable_silent_rules],
-            [MTIME_CFLAGS=$yac_MTIME_CFLAGS], [MTIME_CLIBS=$yac_MTIME_CLIBS],
-            [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
-            [XML2_CFLAGS=], [XML2_CLIBS=],
-            [MPI_CFLAGS=], [MPI_CLIBS=],
-            [MPI_FCFLAGS=], [MPI_FCLIBS=],
-            [FORTRAN_LAPACK_CLIBS=]],
-           [[--enable-lib-only], [--disable-lib-only],
-            [--enable-xml], [--disable-xml],
-            [--enable-netcdf], [--disable-netcdf],
-            [--enable-mpi], [--disable-mpi],
-            [--with-external-lapack], [--without-external-lapack],
-            [--with-external-mtime], [--without-external-mtime],
-            [--enable-silent-rules], [--disable-silent-rules]])
-         AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yac/src"])
-         AS_VAR_APPEND([BUNDLED_LIBS], [" externals/yac/src/libyac.a"])],
-        [AC_MSG_ERROR([unable to use the bundled version of YAC library: dnl
-file ${srcdir}/externals/yac/configure not found])])],
-     [AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
-available])
+AS_VAR_IF([enable_yaxt], [yes],
+  [AS_VAR_IF([with_external_yaxt], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
+is available])
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_yac_finterface, only: yac_finit
+      use yaxt, only: xt_initialized, xt_initialize
       implicit none
-      character(len=1024) :: a, b
-      call yac_finit(a, b)]])],
+      integer :: a
+      if (.not. xt_initialized()) call xt_initialize(a)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to compile test program using YAC: dnl
-set FCFLAGS, LDFLAGS and LIBS accordingly])])])])
+         AC_MSG_FAILURE([unable to link a test program using YAXT: either dnl
+disable the YAXT data exchange (--disable-yaxt) or use the bundled version dnl
+of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
+dnl
+     [ACX_CONFIG_SUBDIR([externals/yaxt],
+        [[LDFLAGS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])]],
+        [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+         [--disable-shared], [--enable-dependency-tracking],
+         [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
+      BUNDLED_LIBS="externals/yaxt/src/.libs/libyaxt.a dnl
+externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBS"])])
 
-AS_VAR_IF([with_external_mtime], [no],
-  [AS_IF([test -f "${srcdir}/externals/mtime/configure"],
-     [AX_SUBDIRS_CONFIGURE([externals/mtime], [], [],
-        [[--enable-static=yes], [--enable-shared=no],
-         [--enable-examples=no], [--enable-silent-rules=$enable_silent_rules]],
-        [[--enable-static], [--disable-static],
-         [--enable-shared], [--disable-shared],
-         [--enable-examples], [--disable-examples],
-         [--enable-silent-rules], [--disable-silent-rules]])
-      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/mtime/src"])
-      AS_VAR_APPEND([BUNDLED_LIBS],
-        [" externals/mtime/src/.libs/libmtime.a"])],
-     [AC_MSG_ERROR([unable to use the bundled version of mtime library: dnl
-file ${srcdir}/externals/mtime/configure not found])])],
-  [AC_MSG_CHECKING(
-     [whether the Fortran interface of mtime library is available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mtime
-      character(len=max_date_str_len) :: test_date_string
-      type(date), pointer :: test_date
-      test_date => newdate(0,0,0)
-      call dateToString(test_date, test_date_string)]])],
-     [AC_MSG_RESULT([yes])],
-     [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using mtime library: dnl
-enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
-and LIBS accordingly])])])
-
-AS_VAR_IF([with_external_cdi], [no],
-  [AS_IF([test -f "${srcdir}/externals/cdi/configure"],
-     [AX_SUBDIRS_CONFIGURE([externals/cdi], [], [],
-dnl Currently, we don't have full control on choosing the GRIB2 backend (e.g.
-dnl grib_api, eccodes) due to the limitations of the configure script of
-dnl libcdi. Therefore, we set --with-grib_api=$enable_grib2 --with-eccodes=no
-dnl unconditionally. This way, the configure script of libcdi enables support
-dnl for grib2 regardless of whether grib_api or eccodes librariy is provided
-dnl with the LDFLAGS and LIBS variables.
-        [[--enable-static=yes], [--enable-shared=no],
-         [--enable-silent-rules=$enable_silent_rules],
-         [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
-         [--enable-cdi-app=no],  [--enable-grib=yes],
-         [--enable-cgribex=yes], [--with-grib_api=$enable_grib2],
-         [--with-eccodes=no], [--with-threads=no],
-         [--with-netcdf=yes]],
-        [[--enable-static], [--disable-static],
-         [--enable-shared], [--disable-shared],
-         [--enable-silent-rules], [--disable-silent-rules],
-         [--enable-iso-c-interface], [--disable-iso-c-interface],
-         [--enable-cf-interface], [--disable-cf-interface],
-         [--enable-cdi-app], [--disable-cdi-app],
-         [--enable-grib], [--disable-grib],
-         [--enable-cgribex], [--disable-cgribex],
-         [--with-grib_api], [--without-grib_api],
-         [--with-eccodes], [--without-eccodes],
-         [--with-threads], [--without-threads],
-         [--with-netcdf], [--without-netcdf],
-         [--enable-mpi], [--disable-mpi]])
-      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
-      AS_VAR_APPEND([BUNDLED_LIBS],
-        [" externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/dnl
-.libs/libcdi.a"])],
-     [AC_MSG_ERROR([unable to use the bundled version of CDI library: dnl
-file ${srcdir}/externals/cdi/configure not found])])],
+AS_VAR_IF([with_external_cdi], [yes],
   [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library dnl
 is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -401,11 +461,11 @@ is available])
       a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using CDI library: dnl
-enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
+      AC_MSG_FAILURE([unable to link a test program using CDI: either use dnl
+the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
-   AC_MSG_CHECKING(
-     [whether the provided version of CDI 1.8.x is patched])
+dnl
+   AC_MSG_CHECKING([whether the provided version of CDI 1.8.x is patched])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
       implicit none
@@ -416,6 +476,7 @@ and LIBS accordingly])])
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
 required patches])])
+dnl
    AS_VAR_IF([enable_grib2], [yes],
      [AC_MSG_CHECKING(
         [whether the provided version of CDI is built with GRIB2 support])
@@ -430,92 +491,176 @@ required patches])])
                  [icon_cdi_supports_grib2=yes],
                  [icon_cdi_supports_grib2=no])])])])
       AC_MSG_RESULT([$icon_cdi_supports_grib2])
-      AS_CASE([$icon_cdi_supports_grib2],
-        [no],
+      AS_IF([test x"$icon_cdi_supports_grib2" = xno],
         [AC_MSG_FAILURE([the provided version of CDI does not support GRIB2])],
-        [unknown],
-        [AC_MSG_WARN([unable to check whether the provided version of dnl
-CDI supports GRIB2])])])])
+        [test x"$icon_cdi_supports_grib2" = xunknown],
+        [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
+supports GRIB2])])])],
+dnl
+  [ACX_CONFIG_SUBDIR([externals/cdi],
+     [[LDFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([iso-c-interface])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cf-interface])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cdi-app])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([grib])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cgribex])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([grib_api])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([eccodes])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
+     [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+      [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
+      [--enable-iso-c-interface], [--disable-cf-interface],
+      [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
+dnl Currently, we don't have full control on choosing the GRIB2 backend (e.g.
+dnl grib_api, eccodes) due to the limitations of the configure script of
+dnl libcdi. Therefore, we set --with-grib_api=$enable_grib2 --without-eccodes
+dnl unconditionally. This way, the configure script of libcdi enables support
+dnl for grib2 regardless of whether grib_api or eccodes library is provided
+dnl with the LDFLAGS and LIBS variables.
+      [--with-grib_api="$enable_grib2"], [--without-eccodes],
+      [--without-threads], [--with-netcdf]])
+   AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
+   BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
+externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
 
-AS_VAR_IF([enable_yaxt], [yes],
-  [AS_VAR_IF([with_external_yaxt], [no],
-     [AS_IF([test -f "${srcdir}/externals/yaxt/configure"],
-        [AX_SUBDIRS_CONFIGURE([externals/yaxt], [], [],
-           [[--enable-static=yes], [--enable-shared=no],
-            [--enable-dependency-tracking=yes],
-            [--enable-silent-rules=$enable_silent_rules]],
-           [[--enable-static], [--disable-static],
-            [--enable-shared], [--disable-shared],
-            [--enable-dependency-tracking], [--disable-dependency-tracking],
-            [--enable-silent-rules], [--disable-silent-rules]])
-         AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
-         AS_VAR_APPEND([BUNDLED_LIBS],
-           [" externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/dnl
-.libs/libyaxt_c.a"])],
-        [AC_MSG_ERROR([unable to use the bundled version of YAXT library: dnl
-file ${srcdir}/externals/yaxt/configure not found])])],
-     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
-is available])
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use yaxt, only: xt_initialized, xt_initialize
-      implicit none
-      integer :: a
-      if (.not. xt_initialized()) call xt_initialize(a)]])],
+AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
+available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      include 'netcdf.inc'
+      integer :: status
+      status = nf_open('conftest.nc',0,0)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using NetCDF: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+
+AS_VAR_IF([with_external_mtime], [yes],
+  [AC_MSG_CHECKING(
+     [whether the Fortran interface of mtime library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mtime
+      character(len=max_date_str_len) :: test_date_string
+      type(date), pointer :: test_date
+      test_date => newdate(0,0,0)
+      call dateToString(test_date, test_date_string)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to compile test program using YAXT library: dnl
-enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
-and LIBS accordingly])])])])
+      AC_MSG_FAILURE([unable to link a test program using mtime: either use dnl
+the bundled version of mtime (--without-external-mtime) or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])],
+dnl
+  [ACX_CONFIG_SUBDIR([externals/mtime],
+     [[LDFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])]],
+     [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [--enable-static],
+      [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
+      [--disable-examples]])
+   AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/mtime/src"])
+   BUNDLED_LIBS="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBS"])
 
-AC_PROG_CC
-dnl Supporting ISO C89 means that the following header files are available:
-dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
-dnl errno.h, ctype.h assert.h.
-AS_VAR_IF([ac_cv_prog_cc_c89], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
+AC_MSG_CHECKING([whether Fortran BLAS library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using BLAS: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
 
-dnl Some of the C source files require support for ISO C99. Supporting ISO C99
-dnl also means that the following header files are available:
-dnl stdbool.h.
-AC_LANG([C])
-AC_PROG_CC_C99
-AS_VAR_IF([ac_cv_prog_cc_c99], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
+AC_MSG_CHECKING([whether Fortran LAPACK library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using LAPACK: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
 
-dnl Check for headers that are protected with HAVE_* macros in the code
-dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
-dnl annoying checks; already fixed in the autoconf master branch).
-AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
-  [[// override default includes]])
+AS_VAR_IF([enable_coupling], [yes],
+  [AS_VAR_IF([with_external_yac], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using YAC: either dnl
+use the bundled version of YAC (--without-external-yac) or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])],
+     [yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
+      AS_VAR_IF([with_external_mtime], [no],
+        [dnl Set $ac_abs_top_srcdir and $ac_abs_top_builddir:
+         _AC_SRCDIRS([.])
+         yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
+         yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
+      yac_CFLAGS=$CFLAGS; yac_FCFLAGS=$FCFLAGS; yac_LDFLAGS=$subdir_LDFLAGS
+      AS_IF([test x"$icon_c_rpaths" = x"$icon_fc_rpaths"],
+        [yac_LDFLAGS="$icon_c_rpaths$yac_LDFLAGS"],
+        [yac_CFLAGS="$CFLAGS $icon_c_rpaths"
+         yac_FCFLAGS="$FCFLAGS $icon_fc_rpaths"])
+      ACX_CONFIG_SUBDIR([externals/yac],
+        [[FCFLAGS=*|CFLAGS=*|LDFLAGS=*],
+         [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
+         [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
+         [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([xml])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([netcdf])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-lapack])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
+        [[FCFLAGS="$yac_FCFLAGS"], [CFLAGS="$yac_CFLAGS"],
+         [LDFLAGS="$yac_LDFLAGS"], [MTIME_CFLAGS="$yac_MTIME_CFLAGS"],
+         [MTIME_CLIBS="$yac_MTIME_CLIBS"], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
+         [XML2_CFLAGS=], [XML2_CLIBS=], [MPI_CFLAGS=], [MPI_CLIBS=],
+         [MPI_FCFLAGS=], [MPI_FCLIBS=], [FORTRAN_LAPACK_CLIBS=],
+         [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
+         [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
+         [--with-external-lapack=fortran], [--with-external-mtime]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yac/src"])
+      BUNDLED_LIBS="externals/yac/src/libyac.a $BUNDLED_LIBS"])])
 
-dnl Check for headers that are not protected at all.
-AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
-  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
-  [],
-  [AC_MSG_FAILURE([unable to find header file $ac_header])],
-  [[// override default includes]])
+AS_VAR_IF([with_external_self], [yes],
+  [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use self_object
+      use self_vector_ref
+      use self_vector
+      use self_map
+      use self_assert
+      implicit none
+      type(map) :: a
+      call a%init()]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to compile test program using self 0.2 dnl
+library: enable usage of the bundled version of the library or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])],
+dnl
+  [ACX_CONFIG_SUBDIR([externals/self],
+     [[LDFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
+     [[LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
+      [--enable-silent-rules="$enable_silent_rules"]])
+   AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
+   BUNDLED_LIBS="externals/self/src/libself.a $BUNDLED_LIBS"])
 
-dnl Other header files that are protected in the code but
-dnl not with the HAVE_* macros:
-dnl util_hash.c: endian.h
-dnl util_sysinfo.c: mcheck.h sys/systemcfg.h
-dnl util_timer.c: sys/systemcfg.h asm/msr.h
-
-dnl Header files that are included from non-mandatory files
-dnl util_pbio.c: ffio.h pthread.h
-dnl util_postgresql.c: libpq-fe.h
-dnl util_signal.c: features.h strings.h fenv.h fptrap.h
-
-AC_ARG_VAR([PYTHON],
-  [Python interpreter command])
+AC_ARG_VAR([PYTHON], [Python interpreter command])
 ACX_PROG_SEARCH([PYTHON], [python python3],
   [acx_depgen_try=dnl
 '$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
    AC_TRY_EVAL([acx_depgen_try])],
   [PYTHON=$acx_candidate])
 
-AC_ARG_VAR([PERL],
-  [Perl interpreter command])
+AC_ARG_VAR([PERL], [Perl interpreter command])
 ACX_PROG_SEARCH([PERL], [perl],
   [acx_depgen_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
    AC_TRY_EVAL([acx_depgen_try])
@@ -524,5 +669,13 @@ ACX_PROG_SEARCH([PERL], [perl],
 
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
+
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_FILES([
+  Makefile
+  depgen.c.config
+  depgen.f90.config
+  icon.mk
+])
 
 AC_OUTPUT

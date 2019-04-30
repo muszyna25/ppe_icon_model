@@ -1,4 +1,4 @@
-# This Makefile sets up the building environment and calls Makefile.main
+# This makefile sets up the building environment and calls icon.mk.
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV@
@@ -8,7 +8,7 @@ DELEGATED_RULES = all depend mostlyclean clean maintainer-clean install srclist
 .PHONY: $(DELEGATED_RULES) distclean
 
 $(DELEGATED_RULES):
-	@$(BUILD_ENV) $(MAKE) -f Makefile.main $(MAKECMDGOALS)
+	@$(BUILD_ENV) $(MAKE) -f icon.mk $(MAKECMDGOALS)
 
 distclean: clean
 	rm -f Makefile

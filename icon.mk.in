@@ -1,27 +1,33 @@
 # Source file root directory:
-srcdir:= @srcdir@
+srcdir= @srcdir@
 
 # Source file subdirectories:
-subdirs:= src support
+subdirs= src support
+bundled_subdirs= @subdirs_extra@
 
 # Installation directories:
-prefix:= @prefix@
-exec_prefix:= @exec_prefix@
+prefix= @prefix@
+exec_prefix= @exec_prefix@
 
 # Fortran module file directory:
-moddir:= mod
+moddir= mod
 
 # Compilers and flags:
-FC= @FC@
-FCFLAGS= @FCFLAGS@
-LDFLAGS= @LDFLAGS@
-LIBS= @LIBS@
-icon_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I$(srcdir)/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
-
 CC= @CC@
 CFLAGS= @CFLAGS@
+LDFLAGS= @LDFLAGS@
+LIBS= @LIBS@
 CPPFLAGS= @CPPFLAGS@
-icon_CPPFLAGS:= -I. @DEFS@
+FC= @FC@
+FCFLAGS= @FCFLAGS@
+
+# Extra compiler flags:
+ICON_FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I$(srcdir)/src/include @BUNDLED_FCFLAGS@
+ICON_CPPFLAGS= -I. @DEFS@
+DEPGEN_FCFLAGS= @DEPGEN_FCFLAGS@
+
+# Bundled libraries:
+BUNDLED_LIBS= @BUNDLED_LIBS@
 
 # Other utilities:
 SHELL= /bin/sh
@@ -32,7 +38,7 @@ DEPGEN= $(PYTHON) $(srcdir)/utils/mkhelper/depgen.py
 PERL= @PERL@
 
 # Extra dependencies:
-extra_deps:= $(srcdir)/extra_deps.mk
+extra_deps= $(srcdir)/extra_deps.mk
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
@@ -44,10 +50,6 @@ silent_GEN=    @echo "  GEN     " $@;
 silent_MKDIR=  @echo "  MKDIR   " $(@D);
 silent_DEPGEN= @echo "  DEPGEN  " $@;
 endif
-
-# Bundled libraries and their root source directories:
-bundled_LIBS:=@BUNDLED_LIBS@
-bundled_subdirs:=@subdirs_extra@
 
 # Source files:
 FC_srcs:= $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.f90')
@@ -92,7 +94,7 @@ clean: mostlyclean
 	rm -f version.c srclist $(depfiles) $(dirstamps)
 
 distclean: clean
-	rm -f config.log config.status Makefile.main config.h depgen.f90.config depgen.c.config
+	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config
 	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 	@for dir in $(subdirs) $(moddir) externals; do \
 	  if test -d "$$dir"; then \
@@ -107,20 +109,19 @@ maintainer-clean: distclean
 install: all
 	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon $(DESTDIR)@bindir@/icon
 
-# Generate a list of files that are going to be compiled in the current
-# configuration:
+# Generate a list of files that are going to be compiled in the current configuration:
 srclist: $(depfiles) $(extra_deps)
 	$(silent_GEN)$(DEPLIST) -t $(rootobj) -p '*.f90' -p '*.c' -f $^ | sort > $@
 
 # Main building rules:
-icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' -f $(depfiles) $(extra_deps)) $(bundled_LIBS)
-	$(silent_FCLD) $(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' -f $(depfiles) $(extra_deps)) $(BUNDLED_LIBS)
+	$(silent_FCLD) $(FC) -o $@ $(ICON_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 %.o: %.f90 | $(dirstamps) $(bundled_subdirs)
-	$(silent_FC) $(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_FC) $(FC) -o $@ -c $(ICON_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
 %.o: %.c | $(dirstamps)
-	$(silent_CC) $(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
+	$(silent_CC) $(CC) -o $@ -c $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@:
@@ -140,10 +141,10 @@ version.c: force-create-version
 
 # Dependency generation rules:
 %.f90.d: %.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- $(DEPGEN_FCFLAGS) $(ICON_FCFLAGS) $(FCFLAGS)
 
 %.c.d: %.c | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
 $(bundled_subdirs):
@@ -157,8 +158,9 @@ $(bundled_subdirs):
 # (currently redundant since yac is a static library):
 externals/yac: $(filter externals/mtime, $(bundled_subdirs))
 
-$(bundled_LIBS): $(bundled_subdirs);
+$(BUNDLED_LIBS): $(bundled_subdirs);
 
 ifeq (,$(filter $(MAKECMDGOALS), depend mostlyclean clean distclean maintainer-clean))
 -include $(depfiles)
 endif
+
