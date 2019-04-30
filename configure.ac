@@ -41,6 +41,10 @@ AC_SUBST([PP_INC_ORDER_f90])
 AC_SUBST([EXTERNAL_MODS],
   [mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface])
 
+ICON_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__"
+ICON_LDFLAGS=
+ICON_LIBS=
+
 AC_MSG_CHECKING([whether the Fortran interface of mtime library is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime
@@ -52,8 +56,19 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([no])
    AC_MSG_ERROR([unable to compile test program using mtime: set FCFLAGS, LDFLAGS and LIBS accordingly])])
 
-AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+AC_ARG_ENABLE([bundled-self],
+  [AS_HELP_STRING([--enable-bundled-self], [enable usage of the bundled self library @<:@default=yes@:>@])],
+  [], [enable_bundled_self=yes])
+AS_IF([test "x$enable_bundled_self" = "xyes"],
+  [AS_IF([test -d "${srcdir}/externals/self/src"],
+    [AC_CONFIG_SUBDIRS([externals/self])
+     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/self/mods"])
+     AS_VAR_APPEND([ICON_LDFLAGS], [" -Lexternals/self/lib"])
+     AS_VAR_APPEND([ICON_LIBS], [" -lself"])],
+    [AC_MSG_ERROR([unable to use the bundled version of self library: \
+directory ${srcdir}/externals/self/src not found])])],
+  [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use self_object
       use self_vector_ref
       use self_vector
@@ -62,10 +77,12 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       implicit none
       type(map) :: a
       call a%init()
-]])],
+   ]])],
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using self 0.2 library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+   AC_MSG_ERROR([unable to compile test program using self 0.2 library: \
+enable usage of the bundled version of the library \
+or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -119,28 +136,26 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([no])
    AC_MSG_ERROR([the provided version of CDI 1.8.x does not have required patches])])
 
-FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__ $FCFLAGS"
-
 AC_ARG_ENABLE([atmo],
   [AS_HELP_STRING([--enable-atmo], [enable atmosphere component of ICON @<:@default=yes@:>@])],
   [], [enable_atmo=yes])
 AS_IF([test "x$enable_atmo" = "xyes"], [],
   [AC_MSG_NOTICE([atmosphere component is disabled])
-   FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_ATMO__"])])
   
 AC_ARG_ENABLE([ocean],
   [AS_HELP_STRING([--enable-ocean], [enable ocean component of ICON @<:@default=yes@:>@])],
   [], [enable_ocean=yes])
 AS_IF([test "x$enable_ocean" = "xyes"], [],
   [AC_MSG_NOTICE([ocean component is disabled])
-   FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_OCEAN__"])])
 
 AC_ARG_ENABLE([psrad],
   [AS_HELP_STRING([--enable-psrad], [enable psrad component of ICON @<:@default=yes@:>@])],
   [], [enable_psrad=yes])
 AS_IF([test "x$enable_psrad" = "xyes"], [],
   [AC_MSG_NOTICE([psrad component is disabled])
-   FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_PS_RAD__"])])
 
 AC_ARG_ENABLE([mpi],
   [AS_HELP_STRING([--enable-mpi], [enable MPI (parallelization) support @<:@default=yes@:>@])],
@@ -156,7 +171,7 @@ AS_IF([test "x$enable_mpi" = "xyes"],
       AC_MSG_ERROR([unable to compile test program using MPI: \
 either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
-  [FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"])
+  [AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}NOMPI"])])
 
 AC_SUBST([DEPGEN_DEFS])
 
@@ -173,7 +188,7 @@ AS_IF([test "x$enable_openmp" = "xyes"],
         [AS_IF([test "$acx_cv_prog_fc_openmp_macro" -lt 201307],
           [AC_MSG_ERROR([$FC does not support OpenMP 4.0 (201307): you have to disable OpenMP support (--disable-openmp)])])
          AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"])])])])
-   FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"],
+   AS_VAR_APPEND([ICON_FCFLAGS], [" $OPENMP_FCFLAGS"])],
   [ACX_OPENMP_CHECK_DISABLED])
 
 AC_ARG_ENABLE([yac],
@@ -187,7 +202,7 @@ AS_IF([test "x$enable_yac" = "xyes"],
       character(len=1024) :: a, b
       call yac_finit(a, b)]])],
     [AC_MSG_RESULT([yes])
-     FCFLAGS="${FC_DEFINE}YAC_coupling $FCFLAGS"],
+     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}YAC_coupling"])],
     [AC_MSG_RESULT([no])
      AC_MSG_ERROR([unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
@@ -201,7 +216,7 @@ AS_IF([test "x$enable_sct" = "xyes"],
       implicit none
       call sct_init(timer_max=512)]])],
     [AC_MSG_RESULT([yes])
-     FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"],
+     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__SCT__"])],
     [AC_MSG_RESULT([no])
      AC_MSG_ERROR([unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
@@ -262,5 +277,9 @@ AS_IF([test "x$PERL" = "xunknown"],
   [AC_MSG_ERROR([unable to find Perl interpreter])])
 
 AC_PROG_INSTALL
+
+FCFLAGS="$ICON_FCFLAGS $FCFLAGS"
+LDFLAGS="$ICON_LDFLAGS $LDFLAGS"
+LIBS="$ICON_LIBS $LIBS"
 
 AC_OUTPUT

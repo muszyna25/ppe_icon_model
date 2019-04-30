@@ -1,4 +1,4 @@
-# Source file directory:
+# Source file directories:
 ICON_DIR=@srcdir@/src
 SUPPORT_DIR=@srcdir@/support
 
@@ -14,7 +14,7 @@ exec_prefix=@exec_prefix@
 
 # Compilers, building tools and the corresponding flags:
 FC=@FC@
-FCFLAGS=@FC_MODINC@$(MOD_DIR) -I$(ICON_DIR)/include @FC_MODOUT@$(MOD_DIR) @FCFLAGS@
+FCFLAGS=@FC_MODINC@$(MOD_DIR) @FC_MODOUT@$(MOD_DIR) -I$(ICON_DIR)/include @FCFLAGS@
 LDFLAGS=@LDFLAGS@
 LIBS=@LIBS@
 
@@ -69,9 +69,15 @@ depend: $(DEP_FILES)
 
 clean:
 	rm -rf $(DEP_DIR) $(BIN_DIR) $(MOD_DIR) $(OBJ_DIR)
+	@for dir in @subdirs@; do \
+          cd "$$dir" && $(MAKE) $@ || exit 0; \
+        done
 
 distclean: clean
 	rm -f config.log config.status Makefile config.h version.c depgen.f90.config
+	@for dir in @subdirs@; do \
+          cd "$$dir" && $(MAKE) $@ || exit 0; \
+        done
 
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~ $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
@@ -84,10 +90,10 @@ install: $(BIN_DIR)/icon
 $(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d) | $(BIN_DIR)/.sentinel
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJ_DIR)/%.o: %.f90 | $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
+$(OBJ_DIR)/%.o: %.f90 | bundled $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
 	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
 
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)/.sentinel
+$(OBJ_DIR)/%.o: %.c | bundled $(OBJ_DIR)/.sentinel
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) -o $@ $<
 
 # Auxiliary building rules:
@@ -133,6 +139,11 @@ $(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.sentinel
 	echo $(OBJ_DIR)/mo_util_string_parse.o: $(OBJ_DIR)/util_string_parse.o >> $@ && \
 	echo $(OBJ_DIR)/mo_util_sysinfo.o: $(OBJ_DIR)/util_sysinfo.o >> $@ && \
 	echo $(OBJ_DIR)/mo_c_restart_util.o: $(OBJ_DIR)/util_multifile_restart.o >> $@
+
+bundled:
+	@for dir in @subdirs@; do \
+	  cd "$$dir" && $(MAKE) || exit 1; \
+	done
 
 ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
 -include $(DEP_FILES)
