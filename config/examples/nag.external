@@ -43,4 +43,4 @@ LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-Wl,,-rpath -Wl,-Wl,
 
 LIBS="${MTIME_LIBS} ${SELF_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAC_LIBS} ${SCT_LIBS}"
 
-NAG_KUSARI_FILE='license.zmaw.de:' $(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --disable-bundled-mtime --disable-bundled-self --disable-bundled-cdi --enable-sct "$@"
+NAG_KUSARI_FILE='license.zmaw.de:' $(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --with-external-mtime --with-external-self --with-external-cdi --enable-sct "$@"
