@@ -3643,8 +3643,20 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
       # New options that may need to be merged with existing options.
 
       # New options that must replace existing options.
+      ax_candidate="--enable-silent-rules=$enable_silent_rules"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-silent-rules=$enable_silent_rules'"
+             fi
+           fi
 
       # Options that must be removed.
+      ax_args=$(echo $ax_args | sed "s,'--enable-silent-rules',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-silent-rules',,")
 
       as_fn_append ax_args " '--srcdir=$ac_srcdir'"
 
@@ -3662,8 +3674,8 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
 
 
 
-      as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/self/mods"
-      as_fn_append BUNDLED_LIBS " externals/self/lib/libself.a"
+      as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/self/src"
+      as_fn_append BUNDLED_LIBS " externals/self/src/libself.a"
 else
   as_fn_error $? "unable to use the bundled version of self library: file ${srcdir}/externals/self/configure not found" "$LINENO" 5
 fi

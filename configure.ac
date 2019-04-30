@@ -212,9 +212,11 @@ _AC_SRCDIRS([.])
 
 AS_VAR_IF([with_external_self], [no],
   [AS_IF([test -f "${srcdir}/externals/self/configure"],
-     [AX_SUBDIRS_CONFIGURE([externals/self])
-      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/mods"])
-      AS_VAR_APPEND([BUNDLED_LIBS], [" externals/self/lib/libself.a"])],
+     [AX_SUBDIRS_CONFIGURE([externals/self], [], [],
+        [[--enable-silent-rules=$enable_silent_rules]],
+        [[--enable-silent-rules], [--disable-silent-rules]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
+      AS_VAR_APPEND([BUNDLED_LIBS], [" externals/self/src/libself.a"])],
      [AC_MSG_ERROR([unable to use the bundled version of self library: dnl
 file ${srcdir}/externals/self/configure not found])])],
   [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
