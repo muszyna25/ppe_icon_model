@@ -138,7 +138,11 @@ version.c: force-create-version
 
 # Make bundled libraries:
 $(bundled_subdirs):
-	@$(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V)
+	@if test -f '$@/Makefile'; then \
+	  $(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V); \
+	else \
+	  test xdistclean = x$(filter distclean, $(MAKECMDGOALS)); \
+	fi
 
 # Build the bundled mtime before the bundled yac
 # (currently redundant since yac is a static library):
