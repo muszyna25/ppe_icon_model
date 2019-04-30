@@ -6,6 +6,7 @@
 /tempList
 .DS_Store
 /Makefile
+/Makefile.main
 /externals/jsbach.dsl
 /externals/jsbach.mk
 /config.h
@@ -40,3 +41,4 @@ install
 *.f90.d
 .dirstamp
 /icon
+/srclist

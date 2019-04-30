@@ -2,7 +2,7 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV@
-DELEGATED_RULES = all depend mostlyclean clean maintainer-clean install
+DELEGATED_RULES = all depend mostlyclean clean maintainer-clean install srclist
 
 .SUFFIXES:
 .PHONY: $(DELEGATED_RULES) distclean
