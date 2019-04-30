@@ -62,7 +62,7 @@ all: icon
 # own building systems:
 @JSBACH_ENABLED@include externals/jsbach.mk
 
-# List of the required object files:
+# Root object file:
 rootobj:= src/drivers/icon.o
 
 # Source file selective search paths:
@@ -146,7 +146,7 @@ externals/yac: $(filter externals/mtime, $(bundled_subdirs))
 
 $(bundled_LIBS): $(bundled_subdirs);
 
-# Fortran to C dependencies (see $(objfiles)):
+# Fortran to C dependencies:
 src/io/restart/mo_c_restart_util.o:| support/util_multifile_restart.o
 src/io/shared/mo_util_file.o:| support/util_file.o
 src/io/shared/mo_util_nml.o:| support/nml_annotate.o
@@ -161,7 +161,7 @@ src/shared/mo_util_timer.o:| support/util_timer.o
 src/shared/mo_util_uuid.o:| support/util_uuid.o
 src/shared/mo_util_vcs.o:| version.o
 
-# Undetectable Fortran dependencies (see $(objfiles)):
+# Undetectable Fortran dependencies:
 src/atm_chem_cariolle/lcariolle_do3dt.o:|      \
   src/atm_chem_cariolle/lcariolle_o3_column.o
 
