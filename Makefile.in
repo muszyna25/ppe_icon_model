@@ -46,6 +46,7 @@ src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
 DEP_FILES=$(addprefix $(DEP_DIR)/, $(src_f90:.f90=.f90.d))
 srcs_c=$(notdir $(shell find $(SUPPORT_DIR) -name '*.c')) version.c
 DEP_FILES+=$(addprefix $(DEP_DIR)/, $(srcs_c:.c=.c.d))
+DEP_FILES+=$(DEP_DIR)/_undetectable.d
 
 # Source file selective search paths:
 vpath %.f90 $(shell find $(ICON_DIR) -type d)
@@ -54,7 +55,7 @@ vpath %.c $(shell find $(SUPPORT_DIR) -type d)
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
-.PHONY: all depend clean depclean distclean maintainer-clean install create-version
+.PHONY: all depend clean distclean maintainer-clean install create-version
 # Keep sentinel files of created directories:
 .PRECIOUS: %/.sentinel
 
@@ -64,16 +65,13 @@ all: $(BIN_DIR)/icon;
 depend: $(DEP_FILES)
 
 clean:
-	rm -rf $(BIN_DIR) $(LIB_DIR) $(MOD_DIR) $(OBJ_DIR)
+	rm -rf $(DEP_DIR) $(BIN_DIR) $(MOD_DIR) $(OBJ_DIR)
 
-depclean:
-	rm -rf $(DEP_DIR)
-
-distclean: clean depclean
-	rm -f config.log config.status Makefile config.h version.c $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo')
+distclean: clean
+	rm -f config.log config.status Makefile config.h version.c depgen.f90.config
 
 maintainer-clean: distclean
-	rm -rf autom4te.cache config.h.in~
+	rm -rf autom4te.cache config.h.in~ $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
 
 install: $(BIN_DIR)/icon
 	$(INSTALL) -d @bindir@
@@ -117,88 +115,29 @@ $(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.sentinel
 $(DEP_DIR)/%.c.d: %.c | $(DEP_DIR)/.sentinel
 	@$(DEPGEN_c) -- $(CPPFLAGS) $(CFLAGS)
 
-# Overridden dependency generation rules for source files with undetectable dependencies:
-$(DEP_DIR)/mo_interface_echam_car.f90.d: mo_interface_echam_car.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@
+# Undetectable dependencies:
+$(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.sentinel
+	@echo $(OBJ_DIR)/mo_interface_echam_car.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@ && \
+	echo $(OBJ_DIR)/mo_hydro_ocean_run.o: $(OBJ_DIR)/bgc_icon.o $(OBJ_DIR)/ini_bgc_icon.o >> $@ && \
+	echo $(OBJ_DIR)/mo_echam_phy_init.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@ && \
+	echo $(OBJ_DIR)/lcariolle_do3dt.o: $(OBJ_DIR)/lcariolle_o3_column.o >> $@ && \
+	echo $(OBJ_DIR)/bgc_icon.o: $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_uuid.o: $(OBJ_DIR)/util_uuid.o >> $@ && \
+	echo $(OBJ_DIR)/mo_real_timer.o: $(OBJ_DIR)/util_timer.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_file.o: $(OBJ_DIR)/util_file.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_vcs.o: $(OBJ_DIR)/version.o >> $@ && \
+	echo $(OBJ_DIR)/mo_var_list.o: $(OBJ_DIR)/util_hash.o >> $@ && \
+	echo $(OBJ_DIR)/mo_expression.o: $(OBJ_DIR)/util_arithmetic_expr.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_nml.o: $(OBJ_DIR)/nml_annotate.o >> $@ && \
+	echo $(OBJ_DIR)/mo_hierarchy_management.o: $(OBJ_DIR)/util_timer.o >> $@ && \
+	echo $(OBJ_DIR)/mo_name_list_output_init.o: $(OBJ_DIR)/util_hash.o >> $@ && \
+	echo $(OBJ_DIR)/mo_fortran_tools.o: $(OBJ_DIR)/util_stride.o >> $@ && \
+	echo $(OBJ_DIR)/mo_output_event_handler.o: $(OBJ_DIR)/util_string.o >> $@ && \
+	echo $(OBJ_DIR)/mo_exception.o: $(OBJ_DIR)/util_backtrace.o $(OBJ_DIR)/util_system.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_string_parse.o: $(OBJ_DIR)/util_string_parse.o >> $@ && \
+	echo $(OBJ_DIR)/mo_util_sysinfo.o: $(OBJ_DIR)/util_sysinfo.o >> $@ && \
+	echo $(OBJ_DIR)/mo_c_restart_util.o: $(OBJ_DIR)/util_multifile_restart.o >> $@
 
-$(DEP_DIR)/mo_hydro_ocean_run.f90.d: mo_hydro_ocean_run.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/bgc_icon.o  $(OBJ_DIR)/ini_bgc_icon.o >> $@
-
-$(DEP_DIR)/mo_echam_phy_init.f90.d: mo_echam_phy_init.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@
-
-$(DEP_DIR)/lcariolle_do3dt.f90.d: lcariolle_do3dt.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_o3_column.o  >> $@
-
-$(DEP_DIR)/bgc_icon.f90.d: bgc_icon.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@
-
-# Overridden dependency generation rules for Fortran files that call C functions:
-$(DEP_DIR)/mo_util_uuid.f90.d: mo_util_uuid.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_uuid.o >> $@
-
-$(DEP_DIR)/mo_real_timer.f90.d: mo_real_timer.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
-
-$(DEP_DIR)/mo_util_file.f90.d: mo_util_file.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_file.o >> $@
-
-$(DEP_DIR)/mo_util_vcs.f90.d: mo_util_vcs.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/version.o >> $@
-
-$(DEP_DIR)/mo_var_list.f90.d: mo_var_list.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
-
-$(DEP_DIR)/mo_expression.f90.d: mo_expression.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_arithmetic_expr.o >> $@
-
-$(DEP_DIR)/mo_util_nml.f90.d: mo_util_nml.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/nml_annotate.o >> $@
-
-$(DEP_DIR)/mo_hierarchy_management.f90.d: mo_hierarchy_management.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
-
-$(DEP_DIR)/mo_name_list_output_init.f90.d: mo_name_list_output_init.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
-
-$(DEP_DIR)/mo_fortran_tools.f90.d: mo_fortran_tools.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_stride.o >> $@
-
-$(DEP_DIR)/mo_output_event_handler.f90.d: mo_output_event_handler.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string.o >> $@
-
-$(DEP_DIR)/mo_exception.f90.d: mo_exception.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_backtrace.o $(OBJ_DIR)/util_system.o >> $@
-
-$(DEP_DIR)/mo_util_string_parse.f90.d: mo_util_string_parse.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string_parse.o >> $@
-
-$(DEP_DIR)/mo_util_sysinfo.f90.d: mo_util_sysinfo.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_sysinfo.o >> $@
-
-$(DEP_DIR)/mo_c_restart_util.f90.d: mo_c_restart_util.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) -- $(FCFLAGS) && \
-	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_multifile_restart.o >> $@
-
-ifeq (,$(filter $(MAKECMDGOALS), clean depclean distclean depend maintainer-clean))
+ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
 -include $(DEP_FILES)
 endif
