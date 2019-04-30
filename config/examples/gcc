@@ -32,4 +32,4 @@ LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
 
 LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS"
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" "$@"
