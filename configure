@@ -672,6 +672,7 @@ enable_ocean
 enable_jsbach
 enable_coupling
 enable_psrad
+enable_art
 enable_mpi
 enable_openmp
 enable_grib2
@@ -682,6 +683,7 @@ with_external_yaxt
 with_external_cdi
 with_external_mtime
 with_external_yac
+with_external_tixi
 with_external_self
 '
       ac_precious_vars='build_alias
@@ -1319,6 +1321,8 @@ Model Features:
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling [default=yes]
   --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-art            enable the aerosols and reactive trace component ART
+                          [default=no]
 
 Infrastructural Features:
   --enable-mpi            enable MPI (parallelization) support [default=yes]
@@ -1338,7 +1342,9 @@ Optional Packages:
   --with-external-cdi     use external CDI library [default=no]
   --with-external-mtime   use external mtime library [default=no]
   --with-external-yac     use external YAC library (when the coupling is
-                          enabled) of the bundled one [default=no]
+                          enabled) [default=no]
+  --with-external-tixi    use external tixi library (when ART is enabled)
+                          [default=no]
   --with-external-self    use external self library [default=no]
 
 Some influential environment variables:
@@ -2257,6 +2263,14 @@ else
 fi
 
 
+# Check whether --enable-art was given.
+if test "${enable_art+set}" = set; then :
+  enableval=$enable_art;
+else
+  enable_art=no
+fi
+
+
 
 
 # Check whether --enable-mpi was given.
@@ -2342,6 +2356,15 @@ if test "${with_external_yac+set}" = set; then :
   withval=$with_external_yac;
 else
   with_external_yac=no
+fi
+
+
+
+# Check whether --with-external-tixi was given.
+if test "${with_external_tixi+set}" = set; then :
+  withval=$with_external_tixi;
+else
+  with_external_tixi=no
 fi
 
 
@@ -4146,6 +4169,63 @@ $as_echo "$cross_compiling" >&6; }
 
    rm -f conftest.$ac_ext conftest$ac_exeext conftest.out
 
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+ac_fc_line_len_string=unlimited
+	               ac_fc_line_len=0
+                       ac_fc_line_length_test='
+      subroutine longer_than_132(arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,'\
+'arg9,arg10,arg11,arg12,arg13,arg14,arg15,arg16,arg17,arg18,arg19)'
+: ${ac_fc_line_len_string=$ac_fc_line_len}
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran flag needed to accept $ac_fc_line_len_string column source lines" >&5
+$as_echo_n "checking for Fortran flag needed to accept $ac_fc_line_len_string column source lines... " >&6; }
+if ${ac_cv_fc_line_length+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_cv_fc_line_length=unknown
+ac_fc_line_length_FCFLAGS_save=$FCFLAGS
+for ac_flag in none \
+	       -ffree-line-length-none -ffixed-line-length-none \
+	       -ffree-line-length-huge \
+	       -ffree-line-length-$ac_fc_line_len \
+	       -ffixed-line-length-$ac_fc_line_len \
+	       -qfixed=$ac_fc_line_len -Mextend \
+	       -$ac_fc_line_len -extend_source \
+	       -W$ac_fc_line_len -W +extend_source +es -wide --wide -w -e \
+               -f -Wf,-f -xline
+do
+  test "x$ac_flag" != xnone && FCFLAGS="$ac_fc_line_length_FCFLAGS_save $ac_flag"
+  cat > conftest.$ac_ext <<_ACEOF
+$ac_fc_line_length_test
+      end subroutine
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  ac_cv_fc_line_length=$ac_flag; break
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+done
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+FCFLAGS=$ac_fc_line_length_FCFLAGS_save
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_fc_line_length" >&5
+$as_echo "$ac_cv_fc_line_length" >&6; }
+if test "x$ac_cv_fc_line_length" = xunknown; then
+  as_fn_error 77 "Fortran does not accept long source lines" "$LINENO" 5
+else
+  if test "x$ac_cv_fc_line_length" != xnone; then
+    FCFLAGS="$FCFLAGS $ac_cv_fc_line_length"
+  fi
+
+fi
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to specify search paths for module files" >&5
 $as_echo_n "checking for Fortran compiler flag needed to specify search paths for module files... " >&6; }
 if ${acx_cv_fc_module_in_flag+:} false; then :
@@ -4645,6 +4725,15 @@ else
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
+if test "x$enable_art" = xyes; then :
+  icon_subdir_srcdir="$srcdir/src/art"
+   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the ART component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
+fi
+   as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
+fi
+
 if test "x$enable_mpi" = xyes; then :
 
 else
@@ -4676,7 +4765,7 @@ fi
 
 
 
-DEPGEN_EXTERNAL_MODS=self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
+DEPGEN_EXTERNAL_MODS=tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
 
 
 DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
@@ -5519,6 +5608,93 @@ esac
       as_fn_append subdirs_extra " externals/yac"
       as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/yac/src"
       BUNDLED_LIBS="externals/yac/src/libyac.a $BUNDLED_LIBS"
+fi
+fi
+
+if test "x$enable_art" = xyes; then :
+  if test "x$with_external_tixi" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of tixi library is available" >&5
+$as_echo_n "checking whether the Fortran interface of tixi library is available... " >&6; }
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use tixi, only: tixiOpenDocument
+      implicit none
+      character(len=200) :: a
+      integer :: b
+      b = tixiOpenDocument(a, b)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using tixi: either disable the ART component (--disable-art) or use the bundled version of tixi (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+else
+  icon_subdir_srcdir="$srcdir/externals/tixi"
+      icon_subdir_unique_file="src/tixi.f90"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of tixi library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the ART component (--disable-art) or provide an external version of tixi (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+         acx_config_subdir_args_externals_tixi=
+   acx_config_subdir_ignore_arg=no
+   eval "set dummy $ac_configure_args"; shift
+   for acx_config_subdir_arg; do
+     if test "x$acx_config_subdir_ignore_arg" = xno; then :
+  case $acx_config_subdir_arg in #(
+  -cache-file|--cache-file|--cache-fil|--cache-fi| \
+           --cache-f|--cache-|--cache|--cach|--cac|--ca|--c| \
+           -srcdir|--srcdir|--srcdi|--srcd|--src|--sr| \
+           -prefix|--prefix|--prefi|--pref|--pre|--pr|--p) :
+    acx_config_subdir_ignore_arg=yes ;; #(
+  -cache-file=*|--cache-file=*|--cache-fil=*|--cache-fi=*| \
+           --cache-f=*|--cache-=*|--cache=*|--cach=*|--cac=*|--ca=*|--c=*| \
+           --config-cache|-C| \
+           -srcdir=*|--srcdir=*|--srcdi=*|--srcd=*|--src=*|--sr=*| \
+           -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
+           --disable-option-checking) :
+     ;; #(
+  LDFLAGS=*) :
+     ;; #(
+  XML2_CFLAGS=*|XML2_CLIBS=*) :
+     ;; #(
+  -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  *) :
+
+           case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+            as_fn_append acx_config_subdir_args_externals_tixi " '$acx_config_subdir_arg'" ;;
+esac
+else
+  acx_config_subdir_ignore_arg=no
+fi
+   done
+   set dummy LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_tixi " '$acx_config_subdir_arg'"
+      done
+      as_fn_append subdirs_extra " externals/tixi"
+      as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/tixi/src"
+      BUNDLED_LIBS="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBS"
 fi
 fi
 

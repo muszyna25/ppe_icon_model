@@ -172,7 +172,7 @@ src/shared/mo_util_sysinfo.@OBJEXT@:| support/util_sysinfo.@OBJEXT@
 src/shared/mo_util_system.@OBJEXT@:| support/util_system.@OBJEXT@
 src/shared/mo_util_timer.@OBJEXT@:| support/util_timer.@OBJEXT@
 src/shared/mo_util_uuid.@OBJEXT@:| support/util_uuid.@OBJEXT@
-src/shared/mo_util_vcs.@OBJEXT@:| version.@OBJEXT@
+src/shared/mo_util_vcs.@OBJEXT@ src/art/shared/mo_art_util_vcs.@OBJEXT@:| version.@OBJEXT@
 
 # Undetectable Fortran dependencies:
 src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@:|      \

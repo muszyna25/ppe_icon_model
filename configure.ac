@@ -46,6 +46,12 @@ AC_ARG_ENABLE([psrad],
      [enable the radiation component PSRAD @<:@default=yes@:>@])], [],
   [enable_psrad=yes])
 
+AC_ARG_ENABLE([art],
+  [AC_HELP_STRING([--enable-art],
+     [enable the aerosols and reactive trace component ART
+@<:@default=no@:>@])], [],
+  [enable_art=no])
+
 m4_divert_once([HELP_ENABLE], [[
 Infrastructural Features:]])
 
@@ -100,9 +106,15 @@ AC_ARG_WITH([external-mtime],
 
 AC_ARG_WITH([external-yac],
   [AC_HELP_STRING([--with-external-yac],
-     [use external YAC library (when the coupling is enabled) of the bundled
-one @<:@default=no@:>@])], [],
+     [use external YAC library (when the coupling is enabled)
+@<:@default=no@:>@])], [],
   [with_external_yac=no])
+
+AC_ARG_WITH([external-tixi],
+  [AC_HELP_STRING([--with-external-tixi],
+     [use external tixi library (when ART is enabled)
+@<:@default=no@:>@])], [],
+  [with_external_tixi=no])
 
 AC_ARG_WITH([external-self],
   [AC_HELP_STRING([--with-external-self],
@@ -241,6 +253,10 @@ dnl 5. SELF: does not use libtool, needs only Fortran compiler. We just pass
 dnl    LDFLAGS containing RPATH flags in the original form understood by the
 dnl    the Fortran compiler.
 dnl
+dnl 6. TIXI: does not use libtool, no linking checks with Fortran compiler.
+dnl    Therefore, we set LDFLAGS containing RPATH flags in the original form of
+dnl    the C compiler.
+dnl
 dnl Another possible solution is to rely on the fact that we do not install the
 dnl bundled libraries and link them statically, therefore all we need is their
 dnl configure scripts to succeed, which can be done by extending
@@ -271,6 +287,10 @@ LDFLAGS="$icon_fc_rpaths$LDFLAGS"
 
 dnl Run the delayed cross-compilation check:
 ACX_COMPILER_CROSS_CHECK_NOW
+
+dnl Currently, we need this only for ART. Later this check and the
+dnl corresponding modifications of FCFLAGS will be conditional:
+AC_FC_LINE_LENGTH([unlimited])
 
 ACX_FC_MODULE_IN_FLAG([AC_SUBST([FC_MOD_IN], [$acx_cv_fc_module_in_flag])])
 ACX_FC_MODULE_OUT_FLAG([AC_SUBST([FC_MOD_OUT], [$acx_cv_fc_module_out_flag])])
@@ -329,6 +349,16 @@ AS_VAR_IF([enable_coupling], [yes],
 AS_VAR_IF([enable_psrad], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
+AS_VAR_IF([enable_art], [yes],
+  [icon_subdir_srcdir="$srcdir/src/art"
+   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the ART component dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-art)])])
+   AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])])
+
 AS_VAR_IF([enable_mpi], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])
 dnl We pass this variable to the configure scripts of yac, therefore, we
@@ -351,9 +381,9 @@ AS_VAR_IF([enable_loop_exchange], [yes],
 
 dnl One of the topological orderings of the ICON dependency graph:
 dnl
-dnl '-lself', '-lyac', '-llapack -lblas (or other)', '-lmtime', '-lnetcdff',
-dnl '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct', '-lgomp (or other)',
-dnl '-lmpifort -lmpi (or other)'
+dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)', '-lmtime',
+dnl '-lnetcdff', '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct',
+dnl '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
@@ -369,7 +399,7 @@ AC_SUBST([DEPGEN_FCFLAGS], [])
 
 dnl A list of Fortran modules that are used in ICON but are not part of it:
 AC_SUBST([DEPGEN_EXTERNAL_MODS],
-  [[self_assert,self_map,self_object,self_vector,self_vector_ref,]dnl
+  [[tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,]dnl
 [mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
 
 dnl A list of Fortran intrinsic modules:
@@ -662,6 +692,39 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [--with-external-lapack=fortran], [--with-external-mtime]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yac/src"])
       BUNDLED_LIBS="externals/yac/src/libyac.a $BUNDLED_LIBS"])])
+
+AS_VAR_IF([enable_art], [yes],
+  [AS_VAR_IF([with_external_tixi], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of tixi library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use tixi, only: tixiOpenDocument
+      implicit none
+      character(len=200) :: a
+      integer :: b
+      b = tixiOpenDocument(a, b)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using tixi: either dnl
+disable the ART component (--disable-art) or use the bundled version of dnl
+tixi (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/tixi"
+      icon_subdir_unique_file="src/tixi.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+tixi library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the ART component (--disable-art) or provide an external version of dnl
+tixi (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      ACX_CONFIG_SUBDIR([externals/tixi],
+        [[LDFLAGS=*],
+         [XML2_CFLAGS=*|XML2_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
+        [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [XML2_CFLAGS=],
+         [XML2_CLIBS=], [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/tixi/src"])
+      BUNDLED_LIBS="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([with_external_self], [yes],
   [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
