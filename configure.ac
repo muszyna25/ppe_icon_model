@@ -5,7 +5,7 @@ AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile depgen.f90.config depgen.c.config])
+AC_CONFIG_FILES([Makefile Makefile.main depgen.f90.config depgen.c.config])
 
 AC_PREFIX_DEFAULT(["`pwd`/install"])
 

@@ -1975,7 +1975,7 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 ac_config_headers="$ac_config_headers config.h"
 
-ac_config_files="$ac_config_files Makefile depgen.f90.config depgen.c.config"
+ac_config_files="$ac_config_files Makefile Makefile.main depgen.f90.config depgen.c.config"
 
 
 
@@ -7042,6 +7042,7 @@ do
   case $ac_config_target in
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "Makefile.main") CONFIG_FILES="$CONFIG_FILES Makefile.main" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;
     "externals/jsbach.mk") CONFIG_FILES="$CONFIG_FILES externals/jsbach.mk" ;;
