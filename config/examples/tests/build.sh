@@ -14,28 +14,30 @@ if test $# -eq 0; then
 else
   vendors=$@
 fi
-modes='bundled external'
 
 for vendor in ${vendors}; do
-  mkdir ${vendor} && cd ${vendor}
-  for mode in ${modes}; do
-    mkdir ${mode} && cd ${mode}
-    "${root_dir}/../${vendor}.${mode}" 2>&1 | tee "${work_dir}/${vendor}.${mode}.log"
-    make -j8 2>&1 | tee -a "${work_dir}/${vendor}.${mode}.log"
+  vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
+  for vendor_test in ${vendor_tests}; do
+    vendor_test_dir=$(basename "${vendor_test}")
+    mkdir "${vendor_test_dir}"
+    cd "${vendor_test_dir}"
+    log_file="${work_dir}/$(basename "${vendor_test}").log"
+    "${vendor_test}" 2>&1 | tee "${log_file}"
+    make -j8 2>&1 | tee -a "${log_file}"
     cd ..
   done
-  cd ..
 done
 
 for vendor in ${vendors}; do
-  cd ${vendor}
-  for mode in ${modes}; do
-    cd ${mode}
-    echo "Running make for the second time in $(pwd)..." | tee -a "${work_dir}/${vendor}.${mode}.log"
-    make 2>&1 | tee -a "${work_dir}/${vendor}.${mode}.log"
+  vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
+  for vendor_test in ${vendor_tests}; do
+    vendor_test_dir=$(basename "${vendor_test}")
+    cd "${vendor_test_dir}"
+    log_file="${work_dir}/$(basename "${vendor_test}").log"
+    echo "Running make for the second time in $(pwd)..." | tee -a "${log_file}"
+    make 2>&1 | tee -a "${log_file}"
     cd ..
   done
-  cd ..
 done
 
 cd "${curr_dir}"
