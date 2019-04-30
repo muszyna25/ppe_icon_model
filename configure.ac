@@ -45,26 +45,42 @@ ICON_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_IC
 ICON_LDFLAGS=
 ICON_LIBS=
 
-AC_MSG_CHECKING([whether the Fortran interface of mtime library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+AC_ARG_ENABLE([bundled-mtime],
+  [AS_HELP_STRING([--enable-bundled-mtime], [enable usage of the bundled mtime library @<:@default=yes@:>@])],
+  [], [enable_bundled_mtime=yes])
+AS_IF([test "x$enable_bundled_mtime" = "xyes"],
+  [AS_IF([test -d "${srcdir}/externals/mtime/src"],
+    [AX_SUBDIRS_CONFIGURE([externals/mtime],
+       [], [],
+       [[--enable-static=yes], [--enable-shared=no], [--enable-examples=no]],
+       [[--enable-static], [--disable-static],
+        [--enable-shared], [--disable-shared],
+        [--enable-examples], [--disable-examples]])
+     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/mtime/src"])
+     AS_VAR_APPEND([ICON_LIBS], [" externals/mtime/src/.libs/libmtime.a"])],
+    [AC_MSG_ERROR([unable to use the bundled version of mtime library: \
+direcory ${srcdir}/externals/mtime/src not found])])],
+  [AC_MSG_CHECKING([whether the Fortran interface of mtime library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime
       character(len=max_date_str_len) :: test_date_string
       type(date), pointer :: test_date
       test_date => newdate(0,0,0)
       call dateToString(test_date, test_date_string)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using mtime: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([unable to compile test program using mtime library: \
+enable usage of the bundled version of the library \
+or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AC_ARG_ENABLE([bundled-self],
   [AS_HELP_STRING([--enable-bundled-self], [enable usage of the bundled self library @<:@default=yes@:>@])],
   [], [enable_bundled_self=yes])
 AS_IF([test "x$enable_bundled_self" = "xyes"],
   [AS_IF([test -d "${srcdir}/externals/self/src"],
-    [AC_CONFIG_SUBDIRS([externals/self])
+    [AX_SUBDIRS_CONFIGURE([externals/self])
      AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/self/mods"])
-     AS_VAR_APPEND([ICON_LDFLAGS], [" -Lexternals/self/lib"])
-     AS_VAR_APPEND([ICON_LIBS], [" -lself"])],
+     AS_VAR_APPEND([ICON_LIBS], [" externals/self/lib/libself.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of self library: \
 directory ${srcdir}/externals/self/src not found])])],
   [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
@@ -76,11 +92,10 @@ directory ${srcdir}/externals/self/src not found])])],
       use self_assert
       implicit none
       type(map) :: a
-      call a%init()
-   ]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using self 0.2 library: \
+      call a%init()]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([unable to compile test program using self 0.2 library: \
 enable usage of the bundled version of the library \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 

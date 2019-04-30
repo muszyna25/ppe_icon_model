@@ -8,6 +8,9 @@ OBJ_DIR=objs
 MOD_DIR=mods
 BIN_DIR=bin
 
+# Bundled libraries
+SUBDIRS=@subdirs_extra@
+
 # Install directories:
 prefix=@prefix@
 exec_prefix=@exec_prefix@
@@ -56,6 +59,17 @@ vpath %.c $(shell find $(SUPPORT_DIR) -type d)
 .SUFFIXES:
 # Targets not associated with files:
 .PHONY: all depend clean distclean maintainer-clean install
+# Some of the targets are associated with files or directories
+# but their rules still need to be executed unconditionally
+# (which does not necessarily mean that the timestamps of the
+# targets get updated). Since .PHONY targets are always
+# considered as updated whenever their rule is called,
+# everything that depends on them gets updated too. Therefore,
+# we introduce a .PHONY target .FORCE, which being a prerequisite
+# of a target makes the rule of the target to be executed
+# unconditionally and the timestamp of the target to be respected
+# aftewards:
+.PHONY: .FORCE
 # Keep sentinel files of created directories:
 .PRECIOUS: %/.sentinel
 
@@ -67,17 +81,11 @@ all: $(BIN_DIR)/icon;
 
 depend: $(DEP_FILES)
 
-clean:
+clean: $(SUBDIRS)
 	rm -rf $(DEP_DIR) $(BIN_DIR) $(MOD_DIR) $(OBJ_DIR)
-	@for dir in @subdirs@; do \
-          cd "$$dir" && $(MAKE) $@ || exit 0; \
-        done
 
 distclean: clean
 	rm -f config.log config.status Makefile config.h version.c depgen.f90.config
-	@for dir in @subdirs@; do \
-          cd "$$dir" && $(MAKE) $@ || exit 0; \
-        done
 
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~ $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
@@ -90,10 +98,10 @@ install: $(BIN_DIR)/icon
 $(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d) | $(BIN_DIR)/.sentinel
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJ_DIR)/%.o: %.f90 | bundled $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
+$(OBJ_DIR)/%.o: %.f90 | $(SUBDIRS) $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
 	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
 
-$(OBJ_DIR)/%.o: %.c | bundled $(OBJ_DIR)/.sentinel
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)/.sentinel
 	$(CC) -c $(CFLAGS) $(CPPFLAGS) -o $@ $<
 
 # Auxiliary building rules:
@@ -104,12 +112,10 @@ $(MOD_DIR)/%.@FC_MODULE_EXT@:
 	  rm -f $<; $(MAKE) $<; \
 	fi
 
-# Recreate version.c each time make is called
-# (making it a .PHONY target won't work):
+# Recreate version.c each time make is called:
 version.c: .FORCE
 	@echo "Checking for repository, branch and revision..."; \
 	$(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@
-.FORCE:
 
 # Some old versions of GNU Make strip the trailing slash when
 # searching for pattern rules, which is why we have to
@@ -147,10 +153,9 @@ $(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.sentinel
 	echo $(OBJ_DIR)/mo_util_sysinfo.o: $(OBJ_DIR)/util_sysinfo.o >> $@ && \
 	echo $(OBJ_DIR)/mo_c_restart_util.o: $(OBJ_DIR)/util_multifile_restart.o >> $@
 
-bundled:
-	@for dir in @subdirs@; do \
-	  cd "$$dir" && $(MAKE) || exit 1; \
-	done
+# Make bundled libraries:
+$(SUBDIRS): .FORCE
+	@$(MAKE) -C $@ $(MAKECMDGOALS)
 
 ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
 -include $(DEP_FILES)
