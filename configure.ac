@@ -99,6 +99,54 @@ directory ${srcdir}/externals/self/src not found])])],
 enable usage of the bundled version of the library \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
+AC_ARG_ENABLE([bundled-cdi],
+  [AS_HELP_STRING([--enable-bundled-cdi], [enable usage of the bundled CDI library @<:@default=yes@:>@])],
+  [], [enable_bundled_cdi=yes])
+AS_IF([test "x$enable_bundled_cdi" = "xyes"],
+  [AS_IF([test -d "${srcdir}/externals/cdi/src"],
+    [AX_SUBDIRS_CONFIGURE([externals/cdi],
+     [], [],
+       [[--enable-static=yes], [--enable-shared=no],
+        [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
+        [--enable-cdi-app=no], [--with-threads=no],
+        [--with-netcdf=yes]],
+       [[--enable-static], [--disable-static],
+        [--enable-shared], [--disable-shared],
+        [--enable-iso-c-interface], [--disable-iso-c-interface],
+        [--enable-cf-interface], [--disable-cf-interface],
+        [--enable-cdi-app], [--disable-cdi-app],
+        [--with-threads], [--without-threads],
+        [--with-netcdf], [--without-netcdf]])
+     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/cdi/src"])
+     AS_VAR_APPEND([ICON_LIBS], [" externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"])],
+    [AC_MSG_ERROR([unable to use the bundled version of CDI library: \
+directory ${srcdir}/externals/cdi/src not found])])],
+  [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: TSTEP_CONSTANT, cdiInqNatts, &
+                        vlistInqVarTypeOfGeneratingProcess
+      implicit none
+      integer :: a, b, c, d
+! Appeared in 1.8.x
+      a = cdiInqNatts(b, c, d)
+! Disappeared in 1.9.x
+      a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([unable to compile test program using CDI library: \
+enable usage of the bundled version of the library \
+or set FCFLAGS, LDFLAGS and LIBS accordingly])])
+  AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x is patched])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
+      implicit none
+      integer :: a
+      type(t_CdiIterator) :: b
+      a = cdiIterator_inqFiletype(b)]])],
+    [AC_MSG_RESULT([yes])],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([the provided version of CDI 1.8.x does not have required patches])])])
+
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       real :: a(2,2), b(2,2), c(2,2)
@@ -125,31 +173,6 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no])
    AC_MSG_ERROR([unable to compile test program using NetCDF: set FCFLAGS, LDGLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_cdi, only: TSTEP_CONSTANT, cdiInqNatts, &
-                        vlistInqVarTypeOfGeneratingProcess 
-      implicit none
-      integer :: a, b, c, d
-! Appeared in 1.8.x
-      a = cdiInqNatts(b, c, d)
-! Disappeared in 1.9.x
-      a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using CDI: set FCFLAGS, LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x is patched])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
-      implicit none
-      integer :: a
-      type(t_CdiIterator) :: b
-      a = cdiIterator_inqFiletype(b)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([the provided version of CDI 1.8.x does not have required patches])])
 
 AC_ARG_ENABLE([atmo],
   [AS_HELP_STRING([--enable-atmo], [enable atmosphere component of ICON @<:@default=yes@:>@])],
