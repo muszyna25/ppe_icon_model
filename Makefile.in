@@ -55,9 +55,12 @@ vpath %.c $(shell find $(SUPPORT_DIR) -type d)
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
-.PHONY: all depend clean distclean maintainer-clean install create-version
+.PHONY: all depend clean distclean maintainer-clean install
 # Keep sentinel files of created directories:
 .PRECIOUS: %/.sentinel
+
+# Recreate version.c each time make is called:
+$(shell $(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@ > /dev/null)
 
 # User interface rules:
 all: $(BIN_DIR)/icon;
@@ -94,13 +97,6 @@ $(MOD_DIR)/%.@FC_MODULE_EXT@:
 	elif test ! -f $@; then \
 	  rm -f $<; $(MAKE) $<; \
 	fi
-
-# Recreate version.c each time make is called:
-@builddir@/version.c: create-version
-create-version:
-	@echo "Checking for repository, branch and revision..."; \
-	$(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@
-
 
 # Some old versions of GNU Make strip the trailing slash when
 # searching for pattern rules, which is why we have to
