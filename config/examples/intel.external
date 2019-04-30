@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -eu
+
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-2o37ygv'
+NETCDFF_LIBS='-lnetcdff'
+
+MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libmtime-1.0.8-tmkt7fn'
+MTIME_LIBS='-lmtime'
+
+SELF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libself-0.2-kyinif4'
+SELF_LIBS='-lself'
+
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-hddonmg'
+LAPACK_LIBS='-llapack'
+
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-hddonmg'
+BLAS_LIBS='-lblas'
+
+CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-tj4zzhz'
+CDI_LIBS='-lcdi_f2003 -lcdi'
+
+YAC_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yac-1.3.2-hze2whn'
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-wr5dfz4'
+YAC_LIBS='-lyac -lxml2'
+
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-rgnrrda'
+SCT_LIBS='-lsct'
+
+MPI_FC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-6c7qqd3/bin/mpif90'
+
+######################
+
+FC=$MPI_FC
+FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include -I${YAC_ROOT}/include -I${SCT_ROOT}/include"
+
+CC='/sw/jessie-x64/intel/intel-16.0.2/bin/icc'
+CFLAGS='-gcc-name=/usr/bin/gcc'
+
+LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${LAPACK_ROOT}/lib -L${BLAS_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib -L${YAC_ROOT}/lib -L${XML_ROOT}/lib -L${SCT_ROOT}/lib"
+
+# Append RPATHs:
+LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
+
+LIBS="${MTIME_LIBS} ${SELF_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAC_LIBS} ${SCT_LIBS}"
+
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-bundled-mtime --disable-bundled-self --disable-bundled-cdi --enable-sct "$@"
