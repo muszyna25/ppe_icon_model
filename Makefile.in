@@ -14,7 +14,7 @@ FC= @FC@
 FCFLAGS= @FCFLAGS@
 LDFLAGS= @LDFLAGS@
 LIBS= @LIBS@
-icon_FCFLAGS:= @FC_MODINC@$(moddir) @FC_MODOUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
+icon_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
 
 CC= @CC@
 CFLAGS= @CFLAGS@
@@ -25,7 +25,7 @@ icon_CPPFLAGS:= -I. @DEFS@
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V), 0)
 silent_FCLD=   @echo "  FCLD    " $@;
-silent_PPFC=   @echo "  PPFC    " $@;
+silent_FC=     @echo "  FC      " $@;
 silent_CC=     @echo "  CC      " $@;
 silent_GEN=    @echo "  GEN     " $@;
 silent_MKDIR=  @echo "  MKDIR   " $(@D);
@@ -33,7 +33,7 @@ silent_DEPGEN= @echo "  DEPGEN  " $@;
 endif
 
 # Bundled libraries and their root source directories:
-bundled_LIBS:= @BUNDLED_LIBS@
+bundled_LIBS:=@BUNDLED_LIBS@
 bundled_subdirs:=@subdirs_extra@
 
 # Source files:
@@ -68,7 +68,7 @@ all: icon
 depend: $(depfiles)
 
 clean: $(bundled_subdirs)
-	rm -f icon version.o $(depfiles) $(shell find $(dir $(build_dirstamps)) -name '*.o' -o -name '.dirstamp') $(shell find $(moddir) -name '*.@FC_MODULE_EXT@')
+	rm -f icon version.o $(depfiles) $(shell find $(dir $(build_dirstamps)) -name '*.o' -o -name '.dirstamp') $(shell find $(moddir) -name '*.@FC_MOD_FILE_EXT@')
 	-for dir in $(patsubst /scratch/local1/icon-cimd/config.examples/../%, %, $(srcroots)) $(moddir) $(bundled_subdirs); do if test -d "$$dir"; then find "$$dir" -type d -empty -delete || exit 1; else true; fi; done
 
 distclean: clean
@@ -85,13 +85,13 @@ icon: $(rootobj) $(objfiles) $(bundled_LIBS)
 	$(silent_FCLD)$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 %.o: %.f90 | $(build_dirstamps) $(bundled_subdirs)
-	$(silent_PPFC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_FC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
 %.o: %.c | $(build_dirstamps)
 	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
-$(moddir)/%.@FC_MODULE_EXT@:
+$(moddir)/%.@FC_MOD_FILE_EXT@:
 	@if test -z $<; then \
 	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'."; \
 	elif test ! -f $@; then \
@@ -115,6 +115,10 @@ $(build_dirstamps):
 # Make bundled libraries:
 $(bundled_subdirs):
 	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean) V=$(V)
+
+# Build the bundled mtime before the bundled yac
+# (currently redundant since yac is a static library):
+externals/yac: $(filter externals/mtime, $(bundled_subdirs))
 
 $(bundled_LIBS): $(bundled_subdirs);
 
