@@ -15,11 +15,11 @@ time_cmd=$(which time)
 "${root_dir}/../${cfg}"
 for i in {1..10}; do
   "$time_cmd" -f '%e' -o time.txt -a make -j8 depend
-  rm -rf ./deps
+  make clean
 done
 echo
 echo '********************'
 echo
-awk '{s+=$1; c++}END{print "Total runs:", c, "\nAverage wall time:", s/c, "seconds"}' time.txt
+awk '{s+=$1; ssq+=$1^2}END{print "Total runs:", NR, "\nAverage wall time:", s/NR, "seconds\nStandard deviation:", sqrt((ssq-s^2/NR)/(NR-1))}' time.txt
 
 cd "${curr_dir}"
