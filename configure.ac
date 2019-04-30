@@ -118,6 +118,27 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
 
 FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__ $FCFLAGS"
 
+AC_ARG_ENABLE([atmo],
+  [AS_HELP_STRING([--enable-atmo], [enable atmosphere component of ICON @<:@default=yes@:>@])],
+  [], [enable_atmo=yes])
+AS_IF([test "x$enable_atmo" = "xyes"], [],
+  [AC_MSG_NOTICE([atmosphere component is disabled])
+  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
+  
+AC_ARG_ENABLE([ocean],
+  [AS_HELP_STRING([--enable-ocean], [enable ocean component of ICON @<:@default=yes@:>@])],
+  [], [enable_ocean=yes])
+AS_IF([test "x$enable_ocean" = "xyes"], [],
+  [AC_MSG_NOTICE([ocean component is disabled])
+  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
+
+AC_ARG_ENABLE([psrad],
+  [AS_HELP_STRING([--enable-psrad], [enable psrad component of ICON @<:@default=yes@:>@])],
+  [], [enable_psrad=yes])
+AS_IF([test "x$enable_psrad" = "xyes"], [],
+  [AC_MSG_NOTICE([psrad component is disabled])
+  FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"])
+
 AC_ARG_ENABLE([mpi],
   [AS_HELP_STRING([--enable-mpi], [enable MPI (parallelization) support @<:@default=yes@:>@])],
   [], [enable_mpi=yes])
@@ -151,20 +172,6 @@ AS_IF([test "x$enable_openmp" = "xyes"],
         AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"])])])])
   FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"],
   [ACX_OPENMP_CHECK_DISABLED])
-
-AC_ARG_ENABLE([atmo],
-  [AS_HELP_STRING([--enable-atmo], [enable the atmosphere component of ICON @<:@default=yes@:>@])],
-  [], [enable_atmo=yes])
-AS_IF([test "x$enable_atmo" = "xyes"], [],
-  [AC_MSG_NOTICE([the atmosphere component is disabled])
-  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
-
-AC_ARG_ENABLE([ocean],
-  [AS_HELP_STRING([--enable-ocean], [enable the ocean component of ICON @<:@default=yes@:>@])],
-  [], [enable_ocean=yes])
-AS_IF([test "x$enable_ocean" = "xyes"], [],
-  [AC_MSG_NOTICE([the ocean component is disabled])
-  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
 
 AC_ARG_ENABLE([sct],
   [AS_HELP_STRING([--enable-sct], [enable SCT timer @<:@default=no@:>@])],
