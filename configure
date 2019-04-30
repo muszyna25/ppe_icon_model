@@ -676,6 +676,7 @@ enable_art
 enable_mpi
 enable_openmp
 enable_grib2
+enable_parallel_netcdf
 enable_sct
 enable_yaxt
 enable_optimization
@@ -1329,6 +1330,9 @@ Infrastructural Features:
   --enable-mpi            enable MPI (parallelization) support [default=yes]
   --enable-openmp         enable OpenMP support [default=yes]
   --enable-grib2          enable GRIB2 I/O [default=no]
+  --enable-parallel-netcdf
+                          enable usage of the parallel features of NetCDF
+                          [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
 
@@ -2355,6 +2359,14 @@ if test "${enable_grib2+set}" = set; then :
   enableval=$enable_grib2;
 else
   enable_grib2=no
+fi
+
+
+# Check whether --enable-parallel-netcdf was given.
+if test "${enable_parallel_netcdf+set}" = set; then :
+  enableval=$enable_parallel_netcdf;
+else
+  enable_parallel_netcdf=no
 fi
 
 
@@ -5141,6 +5153,10 @@ else
     enable_grib2=no
 fi
 
+if test "x$enable_parallel_netcdf" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"
+fi
+
 if test "x$enable_sct" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__SCT__"
 fi
@@ -5725,6 +5741,60 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+if test "x$enable_parallel_netcdf" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
+$as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
+   icon_netcdf_supports_parallel=unknown
+   if test "x$cross_compiling" = xno; then :
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use mpi
+      implicit none
+      include 'netcdf.inc'
+      integer :: result, tmp
+      call MPI_Init(tmp)
+      result = nf_create_par('conftest.nc', &
+                           & NF_MPIIO, &
+                           & MPI_COMM_WORLD, &
+                           & MPI_INFO_NULL, &
+                           & tmp)
+      if (result == NF_ENOPAR) then
+        write(*,"(a)") "parallel_no"
+      else
+        write(*,"(a)") "parallel_yes"
+      endif
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+         rm -f conftest.nc
+         if test $? -eq 0; then :
+  case $icon_exec_result in #(
+  parallel_no) :
+    icon_netcdf_supports_parallel=no ;; #(
+  parallel_yes) :
+    icon_netcdf_supports_parallel=yes ;; #(
+  *) :
+     ;;
+esac
+fi
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_netcdf_supports_parallel" >&5
+$as_echo "$icon_netcdf_supports_parallel" >&6; }
+   if test x"$icon_netcdf_supports_parallel" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "the provided version of NetCDF does not support parallel features
+See \`config.log' for more details" "$LINENO" 5; }
+elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
+$as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
+fi
+fi
 
 if test "x$with_external_mtime" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of mtime library is available" >&5

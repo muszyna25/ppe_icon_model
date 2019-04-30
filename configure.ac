@@ -75,6 +75,12 @@ AC_ARG_ENABLE([grib2],
      [enable GRIB2 I/O @<:@default=no@:>@])], [],
   [enable_grib2=no])
 
+AC_ARG_ENABLE([parallel-netcdf],
+  [AC_HELP_STRING([--enable-parallel-netcdf],
+     [enable usage of the parallel features of NetCDF
+@<:@default=no@:>@])], [],
+  [enable_parallel_netcdf=no])
+
 AC_ARG_ENABLE([sct],
   [AC_HELP_STRING([--enable-sct],
      [enable the SCT timer @<:@default=no@:>@])], [],
@@ -409,14 +415,17 @@ AS_VAR_IF([enable_art], [yes],
 
 AS_VAR_IF([enable_mpi], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])
-dnl We pass this variable to the configure scripts of yac, therefore, we
+dnl We pass this variable to the configure scripts of YAC, therefore, we
 dnl need to make sure that it's either 'yes' or 'no'.
    enable_mpi=no])
 
 AS_VAR_IF([enable_grib2], [yes], [],
-dnl We pass this variable to the configure scripts of libcdi, therefore, we
+dnl We pass this variable to the configure scripts of CDI, therefore, we
 dnl need to make sure that it's either 'yes' or 'no'.
   [enable_grib2=no])
+
+AS_VAR_IF([enable_parallel_netcdf], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__SCT__"])])
@@ -639,6 +648,40 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([no])
    AC_MSG_FAILURE([unable to link a test program using NetCDF: set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])
+AS_VAR_IF([enable_parallel_netcdf], [yes],
+  [AC_MSG_CHECKING(
+     [whether the provided version of NetCDF is built with parallel support])
+   icon_netcdf_supports_parallel=unknown
+   AS_VAR_IF([cross_compiling], [no],
+     [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mpi
+      implicit none
+      include 'netcdf.inc'
+      integer :: result, tmp
+      call MPI_Init(tmp)
+      result = nf_create_par('conftest.nc', &
+                           & NF_MPIIO, &
+                           & MPI_COMM_WORLD, &
+                           & MPI_INFO_NULL, &
+                           & tmp)
+      if (result == NF_ENOPAR) then
+        write(*,"(a)") "parallel_no"
+      else
+        write(*,"(a)") "parallel_yes"
+      endif]])],
+        [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+         rm -f conftest.nc
+         AS_IF([test $? -eq 0],
+           [AS_CASE([$icon_exec_result],
+              [parallel_no], [icon_netcdf_supports_parallel=no],
+              [parallel_yes], [icon_netcdf_supports_parallel=yes])])])])
+   AC_MSG_RESULT([$icon_netcdf_supports_parallel])
+   AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
+        [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
+parallel features])],
+        [test x"$icon_netcdf_supports_parallel" = xunknown],
+        [AC_MSG_WARN([unable to check whether the provided version of dnl
+NetCDF supports parallel features])])])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING(
