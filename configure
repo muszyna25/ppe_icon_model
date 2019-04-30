@@ -653,6 +653,8 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_mpi
+enable_atmo
+enable_ocean
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1276,6 +1278,9 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-mpi            enable MPI (parallelization) support [default=yes]
+  --enable-atmo           enable the atmosphere component of ICON
+                          [default=yes]
+  --enable-ocean          enable the ocean component of ICON [default=yes]
 
 Some influential environment variables:
   FC          Fortran compiler command
@@ -3202,6 +3207,36 @@ rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
   FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"
+fi
+
+# Check whether --enable-atmo was given.
+if test "${enable_atmo+set}" = set; then :
+  enableval=$enable_atmo;
+else
+  enable_atmo=yes
+fi
+
+if test "x$enable_atmo" = "xyes"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: the atmosphere component is disabled" >&5
+$as_echo "$as_me: the atmosphere component is disabled" >&6;}
+  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"
+fi
+
+# Check whether --enable-ocean was given.
+if test "${enable_ocean+set}" = set; then :
+  enableval=$enable_ocean;
+else
+  enable_ocean=yes
+fi
+
+if test "x$enable_ocean" = "xyes"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
+$as_echo "$as_me: the ocean component is disabled" >&6;}
+  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"
 fi
 
 ac_ext=c

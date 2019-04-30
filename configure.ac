@@ -134,6 +134,20 @@ either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"])
 
+AC_ARG_ENABLE([atmo],
+  [AS_HELP_STRING([--enable-atmo], [enable the atmosphere component of ICON @<:@default=yes@:>@])],
+  [], [enable_atmo=yes])
+AS_IF([test "x$enable_atmo" = "xyes"], [],
+  [AC_MSG_NOTICE([the atmosphere component is disabled])
+  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
+
+AC_ARG_ENABLE([ocean],
+  [AS_HELP_STRING([--enable-ocean], [enable the ocean component of ICON @<:@default=yes@:>@])],
+  [], [enable_ocean=yes])
+AS_IF([test "x$enable_ocean" = "xyes"], [],
+  [AC_MSG_NOTICE([the ocean component is disabled])
+  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
+
 AC_PROG_CC
 AC_LANG([C])
 dnl Supporting ISO C89 means that the following header files are available:
