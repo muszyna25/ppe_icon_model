@@ -343,12 +343,6 @@ AS_VAR_IF([enable_yaxt], [yes],
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
 
-dnl Tests for static library generation tools:
-AC_CHECK_TOOL([AR], [ar], [:])
-AS_VAR_IF([AR], [:], [AC_MSG_ERROR([the archiver command not found])])
-ARFLAGS=${ARFLAGS-cr}
-AC_PROG_RANLIB
-
 dnl One of the topological orderings of the ICON dependency graph:
 dnl
 dnl '-lself', '-lyac', '-llapack -lblas (or other)', '-lmtime', '-lnetcdff',
@@ -441,13 +435,12 @@ of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])],
 dnl
      [ACX_CONFIG_SUBDIR([externals/yaxt],
-        [[LDFLAGS=*|AR=*|ARFLAGS=*|RANLIB=*],
+        [[LDFLAGS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])]],
-        [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [AR="$AR"],
-         [ARFLAGS="$ARFLAGS"], [RANLIB="$RANLIB"], [--enable-static],
+        [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
          [--disable-shared], [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
@@ -505,7 +498,7 @@ dnl
 supports GRIB2])])])],
 dnl
   [ACX_CONFIG_SUBDIR([externals/cdi],
-     [[LDFLAGS=*|AR=*|ARFLAGS=*|RANLIB=*],
+     [[LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -519,8 +512,7 @@ dnl
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([eccodes])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
-     [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [AR="$AR"],
-      [ARFLAGS="$ARFLAGS"], [RANLIB="$RANLIB"], [--enable-static],
+     [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
@@ -563,13 +555,12 @@ the bundled version of mtime (--without-external-mtime) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])],
 dnl
   [ACX_CONFIG_SUBDIR([externals/mtime],
-     [[LDFLAGS=*|AR=*|ARFLAGS=*|RANLIB=*],
+     [[LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])]],
-     [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [AR="$AR"],
-      [ARFLAGS="$ARFLAGS"], [RANLIB="$RANLIB"], [--enable-static],
+     [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--disable-examples]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/mtime/src"])
@@ -615,7 +606,7 @@ LDFLAGS and LIBS accordingly])])],
         [yac_CFLAGS="$CFLAGS $icon_c_rpaths"
          yac_FCFLAGS="$FCFLAGS $icon_fc_rpaths"])
       ACX_CONFIG_SUBDIR([externals/yac],
-        [[FCFLAGS=*|CFLAGS=*|LDFLAGS=*|AR=*|ARFLAGS=*|RANLIB=*],
+        [[FCFLAGS=*|CFLAGS=*|LDFLAGS=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
          [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
@@ -627,8 +618,7 @@ LDFLAGS and LIBS accordingly])])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-lapack])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
         [[FCFLAGS="$yac_FCFLAGS"], [CFLAGS="$yac_CFLAGS"],
-         [LDFLAGS="$yac_LDFLAGS"], [AR="$AR"], [ARFLAGS="$ARFLAGS"],
-         [RANLIB="$RANLIB"], [MTIME_CFLAGS="$yac_MTIME_CFLAGS"],
+         [LDFLAGS="$yac_LDFLAGS"], [MTIME_CFLAGS="$yac_MTIME_CFLAGS"],
          [MTIME_CLIBS="$yac_MTIME_CLIBS"], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
          [XML2_CFLAGS=], [XML2_CLIBS=], [MPI_CFLAGS=], [MPI_CLIBS=],
          [MPI_FCFLAGS=], [MPI_FCLIBS=], [FORTRAN_LAPACK_CLIBS=],
@@ -662,10 +652,6 @@ dnl
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
    BUNDLED_LIBS="externals/self/src/libself.a $BUNDLED_LIBS"])
-
-AC_ARG_VAR([AR], [archiver command])dnl
-AC_ARG_VAR([ARFLAGS], [archiver flags])dnl
-AC_ARG_VAR([RANLIB], [archive indexer command])dnl
 
 AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
 ACX_PROG_SEARCH([PYTHON], [python python3],
