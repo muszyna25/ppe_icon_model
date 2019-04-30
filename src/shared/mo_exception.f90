@@ -32,6 +32,13 @@ MODULE mo_exception
   USE mo_kind,     ONLY: wp, i8
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
   
+#ifndef __STANDALONE
+    USE mo_util_system, ONLY: util_exit
+#endif
+
+#ifdef __INTEL_COMPILER
+    USE ifcore
+#endif
 
   IMPLICIT NONE
 
@@ -110,10 +117,6 @@ CONTAINS
   !!
   SUBROUTINE finish (name, text, exit_no)
 
-#ifdef __INTEL_COMPILER
-    USE ifcore
-#endif
-
     CHARACTER(len=*), INTENT(in)           :: name
     CHARACTER(len=*), INTENT(in), OPTIONAL :: text
     INTEGER,          INTENT(in), OPTIONAL :: exit_no
@@ -121,7 +124,6 @@ CONTAINS
     INTEGER           :: iexit
 
 #ifndef __STANDALONE
-    EXTERNAL :: util_exit
 #if ! (defined (__SX__) || defined (__INTEL_COMPILER) || defined (__xlC__))
     EXTERNAL :: util_backtrace
 #endif

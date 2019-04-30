@@ -2,6 +2,7 @@ PROGRAM test_insert_dimension
   USE mo_kind, ONLY: wp
   USE mo_fortran_tools, ONLY: insert_dimension
   USE iso_c_binding, ONLY: c_double
+  USE mo_util_system, ONLY: util_exit
   IMPLICIT NONE
   INTEGER, PARAMETER :: num_test_iterations=1000
   INTEGER :: test_iteration
