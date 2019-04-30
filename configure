@@ -604,6 +604,7 @@ OPENMP_FCFLAGS
 BUNDLED_LIBS
 BUNDLED_FCFLAGS
 OPTION_FCFLAGS
+DEFAULT_VERBOSITY
 PP_INC_ORDER_f90
 FC_INC_ORDER
 FC_MODULE_EXT
@@ -662,6 +663,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_silent_rules
 enable_atmo
 enable_ocean
 enable_coupling
@@ -1295,6 +1297,8 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-silent-rules   less verbose build output (undo: "make V=1")
+                          [default=yes]
   --enable-atmo           enable atmosphere component of ICON [default=yes]
   --enable-ocean          enable ocean component of ICON [default=yes]
   --enable-coupling       enable coupling with YAC [default=yes]
@@ -3051,6 +3055,20 @@ fi
 
 
 
+# Check whether --enable-silent-rules was given.
+if test "${enable_silent_rules+set}" = set; then :
+  enableval=$enable_silent_rules;
+else
+  enable_silent_rules=yes
+fi
+
+if test "x$enable_silent_rules" = "xyes"; then :
+  DEFAULT_VERBOSITY=0
+else
+  DEFAULT_VERBOSITY=1
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
 $as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
 cat > conftest.$ac_ext <<_ACEOF
@@ -3326,6 +3344,16 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
                as_fn_append ax_args " '--enable-examples=no'"
              fi
            fi
+      ax_candidate="--enable-silent-rules=$enable_silent_rules"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-silent-rules=$enable_silent_rules'"
+             fi
+           fi
 
       # Options that must be removed.
       ax_args=$(echo $ax_args | sed "s,'--enable-static',,")
@@ -3334,6 +3362,8 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
       ax_args=$(echo $ax_args | sed "s,'--disable-shared',,")
       ax_args=$(echo $ax_args | sed "s,'--enable-examples',,")
       ax_args=$(echo $ax_args | sed "s,'--disable-examples',,")
+      ax_args=$(echo $ax_args | sed "s,'--enable-silent-rules',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-silent-rules',,")
 
       as_fn_append ax_args " '--srcdir=$ac_srcdir'"
 
@@ -3731,6 +3761,16 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
                as_fn_append ax_args " '--with-netcdf=yes'"
              fi
            fi
+      ax_candidate="--enable-silent-rules=$enable_silent_rules"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-silent-rules=$enable_silent_rules'"
+             fi
+           fi
 
       # Options that must be removed.
       ax_args=$(echo $ax_args | sed "s,'--enable-static',,")
@@ -3747,6 +3787,8 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
       ax_args=$(echo $ax_args | sed "s,'--without-threads',,")
       ax_args=$(echo $ax_args | sed "s,'--with-netcdf',,")
       ax_args=$(echo $ax_args | sed "s,'--without-netcdf',,")
+      ax_args=$(echo $ax_args | sed "s,'--enable-silent-rules',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-silent-rules',,")
 
       as_fn_append ax_args " '--srcdir=$ac_srcdir'"
 

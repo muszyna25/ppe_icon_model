@@ -44,6 +44,14 @@ ACX_FC_HASH_INCLUDE_ORDER(
   [PP_INC_ORDER_f90=inc,flg])
 AC_SUBST([PP_INC_ORDER_f90])
 
+AC_ARG_ENABLE([silent-rules],
+  [AS_HELP_STRING([--enable-silent-rules],
+     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
+  [], [enable_silent_rules=yes])
+AS_IF([test "x$enable_silent_rules" = "xyes"],
+  [DEFAULT_VERBOSITY=0], [DEFAULT_VERBOSITY=1])
+AC_SUBST([DEFAULT_VERBOSITY])
+
 dnl Check for mandatory dependencies
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -112,10 +120,12 @@ AS_IF([test "x$with_external_mtime" = "xno"],
   [AS_IF([test -f "${srcdir}/externals/mtime/configure"],
     [AX_SUBDIRS_CONFIGURE([externals/mtime],
        [], [],
-       [[--enable-static=yes], [--enable-shared=no], [--enable-examples=no]],
+       [[--enable-static=yes], [--enable-shared=no],
+        [--enable-examples=no], [--enable-silent-rules=$enable_silent_rules]],
        [[--enable-static], [--disable-static],
         [--enable-shared], [--disable-shared],
-        [--enable-examples], [--disable-examples]])
+        [--enable-examples], [--disable-examples],
+        [--enable-silent-rules], [--disable-silent-rules]])
      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MODINC}externals/mtime/src"])
      AS_VAR_APPEND([BUNDLED_LIBS], [" externals/mtime/src/.libs/libmtime.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of mtime library: \
@@ -172,14 +182,15 @@ AS_IF([test "x$with_external_cdi" = "xno"],
       [[--enable-static=yes], [--enable-shared=no],
        [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
        [--enable-cdi-app=no], [--with-threads=no],
-       [--with-netcdf=yes]],
+       [--with-netcdf=yes], [--enable-silent-rules=$enable_silent_rules]],
       [[--enable-static], [--disable-static],
        [--enable-shared], [--disable-shared],
        [--enable-iso-c-interface], [--disable-iso-c-interface],
        [--enable-cf-interface], [--disable-cf-interface],
        [--enable-cdi-app], [--disable-cdi-app],
        [--with-threads], [--without-threads],
-       [--with-netcdf], [--without-netcdf]])
+       [--with-netcdf], [--without-netcdf],
+       [--enable-silent-rules], [--disable-silent-rules]])
      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MODINC}externals/cdi/src"])
      AS_VAR_APPEND([BUNDLED_LIBS], [" externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of CDI library: \

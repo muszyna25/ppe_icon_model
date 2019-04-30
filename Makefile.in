@@ -21,6 +21,17 @@ CFLAGS= @CFLAGS@
 CPPFLAGS= @CPPFLAGS@
 icon_CPPFLAGS:= -I. @DEFS@
 
+# Silent rule prefixes:
+V= @DEFAULT_VERBOSITY@
+ifeq ($(V), 0)
+silent_FCLD=   @echo "  FCLD    " $@;
+silent_PPFC=   @echo "  PPFC    " $@;
+silent_CC=     @echo "  CC      " $@;
+silent_GEN=    @echo "  GEN     " $@;
+silent_MKDIR=  @echo "  MKDIR   " $(@D);
+silent_DEPGEN= @echo "  DEPGEN  " $@;
+endif
+
 # Bundled libraries and their root source directories:
 bundled_LIBS:= @BUNDLED_LIBS@
 bundled_subdirs:=@subdirs_extra@
@@ -71,13 +82,13 @@ install: all
 
 # Main building rules:
 icon: $(rootobj) $(objfiles) $(bundled_LIBS)
-	$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 %.o: %.f90 | $(build_dirstamps) $(bundled_subdirs)
-	$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_PPFC)$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
 %.o: %.c | $(build_dirstamps)
-	$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
 $(moddir)/%.@FC_MODULE_EXT@:
@@ -89,21 +100,21 @@ $(moddir)/%.@FC_MODULE_EXT@:
 
 # Version source file generation rule:
 version.c: force-create-version
-	@PERL@ @top_srcdir@/utils/pvcs.pl --srcdir @top_srcdir@
+	$(silent_GEN)@PERL@ @top_srcdir@/utils/pvcs.pl --srcdir @top_srcdir@
 
 $(build_dirstamps):
-	@MKDIR_P@ $(@D) && touch $@
+	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
 # Dependency generation rules:
 %.f90.d: %.f90 | $(build_dirstamps)
-	@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) --src-name $(@:.f90.d=.f90) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) --src-name $(@:.f90.d=.f90) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
 
 %.c.d: %.c | $(build_dirstamps)
-	@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) --src-name $(@:.c.d=.c) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) --src-name $(@:.c.d=.c) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
 $(bundled_subdirs):
-	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean)
+	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean) V=$(V)
 
 $(bundled_LIBS): $(bundled_subdirs);
 
