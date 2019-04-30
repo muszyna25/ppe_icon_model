@@ -8,7 +8,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_PREFIX_DEFAULT([$(pwd)/install])
 
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile depgen.f90.config])
 
 AC_PROG_FC
 AC_LANG([Fortran])

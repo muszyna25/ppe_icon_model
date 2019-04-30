@@ -8,6 +8,7 @@
 /Makefile
 config.h
 version.c
+depgen.f90.config
 config.log
 config.status
 config/mh-config-use

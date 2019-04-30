@@ -34,18 +34,12 @@ DEPLIST=$(PYTHON) @srcdir@/utils/mkhelper/deplist.py
 EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert
 
 # Dependency generation command for Fortran source files:
-DEPGEN_f90=$(DEPGEN) $< --output $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) --src-name $(<F) \
-           --src-root='@srcdir@' --pp-enable --pp-eval-expr \
-           --pp-inc-order='@PP_INC_ORDER_f90@' --pp-macro-flag='@FC_DEFINE@' \
-           --fc-enable --fc-mod-ext='@FC_MODULE_EXT@' --fc-mod-upper='@FC_MODULE_UPPER@' \
-           --fc-inc-order='@FC_INC_ORDER@' --fc-external-mods='$(EXTERNAL_MODS)' \
-           --fc-mod-dir-flag='@FC_MODOUT@' \
-           --
+DEPGEN_f90=$(DEPGEN) $< @depgen.f90.config -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) \
+           --src-name $(<F) --fc-external-mods='$(EXTERNAL_MODS)'
 
 # Dependency generation command for C source files:
-DEPGEN_c=$(DEPGEN) $< --output $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
-         --src-root='@srcdir@' --pp-enable --pp-eval-expr \
-         --
+DEPGEN_c=$(DEPGEN) $< -o $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
+         --src-root='@srcdir@' --pp-enable --pp-eval-expr
 
 # List of the dependency files:
 src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
@@ -118,91 +112,91 @@ create-version:
 
 # Common dependency generation rules:
 $(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS)
+	@$(DEPGEN_f90) -- $(FCFLAGS)
 
 $(DEP_DIR)/%.c.d: %.c | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_c) $(CPPFLAGS) $(CFLAGS)
+	@$(DEPGEN_c) -- $(CPPFLAGS) $(CFLAGS)
 
 # Overridden dependency generation rules for source files with undetectable dependencies:
 $(DEP_DIR)/mo_interface_echam_car.f90.d: mo_interface_echam_car.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@
 
 $(DEP_DIR)/mo_hydro_ocean_run.f90.d: mo_hydro_ocean_run.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/bgc_icon.o  $(OBJ_DIR)/ini_bgc_icon.o >> $@
 
 $(DEP_DIR)/mo_echam_phy_init.f90.d: mo_echam_phy_init.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@
 
 $(DEP_DIR)/lcariolle_do3dt.f90.d: lcariolle_do3dt.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_o3_column.o  >> $@
 
 $(DEP_DIR)/bgc_icon.f90.d: bgc_icon.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@
 
 # Overridden dependency generation rules for Fortran files that call C functions:
 $(DEP_DIR)/mo_util_uuid.f90.d: mo_util_uuid.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_uuid.o >> $@
 
 $(DEP_DIR)/mo_real_timer.f90.d: mo_real_timer.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
 
 $(DEP_DIR)/mo_util_file.f90.d: mo_util_file.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_file.o >> $@
 
 $(DEP_DIR)/mo_util_vcs.f90.d: mo_util_vcs.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/version.o >> $@
 
 $(DEP_DIR)/mo_var_list.f90.d: mo_var_list.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
 
 $(DEP_DIR)/mo_expression.f90.d: mo_expression.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_arithmetic_expr.o >> $@
 
 $(DEP_DIR)/mo_util_nml.f90.d: mo_util_nml.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/nml_annotate.o >> $@
 
 $(DEP_DIR)/mo_hierarchy_management.f90.d: mo_hierarchy_management.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
 
 $(DEP_DIR)/mo_name_list_output_init.f90.d: mo_name_list_output_init.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
 
 $(DEP_DIR)/mo_fortran_tools.f90.d: mo_fortran_tools.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_stride.o >> $@
 
 $(DEP_DIR)/mo_output_event_handler.f90.d: mo_output_event_handler.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string.o >> $@
 
 $(DEP_DIR)/mo_exception.f90.d: mo_exception.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_backtrace.o $(OBJ_DIR)/util_system.o >> $@
 
 $(DEP_DIR)/mo_util_string_parse.f90.d: mo_util_string_parse.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string_parse.o >> $@
 
 $(DEP_DIR)/mo_util_sysinfo.f90.d: mo_util_sysinfo.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_sysinfo.o >> $@
 
 $(DEP_DIR)/mo_c_restart_util.f90.d: mo_c_restart_util.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS) && \
+	@$(DEPGEN_f90) -- $(FCFLAGS) && \
 	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_multifile_restart.o >> $@
 
 ifeq (,$(filter $(MAKECMDGOALS), clean depclean distclean depend maintainer-clean))
