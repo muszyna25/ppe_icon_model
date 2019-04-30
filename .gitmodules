@@ -28,3 +28,7 @@
 [submodule "externals/omni-xmod-pool"]
 	path = externals/omni-xmod-pool
 	url = https://github.com/claw-project/omni-xmod-pool.git
+[submodule "externals/cdi"]
+	path = externals/cdi
+	url = git@gitlab.dkrz.de:mpim-sw/libcdi.git
+	branch = cdi-1.8.x
