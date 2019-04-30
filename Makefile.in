@@ -44,7 +44,7 @@ DEPGEN_c=$(DEPGEN) $< -o $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
 # List of the dependency files:
 src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
 DEP_FILES=$(addprefix $(DEP_DIR)/, $(src_f90:.f90=.f90.d))
-srcs_c=$(notdir $(shell find $(SUPPORT_DIR) -name '*.c')) version.c
+srcs_c=$(notdir $(shell find $(SUPPORT_DIR) -name '*.c'))
 DEP_FILES+=$(addprefix $(DEP_DIR)/, $(srcs_c:.c=.c.d))
 DEP_FILES+=$(DEP_DIR)/_undetectable.d
 
@@ -103,6 +103,13 @@ $(MOD_DIR)/%.@FC_MODULE_EXT@:
 	elif test ! -f $@; then \
 	  rm -f $<; $(MAKE) $<; \
 	fi
+
+# Recreate version.c each time make is called
+# (making it a .PHONY target won't work):
+version.c: .FORCE
+	@echo "Checking for repository, branch and revision..."; \
+	$(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@
+.FORCE:
 
 # Some old versions of GNU Make strip the trailing slash when
 # searching for pattern rules, which is why we have to
