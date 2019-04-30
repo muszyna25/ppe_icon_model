@@ -18,6 +18,10 @@ LAPACK_LIBS='-llapack'
 CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-tj4zzhz'
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
+YAC_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yac-1.3.2-hze2whn'
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-wr5dfz4'
+YAC_LIBS='-lyac -lxml2'
+
 SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-rgnrrda'
 SCT_LIBS='-lsct'
 
@@ -31,11 +35,11 @@ CPPFLAGS='-gcc-name=/usr/bin/gcc'
 
 FC=$MPI_FC
 
-FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include -I${SCT_ROOT}/include"
+FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include -I${YAC_ROOT}/include -I${SCT_ROOT}/include"
 
-LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib -L${SCT_ROOT}/lib"
+LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib -L${YAC_ROOT}/lib -L${XML_ROOT}/lib -L${SCT_ROOT}/lib"
 LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
 
-LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${SCT_LIBS}"
+LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAC_LIBS} ${SCT_LIBS}"
 
 $(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct "$@"
