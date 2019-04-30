@@ -1,7 +1,7 @@
 [submodule "externals/mtime"]
 	path = externals/mtime
 	url = git@gitlab.dkrz.de:icon-libraries/libmtime.git
-	branch = develop
+	branch = 1.0.8-patched
 [submodule "externals/jsbach"]
 	path = externals/jsbach
 	url = git@gitlab.dkrz.de:jsbach/jsbach.git
