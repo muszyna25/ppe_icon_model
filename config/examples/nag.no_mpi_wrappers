@@ -23,20 +23,23 @@ XML_LIBS='-lxml2'
 SCT_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libsct-develop-4srm5jo'
 SCT_LIBS='-lsct'
 
+MPI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2'
+MPI_LIBS='-lmpifort -lmpi'
+
 ######################
 
 BUILD_ENV='export NAG_KUSARI_FILE="license.mpimet.mpg.de:";'
 
-FC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpif90'
-CC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpicc'
+FC='/sw/stretch-x64/nag/nag-6.2/bin/nagfor'
+CC='/usr/bin/gcc'
 MPI_LAUNCH='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpirun'
 
-FCFLAGS="-mismatch -I${SCT_ROOT}/include -I${NETCDFF_ROOT}/include"
+FCFLAGS="-mismatch -I${MPI_ROOT}/include -I${SCT_ROOT}/include -I${NETCDFF_ROOT}/include"
 CFLAGS=
-CPPFLAGS="-I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
+CPPFLAGS="-I${MPI_ROOT}/include -I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
 
-LDFLAGS="-L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
-LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
+LDFLAGS="-L${MPI_ROOT}/lib -L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
+LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS} ${MPI_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 --enable-yaxt "$@"
 

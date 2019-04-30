@@ -21,7 +21,7 @@ CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-rrdsdao'
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
 YAC_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yac-1.3.2-cmai5lb'
-YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox/lib -Wl,-rpath -Wl,/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox/lib -lxml2 -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n/lib -Wl,-rpath -Wl,/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n/lib -lnetcdf'
+YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox/lib -lxml2 -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n/lib -lnetcdf'
 
 YAXT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yaxt-0.7.0-lazd2ez'
 YAXT_LIBS='-lyaxt'
@@ -29,19 +29,19 @@ YAXT_LIBS='-lyaxt'
 SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
 SCT_LIBS='-lsct'
 
+######################
+
+BUILD_ENV='export ICCCFG="/sw/jessie-x64/intel/intel-16.0.2/bin/rpath.cfg"; export IFORTCFG="$ICCCFG";'
+
 FC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-gubxzw3/bin/mpif90'
 CC='/sw/jessie-x64/intel/intel-16.0.2/bin/icc'
 
-######################
-
 FCFLAGS="-I${SCT_ROOT}/include -I${YAXT_ROOT}/include -I${CDI_ROOT}/include -I${NETCDFF_ROOT}/include -I${MTIME_ROOT}/include -I${YAC_ROOT}/include -I${SELF_ROOT}/include"
 CFLAGS='-gcc-name=/usr/bin/gcc'
+CPPFLAGS=
 
-LDFLAGS="-L${SCT_ROOT}/lib -L${YAXT_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${MTIME_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${YAC_ROOT}/lib -L${SELF_ROOT}/lib -Wl,-rpath -Wl,/sw/jessie-x64/intel/intel-16.0.2/lib/intel64"
-
-# Append RPATHs:
-LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
-
+LDFLAGS="-L${SCT_ROOT}/lib -L${YAXT_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${MTIME_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${YAC_ROOT}/lib -L${SELF_ROOT}/lib"
 LIBS="${SELF_LIBS} ${YAC_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --enable-sct --enable-grib2 --enable-yaxt "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --enable-sct --enable-grib2 --enable-yaxt "$@"
+
