@@ -149,7 +149,6 @@ $(bundled_LIBS): $(bundled_subdirs);
 # Fortran to C dependencies (see $(objfiles)):
 src/atm_dyn_icoham/mo_hierarchy_management.o:| support/util_timer.o
 src/io/restart/mo_c_restart_util.o:| support/util_multifile_restart.o
-src/io/shared/mo_output_event_handler.o:| support/util_string.o
 src/io/shared/mo_util_file.o:| support/util_file.o
 src/io/shared/mo_util_nml.o:| support/nml_annotate.o
 src/shared/mo_expression.o:| support/util_arithmetic_expr.o
