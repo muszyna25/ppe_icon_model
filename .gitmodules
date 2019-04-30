@@ -17,6 +17,7 @@
 [submodule "externals/tixi"]
 	path = externals/tixi
 	url = git@gitlab.dkrz.de:icon-libraries/libtixi.git
+	branch = icon-new-config
 [submodule "externals/yaxt"]
 	path = externals/yaxt
 	url = git@gitlab.dkrz.de:dkrz-sw/yaxt.git
