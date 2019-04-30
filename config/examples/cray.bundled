@@ -9,7 +9,8 @@ XML_LIBS='-lxml2'
 
 ######################
 
-BUILD_ENV='module load cray-netcdf;'
+ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../.."
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_module PrgEnv-cray/6.0.4; switch_for_module cray-netcdf/4.6.1.2;"
 
 FC='ftn'
 CC='cc'
@@ -21,5 +22,5 @@ CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
 LIBS="${XML_LIBS} ${GRIBAPI_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt "$@"
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt "$@"
 
