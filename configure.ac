@@ -6,6 +6,11 @@ AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
 AC_PREFIX_DEFAULT(["`pwd`/install"])
 
+AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
+test -f "$srcdir/config.status"],
+  [AC_MSG_ERROR([source directory already configured; dnl
+run "make distclean" there first])])
+
 AC_ARG_ENABLE([rpaths],
   [AC_HELP_STRING([--enable-rpaths],
      [prepend LDFLAGS with additional linker flags to add directories specified

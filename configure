@@ -2205,6 +2205,10 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 
+if test "`cd $srcdir && pwd`" != "`pwd`" && test -f "$srcdir/config.status"; then :
+  as_fn_error $? "source directory already configured; run \"make distclean\" there first" "$LINENO" 5
+fi
+
 # Check whether --enable-rpaths was given.
 if test "${enable_rpaths+set}" = set; then :
   enableval=$enable_rpaths;
