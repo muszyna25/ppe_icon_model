@@ -1,115 +1,153 @@
-# Source file directory:
-SRC_DIR=@srcdir@/src
+# Source file root directories:
+srcroots:= @srcdir@/src \
+           @srcdir@/support
 
-# Build directories:
-DEP_DIR=.deps
-OBJ_DIR=.objs
-MOD_DIR=.mods
-BIN_DIR=bin
+# Installation directories:
+prefix:= @prefix@
+exec_prefix:= @exec_prefix@
 
-# Bundled libraries
-BUNDLED_LIBS=support/libicon_support.a@BUNDLED_LIBS@
-SUBDIRS=support@subdirs_extra@
+# Fortran module file directory:
+moddir:= mod
 
-# Install command and directories:
-INSTALL=@INSTALL@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
+#Compilers and flags:
+FC= @FC@
+FCFLAGS= @FCFLAGS@
+LDFLAGS= @LDFLAGS@
+LIBS= @LIBS@
+icon_FCFLAGS:= @FC_MODINC@$(moddir) @FC_MODOUT@$(moddir) -I@srcdir@/src/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@
 
-# Compiler and flags:
-FC=@FC@
-FCFLAGS=@FC_MODINC@$(MOD_DIR) @FC_MODOUT@$(MOD_DIR) -I$(SRC_DIR)/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@ @FCFLAGS@
-LDFLAGS=@LDFLAGS@
-LIBS=@LIBS@
+CC= @CC@
+CFLAGS= @CFLAGS@
+CPPFLAGS= @CPPFLAGS@
+icon_CPPFLAGS:= -I. @DEFS@
 
-# List of external modules for the dependency generation:
-EXTERNAL_MODS=@EXTERNAL_MODS@
+# Bundled libraries and their root source directories:
+bundled_LIBS:= @BUNDLED_LIBS@
+bundled_subdirs:=@subdirs_extra@
 
-# Dependency generation command:
-DEPGEN=@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py $< @depgen.f90.config \
-       -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) --src-name $(<F) \
-       --fc-external-mods='$(EXTERNAL_MODS)' -- @DEPGEN_DEFS@
+# Source files:
+FC_srcs:= $(shell find $(srcroots) -name '*.f90')
+C_srcs:= $(shell find $(srcroots) -name '*.c')
 
-# Dependency listing command:
-DEPLIST=@PYTHON@ @top_srcdir@/utils/mkhelper/deplist.py
+# Stamp files of the build directories:
+build_dirstamps:= $(patsubst @srcdir@/%/, %/.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs)))) $(moddir)/.dirstamp
 
-# List of the dependency files:
-SRC_FILES=$(notdir $(shell find $(SRC_DIR) -name '*.f90'))
-DEP_FILES=$(addprefix $(DEP_DIR)/, $(SRC_FILES:.f90=.f90.d))
-DEP_FILES+=$(DEP_DIR)/_undetectable.d
+# Dependency files:
+depfiles:= $(patsubst @srcdir@/%.f90, %.f90.d, $(FC_srcs))
+depfiles+= $(patsubst @srcdir@/%.c, %.c.d, $(C_srcs))
 
 # List of the required object files:
-OBJ_FILES=$(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d)
+rootobj:= src/drivers/icon.o
+objfiles:=$(shell @PYTHON@ @top_srcdir@/utils/mkhelper/deplist.py -p '*.o' -t $(rootobj) --inc-oo -f $(depfiles) Makefile)
 
 # Source file selective search paths:
-vpath %.f90 $(shell find $(SRC_DIR) -type d)
+vpath %.f90 @srcdir@
+vpath %.c @srcdir@
 
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
-.PHONY: all depend clean distclean maintainer-clean install
+.PHONY: all depend clean distclean maintainer-clean install force-create-version
 # Call make inside the subdirectories unconditionally:
-.PHONY: $(SUBDIRS)
-# Keep sentinel files of created directories:
-.PRECIOUS: %/.dirstamp
+.PHONY: $(bundled_subdirs)
 
 # User interface rules:
-all: $(BIN_DIR)/icon
+all: icon
 
-depend: $(DEP_FILES)
+depend: $(depfiles)
 
-clean: $(SUBDIRS)
-	rm -rf $(DEP_DIR) $(OBJ_DIR) $(MOD_DIR) $(BIN_DIR)
+clean: $(bundled_subdirs)
+	rm -f icon version.o $(depfiles) $(shell find $(dir $(build_dirstamps)) -name '*.o' -o -name '.dirstamp') $(shell find $(moddir) -name '*.@FC_MODULE_EXT@')
+	-for dir in $(patsubst /scratch/local1/icon-cimd/config.examples/../%, %, $(srcroots)) $(moddir) $(bundled_subdirs); do if test -d "$$dir"; then find "$$dir" -type d -empty -delete || exit 1; else true; fi; done
 
 distclean: clean
-	rm -f config.log config.status Makefile depgen.f90.config
+	rm -rf config.log config.status Makefile config.h version.c depgen.f90.config depgen.c.config $(shell find . -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
 
 maintainer-clean: distclean
-	rm -rf autom4te.cache $(shell find ./utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
+	rm -rf autom4te.cache config.h.in~
 
 install: all
-	$(INSTALL) -d @bindir@
-	$(INSTALL) $(BIN_DIR)/icon @bindir@/icon
+	@INSTALL@ -d @bindir@ && @INSTALL@ icon @bindir@/icon
 
 # Main building rules:
-$(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(OBJ_FILES) $(BUNDLED_LIBS) | $(BIN_DIR)/.dirstamp
-	$(FC) $(FCFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+icon: $(rootobj) $(objfiles) $(bundled_LIBS)
+	$(FC) -o $@ $(icon_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
-$(OBJ_DIR)/%.o: %.f90 | $(SUBDIRS) $(MOD_DIR)/.dirstamp $(OBJ_DIR)/.dirstamp
-	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
+%.o: %.f90 | $(build_dirstamps) $(bundled_subdirs)
+	$(FC) -o $@ -c $(icon_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
-# Auxiliary building rules:
-$(MOD_DIR)/%.@FC_MODULE_EXT@:
+%.o: %.c | $(build_dirstamps)
+	$(CC) -o $@ -c $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS) $<
+
+# Fortran module file tracking rule:
+$(moddir)/%.@FC_MODULE_EXT@:
 	@if test -z $<; then \
 	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'."; \
 	elif test ! -f $@; then \
 	  rm -f $<; $(MAKE) $<; \
 	fi
 
-# Some old versions of GNU Make strip the trailing slash when
-# searching for pattern rules, which is why we have to
-# create sentinel files inside the created directories:
-%/.dirstamp:
-	@echo "Creating directory '$(@D)'..."; mkdir $(@D); touch $@
+# Version source file generation rule:
+version.c: force-create-version
+	@PERL@ @top_srcdir@/utils/pvcs.pl --srcdir @top_srcdir@
 
-# Dependency generation rule:
-$(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.dirstamp
-	@$(DEPGEN) $(FCFLAGS)
+$(build_dirstamps):
+	@MKDIR_P@ $(@D) && touch $@
 
-# Undetectable dependencies:
-$(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.dirstamp
-	@echo $(OBJ_DIR)/mo_interface_echam_car.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@ && \
-	echo $(OBJ_DIR)/mo_hydro_ocean_run.o: $(OBJ_DIR)/bgc_icon.o $(OBJ_DIR)/ini_bgc_icon.o >> $@ && \
-	echo $(OBJ_DIR)/mo_echam_phy_init.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@ && \
-	echo $(OBJ_DIR)/lcariolle_do3dt.o: $(OBJ_DIR)/lcariolle_o3_column.o >> $@ && \
-	echo $(OBJ_DIR)/bgc_icon.o: $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@
+# Dependency generation rules:
+%.f90.d: %.f90 | $(build_dirstamps)
+	@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) --src-name $(@:.f90.d=.f90) $< -- @DEPGEN_DEFS@ $(icon_FCFLAGS) $(FCFLAGS)
+
+%.c.d: %.c | $(build_dirstamps)
+	@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) --src-name $(@:.c.d=.c) $< -- $(CFLAGS) $(icon_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
-$(SUBDIRS):
+$(bundled_subdirs):
 	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean)
 
-$(BUNDLED_LIBS): $(SUBDIRS);
+$(bundled_LIBS): $(bundled_subdirs);
+
+# Fortran to C dependencies (see $(objfiles)):
+src/atm_dyn_icoham/mo_hierarchy_management.o:| support/util_timer.o
+src/io/restart/mo_c_restart_util.o:| support/util_multifile_restart.o
+src/io/shared/mo_output_event_handler.o:| support/util_string.o
+src/io/shared/mo_util_file.o:| support/util_file.o
+src/io/shared/mo_util_nml.o:| support/nml_annotate.o
+src/shared/mo_exception.o:| support/util_backtrace.o support/util_system.o
+src/shared/mo_expression.o:| support/util_arithmetic_expr.o
+src/shared/mo_fortran_tools.o:| support/util_stride.o
+src/shared/mo_real_timer.o:| support/util_timer.o
+src/shared/mo_util_hash.o:| support/util_hash.o
+src/shared/mo_util_string_parse.o:| support/util_string_parse.o
+src/shared/mo_util_sysinfo.o:| support/util_sysinfo.o
+src/shared/mo_util_uuid.o:| support/util_uuid.o
+src/shared/mo_util_vcs.o:| version.o
+
+# Undetectable Fortran dependencies (see $(objfiles)):
+src/atm_chem_cariolle/lcariolle_do3dt.o:|      \
+  src/atm_chem_cariolle/lcariolle_o3_column.o
+
+src/atm_phy_echam/mo_echam_phy_init.o:|          \
+  src/atm_chem_cariolle/lcariolle_init.o         \
+  src/atm_chem_cariolle/lcariolle_init_o3.o      \
+  src/atm_chem_cariolle/lcariolle_lat_intp_li.o  \
+  src/atm_chem_cariolle/lcariolle_pres_intp_li.o
+
+src/atm_phy_echam/mo_interface_echam_car.o:|     \
+  src/atm_chem_cariolle/lcariolle_do3dt.o        \
+  src/atm_chem_cariolle/lcariolle_lat_intp_li.o  \
+  src/atm_chem_cariolle/lcariolle_pres_intp_li.o
+
+src/hamocc/icon_specific/bgc_icon.o:| \
+  src/hamocc/common/chemcon.o         \
+  src/hamocc/common/ocprod.o          \
+  src/hamocc/common/sedshi.o          \
+  src/hamocc/common/swr_absorption.o
+
+src/ocean/drivers/mo_hydro_ocean_run.o:|  \
+  src/hamocc/icon_specific/bgc_icon.o     \
+  src/hamocc/icon_specific/ini_bgc_icon.o
 
 ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
--include $(DEP_FILES)
+-include $(depfiles)
 endif

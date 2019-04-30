@@ -7,13 +7,19 @@ AC_CONFIG_MACRO_DIR([m4])
 
 AC_PREFIX_DEFAULT([$(pwd)/install])
 
-AC_CONFIG_HEADERS([support/config.h])
-AC_CONFIG_FILES([Makefile support/Makefile depgen.f90.config])
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_FILES([Makefile depgen.f90.config depgen.c.config])
 
 AC_PROG_FC
 AC_LANG([Fortran])
 AC_FC_PP_SRCEXT([f90])
 AC_FC_FREEFORM
+
+AC_SUBST([DEPGEN_DEFS])
+AC_SUBST([DEPGEN_INTRINSIC_MODS],
+  [iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc])
+AC_SUBST([DEPGEN_EXTERNAL_MODS],
+  [mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface])
 
 ACX_FC_VENDOR
 ACX_FC_PP_DEFINE
@@ -37,11 +43,6 @@ ACX_FC_HASH_INCLUDE_ORDER(
   [PP_INC_ORDER_f90=$acx_cv_fc_hash_include_order],
   [PP_INC_ORDER_f90=inc,flg])
 AC_SUBST([PP_INC_ORDER_f90])
-
-AC_SUBST([EXTERNAL_MODS],
-  [mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface])
-
-AC_SUBST([DEPGEN_DEFS])
 
 dnl Check for mandatory dependencies
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
@@ -317,17 +318,6 @@ dnl util_pbio.c: ffio.h pthread.h
 dnl util_postgresql.c: libpq-fe.h
 dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
-AC_ARG_VAR([AR], [archiver command])
-ACX_CHECK_PROGS([AR], [ar], [for the archiver command],
-  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])],
-    [acx_ar_try='$acx_prog_candidate cru libconftest.a conftest.$ac_objext >&AS_MESSAGE_LOG_FD'
-    AC_TRY_EVAL([acx_ar_try])
-    rm -f libconftest.a])
-  test "$ac_status" -eq 0],
-  [unknown])
-AS_IF([test "x$AR" = xunknown],
-  [AC_MSG_FAILURE([unable to find the archiver command])])
-
 AC_ARG_VAR([PYTHON], [Python interpreter command (used for Fortran dependency generation)])
 ACX_CHECK_PROGS([PYTHON], [python python3], [for Python interpreter command],
   [acx_depgen_try='$acx_prog_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
@@ -346,5 +336,6 @@ AS_IF([test "x$PERL" = "xunknown"],
   [AC_MSG_FAILURE([unable to find Perl interpreter])])
 
 AC_PROG_INSTALL
+AC_PROG_MKDIR_P
 
 AC_OUTPUT

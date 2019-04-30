@@ -590,12 +590,12 @@ enable_option_checking=no
 ac_subst_vars='subdirs_extra
 LTLIBOBJS
 LIBOBJS
+MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
 PERL
 PYTHON
-AR
 ac_ct_CC
 CPPFLAGS
 CFLAGS
@@ -604,8 +604,6 @@ OPENMP_FCFLAGS
 BUNDLED_LIBS
 BUNDLED_FCFLAGS
 OPTION_FCFLAGS
-DEPGEN_DEFS
-EXTERNAL_MODS
 PP_INC_ORDER_f90
 FC_INC_ORDER
 FC_MODULE_EXT
@@ -613,6 +611,9 @@ FC_MODULE_UPPER
 FC_MODOUT
 FC_MODINC
 FC_DEFINE
+DEPGEN_EXTERNAL_MODS
+DEPGEN_INTRINSIC_MODS
+DEPGEN_DEFS
 FCFLAGS_f90
 OBJEXT
 EXEEXT
@@ -683,7 +684,6 @@ LIBS
 CC
 CFLAGS
 CPPFLAGS
-AR
 PYTHON
 PERL'
 
@@ -1326,7 +1326,6 @@ Some influential environment variables:
   CFLAGS      C compiler flags
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
-  AR          archiver command
   PYTHON      Python interpreter command (used for Fortran dependency
               generation)
   PERL        Perl interpreter command (used to generate version information)
@@ -1951,9 +1950,9 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 
-ac_config_headers="$ac_config_headers support/config.h"
+ac_config_headers="$ac_config_headers config.h"
 
-ac_config_files="$ac_config_files Makefile support/Makefile depgen.f90.config"
+ac_config_files="$ac_config_files Makefile depgen.f90.config depgen.c.config"
 
 
 ac_ext=${ac_fc_srcext-f}
@@ -2527,6 +2526,12 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 
 
+DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
+
+DEPGEN_EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
+
+
+
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler vendor" >&5
 $as_echo_n "checking for Fortran compiler vendor... " >&6; }
@@ -3043,11 +3048,6 @@ if test x"$acx_cv_fc_hash_include_order" != xunknown; then :
 else
   PP_INC_ORDER_f90=inc,flg
 fi
-
-
-
-EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
-
 
 
 
@@ -5001,58 +5001,6 @@ as_fn_append CPPFLAGS " -Df2cFortran"
 
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for the archiver command" >&5
-$as_echo_n "checking for the archiver command... " >&6; }
-if ${acx_cv_prog_AR+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$AR"; then :
-  set dummy "$AR"
-else
-  set dummy ar
-fi
-shift
-acx_cv_prog_AR=unknown
-for acx_prog_candidate in "$@"; do
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main ()
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  acx_ar_try='$acx_prog_candidate cru libconftest.a conftest.$ac_objext >&5'
-    { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_ar_try\""; } >&5
-  (eval $acx_ar_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-    rm -f libconftest.a
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-  test "$ac_status" -eq 0
-if test $? -eq 0; then :
-  acx_cv_prog_AR="$acx_prog_candidate"; break
-fi
-done
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_AR" >&5
-$as_echo "$acx_cv_prog_AR" >&6; }
-AR=$acx_cv_prog_AR
-
-if test "x$AR" = xunknown; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find the archiver command
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-
-
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Python interpreter command" >&5
 $as_echo_n "checking for Python interpreter command... " >&6; }
 if ${acx_cv_prog_PYTHON+:} false; then :
@@ -5217,6 +5165,48 @@ test -z "$INSTALL_PROGRAM" && INSTALL_PROGRAM='${INSTALL}'
 test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for a thread-safe mkdir -p" >&5
+$as_echo_n "checking for a thread-safe mkdir -p... " >&6; }
+if test -z "$MKDIR_P"; then
+  if ${ac_cv_path_mkdir+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/opt/sfw/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in mkdir gmkdir; do
+	 for ac_exec_ext in '' $ac_executable_extensions; do
+	   as_fn_executable_p "$as_dir/$ac_prog$ac_exec_ext" || continue
+	   case `"$as_dir/$ac_prog$ac_exec_ext" --version 2>&1` in #(
+	     'mkdir (GNU coreutils) '* | \
+	     'mkdir (coreutils) '* | \
+	     'mkdir (fileutils) '4.1*)
+	       ac_cv_path_mkdir=$as_dir/$ac_prog$ac_exec_ext
+	       break 3;;
+	   esac
+	 done
+       done
+  done
+IFS=$as_save_IFS
+
+fi
+
+  test -d ./--version && rmdir ./--version
+  if test "${ac_cv_path_mkdir+set}" = set; then
+    MKDIR_P="$ac_cv_path_mkdir -p"
+  else
+    # As a last resort, use the slow shell script.  Don't cache a
+    # value for MKDIR_P within a source directory, because that will
+    # break other packages using the cache if that directory is
+    # removed, or if the value is a relative name.
+    MKDIR_P="$ac_install_sh -d"
+  fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $MKDIR_P" >&5
+$as_echo "$MKDIR_P" >&6; }
 
 
 cat >confcache <<\_ACEOF
@@ -6178,6 +6168,7 @@ gives unlimited permission to copy, distribute and modify it."
 ac_pwd='$ac_pwd'
 srcdir='$srcdir'
 INSTALL='$INSTALL'
+MKDIR_P='$MKDIR_P'
 test -n "\$AWK" || AWK=awk
 _ACEOF
 
@@ -6289,10 +6280,10 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "support/config.h") CONFIG_HEADERS="$CONFIG_HEADERS support/config.h" ;;
+    "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "support/Makefile") CONFIG_FILES="$CONFIG_FILES support/Makefile" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
+    "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -6740,6 +6731,11 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
   [\\/$]* | ?:[\\/]* ) ac_INSTALL=$INSTALL ;;
   *) ac_INSTALL=$ac_top_build_prefix$INSTALL ;;
   esac
+  ac_MKDIR_P=$MKDIR_P
+  case $MKDIR_P in
+  [\\/$]* | ?:[\\/]* ) ;;
+  */*) ac_MKDIR_P=$ac_top_build_prefix$MKDIR_P ;;
+  esac
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
@@ -6794,6 +6790,7 @@ s&@builddir@&$ac_builddir&;t t
 s&@abs_builddir@&$ac_abs_builddir&;t t
 s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 s&@INSTALL@&$ac_INSTALL&;t t
+s&@MKDIR_P@&$ac_MKDIR_P&;t t
 $ac_datarootdir_hack
 "
 eval sed \"\$ac_sed_extra\" "$ac_file_inputs" | $AWK -f "$ac_tmp/subs.awk" \

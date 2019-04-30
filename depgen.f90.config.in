@@ -8,3 +8,5 @@
 --fc-mod-upper=@FC_MODULE_UPPER@
 --fc-inc-order=@FC_INC_ORDER@
 --fc-mod-dir-flag=@FC_MODOUT@
+--fc-intrinsic-mods=@DEPGEN_INTRINSIC_MODS@
+--fc-external-mods=@DEPGEN_EXTERNAL_MODS@

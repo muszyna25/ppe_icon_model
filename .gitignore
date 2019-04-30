@@ -6,9 +6,10 @@
 /tempList
 .DS_Store
 /Makefile
-/support/config.h
-/support/version.c
+/config.h
+/version.c
 /depgen.f90.config
+/depgen.c.config
 config.log
 config.status
 config/mh-config-use
@@ -30,8 +31,9 @@ externals/cdi/
 externals/ecrad/*/*.i
 externals/ecrad/*/*.lst
 externals/ecrad/Makefile_include.ecradICON
-bin
-deps
-mods
-objs
+/mod
 install
+*.c.d
+*.f90.d
+.dirstamp
+/icon
