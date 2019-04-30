@@ -38,6 +38,9 @@ ACX_FC_HASH_INCLUDE_ORDER(
   [PP_INC_ORDER_f90=inc,flg])
 AC_SUBST([PP_INC_ORDER_f90])
 
+AC_SUBST([EXTERNAL_MODS],
+  [mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface])
+
 AC_MSG_CHECKING([whether the Fortran interface of mtime library is available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime

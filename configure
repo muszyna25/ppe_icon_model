@@ -599,6 +599,7 @@ CFLAGS
 CC
 OPENMP_FCFLAGS
 DEPGEN_DEFS
+EXTERNAL_MODS
 PP_INC_ORDER_f90
 FC_INC_ORDER
 FC_MODULE_EXT
@@ -3019,6 +3020,9 @@ else
   PP_INC_ORDER_f90=inc,flg
 fi
 
+
+
+EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of mtime library is available" >&5
