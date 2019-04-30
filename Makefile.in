@@ -82,7 +82,7 @@ vpath %.c $(srcdir)
 depend: $(depfiles)
 
 mostlyclean: $(bundled_subdirs)
-	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs)) $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
 
 clean: mostlyclean
 	rm -f version.c $(depfiles) $(dirstamps)

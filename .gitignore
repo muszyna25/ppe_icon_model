@@ -19,6 +19,7 @@ config/set-up.info
 src/lnd_phy_jsbach
 src/art
 *.o
+*.i
 *~
 .status.file
 cdo_diffn*.out
