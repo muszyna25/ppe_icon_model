@@ -24,6 +24,7 @@ CPPFLAGS= @CPPFLAGS@
 icon_CPPFLAGS:= -I. @DEFS@
 
 # Other utilities:
+SHELL= /bin/sh
 INSTALL= @INSTALL@
 PYTHON= @PYTHON@
 DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
@@ -101,7 +102,7 @@ maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
 
 install: all
-	$(INSTALL) -d @bindir@ && $(INSTALL) icon @bindir@/icon
+	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon $(DESTDIR)@bindir@/icon
 
 # Main building rules:
 icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' --inc-oo -f $(depfiles) Makefile) $(bundled_LIBS)
