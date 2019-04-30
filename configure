@@ -595,11 +595,15 @@ INSTALL_SCRIPT
 INSTALL_PROGRAM
 PERL
 PYTHON
+AR
 ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
 OPENMP_FCFLAGS
+BUNDLED_LIBS
+BUNDLED_FCFLAGS
+OPTION_FCFLAGS
 DEPGEN_DEFS
 EXTERNAL_MODS
 PP_INC_ORDER_f90
@@ -679,6 +683,7 @@ LIBS
 CC
 CFLAGS
 CPPFLAGS
+AR
 PYTHON
 PERL'
 
@@ -1321,6 +1326,7 @@ Some influential environment variables:
   CFLAGS      C compiler flags
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
+  AR          archiver command
   PYTHON      Python interpreter command (used for Fortran dependency
               generation)
   PERL        Perl interpreter command (used to generate version information)
@@ -1945,9 +1951,9 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 
-ac_config_headers="$ac_config_headers config.h"
+ac_config_headers="$ac_config_headers support/config.h"
 
-ac_config_files="$ac_config_files Makefile depgen.f90.config"
+ac_config_files="$ac_config_files Makefile support/Makefile depgen.f90.config"
 
 
 ac_ext=${ac_fc_srcext-f}
@@ -3115,9 +3121,8 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 
-ICON_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__"
-ICON_LDFLAGS=
-ICON_LIBS=
+OPTION_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__"
+
 
 # Check whether --enable-atmo was given.
 if test "${enable_atmo+set}" = set; then :
@@ -3131,7 +3136,7 @@ if test "x$enable_atmo" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: atmosphere component is disabled" >&5
 $as_echo "$as_me: atmosphere component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_ATMO__"
+   as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}__NO_ICON_ATMO__"
 fi
 
 # Check whether --enable-ocean was given.
@@ -3146,7 +3151,7 @@ if test "x$enable_ocean" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: ocean component is disabled" >&5
 $as_echo "$as_me: ocean component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_OCEAN__"
+   as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}__NO_ICON_OCEAN__"
 fi
 
 # Check whether --enable-coupling was given.
@@ -3157,7 +3162,7 @@ else
 fi
 
 if test "x$enable_coupling" = "xyes"; then :
-  as_fn_append ICON_FCFLAGS " ${FC_DEFINE}YAC_coupling"
+  as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}YAC_coupling"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: coupling is disabled" >&5
 $as_echo "$as_me: coupling is disabled" >&6;}
@@ -3175,8 +3180,11 @@ if test "x$enable_psrad" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: psrad component is disabled" >&5
 $as_echo "$as_me: psrad component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_PS_RAD__"
+   as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}__NO_ICON_PS_RAD__"
 fi
+
+
+
 
 
 # Check whether --with-external-mtime was given.
@@ -3343,8 +3351,8 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
 
 
 
-     as_fn_append ICON_FCFLAGS " ${FC_MODINC}externals/mtime/src"
-     as_fn_append ICON_LIBS " externals/mtime/src/.libs/libmtime.a"
+     as_fn_append BUNDLED_FCFLAGS " ${FC_MODINC}externals/mtime/src"
+     as_fn_append BUNDLED_LIBS " externals/mtime/src/.libs/libmtime.a"
 else
   as_fn_error $? "unable to use the bundled version of mtime library: \
 file ${srcdir}/externals/mtime/configure not found" "$LINENO" 5
@@ -3506,8 +3514,8 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
 
 
 
-     as_fn_append ICON_FCFLAGS " ${FC_MODINC}externals/self/mods"
-     as_fn_append ICON_LIBS " externals/self/lib/libself.a"
+     as_fn_append BUNDLED_FCFLAGS " ${FC_MODINC}externals/self/mods"
+     as_fn_append BUNDLED_LIBS " externals/self/lib/libself.a"
 else
   as_fn_error $? "unable to use the bundled version of self library: \
 file ${srcdir}/externals/self/configure not found" "$LINENO" 5
@@ -3756,8 +3764,8 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
 
 
 
-     as_fn_append ICON_FCFLAGS " ${FC_MODINC}externals/cdi/src"
-     as_fn_append ICON_LIBS " externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"
+     as_fn_append BUNDLED_FCFLAGS " ${FC_MODINC}externals/cdi/src"
+     as_fn_append BUNDLED_LIBS " externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"
 else
   as_fn_error $? "unable to use the bundled version of CDI library: \
 file ${srcdir}/externals/cdi/configure not found" "$LINENO" 5
@@ -4015,7 +4023,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-  as_fn_append ICON_FCFLAGS " ${FC_DEFINE}NOMPI"
+  as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}NOMPI"
 fi
 
 # Check whether --enable-openmp was given.
@@ -4150,7 +4158,7 @@ else
 fi
 
 
-   as_fn_append ICON_FCFLAGS " $OPENMP_FCFLAGS"
+   as_fn_append OPTION_FCFLAGS " $OPENMP_FCFLAGS"
 else
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether OpenMP support is disabled for $FC" >&5
@@ -4204,7 +4212,7 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-     as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__SCT__"
+     as_fn_append OPTION_FCFLAGS " ${FC_DEFINE}__SCT__"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -4993,6 +5001,58 @@ as_fn_append CPPFLAGS " -Df2cFortran"
 
 
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for the archiver command" >&5
+$as_echo_n "checking for the archiver command... " >&6; }
+if ${acx_cv_prog_AR+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$AR"; then :
+  set dummy "$AR"
+else
+  set dummy ar
+fi
+shift
+acx_cv_prog_AR=unknown
+for acx_prog_candidate in "$@"; do
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  acx_ar_try='$acx_prog_candidate cru libconftest.a conftest.$ac_objext >&5'
+    { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_ar_try\""; } >&5
+  (eval $acx_ar_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+    rm -f libconftest.a
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  test "$ac_status" -eq 0
+if test $? -eq 0; then :
+  acx_cv_prog_AR="$acx_prog_candidate"; break
+fi
+done
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_AR" >&5
+$as_echo "$acx_cv_prog_AR" >&6; }
+AR=$acx_cv_prog_AR
+
+if test "x$AR" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find the archiver command
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Python interpreter command" >&5
 $as_echo_n "checking for Python interpreter command... " >&6; }
 if ${acx_cv_prog_PYTHON+:} false; then :
@@ -5158,10 +5218,6 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
-
-FCFLAGS="$ICON_FCFLAGS $FCFLAGS"
-LDFLAGS="$ICON_LDFLAGS $LDFLAGS"
-LIBS="$ICON_LIBS $LIBS"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6233,8 +6289,9 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
+    "support/config.h") CONFIG_HEADERS="$CONFIG_HEADERS support/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "support/Makefile") CONFIG_FILES="$CONFIG_FILES support/Makefile" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;

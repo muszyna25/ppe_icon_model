@@ -1,108 +1,82 @@
-# Source file directories:
-ICON_DIR=@srcdir@/src
-SUPPORT_DIR=@srcdir@/support
+# Source file directory:
+SRC_DIR=@srcdir@/src
 
 # Build directories:
-DEP_DIR=deps
-OBJ_DIR=objs
-MOD_DIR=mods
+DEP_DIR=.deps
+OBJ_DIR=.objs
+MOD_DIR=.mods
 BIN_DIR=bin
 
 # Bundled libraries
-SUBDIRS=@subdirs_extra@
+BUNDLED_LIBS=support/libicon_support.a@BUNDLED_LIBS@
+SUBDIRS=support@subdirs_extra@
 
-# Install directories:
+# Install command and directories:
+INSTALL=@INSTALL@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 
-# Compilers, building tools and the corresponding flags:
+# Compiler and flags:
 FC=@FC@
-FCFLAGS=@FC_MODINC@$(MOD_DIR) @FC_MODOUT@$(MOD_DIR) -I$(ICON_DIR)/include @FCFLAGS@
+FCFLAGS=@FC_MODINC@$(MOD_DIR) @FC_MODOUT@$(MOD_DIR) -I$(SRC_DIR)/include @BUNDLED_FCFLAGS@ @OPTION_FCFLAGS@ @FCFLAGS@
 LDFLAGS=@LDFLAGS@
 LIBS=@LIBS@
-
-CC=@CC@
-CFLAGS=@CFLAGS@
-CPPFLAGS=-I@builddir@ @DEFS@ @CPPFLAGS@
-
-PYTHON=@PYTHON@
-PERL=@PERL@
-
-INSTALL=@INSTALL@
-
-DEPGEN=$(PYTHON) @srcdir@/utils/mkhelper/depgen.py
-DEPLIST=$(PYTHON) @srcdir@/utils/mkhelper/deplist.py
 
 # List of external modules for the dependency generation:
 EXTERNAL_MODS=@EXTERNAL_MODS@
 
-# Dependency generation command for Fortran source files:
-DEPGEN_f90=$(DEPGEN) $< @depgen.f90.config -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) \
-           --src-name $(<F) --fc-external-mods='$(EXTERNAL_MODS)' -- @DEPGEN_DEFS@
+# Dependency generation command:
+DEPGEN=@PYTHON@ @top_srcdir@/utils/mkhelper/depgen.py $< @depgen.f90.config \
+       -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) --src-name $(<F) \
+       --fc-external-mods='$(EXTERNAL_MODS)' -- @DEPGEN_DEFS@
 
-# Dependency generation command for C source files:
-DEPGEN_c=$(DEPGEN) $< -o $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
-         --src-root='@srcdir@' --pp-enable --pp-eval-expr --
+# Dependency listing command:
+DEPLIST=@PYTHON@ @top_srcdir@/utils/mkhelper/deplist.py
 
 # List of the dependency files:
-src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
-DEP_FILES=$(addprefix $(DEP_DIR)/, $(src_f90:.f90=.f90.d))
-srcs_c=$(notdir $(shell find $(SUPPORT_DIR) -name '*.c'))
-DEP_FILES+=$(addprefix $(DEP_DIR)/, $(srcs_c:.c=.c.d))
+SRC_FILES=$(notdir $(shell find $(SRC_DIR) -name '*.f90'))
+DEP_FILES=$(addprefix $(DEP_DIR)/, $(SRC_FILES:.f90=.f90.d))
 DEP_FILES+=$(DEP_DIR)/_undetectable.d
 
+# List of the required object files:
+OBJ_FILES=$(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d)
+
 # Source file selective search paths:
-vpath %.f90 $(shell find $(ICON_DIR) -type d)
-vpath %.c $(shell find $(SUPPORT_DIR) -type d)
+vpath %.f90 $(shell find $(SRC_DIR) -type d)
 
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
 .PHONY: all depend clean distclean maintainer-clean install
-# Some of the targets are associated with files or directories
-# but their rules still need to be executed unconditionally
-# (which does not necessarily mean that the timestamps of the
-# targets get updated). Since .PHONY targets are always
-# considered as updated whenever their rule is called,
-# everything that depends on them gets updated too. Therefore,
-# we introduce a .PHONY target .FORCE, which being a prerequisite
-# of a target makes the rule of the target to be executed
-# unconditionally and the timestamp of the target to be respected
-# aftewards:
-.PHONY: .FORCE
+# Call make inside the subdirectories unconditionally:
+.PHONY: $(SUBDIRS)
 # Keep sentinel files of created directories:
-.PRECIOUS: %/.sentinel
-
-# Recreate version.c each time make is called:
-$(shell $(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@ > /dev/null)
+.PRECIOUS: %/.dirstamp
 
 # User interface rules:
-all: $(BIN_DIR)/icon;
+all: $(BIN_DIR)/icon
 
 depend: $(DEP_FILES)
 
 clean: $(SUBDIRS)
-	rm -rf $(DEP_DIR) $(BIN_DIR) $(MOD_DIR) $(OBJ_DIR)
+	rm -rf $(DEP_DIR) $(OBJ_DIR) $(MOD_DIR) $(BIN_DIR)
 
 distclean: clean
-	rm -f config.log config.status Makefile config.h version.c depgen.f90.config
+	rm -f config.log config.status Makefile depgen.f90.config
 
 maintainer-clean: distclean
-	rm -rf autom4te.cache config.h.in~ $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
+	rm -rf autom4te.cache $(shell find ./utils/mkhelper -name '*.pyc' -o -name '*.pyo' -o -name '__pycache__')
 
-install: $(BIN_DIR)/icon
+install: all
 	$(INSTALL) -d @bindir@
 	$(INSTALL) $(BIN_DIR)/icon @bindir@/icon
 
 # Main building rules:
-$(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d) | $(BIN_DIR)/.sentinel
+$(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(OBJ_FILES) $(BUNDLED_LIBS) | $(BIN_DIR)/.dirstamp
 	$(FC) $(FCFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJ_DIR)/%.o: %.f90 | $(SUBDIRS) $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
+$(OBJ_DIR)/%.o: %.f90 | $(SUBDIRS) $(MOD_DIR)/.dirstamp $(OBJ_DIR)/.dirstamp
 	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
-
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)/.sentinel
-	$(CC) -c $(CFLAGS) $(CPPFLAGS) -o $@ $<
 
 # Auxiliary building rules:
 $(MOD_DIR)/%.@FC_MODULE_EXT@:
@@ -112,50 +86,29 @@ $(MOD_DIR)/%.@FC_MODULE_EXT@:
 	  rm -f $<; $(MAKE) $<; \
 	fi
 
-# Recreate version.c each time make is called:
-version.c: .FORCE
-	@echo "Checking for repository, branch and revision..."; \
-	$(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@
-
 # Some old versions of GNU Make strip the trailing slash when
 # searching for pattern rules, which is why we have to
 # create sentinel files inside the created directories:
-%/.sentinel:
+%/.dirstamp:
 	@echo "Creating directory '$(@D)'..."; mkdir $(@D); touch $@
 
-# Common dependency generation rules:
-$(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_f90) $(FCFLAGS)
-
-$(DEP_DIR)/%.c.d: %.c | $(DEP_DIR)/.sentinel
-	@$(DEPGEN_c) $(CPPFLAGS) $(CFLAGS)
+# Dependency generation rule:
+$(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.dirstamp
+	@$(DEPGEN) $(FCFLAGS)
 
 # Undetectable dependencies:
-$(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.sentinel
+$(DEP_DIR)/_undetectable.d: | $(DEP_DIR)/.dirstamp
 	@echo $(OBJ_DIR)/mo_interface_echam_car.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@ && \
 	echo $(OBJ_DIR)/mo_hydro_ocean_run.o: $(OBJ_DIR)/bgc_icon.o $(OBJ_DIR)/ini_bgc_icon.o >> $@ && \
 	echo $(OBJ_DIR)/mo_echam_phy_init.o: $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@ && \
 	echo $(OBJ_DIR)/lcariolle_do3dt.o: $(OBJ_DIR)/lcariolle_o3_column.o >> $@ && \
-	echo $(OBJ_DIR)/bgc_icon.o: $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_uuid.o: $(OBJ_DIR)/util_uuid.o >> $@ && \
-	echo $(OBJ_DIR)/mo_real_timer.o: $(OBJ_DIR)/util_timer.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_file.o: $(OBJ_DIR)/util_file.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_vcs.o: $(OBJ_DIR)/version.o >> $@ && \
-	echo $(OBJ_DIR)/mo_var_list.o: $(OBJ_DIR)/util_hash.o >> $@ && \
-	echo $(OBJ_DIR)/mo_expression.o: $(OBJ_DIR)/util_arithmetic_expr.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_nml.o: $(OBJ_DIR)/nml_annotate.o >> $@ && \
-	echo $(OBJ_DIR)/mo_hierarchy_management.o: $(OBJ_DIR)/util_timer.o >> $@ && \
-	echo $(OBJ_DIR)/mo_name_list_output_init.o: $(OBJ_DIR)/util_hash.o >> $@ && \
-	echo $(OBJ_DIR)/mo_fortran_tools.o: $(OBJ_DIR)/util_stride.o >> $@ && \
-	echo $(OBJ_DIR)/mo_output_event_handler.o: $(OBJ_DIR)/util_string.o >> $@ && \
-	echo $(OBJ_DIR)/mo_exception.o: $(OBJ_DIR)/util_backtrace.o $(OBJ_DIR)/util_system.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_string_parse.o: $(OBJ_DIR)/util_string_parse.o >> $@ && \
-	echo $(OBJ_DIR)/mo_util_sysinfo.o: $(OBJ_DIR)/util_sysinfo.o >> $@ && \
-	echo $(OBJ_DIR)/mo_c_restart_util.o: $(OBJ_DIR)/util_multifile_restart.o >> $@
+	echo $(OBJ_DIR)/bgc_icon.o: $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@
 
 # Make bundled libraries:
-$(SUBDIRS): .FORCE
-	@$(MAKE) -C $@ $(MAKECMDGOALS)
+$(SUBDIRS):
+	@$(MAKE) -C $@ $(filter $(MAKECMDGOALS), clean distclean maintainer-clean)
+
+$(BUNDLED_LIBS): $(SUBDIRS);
 
 ifeq (,$(filter $(MAKECMDGOALS), depend clean distclean maintainer-clean))
 -include $(DEP_FILES)
