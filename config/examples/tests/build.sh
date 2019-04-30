@@ -25,6 +25,9 @@ for vendor in ${vendors}; do
     vendor_test_dir=$(basename "${vendor_test}")
     mkdir "${vendor_test_dir}"
     cd "${vendor_test_dir}"
+    echo "*************************"
+    pwd
+    echo "*************************"
     log_file="${work_dir}/$(basename "${vendor_test}").log"
     "${vendor_test}" 2>&1 | tee "${log_file}"
     make -j8 2>&1 | tee -a "${log_file}"
@@ -37,6 +40,9 @@ for vendor in ${vendors}; do
   for vendor_test in ${vendor_tests}; do
     vendor_test_dir=$(basename "${vendor_test}")
     cd "${vendor_test_dir}"
+    echo "*************************"
+    pwd
+    echo "*************************"
     log_file="${work_dir}/$(basename "${vendor_test}").log"
     echo "Running make for the second time in $(pwd)..." | tee -a "${log_file}"
     make 2>&1 | tee -a "${log_file}"
