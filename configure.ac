@@ -41,15 +41,73 @@ AC_SUBST([PP_INC_ORDER_f90])
 AC_SUBST([EXTERNAL_MODS],
   [mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface])
 
+AC_SUBST([DEPGEN_DEFS])
+
+dnl Check for mandatory dependencies
+AC_MSG_CHECKING([whether Fortran BLAS library is available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      real :: a(2,2), b(2,2), c(2,2)
+      call dgemm('n','n',2,2,2,1.,a,2,b,2,0.,c,2)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to compile test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+
+AC_MSG_CHECKING([whether Fortran LAPACK library is available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      real :: a(2,2), b(2,2), c(2,2), d(2), e(2), f(2)
+      call dgeev('n','n',2,a,2,d,e,b,2,c,2,f,2,0)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to compile test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+
+AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      include 'netcdf.inc'
+      integer :: status
+      status = nf_open('conftest.nc',0,0)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to compile test program using NetCDF: set FCFLAGS, LDGLAGS and LIBS accordingly])])
+
 ICON_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__"
 ICON_LDFLAGS=
 ICON_LIBS=
 
-AC_ARG_ENABLE([bundled-mtime],
-  [AS_HELP_STRING([--enable-bundled-mtime], [enable usage of the bundled mtime library @<:@default=yes@:>@])],
-  [], [enable_bundled_mtime=yes])
-AS_IF([test "x$enable_bundled_mtime" = "xyes"],
-  [AS_IF([test -d "${srcdir}/externals/mtime/src"],
+AC_ARG_ENABLE([atmo],
+  [AS_HELP_STRING([--enable-atmo], [enable atmosphere component of ICON @<:@default=yes@:>@])],
+  [], [enable_atmo=yes])
+AS_IF([test "x$enable_atmo" = "xyes"], [],
+  [AC_MSG_NOTICE([atmosphere component is disabled])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_ATMO__"])])
+
+AC_ARG_ENABLE([ocean],
+  [AS_HELP_STRING([--enable-ocean], [enable ocean component of ICON @<:@default=yes@:>@])],
+  [], [enable_ocean=yes])
+AS_IF([test "x$enable_ocean" = "xyes"], [],
+  [AC_MSG_NOTICE([ocean component is disabled])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_OCEAN__"])])
+
+AC_ARG_ENABLE([coupling],
+  [AS_HELP_STRING([--enable-coupling], [enable coupling with YAC @<:@default=yes@:>@])],
+  [], [enable_coupling=yes])
+AS_IF([test "x$enable_coupling" = "xyes"],
+  [AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}YAC_coupling"])],
+  [AC_MSG_NOTICE([coupling is disabled])])
+
+AC_ARG_ENABLE([psrad],
+  [AS_HELP_STRING([--enable-psrad], [enable psrad component of ICON @<:@default=yes@:>@])],
+  [], [enable_psrad=yes])
+AS_IF([test "x$enable_psrad" = "xyes"], [],
+  [AC_MSG_NOTICE([psrad component is disabled])
+   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_PS_RAD__"])])
+
+AC_ARG_WITH([external-mtime],
+  [AS_HELP_STRING([--with-external-mtime], [use external mtime library instead of the bundled one @<:@default=no@:>@])],
+  [AS_CASE([$withval], [yes|no], [],
+    [AC_MSG_ERROR([value of the argument --with-external-mtime must be either 'yes' or 'no'])])],
+  [with_external_mtime=no])
+AS_IF([test "x$with_external_mtime" = "xno"],
+  [AS_IF([test -f "${srcdir}/externals/mtime/configure"],
     [AX_SUBDIRS_CONFIGURE([externals/mtime],
        [], [],
        [[--enable-static=yes], [--enable-shared=no], [--enable-examples=no]],
@@ -59,7 +117,7 @@ AS_IF([test "x$enable_bundled_mtime" = "xyes"],
      AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/mtime/src"])
      AS_VAR_APPEND([ICON_LIBS], [" externals/mtime/src/.libs/libmtime.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of mtime library: \
-direcory ${srcdir}/externals/mtime/src not found])])],
+file ${srcdir}/externals/mtime/configure not found])])],
   [AC_MSG_CHECKING([whether the Fortran interface of mtime library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime
@@ -69,20 +127,22 @@ direcory ${srcdir}/externals/mtime/src not found])])],
       call dateToString(test_date, test_date_string)]])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([unable to compile test program using mtime library: \
+     AC_MSG_FAILURE([unable to compile test program using mtime library: \
 enable usage of the bundled version of the library \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
-AC_ARG_ENABLE([bundled-self],
-  [AS_HELP_STRING([--enable-bundled-self], [enable usage of the bundled self library @<:@default=yes@:>@])],
-  [], [enable_bundled_self=yes])
-AS_IF([test "x$enable_bundled_self" = "xyes"],
-  [AS_IF([test -d "${srcdir}/externals/self/src"],
+AC_ARG_WITH([external-self],
+  [AS_HELP_STRING([--with-external-self], [use external self library instead of the bundled one @<:@default=no@:>@])],
+  [AS_CASE([$withval], [yes|no], [],
+    [AC_MSG_ERROR([value of the argument --with-external-self must be either 'yes' or 'no'])])],
+  [with_external_self=no])
+AS_IF([test "x$with_external_self" = "xno"],
+  [AS_IF([test -f "${srcdir}/externals/self/configure"],
     [AX_SUBDIRS_CONFIGURE([externals/self])
      AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/self/mods"])
      AS_VAR_APPEND([ICON_LIBS], [" externals/self/lib/libself.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of self library: \
-directory ${srcdir}/externals/self/src not found])])],
+file ${srcdir}/externals/self/configure not found])])],
   [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use self_object
@@ -95,32 +155,33 @@ directory ${srcdir}/externals/self/src not found])])],
       call a%init()]])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([unable to compile test program using self 0.2 library: \
+     AC_MSG_FAILURE([unable to compile test program using self 0.2 library: \
 enable usage of the bundled version of the library \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
-AC_ARG_ENABLE([bundled-cdi],
-  [AS_HELP_STRING([--enable-bundled-cdi], [enable usage of the bundled CDI library @<:@default=yes@:>@])],
-  [], [enable_bundled_cdi=yes])
-AS_IF([test "x$enable_bundled_cdi" = "xyes"],
-  [AS_IF([test -d "${srcdir}/externals/cdi/src"],
-    [AX_SUBDIRS_CONFIGURE([externals/cdi],
-     [], [],
-       [[--enable-static=yes], [--enable-shared=no],
-        [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
-        [--enable-cdi-app=no], [--with-threads=no],
-        [--with-netcdf=yes]],
-       [[--enable-static], [--disable-static],
-        [--enable-shared], [--disable-shared],
-        [--enable-iso-c-interface], [--disable-iso-c-interface],
-        [--enable-cf-interface], [--disable-cf-interface],
-        [--enable-cdi-app], [--disable-cdi-app],
-        [--with-threads], [--without-threads],
-        [--with-netcdf], [--without-netcdf]])
+AC_ARG_WITH([external-cdi],
+  [AS_HELP_STRING([--with-external-cdi], [use external CDI library instead of the bundled one @<:@default=no@:>@])],
+  [AS_CASE([$withval], [yes|no], [],
+    [AC_MSG_ERROR([value of the argument --with-external-cdi must be either 'yes' or 'no'])])],
+  [with_external_cdi=no])
+AS_IF([test "x$with_external_cdi" = "xno"],
+  [AS_IF([test -f "${srcdir}/externals/cdi/configure"],
+    [AX_SUBDIRS_CONFIGURE([externals/cdi], [], [],
+      [[--enable-static=yes], [--enable-shared=no],
+       [--enable-iso-c-interface=yes], [--enable-cf-interface=no],
+       [--enable-cdi-app=no], [--with-threads=no],
+       [--with-netcdf=yes]],
+      [[--enable-static], [--disable-static],
+       [--enable-shared], [--disable-shared],
+       [--enable-iso-c-interface], [--disable-iso-c-interface],
+       [--enable-cf-interface], [--disable-cf-interface],
+       [--enable-cdi-app], [--disable-cdi-app],
+       [--with-threads], [--without-threads],
+       [--with-netcdf], [--without-netcdf]])
      AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_MODINC}externals/cdi/src"])
      AS_VAR_APPEND([ICON_LIBS], [" externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"])],
     [AC_MSG_ERROR([unable to use the bundled version of CDI library: \
-directory ${srcdir}/externals/cdi/src not found])])],
+file ${srcdir}/externals/cdi/configure not found])])],
   [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_cdi, only: TSTEP_CONSTANT, cdiInqNatts, &
@@ -133,7 +194,7 @@ directory ${srcdir}/externals/cdi/src not found])])],
       a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([unable to compile test program using CDI library: \
+     AC_MSG_FAILURE([unable to compile test program using CDI library: \
 enable usage of the bundled version of the library \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])
   AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x is patched])
@@ -145,55 +206,30 @@ or set FCFLAGS, LDFLAGS and LIBS accordingly])])
       a = cdiIterator_inqFiletype(b)]])],
     [AC_MSG_RESULT([yes])],
     [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([the provided version of CDI 1.8.x does not have required patches])])])
+     AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have required patches])])])
 
-AC_MSG_CHECKING([whether Fortran BLAS library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      real :: a(2,2), b(2,2), c(2,2)
-      call dgemm('n','n',2,2,2,1.,a,2,b,2,0.,c,2)
-]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether Fortran LAPACK library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      real :: a(2,2), b(2,2), c(2,2), d(2), e(2), f(2)
-      call dgeev('n','n',2,a,2,d,e,b,2,c,2,f,2,0)
-]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly])])
-
-AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_ERROR([unable to compile test program using NetCDF: set FCFLAGS, LDGLAGS and LIBS accordingly])])
-
-AC_ARG_ENABLE([atmo],
-  [AS_HELP_STRING([--enable-atmo], [enable atmosphere component of ICON @<:@default=yes@:>@])],
-  [], [enable_atmo=yes])
-AS_IF([test "x$enable_atmo" = "xyes"], [],
-  [AC_MSG_NOTICE([atmosphere component is disabled])
-   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_ATMO__"])])
-  
-AC_ARG_ENABLE([ocean],
-  [AS_HELP_STRING([--enable-ocean], [enable ocean component of ICON @<:@default=yes@:>@])],
-  [], [enable_ocean=yes])
-AS_IF([test "x$enable_ocean" = "xyes"], [],
-  [AC_MSG_NOTICE([ocean component is disabled])
-   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_OCEAN__"])])
-
-AC_ARG_ENABLE([psrad],
-  [AS_HELP_STRING([--enable-psrad], [enable psrad component of ICON @<:@default=yes@:>@])],
-  [], [enable_psrad=yes])
-AS_IF([test "x$enable_psrad" = "xyes"], [],
-  [AC_MSG_NOTICE([psrad component is disabled])
-   AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__NO_ICON_PS_RAD__"])])
+AC_ARG_WITH([external-yac],
+  [AS_HELP_STRING([--with-external-yac], [use external YAC library (when coupling is enabled) \
+instead of the bundled one @<:@default=yes@:>@])],
+  [AS_CASE([$withval], [yes|no], [],
+    [AC_MSG_ERROR([value of the argument --with-external-yac must be either 'yes' or 'no'])])],
+  [with_external_yac=yes])
+AS_IF([test "x$enable_coupling" = "xyes"],
+  [AS_IF([test "x$with_external_yac" = "xno"],
+    [AS_IF([test -f "${srcdir}/externals/yac/configure"],
+      [AC_MSG_ERROR([usage of the bundled YAC library is not implemented yet])
+       AX_SUBDIRS_CONFIGURE([externals/yac])],
+      [AC_MSG_ERROR([unable to use the bundled version of YAC library: \
+file ${srcdir}/externals/yac/configure not found])])],
+    [AC_MSG_CHECKING([whether the Fortran interface of YAC library is available])
+     AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)]])],
+       [AC_MSG_RESULT([yes])],
+       [AC_MSG_RESULT([no])
+        AC_MSG_FAILURE([unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly])])])])
 
 AC_ARG_ENABLE([mpi],
   [AS_HELP_STRING([--enable-mpi], [enable MPI (parallelization) support @<:@default=yes@:>@])],
@@ -206,12 +242,10 @@ AS_IF([test "x$enable_mpi" = "xyes"],
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_ERROR([unable to compile test program using MPI: \
+      AC_MSG_FAILURE([unable to compile test program using MPI: \
 either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}NOMPI"])])
-
-AC_SUBST([DEPGEN_DEFS])
 
 AC_ARG_ENABLE([openmp],
   [AS_HELP_STRING([--enable-openmp], [enable OpenMP (parallelization) support @<:@default=yes@:>@])],
@@ -229,21 +263,6 @@ AS_IF([test "x$enable_openmp" = "xyes"],
    AS_VAR_APPEND([ICON_FCFLAGS], [" $OPENMP_FCFLAGS"])],
   [ACX_OPENMP_CHECK_DISABLED])
 
-AC_ARG_ENABLE([yac],
-  [AS_HELP_STRING([--enable-yac], [enable coupling with YAC @<:@default=yes@:>@])],
-  [], [enable_yac=yes])
-AS_IF([test "x$enable_yac" = "xyes"],
-  [AC_MSG_CHECKING([whether the Fortran interface of YAC library is available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_yac_finterface, only: yac_finit
-      implicit none
-      character(len=1024) :: a, b
-      call yac_finit(a, b)]])],
-    [AC_MSG_RESULT([yes])
-     AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}YAC_coupling"])],
-    [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
-
 AC_ARG_ENABLE([sct],
   [AS_HELP_STRING([--enable-sct], [enable SCT timer @<:@default=no@:>@])],
   [], [enable_sct=no])
@@ -256,7 +275,7 @@ AS_IF([test "x$enable_sct" = "xyes"],
     [AC_MSG_RESULT([yes])
      AS_VAR_APPEND([ICON_FCFLAGS], [" ${FC_DEFINE}__SCT__"])],
     [AC_MSG_RESULT([no])
-     AC_MSG_ERROR([unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+     AC_MSG_FAILURE([unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AC_PROG_CC
 AC_LANG([C])
@@ -264,14 +283,14 @@ dnl Supporting ISO C89 means that the following header files are available:
 dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
 dnl errno.h, ctype.h assert.h.
 AS_IF([test "x$ac_cv_prog_cc_c89" = "xno"],
-  [AC_MSG_ERROR([C compiler does not support ISO C89])])
+  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
 
 dnl Some of the C source files require support for ISO C99. Supporting ISO C99
 dnl also means that the following header files are available:
 dnl stdbool.h.
 AC_PROG_CC_C99
 AS_IF([test "x$ac_cv_prog_cc_c99" = "xno"],
-  [AC_MSG_ERROR([C compiler does not support ISO C99])])
+  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
 
 dnl Check for headers that are protected with HAVE_* macros in the code
 dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
@@ -281,7 +300,7 @@ AC_CHECK_HEADERS([execinfo.h ucontext.h link.h],,,[[// override default includes
 dnl Check for headers that are not protected at all.
 AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
   [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],,
-  [AC_MSG_ERROR([unable to find header file $ac_header])],[[// override default includes]])
+  [AC_MSG_FAILURE([unable to find header file $ac_header])],[[// override default includes]])
 
 dnl This should depend on the $acx_cv_fc_vendor
 AS_VAR_APPEND([CPPFLAGS], [" -Df2cFortran"])
@@ -303,7 +322,7 @@ ACX_CHECK_PROGS([PYTHON], [python python3], [for Python interpreter command],
    AC_TRY_EVAL([acx_depgen_try])],
   [unknown])
 AS_IF([test "x$PYTHON" = "xunknown"],
-  [AC_MSG_ERROR([unable to find Python interpreter])])
+  [AC_MSG_FAILURE([unable to find Python interpreter])])
 
 AC_ARG_VAR([PERL], [Perl interpreter command (used to generate version information)])
 ACX_CHECK_PROGS([PERL], [perl], [for Perl interpreter command],
@@ -312,7 +331,7 @@ ACX_CHECK_PROGS([PERL], [perl], [for Perl interpreter command],
    test $ac_status -eq 0 || test $ac_status -eq 1],
   [unknown])
 AS_IF([test "x$PERL" = "xunknown"],
-  [AC_MSG_ERROR([unable to find Perl interpreter])])
+  [AC_MSG_FAILURE([unable to find Perl interpreter])])
 
 AC_PROG_INSTALL
 

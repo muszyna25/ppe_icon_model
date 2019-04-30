@@ -657,15 +657,16 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_bundled_mtime
-enable_bundled_self
-enable_bundled_cdi
 enable_atmo
 enable_ocean
+enable_coupling
 enable_psrad
+with_external_mtime
+with_external_self
+with_external_cdi
+with_external_yac
 enable_mpi
 enable_openmp
-enable_yac
 enable_sct
 '
       ac_precious_vars='build_alias
@@ -1289,20 +1290,26 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-bundled-mtime  enable usage of the bundled mtime library
-                          [default=yes]
-  --enable-bundled-self   enable usage of the bundled self library
-                          [default=yes]
-  --enable-bundled-cdi    enable usage of the bundled CDI library
-                          [default=yes]
   --enable-atmo           enable atmosphere component of ICON [default=yes]
   --enable-ocean          enable ocean component of ICON [default=yes]
+  --enable-coupling       enable coupling with YAC [default=yes]
   --enable-psrad          enable psrad component of ICON [default=yes]
   --enable-mpi            enable MPI (parallelization) support [default=yes]
   --enable-openmp         enable OpenMP (parallelization) support
                           [default=yes]
-  --enable-yac            enable coupling with YAC [default=yes]
   --enable-sct            enable SCT timer [default=no]
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-external-mtime   use external mtime library instead of the bundled
+                          one [default=no]
+  --with-external-self    use external self library instead of the bundled one
+                          [default=no]
+  --with-external-cdi     use external CDI library instead of the bundled one
+                          [default=no]
+  --with-external-yac     use external YAC library (when coupling is enabled)
+                          instead of the bundled one [default=yes]
 
 Some influential environment variables:
   FC          Fortran compiler command
@@ -3036,21 +3043,158 @@ fi
 EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
 
 
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
+$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      real :: a(2,2), b(2,2), c(2,2)
+      call dgemm('n','n',2,2,2,1.,a,2,b,2,0.,c,2)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
+$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      real :: a(2,2), b(2,2), c(2,2), d(2), e(2), f(2)
+      call dgeev('n','n',2,a,2,d,e,b,2,c,2,f,2,0)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
+$as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      include 'netcdf.inc'
+      integer :: status
+      status = nf_open('conftest.nc',0,0)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using NetCDF: set FCFLAGS, LDGLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
 ICON_FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__"
 ICON_LDFLAGS=
 ICON_LIBS=
 
-# Check whether --enable-bundled-mtime was given.
-if test "${enable_bundled_mtime+set}" = set; then :
-  enableval=$enable_bundled_mtime;
+# Check whether --enable-atmo was given.
+if test "${enable_atmo+set}" = set; then :
+  enableval=$enable_atmo;
 else
-  enable_bundled_mtime=yes
+  enable_atmo=yes
+fi
+
+if test "x$enable_atmo" = "xyes"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: atmosphere component is disabled" >&5
+$as_echo "$as_me: atmosphere component is disabled" >&6;}
+   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_ATMO__"
+fi
+
+# Check whether --enable-ocean was given.
+if test "${enable_ocean+set}" = set; then :
+  enableval=$enable_ocean;
+else
+  enable_ocean=yes
+fi
+
+if test "x$enable_ocean" = "xyes"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: ocean component is disabled" >&5
+$as_echo "$as_me: ocean component is disabled" >&6;}
+   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_OCEAN__"
+fi
+
+# Check whether --enable-coupling was given.
+if test "${enable_coupling+set}" = set; then :
+  enableval=$enable_coupling;
+else
+  enable_coupling=yes
+fi
+
+if test "x$enable_coupling" = "xyes"; then :
+  as_fn_append ICON_FCFLAGS " ${FC_DEFINE}YAC_coupling"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: coupling is disabled" >&5
+$as_echo "$as_me: coupling is disabled" >&6;}
+fi
+
+# Check whether --enable-psrad was given.
+if test "${enable_psrad+set}" = set; then :
+  enableval=$enable_psrad;
+else
+  enable_psrad=yes
+fi
+
+if test "x$enable_psrad" = "xyes"; then :
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: psrad component is disabled" >&5
+$as_echo "$as_me: psrad component is disabled" >&6;}
+   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_PS_RAD__"
+fi
+
+
+# Check whether --with-external-mtime was given.
+if test "${with_external_mtime+set}" = set; then :
+  withval=$with_external_mtime; case $withval in #(
+  yes|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "value of the argument --with-external-mtime must be either 'yes' or 'no'" "$LINENO" 5 ;;
+esac
+else
+  with_external_mtime=no
 fi
 
 
 
-if test "x$enable_bundled_mtime" = "xyes"; then :
-  if test -d "${srcdir}/externals/mtime/src"; then :
+if test "x$with_external_mtime" = "xno"; then :
+  if test -f "${srcdir}/externals/mtime/configure"; then :
 
 
   # Various preliminary checks.
@@ -3203,7 +3347,7 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
      as_fn_append ICON_LIBS " externals/mtime/src/.libs/libmtime.a"
 else
   as_fn_error $? "unable to use the bundled version of mtime library: \
-direcory ${srcdir}/externals/mtime/src not found" "$LINENO" 5
+file ${srcdir}/externals/mtime/configure not found" "$LINENO" 5
 fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of mtime library is available" >&5
@@ -3224,23 +3368,32 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-     as_fn_error $? "unable to compile test program using mtime library: \
+     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using mtime library: \
 enable usage of the bundled version of the library \
-or set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
 
-# Check whether --enable-bundled-self was given.
-if test "${enable_bundled_self+set}" = set; then :
-  enableval=$enable_bundled_self;
+
+# Check whether --with-external-self was given.
+if test "${with_external_self+set}" = set; then :
+  withval=$with_external_self; case $withval in #(
+  yes|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "value of the argument --with-external-self must be either 'yes' or 'no'" "$LINENO" 5 ;;
+esac
 else
-  enable_bundled_self=yes
+  with_external_self=no
 fi
 
-if test "x$enable_bundled_self" = "xyes"; then :
-  if test -d "${srcdir}/externals/self/src"; then :
+if test "x$with_external_self" = "xno"; then :
+  if test -f "${srcdir}/externals/self/configure"; then :
 
 
   # Various preliminary checks.
@@ -3357,7 +3510,7 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
      as_fn_append ICON_LIBS " externals/self/lib/libself.a"
 else
   as_fn_error $? "unable to use the bundled version of self library: \
-directory ${srcdir}/externals/self/src not found" "$LINENO" 5
+file ${srcdir}/externals/self/configure not found" "$LINENO" 5
 fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran self 0.2 library is available" >&5
@@ -3381,23 +3534,32 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-     as_fn_error $? "unable to compile test program using self 0.2 library: \
+     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using self 0.2 library: \
 enable usage of the bundled version of the library \
-or set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
 
-# Check whether --enable-bundled-cdi was given.
-if test "${enable_bundled_cdi+set}" = set; then :
-  enableval=$enable_bundled_cdi;
+
+# Check whether --with-external-cdi was given.
+if test "${with_external_cdi+set}" = set; then :
+  withval=$with_external_cdi; case $withval in #(
+  yes|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "value of the argument --with-external-cdi must be either 'yes' or 'no'" "$LINENO" 5 ;;
+esac
 else
-  enable_bundled_cdi=yes
+  with_external_cdi=no
 fi
 
-if test "x$enable_bundled_cdi" = "xyes"; then :
-  if test -d "${srcdir}/externals/cdi/src"; then :
+if test "x$with_external_cdi" = "xno"; then :
+  if test -f "${srcdir}/externals/cdi/configure"; then :
 
 
   # Various preliminary checks.
@@ -3598,7 +3760,7 @@ $as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
      as_fn_append ICON_LIBS " externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a"
 else
   as_fn_error $? "unable to use the bundled version of CDI library: \
-directory ${srcdir}/externals/cdi/src not found" "$LINENO" 5
+file ${srcdir}/externals/cdi/configure not found" "$LINENO" 5
 fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
@@ -3622,9 +3784,12 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-     as_fn_error $? "unable to compile test program using CDI library: \
+     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using CDI library: \
 enable usage of the bundled version of the library \
-or set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -3646,20 +3811,158 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-     as_fn_error $? "the provided version of CDI 1.8.x does not have required patches" "$LINENO" 5
+     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "the provided version of CDI 1.8.x does not have required patches
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
-$as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
+
+# Check whether --with-external-yac was given.
+if test "${with_external_yac+set}" = set; then :
+  withval=$with_external_yac; case $withval in #(
+  yes|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "value of the argument --with-external-yac must be either 'yes' or 'no'" "$LINENO" 5 ;;
+esac
+else
+  with_external_yac=yes
+fi
+
+if test "x$enable_coupling" = "xyes"; then :
+  if test "x$with_external_yac" = "xno"; then :
+  if test -f "${srcdir}/externals/yac/configure"; then :
+  as_fn_error $? "usage of the bundled YAC library is not implemented yet" "$LINENO" 5
+
+
+  # Various preliminary checks.
+
+
+
+
+
+    ax_dir="externals/yac"
+
+                    # Do not complain, so a configure script can configure whichever parts of a
+    # large source tree are present.
+    if test -d "$srcdir/$ax_dir"; then
+      ac_builddir=.
+
+case "$ax_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo "$ax_dir" | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+      # Remove --cache-file, --srcdir, and --disable-option-checking arguments
+      # so they do not pile up.
+      ax_args=
+      ax_prev=
+      eval "set x $ac_configure_args"
+      shift
+      for ax_arg; do
+        if test -n "$ax_prev"; then
+          ax_prev=
+          continue
+        fi
+        case $ax_arg in
+          -cache-file | --cache-file | --cache-fil | --cache-fi | --cache-f \
+          | --cache- | --cache | --cach | --cac | --ca | --c)
+            ax_prev=cache_file ;;
+          -cache-file=* | --cache-file=* | --cache-fil=* | --cache-fi=* \
+          | --cache-f=* | --cache-=* | --cache=* | --cach=* | --cac=* | --ca=* \
+          | --c=*)
+            ;;
+          --config-cache | -C)
+            ;;
+          -srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
+            ax_prev=srcdir ;;
+          -srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
+            ;;
+          -prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
+            ax_prev=prefix ;;
+          -prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=* | --pr=* \
+          | --p=*)
+            ;;
+          --disable-option-checking)
+            ;;
+          *) case $ax_arg in
+              *\'*) ax_arg=$($as_echo "$ax_arg" | sed "s/'/'\\\\\\\\''/g");;
+            esac
+            as_fn_append ax_args " '$ax_arg'" ;;
+        esac
+      done
+      # Always prepend --disable-option-checking to silence warnings, since
+      # different subdirs can have different --enable and --with options.
+      ax_args="--disable-option-checking $ax_args"
+      # Options that must be added as they are provided.
+
+      # New options that may need to be merged with existing options.
+
+      # New options that must replace existing options.
+
+      # Options that must be removed.
+
+      as_fn_append ax_args " '--srcdir=$ac_srcdir'"
+
+      # Add the subdirectory to the list of target subdirectories.
+      ax_subconfigures="$ax_subconfigures $ax_dir"
+      # Save the argument list for this subdirectory.
+                              ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
+      eval "ax_sub_configure_args_$ax_var=\"$ax_args\""
+      eval "ax_sub_configure_$ax_var=\"yes\""
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: could not find source tree for $ax_dir" >&5
+$as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
+    fi
+
+
+
+
+else
+  as_fn_error $? "unable to use the bundled version of YAC library: \
+file ${srcdir}/externals/yac/configure not found" "$LINENO" 5
+fi
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
+$as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
+     cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      real :: a(2,2), b(2,2), c(2,2)
-      call dgemm('n','n',2,2,2,1.,a,2,b,2,0.,c,2)
-
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
@@ -3668,96 +3971,14 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-   as_fn_error $? "unable to compile test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+        { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran LAPACK library is available" >&5
-$as_echo_n "checking whether Fortran LAPACK library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      real :: a(2,2), b(2,2), c(2,2), d(2), e(2), f(2)
-      call dgeev('n','n',2,a,2,d,e,b,2,c,2,f,2,0)
-
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   as_fn_error $? "unable to compile test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
-$as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   as_fn_error $? "unable to compile test program using NetCDF: set FCFLAGS, LDGLAGS and LIBS accordingly" "$LINENO" 5
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-
-# Check whether --enable-atmo was given.
-if test "${enable_atmo+set}" = set; then :
-  enableval=$enable_atmo;
-else
-  enable_atmo=yes
-fi
-
-if test "x$enable_atmo" = "xyes"; then :
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: atmosphere component is disabled" >&5
-$as_echo "$as_me: atmosphere component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_ATMO__"
-fi
-
-# Check whether --enable-ocean was given.
-if test "${enable_ocean+set}" = set; then :
-  enableval=$enable_ocean;
-else
-  enable_ocean=yes
-fi
-
-if test "x$enable_ocean" = "xyes"; then :
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: ocean component is disabled" >&5
-$as_echo "$as_me: ocean component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_OCEAN__"
-fi
-
-# Check whether --enable-psrad was given.
-if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad;
-else
-  enable_psrad=yes
-fi
-
-if test "x$enable_psrad" = "xyes"; then :
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: psrad component is disabled" >&5
-$as_echo "$as_me: psrad component is disabled" >&6;}
-   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}__NO_ICON_PS_RAD__"
 fi
 
 # Check whether --enable-mpi was given.
@@ -3784,17 +4005,18 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-      as_fn_error $? "unable to compile test program using MPI: \
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using MPI: \
 either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, \
-or set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
   as_fn_append ICON_FCFLAGS " ${FC_DEFINE}NOMPI"
 fi
-
-
 
 # Check whether --enable-openmp was given.
 if test "${enable_openmp+set}" = set; then :
@@ -3961,38 +4183,6 @@ fi
 
 fi
 
-# Check whether --enable-yac was given.
-if test "${enable_yac+set}" = set; then :
-  enableval=$enable_yac;
-else
-  enable_yac=yes
-fi
-
-if test "x$enable_yac" = "xyes"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
-$as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      use mo_yac_finterface, only: yac_finit
-      implicit none
-      character(len=1024) :: a, b
-      call yac_finit(a, b)
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-     as_fn_append ICON_FCFLAGS " ${FC_DEFINE}YAC_coupling"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-     as_fn_error $? "unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-fi
-
 # Check whether --enable-sct was given.
 if test "${enable_sct+set}" = set; then :
   enableval=$enable_sct;
@@ -4018,7 +4208,10 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-     as_fn_error $? "unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+     { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -4569,7 +4762,10 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 if test "x$ac_cv_prog_cc_c89" = "xno"; then :
-  as_fn_error $? "C compiler does not support ISO C89" "$LINENO" 5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "C compiler does not support ISO C89
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CC option to accept ISO C99" >&5
@@ -4750,7 +4946,10 @@ fi
 
 
 if test "x$ac_cv_prog_cc_c99" = "xno"; then :
-  as_fn_error $? "C compiler does not support ISO C99" "$LINENO" 5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "C compiler does not support ISO C99
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 
@@ -4780,7 +4979,10 @@ if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
 _ACEOF
 
 else
-  as_fn_error $? "unable to find header file $ac_header" "$LINENO" 5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find header file $ac_header
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 done
@@ -4820,7 +5022,10 @@ $as_echo "$acx_cv_prog_PYTHON" >&6; }
 PYTHON=$acx_cv_prog_PYTHON
 
 if test "x$PYTHON" = "xunknown"; then :
-  as_fn_error $? "unable to find Python interpreter" "$LINENO" 5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find Python interpreter
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 
@@ -4854,7 +5059,10 @@ $as_echo "$acx_cv_prog_PERL" >&6; }
 PERL=$acx_cv_prog_PERL
 
 if test "x$PERL" = "xunknown"; then :
-  as_fn_error $? "unable to find Perl interpreter" "$LINENO" 5
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find Perl interpreter
+See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 # Find a good install program.  We prefer a C program (faster),
@@ -5255,6 +5463,101 @@ $as_echo "$as_me: running $SHELL $ax_sub_configure $ax_sub_configure_args --cach
       fi
 
       ax_dir="externals/cdi"
+
+      # Convert the path to the subdirectory into a shell variable name.
+      ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
+      ax_configure_ax_var=$(eval "echo \"\$ax_sub_configure_$ax_var\"")
+      if test "$no_recursion" != "yes" -a "x$ax_configure_ax_var" = "xyes"; then
+        subdirs_extra="$subdirs_extra $ax_dir"
+
+        ax_msg="=== configuring in $ax_dir ($(pwd)/$ax_dir)"
+        $as_echo "$as_me:${as_lineno-$LINENO}: $ax_msg" >&5
+        $as_echo "$ax_msg" >&6
+        as_dir="$ax_dir"; as_fn_mkdir_p
+        ac_builddir=.
+
+case "$ax_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo "$ax_dir" | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+
+        ax_popdir=$(pwd)
+        cd "$ax_dir"
+
+        # Check for guested configure; otherwise get Cygnus style configure.
+        if test -f "$ac_srcdir/configure.gnu"; then
+          ax_sub_configure=$ac_srcdir/configure.gnu
+        elif test -f "$ac_srcdir/configure"; then
+          ax_sub_configure=$ac_srcdir/configure
+        elif test -f "$ac_srcdir/configure.in"; then
+          # This should be Cygnus configure.
+          ax_sub_configure=$ac_aux_dir/configure
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: no configuration information is in $ax_dir" >&5
+$as_echo "$as_me: WARNING: no configuration information is in $ax_dir" >&2;}
+          ax_sub_configure=
+        fi
+
+        if test -n "$ax_sub_configure"; then
+          # Get the configure arguments for the current configure.
+          eval "ax_sub_configure_args=\"\$ax_sub_configure_args_${ax_var}\""
+
+          # Always prepend --prefix to ensure using the same prefix
+          # in subdir configurations.
+          ax_arg="--prefix=$prefix"
+          case $ax_arg in
+            *\'*) ax_arg=$($as_echo "$ax_arg" | sed "s/'/'\\\\\\\\''/g");;
+          esac
+          ax_sub_configure_args="'$ax_arg' $ax_sub_configure_args"
+          if test "$silent" = yes; then
+            ax_sub_configure_args="--silent $ax_sub_configure_args"
+          fi
+          # Make the cache file name correct relative to the subdirectory.
+          case $cache_file in
+            [\\/]* | ?:[\\/]* )
+              ax_sub_cache_file=$cache_file ;;
+            *) # Relative name.
+              ax_sub_cache_file=$ac_top_build_prefix$cache_file ;;
+          esac
+
+          { $as_echo "$as_me:${as_lineno-$LINENO}: running $SHELL $ax_sub_configure $ax_sub_configure_args --cache-file=$ac_sub_cache_file" >&5
+$as_echo "$as_me: running $SHELL $ax_sub_configure $ax_sub_configure_args --cache-file=$ac_sub_cache_file" >&6;}
+          eval "\$SHELL \"$ax_sub_configure\" $ax_sub_configure_args --cache-file=\"$ax_sub_cache_file\"" \
+              || as_fn_error $? "$ax_sub_configure failed for $ax_dir" "$LINENO" 5
+        fi
+
+        cd "$ax_popdir"
+      fi
+
+      ax_dir="externals/yac"
 
       # Convert the path to the subdirectory into a shell variable name.
       ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
