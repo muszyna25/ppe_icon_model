@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -eu
+
+GRIBAPI_ROOT='/apps/daint/UES/6.0.UP02/sandbox-ws/grib_api'
+GRIBAPI_LIBS='-lgrib_api'
+
+XML_LIBS='-lxml2'
+
+FC='ftn'
+CC='cc'
+BUILD_ENV='module load cray-netcdf;'
+
+######################
+
+# Make the test a bit faster (the default flags are '-O2 -g'):
+FCFLAGS='-g'
+
+CFLAGS="-I${GRIBAPI_ROOT}/include"
+
+LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
+
+# Append RPATHs:
+LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
+
+LIBS="${XML_LIBS} ${GRIBAPI_LIBS}"
+
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" BUILD_ENV="$BUILD_ENV" --enable-grib2 "$@"
+
