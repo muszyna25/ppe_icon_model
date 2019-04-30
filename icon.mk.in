@@ -37,9 +37,6 @@ DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
 DEPGEN= $(PYTHON) $(srcdir)/utils/mkhelper/depgen.py
 PERL= @PERL@
 
-# Extra dependencies:
-extra_deps= $(srcdir)/extra_deps.mk
-
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V), 0)
@@ -62,14 +59,14 @@ dirstamps:= $(patsubst $(srcdir)/%, %.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs
 depfiles:= $(patsubst $(srcdir)/%, %.d, $(FC_srcs) $(C_srcs))
 
 # Default rule:
-all: icon
+all: icon@EXEEXT@
 
 # Additional rules for external packages that do not have their
 # own building systems:
 @JSBACH_ENABLED@include externals/jsbach.mk
 
 # Root object file:
-rootobj:= src/drivers/icon.o
+rootobj:= src/drivers/icon.@OBJEXT@
 
 # Source file selective search paths:
 vpath %.f90 $(srcdir)
@@ -88,7 +85,7 @@ vpath %.c $(srcdir)
 depend: $(depfiles)
 
 mostlyclean: $(bundled_subdirs)
-	rm -f icon version.o $(patsubst $(srcdir)/%.c, %.o, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.o, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f icon@EXEEXT@ version.@OBJEXT@ $(patsubst $(srcdir)/%.c, %.@OBJEXT@, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.@OBJEXT@, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
 
 clean: mostlyclean
 	rm -f version.c srclist $(depfiles) $(dirstamps)
@@ -107,20 +104,20 @@ maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
 
 install: all
-	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon $(DESTDIR)@bindir@/icon
+	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
 # Generate a list of files that are going to be compiled in the current configuration:
 srclist: $(depfiles) $(extra_deps)
 	$(silent_GEN)$(DEPLIST) -t $(rootobj) -p '*.f90' -p '*.c' -f $^ | sort > $@
 
 # Main building rules:
-icon: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.o' -f $(depfiles) $(extra_deps)) $(BUNDLED_LIBS)
+icon@EXEEXT@: $(rootobj) $(shell $(DEPLIST) -t $(rootobj) -p '*.@OBJEXT@' --inc-oo -f $(depfiles) icon.mk) $(BUNDLED_LIBS)
 	$(silent_FCLD) $(FC) -o $@ $(ICON_FCFLAGS) $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
-%.o: %.f90 | $(dirstamps) $(bundled_subdirs)
+%.@OBJEXT@: %.f90 | $(dirstamps) $(bundled_subdirs)
 	$(silent_FC) $(FC) -o $@ -c $(ICON_FCFLAGS) $(FCFLAGS) @FCFLAGS_f90@ $<
 
-%.o: %.c | $(dirstamps)
+%.@OBJEXT@: %.c | $(dirstamps)
 	$(silent_CC) $(CC) -o $@ -c $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS) $<
 
 # Fortran module file tracking rule:
@@ -141,10 +138,10 @@ version.c: force-create-version
 
 # Dependency generation rules:
 %.f90.d: %.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.o) $< -- $(DEPGEN_FCFLAGS) $(ICON_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_FCFLAGS) $(FCFLAGS)
 
 %.c.d: %.c | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.o) $< -- $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(CFLAGS) $(ICON_CPPFLAGS) $(CPPFLAGS)
 
 # Make bundled libraries:
 $(bundled_subdirs):
@@ -159,6 +156,46 @@ $(bundled_subdirs):
 externals/yac: $(filter externals/mtime, $(bundled_subdirs))
 
 $(BUNDLED_LIBS): $(bundled_subdirs);
+
+# Fortran to C dependencies:
+src/io/restart/mo_c_restart_util.@OBJEXT@:| support/util_multifile_restart.@OBJEXT@
+src/io/shared/mo_util_file.@OBJEXT@:| support/util_file.@OBJEXT@
+src/io/shared/mo_util_nml.@OBJEXT@:| support/nml_annotate.@OBJEXT@
+src/shared/mo_expression.@OBJEXT@:| support/util_arithmetic_expr.@OBJEXT@
+src/shared/mo_util_backtrace.@OBJEXT@:| support/util_backtrace.@OBJEXT@
+src/shared/mo_util_hash.@OBJEXT@:| support/util_hash.@OBJEXT@
+src/shared/mo_util_stride.@OBJEXT@:| support/util_stride.@OBJEXT@
+src/shared/mo_util_string_parse.@OBJEXT@:| support/util_string_parse.@OBJEXT@
+src/shared/mo_util_sysinfo.@OBJEXT@:| support/util_sysinfo.@OBJEXT@
+src/shared/mo_util_system.@OBJEXT@:| support/util_system.@OBJEXT@
+src/shared/mo_util_timer.@OBJEXT@:| support/util_timer.@OBJEXT@
+src/shared/mo_util_uuid.@OBJEXT@:| support/util_uuid.@OBJEXT@
+src/shared/mo_util_vcs.@OBJEXT@:| version.@OBJEXT@
+
+# Undetectable Fortran dependencies:
+src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@:|      \
+  src/atm_chem_cariolle/lcariolle_o3_column.@OBJEXT@
+
+src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:|          \
+  src/atm_chem_cariolle/lcariolle_init.@OBJEXT@         \
+  src/atm_chem_cariolle/lcariolle_init_o3.@OBJEXT@      \
+  src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@  \
+  src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@
+
+src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:|     \
+  src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@        \
+  src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@  \
+  src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@
+
+src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| \
+  src/hamocc/common/chemcon.@OBJEXT@         \
+  src/hamocc/common/ocprod.@OBJEXT@          \
+  src/hamocc/common/sedshi.@OBJEXT@          \
+  src/hamocc/common/swr_absorption.@OBJEXT@
+
+src/ocean/drivers/mo_hydro_ocean_run.@OBJEXT@:|  \
+  src/hamocc/icon_specific/bgc_icon.@OBJEXT@     \
+  src/hamocc/icon_specific/ini_bgc_icon.@OBJEXT@
 
 ifeq (,$(filter $(MAKECMDGOALS), depend mostlyclean clean distclean maintainer-clean))
 -include $(depfiles)

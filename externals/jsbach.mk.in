@@ -23,7 +23,7 @@ $(jsb_builddir)/%.f90: $(jsb_srcdir)/%.f90 | $(jsb_dirstamps)
 	$(silent_DSL4JSB)$(PYTHON) $(jsb_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
 
 jsb-mostlyclean:
-	rm -f $(patsubst %.f90, %.o, $(jsb_FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(jsb_FC_srcs)))
+	rm -f $(patsubst %.f90, %.@OBJEXT@, $(jsb_FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(jsb_FC_srcs)))
 
 jsb-clean:
 	rm -f $(jsb_FC_srcs) $(jsb_dirstamps)
