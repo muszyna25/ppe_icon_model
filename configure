@@ -597,7 +597,6 @@ ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
-FC_DEFS
 PP_INC_ORDER_f90
 FC_INC_ORDER
 FC_MODULE_EXT
@@ -3169,10 +3168,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 
-
-as_fn_append FC_DEFS " ${FC_DEFINE}__ICON__"
-as_fn_append FC_DEFS " ${FC_DEFINE}__NO_JSBACH__"
-as_fn_append FC_DEFS " ${FC_DEFINE}__NO_ICON_TESTBED__"
+FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__ $FCFLAGS"
 
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
@@ -3205,7 +3201,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 else
-  as_fn_append FC_DEFS " ${FC_DEFINE}NOMPI"
+  FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"
 fi
 
 ac_ext=c

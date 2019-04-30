@@ -116,10 +116,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([no])
    AC_MSG_ERROR([the provided version of CDI 1.8.x does not have required patches])])
 
-AC_SUBST([FC_DEFS])
-AS_VAR_APPEND([FC_DEFS], [" ${FC_DEFINE}__ICON__"])
-AS_VAR_APPEND([FC_DEFS], [" ${FC_DEFINE}__NO_JSBACH__"])
-AS_VAR_APPEND([FC_DEFS], [" ${FC_DEFINE}__NO_ICON_TESTBED__"])
+FCFLAGS="${FC_DEFINE}__ICON__ ${FC_DEFINE}__NO_JSBACH__ ${FC_DEFINE}__NO_ICON_TESTBED__ $FCFLAGS"
 
 AC_ARG_ENABLE([mpi],
   [AS_HELP_STRING([--enable-mpi], [enable MPI (parallelization) support @<:@default=yes@:>@])],
@@ -135,7 +132,7 @@ AS_IF([test "x$enable_mpi" = "xyes"],
       AC_MSG_ERROR([unable to compile test program using MPI: \
 either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, \
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
-  [AS_VAR_APPEND([FC_DEFS], [" ${FC_DEFINE}NOMPI"])])
+  [FCFLAGS="${FC_DEFINE}NOMPI $FCFLAGS"])
 
 AC_PROG_CC
 AC_LANG([C])
