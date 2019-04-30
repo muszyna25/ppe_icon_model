@@ -88,6 +88,8 @@ AC_ARG_ENABLE([yaxt],
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
+ICON_OPTIMIZATION_ARG_ENABLE
+
 AC_ARG_ENABLE([loop-exchange],
   [AC_HELP_STRING([--enable-loop-exchange],
      [enable loop exchange @<:@default=yes@:>@])], [],
@@ -117,7 +119,7 @@ AC_ARG_WITH([external-yac],
 
 AC_ARG_WITH([external-tixi],
   [AC_HELP_STRING([--with-external-tixi],
-     [use external tixi library (when ART is enabled)
+     [use external TIXI library (when ART is enabled)
 @<:@default=no@:>@])], [],
   [with_external_tixi=no])
 
@@ -131,6 +133,11 @@ ACX_BUILD_ENVIRONMENT
 dnl Delay the cross-compilation check before we add RPATH flags for ICON.
 ACX_COMPILER_CROSS_CHECK_DELAY
 
+AC_LANG([C])
+dnl Override the default flags set by AC_PROG_CC:
+CFLAGS=${CFLAGS-}
+dnl Flags to be passed to the configure scripts of the bundled libraries:
+subdir_CFLAGS=$CFLAGS
 AC_PROG_CC
 dnl Supporting ISO C89 means that the following header files are available:
 dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
@@ -146,6 +153,20 @@ AS_VAR_IF([ac_cv_prog_cc_c99], [no],
   [AC_MSG_FAILURE([C compiler does not support ISO C99])])
 
 ACX_COMPILER_CC_VERSION
+
+ICON_OPTIMIZATION_SET_CFLAGS
+ICON_OPTIMIZATION_CHECK_CFLAGS
+
+AS_IF([test -n "$icon_optim_CFLAGS"],
+  [AS_IF([test -n "$CFLAGS"],
+     [CFLAGS="$icon_optim_CFLAGS $CFLAGS"],
+     [CFLAGS=$icon_optim_CFLAGS])])
+
+AS_IF([test -n "$icon_optim_subdir_CFLAGS"],
+  [AS_IF([test -n "$subdir_CFLAGS"],
+     [subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"],
+     [subdir_CFLAGS=$icon_optim_subdir_CFLAGS])])
+
 icon_libdirs=
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_CC_RPATH_FLAG
@@ -180,10 +201,27 @@ dnl util_pbio.c: ffio.h pthread.h
 dnl util_postgresql.c: libpq-fe.h
 dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
-AC_PROG_FC
 AC_LANG([Fortran])
+dnl Override the default flags set by AC_PROG_FC:
+FCFLAGS=${FCFLAGS-}
+dnl Flags to be passed to the configure scripts of the bundled libraries:
+subdir_FCFLAGS=$FCFLAGS
+AC_PROG_FC
 AC_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
+
+ICON_OPTIMIZATION_SET_FCFLAGS
+ICON_OPTIMIZATION_CHECK_FCFLAGS
+
+AS_IF([test -n "$icon_optim_FCFLAGS"],
+  [AS_IF([test -n "$FCFLAGS"],
+     [FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"],
+     [FCFLAGS=$icon_optim_FCFLAGS])])
+
+AS_IF([test -n "$icon_optim_subdir_FCFLAGS"],
+  [AS_IF([test -n "$subdir_FCFLAGS"],
+     [subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"],
+     [subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS])])
 
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_FC_RPATH_FLAG
@@ -283,6 +321,11 @@ for icon_libdir in $icon_libdirs; do
   AS_VAR_APPEND([icon_fc_rpaths], ["$acx_cv_fc_rpath_flag$icon_libdir "])
   AS_VAR_APPEND([icon_lt_rpaths], ["-Wl,-rpath -Wl,$icon_libdir "])
 done
+
+AC_LANG([C])
+ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_c_rpaths])
+AC_LANG([Fortran])
+ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_fc_rpaths])
 
 dnl Original LDFLAGS to be passed to the configure scripts in subdirectories:
 subdir_LDFLAGS=$LDFLAGS
@@ -484,12 +527,13 @@ disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
 version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
       ACX_CONFIG_SUBDIR([externals/yaxt],
-        [[LDFLAGS=*],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])]],
-        [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
          [--disable-shared], [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
@@ -554,7 +598,7 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/cdi],
-     [[LDFLAGS=*],
+     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -568,7 +612,8 @@ and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([eccodes])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
-     [[LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
@@ -618,12 +663,13 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of mtime (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/mtime],
-     [[LDFLAGS=*],
+     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])]],
-     [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [--enable-static],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--disable-examples]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/mtime/src"])
@@ -670,11 +716,13 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          _AC_SRCDIRS([.])
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
-      yac_CFLAGS=$CFLAGS; yac_FCFLAGS=$FCFLAGS; yac_LDFLAGS=$subdir_LDFLAGS
+      yac_CFLAGS=$subdir_CFLAGS
+      yac_FCFLAGS=$subdir_FCFLAGS
+      yac_LDFLAGS=$subdir_LDFLAGS
       AS_IF([test x"$icon_c_rpaths" = x"$icon_fc_rpaths"],
         [yac_LDFLAGS="$icon_c_rpaths$yac_LDFLAGS"],
-        [yac_CFLAGS="$CFLAGS $icon_c_rpaths"
-         yac_FCFLAGS="$FCFLAGS $icon_fc_rpaths"])
+        [AS_VAR_APPEND([yac_CFLAGS], [" $icon_c_rpaths"])
+         AS_VAR_APPEND([yac_FCFLAGS], [" $icon_fc_rpaths"])])
       ACX_CONFIG_SUBDIR([externals/yac],
         [[FCFLAGS=*|CFLAGS=*|LDFLAGS=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
@@ -700,7 +748,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_IF([with_external_tixi], [yes],
-     [AC_MSG_CHECKING([whether the Fortran interface of tixi library is dnl
+     [AC_MSG_CHECKING([whether the Fortran interface of TIXI library is dnl
 available])
       AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use tixi, only: tixiOpenDocument
@@ -710,23 +758,24 @@ available])
       b = tixiOpenDocument(a, b)]])],
         [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using tixi: either dnl
+         AC_MSG_FAILURE([unable to link a test program using TIXI: either dnl
 disable the ART component (--disable-art) or use the bundled version of dnl
-tixi (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS dnl
+TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/tixi"
       icon_subdir_unique_file="src/tixi.f90"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
         [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
-tixi library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the ART component (--disable-art) or provide an external version of dnl
-tixi (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
+TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
       ACX_CONFIG_SUBDIR([externals/tixi],
-        [[LDFLAGS=*],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
-        [[LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [XML2_CFLAGS=],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [XML2_CFLAGS=],
          [XML2_CLIBS=], [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/tixi/src"])
       BUNDLED_LIBS="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBS"])])
@@ -755,9 +804,10 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of self (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/self],
-     [[LDFLAGS=*],
+     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
-     [[LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
    BUNDLED_LIBS="externals/self/src/libself.a $BUNDLED_LIBS"])

@@ -678,6 +678,7 @@ enable_openmp
 enable_grib2
 enable_sct
 enable_yaxt
+enable_optimization
 enable_loop_exchange
 with_external_yaxt
 with_external_cdi
@@ -1332,6 +1333,16 @@ Infrastructural Features:
   --enable-yaxt           enable the YAXT data exchange [default=no]
 
 Optimization Features:
+  --enable-optimization   prepend CFLAGS and FCFLAGS with additional
+                          predefined compiler-specific set of flags. The value
+                          of the argument should be one of the following
+                          [default=release]:
+                            release      optimizations for production runs
+                            aggressive   most aggressive optimizations
+                            precise      optimizations ensuring reproducibility
+                            debug        optimizations for debugging
+                            test         optimizations for regression testing
+                            none         no optimizations at all
   --enable-loop-exchange  enable loop exchange [default=yes]
 
 Optional Packages:
@@ -1343,7 +1354,7 @@ Optional Packages:
   --with-external-mtime   use external mtime library [default=no]
   --with-external-yac     use external YAC library (when the coupling is
                           enabled) [default=no]
-  --with-external-tixi    use external tixi library (when ART is enabled)
+  --with-external-tixi    use external TIXI library (when ART is enabled)
                           [default=no]
   --with-external-self    use external self library [default=no]
 
@@ -1704,6 +1715,52 @@ rm -f conftest.val
   as_fn_set_status $ac_retval
 
 } # ac_fn_c_compute_int
+
+# ac_fn_c_try_link LINENO
+# -----------------------
+# Try to link conftest.$ac_ext, and return whether this succeeded.
+ac_fn_c_try_link ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  rm -f conftest.$ac_objext conftest$ac_exeext
+  if { { ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$ac_link") 2>conftest.err
+  ac_status=$?
+  if test -s conftest.err; then
+    grep -v '^ *+' conftest.err >conftest.er1
+    cat conftest.er1 >&5
+    mv -f conftest.er1 conftest.err
+  fi
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 test -x conftest$ac_exeext
+       }; then :
+  ac_retval=0
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_retval=1
+fi
+  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
+  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
+  # interfere with the next link command; also delete a directory that is
+  # left behind by Apple's compiler.  We do this before executing the actions.
+  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} # ac_fn_c_try_link
 
 # ac_fn_c_check_header_compile LINENO HEADER VAR INCLUDES
 # -------------------------------------------------------
@@ -2319,6 +2376,23 @@ fi
 
 
 
+# Check whether --enable-optimization was given.
+if test "${enable_optimization+set}" = set; then :
+  enableval=$enable_optimization; case "$enableval" in #(
+  yes) :
+    enable_optimization=release ;; #(
+  no) :
+    enable_optimization=none ;; #(
+  release|aggressive|precise|debug|test|none) :
+     ;; #(
+  *) :
+    as_fn_error $? "unexpected value for the argument --enable-optimization='$enableval'; valid values are 'release', 'aggressive', 'precise', 'debug', 'test', 'none', 'yes' (same as 'release'), 'no' (same as 'none')." "$LINENO" 5 ;;
+esac
+else
+  enable_optimization=release
+fi
+
+
 # Check whether --enable-loop-exchange was given.
 if test "${enable_loop_exchange+set}" = set; then :
   enableval=$enable_loop_exchange;
@@ -2435,6 +2509,14 @@ acx_save_cross_compiling=$cross_compiling
    ac_tool_warned=yes
 
 
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+CFLAGS=${CFLAGS-}
+subdir_CFLAGS=$CFLAGS
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -3621,6 +3703,128 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_version" >&5
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
+
+
+   icon_optim_error=
+   icon_optim_CFLAGS=
+   icon_optim_subdir_CFLAGS=
+   case $enable_optimization in #(
+     release)
+       # release, default (example)
+       icon_optim_CFLAGS='-O2' ;; #(
+     aggressive)
+       case $acx_cv_c_compiler_vendor in #(
+         unknown)
+           # aggressive, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown C compiler" ;; #(
+         *)
+           # aggressive, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_c_compiler_vendor C compiler: the relevant \
+set of extra CFLAGS is not defined" ;;
+       esac ;; #(
+     precise)
+       case $acx_cv_c_compiler_vendor in #(
+         unknown)
+           # precise, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown C compiler" ;; #(
+         *)
+           # precise, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_c_compiler_vendor C compiler: the relevant \
+set of extra CFLAGS is not defined" ;;
+       esac ;; #(
+     debug)
+       # debug, default (example)
+       if x"$ac_cv_prog_c_g" = xyes; then icon_optim_CFLAGS='-g'; fi ;; #(
+     test)
+       case $acx_cv_c_compiler_vendor in #(
+         intel)
+           # test, intel compiler (example)
+           case $acx_cv_c_compiler_version in #(
+             1[0-6].*)
+               # test, intel compiler, 10>=version<=16 (example)
+               icon_optim_CFLAGS='-O2' ;; #(
+             *)
+               # test, intel compiler, default (example)
+               icon_optim_CFLAGS='-O1' ;;
+           esac ;; #(
+         cray)
+           # test, cray compiler, default (example)
+           icon_optim_CFLAGS='-O2' ;; #(
+         *)
+           # test, default (example)
+           icon_optim_CFLAGS='-O1' ;;
+       esac ;; #(
+     none)
+       # none, keep empty
+       ;; #(
+     *)
+       icon_optim_error="unexpected optimization level for C compiler: \
+'$enable_optimization'; valid values are 'release', 'aggressive', 'precise', \
+'debug', 'test', or 'none'." ;;
+   esac
+
+   # Currently, we compile the bundled libraries with the same flags:
+   icon_optim_subdir_CFLAGS=$icon_optim_CFLAGS
+
+ if test -n "$icon_optim_error"; then :
+  as_fn_error $? "$icon_optim_error" "$LINENO" 5
+fi
+      if test x"$enable_optimization" != xnone; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts flags for optimization level '$enable_optimization'" >&5
+$as_echo_n "checking whether C compiler accepts flags for optimization level '$enable_optimization'... " >&6; }
+      icon_optimization_save_CFLAGS=$CFLAGS
+      CFLAGS=$icon_optim_CFLAGS
+      icon_optimization_check_result=no
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  if ac_fn_c_try_link "$LINENO"; then :
+  icon_optimization_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_optimization_check_result" >&5
+$as_echo "$icon_optimization_check_result" >&6; }
+      if test "x$icon_optimization_check_result" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "C compiler does not accept flags for optimization level '$enable_optimization': disable optimizations (--disable-optimization)
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+      CFLAGS=$icon_optimization_save_CFLAGS
+fi
+
+if test -n "$icon_optim_CFLAGS"; then :
+  if test -n "$CFLAGS"; then :
+  CFLAGS="$icon_optim_CFLAGS $CFLAGS"
+else
+  CFLAGS=$icon_optim_CFLAGS
+fi
+fi
+
+if test -n "$icon_optim_subdir_CFLAGS"; then :
+  if test -n "$subdir_CFLAGS"; then :
+  subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"
+else
+  subdir_CFLAGS=$icon_optim_subdir_CFLAGS
+fi
+fi
+
 icon_libdirs=
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler flag needed to add a directory to the runtime library search path" >&5
@@ -3702,6 +3906,13 @@ done
 
 
 
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+FCFLAGS=${FCFLAGS-}
+subdir_FCFLAGS=$FCFLAGS
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
@@ -3907,12 +4118,6 @@ if test $ac_compiler_gnu = yes; then
 else
   GFC=
 fi
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
@@ -4064,6 +4269,121 @@ fi
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 
+
+   icon_optim_error=
+   icon_optim_FCFLAGS=
+   icon_optim_subdir_FCFLAGS=
+   case $enable_optimization in #(
+     release)
+       # release, default (example)
+       icon_optim_FCFLAGS='-O2' ;; #(
+     aggressive)
+       case $acx_cv_fc_compiler_vendor in #(
+         unknown)
+           # aggressive, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown Fortran compiler" ;; #(
+         *)
+           # aggressive, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
+set of extra FCFLAGS is not defined" ;;
+       esac ;; #(
+     precise)
+       case $acx_cv_fc_compiler_vendor in #(
+         unknown)
+           # precise, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown Fortran compiler" ;; #(
+         *)
+           # precise, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
+set of extra FCFLAGS is not defined" ;;
+       esac ;; #(
+     debug)
+       # debug, default (example)
+       if x"$ac_cv_prog_fc_g" = xyes; then icon_optim_FCFLAGS='-g'; fi ;; #(
+     test)
+       case $acx_cv_fc_compiler_vendor in #(
+         intel)
+           # test, intel compiler (example)
+           case $acx_cv_fc_compiler_version in #(
+             1[0-6].*)
+               # test, intel compiler, 10>=version<=16 (example)
+               icon_optim_FCFLAGS='-O2' ;; #(
+             *)
+               # test, intel compiler, default (example)
+               icon_optim_FCFLAGS='-O1' ;;
+           esac ;; #(
+         cray)
+           # test, cray compiler, default (example)
+           icon_optim_FCFLAGS='-O2' ;; #(
+         *)
+           # test, default (example)
+           icon_optim_FCFLAGS='-O1' ;;
+       esac ;; #(
+     none)
+       # none, keep empty
+       ;; #(
+     *)
+       icon_optim_error="unexpected optimization level for Fortran compiler: \
+'$enable_optimization'; valid values are 'release', 'aggressive', 'precise', \
+'debug', 'test', or 'none'." ;;
+   esac
+
+   # Currently, we compile the bundled libraries with the same flags:
+   icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
+
+ if test -n "$icon_optim_error"; then :
+  as_fn_error $? "$icon_optim_error" "$LINENO" 5
+fi
+      if test x"$enable_optimization" != xnone; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'" >&5
+$as_echo_n "checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'... " >&6; }
+      icon_optimization_save_FCFLAGS=$FCFLAGS
+      FCFLAGS=$icon_optim_FCFLAGS
+      icon_optimization_check_result=no
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  if ac_fn_fc_try_link "$LINENO"; then :
+  icon_optimization_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_optimization_check_result" >&5
+$as_echo "$icon_optimization_check_result" >&6; }
+      if test "x$icon_optimization_check_result" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler does not accept flags for optimization level '$enable_optimization': disable optimizations (--disable-optimization)
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+      FCFLAGS=$icon_optimization_save_FCFLAGS
+fi
+
+if test -n "$icon_optim_FCFLAGS"; then :
+  if test -n "$FCFLAGS"; then :
+  FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"
+else
+  FCFLAGS=$icon_optim_FCFLAGS
+fi
+fi
+
+if test -n "$icon_optim_subdir_FCFLAGS"; then :
+  if test -n "$subdir_FCFLAGS"; then :
+  subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
+else
+  subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS
+fi
+fi
+
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
 $as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
@@ -4114,6 +4434,76 @@ for icon_libdir in $icon_libdirs; do
   as_fn_append icon_fc_rpaths "$acx_cv_fc_rpath_flag$icon_libdir "
   as_fn_append icon_lt_rpaths "-Wl,-rpath -Wl,$icon_libdir "
 done
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+acx_shlib_rpath_flags_check_result=no
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts the automatically generated RPATH flags" >&5
+$as_echo_n "checking whether C compiler accepts the automatically generated RPATH flags... " >&6; }
+   acx_save_LDFLAGS=$LDFLAGS
+   LDFLAGS="$icon_c_rpaths $LDFLAGS"
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  acx_shlib_rpath_flags_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+   LDFLAGS=$acx_save_LDFLAGS
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
+$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
+   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "C compiler does not accept the automatically generated RPATH flags '$icon_c_rpaths'
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+acx_shlib_rpath_flags_check_result=no
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
+$as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
+   acx_save_LDFLAGS=$LDFLAGS
+   LDFLAGS="$icon_fc_rpaths $LDFLAGS"
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  acx_shlib_rpath_flags_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+   LDFLAGS=$acx_save_LDFLAGS
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
+$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
+   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$icon_fc_rpaths'
+See \`config.log' for more details" "$LINENO" 5; }
+fi
 
 subdir_LDFLAGS=$LDFLAGS
 
@@ -5098,7 +5488,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  LDFLAGS=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5122,7 +5512,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5255,7 +5645,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  LDFLAGS=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5297,7 +5687,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex       --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex       --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5386,7 +5776,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  LDFLAGS=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5410,7 +5800,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5538,12 +5928,14 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
 fi
-      yac_CFLAGS=$CFLAGS; yac_FCFLAGS=$FCFLAGS; yac_LDFLAGS=$subdir_LDFLAGS
+      yac_CFLAGS=$subdir_CFLAGS
+      yac_FCFLAGS=$subdir_FCFLAGS
+      yac_LDFLAGS=$subdir_LDFLAGS
       if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
   yac_LDFLAGS="$icon_c_rpaths$yac_LDFLAGS"
 else
-  yac_CFLAGS="$CFLAGS $icon_c_rpaths"
-         yac_FCFLAGS="$FCFLAGS $icon_fc_rpaths"
+  as_fn_append yac_CFLAGS " $icon_c_rpaths"
+         as_fn_append yac_FCFLAGS " $icon_fc_rpaths"
 fi
          acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
@@ -5617,8 +6009,8 @@ fi
 
 if test "x$enable_art" = xyes; then :
   if test "x$with_external_tixi" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of tixi library is available" >&5
-$as_echo_n "checking whether the Fortran interface of tixi library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of TIXI library is available" >&5
+$as_echo_n "checking whether the Fortran interface of TIXI library is available... " >&6; }
       cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -5637,7 +6029,7 @@ else
 $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using tixi: either disable the ART component (--disable-art) or use the bundled version of tixi (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using TIXI: either disable the ART component (--disable-art) or use the bundled version of TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
@@ -5646,7 +6038,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/tixi"
       icon_subdir_unique_file="src/tixi.f90"
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of tixi library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the ART component (--disable-art) or provide an external version of tixi (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the ART component (--disable-art) or provide an external version of TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
          acx_config_subdir_args_externals_tixi=
    acx_config_subdir_ignore_arg=no
@@ -5666,7 +6058,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  LDFLAGS=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*) :
      ;; #(
@@ -5686,7 +6078,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5755,7 +6147,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  LDFLAGS=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -5773,7 +6165,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
