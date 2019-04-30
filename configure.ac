@@ -19,7 +19,7 @@ AC_SUBST([DEPGEN_INTRINSIC_MODS],
 [[ieee_features,omp_lib,omp_lib_kinds,openacc]])
 AC_SUBST([DEPGEN_EXTERNAL_MODS],
   [[mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,]]dnl
-[[self_vector,self_map,self_assert,sct,mo_yac_finterface]])
+[[self_vector,self_map,self_assert,sct,mo_yac_finterface,yaxt]])
 
 ACX_LANG_VENDOR
 
@@ -138,16 +138,16 @@ AC_ARG_ENABLE([atmo],
      [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
   [enable_atmo=yes])
 AS_VAR_IF([enable_atmo], [yes], [],
-  [AC_MSG_NOTICE([the atmosphere component is disabled])
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])
+   AC_MSG_NOTICE([the atmosphere component is disabled])])
 
 AC_ARG_ENABLE([ocean],
   [AC_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])], [],
   [enable_ocean=yes])
 AS_VAR_IF([enable_ocean], [yes], [],
-  [AC_MSG_NOTICE([the ocean component is disabled])
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])
+   AC_MSG_NOTICE([the ocean component is disabled])])
 
 AC_ARG_ENABLE([jsbach],
   [AC_HELP_STRING([--enable-jsbach],
@@ -157,9 +157,9 @@ AC_SUBST([JSBACH_ENABLED])
 AS_VAR_IF([enable_jsbach], [yes],
   [JSBACH_ENABLED=
    AC_CONFIG_FILES([externals/jsbach.mk])],
-  [AC_MSG_NOTICE([the land component JSBACH is disabled])
-   JSBACH_ENABLED='#'
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+  [JSBACH_ENABLED='#'
+   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])
+   AC_MSG_NOTICE([the land component JSBACH is disabled])])
 
 AC_ARG_ENABLE([coupling],
   [AC_HELP_STRING([--enable-coupling],
@@ -174,8 +174,15 @@ AC_ARG_ENABLE([psrad],
      [enable the PSRAD component of ICON @<:@default=yes@:>@])], [],
   [enable_psrad=yes])
 AS_VAR_IF([enable_psrad], [yes], [],
-  [AC_MSG_NOTICE([the PSRAD component is disabled])
-   AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])
+   AC_MSG_NOTICE([the PSRAD component is disabled])])
+
+AC_ARG_ENABLE([yaxt],
+  [AC_HELP_STRING([--enable-yaxt],
+     [enable the YAXT data exchange @<:@default=no@:>@])], [],
+  [enable_yaxt=no])
+AS_VAR_IF([enable_yaxt], [yes],
+  [AS_VAR_APPEND([OPTION_FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
 
 AC_ARG_ENABLE([sct],
   [AC_HELP_STRING([--enable-sct],
@@ -216,6 +223,12 @@ AC_ARG_WITH([external-yac],
      [use an external YAC library (when the coupling is enabled) instead ]dnl
 [of the bundled one @<:@default=no@:>@])], [],
   [with_external_yac=no])
+
+AC_ARG_WITH([external-yaxt],
+  [AC_HELP_STRING([--with-external-yaxt],
+     [use an external YAXT library (when the YAXT data exchange is ]dnl
+[enabled) instead of the bundled one @<:@default=no@:>@])], [],
+  [with_external_yaxt=no])
 
 AC_SUBST([BUNDLED_FCFLAGS])
 AC_SUBST([BUNDLED_LIBS])
@@ -410,6 +423,36 @@ required patches])])
         [unknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
 CDI supports GRIB2])])])])
+
+AS_VAR_IF([enable_yaxt], [yes],
+  [AS_VAR_IF([with_external_yaxt], [no],
+     [AS_IF([test -f "${srcdir}/externals/yaxt/configure"],
+        [AX_SUBDIRS_CONFIGURE([externals/yaxt], [], [],
+           [[--enable-static=yes], [--enable-shared=no],
+            [--enable-dependency-tracking=yes],
+            [--enable-silent-rules=$enable_silent_rules]],
+           [[--enable-static], [--disable-static],
+            [--enable-shared], [--disable-shared],
+            [--enable-dependency-tracking], [--disable-dependency-tracking],
+            [--enable-silent-rules], [--disable-silent-rules]])
+         AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
+         AS_VAR_APPEND([BUNDLED_LIBS],
+           [" externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/dnl
+.libs/libyaxt_c.a"])],
+        [AC_MSG_ERROR([unable to use the bundled version of YAXT library: dnl
+file ${srcdir}/externals/yaxt/configure not found])])],
+     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
+is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use yaxt, only: xt_initialized, xt_initialize
+      implicit none
+      integer :: a
+      if (.not. xt_initialized()) call xt_initialize(a)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to compile test program using YAXT library: dnl
+enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])])])
 
 AC_PROG_CC
 dnl Supporting ISO C89 means that the following header files are available:

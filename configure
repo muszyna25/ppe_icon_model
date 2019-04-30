@@ -673,11 +673,13 @@ enable_ocean
 enable_jsbach
 enable_coupling
 enable_psrad
+enable_yaxt
 enable_sct
 with_external_mtime
 with_external_self
 with_external_cdi
 with_external_yac
+with_external_yaxt
 enable_grib2
 '
       ac_precious_vars='build_alias
@@ -1312,6 +1314,7 @@ Optional Features:
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling with YAC [default=yes]
   --enable-psrad          enable the PSRAD component of ICON [default=yes]
+  --enable-yaxt           enable the YAXT data exchange [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-grib2          enable GRIB2 I/O [default=no]
 
@@ -1326,6 +1329,9 @@ Optional Packages:
                           one [default=no]
   --with-external-yac     use an external YAC library (when the coupling is
                           enabled) instead of the bundled one [default=no]
+  --with-external-yaxt    use an external YAXT library (when the YAXT data
+                          exchange is enabled) instead of the bundled one
+                          [default=no]
 
 Some influential environment variables:
   FC          Fortran compiler command
@@ -2490,7 +2496,7 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
 DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
 
-DEPGEN_EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
+DEPGEN_EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface,yaxt
 
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler vendor" >&5
@@ -3350,9 +3356,9 @@ fi
 if test "x$enable_atmo" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: the atmosphere component is disabled" >&5
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: the atmosphere component is disabled" >&5
 $as_echo "$as_me: the atmosphere component is disabled" >&6;}
-   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
 fi
 
 # Check whether --enable-ocean was given.
@@ -3365,9 +3371,9 @@ fi
 if test "x$enable_ocean" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: the ocean component is disabled" >&5
 $as_echo "$as_me: the ocean component is disabled" >&6;}
-   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
 fi
 
 # Check whether --enable-jsbach was given.
@@ -3383,10 +3389,10 @@ if test "x$enable_jsbach" = xyes; then :
    ac_config_files="$ac_config_files externals/jsbach.mk"
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: the land component JSBACH is disabled" >&5
-$as_echo "$as_me: the land component JSBACH is disabled" >&6;}
-   JSBACH_ENABLED='#'
+  JSBACH_ENABLED='#'
    as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: the land component JSBACH is disabled" >&5
+$as_echo "$as_me: the land component JSBACH is disabled" >&6;}
 fi
 
 # Check whether --enable-coupling was given.
@@ -3413,9 +3419,20 @@ fi
 if test "x$enable_psrad" = xyes; then :
 
 else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: the PSRAD component is disabled" >&5
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: the PSRAD component is disabled" >&5
 $as_echo "$as_me: the PSRAD component is disabled" >&6;}
-   as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
+fi
+
+# Check whether --enable-yaxt was given.
+if test "${enable_yaxt+set}" = set; then :
+  enableval=$enable_yaxt;
+else
+  enable_yaxt=no
+fi
+
+if test "x$enable_yaxt" = xyes; then :
+  as_fn_append OPTION_FCFLAGS " ${FC_PP_DEF}HAVE_YAXT"
 fi
 
 # Check whether --enable-sct was given.
@@ -3485,6 +3502,15 @@ if test "${with_external_yac+set}" = set; then :
   withval=$with_external_yac;
 else
   with_external_yac=no
+fi
+
+
+
+# Check whether --with-external-yaxt was given.
+if test "${with_external_yaxt+set}" = set; then :
+  withval=$with_external_yaxt;
+else
+  with_external_yaxt=no
 fi
 
 
@@ -4602,6 +4628,202 @@ $as_echo "$as_me: WARNING: unable to check whether the provided version of CDI s
   *) :
      ;;
 esac
+fi
+fi
+
+if test "x$enable_yaxt" = xyes; then :
+  if test "x$with_external_yaxt" = xno; then :
+  if test -f "${srcdir}/externals/yaxt/configure"; then :
+
+
+  # Various preliminary checks.
+
+
+
+
+
+    ax_dir="externals/yaxt"
+
+                    # Do not complain, so a configure script can configure whichever parts of a
+    # large source tree are present.
+    if test -d "$srcdir/$ax_dir"; then
+      ac_builddir=.
+
+case "$ax_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo "$ax_dir" | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+      # Remove --cache-file, --srcdir, and --disable-option-checking arguments
+      # so they do not pile up.
+      ax_args=
+      ax_prev=
+      eval "set x $ac_configure_args"
+      shift
+      for ax_arg; do
+        if test -n "$ax_prev"; then
+          ax_prev=
+          continue
+        fi
+        case $ax_arg in
+          -cache-file | --cache-file | --cache-fil | --cache-fi | --cache-f \
+          | --cache- | --cache | --cach | --cac | --ca | --c)
+            ax_prev=cache_file ;;
+          -cache-file=* | --cache-file=* | --cache-fil=* | --cache-fi=* \
+          | --cache-f=* | --cache-=* | --cache=* | --cach=* | --cac=* | --ca=* \
+          | --c=*)
+            ;;
+          --config-cache | -C)
+            ;;
+          -srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
+            ax_prev=srcdir ;;
+          -srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
+            ;;
+          -prefix | --prefix | --prefi | --pref | --pre | --pr | --p)
+            ax_prev=prefix ;;
+          -prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=* | --pr=* \
+          | --p=*)
+            ;;
+          --disable-option-checking)
+            ;;
+          *) case $ax_arg in
+              *\'*) ax_arg=$($as_echo "$ax_arg" | sed "s/'/'\\\\\\\\''/g");;
+            esac
+            as_fn_append ax_args " '$ax_arg'" ;;
+        esac
+      done
+      # Always prepend --disable-option-checking to silence warnings, since
+      # different subdirs can have different --enable and --with options.
+      ax_args="--disable-option-checking $ax_args"
+      # Options that must be added as they are provided.
+
+      # New options that may need to be merged with existing options.
+
+      # New options that must replace existing options.
+      ax_candidate="--enable-static=yes"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-static=yes'"
+             fi
+           fi
+      ax_candidate="--enable-shared=no"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-shared=no'"
+             fi
+           fi
+      ax_candidate="--enable-dependency-tracking=yes"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-dependency-tracking=yes'"
+             fi
+           fi
+      ax_candidate="--enable-silent-rules=$enable_silent_rules"
+           ax_candidate_flag="${ax_candidate%%=*}"
+           ax_candidate_content="${ax_candidate#*=}"
+           if test "x$ax_candidate" != "x" -a "x$ax_candidate_flag" != "x"; then
+             if echo "$ax_args" | grep -- "${ax_candidate_flag}=" >/dev/null 2>&1; then
+               ax_args=$(echo $ax_args | sed "s,${ax_candidate_flag}=[^']*,${ax_candidate},")
+             else
+               as_fn_append ax_args " '--enable-silent-rules=$enable_silent_rules'"
+             fi
+           fi
+
+      # Options that must be removed.
+      ax_args=$(echo $ax_args | sed "s,'--enable-static',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-static',,")
+      ax_args=$(echo $ax_args | sed "s,'--enable-shared',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-shared',,")
+      ax_args=$(echo $ax_args | sed "s,'--enable-dependency-tracking',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-dependency-tracking',,")
+      ax_args=$(echo $ax_args | sed "s,'--enable-silent-rules',,")
+      ax_args=$(echo $ax_args | sed "s,'--disable-silent-rules',,")
+
+      as_fn_append ax_args " '--srcdir=$ac_srcdir'"
+
+      # Add the subdirectory to the list of target subdirectories.
+      ax_subconfigures="$ax_subconfigures $ax_dir"
+      # Save the argument list for this subdirectory.
+                              ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
+      eval "ax_sub_configure_args_$ax_var=\"$ax_args\""
+      eval "ax_sub_configure_$ax_var=\"yes\""
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: could not find source tree for $ax_dir" >&5
+$as_echo "$as_me: WARNING: could not find source tree for $ax_dir" >&2;}
+    fi
+
+
+
+
+         as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/yaxt/src"
+         as_fn_append BUNDLED_LIBS " externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a"
+else
+  as_fn_error $? "unable to use the bundled version of YAXT library: file ${srcdir}/externals/yaxt/configure not found" "$LINENO" 5
+fi
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAXT library is available" >&5
+$as_echo_n "checking whether the Fortran interface of YAXT library is available... " >&6; }
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use yaxt, only: xt_initialized, xt_initialize
+      implicit none
+      integer :: a
+      if (.not. xt_initialized()) call xt_initialize(a)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile test program using YAXT library: enable usage of the bundled version of the library or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 fi
 fi
 
@@ -5988,6 +6210,101 @@ $as_echo "$as_me: running $SHELL $ax_sub_configure $ax_sub_configure_args --cach
       fi
 
       ax_dir="externals/cdi"
+
+      # Convert the path to the subdirectory into a shell variable name.
+      ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
+      ax_configure_ax_var=$(eval "echo \"\$ax_sub_configure_$ax_var\"")
+      if test "$no_recursion" != "yes" -a "x$ax_configure_ax_var" = "xyes"; then
+        subdirs_extra="$subdirs_extra $ax_dir"
+
+        ax_msg="=== configuring in $ax_dir ($(pwd)/$ax_dir)"
+        $as_echo "$as_me:${as_lineno-$LINENO}: $ax_msg" >&5
+        $as_echo "$ax_msg" >&6
+        as_dir="$ax_dir"; as_fn_mkdir_p
+        ac_builddir=.
+
+case "$ax_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo "$ax_dir" | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+
+        ax_popdir=$(pwd)
+        cd "$ax_dir"
+
+        # Check for guested configure; otherwise get Cygnus style configure.
+        if test -f "$ac_srcdir/configure.gnu"; then
+          ax_sub_configure=$ac_srcdir/configure.gnu
+        elif test -f "$ac_srcdir/configure"; then
+          ax_sub_configure=$ac_srcdir/configure
+        elif test -f "$ac_srcdir/configure.in"; then
+          # This should be Cygnus configure.
+          ax_sub_configure=$ac_aux_dir/configure
+        else
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: no configuration information is in $ax_dir" >&5
+$as_echo "$as_me: WARNING: no configuration information is in $ax_dir" >&2;}
+          ax_sub_configure=
+        fi
+
+        if test -n "$ax_sub_configure"; then
+          # Get the configure arguments for the current configure.
+          eval "ax_sub_configure_args=\"\$ax_sub_configure_args_${ax_var}\""
+
+          # Always prepend --prefix to ensure using the same prefix
+          # in subdir configurations.
+          ax_arg="--prefix=$prefix"
+          case $ax_arg in
+            *\'*) ax_arg=$($as_echo "$ax_arg" | sed "s/'/'\\\\\\\\''/g");;
+          esac
+          ax_sub_configure_args="'$ax_arg' $ax_sub_configure_args"
+          if test "$silent" = yes; then
+            ax_sub_configure_args="--silent $ax_sub_configure_args"
+          fi
+          # Make the cache file name correct relative to the subdirectory.
+          case $cache_file in
+            [\\/]* | ?:[\\/]* )
+              ax_sub_cache_file=$cache_file ;;
+            *) # Relative name.
+              ax_sub_cache_file=$ac_top_build_prefix$cache_file ;;
+          esac
+
+          { $as_echo "$as_me:${as_lineno-$LINENO}: running $SHELL $ax_sub_configure $ax_sub_configure_args --cache-file=$ac_sub_cache_file" >&5
+$as_echo "$as_me: running $SHELL $ax_sub_configure $ax_sub_configure_args --cache-file=$ac_sub_cache_file" >&6;}
+          eval "\$SHELL \"$ax_sub_configure\" $ax_sub_configure_args --cache-file=\"$ax_sub_cache_file\"" \
+              || as_fn_error $? "$ax_sub_configure failed for $ax_dir" "$LINENO" 5
+        fi
+
+        cd "$ax_popdir"
+      fi
+
+      ax_dir="externals/yaxt"
 
       # Convert the path to the subdirectory into a shell variable name.
       ax_var=$(printf "$ax_dir" | tr -c "0-9a-zA-Z_" "_")
