@@ -2,38 +2,41 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-2o37ygv'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-js46vtx'
 NETCDFF_LIBS='-lnetcdff'
 
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-bmdevy3'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n'
 NETCDF_LIBS='-lnetcdf'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-hddonmg'
+GRIBAPI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/grib-api-1.24.0-x7mc6ta'
+GRIBAPI_LIBS='-lgrib_api'
+
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
 LAPACK_LIBS='-llapack'
 
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-hddonmg'
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
 BLAS_LIBS='-lblas'
 
-XML_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-wr5dfz4'
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox'
 XML_LIBS='-lxml2'
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-rgnrrda'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
 SCT_LIBS='-lsct'
 
-FC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-6c7qqd3/bin/mpif90'
-CC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-6c7qqd3/bin/mpicc'
+FC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-gubxzw3/bin/mpif90'
+CC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-gubxzw3/bin/mpicc'
 
 ######################
 
 FCFLAGS="-I${SCT_ROOT}/include -I${NETCDFF_ROOT}/include"
 
-CFLAGS="-gcc-name=/usr/bin/gcc -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
+CFLAGS="-gcc-name=/usr/bin/gcc -I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
 
-LDFLAGS="-L${SCT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
+LDFLAGS="-L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib -Wl,-rpath -Wl,/sw/jessie-x64/intel/intel-16.0.2/lib/intel64"
 
 # Append RPATHs:
 LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
 
-LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${SCT_LIBS}"
+LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct --enable-grib2 "$@"

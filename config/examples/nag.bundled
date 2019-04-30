@@ -2,34 +2,37 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-fortran-4.4.4-lej4v5s'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-fortran-4.4.4-63bnpcj'
 NETCDFF_LIBS='-lnetcdff'
 
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-4.6.1-h5nbayq'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-4.6.1-yalf6ng'
 NETCDF_LIBS='-lnetcdf'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-jjggoll'
+GRIBAPI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/grib-api-1.24.0-i3glwdl'
+GRIBAPI_LIBS='-lgrib_api'
+
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
 LAPACK_LIBS='-llapack'
 
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-jjggoll'
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
 BLAS_LIBS='-lblas'
 
-XML_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libxml2-2.9.8-nssbpjs'
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libxml2-2.9.8-chuop5e'
 XML_LIBS='-lxml2'
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libsct-develop-kbhiwpt'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libsct-develop-4srm5jo'
 SCT_LIBS='-lsct'
 
-FC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-wr3cmft/bin/mpif90'
-CC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-wr3cmft/bin/mpicc'
+FC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpif90'
+CC='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpicc'
 
 ######################
 
 FCFLAGS="-mismatch -I${SCT_ROOT}/include -I${NETCDFF_ROOT}/include"
 
-CFLAGS="-I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
+CFLAGS="-I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
 
-LDFLAGS="-L${SCT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
+LDFLAGS="-L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
 
 # Append RPATHs:
 # LDFLAGS and LIBS provided to ICON configure script are meant for the
@@ -41,6 +44,6 @@ LDFLAGS="-L${SCT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_R
 FCFLAGS="$FCFLAGS $(echo ${LDFLAGS} | sed 's%-L\s*\(\S\+\)%-Wl,-Wl,,-rpath -Wl,-Wl,,\1%g')"
 CFLAGS="$CFLAGS $(echo ${LDFLAGS} | sed 's%-L\s*\(\S\+\)%-Wl,-rpath -Wl,\1%g')"
 
-LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${SCT_LIBS}"
+LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
 
-NAG_KUSARI_FILE='license.zmaw.de:' $(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --enable-sct "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --enable-sct --enable-grib2 "$@"

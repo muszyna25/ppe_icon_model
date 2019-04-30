@@ -2,29 +2,29 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netcdf-fortran-4.4.4-dfdm6nb'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
 NETCDFF_LIBS='-lnetcdff'
 
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netcdf-4.6.1-xwpnhn2'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne'
 NETCDF_LIBS='-lnetcdf'
 
-MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libmtime-1.0.8-gii6qtk'
+MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libmtime-1.0.8-wm3fygo'
 MTIME_LIBS='-lmtime'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
 LAPACK_LIBS='-llapack'
 
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
 BLAS_LIBS='-lblas'
 
-XML_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libxml2-2.9.8-cpziyfs'
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libxml2-2.9.8-blvm4bl'
 XML_LIBS='-lxml2'
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libsct-develop-vpaadp5'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
 SCT_LIBS='-lsct'
 
-FC='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/mpich-3.2.1-hxsnurs/bin/mpif90'
-CC='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/mpich-3.2.1-hxsnurs/bin/mpicc'
+FC='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/mpich-3.2.1-7rbrrmk/bin/mpif90'
+CC='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/mpich-3.2.1-7rbrrmk/bin/mpicc'
 
 ######################
 

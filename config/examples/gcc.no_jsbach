@@ -2,32 +2,32 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netcdf-fortran-4.4.4-dfdm6nb'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
 NETCDFF_LIBS='-lnetcdff'
 
-MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libmtime-1.0.8-gii6qtk'
+MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libmtime-1.0.8-wm3fygo'
 MTIME_LIBS='-lmtime'
 
-SELF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libself-0.2-7sqvry5'
+SELF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libself-0.2-fq3unll'
 SELF_LIBS='-lself'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
 LAPACK_LIBS='-llapack'
 
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/netlib-lapack-3.8.0-adyfjak'
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
 BLAS_LIBS='-lblas'
 
-CDI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libcdi-1.8.2-nii6m5x'
+CDI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libcdi-1.8.2-f52z2uw'
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
-YAC_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/yac-1.3.2-4igbqvx'
-YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libxml2-2.9.8-cpziyfs/lib -Wl,-rpath -Wl,/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libxml2-2.9.8-cpziyfs/lib -lxml2'
+YAC_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/yac-1.3.2-jzvpdzj'
+YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libxml2-2.9.8-blvm4bl/lib -Wl,-rpath -Wl,/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libxml2-2.9.8-blvm4bl/lib -lxml2 -L/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne/lib -Wl,-rpath -Wl,/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne/lib -lnetcdf'
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/libsct-develop-vpaadp5'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
 SCT_LIBS='-lsct'
 
-FC='/scratch/local1/icon-bootstrap/opt/gcc-6.2.0/mpich-3.2.1-hxsnurs/bin/mpif90'
-CC='/sw/jessie-x64/gcc/gcc-6.2.0/bin/gcc'
+FC='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/mpich-3.2.1-7rbrrmk/bin/mpif90'
+CC='/usr/bin/gcc'
 
 ######################
 
