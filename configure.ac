@@ -653,14 +653,14 @@ dnl
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/self/src"])
    BUNDLED_LIBS="externals/self/src/libself.a $BUNDLED_LIBS"])
 
-AC_ARG_VAR([PYTHON], [Python interpreter command])
+AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
 ACX_PROG_SEARCH([PYTHON], [python python3],
   [acx_depgen_try=dnl
 '$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
    AC_TRY_EVAL([acx_depgen_try])],
   [PYTHON=$acx_candidate])
 
-AC_ARG_VAR([PERL], [Perl interpreter command])
+AC_ARG_VAR([PERL], [Perl interpreter command])dnl
 ACX_PROG_SEARCH([PERL], [perl],
   [acx_depgen_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
    AC_TRY_EVAL([acx_depgen_try])

@@ -2354,7 +2354,6 @@ else
 fi
 
 
-
    if test -n "$BUILD_ENV"; then :
   if $as_echo "$BUILD_ENV" | grep ';[ ]*$' >/dev/null 2>&1; then :
 
@@ -5579,7 +5578,6 @@ esac
    BUNDLED_LIBS="externals/self/src/libself.a $BUNDLED_LIBS"
 fi
 
-
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for python" >&5
 $as_echo_n "checking for python... " >&6; }
    if ${acx_cv_prog_PYTHON+:} false; then :
@@ -5616,7 +5614,6 @@ $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find python
 See \`config.log' for more details" "$LINENO" 5; }
 fi
-
 
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for perl" >&5
