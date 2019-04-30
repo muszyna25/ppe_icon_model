@@ -395,12 +395,8 @@ AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
   [AC_MSG_FAILURE([unable to find header file $ac_header])],
   [[// override default includes]])
 
-dnl This should depend on the $acx_cv_fc_vendor
-AS_VAR_APPEND([CPPFLAGS], [" -DgFortran"])
-
 dnl Other header files that are protected in the code but
 dnl not with the HAVE_* macros:
-dnl cfortran.h: fortran.h malloc.h descrip.h
 dnl util_hash.c: endian.h
 dnl util_sysinfo.c: mcheck.h sys/systemcfg.h
 dnl util_timer.c: sys/systemcfg.h asm/msr.h

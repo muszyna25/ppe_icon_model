@@ -5273,8 +5273,6 @@ fi
 done
 
 
-as_fn_append CPPFLAGS " -DgFortran"
-
 
 
 
