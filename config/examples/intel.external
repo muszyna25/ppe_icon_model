@@ -2,32 +2,32 @@
 
 set -eu
 
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
+SCT_LIBS='-lsct'
+
+YAXT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yaxt-0.7.0-lazd2ez'
+YAXT_LIBS='-lyaxt'
+
+CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-rrdsdao'
+CDI_LIBS='-lcdi_f2003 -lcdi'
+
 NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-js46vtx'
 NETCDFF_LIBS='-lnetcdff'
 
 MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libmtime-1.0.8-pul5lv4'
 MTIME_LIBS='-lmtime'
 
-SELF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libself-0.2-tixcibg'
-SELF_LIBS='-lself'
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
+BLAS_LIBS='-lblas'
 
 LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
 LAPACK_LIBS='-llapack'
 
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
-BLAS_LIBS='-lblas'
-
-CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-rrdsdao'
-CDI_LIBS='-lcdi_f2003 -lcdi'
-
 YAC_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yac-1.3.2-cmai5lb'
 YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox/lib -lxml2 -L/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n/lib -lnetcdf'
 
-YAXT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/yaxt-0.7.0-lazd2ez'
-YAXT_LIBS='-lyaxt'
-
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
-SCT_LIBS='-lsct'
+SELF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libself-0.2-tixcibg'
+SELF_LIBS='-lself'
 
 ######################
 

@@ -2,23 +2,23 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
-NETCDFF_LIBS='-lnetcdff'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
+SCT_LIBS='-lsct'
 
 NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne'
 NETCDF_LIBS='-lnetcdf'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
-LAPACK_LIBS='-llapack'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
+NETCDFF_LIBS='-lnetcdff'
 
 BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
 BLAS_LIBS='-lblas'
 
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
+LAPACK_LIBS='-llapack'
+
 XML_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libxml2-2.9.8-blvm4bl'
 XML_LIBS='-lxml2'
-
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
-SCT_LIBS='-lsct'
 
 ######################
 

@@ -2,29 +2,29 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-fortran-4.4.4-63bnpcj'
-NETCDFF_LIBS='-lnetcdff'
-
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-4.6.1-yalf6ng'
-NETCDF_LIBS='-lnetcdf'
-
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
-LAPACK_LIBS='-llapack'
-
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
-BLAS_LIBS='-lblas'
-
-CDI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libcdi-1.8.2-j6ugmwh'
-CDI_LIBS='-lcdi_f2003 -lcdi'
-
-XML_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libxml2-2.9.8-chuop5e'
-XML_LIBS='-lxml2'
+MPI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2'
+MPI_LIBS='-lmpifort -lmpi'
 
 SCT_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libsct-develop-4srm5jo'
 SCT_LIBS='-lsct'
 
-MPI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2'
-MPI_LIBS='-lmpifort -lmpi'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-4.6.1-yalf6ng'
+NETCDF_LIBS='-lnetcdf'
+
+CDI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libcdi-1.8.2-j6ugmwh'
+CDI_LIBS='-lcdi_f2003 -lcdi'
+
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-fortran-4.4.4-63bnpcj'
+NETCDFF_LIBS='-lnetcdff'
+
+BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
+BLAS_LIBS='-lblas'
+
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
+LAPACK_LIBS='-llapack'
+
+XML_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libxml2-2.9.8-chuop5e'
+XML_LIBS='-lxml2'
 
 ######################
 

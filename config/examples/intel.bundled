@@ -2,26 +2,26 @@
 
 set -eu
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-js46vtx'
-NETCDFF_LIBS='-lnetcdff'
-
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n'
-NETCDF_LIBS='-lnetcdf'
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
+SCT_LIBS='-lsct'
 
 GRIBAPI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/grib-api-1.24.0-x7mc6ta'
 GRIBAPI_LIBS='-lgrib_api'
 
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
-LAPACK_LIBS='-llapack'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-4.6.1-gwvk55n'
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netcdf-fortran-4.4.4-js46vtx'
+NETCDFF_LIBS='-lnetcdff'
 
 BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
 BLAS_LIBS='-lblas'
 
+LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/netlib-lapack-3.8.0-yuqhwfu'
+LAPACK_LIBS='-llapack'
+
 XML_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libxml2-2.9.8-hg44wox'
 XML_LIBS='-lxml2'
-
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-qexve7s'
-SCT_LIBS='-lsct'
 
 ######################
 

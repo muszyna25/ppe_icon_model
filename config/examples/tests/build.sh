@@ -15,6 +15,12 @@ else
   vendors=$@
 fi
 
+art_repo='/scratch/local1/ART/icon-art-2.4/art'
+art_dir="$root_dir/../../../src/art"
+if test ! -d "$art_dir" && test -d "$art_repo"; then
+  git clone "$art_repo" "$art_dir"
+fi
+
 for vendor in ${vendors}; do
   vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
   for vendor_test in ${vendor_tests}; do
