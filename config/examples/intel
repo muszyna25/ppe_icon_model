@@ -18,6 +18,9 @@ LAPACK_LIBS='-llapack'
 CDI_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libcdi-1.8.2-tj4zzhz'
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
+SCT_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/libsct-develop-rgnrrda'
+SCT_LIBS='-lsct'
+
 MPI_FC='/scratch/local1/icon-bootstrap/opt/intel-16.0.2/mpich-3.2.1-6c7qqd3/bin/mpif90'
 
 ######################
@@ -28,11 +31,11 @@ CPPFLAGS='-gcc-name=/usr/bin/gcc'
 
 FC=$MPI_FC
 
-FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include"
+FCFLAGS="-I${MTIME_ROOT}/include -I${SELF_ROOT}/include -I${NETCDFF_ROOT}/include -I${CDI_ROOT}/include -I${SCT_ROOT}/include"
 
-LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib"
+LDFLAGS="-L${MTIME_ROOT}/lib -L${SELF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${CDI_ROOT}/lib -L${SCT_ROOT}/lib"
 LDFLAGS=$(echo ${LDFLAGS} | sed 's%\(-L\s*\(\S\+\)\)%\1 -Wl,-rpath -Wl,\2%g')
 
-LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS}"
+LIBS="${MTIME_LIBS} ${SELF_LIBS} ${BLAS_LIBS} ${LAPACK_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" "$@"
+$(cd "$(dirname "$0")"; pwd)/../../configure FC="$FC" CC="$CC" FCFLAGS="$FCFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct "$@"
