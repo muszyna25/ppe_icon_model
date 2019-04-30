@@ -31,7 +31,7 @@ DEPGEN=$(PYTHON) @srcdir@/utils/mkhelper/depgen.py
 DEPLIST=$(PYTHON) @srcdir@/utils/mkhelper/deplist.py
 
 # List of external modules for the dependency generation:
-EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct
+EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert,sct,mo_yac_finterface
 
 # Dependency generation command for Fortran source files:
 DEPGEN_f90=$(DEPGEN) $< @depgen.f90.config -o $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) \

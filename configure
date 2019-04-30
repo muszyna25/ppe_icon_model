@@ -659,6 +659,7 @@ enable_ocean
 enable_psrad
 enable_mpi
 enable_openmp
+enable_yac
 enable_sct
 '
       ac_precious_vars='build_alias
@@ -1288,6 +1289,7 @@ Optional Features:
   --enable-mpi            enable MPI (parallelization) support [default=yes]
   --enable-openmp         enable OpenMP (parallelization) support
                           [default=yes]
+  --enable-yac            enable coupling with YAC [default=yes]
   --enable-sct            enable SCT timer [default=no]
 
 Some influential environment variables:
@@ -3195,7 +3197,7 @@ if test "x$enable_atmo" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: atmosphere component is disabled" >&5
 $as_echo "$as_me: atmosphere component is disabled" >&6;}
-  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"
+   FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"
 fi
 
 # Check whether --enable-ocean was given.
@@ -3210,7 +3212,7 @@ if test "x$enable_ocean" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: ocean component is disabled" >&5
 $as_echo "$as_me: ocean component is disabled" >&6;}
-  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"
+   FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"
 fi
 
 # Check whether --enable-psrad was given.
@@ -3225,7 +3227,7 @@ if test "x$enable_psrad" = "xyes"; then :
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: psrad component is disabled" >&5
 $as_echo "$as_me: psrad component is disabled" >&6;}
-  FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"
+   FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"
 fi
 
 # Check whether --enable-mpi was given.
@@ -3380,12 +3382,12 @@ if test "x$acx_cv_prog_fc_openmp_macro" != unknown; then :
   if test "x$acx_cv_prog_fc_openmp_macro" = "xunknown"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to detect supported OpenMP version" >&5
 $as_echo "$as_me: WARNING: unable to detect supported OpenMP version" >&2;}
-        as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP"
+         as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP"
 else
   if test "$acx_cv_prog_fc_openmp_macro" -lt 201307; then :
   as_fn_error $? "$FC does not support OpenMP 4.0 (201307): you have to disable OpenMP support (--disable-openmp)" "$LINENO" 5
 fi
-        as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"
+         as_fn_append DEPGEN_DEFS " ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"
 fi
 else
   as_fn_error $? "the preprocessor used by $FC does not set the macro _OPENMP" "$LINENO" 5
@@ -3396,7 +3398,7 @@ else
 fi
 
 
-  FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"
+   FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"
 else
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether OpenMP support is disabled for $FC" >&5
@@ -3429,6 +3431,38 @@ fi
 
 fi
 
+# Check whether --enable-yac was given.
+if test "${enable_yac+set}" = set; then :
+  enableval=$enable_yac;
+else
+  enable_yac=yes
+fi
+
+if test "x$enable_yac" = "xyes"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
+$as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+     FCFLAGS="${FC_DEFINE}YAC_coupling $FCFLAGS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+     as_fn_error $? "unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
 # Check whether --enable-sct was given.
 if test "${enable_sct+set}" = set; then :
   enableval=$enable_sct;
@@ -3439,7 +3473,7 @@ fi
 if test "x$enable_sct" = "xyes"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SCT library is available" >&5
 $as_echo_n "checking whether the Fortran interface of SCT library is available... " >&6; }
-  cat > conftest.$ac_ext <<_ACEOF
+   cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use sct, only: sct_init
@@ -3450,7 +3484,7 @@ _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-    FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"
+     FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -4241,7 +4275,7 @@ shift
 acx_cv_prog_PYTHON=unknown
 for acx_prog_candidate in "$@"; do
 acx_depgen_try='$acx_prog_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
-  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_depgen_try\""; } >&5
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_depgen_try\""; } >&5
   (eval $acx_depgen_try) 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
@@ -4274,12 +4308,12 @@ shift
 acx_cv_prog_PERL=unknown
 for acx_prog_candidate in "$@"; do
 acx_perl_try='$acx_prog_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
-  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_perl_try\""; } >&5
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_perl_try\""; } >&5
   (eval $acx_perl_try) 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }
-  test $ac_status -eq 0 || test $ac_status -eq 1
+   test $ac_status -eq 0 || test $ac_status -eq 1
 if test $? -eq 0; then :
   acx_cv_prog_PERL="$acx_prog_candidate"; break
 fi

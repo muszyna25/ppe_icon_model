@@ -123,21 +123,21 @@ AC_ARG_ENABLE([atmo],
   [], [enable_atmo=yes])
 AS_IF([test "x$enable_atmo" = "xyes"], [],
   [AC_MSG_NOTICE([atmosphere component is disabled])
-  FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
+   FCFLAGS="${FC_DEFINE}__NO_ICON_ATMO__ $FCFLAGS"])
   
 AC_ARG_ENABLE([ocean],
   [AS_HELP_STRING([--enable-ocean], [enable ocean component of ICON @<:@default=yes@:>@])],
   [], [enable_ocean=yes])
 AS_IF([test "x$enable_ocean" = "xyes"], [],
   [AC_MSG_NOTICE([ocean component is disabled])
-  FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
+   FCFLAGS="${FC_DEFINE}__NO_ICON_OCEAN__ $FCFLAGS"])
 
 AC_ARG_ENABLE([psrad],
   [AS_HELP_STRING([--enable-psrad], [enable psrad component of ICON @<:@default=yes@:>@])],
   [], [enable_psrad=yes])
 AS_IF([test "x$enable_psrad" = "xyes"], [],
   [AC_MSG_NOTICE([psrad component is disabled])
-  FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"])
+   FCFLAGS="${FC_DEFINE}__NO_ICON_PS_RAD__ $FCFLAGS"])
 
 AC_ARG_ENABLE([mpi],
   [AS_HELP_STRING([--enable-mpi], [enable MPI (parallelization) support @<:@default=yes@:>@])],
@@ -166,24 +166,39 @@ AS_IF([test "x$enable_openmp" = "xyes"],
       [$OPENMP_FCFLAGS],
       [AS_IF([test "x$acx_cv_prog_fc_openmp_macro" = "xunknown"],
         [AC_MSG_WARN([unable to detect supported OpenMP version])
-        AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP"])],
+         AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP"])],
         [AS_IF([test "$acx_cv_prog_fc_openmp_macro" -lt 201307],
           [AC_MSG_ERROR([$FC does not support OpenMP 4.0 (201307): you have to disable OpenMP support (--disable-openmp)])])
-        AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"])])])])
-  FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"],
+         AS_VAR_APPEND([DEPGEN_DEFS], [" ${FC_DEFINE}_OPENMP=$acx_cv_prog_fc_openmp_macro"])])])])
+   FCFLAGS="$OPENMP_FCFLAGS $FCFLAGS"],
   [ACX_OPENMP_CHECK_DISABLED])
+
+AC_ARG_ENABLE([yac],
+  [AS_HELP_STRING([--enable-yac], [enable coupling with YAC @<:@default=yes@:>@])],
+  [], [enable_yac=yes])
+AS_IF([test "x$enable_yac" = "xyes"],
+  [AC_MSG_CHECKING([whether the Fortran interface of YAC library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)]])],
+    [AC_MSG_RESULT([yes])
+     FCFLAGS="${FC_DEFINE}YAC_coupling $FCFLAGS"],
+    [AC_MSG_RESULT([no])
+     AC_MSG_ERROR([unable to compile test program using YAC: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
 AC_ARG_ENABLE([sct],
   [AS_HELP_STRING([--enable-sct], [enable SCT timer @<:@default=no@:>@])],
   [], [enable_sct=no])
 AS_IF([test "x$enable_sct" = "xyes"],
   [AC_MSG_CHECKING([whether the Fortran interface of SCT library is available])
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use sct, only: sct_init
       implicit none
       call sct_init(timer_max=512)]])],
     [AC_MSG_RESULT([yes])
-    FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"],
+     FCFLAGS="${FC_DEFINE}__SCT__ $FCFLAGS"],
     [AC_MSG_RESULT([no])
      AC_MSG_ERROR([unable to compile test program using SCT: set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 
@@ -229,7 +244,7 @@ dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 AC_ARG_VAR([PYTHON], [Python interpreter command (used for Fortran dependency generation)])
 ACX_CHECK_PROGS([PYTHON], [python python3], [for Python interpreter command],
   [acx_depgen_try='$acx_prog_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
-  AC_TRY_EVAL([acx_depgen_try])],
+   AC_TRY_EVAL([acx_depgen_try])],
   [unknown])
 AS_IF([test "x$PYTHON" = "xunknown"],
   [AC_MSG_ERROR([unable to find Python interpreter])])
@@ -237,8 +252,8 @@ AS_IF([test "x$PYTHON" = "xunknown"],
 AC_ARG_VAR([PERL], [Perl interpreter command (used to generate version information)])
 ACX_CHECK_PROGS([PERL], [perl], [for Perl interpreter command],
   [acx_perl_try='$acx_prog_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
-  AC_TRY_EVAL([acx_perl_try])
-  test $ac_status -eq 0 || test $ac_status -eq 1],
+   AC_TRY_EVAL([acx_perl_try])
+   test $ac_status -eq 0 || test $ac_status -eq 1],
   [unknown])
 AS_IF([test "x$PERL" = "xunknown"],
   [AC_MSG_ERROR([unable to find Perl interpreter])])
