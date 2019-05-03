@@ -37,5 +37,5 @@ CPPFLAGS="-I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/inclu
 LDFLAGS="-L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
 LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct --enable-grib2 --enable-yaxt "$@"
+$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct --enable-grib2 --enable-yaxt --enable-art "$@"
 

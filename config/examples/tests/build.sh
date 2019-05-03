@@ -15,6 +15,8 @@ else
   vendors=$@
 fi
 
+test_suite='mpim-mpipc45-spack'
+
 art_repo='/scratch/local1/ART/icon-art-2.4/art'
 art_dir="$root_dir/../../../src/art"
 if test ! -d "$art_dir" && test -d "$art_repo"; then
@@ -22,7 +24,7 @@ if test ! -d "$art_dir" && test -d "$art_repo"; then
 fi
 
 for vendor in ${vendors}; do
-  vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
+  vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f -executable | sort)
   for vendor_test in ${vendor_tests}; do
     vendor_test_dir=$(basename "${vendor_test}")
     mkdir "${vendor_test_dir}"
@@ -38,7 +40,7 @@ for vendor in ${vendors}; do
 done
 
 for vendor in ${vendors}; do
-  vendor_tests=$(find "${root_dir}/../" -name ${vendor}'.*' -type f -executable | sort)
+  vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f -executable | sort)
   for vendor_test in ${vendor_tests}; do
     vendor_test_dir=$(basename "${vendor_test}")
     cd "${vendor_test_dir}"

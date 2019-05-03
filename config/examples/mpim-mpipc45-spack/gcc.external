@@ -5,6 +5,9 @@ set -eu
 SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
 SCT_LIBS='-lsct'
 
+YAXT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/yaxt-0.7.0-uqtr72y'
+YAXT_LIBS='-lyaxt'
+
 CDI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libcdi-1.8.2-f52z2uw'
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
@@ -33,12 +36,12 @@ BUILD_ENV=
 FC='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/mpich-3.2.1-7rbrrmk/bin/mpif90'
 CC='/usr/bin/gcc'
 
-FCFLAGS="-I${SCT_ROOT}/include -I${CDI_ROOT}/include -I${NETCDFF_ROOT}/include -I${MTIME_ROOT}/include -I${YAC_ROOT}/include -I${SELF_ROOT}/include"
+FCFLAGS="-I${SCT_ROOT}/include -I${YAXT_ROOT}/include -I${CDI_ROOT}/include -I${NETCDFF_ROOT}/include -I${MTIME_ROOT}/include -I${YAC_ROOT}/include -I${SELF_ROOT}/include"
 CFLAGS=
 CPPFLAGS=
 
-LDFLAGS="-L${SCT_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${MTIME_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${YAC_ROOT}/lib -L${SELF_ROOT}/lib"
-LIBS="${SELF_LIBS} ${YAC_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${SCT_LIBS}"
+LDFLAGS="-L${SCT_ROOT}/lib -L${YAXT_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${MTIME_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${YAC_ROOT}/lib -L${SELF_ROOT}/lib"
+LIBS="${SELF_LIBS} ${YAC_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --enable-sct --disable-jsbach "$@"
+$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --enable-sct --enable-grib2 --enable-yaxt "$@"
 

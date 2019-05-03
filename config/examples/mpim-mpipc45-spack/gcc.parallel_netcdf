@@ -8,10 +8,10 @@ SCT_LIBS='-lsct'
 GRIBAPI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/grib-api-1.24.0-35xwc3t'
 GRIBAPI_LIBS='-lgrib_api'
 
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne'
+NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-ufgmniu'
 NETCDF_LIBS='-lnetcdf'
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
+NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-hc2po4m'
 NETCDFF_LIBS='-lnetcdff'
 
 BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
@@ -37,5 +37,5 @@ CPPFLAGS="-I${GRIBAPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/inclu
 LDFLAGS="-L${SCT_ROOT}/lib -L${GRIBAPI_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
 LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${GRIBAPI_LIBS} ${SCT_LIBS}"
 
-$(cd "$(dirname "$0")"; pwd)/../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct --enable-grib2 --enable-yaxt --enable-art "$@"
+$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-sct --enable-grib2 --enable-yaxt --enable-parallel-netcdf "$@"
 
