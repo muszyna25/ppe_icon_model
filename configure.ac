@@ -65,6 +65,12 @@ AC_ARG_ENABLE([mpi],
      [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
   [enable_mpi=yes])
 
+AC_ARG_ENABLE([active-target-sync],
+  [AC_HELP_STRING([--enable-active-target-sync],
+     [enable MPI active target mode (otherwise, passive target mode is used)
+@<:@default=no@:>@])], [],
+  [enable_active_target_sync=no])
+
 AC_ARG_ENABLE([openmp],
   [AC_HELP_STRING([--enable-openmp],
      [enable OpenMP support @<:@default=yes@:>@])], [],
@@ -351,6 +357,10 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
+ACX_FC_ATTRIBUTE_CONTIGUOUS(
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])],
+  [:])
+
 ICON_OPTIMIZATION_SET_FCFLAGS
 ICON_OPTIMIZATION_CHECK_FCFLAGS
 
@@ -413,6 +423,10 @@ AS_VAR_IF([enable_mpi], [yes], [],
 dnl We pass this variable to the configure scripts of YAC, therefore, we
 dnl need to make sure that it's either 'yes' or 'no'.
    enable_mpi=no])
+
+AS_VAR_IF([enable_active_target_sync], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
 
 AS_VAR_IF([enable_grib2], [yes], [],
 dnl We pass this variable to the configure scripts of CDI, therefore, we
