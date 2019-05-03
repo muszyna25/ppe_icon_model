@@ -182,7 +182,7 @@ MODULE mo_name_list_output
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_intp_lonlat_types,         ONLY: lonlat_grids
 #endif
-  USE mo_fortran_tools, ONLY: insert_dimension
+  USE mo_fortran_tools, ONLY: insert_dimension, init
 
   IMPLICIT NONE
 
@@ -3027,10 +3027,15 @@ CONTAINS
         DO ilev=chunk_start, chunk_end
           t_0 = p_mpi_wtime() ! performance measurement
 
-          IF (use_dp_mpi2io) THEN
-            IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
-
 !$OMP PARALLEL
+          IF (nv_off_np(num_work_procs) < p_ri%n_glb) THEN
+            IF (use_dp_mpi2io .OR. have_grib) THEN
+              CALL init(var3_dp)
+            ELSE
+              CALL init(var3_sp)
+            END IF
+          END IF
+          IF (use_dp_mpi2io) THEN
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
             DO np = 0, num_work_procs-1
               dst_start = nv_off_np(np)+1
@@ -3043,46 +3048,34 @@ CONTAINS
                 var1_dp(src_start:src_end)
             ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
+          ELSE IF (have_GRIB) THEN
+            ! ECMWF GRIB-API/CDI has only a double precision interface at the
+            ! date of coding this
+!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+            DO np = 0, num_work_procs-1
+              dst_start = nv_off_np(np)+1
+              dst_end   = nv_off_np(np+1)
+              src_start = voff(np)+1
+              src_end   = voff(np)+p_ri%pe_own(np)
+              voff(np)  = src_end
+              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
+                REAL(var1_sp(src_start:src_end), dp)
+            ENDDO
+!$OMP END DO
           ELSE
-
-            IF (have_GRIB) THEN
-              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
-
-              ! ECMWF GRIB-API/CDI has only a double precision interface at the
-              ! date of coding this
-!$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-              DO np = 0, num_work_procs-1
-                dst_start = nv_off_np(np)+1
-                dst_end   = nv_off_np(np+1)
-                src_start = voff(np)+1
-                src_end   = voff(np)+p_ri%pe_own(np)
-                voff(np)  = src_end
-
-                var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
-                  REAL(var1_sp(src_start:src_end), dp)
-              ENDDO
+            DO np = 0, num_work_procs-1
+              dst_start = nv_off_np(np)+1
+              dst_end   = nv_off_np(np+1)
+              src_start = voff(np)+1
+              src_end   = voff(np)+p_ri%pe_own(np)
+              voff(np)  = src_end
+              var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
+                var1_sp(src_start:src_end)
+            ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
-            ELSE
-              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_sp(:) = 0._sp
-!$OMP PARALLEL
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-              DO np = 0, num_work_procs-1
-                dst_start = nv_off_np(np)+1
-                dst_end   = nv_off_np(np+1)
-                src_start = voff(np)+1
-                src_end   = voff(np)+p_ri%pe_own(np)
-                voff(np)  = src_end
-
-                var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
-                  var1_sp(src_start:src_end)
-              ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-            END IF
           ENDIF
+!$OMP END PARALLEL
           t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
           ! Write calls (via CDIs) of the asynchronous I/O PEs:
           t_0 = p_mpi_wtime() ! performance measurement
