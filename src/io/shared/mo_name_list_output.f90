@@ -115,7 +115,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
-  USE mo_reorder_info,              ONLY: t_reorder_info
+  USE mo_reorder_info,              ONLY: t_reorder_info, ri_cpy_part2whole
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
     &                                     msg_io_meteogram_flush, &
@@ -2751,9 +2751,8 @@ CONTAINS
 
     INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
       &                               lonlat_id, i_log_dom, ierrstat,                           &
-      &                               dst_start, dst_end, src_start, src_end
+      &                               src_start, src_end
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
-    INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
     REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
     REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
 
@@ -3014,21 +3013,13 @@ CONTAINS
         t_get  = t_get  + p_mpi_wtime() - t_0
 #endif
 
-        ! compute the total offset for each PE
-        nv_off       = 0
-        nv_off_np(0) = 0
-        DO np = 0, num_work_procs-1
-          voff(np)        = nv_off
-          nval            = p_ri%pe_own(np)*this_chunk_nlevs
-          nv_off          = nv_off + nval
-          nv_off_np(np+1) = nv_off_np(np) + p_ri%pe_own(np)
-        END DO
 
         DO ilev=chunk_start, chunk_end
           t_0 = p_mpi_wtime() ! performance measurement
 
 !$OMP PARALLEL
-          IF (nv_off_np(num_work_procs) < p_ri%n_glb) THEN
+          IF (p_ri%pe_off(num_work_procs-1)+p_ri%pe_own(num_work_procs-1) &
+            & < p_ri%n_glb) THEN
             IF (use_dp_mpi2io .OR. have_grib) THEN
               CALL init(var3_dp)
             ELSE
@@ -3036,42 +3027,36 @@ CONTAINS
             END IF
           END IF
           IF (use_dp_mpi2io) THEN
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+!$OMP DO PRIVATE(src_start, src_end)
             DO np = 0, num_work_procs-1
-              dst_start = nv_off_np(np)+1
-              dst_end   = nv_off_np(np+1)
-              src_start = voff(np)+1
-              src_end   = voff(np)+p_ri%pe_own(np)
-              voff(np)  = src_end
-
-              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
-                var1_dp(src_start:src_end)
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_dp(src_start:src_end), &
+                &                    var3_dp)
             ENDDO
 !$OMP END DO NOWAIT
           ELSE IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the
             ! date of coding this
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+!$OMP DO PRIVATE(src_start, src_end)
             DO np = 0, num_work_procs-1
-              dst_start = nv_off_np(np)+1
-              dst_end   = nv_off_np(np+1)
-              src_start = voff(np)+1
-              src_end   = voff(np)+p_ri%pe_own(np)
-              voff(np)  = src_end
-              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
-                REAL(var1_sp(src_start:src_end), dp)
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_sp(src_start:src_end), &
+                &                    var3_dp)
             ENDDO
 !$OMP END DO NOWAIT
           ELSE
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+!$OMP DO PRIVATE(src_start, src_end)
             DO np = 0, num_work_procs-1
-              dst_start = nv_off_np(np)+1
-              dst_end   = nv_off_np(np+1)
-              src_start = voff(np)+1
-              src_end   = voff(np)+p_ri%pe_own(np)
-              voff(np)  = src_end
-              var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
-                var1_sp(src_start:src_end)
+              src_start = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start)*p_ri%pe_own(np) + 1
+              src_end   = p_ri%pe_off(np) * this_chunk_nlevs &
+                + (ilev-chunk_start+1)*p_ri%pe_own(np)
+              CALL ri_cpy_part2whole(p_ri, np, var1_sp(src_start:src_end), &
+                &                    var3_sp)
             ENDDO
 !$OMP END DO NOWAIT
           ENDIF
