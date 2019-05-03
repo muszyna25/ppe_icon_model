@@ -1,17 +1,26 @@
-# ICON_OPTIMIZATION_ARG_ENABLE()
+# ICON_OPTIMIZATION_ARGS()
 # -----------------------------------------------------------------------------
-# Sets the '--enable-optimization' command-line argument of the configure
-# script that allows for choosing of one of the optimization levels:
-#   'release' - default optimization for production runs;
-#   'aggressive' - the most aggressive optimizations (that are known to work);
-#   'precise' - optimization level ensuring binary reproducibility of the
-#               results;
-#   'debug' - optimizations that are unlikely to interfere with debugging or
-#             profiling;
-#   'test' - optimization level for the test suite;
-#   'none' - all optimizations disabled.
+# Sets optimization related command-line arguments of the configure script:
 #
-AC_DEFUN([ICON_OPTIMIZATION_ARG_ENABLE],
+#   '--enable-optimization' for choosing of one of the optimization levels:
+#       'release'     default optimization for production runs;
+#       'aggressive'  the most aggressive optimizations (that are known to
+#                     work);
+#       'precise'     optimization level ensuring binary reproducibility of the
+#                     results;
+#       'debug'       optimizations that are unlikely to interfere with
+#                     debugging or profiling;
+#       'test'        optimization level for the test suite;
+#       'none'        all optimizations disabled.
+#
+#   '--enable-loop-exchange' for enabling loop exchange
+#
+#   '--enable-intel-consistency' for enabling Intel compiler directive
+#                                enforcing consistency
+#
+#   '--enable-vectorized-lrtm' for enabling full vectorization of LRTM
+#
+AC_DEFUN([ICON_OPTIMIZATION_ARGS],
   [AC_ARG_ENABLE([optimization],
 [  --enable-optimization   prepend CFLAGS and FCFLAGS with additional
                           predefined compiler-specific set of flags. The value
@@ -31,7 +40,24 @@ AC_DEFUN([ICON_OPTIMIZATION_ARG_ENABLE],
 --enable-optimization='$enableval'; valid values are 'release', dnl
 'aggressive', 'precise', 'debug', 'test', 'none', dnl
 'yes' (same as 'release'), 'no' (same as 'none').])])],
-[enable_optimization=release])])
+[enable_optimization=release])
+dnl
+   AC_ARG_ENABLE([loop-exchange],
+     [AC_HELP_STRING([--enable-loop-exchange],
+        [enable loop exchange @<:@default=auto@:>@])], [],
+     [enable_loop_exchange=auto])
+dnl
+   AC_ARG_ENABLE([intel-consistency],
+     [AC_HELP_STRING([--enable-intel-consistency],
+        [enable Intel compiler directives enforcing consistency
+@<:@default=auto@:>@])], [],
+  [enable_intel_consistency=auto])
+dnl
+   AC_ARG_ENABLE([vectorized-lrtm],
+     [AC_HELP_STRING([--enable-vectorized-lrtm],
+        [enable the parallelization-invariant version of LRTM
+@<:@default=auto@:>@])], [],
+  [enable_vectorized_lrtm=auto])])
 
 # ICON_OPTIMIZATION_SET_FCFLAGS()
 # -----------------------------------------------------------------------------
@@ -53,9 +79,9 @@ AC_DEFUN([ICON_OPTIMIZATION_ARG_ENABLE],
 #
 AC_DEFUN([ICON_OPTIMIZATION_SET_FCFLAGS],
   [AC_REQUIRE([ACX_COMPILER_FC_VERSION])dnl
-   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARG_ENABLE], [],
+   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARGS], [],
      [m4_warn([syntax],
-        [$0 should be called after ICON_OPTIMIZATION_ARG_ENABLE])])dnl
+        [$0 should be called after ICON_OPTIMIZATION_ARGS])])dnl
 dnl The following code is M4-quoted and is implemented using plain shell to
 dnl be more maintainable by those who are less familiar with M4 syntax:
 [
@@ -84,6 +110,13 @@ set of extra FCFLAGS is not defined" ;;
            # precise, unknown compiler
            icon_optim_error="unable to set '$enable_optimization' \
 optimizations for unknown Fortran compiler" ;; #(
+         intel)
+           # precise, Intel compiler (example)
+           icon_optim_FCFLAGS='-fp-model precise'
+           test x"$enable_intel_consistency" = xauto && \
+             enable_intel_consistency=yes
+           test x"$enable_vectorized_lrtm" = xauto && \
+             enable_vectorized_lrtm=yes ;; #(
          *)
            # precise, default (example)
            icon_optim_error="unable to set '$enable_optimization' \
@@ -92,7 +125,7 @@ set of extra FCFLAGS is not defined" ;;
        esac ;; #(
      debug)
        # debug, default (example)
-       if x"$ac_cv_prog_fc_g" = xyes; then icon_optim_FCFLAGS='-g'; fi ;; #(
+       test x"$ac_cv_prog_fc_g" = xyes && icon_optim_FCFLAGS='-g' ;; #(
      test)
        case $acx_cv_fc_compiler_vendor in #(
          intel)
@@ -124,7 +157,23 @@ set of extra FCFLAGS is not defined" ;;
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
 
-] AS_IF([test -n "$icon_optim_error"], [AC_MSG_ERROR([$icon_optim_error])])])
+   # Currently, exchange loops regardless of the optimization level:
+   test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes]
+dnl
+  AS_IF([test -n "$icon_optim_error"],
+    [AC_MSG_ERROR([$icon_optim_error])])
+dnl
+   AS_VAR_IF([enable_loop_exchange], [yes],
+     [AS_VAR_APPEND([icon_optim_FCFLAGS],
+        [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
+dnl
+   AS_VAR_IF([enable_intel_consistency], [yes],
+     [AS_VAR_APPEND([icon_optim_FCFLAGS],
+        [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
+dnl
+   AS_VAR_IF([enable_vectorized_lrtm], [yes],
+     [AS_VAR_APPEND([icon_optim_FCFLAGS],
+        [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])])
 
 # ICON_OPTIMIZATION_SET_CFLAGS()
 # -----------------------------------------------------------------------------
@@ -146,9 +195,9 @@ set of extra FCFLAGS is not defined" ;;
 #
 AC_DEFUN([ICON_OPTIMIZATION_SET_CFLAGS],
   [AC_REQUIRE([ACX_COMPILER_CC_VERSION])dnl
-   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARG_ENABLE], [],
+   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARGS], [],
      [m4_warn([syntax],
-        [$0 should be called after ICON_OPTIMIZATION_ARG_ENABLE])])dnl
+        [$0 should be called after ICON_OPTIMIZATION_ARGS])])dnl
 dnl The following code is M4-quoted and is implemented using plain shell to
 dnl be more maintainable by those who are less familiar with M4 syntax:
 [
@@ -177,6 +226,9 @@ set of extra CFLAGS is not defined" ;;
            # precise, unknown compiler
            icon_optim_error="unable to set '$enable_optimization' \
 optimizations for unknown C compiler" ;; #(
+         intel)
+           # precise, Intel compiler (example)
+           ;; #(
          *)
            # precise, default (example)
            icon_optim_error="unable to set '$enable_optimization' \
@@ -185,7 +237,7 @@ set of extra CFLAGS is not defined" ;;
        esac ;; #(
      debug)
        # debug, default (example)
-       if x"$ac_cv_prog_c_g" = xyes; then icon_optim_CFLAGS='-g'; fi ;; #(
+       test x"$ac_cv_prog_cc_g" = xyes && icon_optim_CFLAGS='-g' ;; #(
      test)
        case $acx_cv_c_compiler_vendor in #(
          intel)

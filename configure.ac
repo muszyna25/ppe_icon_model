@@ -94,12 +94,7 @@ AC_ARG_ENABLE([yaxt],
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
-ICON_OPTIMIZATION_ARG_ENABLE
-
-AC_ARG_ENABLE([loop-exchange],
-  [AC_HELP_STRING([--enable-loop-exchange],
-     [enable loop exchange @<:@default=yes@:>@])], [],
-  [enable_loop_exchange=yes])
+ICON_OPTIMIZATION_ARGS
 
 AC_ARG_WITH([external-yaxt],
   [AC_HELP_STRING([--with-external-yaxt],
@@ -160,19 +155,6 @@ AS_VAR_IF([ac_cv_prog_cc_c99], [no],
 
 ACX_COMPILER_CC_VERSION
 
-ICON_OPTIMIZATION_SET_CFLAGS
-ICON_OPTIMIZATION_CHECK_CFLAGS
-
-AS_IF([test -n "$icon_optim_CFLAGS"],
-  [AS_IF([test -n "$CFLAGS"],
-     [CFLAGS="$icon_optim_CFLAGS $CFLAGS"],
-     [CFLAGS=$icon_optim_CFLAGS])])
-
-AS_IF([test -n "$icon_optim_subdir_CFLAGS"],
-  [AS_IF([test -n "$subdir_CFLAGS"],
-     [subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"],
-     [subdir_CFLAGS=$icon_optim_subdir_CFLAGS])])
-
 icon_libdirs=
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_CC_RPATH_FLAG
@@ -207,6 +189,19 @@ dnl util_pbio.c: ffio.h pthread.h
 dnl util_postgresql.c: libpq-fe.h
 dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
+ICON_OPTIMIZATION_SET_CFLAGS
+ICON_OPTIMIZATION_CHECK_CFLAGS
+
+AS_IF([test -n "$icon_optim_CFLAGS"],
+  [AS_IF([test -n "$CFLAGS"],
+     [CFLAGS="$icon_optim_CFLAGS $CFLAGS"],
+     [CFLAGS=$icon_optim_CFLAGS])])
+
+AS_IF([test -n "$icon_optim_subdir_CFLAGS"],
+  [AS_IF([test -n "$subdir_CFLAGS"],
+     [subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"],
+     [subdir_CFLAGS=$icon_optim_subdir_CFLAGS])])
+
 AC_LANG([Fortran])
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
@@ -215,19 +210,6 @@ subdir_FCFLAGS=$FCFLAGS
 AC_PROG_FC
 AC_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
-
-ICON_OPTIMIZATION_SET_FCFLAGS
-ICON_OPTIMIZATION_CHECK_FCFLAGS
-
-AS_IF([test -n "$icon_optim_FCFLAGS"],
-  [AS_IF([test -n "$FCFLAGS"],
-     [FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"],
-     [FCFLAGS=$icon_optim_FCFLAGS])])
-
-AS_IF([test -n "$icon_optim_subdir_FCFLAGS"],
-  [AS_IF([test -n "$subdir_FCFLAGS"],
-     [subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"],
-     [subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS])])
 
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_FC_RPATH_FLAG
@@ -369,6 +351,19 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
+ICON_OPTIMIZATION_SET_FCFLAGS
+ICON_OPTIMIZATION_CHECK_FCFLAGS
+
+AS_IF([test -n "$icon_optim_FCFLAGS"],
+  [AS_IF([test -n "$FCFLAGS"],
+     [FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"],
+     [FCFLAGS=$icon_optim_FCFLAGS])])
+
+AS_IF([test -n "$icon_optim_subdir_FCFLAGS"],
+  [AS_IF([test -n "$subdir_FCFLAGS"],
+     [subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"],
+     [subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS])])
+
 AC_SUBST([DEFAULT_VERBOSITY], [0])
 AS_VAR_IF([enable_silent_rules], [yes], [],
   [DEFAULT_VERBOSITY=1
@@ -432,9 +427,6 @@ AS_VAR_IF([enable_sct], [yes],
 
 AS_VAR_IF([enable_yaxt], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
-
-AS_VAR_IF([enable_loop_exchange], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
 
 dnl One of the topological orderings of the ICON dependency graph:
 dnl

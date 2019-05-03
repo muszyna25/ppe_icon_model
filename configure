@@ -681,6 +681,8 @@ enable_sct
 enable_yaxt
 enable_optimization
 enable_loop_exchange
+enable_intel_consistency
+enable_vectorized_lrtm
 with_external_yaxt
 with_external_cdi
 with_external_mtime
@@ -1347,7 +1349,13 @@ Optimization Features:
                             debug        optimizations for debugging
                             test         optimizations for regression testing
                             none         no optimizations at all
-  --enable-loop-exchange  enable loop exchange [default=yes]
+  --enable-loop-exchange  enable loop exchange [default=auto]
+  --enable-intel-consistency
+                          enable Intel compiler directives enforcing
+                          consistency [default=auto]
+  --enable-vectorized-lrtm
+                          enable the parallelization-invariant version of LRTM
+                          [default=auto]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1720,6 +1728,37 @@ rm -f conftest.val
 
 } # ac_fn_c_compute_int
 
+# ac_fn_c_check_header_compile LINENO HEADER VAR INCLUDES
+# -------------------------------------------------------
+# Tests whether HEADER exists and can be compiled using the include files in
+# INCLUDES, setting the cache variable VAR accordingly.
+ac_fn_c_check_header_compile ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
+$as_echo_n "checking for $2... " >&6; }
+if eval \${$3+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$4
+#include <$2>
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  eval "$3=yes"
+else
+  eval "$3=no"
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+eval ac_res=\$$3
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+
+} # ac_fn_c_check_header_compile
+
 # ac_fn_c_try_link LINENO
 # -----------------------
 # Try to link conftest.$ac_ext, and return whether this succeeded.
@@ -1765,37 +1804,6 @@ fi
   as_fn_set_status $ac_retval
 
 } # ac_fn_c_try_link
-
-# ac_fn_c_check_header_compile LINENO HEADER VAR INCLUDES
-# -------------------------------------------------------
-# Tests whether HEADER exists and can be compiled using the include files in
-# INCLUDES, setting the cache variable VAR accordingly.
-ac_fn_c_check_header_compile ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $2" >&5
-$as_echo_n "checking for $2... " >&6; }
-if eval \${$3+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-$4
-#include <$2>
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  eval "$3=yes"
-else
-  eval "$3=no"
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-eval ac_res=\$$3
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-
-} # ac_fn_c_check_header_compile
 
 # ac_fn_fc_try_compile LINENO
 # ---------------------------
@@ -2404,12 +2412,25 @@ else
   enable_optimization=release
 fi
 
-
-# Check whether --enable-loop-exchange was given.
+   # Check whether --enable-loop-exchange was given.
 if test "${enable_loop_exchange+set}" = set; then :
   enableval=$enable_loop_exchange;
 else
-  enable_loop_exchange=yes
+  enable_loop_exchange=auto
+fi
+
+   # Check whether --enable-intel-consistency was given.
+if test "${enable_intel_consistency+set}" = set; then :
+  enableval=$enable_intel_consistency;
+else
+  enable_intel_consistency=auto
+fi
+
+   # Check whether --enable-vectorized-lrtm was given.
+if test "${enable_vectorized_lrtm+set}" = set; then :
+  enableval=$enable_vectorized_lrtm;
+else
+  enable_vectorized_lrtm=auto
 fi
 
 
@@ -3716,6 +3737,87 @@ fi
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
 
+icon_libdirs=
+if test "x$enable_rpaths" = xyes; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler flag needed to add a directory to the runtime library search path" >&5
+$as_echo_n "checking for C compiler flag needed to add a directory to the runtime library search path... " >&6; }
+if ${acx_cv_c_rpath_flag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $acx_cv_c_compiler_vendor in #(
+  nag) :
+    acx_cv_c_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
+  *) :
+    acx_cv_c_rpath_flag="-Wl,-rpath -Wl," ;;
+esac
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_rpath_flag" >&5
+$as_echo "$acx_cv_c_rpath_flag" >&6; }
+
+   eval icon_link_cmd="\"$ac_link\""
+   icon_L_args=
+   asx_extract_args_args=`echo $icon_link_cmd`
+   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
+   for asx_extract_args_arg in $asx_extract_args_args; do
+     case $asx_extract_args_arg in #(
+  _ASX_EXTRACT_ARGS_MARKER_*) :
+    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
+        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
+  *) :
+     ;;
+esac
+   done
+   for icon_L_arg in $icon_L_args; do
+     if test -d "$icon_L_arg"; then
+       case ' '$icon_libdirs' ' in #(
+  *' '"$icon_L_arg"' '*) :
+     ;; #(
+  ' '' ') :
+    as_fn_append icon_libdirs "$icon_L_arg" ;; #(
+  *) :
+    as_fn_append icon_libdirs ' '; as_fn_append icon_libdirs "$icon_L_arg" ;;
+esac
+     fi
+   done
+fi
+
+for ac_header in execinfo.h ucontext.h link.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
+"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+
+done
+
+
+for ac_header in unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h  sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h
+do :
+  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
+"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
+_ACEOF
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find header file $ac_header
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+done
+
+
+
+
 
    icon_optim_error=
    icon_optim_CFLAGS=
@@ -3742,6 +3844,9 @@ set of extra CFLAGS is not defined" ;;
            # precise, unknown compiler
            icon_optim_error="unable to set '$enable_optimization' \
 optimizations for unknown C compiler" ;; #(
+         intel)
+           # precise, Intel compiler (example)
+           ;; #(
          *)
            # precise, default (example)
            icon_optim_error="unable to set '$enable_optimization' \
@@ -3750,7 +3855,7 @@ set of extra CFLAGS is not defined" ;;
        esac ;; #(
      debug)
        # debug, default (example)
-       if x"$ac_cv_prog_c_g" = xyes; then icon_optim_CFLAGS='-g'; fi ;; #(
+       test x"$ac_cv_prog_cc_g" = xyes && icon_optim_CFLAGS='-g' ;; #(
      test)
        case $acx_cv_c_compiler_vendor in #(
          intel)
@@ -3836,87 +3941,6 @@ else
   subdir_CFLAGS=$icon_optim_subdir_CFLAGS
 fi
 fi
-
-icon_libdirs=
-if test "x$enable_rpaths" = xyes; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler flag needed to add a directory to the runtime library search path" >&5
-$as_echo_n "checking for C compiler flag needed to add a directory to the runtime library search path... " >&6; }
-if ${acx_cv_c_rpath_flag+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $acx_cv_c_compiler_vendor in #(
-  nag) :
-    acx_cv_c_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
-  *) :
-    acx_cv_c_rpath_flag="-Wl,-rpath -Wl," ;;
-esac
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_rpath_flag" >&5
-$as_echo "$acx_cv_c_rpath_flag" >&6; }
-
-   eval icon_link_cmd="\"$ac_link\""
-   icon_L_args=
-   asx_extract_args_args=`echo $icon_link_cmd`
-   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
-   for asx_extract_args_arg in $asx_extract_args_args; do
-     case $asx_extract_args_arg in #(
-  _ASX_EXTRACT_ARGS_MARKER_*) :
-    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
-        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
-  *) :
-     ;;
-esac
-   done
-   for icon_L_arg in $icon_L_args; do
-     if test -d "$icon_L_arg"; then
-       case ' '$icon_libdirs' ' in #(
-  *' '"$icon_L_arg"' '*) :
-     ;; #(
-  ' '' ') :
-    as_fn_append icon_libdirs "$icon_L_arg" ;; #(
-  *) :
-    as_fn_append icon_libdirs ' '; as_fn_append icon_libdirs "$icon_L_arg" ;;
-esac
-     fi
-   done
-fi
-
-for ac_header in execinfo.h ucontext.h link.h
-do :
-  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
-"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
-  cat >>confdefs.h <<_ACEOF
-#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
-
-fi
-
-done
-
-
-for ac_header in unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h  sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h
-do :
-  as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
-ac_fn_c_check_header_compile "$LINENO" "$ac_header" "$as_ac_Header" "// override default includes
-"
-if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
-  cat >>confdefs.h <<_ACEOF
-#define `$as_echo "HAVE_$ac_header" | $as_tr_cpp` 1
-_ACEOF
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find header file $ac_header
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-
-done
-
-
-
 
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
@@ -4280,121 +4304,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_compiler_version" >&5
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
-
-
-   icon_optim_error=
-   icon_optim_FCFLAGS=
-   icon_optim_subdir_FCFLAGS=
-   case $enable_optimization in #(
-     release)
-       # release, default (example)
-       icon_optim_FCFLAGS='-O2' ;; #(
-     aggressive)
-       case $acx_cv_fc_compiler_vendor in #(
-         unknown)
-           # aggressive, unknown compiler
-           icon_optim_error="unable to set '$enable_optimization' \
-optimizations for unknown Fortran compiler" ;; #(
-         *)
-           # aggressive, default (example)
-           icon_optim_error="unable to set '$enable_optimization' \
-optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
-set of extra FCFLAGS is not defined" ;;
-       esac ;; #(
-     precise)
-       case $acx_cv_fc_compiler_vendor in #(
-         unknown)
-           # precise, unknown compiler
-           icon_optim_error="unable to set '$enable_optimization' \
-optimizations for unknown Fortran compiler" ;; #(
-         *)
-           # precise, default (example)
-           icon_optim_error="unable to set '$enable_optimization' \
-optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
-set of extra FCFLAGS is not defined" ;;
-       esac ;; #(
-     debug)
-       # debug, default (example)
-       if x"$ac_cv_prog_fc_g" = xyes; then icon_optim_FCFLAGS='-g'; fi ;; #(
-     test)
-       case $acx_cv_fc_compiler_vendor in #(
-         intel)
-           # test, intel compiler (example)
-           case $acx_cv_fc_compiler_version in #(
-             1[0-6].*)
-               # test, intel compiler, 10>=version<=16 (example)
-               icon_optim_FCFLAGS='-O2' ;; #(
-             *)
-               # test, intel compiler, default (example)
-               icon_optim_FCFLAGS='-O1' ;;
-           esac ;; #(
-         cray)
-           # test, cray compiler, default (example)
-           icon_optim_FCFLAGS='-O2' ;; #(
-         *)
-           # test, default (example)
-           icon_optim_FCFLAGS='-O1' ;;
-       esac ;; #(
-     none)
-       # none, keep empty
-       ;; #(
-     *)
-       icon_optim_error="unexpected optimization level for Fortran compiler: \
-'$enable_optimization'; valid values are 'release', 'aggressive', 'precise', \
-'debug', 'test', or 'none'." ;;
-   esac
-
-   # Currently, we compile the bundled libraries with the same flags:
-   icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
-
- if test -n "$icon_optim_error"; then :
-  as_fn_error $? "$icon_optim_error" "$LINENO" 5
-fi
-      if test x"$enable_optimization" != xnone; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'" >&5
-$as_echo_n "checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'... " >&6; }
-      icon_optimization_save_FCFLAGS=$FCFLAGS
-      FCFLAGS=$icon_optim_FCFLAGS
-      icon_optimization_check_result=no
-      cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      end
-_ACEOF
-if ac_fn_fc_try_compile "$LINENO"; then :
-  if ac_fn_fc_try_link "$LINENO"; then :
-  icon_optimization_check_result=yes
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_optimization_check_result" >&5
-$as_echo "$icon_optimization_check_result" >&6; }
-      if test "x$icon_optimization_check_result" = xno; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler does not accept flags for optimization level '$enable_optimization': disable optimizations (--disable-optimization)
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-      FCFLAGS=$icon_optimization_save_FCFLAGS
-fi
-
-if test -n "$icon_optim_FCFLAGS"; then :
-  if test -n "$FCFLAGS"; then :
-  FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"
-else
-  FCFLAGS=$icon_optim_FCFLAGS
-fi
-fi
-
-if test -n "$icon_optim_subdir_FCFLAGS"; then :
-  if test -n "$subdir_FCFLAGS"; then :
-  subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
-else
-  subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS
-fi
-fi
 
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
@@ -5082,6 +4991,139 @@ else
 fi
 
 
+
+   icon_optim_error=
+   icon_optim_FCFLAGS=
+   icon_optim_subdir_FCFLAGS=
+   case $enable_optimization in #(
+     release)
+       # release, default (example)
+       icon_optim_FCFLAGS='-O2' ;; #(
+     aggressive)
+       case $acx_cv_fc_compiler_vendor in #(
+         unknown)
+           # aggressive, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown Fortran compiler" ;; #(
+         *)
+           # aggressive, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
+set of extra FCFLAGS is not defined" ;;
+       esac ;; #(
+     precise)
+       case $acx_cv_fc_compiler_vendor in #(
+         unknown)
+           # precise, unknown compiler
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for unknown Fortran compiler" ;; #(
+         intel)
+           # precise, Intel compiler (example)
+           icon_optim_FCFLAGS='-fp-model precise'
+           test x"$enable_intel_consistency" = xauto && \
+             enable_intel_consistency=yes
+           test x"$enable_vectorized_lrtm" = xauto && \
+             enable_vectorized_lrtm=yes ;; #(
+         *)
+           # precise, default (example)
+           icon_optim_error="unable to set '$enable_optimization' \
+optimizations for $acx_cv_fc_compiler_vendor Fortran compiler: the relevant \
+set of extra FCFLAGS is not defined" ;;
+       esac ;; #(
+     debug)
+       # debug, default (example)
+       test x"$ac_cv_prog_fc_g" = xyes && icon_optim_FCFLAGS='-g' ;; #(
+     test)
+       case $acx_cv_fc_compiler_vendor in #(
+         intel)
+           # test, intel compiler (example)
+           case $acx_cv_fc_compiler_version in #(
+             1[0-6].*)
+               # test, intel compiler, 10>=version<=16 (example)
+               icon_optim_FCFLAGS='-O2' ;; #(
+             *)
+               # test, intel compiler, default (example)
+               icon_optim_FCFLAGS='-O1' ;;
+           esac ;; #(
+         cray)
+           # test, cray compiler, default (example)
+           icon_optim_FCFLAGS='-O2' ;; #(
+         *)
+           # test, default (example)
+           icon_optim_FCFLAGS='-O1' ;;
+       esac ;; #(
+     none)
+       # none, keep empty
+       ;; #(
+     *)
+       icon_optim_error="unexpected optimization level for Fortran compiler: \
+'$enable_optimization'; valid values are 'release', 'aggressive', 'precise', \
+'debug', 'test', or 'none'." ;;
+   esac
+
+   # Currently, we compile the bundled libraries with the same flags:
+   icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
+
+   # Currently, exchange loops regardless of the optimization level:
+   test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes
+  if test -n "$icon_optim_error"; then :
+  as_fn_error $? "$icon_optim_error" "$LINENO" 5
+fi
+   if test "x$enable_loop_exchange" = xyes; then :
+  as_fn_append icon_optim_FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
+fi
+   if test "x$enable_intel_consistency" = xyes; then :
+  as_fn_append icon_optim_FCFLAGS " ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"
+fi
+   if test "x$enable_vectorized_lrtm" = xyes; then :
+  as_fn_append icon_optim_FCFLAGS " ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"
+fi
+      if test x"$enable_optimization" != xnone; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'" >&5
+$as_echo_n "checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'... " >&6; }
+      icon_optimization_save_FCFLAGS=$FCFLAGS
+      FCFLAGS=$icon_optim_FCFLAGS
+      icon_optimization_check_result=no
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  if ac_fn_fc_try_link "$LINENO"; then :
+  icon_optimization_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_optimization_check_result" >&5
+$as_echo "$icon_optimization_check_result" >&6; }
+      if test "x$icon_optimization_check_result" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler does not accept flags for optimization level '$enable_optimization': disable optimizations (--disable-optimization)
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+      FCFLAGS=$icon_optimization_save_FCFLAGS
+fi
+
+if test -n "$icon_optim_FCFLAGS"; then :
+  if test -n "$FCFLAGS"; then :
+  FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"
+else
+  FCFLAGS=$icon_optim_FCFLAGS
+fi
+fi
+
+if test -n "$icon_optim_subdir_FCFLAGS"; then :
+  if test -n "$subdir_FCFLAGS"; then :
+  subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
+else
+  subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS
+fi
+fi
+
 DEFAULT_VERBOSITY=0
 
 if test "x$enable_silent_rules" = xyes; then :
@@ -5163,10 +5205,6 @@ fi
 
 if test "x$enable_yaxt" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_YAXT"
-fi
-
-if test "x$enable_loop_exchange" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
 fi
 
 
