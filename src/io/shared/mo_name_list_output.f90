@@ -2768,7 +2768,8 @@ CONTAINS
 #ifndef NO_MPI_RGET
     INTEGER, PARAMETER             :: req_pool_size = 16
     INTEGER                        :: mver_mpi, sver_mpi, &
-      &                               req_pool(req_pool_size), req_next, req_rampup
+      &                               req_pool(req_pool_size), req_next
+    LOGICAL :: req_rampup
 #endif
 
     !-- for timing
@@ -2842,6 +2843,9 @@ CONTAINS
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
+#ifndef NO_MPI_RGET
+    req_pool = mpi_request_null
+#endif
 
 #ifndef NO_MPI_RGET
     req_pool(:) = MPI_REQUEST_NULL
@@ -2955,7 +2959,7 @@ CONTAINS
 #ifndef NO_MPI_RGET
         t_0 = p_mpi_wtime()
         req_next = 0
-        req_rampup = 1
+        req_rampup = .TRUE.
 #endif
         DO np = 0, num_work_procs-1
 
@@ -2981,25 +2985,19 @@ CONTAINS
           t_get  = t_get  + p_mpi_wtime() - t_0
 #else
           !handle request pool
-          IF (req_rampup .EQ. 1) THEN
+          IF (req_rampup) THEN
             req_next = req_next + 1
-            IF (req_next .GT. req_pool_size) THEN
-              req_rampup = 0
-            ELSE
-              req_pool(req_next) = MPI_REQUEST_NULL
-            ENDIF
+            req_rampup = req_next <= req_pool_size
           ENDIF
-          IF (req_rampup .EQ. 0) THEN
+          IF (.NOT. req_rampup) &
             CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
-            req_pool(req_next) = MPI_REQUEST_NULL
-          ENDIF
           !issue get
           IF (use_dp_mpi2io) THEN
             CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-              &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+              &           nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ELSE
             CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-              &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+              &           nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ENDIF
 #endif
           mb_get = mb_get + nval
