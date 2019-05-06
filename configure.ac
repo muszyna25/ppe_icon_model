@@ -570,25 +570,33 @@ dnl
       AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
 required patches])])
 dnl
+   icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 dnl
+GRIB1:CDI_FILETYPE_GRB"
    AS_VAR_IF([enable_grib2], [yes],
-     [AC_MSG_CHECKING(
-        [whether the provided version of CDI is built with GRIB2 support])
-      icon_cdi_supports_grib2=unknown
-      AS_VAR_IF([cross_compiling], [no],
-        [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_cdi, only: cdiHaveFiletype, CDI_FILETYPE_GRB2
-      write(*, "(i0)") cdiHaveFiletype(CDI_FILETYPE_GRB2)]])],
+     [AS_VAR_APPEND([icon_cdi_formats], [" GRIB2:CDI_FILETYPE_GRB2"])])
+   for icon_cdi_format in $icon_cdi_formats; do
+     icon_cdi_format_name=`echo "$icon_cdi_format" | cut -d: -f1`
+     icon_cdi_format_ID=`echo "$icon_cdi_format" | cut -d: -f2`
+     icon_cdi_format_result=unknown
+     AC_MSG_CHECKING([whether the provided version of CDI is built with dnl
+$icon_cdi_format_name support])
+     AS_VAR_IF([cross_compiling], [no],
+       [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: cdiHaveFiletype, $icon_cdi_format_ID
+      write(*, "(i0)") cdiHaveFiletype($icon_cdi_format_ID)]])],
            [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
             AS_IF([test $? -eq 0],
               [AS_IF([test $icon_exec_result -eq 1],
-                 [icon_cdi_supports_grib2=yes],
-                 [icon_cdi_supports_grib2=no])])])])
-      AC_MSG_RESULT([$icon_cdi_supports_grib2])
-      AS_IF([test x"$icon_cdi_supports_grib2" = xno],
-        [AC_MSG_FAILURE([the provided version of CDI does not support GRIB2])],
-        [test x"$icon_cdi_supports_grib2" = xunknown],
+                 [icon_cdi_format_result=yes],
+                 [icon_cdi_format_result=no])])])])
+     AC_MSG_RESULT([$icon_cdi_format_result])
+     AS_IF([test x"$icon_cdi_format_result" = xno],
+        [AC_MSG_FAILURE([the provided version of CDI does not support dnl
+$icon_cdi_format_name])],
+        [test x"$icon_cdi_format_result" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
-supports GRIB2])])])],
+supports $icon_cdi_format_name])])
+   done],
 dnl
   [icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"

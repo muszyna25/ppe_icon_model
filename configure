@@ -5671,43 +5671,49 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+   icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 GRIB1:CDI_FILETYPE_GRB"
    if test "x$enable_grib2" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of CDI is built with GRIB2 support" >&5
-$as_echo_n "checking whether the provided version of CDI is built with GRIB2 support... " >&6; }
-      icon_cdi_supports_grib2=unknown
-      if test "x$cross_compiling" = xno; then :
+  as_fn_append icon_cdi_formats " GRIB2:CDI_FILETYPE_GRB2"
+fi
+   for icon_cdi_format in $icon_cdi_formats; do
+     icon_cdi_format_name=`echo "$icon_cdi_format" | cut -d: -f1`
+     icon_cdi_format_ID=`echo "$icon_cdi_format" | cut -d: -f2`
+     icon_cdi_format_result=unknown
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of CDI is built with $icon_cdi_format_name support" >&5
+$as_echo_n "checking whether the provided version of CDI is built with $icon_cdi_format_name support... " >&6; }
+     if test "x$cross_compiling" = xno; then :
   cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mo_cdi, only: cdiHaveFiletype, CDI_FILETYPE_GRB2
-      write(*, "(i0)") cdiHaveFiletype(CDI_FILETYPE_GRB2)
+      use mo_cdi, only: cdiHaveFiletype, $icon_cdi_format_ID
+      write(*, "(i0)") cdiHaveFiletype($icon_cdi_format_ID)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
   icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
             if test $? -eq 0; then :
   if test $icon_exec_result -eq 1; then :
-  icon_cdi_supports_grib2=yes
+  icon_cdi_format_result=yes
 else
-  icon_cdi_supports_grib2=no
+  icon_cdi_format_result=no
 fi
 fi
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cdi_supports_grib2" >&5
-$as_echo "$icon_cdi_supports_grib2" >&6; }
-      if test x"$icon_cdi_supports_grib2" = xno; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_cdi_format_result" >&5
+$as_echo "$icon_cdi_format_result" >&6; }
+     if test x"$icon_cdi_format_result" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of CDI does not support GRIB2
+as_fn_error $? "the provided version of CDI does not support $icon_cdi_format_name
 See \`config.log' for more details" "$LINENO" 5; }
-elif test x"$icon_cdi_supports_grib2" = xunknown; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of CDI supports GRIB2" >&5
-$as_echo "$as_me: WARNING: unable to check whether the provided version of CDI supports GRIB2" >&2;}
+elif test x"$icon_cdi_format_result" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&5
+$as_echo "$as_me: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&2;}
 fi
-fi
+   done
 else
     icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"
