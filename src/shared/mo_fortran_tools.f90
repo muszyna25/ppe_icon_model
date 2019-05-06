@@ -143,6 +143,7 @@ MODULE mo_fortran_tools
 
   INTERFACE init
     MODULE PROCEDURE init_zero_1d_dp
+    MODULE PROCEDURE init_zero_1d_sp
     MODULE PROCEDURE init_zero_2d_dp
     MODULE PROCEDURE init_zero_2d_i4
     MODULE PROCEDURE init_zero_3d_dp
@@ -1028,7 +1029,7 @@ CONTAINS
 #ifdef _OPENACC
 !$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP 
+!$ACC LOOP
 #else
 !$omp do
 #endif
@@ -1043,6 +1044,30 @@ CONTAINS
 !$omp end do nowait
 #endif
   END SUBROUTINE init_zero_1d_dp
+
+  SUBROUTINE init_zero_1d_sp(init_var)
+    REAL(sp), INTENT(out) :: init_var(:)
+    INTEGER :: i1, m1
+
+    m1 = SIZE(init_var, 1)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
+!$omp do
+#endif
+    DO i1 = 1, m1
+      init_var(i1) = 0.0_dp
+    END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!$ACC UPDATE HOST( init_var ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC END DATA
+#else
+!$omp end do nowait
+#endif
+  END SUBROUTINE init_zero_1d_sp
 
   SUBROUTINE init_zero_2d_dp(init_var)
     REAL(dp), INTENT(out) :: init_var(:, :)
