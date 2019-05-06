@@ -3,7 +3,7 @@
 !!
 !! Initialization routines for two height-based terrain following coordinates
 !! - Hybrid Gal-Chen coordiate (Gal-Chen and Somerville, 1975; Simmons and Burridge, 1981)
-!! - Smooth level vertical (SLEVE) coordinate (Schär et al, 2002; Leuenberger et al, 2010) 
+!! - Smooth level vertical (SLEVE) coordinate (Schaer et al, 2002; Leuenberger et al, 2010)
 !!
 !! @author Guenther Zaengl, DWD
 !!

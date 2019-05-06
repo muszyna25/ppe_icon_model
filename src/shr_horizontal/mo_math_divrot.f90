@@ -274,7 +274,8 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( ptr_int_lsq%lsq_qtmat_c, iidx, iblk ), &
+!$ACC DATA PCOPYIN( p_cc ), PCOPY( p_coeff ), PRESENT( iidx, iblk ),                                      &
+!$ACC      PRESENT( ptr_int_lsq%lsq_qtmat_c, ptr_int_lsq%lsq_rmat_rdiag_c, ptr_int_lsq%lsq_rmat_utri_c ), &
 !$ACC      CREATE( z_d ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$OMP PARALLEL
