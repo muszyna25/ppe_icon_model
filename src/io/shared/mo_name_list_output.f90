@@ -3067,10 +3067,10 @@ CONTAINS
 
           IF (use_dp_mpi2io .OR. have_GRIB) THEN
             CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, ilev-1, var3_dp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
+            mb_wr = mb_wr + REAL(SIZE(var3_dp),dp)
           ELSE
             CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, ilev-1, var3_sp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
+            mb_wr = mb_wr + REAL(SIZE(var3_sp),dp)
           ENDIF
           t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
 
@@ -3119,8 +3119,8 @@ CONTAINS
     IF (msg_level >= 12) THEN
 #endif
       WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
-           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
-           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
+           & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_dp,t_get), &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_dp,t_write),        &
            & ' MB/s], times copy: ',t_copy,' s'
    !   CALL message('',message_text)
     ENDIF
