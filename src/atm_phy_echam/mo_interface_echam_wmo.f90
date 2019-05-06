@@ -27,6 +27,8 @@ MODULE mo_interface_echam_wmo
   USE mo_echam_cld_config    ,ONLY: echam_cld_config
 
   USE mo_tropopause          ,ONLY: WMO_tropopause
+  !$ser verbatim USE mo_ser_echam_wmo, ONLY: serialize_wmo_input,&
+  !$ser verbatim                             serialize_wmo_output
 
   IMPLICIT NONE
   PRIVATE
@@ -60,6 +62,9 @@ CONTAINS
     ! associate pointers
     field => prm_field(jg)
 
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_wmo_input(jg, jb, jcs, jce, nproma, nlev, field)
+
     !
     lresum=.FALSE.
     !
@@ -70,6 +75,9 @@ CONTAINS
                        & field% ptp(:,jb),         &! inout for diagnostics
                        & itrpwmo, itrpwmop1        )! out for submodel
     !
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_wmo_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     IF (ltimer) call timer_stop(timer_wmo)
 

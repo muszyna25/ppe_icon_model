@@ -28,6 +28,8 @@ MODULE mo_interface_echam_mox
 
   USE mo_run_config          ,ONLY: iqv
   USE mo_methox              ,ONLY: methox
+  !$ser verbatim USE mo_ser_echam_mox, ONLY: serialize_mox_input,&
+  !$ser verbatim                             serialize_mox_output
 
   IMPLICIT NONE
   PRIVATE
@@ -69,6 +71,9 @@ CONTAINS
     fc_mox    => echam_phy_config(jg)%fc_mox
     field     => prm_field(jg)
     tend      => prm_tend (jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_mox_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -120,6 +125,9 @@ CONTAINS
        END IF
        !
     END IF
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_mox_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)

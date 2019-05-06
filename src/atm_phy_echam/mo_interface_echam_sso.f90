@@ -31,6 +31,8 @@ MODULE mo_interface_echam_sso
 
   USE mo_echam_sso_config    ,ONLY: echam_sso_config
   USE mo_ssodrag             ,ONLY: ssodrag
+  !$ser verbatim USE mo_ser_echam_sso, ONLY: serialize_sso_input,&
+  !$ser verbatim                             serialize_sso_output
   
   IMPLICIT NONE
   PRIVATE
@@ -85,6 +87,9 @@ CONTAINS
     field     => prm_field(jg)
     tend      => prm_tend (jg)
     lsftlf    => echam_sso_config(jg)%lsftlf        ! <-- provisional
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_sso_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -203,6 +208,9 @@ CONTAINS
        IF (ASSOCIATED(tend% va_sso)) tend% va_sso(jcs:jce,:,jb) = 0.0_wp
        !
     END IF
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_sso_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     
     ! disassociate pointers
     NULLIFY(lparamcpl)

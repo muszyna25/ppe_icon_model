@@ -31,6 +31,8 @@ MODULE mo_interface_echam_gwd
 
   USE mo_gw_hines            ,ONLY: gw_hines
 !!$  USE mo_math_constants      ,ONLY: pi
+  !$ser verbatim USE mo_ser_echam_gwd, ONLY: serialize_gwd_input,&
+  !$ser verbatim                             serialize_gwd_output
 
   IMPLICIT NONE
   PRIVATE
@@ -80,6 +82,9 @@ CONTAINS
     fc_gwd    => echam_phy_config(jg)%fc_gwd
     field     => prm_field(jg)
     tend      => prm_tend (jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_gwd_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -173,6 +178,9 @@ CONTAINS
        IF (ASSOCIATED(tend% va_gwd)) tend% va_gwd(jcs:jce,:,jb) = 0.0_wp
        !
     END IF
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_gwd_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)

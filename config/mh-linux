@@ -233,6 +233,13 @@ case "$ac_sitename" in
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/GNU/6.2.0
                         OTHER_LIBS  = -L/apps/daint/UES/6.0.UP02/sandbox-ws/jasper/2.0.10/GNU/5.3.0/lib -l:libjasper.a -dynamic -L/usr/lib64 -llzma
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Cleanup setup for serialization
+                        case "$enable_serialization" in
+                            read|perturb|create)
+                                FLANG = ${FLANG/ffree-line-length-132/ffree-line-length-none}
+                                FFLAGS = ${FFLAGS/ffree-line-length-132/ffree-line-length-none}
+                                ;;
+                        esac
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
@@ -325,7 +332,7 @@ case "$ac_sitename" in
                         FFLAGS      = -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS    = $FFLAGS
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.5
+                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
                         OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
                         LAPACK_LIB  = -llapack -lblas
@@ -346,24 +353,12 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu PrgEnv-pgi gcc/6.2.0 cray-netcdf cray-hdf5
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                ;;
-                            gpu_1810*)
-                                SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
-                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu*)
-                                load_modules = daint-gpu PrgEnv-pgi gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                ;;
-                            1810*)
-                                SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
-                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
+                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;

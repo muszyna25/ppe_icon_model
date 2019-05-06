@@ -6,6 +6,8 @@ MODULE mo_echam_diagnostics
   USE mo_statistics          ,ONLY: levels_horizontal_mean
   USE mo_name_list_output_init, ONLY: isRegistered
   USE mo_echam_phy_memory    ,ONLY: t_echam_phy_field, prm_field
+  !$ser verbatim USE mo_ser_echam_global_diag, ONLY: serialize_input,&
+  !$ser verbatim                                     serialize_output
 
   PUBLIC echam_global_diagnostics
 
@@ -15,6 +17,9 @@ CONTAINS
     REAL(wp)                           :: scr(nproma,patch%alloc_cell_blocks)
 
     REAL(wp) :: tas_gmean, rsdt_gmean, rsut_gmean, rlut_gmean, prec_gmean, evap_gmean, radtop_gmean, fwfoce_gmean
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_input(patch%id, prm_field(patch%id))
 
     ! global mean t2m, tas_gmean, if requested for output
     tas_gmean = 0.0_wp
@@ -109,6 +114,9 @@ CONTAINS
  !        & icefrc_gmean)
  !  END IF
  !  prm_field(patch%id)%icefrc_gmean = icefrc_gmean
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_output(patch%id, prm_field(patch%id))
 
   END SUBROUTINE echam_global_diagnostics
 END MODULE mo_echam_diagnostics
