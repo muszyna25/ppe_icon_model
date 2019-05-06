@@ -2958,7 +2958,7 @@ CONTAINS
         this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
         ! Retrieve part of variable from every worker PE using MPI_Get
-        nv_off  = 0
+        nv_off  = 1
         t_0 = p_mpi_wtime()
         req_next = 0
         req_rampup = .TRUE.
@@ -2981,10 +2981,10 @@ CONTAINS
             &               of%mem_win%mpi_win, mpierr)
           req_pool(req_next) = np
           IF (use_dp_mpi2io) THEN
-            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+            CALL MPI_Get(var1_dp(nv_off), nval, p_real_dp, np, ioff(np), &
               &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
           ELSE
-            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+            CALL MPI_Get(var1_sp(nv_off), nval, p_real_sp, np, ioff(np), &
               &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
           ENDIF
 #else
@@ -2992,10 +2992,10 @@ CONTAINS
             CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
           !issue get
           IF (use_dp_mpi2io) THEN
-            CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+            CALL MPI_Rget(var1_dp(nv_off), nval, p_real_dp, np, ioff(np), &
               &           nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ELSE
-            CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+            CALL MPI_Rget(var1_sp(nv_off), nval, p_real_sp, np, ioff(np), &
               &           nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ENDIF
 #endif
