@@ -624,7 +624,13 @@ dnl unconditionally. This way, the configure script of libcdi enables support
 dnl for grib2 regardless of whether grib_api or eccodes library is provided
 dnl with the LDFLAGS and LIBS variables.
       [--with-grib_api="$enable_grib2"], [--without-eccodes],
-      [--without-threads], [--with-netcdf]])
+      [--without-threads], [--with-netcdf],
+dnl The configure script of CDI runs nc-config to check for the features of the
+dnl provided NetCDF library. The script might not be available or might belong
+dnl to another NetCDF installation. Therefore, we enforce enabling of NetCDF2
+dnl and NetCDF4 features by setting the corresponding cache variables on the
+dnl command line.
+      [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])

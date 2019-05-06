@@ -5774,7 +5774,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex       --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex       --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf       acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
