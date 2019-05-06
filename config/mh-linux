@@ -353,12 +353,12 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
+                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu*)
-                                load_modules = daint-gpu PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
