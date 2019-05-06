@@ -71,7 +71,11 @@ dnl
 #
 #     icon_optim_FCFLAGS
 #         flags to be prepended to FCFLAGS when compiling ICON and its
-#         components (including JSBACH and ART);
+#         components (including JSBACH and ART, excluding OCEAN);
+#
+#     icon_optim_ocean_FCFLAGS
+#         flags to be prepended to FCFLAGS when compiling files ICON-OCEAN
+#         (src/hamocc/%.f90, src/ocean/%.f90, src/sea_ice/%.f90)
 #
 #     icon_optim_subdir_FCFLAGS
 #         flags to be prepended to FCFLAGS when running the configure scripts
@@ -87,6 +91,7 @@ dnl be more maintainable by those who are less familiar with M4 syntax:
 [
    icon_optim_error=
    icon_optim_FCFLAGS=
+   icon_optim_ocean_FCFLAGS=
    icon_optim_subdir_FCFLAGS=
    case $enable_optimization in #(
      release)
@@ -153,6 +158,9 @@ set of extra FCFLAGS is not defined" ;;
 '$enable_optimization'; valid values are 'release', 'aggressive', 'precise', \
 'debug', 'test', or 'none'." ;;
    esac
+
+   # Currently, we compile ICON-Ocean with the same flags:
+   icon_optim_ocean_FCFLAGS=$icon_optim_FCFLAGS
 
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS

@@ -197,16 +197,8 @@ dnl util_signal.c: features.h strings.h fenv.h fptrap.h
 
 ICON_OPTIMIZATION_SET_CFLAGS
 ICON_OPTIMIZATION_CHECK_CFLAGS
-
-AS_IF([test -n "$icon_optim_CFLAGS"],
-  [AS_IF([test -n "$CFLAGS"],
-     [CFLAGS="$icon_optim_CFLAGS $CFLAGS"],
-     [CFLAGS=$icon_optim_CFLAGS])])
-
-AS_IF([test -n "$icon_optim_subdir_CFLAGS"],
-  [AS_IF([test -n "$subdir_CFLAGS"],
-     [subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"],
-     [subdir_CFLAGS=$icon_optim_subdir_CFLAGS])])
+AC_SUBST([ICON_OPTIM_CFLAGS], [$icon_optim_CFLAGS])
+subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"
 
 AC_LANG([Fortran])
 dnl Override the default flags set by AC_PROG_FC:
@@ -363,16 +355,9 @@ ACX_FC_ATTRIBUTE_CONTIGUOUS(
 
 ICON_OPTIMIZATION_SET_FCFLAGS
 ICON_OPTIMIZATION_CHECK_FCFLAGS
-
-AS_IF([test -n "$icon_optim_FCFLAGS"],
-  [AS_IF([test -n "$FCFLAGS"],
-     [FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"],
-     [FCFLAGS=$icon_optim_FCFLAGS])])
-
-AS_IF([test -n "$icon_optim_subdir_FCFLAGS"],
-  [AS_IF([test -n "$subdir_FCFLAGS"],
-     [subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"],
-     [subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS])])
+AC_SUBST([ICON_OPTIM_FCFLAGS], [$icon_optim_FCFLAGS])
+AC_SUBST([ICON_OPTIM_OCEAN_FCFLAGS], [$icon_optim_ocean_FCFLAGS])
+subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
 
 AC_SUBST([DEFAULT_VERBOSITY], [0])
 AS_VAR_IF([enable_silent_rules], [yes], [],

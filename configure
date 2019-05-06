@@ -603,6 +603,8 @@ BUNDLED_FCFLAGS
 BUNDLED_LIBS
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
+ICON_OPTIM_OCEAN_FCFLAGS
+ICON_OPTIM_FCFLAGS
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
 FC_INC_FLAG_PP_f90
@@ -616,6 +618,7 @@ FCFLAGS_f90
 ac_ct_FC
 FCFLAGS
 FC
+ICON_OPTIM_CFLAGS
 OBJEXT
 EXEEXT
 ac_ct_CC
@@ -3937,22 +3940,9 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
       CFLAGS=$icon_optimization_save_CFLAGS
 fi
+ICON_OPTIM_CFLAGS=$icon_optim_CFLAGS
 
-if test -n "$icon_optim_CFLAGS"; then :
-  if test -n "$CFLAGS"; then :
-  CFLAGS="$icon_optim_CFLAGS $CFLAGS"
-else
-  CFLAGS=$icon_optim_CFLAGS
-fi
-fi
-
-if test -n "$icon_optim_subdir_CFLAGS"; then :
-  if test -n "$subdir_CFLAGS"; then :
-  subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"
-else
-  subdir_CFLAGS=$icon_optim_subdir_CFLAGS
-fi
-fi
+subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"
 
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
@@ -5040,6 +5030,7 @@ fi
 
    icon_optim_error=
    icon_optim_FCFLAGS=
+   icon_optim_ocean_FCFLAGS=
    icon_optim_subdir_FCFLAGS=
    case $enable_optimization in #(
      release)
@@ -5107,6 +5098,9 @@ set of extra FCFLAGS is not defined" ;;
 'debug', 'test', or 'none'." ;;
    esac
 
+   # Currently, we compile ICON-Ocean with the same flags:
+   icon_optim_ocean_FCFLAGS=$icon_optim_FCFLAGS
+
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
 
@@ -5153,22 +5147,11 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
       FCFLAGS=$icon_optimization_save_FCFLAGS
 fi
+ICON_OPTIM_FCFLAGS=$icon_optim_FCFLAGS
 
-if test -n "$icon_optim_FCFLAGS"; then :
-  if test -n "$FCFLAGS"; then :
-  FCFLAGS="$icon_optim_FCFLAGS $FCFLAGS"
-else
-  FCFLAGS=$icon_optim_FCFLAGS
-fi
-fi
+ICON_OPTIM_OCEAN_FCFLAGS=$icon_optim_ocean_FCFLAGS
 
-if test -n "$icon_optim_subdir_FCFLAGS"; then :
-  if test -n "$subdir_FCFLAGS"; then :
-  subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
-else
-  subdir_FCFLAGS=$icon_optim_subdir_FCFLAGS
-fi
-fi
+subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
 
 DEFAULT_VERBOSITY=0
 
