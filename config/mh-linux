@@ -340,7 +340,7 @@ case "$ac_sitename" in
                             *)
                                 config_target = daint_cpu
                                 FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
-                                LDFLAGS       = -tp=haswell -Mnorpath
+                                LDFLAGS       = -tp=haswell -Mnorpath -dynamic
                                 ;;
                         esac
                         # Setup of specific version
