@@ -2764,13 +2764,18 @@ CONTAINS
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
       &                               this_chunk_nlevs, ilev, chunk_size
-#ifndef NO_MPI_RGET
+#if ICON_MPI_VERSION < 3 || ICON_MPI_VERSION == 3 && ICON_MPI_SUBVERSION == 0
+    ! RMA pipelining is not supported in earlier MPI standards
+    INTEGER, PARAMETER             :: req_pool_size = 1
+#else
     INTEGER, PARAMETER             :: req_pool_size = 16
-    INTEGER                        :: mver_mpi, sver_mpi, &
-      &                               req_pool(req_pool_size), req_next
-    LOGICAL :: req_rampup
 #endif
-
+    LOGICAL :: req_rampup
+    INTEGER :: req_next
+    INTEGER                        :: req_pool(req_pool_size)
+#ifdef NO_MPI_RGET
+    INTEGER :: num_req
+#endif
     !-- for timing
     CHARACTER(len=10)              :: ctime
     REAL(dp)                       :: t_get, t_write, t_copy, t_0, mb_get, mb_wr
@@ -2850,12 +2855,10 @@ CONTAINS
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
-#ifndef NO_MPI_RGET
+#ifdef NO_MPI_RGET
+    req_pool = -1
+#else
     req_pool = mpi_request_null
-#endif
-
-#ifndef NO_MPI_RGET
-    req_pool(:) = MPI_REQUEST_NULL
     CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
 
@@ -2956,11 +2959,9 @@ CONTAINS
 
         ! Retrieve part of variable from every worker PE using MPI_Get
         nv_off  = 0
-#ifndef NO_MPI_RGET
         t_0 = p_mpi_wtime()
         req_next = 0
         req_rampup = .TRUE.
-#endif
         DO np = 0, num_work_procs-1
 
           IF(p_ri%pe_own(np) == 0) CYCLE
@@ -2968,11 +2969,17 @@ CONTAINS
           ! Number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
 
-#if defined NO_MPI_RGET
-          t_0 = p_mpi_wtime()
+          !handle request pool
+          req_next = req_next + 1
+          req_rampup = req_rampup .AND. req_next <= req_pool_size
+
+#ifdef NO_MPI_RGET
+          req_next = MOD(req_next - 1, req_pool_size) + 1
+          IF (.NOT. req_rampup) &
+            CALL MPI_Win_unlock(req_pool(req_next), of%mem_win%mpi_win, mpierr)
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
             &               of%mem_win%mpi_win, mpierr)
-
+          req_pool(req_next) = np
           IF (use_dp_mpi2io) THEN
             CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
               &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
@@ -2980,15 +2987,7 @@ CONTAINS
             CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
               &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
           ENDIF
-
-          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-          t_get  = t_get  + p_mpi_wtime() - t_0
 #else
-          !handle request pool
-          IF (req_rampup) THEN
-            req_next = req_next + 1
-            req_rampup = req_next <= req_pool_size
-          ENDIF
           IF (.NOT. req_rampup) &
             CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
           !issue get
@@ -3009,11 +3008,21 @@ CONTAINS
           ioff(np) = ioff(np) + INT(nval, mpi_address_kind)
 
         ENDDO
-#ifndef NO_MPI_RGET
+#ifdef NO_MPI_RGET
+        IF (req_rampup) THEN
+          num_req = req_next
+          req_next = -1
+        ELSE
+          num_req = req_pool_size
+        END IF
+        DO np = 1, num_req
+          CALL MPI_Win_unlock(req_pool(MOD(req_next+np, req_pool_size)+1), &
+            of%mem_win%mpi_win, mpierr)
+        END DO
+#else
         CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
-        t_get  = t_get  + p_mpi_wtime() - t_0
 #endif
-
+        t_get  = t_get  + p_mpi_wtime() - t_0
 
         DO ilev=chunk_start, chunk_end
           t_0 = p_mpi_wtime() ! performance measurement
