@@ -3,11 +3,9 @@
 set -eu
 set -o pipefail
 
-curr_dir=$(pwd)
 root_dir=$(cd "$(dirname "$0")"; pwd)
-work_dir=$(basename -s '.sh' "$0")
+work_dir="${root_dir}/$(basename -s '.sh' "$0")"
 rm -rf "${work_dir}" && mkdir -p "${work_dir}" && cd "${work_dir}"
-work_dir=$(pwd)
 
 if test $# -eq 0; then
   vendors='gcc intel nag'
@@ -34,20 +32,8 @@ for vendor in ${vendors}; do
     echo "*************************"
     log_file="${work_dir}/$(basename "${vendor_test}").log"
     "${vendor_test}" 2>&1 | tee "${log_file}"
+    echo "Running 'make -j8' in $(pwd)" | tee -a "${log_file}"
     make -j8 2>&1 | tee -a "${log_file}"
-    cd ..
-  done
-done
-
-for vendor in ${vendors}; do
-  vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f -executable | sort)
-  for vendor_test in ${vendor_tests}; do
-    vendor_test_dir=$(basename "${vendor_test}")
-    cd "${vendor_test_dir}"
-    echo "*************************"
-    pwd
-    echo "*************************"
-    log_file="${work_dir}/$(basename "${vendor_test}").log"
     echo "Running make for the second time in $(pwd)..." | tee -a "${log_file}"
     make 2>&1 | tee -a "${log_file}" | tee make_2.log
     if grep '^\(  GEN      version\.c\|perl .*pvcs.pl\)' make_2.log 2>&1 >/dev/null; then :
@@ -59,13 +45,12 @@ for vendor in ${vendors}; do
     if diff make_2.log make_3.log 2>&1 >/dev/null; then :
       else echo -e "\nSecond and third calls of make gave different output" && exit 1; fi
     rm make_2.log  make_3.log
-    echo "Running 'make distclean' in $(pwd)..." | tee -a "${log_file}"
-    make distclean 2>&1 | tee -a "${log_file}"
+    echo "Running 'make -j8 distclean' in $(pwd)..." | tee -a "${log_file}"
+    make -j8 distclean 2>&1 | tee -a "${log_file}"
     if find -mindepth 1 -print -quit 2>/dev/null | grep -q . 2>&1 >/dev/null; then
-      echo -e "\n'make distclean' did not delete all files" && exit 1; fi
+      echo -e "\n'make -j8 distclean' did not delete all files" && exit 1; fi
     cd ..
     find "${vendor_test_dir}" -type d -empty -delete
   done
 done
 
-cd "${curr_dir}"
