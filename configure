@@ -675,6 +675,7 @@ enable_ocean
 enable_jsbach
 enable_coupling
 enable_psrad
+enable_rttov
 enable_art
 enable_mpi
 enable_active_target_sync
@@ -1329,6 +1330,8 @@ Model Features:
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling [default=yes]
   --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-rttov          enable usage of the radiative transfer model for
+                          TOVS [default=no]
   --enable-art            enable the aerosols and reactive trace component ART
                           [default=no]
 
@@ -2340,6 +2343,14 @@ if test "${enable_psrad+set}" = set; then :
   enableval=$enable_psrad;
 else
   enable_psrad=yes
+fi
+
+
+# Check whether --enable-rttov was given.
+if test "${enable_rttov+set}" = set; then :
+  enableval=$enable_rttov;
+else
+  enable_rttov=no
 fi
 
 
@@ -5202,6 +5213,10 @@ else
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
+if test "x$enable_rttov" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
+fi
+
 if test "x$enable_art" = xyes; then :
   icon_subdir_srcdir="$srcdir/src/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
@@ -5246,7 +5261,7 @@ fi
 
 
 
-DEPGEN_EXTERNAL_MODS=tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
+DEPGEN_EXTERNAL_MODS=mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
 
 
 DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
@@ -5497,6 +5512,120 @@ $as_echo "$acx_cv_fc_macro__OPENMP_defined" >&6; }
    if test "x$acx_macro_defined" = xyes; then :
   as_fn_error $? "Fortran compiler enables OpenMP support by default: set FCFLAGS accordingly to disable it" "$LINENO" 5
 fi
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
+$as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
+cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      include 'netcdf.inc'
+      integer :: status
+      status = nf_open('conftest.nc',0,0)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using NetCDF: set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+if test "x$enable_parallel_netcdf" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
+$as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
+   icon_netcdf_supports_parallel=unknown
+   if test "x$cross_compiling" = xno; then :
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use mpi
+      implicit none
+      include 'netcdf.inc'
+      integer :: result, tmp
+      call MPI_Init(tmp)
+      result = nf_create_par('conftest.nc', &
+                           & NF_MPIIO, &
+                           & MPI_COMM_WORLD, &
+                           & MPI_INFO_NULL, &
+                           & tmp)
+      if (result == NF_ENOPAR) then
+        write(*,"(a)") "conftest_parallel_no"
+      else
+        write(*,"(a)") "conftest_parallel_yes"
+      endif
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+         rm -f conftest.nc
+         if test $? -eq 0; then :
+  if echo "$icon_exec_result" | grep 'conftest_parallel_no' >/dev/null 2>&1; then :
+  icon_netcdf_supports_parallel=no
+elif echo "$icon_exec_result" | grep 'conftest_parallel_yes' >/dev/null 2>&1; then :
+  icon_netcdf_supports_parallel=yes
+fi
+fi
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_netcdf_supports_parallel" >&5
+$as_echo "$icon_netcdf_supports_parallel" >&6; }
+   if test x"$icon_netcdf_supports_parallel" = xno; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "the provided version of NetCDF does not support parallel features
+See \`config.log' for more details" "$LINENO" 5; }
+elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
+$as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
+fi
+fi
+
+if test "x$enable_rttov" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
+$as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use mo_rttov_ifc, only: rttov_init
+      implicit none
+      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
+               & num_work_procs, p_io, p_comm_work
+      integer, allocatable :: instruments(:,:)
+      logical, allocatable :: addclouds(:)
+      istatus = rttov_init(  &
+        instruments     , &
+        channels        , &
+        n_chans         , &
+        p_pe            , &
+        num_work_procs  , &
+        p_io            , &
+        p_comm_work     , &
+        appRegLim=.TRUE., &
+        readCloud=addclouds)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 fi
 
 if test "x$enable_sct" = xyes; then :
@@ -5793,81 +5922,6 @@ esac
       as_fn_append subdirs_extra " externals/cdi"
    as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/cdi/src"
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"
-fi
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 77 interface of NetCDF library is available" >&5
-$as_echo_n "checking whether the Fortran 77 interface of NetCDF library is available... " >&6; }
-cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using NetCDF: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-if test "x$enable_parallel_netcdf" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
-$as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
-   icon_netcdf_supports_parallel=unknown
-   if test "x$cross_compiling" = xno; then :
-  cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      use mpi
-      implicit none
-      include 'netcdf.inc'
-      integer :: result, tmp
-      call MPI_Init(tmp)
-      result = nf_create_par('conftest.nc', &
-                           & NF_MPIIO, &
-                           & MPI_COMM_WORLD, &
-                           & MPI_INFO_NULL, &
-                           & tmp)
-      if (result == NF_ENOPAR) then
-        write(*,"(a)") "conftest_parallel_no"
-      else
-        write(*,"(a)") "conftest_parallel_yes"
-      endif
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
-         rm -f conftest.nc
-         if test $? -eq 0; then :
-  if echo "$icon_exec_result" | grep 'conftest_parallel_no' >/dev/null 2>&1; then :
-  icon_netcdf_supports_parallel=no
-elif echo "$icon_exec_result" | grep 'conftest_parallel_yes' >/dev/null 2>&1; then :
-  icon_netcdf_supports_parallel=yes
-fi
-fi
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-fi
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_netcdf_supports_parallel" >&5
-$as_echo "$icon_netcdf_supports_parallel" >&6; }
-   if test x"$icon_netcdf_supports_parallel" = xno; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of NetCDF does not support parallel features
-See \`config.log' for more details" "$LINENO" 5; }
-elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
-$as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
-fi
 fi
 
 if test "x$with_external_mtime" = xyes; then :

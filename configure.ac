@@ -51,6 +51,12 @@ AC_ARG_ENABLE([psrad],
      [enable the radiation component PSRAD @<:@default=yes@:>@])], [],
   [enable_psrad=yes])
 
+AC_ARG_ENABLE([rttov],
+  [AC_HELP_STRING([--enable-rttov],
+     [enable usage of the radiative transfer model for TOVS
+@<:@default=no@:>@])], [],
+  [enable_rttov=no])
+
 AC_ARG_ENABLE([art],
   [AC_HELP_STRING([--enable-art],
      [enable the aerosols and reactive trace component ART
@@ -393,6 +399,9 @@ AS_VAR_IF([enable_coupling], [yes],
 AS_VAR_IF([enable_psrad], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
+AS_VAR_IF([enable_rttov], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
+
 AS_VAR_IF([enable_art], [yes],
   [icon_subdir_srcdir="$srcdir/src/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
@@ -430,8 +439,9 @@ AS_VAR_IF([enable_yaxt], [yes],
 dnl One of the topological orderings of the ICON dependency graph:
 dnl
 dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)', '-lmtime',
-dnl '-lnetcdff', '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct',
-dnl '-lgomp (or other)', '-lmpifort -lmpi (or other)'
+dnl '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct',
+dnl '-lradiance -lrttov10.2 (etc.)', '-lnetcdff', '-lgomp (or other)',
+dnl '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
@@ -447,8 +457,8 @@ AC_SUBST([DEPGEN_FCFLAGS], [])
 
 dnl A list of Fortran modules that are used in ICON but are not part of it:
 AC_SUBST([DEPGEN_EXTERNAL_MODS],
-  [[tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,]dnl
-[mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
+  [[mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,]dnl
+[self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
 
 dnl A list of Fortran intrinsic modules:
 AC_SUBST([DEPGEN_INTRINSIC_MODS],
@@ -489,6 +499,80 @@ preprocessor macro])])])],
    AS_VAR_IF([acx_macro_defined], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
 FCFLAGS accordingly to disable it])])])
+
+AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
+available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      include 'netcdf.inc'
+      integer :: status
+      status = nf_open('conftest.nc',0,0)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using NetCDF: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+AS_VAR_IF([enable_parallel_netcdf], [yes],
+  [AC_MSG_CHECKING(
+     [whether the provided version of NetCDF is built with parallel support])
+   icon_netcdf_supports_parallel=unknown
+   AS_VAR_IF([cross_compiling], [no],
+     [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mpi
+      implicit none
+      include 'netcdf.inc'
+      integer :: result, tmp
+      call MPI_Init(tmp)
+      result = nf_create_par('conftest.nc', &
+                           & NF_MPIIO, &
+                           & MPI_COMM_WORLD, &
+                           & MPI_INFO_NULL, &
+                           & tmp)
+      if (result == NF_ENOPAR) then
+        write(*,"(a)") "conftest_parallel_no"
+      else
+        write(*,"(a)") "conftest_parallel_yes"
+      endif]])],
+        [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+         rm -f conftest.nc
+         AS_IF([test $? -eq 0],
+           [AS_IF(
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_no' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=no],
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_yes' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=yes])])])])
+   AC_MSG_RESULT([$icon_netcdf_supports_parallel])
+   AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
+        [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
+parallel features])],
+        [test x"$icon_netcdf_supports_parallel" = xunknown],
+        [AC_MSG_WARN([unable to check whether the provided version of dnl
+NetCDF supports parallel features])])])
+
+AS_VAR_IF([enable_rttov], [yes],
+  [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_rttov_ifc, only: rttov_init
+      implicit none
+      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
+               & num_work_procs, p_io, p_comm_work
+      integer, allocatable :: instruments(:,:)
+      logical, allocatable :: addclouds(:)
+      istatus = rttov_init(  &
+        instruments     , &
+        channels        , &
+        n_chans         , &
+        p_pe            , &
+        num_work_procs  , &
+        p_io            , &
+        p_comm_work     , &
+        appRegLim=.TRUE., &
+        readCloud=addclouds)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
+disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AC_MSG_CHECKING([whether the Fortran interface of SCT library is available])
@@ -644,55 +728,6 @@ dnl Disable unwanted extra dependencies.
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
-
-AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
-available])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)]])],
-  [AC_MSG_RESULT([yes])],
-  [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using NetCDF: set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
-AS_VAR_IF([enable_parallel_netcdf], [yes],
-  [AC_MSG_CHECKING(
-     [whether the provided version of NetCDF is built with parallel support])
-   icon_netcdf_supports_parallel=unknown
-   AS_VAR_IF([cross_compiling], [no],
-     [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mpi
-      implicit none
-      include 'netcdf.inc'
-      integer :: result, tmp
-      call MPI_Init(tmp)
-      result = nf_create_par('conftest.nc', &
-                           & NF_MPIIO, &
-                           & MPI_COMM_WORLD, &
-                           & MPI_INFO_NULL, &
-                           & tmp)
-      if (result == NF_ENOPAR) then
-        write(*,"(a)") "conftest_parallel_no"
-      else
-        write(*,"(a)") "conftest_parallel_yes"
-      endif]])],
-        [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
-         rm -f conftest.nc
-         AS_IF([test $? -eq 0],
-           [AS_IF(
-              [echo "$icon_exec_result" | dnl
-grep 'conftest_parallel_no' >/dev/null 2>&1],
-              [icon_netcdf_supports_parallel=no],
-              [echo "$icon_exec_result" | dnl
-grep 'conftest_parallel_yes' >/dev/null 2>&1],
-              [icon_netcdf_supports_parallel=yes])])])])
-   AC_MSG_RESULT([$icon_netcdf_supports_parallel])
-   AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
-        [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
-parallel features])],
-        [test x"$icon_netcdf_supports_parallel" = xunknown],
-        [AC_MSG_WARN([unable to check whether the provided version of dnl
-NetCDF supports parallel features])])])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING(
