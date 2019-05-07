@@ -330,7 +330,7 @@ CASE( 1 )
                  qv(jl,jk) + qi_mod + deltaq - qisat_grid )
           cc_turb_ice(jl,jk) = zaux / (2._wp*deltaq)
           IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
-            qi_turb  (jl,jk) = MAX(qi_mod, zaux**2 / (4._wp*deltaq))
+            qi_turb  (jl,jk) = MAX(MIN(qi_mod,zqisat(jl,jk)*cc_turb_ice(jl,jk)), zaux**2/(4._wp*deltaq))
           ELSE
             qi_turb  (jl,jk) = 0.0_wp
           ENDIF
@@ -521,8 +521,8 @@ DO jk = kstart,klev
 ! sanity check 2: qv_tot > 0.1 qv (take qc, qi if available)
     IF ( qv_tot(jl,jk) < 0.1_wp * qv(jl,jk) ) THEN
       zf_ice = qi_tot(jl,jk) / MAX(zcldlim,qc_tot(jl,jk)+qi_tot(jl,jk))
-      qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * (1.0_wp - zf_ice)
-      qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * zf_ice
+      qc_tot(jl,jk) = MAX(0._wp, qc_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * (1.0_wp - zf_ice) )
+      qi_tot(jl,jk) = MAX(0._wp, qi_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * zf_ice )
       qv_tot(jl,jk) = 0.1_wp * qv(jl,jk)
     ENDIF
 
