@@ -5837,9 +5837,9 @@ $as_echo_n "checking whether the provided version of NetCDF is built with parall
                            & MPI_INFO_NULL, &
                            & tmp)
       if (result == NF_ENOPAR) then
-        write(*,"(a)") "parallel_no"
+        write(*,"(a)") "conftest_parallel_no"
       else
-        write(*,"(a)") "parallel_yes"
+        write(*,"(a)") "conftest_parallel_yes"
       endif
       end
 _ACEOF
@@ -5847,14 +5847,11 @@ if ac_fn_fc_try_link "$LINENO"; then :
   icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
          rm -f conftest.nc
          if test $? -eq 0; then :
-  case $icon_exec_result in #(
-  parallel_no) :
-    icon_netcdf_supports_parallel=no ;; #(
-  parallel_yes) :
-    icon_netcdf_supports_parallel=yes ;; #(
-  *) :
-     ;;
-esac
+  if echo "$icon_exec_result" | grep 'conftest_parallel_no' >/dev/null 2>&1; then :
+  icon_netcdf_supports_parallel=no
+elif echo "$icon_exec_result" | grep 'conftest_parallel_yes' >/dev/null 2>&1; then :
+  icon_netcdf_supports_parallel=yes
+fi
 fi
 fi
 rm -f core conftest.err conftest.$ac_objext \

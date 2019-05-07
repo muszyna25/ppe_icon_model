@@ -670,16 +670,20 @@ AS_VAR_IF([enable_parallel_netcdf], [yes],
                            & MPI_INFO_NULL, &
                            & tmp)
       if (result == NF_ENOPAR) then
-        write(*,"(a)") "parallel_no"
+        write(*,"(a)") "conftest_parallel_no"
       else
-        write(*,"(a)") "parallel_yes"
+        write(*,"(a)") "conftest_parallel_yes"
       endif]])],
         [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
          rm -f conftest.nc
          AS_IF([test $? -eq 0],
-           [AS_CASE([$icon_exec_result],
-              [parallel_no], [icon_netcdf_supports_parallel=no],
-              [parallel_yes], [icon_netcdf_supports_parallel=yes])])])])
+           [AS_IF(
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_no' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=no],
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_yes' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=yes])])])])
    AC_MSG_RESULT([$icon_netcdf_supports_parallel])
    AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
         [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
