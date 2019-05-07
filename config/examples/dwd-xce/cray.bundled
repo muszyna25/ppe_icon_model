@@ -1,0 +1,58 @@
+#!/bin/sh
+
+. /etc/profile
+
+set -eu
+
+ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../../.."
+. ${ICON_DIR}/build_env_init.sh
+switch_for_modules eccodes aec
+
+RTTOV_FCFLAGS='-I/usr/local/pkg/for0adm/include/radiance'
+RTTOV_LIBS='-L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools'
+
+ECCODES_CPPFLAGS=$ECCODES_INCLUDE
+# Libtool (used by the bundled CDI) is not fully compatible with Cray compiler.
+# For each library specified with -l (e.g. -laec) argument on the command line,
+# libtool tries to find the corresponding *.la file (e.g. libaec.la). If the
+# file is found, the library is treated in a special way. In particular, if
+# there is only a static version of the library, the argument -l (e.g. -laec)
+# is replaced with the full path to the library file (e.g.
+# /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a). Unfortunately, Cray
+# compiler ignores such arguments if they are specified after any other
+# argument -l. For example, we need to link to libeccodes.a, which requires
+# libaec.a. Normally, we would pass '-leccodes -laec', which the compiler would
+# understand, but libtool converts the arguments into
+# '-leccodes /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a', which the
+# compiler does not interpret correctly. Here, the argument '-leccodes' is not
+# changed because libeccodes.a is not a libtool-generated library (i.e. there
+# is no libeccodes.la) but libaec is. Therefore, the compiler ignores the
+# argument related to libaec and fails the linking. There are two possible
+# solutions to the described problem:
+#   1) remove /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.la and pass
+#      '-laec', which in this case will not be modified by libtool;
+#   2) pass '-l:libaec.a', which is understood by the compiler and is left as
+#      it is by libtool.
+# We implement the second solution here:
+ECCODES_LIBS="-L${ECCODES_LIB_DIR} -leccodes -L${AEC_DIR}/lib -l:libaec.a"
+
+XML_ROOT='/opt/cray/xc-sysroot/default/usr'
+XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
+XML_LIBS="-L${XML_ROOT}/lib -lxml2"
+
+######################
+
+BUILD_ENV=". /etc/profile; . ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
+
+FC='ftn'
+CC='cc'
+
+FCFLAGS="${RTTOV_FCFLAGS}"
+CFLAGS=
+CPPFLAGS="${ECCODES_CPPFLAGS} ${XML_CPPFLAGS}"
+
+LDFLAGS=
+LIBS="${XML_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-active-target-sync --enable-rttov --disable-rpaths --disable-ocean --disable-psrad --disable-jsbach --disable-coupling "$@"
+
