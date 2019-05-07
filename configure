@@ -5056,7 +5056,7 @@ set of extra FCFLAGS is not defined" ;;
 optimizations for unknown Fortran compiler" ;; #(
          intel)
            # precise, Intel compiler (example)
-           icon_optim_FCFLAGS='-fp-model precise'
+           icon_optim_FCFLAGS='-O2 -fp-model precise'
            test x"$enable_intel_consistency" = xauto && \
              enable_intel_consistency=yes
            test x"$enable_vectorized_lrtm" = xauto && \
