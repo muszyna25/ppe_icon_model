@@ -638,7 +638,9 @@ dnl provided NetCDF library. The script might not be available or might belong
 dnl to another NetCDF installation. Therefore, we enforce enabling of NetCDF2
 dnl and NetCDF4 features by setting the corresponding cache variables on the
 dnl command line.
-      [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes]])
+      [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
+dnl Disable unwanted extra dependencies.
+      [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
