@@ -129,7 +129,7 @@ lkeep_in_sync = .true.
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean1TS"
+  output_filename  = "${EXPNAME}_max1TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -137,13 +137,14 @@ lkeep_in_sync = .true.
   file_interval    = "P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
+  operation        = "max"
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean2TS"
+  output_filename  = "${EXPNAME}_max2TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -152,13 +153,13 @@ lkeep_in_sync = .true.
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
-  operation        = "mean"
+  operation        = "max"
   filename_format  = "<output_filename>_<datetime2>"
  ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean3TS"
+  output_filename  = "${EXPNAME}_max3TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -168,12 +169,12 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  operation        = "mean"
+  operation        = "max"
  ml_varlist       = ${varnames}
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_mean4TS"
+  output_filename  = "${EXPNAME}_max4TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -183,7 +184,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  operation        = "mean"
+  operation        = "max"
  ml_varlist       = ${varnames}
 /
 &output_nml
@@ -201,7 +202,7 @@ lkeep_in_sync = .true.
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_globalDiag_mean1TS"
+  output_filename  = "${EXPNAME}_globalDiag_max1TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -211,11 +212,11 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   ml_varlist       = "group:ocean_monitor"
-  operation        = "mean"
+  operation        = "max"
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_globalDiag_mean2TS"
+  output_filename  = "${EXPNAME}_globalDiag_max2TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -225,11 +226,11 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   ml_varlist       = "group:ocean_monitor"
-  operation        = "mean"
+  operation        = "max"
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_globalDiag_mean3TS"
+  output_filename  = "${EXPNAME}_globalDiag_max3TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
@@ -239,7 +240,7 @@ lkeep_in_sync = .true.
   include_last     = .false.
   output_grid      = .TRUE.
   ml_varlist       = "group:ocean_monitor"
-  operation        = "mean"
+  operation        = "max"
 /
 &dbg_index_nml
   idbg_mxmn=2                     ! initialize MIN/MAX  debug output
@@ -406,25 +407,25 @@ cat >> ${ocean_namelist} << EOF1
   ml_varlist       =  "group:HAMOCC_MONI"
 /
 &output_nml
-  output_filename  = "${EXPNAME}_hamocc_monitor_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_monitor_max1TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${hourly}"
   file_interval="P1Y"
   output_grid      = .false.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_MONI"
 /
 &output_nml
-  output_filename  = "${EXPNAME}_hamocc_monitor_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_monitor_max2TS"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${Twohourly}"
   file_interval="P1Y"
   output_grid      = .false.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_MONI"
 /
 &output_nml
@@ -441,25 +442,25 @@ cat >> ${ocean_namelist} << EOF1
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_max1TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_BASE"
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_max2TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${Twohourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_BASE"
 /
 &output_nml
@@ -476,25 +477,25 @@ cat >> ${ocean_namelist} << EOF1
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_sediment_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_sediment_max1TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_SED"
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_sediment_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_sediment_max2TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${Twohourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = "mean"
+  operation       = "max"
   ml_varlist       =  "group:HAMOCC_SED"
 /
 &output_nml
@@ -511,25 +512,25 @@ cat >> ${ocean_namelist} << EOF1
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_3d_tendencies_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_3d_tendencies_max1TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_3d_tendencies_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_3d_tendencies_max2TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${Twohourly}"
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
 /
 &output_nml
@@ -548,28 +549,28 @@ cat >> ${ocean_namelist} << EOF1
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_EU_tendencies_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_EU_tendencies_max1TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hourly}"
   file_interval="P1Y"
   !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
   m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_EU_tendencies_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_EU_tendencies_max2TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${Twohourly}"
   file_interval="P1Y"
   !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
   m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
 /
@@ -588,27 +589,27 @@ cat >> ${ocean_namelist} << EOF1
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_2d_tendencies_mean1TS"
+  output_filename  = "${EXPNAME}_hamocc_2d_tendencies_max1TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hourly}"
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_2d_tendencies_mean2TS"
+  output_filename  = "${EXPNAME}_hamocc_2d_tendencies_max2TS"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${Twohourly}"
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval="P1Y"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation       = 'max'
   ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
 /
 EOF1

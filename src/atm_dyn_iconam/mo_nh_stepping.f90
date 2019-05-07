@@ -196,7 +196,7 @@ MODULE mo_nh_stepping
        &                                 getTotalSecondsTimedelta, getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -419,7 +419,7 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -436,7 +436,7 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
-    CALL reset_accumulation
+    CALL reset_statistics
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -962,7 +962,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -979,7 +979,7 @@ MODULE mo_nh_stepping
       CALL write_name_list_output(jstep)
     ENDIF
 
-    CALL reset_accumulation
+    CALL reset_statistics
 
 
     ! sample meteogram output

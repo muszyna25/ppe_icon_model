@@ -149,7 +149,8 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type
-    TYPE(t_subset_range)       :: subset             ! subset for latter field access
+    TYPE(t_subset_range)       :: subset                ! subset for latter field access
+    INTEGER, POINTER           :: dom                   ! pointer to the variable list
     !
     INTEGER                    :: tlev_source           ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        

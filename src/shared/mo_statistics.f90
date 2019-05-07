@@ -27,7 +27,7 @@ MODULE mo_statistics
 #ifdef _OPENMP
   USE omp_lib
 #endif
-  
+
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_mpi,                ONLY: process_mpi_stdio_id, get_my_mpi_work_communicator, p_max, p_min, &
     & my_process_is_mpi_parallel, p_sum, my_process_is_mpi_seq
@@ -36,15 +36,16 @@ MODULE mo_statistics
   USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
   USE mo_math_types,     ONLY: t_geographical_coordinates
   USE mo_math_constants, ONLY: rad2deg
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
 #define VerticalDim_Position 2
-  
+
   !-------------------------------------------------------------------------  
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d, add_sqr_fields
+  PUBLIC :: assign_fields
   PUBLIC :: L2Norm, LInfNorm
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
@@ -52,7 +53,8 @@ MODULE mo_statistics
   PUBLIC :: add_verticallyIntegrated_field
   PUBLIC :: add_verticalSum_field
   PUBLIC :: gather_sums
-  
+  PUBLIC :: min_fields, max_fields
+
   ! simple min max mean (no weights)
   ! uses the range in_subset
   ! used from the debug print
@@ -66,11 +68,11 @@ MODULE mo_statistics
   INTERFACE L2Norm
     MODULE PROCEDURE L2Norm_2D_InRange
   END INTERFACE L2Norm
-  
+
   INTERFACE LInfNorm
     MODULE PROCEDURE LInfNorm_2D_InRange
   END INTERFACE LInfNorm
-  
+
 
 
   ! weighted total sum, uses indexed subset
@@ -98,14 +100,14 @@ MODULE mo_statistics
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_3Dweights
     MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
   END INTERFACE levels_horizontal_mean
-  
+
   ! the same as above, but better name
   INTERFACE horizontal_mean
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_3Dweights
     MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
   END INTERFACE horizontal_mean
-  
+
   INTERFACE horizontal_sum
     MODULE PROCEDURE LevelHorizontalSum_3D_InRange_2Dweights
     MODULE PROCEDURE LevelHorizontalSum_3D_InRange_3Dweights
@@ -116,18 +118,18 @@ MODULE mo_statistics
     MODULE PROCEDURE gather_sums_0D
     MODULE PROCEDURE gather_sums_1D
   END INTERFACE gather_sums
-  
+
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
   PUBLIC :: new_statistic, delete_statistic
   PUBLIC :: add_statistic_to, add_data_to
 !   PUBLIC :: MIN, MAX, mean
   PUBLIC :: max_statistic_of, min_statistic_of
   PUBLIC :: mean_statistic_of
-  
+
   PUBLIC :: add_max_ratio
-  
+
   PUBLIC :: new, delete
-  
+
   PUBLIC :: t_statistic
 
   PUBLIC :: time_avg
@@ -137,12 +139,12 @@ MODULE mo_statistics
     INTEGER :: id
   END TYPE t_statistic
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ! Parameters
   INTEGER, PARAMETER :: add_value = 1
   INTEGER, PARAMETER :: add_max_ratio = 2
-  
+
   !--------------------------------------------------------------
   ! TYPE definitions
   !> Basic statistics type
@@ -158,11 +160,11 @@ MODULE mo_statistics
     REAL(wp) :: min_bars_value
     REAL(wp) :: max_bars_value
     INTEGER, POINTER :: no_of_values_in_bar(:)
-    
+
     INTEGER :: mode ! defines how we insert the values,
     ! ADD_VALUE
     ! ADD_MAX_RATIO, input twos values
-    
+
   END TYPE t_data_statistics
   TYPE t_data_statistics_2d
     LOGICAL :: is_active
@@ -176,7 +178,7 @@ MODULE mo_statistics
     INTEGER, POINTER :: no_of_values_in_bar(:)
     INTEGER :: mode
   END TYPE t_data_statistics_2d
-  
+
   TYPE t_data_statistics_3d
     LOGICAL :: is_active
     INTEGER :: no_of_values
@@ -189,13 +191,13 @@ MODULE mo_statistics
     INTEGER, POINTER :: no_of_values_in_bar(:)
     INTEGER :: mode
   END TYPE t_data_statistics_3d
-  
+
   TYPE t_data_statistics_collection
     INTEGER, ALLOCATABLE :: stats_1d(:)
     INTEGER, ALLOCATABLE :: stats_2d(:)
     INTEGER, ALLOCATABLE :: stats_3d(:)
   END TYPE
-  
+
   !--------------------------------------------------------------
   !> The maximum number of statistic objects.
   INTEGER, PARAMETER ::  max_no_of_statistic_objects = 50
@@ -210,7 +212,7 @@ MODULE mo_statistics
   !> The maximum id of the active statistics
   INTEGER :: max_active_statistics
   !> True if the statistic object is active.
-  
+
   INTERFACE new
     MODULE PROCEDURE new_statistic_operator
   END INTERFACE
@@ -243,27 +245,46 @@ MODULE mo_statistics
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
   END INTERFACE
-  
+
   INTERFACE add_fields
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
     MODULE PROCEDURE add_fields_2d_nosubset
   END INTERFACE add_fields
-  
+
   INTERFACE add_sqr_fields
     MODULE PROCEDURE add_sqr_fields_2d
+    MODULE PROCEDURE add_sqr_fields_3d
+    MODULE PROCEDURE add_sqr_fields_2d_nosubset
   END INTERFACE add_sqr_fields
+
+  INTERFACE assign_fields
+    MODULE PROCEDURE assign_fields_3d
+    MODULE PROCEDURE assign_fields_2d
+    MODULE PROCEDURE assign_fields_2d_nosubset
+  END INTERFACE assign_fields
 
   INTERFACE print_value_location
     MODULE PROCEDURE print_2Dvalue_location
     MODULE PROCEDURE print_3Dvalue_location
   END INTERFACE print_value_location
 
+  INTERFACE max_fields
+    MODULE PROCEDURE max_fields_3d
+    MODULE PROCEDURE max_fields_2d
+    MODULE PROCEDURE max_fields_2d_nosubset
+  END INTERFACE max_fields
+  INTERFACE min_fields
+    MODULE PROCEDURE min_fields_3d
+    MODULE PROCEDURE min_fields_2d
+    MODULE PROCEDURE min_fields_2d_nosubset
+  END INTERFACE min_fields
+
  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
-  
+
 CONTAINS
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   FUNCTION MinMaxMean_2D(values) result(minmaxmean)
@@ -292,13 +313,13 @@ CONTAINS
     REAL(wp), INTENT(in) :: values(:,:)
     REAL(wp), INTENT(in) :: seek_value
     TYPE(t_subset_range), TARGET, INTENT(in) :: in_subset
-    
+
     INTEGER :: block, start_index, end_index, idx
     TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':print_cell_value_location'
-    
+
 !     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
-        
+
     ! get lon, lat
     SELECT CASE (in_subset%entity_location)    
     CASE(on_cells)
@@ -310,7 +331,7 @@ CONTAINS
     CASE default
       CALL finish(method_name, "unknown subset%entity_location")
     END SELECT
-          
+
     DO block = in_subset%start_block, in_subset%end_block
       CALL get_index_range(in_subset, block, start_index, end_index)
       DO idx = start_index, end_index
@@ -321,10 +342,10 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-          
+
   END SUBROUTINE print_2Dvalue_location
   !-----------------------------------------------------------------------
-  
+
 
   !-----------------------------------------------------------------------
   !>
@@ -335,13 +356,13 @@ CONTAINS
     REAL(wp), INTENT(in) :: seek_value
     TYPE(t_subset_range), TARGET, INTENT(in) :: in_subset
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
-    
+
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':print_cell_value_location'
-    
+
 !     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
-    
+
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
     ELSE
@@ -354,7 +375,7 @@ CONTAINS
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
-    
+
     ! get lon, lat
     SELECT CASE (in_subset%entity_location)    
     CASE(on_cells)
@@ -366,7 +387,7 @@ CONTAINS
     CASE default
       CALL finish(method_name, "unknown subset%entity_location")
     END SELECT
-    
+
     ! init the min, max values    
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
       DO block = in_subset%start_block, in_subset%end_block
@@ -382,9 +403,9 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-      
+
     ELSE ! no in_subset%vertical_levels
-      
+
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -398,12 +419,12 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-      
+
     ENDIF
-    
+
   END SUBROUTINE print_3Dvalue_location
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the l2 norm for a 2D array in a given range subset
@@ -411,15 +432,15 @@ CONTAINS
     REAL(wp), INTENT(in) :: values(:,:)
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: lInfnorm
-    
+
     REAL(wp) :: minmaxmean(3)
-    
+
     minmaxmean = global_minmaxmean(values, in_subset)
     lInfnorm = MAX(ABS(minmaxmean(1)), ABS(minmaxmean(2)))
 
   END FUNCTION LInfNorm_2D_InRange
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the l2 norm for a 2D array in a given range subset
@@ -427,13 +448,13 @@ CONTAINS
     REAL(wp), INTENT(in) :: values(:,:)
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: l2norm
-    
+
     REAL(wp) :: sumOfSquares
     INTEGER :: block, start_index, end_index, idx
-    
+
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     sumOfSquares = 0._wp
-    
+
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx), reduction(+:sumOfSquares) 
       DO block = in_subset%start_block, in_subset%end_block
@@ -446,9 +467,9 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+
     ELSE ! no in_subset%vertical_levels
-      
+
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index) &
 !ICON_OMP   reduction(+:sumOfSquares)
       DO block = in_subset%start_block, in_subset%end_block
@@ -456,9 +477,9 @@ CONTAINS
         sumOfSquares    = sumOfSquares + SUM(values(start_index:end_index, block)**2)
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+
     ENDIF ! (ASSOCIATED(in_subset%vertical_levels))
-    
+
 !     write(0,*) "sumOfSquares=", sumOfSquares
     l2norm = gather_sum(sumOfSquares)
 !     write(0,*) "l2norm=", l2norm
@@ -467,7 +488,7 @@ CONTAINS
 
   END FUNCTION L2Norm_2D_InRange
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the min max mean in a 2D array in a given range subset
@@ -475,16 +496,16 @@ CONTAINS
     REAL(wp), INTENT(in) :: values(:,:)
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp) :: minmaxmean(3)
-    
+
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value
     INTEGER :: block, start_index, end_index, number_of_values, idx
-    
+
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     ! init the min, max values
     CALL init_min_max(min_value, max_value)
     sum_value = 0._wp
     number_of_values = 0
-    
+
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx), reduction(+:number_of_values, sum_value) &
 !ICON_OMP reduction(MIN:min_value) reduction(MAX:max_value)
@@ -501,9 +522,9 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+
     ELSE ! no in_subset%vertical_levels
-      
+
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, min_in_block, max_in_block) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
@@ -517,15 +538,15 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
       ! compute the total number of values
       number_of_values = in_subset%SIZE
-      
+
     ENDIF ! (ASSOCIATED(in_subset%vertical_levels))
-    
+
     ! the global min, max, mean, is avaliable only to stdio process
     CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
-    
+
   END FUNCTION MinMaxMean_2D_InRange
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the min max mean in a 3D array in a given range subset
@@ -535,13 +556,13 @@ CONTAINS
     TYPE(t_subset_range), INTENT(in) :: in_subset
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
-    
+
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical, number_of_values
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_AllLevels'
-    
+
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
-    
+
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
     ELSE
@@ -554,12 +575,12 @@ CONTAINS
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
-    
+
     ! init the min, max values
     CALL init_min_max(min_value, max_value)
     sum_value = 0._wp
     number_of_values = 0
-    
+
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value, number_of_values)
@@ -577,9 +598,9 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+
     ELSE ! no in_subset%vertical_levels
-      
+
 !ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, min_in_block, max_in_block)  &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
@@ -593,7 +614,7 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+
       IF ((in_subset%end_block - in_subset%start_block) > 1) THEN
         number_of_values = (in_subset%end_block - in_subset%start_block -1) * in_subset%block_size
       ELSE
@@ -602,17 +623,17 @@ CONTAINS
       number_of_values = (number_of_values + in_subset%end_index + &
         & (in_subset%block_size - in_subset%start_index + 1)) * &
         & (end_vertical - start_vertical + 1)
-      
+
     ENDIF
 
     ! the global min, max, mean, is avaliable only to stdio process
     CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
     ! write(0,"(a, 1pg26.18, 1pg26.18, 1pg26.18)") "minmaxmean:", minmaxmean(1:3)
-    
+
   END FUNCTION MinMaxMean_3D_AllLevels_InRange
   !-----------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the sum in a 3D array in a given indexed subset,
@@ -628,14 +649,14 @@ CONTAINS
     REAL(wp), OPTIONAL, INTENT(in) :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
     ! dim: (vertical_levels, indexed_subset%size)
     REAL(wp) :: total_sum
-    
+
     REAL(wp) :: sum_value
     INTEGER :: i, block, idx, level,  start_vertical, end_vertical
     INTEGER :: communicator
     !    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_3Dweights_InIndexed'
-    
-    
+
+
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
     ELSE
@@ -652,7 +673,7 @@ CONTAINS
     ! init the min, max values
     sum_value = 0._wp
     IF (PRESENT(weights)) THEN
-      
+
       DO i=1, indexed_subset%SIZE
         block = indexed_subset%block(i)
         idx = indexed_subset%idx(i)
@@ -660,9 +681,9 @@ CONTAINS
           sum_value  = sum_value + values(idx, level, block) * weights(idx, level, block)
         ENDDO
       ENDDO
-      
+
     ELSEIF (PRESENT(subset_indexed_weights)) THEN
-      
+
       DO i=1, indexed_subset%SIZE
         block = indexed_subset%block(i)
         idx = indexed_subset%idx(i)
@@ -670,9 +691,9 @@ CONTAINS
           sum_value  = sum_value + values(idx, level, block) * subset_indexed_weights(level, i)
         ENDDO
       ENDDO
-      
+
     ELSE
-      
+
       DO i=1, indexed_subset%SIZE
         block = indexed_subset%block(i)
         idx = indexed_subset%idx(i)
@@ -680,25 +701,25 @@ CONTAINS
           sum_value  = sum_value + values(idx, level, block)
         ENDDO
       ENDDO
-      
+
     ENDIF
-    
+
     ! the global min, max is avaliable only to stdio process
     IF (my_process_is_mpi_parallel()) THEN
-      
+
       communicator = indexed_subset%patch%work_communicator
       ! these are avaliable to all processes
       total_sum = p_sum( sum_value,  comm=communicator)
-      
+
     ELSE
-      
+
       total_sum = sum_value
-      
+
     ENDIF
-    
+
   END FUNCTION Sum_3D_AllLevels_3Dweights_InIndexed
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Computes the weighted average for each level in a 3D array in a given range subset.
@@ -857,7 +878,7 @@ CONTAINS
         mean(level) = total_sum(level)/total_weight(level)
       ENDDO
     ENDIF
-    
+
     DEALLOCATE(total_weight)
 
   END SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights
@@ -881,7 +902,7 @@ CONTAINS
   END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
-  
+
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
@@ -1140,7 +1161,7 @@ CONTAINS
       ! Get average
       mean = Sum_2D_InRange / REAL(no_of_additions, KIND=wp)
     ENDIF
-    
+
   END FUNCTION Sum_2D_InRange
   !-----------------------------------------------------------------------
   !-----------------------------------------------------------------------
@@ -1252,55 +1273,55 @@ CONTAINS
   END SUBROUTINE HorizontalMean_2D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE init_min_max(min_value, max_value)
     REAL(wp), INTENT(out) :: min_value, max_value
-    
+
     min_value = 1.e16_wp         ! some large value
     max_value = -1.e16_wp        ! some small value
-    
+
   END SUBROUTINE init_min_max
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   SUBROUTINE gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
     REAL(wp), INTENT(in) :: min_value, max_value, sum_value
     INTEGER, INTENT(in) :: number_of_values
     REAL(wp), INTENT(out) :: minmaxmean(3)
-    
+
     REAL(wp) :: global_number_of_values
     INTEGER :: communicator
-    
+
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
       minmaxmean(1) = p_min( min_value,  comm=communicator ) !  mpi_all_reduce 
       minmaxmean(2) = p_max( max_value,  comm=communicator )
-      
+
       ! these are avaliable to all processes
       global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
       minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values
-      
+
     ELSE
-      
+
       minmaxmean(1) = min_value
       minmaxmean(2) = max_value
       minmaxmean(3) = sum_value / REAL(number_of_values, wp)
-      
+
     ENDIF
   !  write(0,"(a, 1pg26.18, 1pg26.18, 1pg26.18)") "gather_minmaxmean:", min_value, max_value, sum_value
   !  write(0,*) "number_of_values:",  number_of_values
 
   END SUBROUTINE gather_minmaxmean
   !-----------------------------------------------------------------------
- 
+
   !-----------------------------------------------------------------------
   REAL(wp) FUNCTION gather_sum(sum_value)
     REAL(wp), INTENT(in) :: sum_value
-    
+
     INTEGER :: communicator
-    
+
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
       gather_sum = p_sum( sum_value,  comm=communicator)
@@ -1360,29 +1381,29 @@ CONTAINS
 
   END SUBROUTINE gather_sums_0D
   !-----------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE new_statistic_operator(statistic)
     TYPE(t_statistic), INTENT(inout) :: statistic
-    
+
     statistic%id = new_statistic_no_bars()
-    
+
   END SUBROUTINE new_statistic_operator
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE delete_statistic_operator(statistic)
     TYPE(t_statistic), INTENT(inout) :: statistic
-    
+
     CALL delete_statistic(statistic%id)
     statistic%id = -1
-    
+
   END SUBROUTINE delete_statistic_operator
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -1391,31 +1412,31 @@ CONTAINS
     INTEGER,  INTENT(in) :: no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
     INTEGER,  INTENT(in), OPTIONAL :: mode
-    
+
     IF (PRESENT(mode)) THEN
       new_statistic_with_bars = new_statistic(mode)
     ELSE
       new_statistic_with_bars = new_statistic(mode)
     ENDIF
     CALL construct_statistic_bars(new_statistic_with_bars, no_of_bars, min_value, max_value)
-    
+
   END FUNCTION new_statistic_with_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
   !! The statistic arrays are not allocated.
   INTEGER FUNCTION new_statistic_no_bars(mode)
     INTEGER,  INTENT(in), OPTIONAL :: mode
-    
+
     INTEGER :: i
-    
+
     ! check if the statistic objects have been construced
     IF (no_of_allocated_statistics == 0) THEN
       CALL construct_statistic_objects()
     ENDIF
-    
+
     IF (max_active_statistics /= active_statistics) THEN
       ! we have a hole (inactive statistic) in the list of max_active_statistics
       DO i = 1, max_active_statistics
@@ -1432,18 +1453,18 @@ CONTAINS
       max_active_statistics = max_active_statistics + 1
       new_statistic_no_bars = max_active_statistics
     ENDIF
-    
+
     active_statistics = active_statistics + 1
     CALL init_statistic_object(new_statistic_no_bars)
-    
+
     IF (PRESENT(mode)) THEN
       CALL set_mode(new_statistic_no_bars, mode)
     ENDIF
-    
-    
+
+
   END FUNCTION new_statistic_no_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Creates a new statistics object and returns its id.
@@ -1454,26 +1475,26 @@ CONTAINS
     ! GZ: temporary fix to get the code compiled
     new_statistic_with_pointers = 0
   END FUNCTION new_statistic_with_pointers
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE set_mode(statistic_id, mode)
     INTEGER, INTENT(in) :: statistic_id, mode
-    
+
     CALL check_active_statistic_id(statistic_id)
-    
+
     SELECT CASE (mode)
-    
+
     CASE (add_value, add_max_ratio)
       statistic_object(statistic_id)%mode = mode
-      
+
     CASE default
       CALL finish('set_mode', 'Unkown mode')
-      
+
     END SELECT
   END SUBROUTINE set_mode
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Deletes the statistic object.
@@ -1482,191 +1503,191 @@ CONTAINS
   !! It maybe associated with another statistic in the future.
   SUBROUTINE delete_statistic(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     !     CALL deallocate_statistic_object(statistic_id)
-    
+
     CALL destruct_statistic_bars(statistic_id)
     statistic_object(statistic_id)%is_active = .FALSE.
     active_statistics = active_statistics - 1
-    
+
   END SUBROUTINE delete_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_data_one_value_real(statistic, val)
     TYPE(t_statistic), INTENT(inout) :: statistic
     REAL(wp), INTENT(in) :: val
-    
+
     CALL add_statistic_one_value(statistic%id, val)
   END SUBROUTINE add_data_one_value_real
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_data_one_value_int(statistic, val)
     TYPE(t_statistic), INTENT(inout) :: statistic
     INTEGER, INTENT(in) :: val
-    
+
     CALL add_statistic_one_value(statistic%id, REAL(val,wp))
   END SUBROUTINE add_data_one_value_int
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_one_value(statistic_id, val)
     INTEGER, INTENT(in) :: statistic_id
     REAL(wp), INTENT(in) :: val
-    
+
     CALL check_active_statistic_id(statistic_id)
-    
+
     statistic_object(statistic_id)%sum_of_values  = &
       & statistic_object(statistic_id)%sum_of_values + val
     statistic_object(statistic_id)%max_of_values  = &
       & MAX(statistic_object(statistic_id)%max_of_values, val)
     statistic_object(statistic_id)%min_of_values  = &
       & MIN(statistic_object(statistic_id)%min_of_values, val)
-    
+
     statistic_object(statistic_id)%no_of_values   = &
       & statistic_object(statistic_id)%no_of_values + 1
-    
+
   END SUBROUTINE add_statistic_one_value
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE add_statistic_two_values(statistic_id, value1, value2)
     INTEGER, INTENT(in) :: statistic_id
     REAL(wp), INTENT(in) :: value1, value2
-    
+
     !     REAL(wp) :: max_value, min_value
-    
+
     !     CALL check_active_statistic_id(statistic_id)
-    
+
     SELECT CASE (statistic_object(statistic_id)%mode)
-    
+
     CASE(add_max_ratio)
-      
+
       CALL add_statistic_one_value(statistic_id, &
         & MAX(value1, value2) / MIN(value1, value2))
-      
+
     CASE default
       CALL finish('set_mode', 'Unkown mode')
-      
+
     END SELECT
-    
+
   END SUBROUTINE add_statistic_two_values
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION min_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     min_statistic = statistic_object(statistic%id)%min_of_values
-    
+
   END FUNCTION min_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION max_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     max_statistic = statistic_object(statistic%id)%max_of_values
-    
+
   END FUNCTION max_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION mean_statistic(statistic)
     TYPE(t_statistic), INTENT(in) :: statistic
-    
+
     CALL check_active_statistic_id(statistic%id)
     mean_statistic = statistic_object(statistic%id)%sum_of_values / &
       & REAL(statistic_object(statistic%id)%no_of_values, wp)
-    
+
   END FUNCTION mean_statistic
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION min_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     min_statistic_of = statistic_object(statistic_id)%min_of_values
-    
+
   END FUNCTION min_statistic_of
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION mean_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     mean_statistic_of = statistic_object(statistic_id)%sum_of_values / &
       & REAL(statistic_object(statistic_id)%no_of_values, wp)
-    
+
   END FUNCTION mean_statistic_of
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   REAL(wp) FUNCTION max_statistic_of(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     CALL check_active_statistic_id(statistic_id)
     max_statistic_of = statistic_object(statistic_id)%max_of_values
-    
+
   END FUNCTION max_statistic_of
   !-----------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   !! Deletes all statistic objects
   !! Note: Should be called only at the stop of a program.
   SUBROUTINE destruct_statistic_objects ()
-    
+
     INTEGER :: i
-    
+
     IF (no_of_allocated_statistics == 0) THEN
       CALL warning('destruct_statistic_objects', &
         & 'statistic_objects have not been constructed');
       RETURN
     ENDIF
-    
+
     DO i=1,max_active_statistics
       IF (statistic_object(i)%is_active) THEN
         CALL delete_statistic(i)
       ENDIF
     ENDDO
-    
+
     DEALLOCATE(statistic_object)
-    
+
     no_of_allocated_statistics  = 0
     active_statistics     = 0
     max_active_statistics = 0
-    
+
   END SUBROUTINE destruct_statistic_objects
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! "Class construction" method.
   !! Called once to initiallize the "class".
   SUBROUTINE construct_statistic_objects()
-    
+
     INTEGER :: return_status,i
-    
+
     CHARACTER(*), PARAMETER :: method_name = "construct_statistic_objects"
-    
+
     IF (no_of_allocated_statistics /= 0) THEN
       ! do some consistency checks, return if everything ok
       IF (no_of_allocated_statistics /= max_no_of_statistic_objects) THEN
@@ -1680,36 +1701,36 @@ CONTAINS
         CALL finish(method_name, &
           & 'SIZE(statistic_object) /= no_of_allocated_statistics');
       ENDIF
-      
+
       RETURN
     ENDIF
-    
+
     IF (ALLOCATED(statistic_object)) THEN
       CALL finish(method_name, 'ALLOCATED(statistic_object)');
     ENDIF
-    
+
     no_of_allocated_statistics  = max_no_of_statistic_objects
     active_statistics     = 0
     max_active_statistics = 0
-    
+
     ALLOCATE(statistic_object(no_of_allocated_statistics),stat=return_status)
     IF (return_status /= 0) THEN
       CALL finish(method_name, 'failed to ALLOCATE(statistic_object)');
     ENDIF
-    
+
     DO i=1,no_of_allocated_statistics
       statistic_object(i)%is_active = .FALSE.
     ENDDO
-    
+
   END SUBROUTINE construct_statistic_objects
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Initializes a new statistic object
   SUBROUTINE init_statistic_object(statistic_id)
     INTEGER, INTENT(in) :: statistic_id
-    
+
     statistic_object(statistic_id)%no_of_values   = 0
     statistic_object(statistic_id)%sum_of_values  = 0._wp
     statistic_object(statistic_id)%max_of_values  = &
@@ -1717,17 +1738,17 @@ CONTAINS
     statistic_object(statistic_id)%min_of_values  = &
       & HUGE(statistic_object(statistic_id)%min_of_values)
     statistic_object(statistic_id)%mode     = add_value
-    
+
     statistic_object(statistic_id)%no_of_bars     = 0
     statistic_object(statistic_id)%min_bars_value = 0._wp
     statistic_object(statistic_id)%max_bars_value = 0._wp
     NULLIFY(statistic_object(statistic_id)%no_of_values_in_bar)
-    
+
     statistic_object(statistic_id)%is_active = .TRUE.
-    
+
   END SUBROUTINE init_statistic_object
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Initializes a new statistic object with source and target pointers
@@ -1735,7 +1756,7 @@ CONTAINS
     INTEGER, INTENT(in)            :: statistic_id
     REAL(wp), POINTER :: source
     REAL(wp), POINTER, OPTIONAL :: summation,mean,maximum,minimum
-    
+
     statistic_object(statistic_id)%no_of_values = 0
     !IF (PRESENT(summation)) THEN
     !  statistic_object(statistic_id)%sum_of_values => summation
@@ -1748,7 +1769,7 @@ CONTAINS
     !END IF
     statistic_object(statistic_id)%mode = add_value
   END SUBROUTINE init_statistic_object_with_pointers
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Reset values of the statistic object.
@@ -1756,64 +1777,64 @@ CONTAINS
     INTEGER, INTENT(in) :: statistic_id
     CALL init_statistic_object(statistic_id)
   END SUBROUTINE reset_statistic
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Initializes a new statistic object
   SUBROUTINE construct_statistic_bars(statistic_id, no_of_bars, min_value, max_value)
     INTEGER,  INTENT(in) :: statistic_id, no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
-    
+
     INTEGER :: return_status
     CHARACTER(*), PARAMETER :: method_name = "construct_statistic_bars"
-    
+
     CALL check_active_statistic_id(statistic_id)
     IF (no_of_bars < 2) &
       & CALL finish(method_name,'no_of_bars < 2');
     IF (min_value >= max_value) &
       & CALL finish(method_name,'min_value >= max_value');
-    
+
     statistic_object(statistic_id)%no_of_bars     = no_of_bars
     statistic_object(statistic_id)%min_bars_value = min_value
     statistic_object(statistic_id)%max_bars_value = max_value
-    
+
     ALLOCATE(statistic_object(statistic_id)%no_of_values_in_bar(no_of_bars),stat=return_status)
     IF (return_status /= 0) THEN
       CALL finish(method_name, 'failed to ALLOCATE(statistic_object)');
     ENDIF
-    
+
   END SUBROUTINE construct_statistic_bars
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   !! Initializes a new statistic object
   SUBROUTINE destruct_statistic_bars(statistic_id)
     INTEGER,  INTENT(in) :: statistic_id
-    
+
     !     INTEGER :: return_status
     !     CHARACTER(*), PARAMETER :: method_name = "destruct_statistic_bars"
-    
+
     CALL check_active_statistic_id(statistic_id)
-    
+
     IF (ASSOCIATED(statistic_object(statistic_id)%no_of_values_in_bar)) THEN
       DEALLOCATE(statistic_object(statistic_id)%no_of_values_in_bar)
     ENDIF
-    
+
     statistic_object(statistic_id)%no_of_bars     = 0
     NULLIFY(statistic_object(statistic_id)%no_of_values_in_bar)
-    
+
   END SUBROUTINE destruct_statistic_bars
   !-----------------------------------------------------------------------
-  
-  
+
+
   !-----------------------------------------------------------------------
   !>
   !! Checks if a the statistic object associated with the statistic_id is active.
   !! If the statistic object is not active the program stops with an error.
   SUBROUTINE check_active_statistic_id (statistic_id)
     INTEGER :: statistic_id
-    
+
     IF (statistic_id > max_active_statistics) THEN
       CALL finish('get_statistic', 'statistic_id > max_active_statistics');
     ENDIF
@@ -1822,18 +1843,18 @@ CONTAINS
     ENDIF
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
-  SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+  SUBROUTINE assign_fields_3d(out_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
     INTEGER,INTENT(in),OPTIONAL :: levels
     LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
     REAL(wp), INTENT(IN), OPTIONAL :: missval
-    
+
     INTEGER :: idx,block,level,start_index,end_index
-    
+
     INTEGER :: mylevels
     LOGICAL :: my_force_level, my_has_missvals
     REAL(wp) :: my_miss
@@ -1844,31 +1865,30 @@ CONTAINS
     CALL assign_if_present(my_has_missvals, has_missvals)
     CALL assign_if_present(my_miss, missval)
 
-      ! use constant levels
-      mylevels                       = SIZE(sum_field, VerticalDim_Position)
-      IF (PRESENT(levels))  mylevels = levels
+    ! use constant levels
+    mylevels                       = SIZE(out_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          DO level = 1, mylevels
-          sum_field(idx,level,block) = MERGE(my_miss, &
-                                          & sum_field(idx,level,block) + field(idx,level,block), &
-                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
-          END DO
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        out_field(idx,level,block) = MERGE(my_miss, &
+                                        &  field(idx,level,block), &
+                                        &  my_has_missvals .AND. (field(idx,level,block) == my_miss))
         END DO
       END DO
+    END DO
 !ICON_OMP_END_PARALLEL_DO
 
-  END SUBROUTINE add_fields_3d
-  
-  SUBROUTINE add_fields_2d(sum_field,field,subset,has_missvals, missval)
-    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+  END SUBROUTINE assign_fields_3d
+  SUBROUTINE assign_fields_2d(out_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:)
     REAL(wp),INTENT(in)             :: field(:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
     LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
     REAL(wp), INTENT(IN), OPTIONAL :: missval
-    
+
     INTEGER :: jb,jc,start_index,end_index
     LOGICAL :: my_has_missvals
     REAL(wp) :: my_miss
@@ -1878,7 +1898,97 @@ CONTAINS
 
     CALL assign_if_present(my_has_missvals, has_missvals)
     CALL assign_if_present(my_miss, missval)
-    
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE assign_fields_2d
+
+  SUBROUTINE assign_fields_2d_nosubset(out_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        out_field(jc,jb) = MERGE(my_miss, field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE assign_fields_2d_nosubset
+  !-----------------------------------------------------------------------
+  SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+    ! use constant levels
+    mylevels                       = SIZE(sum_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        sum_field(idx,level,block) = MERGE(my_miss, &
+                                        & sum_field(idx,level,block) + field(idx,level,block), &
+                                        & my_has_missvals .AND. (field(idx,level,block) == my_miss))
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE add_fields_3d
+
+  SUBROUTINE add_fields_2d(sum_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
@@ -1894,7 +2004,7 @@ CONTAINS
     REAL(wp),INTENT(in)             :: field(:,:)
     LOGICAL, INTENT(in), OPTIONAL :: has_missvals
     REAL(wp), INTENT(in), OPTIONAL :: missval
-    
+
     INTEGER :: jb,jc,start_index,end_index
     LOGICAL :: my_has_missvals
     REAL(wp) :: my_miss
@@ -1904,7 +2014,7 @@ CONTAINS
 
     CALL assign_if_present(my_has_missvals, has_missvals)
     CALL assign_if_present(my_miss, missval)
-    
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = LBOUND(field,2),UBOUND(field,2)
       DO jc = LBOUND(field,1),UBOUND(field,1)
@@ -1913,24 +2023,97 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_nosubset
-  
-  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
+
+  SUBROUTINE add_sqr_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+    ! use constant levels
+    mylevels                       = SIZE(sum_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        sum_field(idx,level,block) = MERGE(my_miss, &
+                                        & sum_field(idx,level,block) + field(idx,level,block)**2, &
+                                        & my_has_missvals .AND. (field(idx,level,block) == my_miss))
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE add_sqr_fields_3d
+
+  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)
     REAL(wp),INTENT(in)             :: field(:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
-    
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
     INTEGER :: jb,jc,start_index,end_index
-    
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
       DO jc = start_index, end_index
-        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)**2
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_sqr_fields_2d
-  
+
+  SUBROUTINE add_sqr_fields_2d_nosubset(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb)**2, my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d_nosubset
+
   !-----------------------------------------------------------------------
   SUBROUTINE add_verticallyIntegrated_field(vint_field_acc,field_3D,subset,height,levels)
     REAL(wp),INTENT(inout)          :: vint_field_acc(:,:)
@@ -1938,12 +2121,12 @@ CONTAINS
     TYPE(t_subset_range),INTENT(in) :: subset
     REAL(wp),INTENT(in)             :: height(:,:,:)
     INTEGER,INTENT(in),OPTIONAL :: levels
-    
+
     INTEGER :: idx,block,level,start_index,end_index
-    
+
     INTEGER :: mylevels
     LOGICAL :: my_force_level
-    
+
     IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
@@ -2018,6 +2201,202 @@ CONTAINS
   END SUBROUTINE add_verticalSum_field
   !-----------------------------------------------------------------------
 
+  ! routine for computing max of two fields ------------------------------
+  SUBROUTINE max_fields_2d(max_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        max_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(max_field(jc,jb), &
+            &                          field(jc,jb), &
+            &                          max_field(jc,jb) .gt. field(jc,jb)), &
+            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE max_fields_2d
+  SUBROUTINE max_fields_2d_nosubset(max_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        max_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(max_field(jc,jb), &
+            &                          field(jc,jb), &
+            &                          max_field(jc,jb) .gt. field(jc,jb)), &
+            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE max_fields_2d_nosubset
+  SUBROUTINE max_fields_3d(max_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+      ! use constant levels
+      mylevels                       = SIZE(max_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            max_field(idx,level,block) = MERGE(my_miss, &
+                                          &    MERGE(max_field(idx,level,block), &
+                                          &          field(idx,level,block), &
+                                          &          max_field(idx,level,block) .gt. field(idx, level, block)), &
+                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE max_fields_3d
+  ! routines for computing min of two fields ------------------------------
+  SUBROUTINE min_fields_2d(min_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        min_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(min_field(jc,jb), &
+            &                          field(jc,jb), &
+            &                          min_field(jc,jb) .lt. field(jc,jb)), &
+            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE min_fields_2d
+  SUBROUTINE min_fields_2d_nosubset(min_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        min_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(min_field(jc,jb), &
+            &                          field(jc,jb), &
+            &                          min_field(jc,jb) .lt. field(jc,jb)), &
+            &                    my_has_missvals .AND. (field(jc,jb) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE min_fields_2d_nosubset
+  SUBROUTINE min_fields_3d(min_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+      ! use constant levels
+      mylevels                       = SIZE(min_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            min_field(idx,level,block) = MERGE(my_miss, &
+                                          &    MERGE(min_field(idx,level,block), &
+                                          &          field(idx,level,block), &
+                                          &          min_field(idx,level,block) .lt. field(idx, level, block)), &
+                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE min_fields_3d
 
   !-----------------------------------------------------------------------
   !>
