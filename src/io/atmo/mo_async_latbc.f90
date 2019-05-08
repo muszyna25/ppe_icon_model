@@ -219,10 +219,13 @@ MODULE mo_async_latbc
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_buffer, &
                                             t_latbc_data, t_mem_win
     USE mo_grid_config,               ONLY: nroot
-    USE mo_async_latbc_utils,         ONLY: prefetch_latbc_data, read_init_latbc_data, async_init_latbc_data,&
+    USE mo_async_latbc_utils,         ONLY: prefetch_latbc_data, async_init_latbc_data,&
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
+#ifndef NOMPI
+    USE mo_async_latbc_utils,         ONLY: read_init_latbc_data
+#endif
     USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX, &
          &                                  VARNAME_LEN
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE

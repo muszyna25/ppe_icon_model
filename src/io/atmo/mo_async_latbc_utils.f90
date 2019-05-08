@@ -94,7 +94,10 @@
     PUBLIC :: compute_shutdown_async_pref
     PUBLIC :: allocate_pref_latbc_data
 
-    PUBLIC ::  read_init_latbc_data, async_init_latbc_data, prefetch_latbc_data,     &
+#ifndef NOMPI
+    PUBLIC :: read_init_latbc_data
+#endif
+    PUBLIC ::  async_init_latbc_data, prefetch_latbc_data,     &
          &     update_lin_interpolation, recv_latbc_data
 
 
@@ -271,6 +274,7 @@
     END SUBROUTINE allocate_pref_latbc_data
 
 
+#ifndef NOMPI
     !-------------------------------------------------------------------------
     !>
     !! @par Revision History
@@ -309,7 +313,6 @@
 
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
-#ifndef NOMPI
 
       ! Fill data type with parameters for cdi read routine
       IF (latbc_config%lsparse_latbc) THEN
@@ -512,8 +515,8 @@
           &                                                 latbc%buffer%idx_tracer)
 
     END SUBROUTINE read_next_timelevel
-#endif
     END SUBROUTINE read_init_latbc_data
+#endif
 
 
     !-------------------------------------------------------------------------
