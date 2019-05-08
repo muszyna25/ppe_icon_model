@@ -287,8 +287,7 @@ CONTAINS
     CHARACTER(LEN = *), INTENT(IN) :: name1, name2
     INTEGER, INTENT(in) :: idx1, att1, idx2, att2
     LOGICAL :: is_equal
-    is_equal = idx1 == idx2 .AND. att1 == att2 &
-         .AND. tolower(name1) == tolower(name2)
+    is_equal = idx1 == idx2 .AND. att1 == att2 .AND. tolower(name1) == name2
   END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -303,12 +302,13 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':inputParametersFindVarId'
     CHARACTER(len=DICT_MAX_STRLEN) :: mapped_name
-    INTEGER :: i, j
+    INTEGER :: i, j, tlen
 
-    mapped_name = trim(name)
+    mapped_name = name
     IF (me%have_dict) &
-      & mapped_name = TRIM(me%dict%get(TRIM(name), DEFAULT=name))
-    mapped_name = tolower(trim(mapped_name))
+      & mapped_name = me%dict%get(TRIM(name), DEFAULT=name)
+    mapped_name = tolower(mapped_name)
+    tlen = LEN_TRIM(mapped_name)
 
     varID      = -1
     tile_index = -1
@@ -316,7 +316,7 @@ CONTAINS
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
         IF (compareTiledVars(me%variableNames(i), me%variableTileinfo(i)%tile(j)%idx, me%variableTileinfo(i)%tile(j)%att, &
-          &                  mapped_name, tileinfo%idx, tileinfo%att)) THEN
+          &                  mapped_name(1:tlen), tileinfo%idx, tileinfo%att)) THEN
           varID      = i-1
           tile_index = me%variableTileinfo(i)%tile_index(j)
           RETURN
@@ -328,7 +328,7 @@ CONTAINS
     ! insanity check
     IF(varID < 0) THEN
       IF(my_process_is_stdio()) THEN
-        PRINT '(5a)', routine, ": mapped_name = '", TRIM(mapped_name), "'", "", &
+        PRINT '(5a)', routine, ": mapped_name = '", mapped_name(1:tlen), "'", "", &
              routine, ": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att, &
              routine, ": list of variables:"
         DO i = 1, SIZE(me%variableNames)
@@ -343,7 +343,7 @@ CONTAINS
           END DO
         END DO
       END IF
-      CALL finish(routine, "Variable "//TRIM(name)//" not found!")
+      CALL finish(routine, "Variable "//name(1:tlen)//" not found!")
     END IF
   END SUBROUTINE inputParametersFindVarId
 
