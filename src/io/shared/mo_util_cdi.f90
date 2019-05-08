@@ -181,15 +181,10 @@ CONTAINS
     END IF
     CALL p_bcast(variableCount, p_io, distribution%communicator)
 
-    ALLOCATE(me%variableNames(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ALLOCATE(me%variableDatatype(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ALLOCATE(me%variableTileinfo(variableCount), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-    ! local arrays
-    ALLOCATE(subtypeSize(variableCount), STAT=ierrstat)
+    ALLOCATE(me%variableNames(variableCount), &
+      &      me%variableDatatype(variableCount), &
+      &      me%variableTileinfo(variableCount), &
+      &      subtypeSize(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF (is_workroot) THEN
