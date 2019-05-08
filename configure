@@ -3915,13 +3915,14 @@ for icon_libdir in $icon_libdirs; do
   as_fn_append icon_lt_rpaths "-Wl,-rpath -Wl,$icon_libdir "
 done
 
-ac_ext=c
+if test "x$enable_rpaths" = xyes; then :
+  ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-acx_shlib_rpath_flags_check_result=no
+   acx_shlib_rpath_flags_check_result=no
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts the automatically generated RPATH flags" >&5
 $as_echo_n "checking whether C compiler accepts the automatically generated RPATH flags... " >&6; }
    acx_save_LDFLAGS=$LDFLAGS
@@ -3953,12 +3954,12 @@ $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "C compiler does not accept the automatically generated RPATH flags '$icon_c_rpaths'
 See \`config.log' for more details" "$LINENO" 5; }
 fi
-ac_ext=${ac_fc_srcext-f}
+   ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
-acx_shlib_rpath_flags_check_result=no
+   acx_shlib_rpath_flags_check_result=no
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
 $as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
    acx_save_LDFLAGS=$LDFLAGS
@@ -3983,6 +3984,7 @@ else
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$icon_fc_rpaths'
 See \`config.log' for more details" "$LINENO" 5; }
+fi
 fi
 
 subdir_LDFLAGS=$LDFLAGS

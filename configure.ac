@@ -314,10 +314,11 @@ for icon_libdir in $icon_libdirs; do
   AS_VAR_APPEND([icon_lt_rpaths], ["-Wl,-rpath -Wl,$icon_libdir "])
 done
 
-AC_LANG([C])
-ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_c_rpaths])
-AC_LANG([Fortran])
-ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_fc_rpaths])
+AS_VAR_IF([enable_rpaths], [yes],
+  [AC_LANG([C])
+   ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_c_rpaths])
+   AC_LANG([Fortran])
+   ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_fc_rpaths])])
 
 dnl Original LDFLAGS to be passed to the configure scripts in subdirectories:
 subdir_LDFLAGS=$LDFLAGS
