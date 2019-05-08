@@ -546,9 +546,10 @@ CONTAINS
   SUBROUTINE read_cdi_3d_wp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
-    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    REAL(wp), TARGET, INTENT(INOUT) :: var_out(:,:,:) !< output field
     LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
 
+    REAL(wp), POINTER :: var_out_lev(:,:)
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_wp'
     INTEGER :: jk, ierrstat, nmiss
     REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
@@ -567,6 +568,8 @@ CONTAINS
     !     lvalue_add.
     IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
 
+    IF (leveldimension < 2 .OR. leveldimension > 3) &
+      CALL finish(routine, "Internal error!")
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
       IF (is_workroot) THEN
@@ -575,13 +578,12 @@ CONTAINS
       END IF
 
       SELECT CASE(levelDimension)
-          CASE(2)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
-          CASE(3)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
-          CASE DEFAULT
-              CALL finish(routine, "Internal error!")
+      CASE(2)
+        var_out_lev => var_out(:, jk, :)
+      CASE(3)
+        var_out_lev => var_out(:, :, jk)
       END SELECT
+      CALL parameters%distribution%distribute(tmp_buf(:), var_out_lev, lvalue_add)
     END DO ! jk=1,nlevs
 
     ! clean up
@@ -597,11 +599,12 @@ CONTAINS
   SUBROUTINE read_cdi_3d_sp(parameters, varID, nlevs, levelDimension, var_out, lvalue_add)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     INTEGER, INTENT(IN) :: varID, nlevs, levelDimension
-    REAL(wp), INTENT(INOUT) :: var_out(:,:,:) !< output field
+    REAL(wp), TARGET, INTENT(INOUT) :: var_out(:,:,:) !< output field
     LOGICAL, INTENT(IN) :: lvalue_add         !< If .TRUE., add values to given field
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_sp'
     INTEGER :: jk, ierrstat, nmiss
+    REAL(wp), POINTER :: var_out_lev(:,:)
     REAL(sp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
     LOGICAL :: is_workroot
 
@@ -618,6 +621,8 @@ CONTAINS
     !     lvalue_add.
     IF(.not. lvalue_add) var_out(:,:,:) = 0._wp
 
+    IF (leveldimension < 2 .OR. leveldimension > 3) &
+      CALL finish(routine, "Internal error!")
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
       IF (is_workroot) THEN
@@ -626,13 +631,12 @@ CONTAINS
       END IF
 
       SELECT CASE(levelDimension)
-          CASE(2)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, jk, :), lvalue_add)
-          CASE(3)
-              CALL parameters%distribution%distribute(tmp_buf(:), var_out(:, :, jk), lvalue_add)
-          CASE DEFAULT
-              CALL finish(routine, "Internal error!")
+      CASE(2)
+        var_out_lev => var_out(:, jk, :)
+      CASE(3)
+        var_out_lev => var_out(:, :, jk)
       END SELECT
+      CALL parameters%distribution%distribute(tmp_buf(:), var_out_lev, lvalue_add)
     END DO ! jk=1,nlevs
 
     ! clean up
