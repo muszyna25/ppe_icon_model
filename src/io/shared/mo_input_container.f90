@@ -736,8 +736,8 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
         IF(ASSOCIATED(me%fields%getEntry(key))) THEN
-            WRITE(message_text, '(a,g24.15e3,a,i2,a)') "double definition of level-tile tuple (", &
-              level,",",tile,") in variable '"//variableName//"' in an input file"
+            WRITE(message_text, '(a,g24.15e3,a,i2,3a)') "double definition of level-tile tuple (", &
+              level,",",tile,") in variable '",variableName,"' in an input file"
             CALL finish(routine, message_text)
         END IF
 
