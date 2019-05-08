@@ -9,10 +9,18 @@
 # ${ICON_DIR}/configure BUILD_ENV='. ${ICON_DIR}/build_env_init.sh; switch_for_module PrgEnv-cray/6.0.4;'
 
 function switch_for_module {
-  packageName=`echo $1 | cut -d/ -f1`
-  # same name:
-  module unload `module -t list 2>&1 | sed -n '/'$packageName'/p'`
-  # conflicts:
-  module unload `module show $packageName 2>&1 | sed -n 's/^conflict[ \t][ \t]*\([^ \t][^ \t]*\)/\1/p'`
-  module load $1
+  if test ! -z $1; then
+    packageName=`echo $1 | cut -d/ -f1`
+    same_name_modules=`module -t list 2>&1 | sed -n '/'$packageName'/p'`
+    test -n "$same_name_modules" && module unload $same_name_modules
+    conflicting_modules=`module show $packageName 2>&1 | sed -n 's/^conflict[ \t][ \t]*\([^ \t][^ \t]*\)/\1/p'`
+    test -n "$conflicting_modules" && module unload $conflicting_modules
+    module load $1
+  fi
+}
+
+function switch_for_modules {
+  for module in $*""; do
+    switch_for_module $module
+  done 
 }
