@@ -156,6 +156,9 @@ CONTAINS
 
     INTEGER :: idx, att, tile_index
     TYPE(t_tileinfo_icon) :: tileinfo_icon
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
 
     !first forward the arguments to the object we are building
@@ -172,7 +175,7 @@ CONTAINS
     CALL me%distribution%resetStatistics()
 
     !now the interesting part: introspect the file and broadcast the variable info needed to avoid broadcasting it later.
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
         vlistId = streamInqVlist(streamId)
         variableCount = vlistNvars(vlistId)
     END IF
@@ -189,7 +192,7 @@ CONTAINS
     ALLOCATE(subtypeSize(variableCount), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
         subtypeSize(1:variableCount) = 0
         do i = 1, variableCount
             CALL vlistInqVarName(vlistId, i-1, me%variableNames(i))
@@ -238,7 +241,7 @@ CONTAINS
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
         tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
@@ -255,7 +258,7 @@ CONTAINS
     CALL p_bcast(tileTid_container  , p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
-    IF (.NOT. my_process_is_mpi_workroot()) THEN
+    IF (.NOT. is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
         IF (subtypeSize(i) > 0) THEN
@@ -549,15 +552,14 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_wp'
     INTEGER :: jk, ierrstat, nmiss
     REAL(wp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
-        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-        ALLOCATE(tmp_buf(1), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    END IF
+    ALLOCATE(tmp_buf(MERGE(parameters%glb_arr_len, 1, is_workroot)), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize output field:
     !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
@@ -567,7 +569,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSlice(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
@@ -601,15 +603,14 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_sp'
     INTEGER :: jk, ierrstat, nmiss
     REAL(sp), ALLOCATABLE :: tmp_buf(:) ! temporary local array
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
-        ALLOCATE(tmp_buf(parameters%glb_arr_len), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-        ALLOCATE(tmp_buf(1), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    END IF
+    ALLOCATE(tmp_buf(MERGE(parameters%glb_arr_len, 1, is_workroot)), &
+      &      STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize output field:
     !XXX: It stands to reason whether we really need to do this. It's only effective iff there are points in var_out that are not
@@ -619,7 +620,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
       END IF
@@ -743,12 +744,14 @@ CONTAINS
     INTEGER :: jk, ierrstat, nmiss, i
     INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
-    LOGICAL :: lmap_buf
+    LOGICAL :: lmap_buf, is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
     lmap_buf = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       vlistId = streamInqVlist(parameters%streamId)
       ! sanity check of the variable dimensions
       zaxisId = vlistInqVarZaxis(vlistId, varId)
@@ -770,7 +773,7 @@ CONTAINS
 
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       IF (lmap_buf) THEN
         ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
         map_buf(:) = 0._sp
@@ -787,7 +790,7 @@ CONTAINS
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
     DO jk=1,nlevs
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         IF (lmap_buf) THEN
           CALL timeStreamReadVarSliceF(parameters, varID, jk-1, tmp_buf(:), nmiss)
@@ -825,12 +828,14 @@ CONTAINS
     INTEGER :: jk, ierrstat, nmiss, i
     INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
-    LOGICAL :: lmap_buf
+    LOGICAL :: lmap_buf, is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     CALL parameters%findVarId(varname, trivial_tile_att%getTileinfo_grb2(), varID, tile_index)
     lmap_buf = .FALSE.
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       vlistId = streamInqVlist(parameters%streamId)
 
       gridId = vlistInqVarGrid(vlistId, varId)
@@ -846,7 +851,7 @@ CONTAINS
 
 
     ! allocate a buffer for one vertical level
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       IF (lmap_buf) THEN
         ALLOCATE(tmp_buf(npoints), map_buf(parameters%glb_arr_len), STAT=ierrstat)
         map_buf(:) = 0._sp
@@ -862,7 +867,7 @@ CONTAINS
 
 
     !FIXME: This code is most likely latency bound, not throughput bound. Needs some asynchronicity to hide the latencies.
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! read record as 1D field
         IF (lmap_buf) THEN
           CALL timeStreamReadVarSliceF(parameters, varID, 0, tmp_buf(:), nmiss)
@@ -1077,6 +1082,9 @@ CONTAINS
     ! local variables:
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_time_tiles'
     INTEGER :: jt, nrecs, varId, subtypeID, tile_index, vlistID
+    LOGICAL :: is_workroot
+
+    is_workroot = my_process_is_mpi_workroot()
 
     ! Get var ID
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
@@ -1086,7 +1094,7 @@ CONTAINS
     END IF
 
     DO jt = 1, ntime
-      IF (my_process_is_mpi_workroot()) THEN
+      IF (is_workroot) THEN
         ! set active tile index, if this is a tile-based variable
         vlistId    = streamInqVlist(parameters%streamId)
         subtypeID  = vlistInqVarSubtype(vlistID, varID)
@@ -1104,7 +1112,7 @@ CONTAINS
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
-    IF(my_process_is_mpi_workroot()) THEN
+    IF (is_workroot) THEN
       ! reset tile index
       IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
