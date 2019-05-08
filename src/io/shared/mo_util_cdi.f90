@@ -746,7 +746,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_3d_lbc'
     INTEGER :: jk, ierrstat, nmiss, i
-    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index, grid_size
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
     LOGICAL :: lmap_buf, is_workroot
 
@@ -765,11 +765,12 @@ CONTAINS
       END IF
 
       gridId = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
-        IF (npoints == gridInqSize(gridId)) THEN
+      grid_size = gridInqSize(gridId)
+      IF (grid_size /= parameters%glb_arr_len) THEN
+        IF (npoints == grid_size) THEN
           lmap_buf = .TRUE.
         ELSE
-          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(grid_size))//&
           &                    " (expected "//trim(int2string(npoints))//")")
         ENDIF
       END IF
@@ -830,7 +831,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_lbc'
     INTEGER :: jk, ierrstat, nmiss, i
-    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index, grid_size
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
     LOGICAL :: lmap_buf, is_workroot
 
@@ -843,11 +844,12 @@ CONTAINS
       vlistId = streamInqVlist(parameters%streamId)
 
       gridId = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) THEN
-        IF (npoints == gridInqSize(gridId)) THEN
+      grid_size = gridInqSize(gridId)
+      IF (grid_size /= parameters%glb_arr_len) THEN
+        IF (npoints == grid_size) THEN
           lmap_buf = .TRUE.
         ELSE
-          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+          CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(grid_size))//&
           &                    " (expected "//trim(int2string(npoints))//")")
         ENDIF
       END IF
