@@ -5,10 +5,31 @@ BUILD_ENV= @BUILD_ENV@
 DELEGATED_RULES = all depend mostlyclean clean maintainer-clean install srclist
 
 .SUFFIXES:
-.PHONY: $(DELEGATED_RULES) distclean
+.PHONY: $(DELEGATED_RULES) distclean dist snapshot
 
 $(DELEGATED_RULES):
 	@$(BUILD_ENV) $(MAKE) -f icon.mk $(MAKECMDGOALS)
+
+GIT= git
+TAR= tar
+BZIP2= bzip2
+
+dist:
+	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi
+	$(GIT) -C @top_srcdir@ archive --prefix=@PACKAGE_TARNAME@/ --format tar -o @abs_top_builddir@/@PACKAGE_TARNAME@.tar HEAD
+	$(GIT) -C @top_srcdir@ submodule foreach '$(GIT) archive --prefix=@PACKAGE_TARNAME@/$$path/ --format tar -o @abs_top_builddir@/$$name.tar HEAD && $(TAR) -Af @abs_top_builddir@/@PACKAGE_TARNAME@.tar @abs_top_builddir@/$$name.tar && rm @abs_top_builddir@/$$name.tar'
+	rm -f @PACKAGE_TARNAME@.tar.bz2 && BZIP2=$${BZIP2--9} $(BZIP2) @PACKAGE_TARNAME@.tar
+
+# Includes all non-ignored files with uncommited changes:
+snapshot:
+	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi; \
+	GIT_DIR=; unset GIT_DIR; if $(GIT) -C @top_srcdir@ ls-files --recurse-submodules >/dev/null 2>&1; then :; \
+          else echo "'$(GIT)' is not found or too old (at least version 2.11 is required)" >&2; exit 1; fi; \
+	if test '@LN_S@' != 'ln -s'; then echo "'ln -s' is not supported" >&2; exit 1; fi
+	snapshot=@PACKAGE_TARNAME@-snapshot-$(shell date -uI); \
+	rm -f "$$snapshot" && @LN_S@ @top_srcdir@ "$$snapshot"; \
+	GIT_DIR=; unset GIT_DIR; ($(GIT) -C @top_srcdir@ ls-files --recurse-submodules && $(GIT) -C @top_srcdir@ ls-files -o --exclude-standard -x "/$$snapshot") | sed "s%^%$$snapshot/%" | $(TAR) chf - -T - | BZIP2=$${BZIP2--9} $(BZIP2) -c > "$$snapshot.tar.bz2"; \
+	rm -f "$$snapshot"
 
 distclean: clean
 	rm -f Makefile

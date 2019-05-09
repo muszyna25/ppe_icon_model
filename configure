@@ -588,6 +588,7 @@ ac_unique_file="src/drivers/icon.f90"
 ac_default_prefix="`pwd`/install"
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+LN_S
 MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
@@ -6137,6 +6138,8 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $MKDIR_P" >&5
 $as_echo "$MKDIR_P" >&6; }
+
+LN_S=$as_ln_s
 
 
 ac_config_headers="$ac_config_headers config.h"
