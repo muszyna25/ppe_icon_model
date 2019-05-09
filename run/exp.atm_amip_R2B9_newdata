@@ -717,7 +717,8 @@ if [[ "$output_lnd" == "full" ]]; then
                     'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
                     'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
                     'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
-                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
+                    'hydro_water_stress_veg'       , 
+                    'hydro_canopy_cond_unlimited_veg' , 'hydro_canopy_cond_limited_veg' ,
                     'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
                     'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
 /
