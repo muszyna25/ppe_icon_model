@@ -79,19 +79,9 @@ CONTAINS
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
 
-    !===================================================================
-    ! If surface heat fluxes (incl. latent) are switched off, set
-    ! corresponding values to zero and return to the calling subroutine.
-    !===================================================================
-
     plhflx_tile(:,:) = 0._wp
     pshflx_tile(:,:) = 0._wp
-    ! DO jsfc = 1,ksfc_type
-    !   IF (jsfc /= idx_lnd) THEN  ! for JSBACH land, the fluxes are already in these arrays
-    !     plhflx_tile(jcs:kproma,jsfc) = 0._wp
-    !     pshflx_tile(jcs:kproma,jsfc) = 0._wp
-    !   END IF
-    ! END DO
+    pevap_tile (:,:) = 0._wp
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -102,8 +92,6 @@ CONTAINS
     ! Moisture fluxes (aka evaporation rates)
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
-
-    pevap_tile(:,:) = 0._wp
 
     DO jsfc = 1,ksfc_type
 
@@ -128,49 +116,33 @@ CONTAINS
       ! On solid land (i.e. without lakes)
       !
       IF (jsfc == idx_lnd) THEN
-        pevap_tile(jcs:kproma,jsfc) = pevap_lnd(jcs:kproma)
+        WHERE (lsmask(jcs:kproma) > 0._wp)
+          pevap_tile(jcs:kproma,jsfc) = pevap_lnd(jcs:kproma)
+        END WHERE
       END IF
 
       ! On open water, ocean and lakes
       !
       IF (jsfc == idx_wtr) THEN
-!!$        WHERE (alake(jcs:kproma) > 0._wp)
-!!$          pevap_tile(jcs:kproma,idx_wtr) = pevap_lwtr(jcs:kproma)
-!!$        ELSE WHERE
-!!$          pevap_tile(jcs:kproma,idx_wtr) =  zconst*pfac_sfc(jcs:kproma)   &
-!!$                                       & *pcfh_tile(jcs:kproma,idx_wtr) &
-!!$                                       & *zdqv(jcs:kproma)
-!!$        END WHERE
-         WHERE (lsmask(jcs:kproma) < 1._wp)
-            pevap_tile(jcs:kproma,jsfc) = alake(jcs:kproma)*pevap_lwtr(jcs:kproma)               & ! lakes
-                 &                     +(1._wp-lsmask(jcs:kproma)-alake(jcs:kproma))           & ! ocean
-                 &                     *zconst*pfac_sfc(jcs:kproma)*pcfh_tile(jcs:kproma,jsfc) &
-                 &                     *zdqv(jcs:kproma)
-            pevap_tile(jcs:kproma,jsfc) = pevap_tile(jcs:kproma,jsfc)/(1._wp-lsmask(jcs:kproma))
-         ELSE WHERE
-            pevap_tile(jcs:kproma,jsfc) = 0.0_wp
-         END WHERE
+        WHERE (lsmask(jcs:kproma) < 1._wp)
+          pevap_tile(jcs:kproma,jsfc) = alake(jcs:kproma)*pevap_lwtr(jcs:kproma)               & ! lakes
+            &                         + (1._wp-lsmask(jcs:kproma)-alake(jcs:kproma))           & ! ocean
+            &                         * zconst*pfac_sfc(jcs:kproma)*pcfh_tile(jcs:kproma,jsfc) &
+            &                         * zdqv(jcs:kproma)
+          pevap_tile(jcs:kproma,jsfc) = pevap_tile(jcs:kproma,jsfc)/(1._wp-lsmask(jcs:kproma))
+        END WHERE
       END IF
 
       ! On ice covered water, ocean and lakes
       !
       IF (jsfc == idx_ice) THEN
-!!$        WHERE (alake(jcs:kproma) > 0._wp)
-!!$          pevap_tile(jcs:kproma,idx_ice) = pevap_lice(jcs:kproma)
-!!$        ELSE WHERE
-!!$          pevap_tile(jcs:kproma,idx_ice) =  zconst*pfac_sfc(jcs:kproma)   &
-!!$                                       & *pcfh_tile(jcs:kproma,idx_ice) &
-!!$                                       & *zdqv(jcs:kproma)
-!!$        END WHERE
-         WHERE (lsmask(jcs:kproma) < 1._wp)
-            pevap_tile(jcs:kproma,jsfc) = alake(jcs:kproma)*pevap_lice(jcs:kproma)               & ! lakes
-                 &                     +(1._wp-lsmask(jcs:kproma)-alake(jcs:kproma))           & ! ocean
-                 &                     *zconst*pfac_sfc(jcs:kproma)*pcfh_tile(jcs:kproma,jsfc) &
-                 &                     *zdqv(jcs:kproma)
-            pevap_tile(jcs:kproma,jsfc) = pevap_tile(jcs:kproma,jsfc)/(1._wp-lsmask(jcs:kproma))
-         ELSE WHERE
-            pevap_tile(jcs:kproma,jsfc) = 0.0_wp
-         END WHERE
+        WHERE (lsmask(jcs:kproma) < 1._wp)
+          pevap_tile(jcs:kproma,jsfc) = alake(jcs:kproma)*pevap_lice(jcs:kproma)               & ! lakes
+            &                         + (1._wp-lsmask(jcs:kproma)-alake(jcs:kproma))           & ! ocean
+            &                         * zconst*pfac_sfc(jcs:kproma)*pcfh_tile(jcs:kproma,jsfc) &
+            &                         * zdqv(jcs:kproma)
+          pevap_tile(jcs:kproma,jsfc) = pevap_tile(jcs:kproma,jsfc)/(1._wp-lsmask(jcs:kproma))
+        END WHERE
       END IF
 
     ENDDO
@@ -180,7 +152,6 @@ CONTAINS
     ! to the cumulus convection scheme.
 
     pevap_gbm(:) = 0._wp   ! "pqhfla" in echam
-
     DO jsfc = 1,ksfc_type
       pevap_gbm(jcs:kproma) = pevap_gbm(jcs:kproma)                           &
         &                 + pfrc(jcs:kproma,jsfc)*pevap_tile(jcs:kproma,jsfc)
@@ -192,7 +163,9 @@ CONTAINS
     ! Instantaneous values
 
     IF (idx_lnd <= ksfc_type) THEN
-      plhflx_tile(jcs:kproma,idx_lnd) = plhflx_lnd(jcs:kproma)
+      WHERE (lsmask(jcs:kproma) > 0._wp)
+        plhflx_tile(jcs:kproma,idx_lnd) = plhflx_lnd(jcs:kproma)
+      END WHERE
     END IF
     IF (idx_wtr <= ksfc_type) THEN
       WHERE (alake(jcs:kproma) > 0._wp)
@@ -212,7 +185,6 @@ CONTAINS
     ! Accumulated grid box mean
 
     plhflx_gbm(:) = 0.0_wp
-
     DO jsfc = 1,ksfc_type
       plhflx_gbm(jcs:kproma) = plhflx_gbm(jcs:kproma)                           &
         &                  + pfrc(jcs:kproma,jsfc)*plhflx_tile(jcs:kproma,jsfc)
@@ -231,12 +203,14 @@ CONTAINS
       ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
       ! quantity used.
 
-        zdcptv(jcs:kproma) = bb_btm(jcs:kproma,jsfc,ih) - tpfac2*pcptv_tile(jcs:kproma,jsfc)
+      zdcptv(jcs:kproma) = bb_btm(jcs:kproma,jsfc,ih) - tpfac2*pcptv_tile(jcs:kproma,jsfc)
 
       ! Flux of dry static energy
 
       IF (jsfc == idx_lnd) THEN
-        pshflx_tile(jcs:kproma,jsfc) = pshflx_lnd(jcs:kproma)
+        WHERE (lsmask(jcs:kproma) > 0._wp)
+          pshflx_tile(jcs:kproma,jsfc) = pshflx_lnd(jcs:kproma)
+        END WHERE
       END IF
       IF (jsfc == idx_wtr) THEN
         WHERE (alake(jcs:kproma) > 0._wp)
@@ -262,7 +236,6 @@ CONTAINS
     ! grid box mean
 
     pshflx_gbm(:) = 0.0_wp
-
     DO jsfc = 1,ksfc_type
       pshflx_gbm(jcs:kproma) = pshflx_gbm(jcs:kproma)                           &
         &                  + pfrc(jcs:kproma,jsfc)*pshflx_tile(jcs:kproma,jsfc)

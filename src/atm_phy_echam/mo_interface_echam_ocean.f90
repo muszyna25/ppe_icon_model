@@ -685,7 +685,9 @@ CONTAINS
     
           ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
           !  - lake part is included in land part, must be subtracted as well
-          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+          !    frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+          !  - sftof = 1-(land+lake) is already available in prm_field
+          frac_oce(n,i_blk)= prm_field(jg)%sftof(n,i_blk)
 
           !IF (frac_oce <= 0.0_wp) THEN
           IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
