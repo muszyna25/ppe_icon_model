@@ -792,7 +792,7 @@ MODULE mo_jsb_io_netcdf_iface
   USE mo_io_units,           ONLY: filename_max
   USE mo_jsb_domain_iface,   ONLY: t_patch
   USE mo_jsb_parallel_iface, ONLY: my_process_is_mpi_parallel, my_process_is_stdio, p_bcast, p_io, mpi_comm
-  USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, openInputFile, closeFile, on_cells, &
+  USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, read_2D_int, openInputFile, closeFile, on_cells, &
                                t_stream_id, read_netcdf_broadcast_method
 
   IMPLICIT NONE
@@ -811,6 +811,7 @@ MODULE mo_jsb_io_netcdf_iface
     PROCEDURE :: Read_2d        => netcdf_read_real_2d
     PROCEDURE :: Read_2d_time   => netcdf_read_real_2d_time
     PROCEDURE :: Read_2d_extdim => netcdf_read_real_2d_extdim
+    PROCEDURE :: Read_2d_int    => netcdf_read_int_2d
     PROCEDURE :: Has_dim        => netcdf_file_has_dim
     PROCEDURE :: Has_var        => netcdf_file_has_var
   END TYPE t_input_file
@@ -975,6 +976,27 @@ CONTAINS
     END IF
 
   END FUNCTION netcdf_read_real_2d_extdim
+
+  FUNCTION netcdf_read_int_2d(input_file, variable_name, fill_array)
+
+    CLASS(t_input_file), INTENT(inout) :: input_file
+    CHARACTER(LEN=*),   INTENT(in)     :: variable_name
+    INTEGER, TARGET, OPTIONAL          :: fill_array(:,:)
+    INTEGER, POINTER                   :: netcdf_read_int_2d(:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':netcdf_read_int_2d'
+
+    NULLIFY(netcdf_read_int_2d)
+
+    IF (input_file%type == 1) THEN
+      CALL read_2D_int(input_file%stream_id, on_cells, TRIM(variable_name), fill_array, netcdf_read_int_2d)
+    ELSE IF (input_file%type == 2) THEN
+      CALL finish(TRIM(routine), 'Incompatible input file type')
+    ELSE
+      CALL finish(TRIM(routine), 'Input file type not recognized.')
+    END IF
+
+  END FUNCTION netcdf_read_int_2d
 
   LOGICAL FUNCTION netcdf_file_has_dim(input_file, dimname)
 
