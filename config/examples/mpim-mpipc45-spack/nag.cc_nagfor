@@ -2,44 +2,20 @@
 
 set -eu
 
-MPI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2'
-MPI_LIBS='-lmpifort -lmpi'
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../../.."
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libsct-develop-4srm5jo'
-SCT_LIBS='-lsct'
+. "${MY_DIR}/init_nag_6.2.sh"
 
-NETCDF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-4.6.1-yalf6ng'
-NETCDF_LIBS='-lnetcdf'
+FC=$PLAIN_FC
+CC="${PLAIN_FC} =C"
 
-CDI_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libcdi-1.8.2-j6ugmwh'
-CDI_LIBS='-lcdi_f2003 -lcdi'
-
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netcdf-fortran-4.4.4-63bnpcj'
-NETCDFF_LIBS='-lnetcdff'
-
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
-BLAS_LIBS='-lblas'
-
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/netlib-lapack-3.8.0-footyva'
-LAPACK_LIBS='-llapack'
-
-XML_ROOT='/scratch/local1/icon-bootstrap/opt/nag-6.2/libxml2-2.9.8-chuop5e'
-XML_LIBS='-lxml2'
-
-######################
-
-BUILD_ENV='export NAG_KUSARI_FILE="license.mpimet.mpg.de:";'
-
-FC='/sw/stretch-x64/nag/nag-6.2/bin/nagfor'
-CC='/sw/stretch-x64/nag/nag-6.2/bin/nagfor =C'
-MPI_LAUNCH='/scratch/local1/icon-bootstrap/opt/nag-6.2/mpich-3.2.1-w7ksmw2/bin/mpirun'
-
-FCFLAGS="-mismatch -I${MPI_ROOT}/include -I${SCT_ROOT}/include -I${CDI_ROOT}/include -I${NETCDFF_ROOT}/include"
+FCFLAGS="-mismatch ${MPICH_FCFLAGS} ${NETCDFF_FCFLAGS} ${SCT_FCFLAGS} ${CDI_FCFLAGS}"
 CFLAGS=
-CPPFLAGS="-I${MPI_ROOT}/include -I${NETCDF_ROOT}/include -I${XML_ROOT}/include/libxml2"
+CPPFLAGS="${MPICH_CPPFLAGS} ${NETCDF_CPPFLAGS} ${XML2_CPPFLAGS}"
+LDFLAGS="${MPICH_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${SCT_LDFLAGS} ${CDI_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS}"
+LIBS="${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${CDI_LIBS} ${SCT_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPICH_LIBS}"
+MPI_LAUNCH=$MPICH_LAUNCH
 
-LDFLAGS="-L${MPI_ROOT}/lib -L${SCT_ROOT}/lib -L${NETCDF_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${XML_ROOT}/lib"
-LIBS="${XML_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${NETCDF_LIBS} ${SCT_LIBS} ${MPI_LIBS}"
-
-$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 --with-external-cdi "$@"
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 --with-external-cdi "$@"
 

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../../.."
+
+. "${MY_DIR}/init_gcc_6.3.0.sh"
+
+FC=$MPICH_FC
+CC=$MPICH_CC
+
+FCFLAGS="${NETCDFF_FCFLAGS} ${CDI_FCFLAGS} ${SCT_FCFLAGS}"
+CFLAGS=
+CPPFLAGS=
+LDFLAGS="${NETCDFF_LDFLAGS} ${SCT_LDFLAGS} ${ECCODES_LDFLAGS} ${CDI_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS}"
+LIBS="${LAPACK_LIBS} ${BLAS_LIBS} ${CDI_LIBS} ${SCT_LIBS} ${NETCDFF_LIBS}"
+
+$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-cdi --enable-sct --enable-grib2 --enable-yaxt --disable-coupling "$@"
+

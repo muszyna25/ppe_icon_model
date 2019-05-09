@@ -2,46 +2,19 @@
 
 set -eu
 
-SCT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libsct-develop-b7cvy6w'
-SCT_LIBS='-lsct'
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../../.."
 
-YAXT_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/yaxt-0.7.0-uqtr72y'
-YAXT_LIBS='-lyaxt'
+. "${MY_DIR}/init_gcc_6.3.0.sh"
 
-CDI_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libcdi-1.8.2-f52z2uw'
-CDI_LIBS='-lcdi_f2003 -lcdi'
+FC=$MPICH_FC
+CC=$PLAIN_CC
 
-NETCDFF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-fortran-4.4.4-aaix567'
-NETCDFF_LIBS='-lnetcdff'
-
-MTIME_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libmtime-1.0.8-wm3fygo'
-MTIME_LIBS='-lmtime'
-
-BLAS_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
-BLAS_LIBS='-lblas'
-
-LAPACK_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netlib-lapack-3.8.0-aayvlps'
-LAPACK_LIBS='-llapack'
-
-YAC_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/yac-1.3.2-jzvpdzj'
-YAC_LIBS='-lyac -L/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libxml2-2.9.8-blvm4bl/lib -lxml2 -L/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/netcdf-4.6.1-k4x5yne/lib -lnetcdf'
-
-SELF_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/libself-0.2-fq3unll'
-SELF_LIBS='-lself'
-
-######################
-
-BUILD_ENV=
-
-FC='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0/mpich-3.2.1-7rbrrmk/bin/mpif90'
-CC='/usr/bin/gcc'
-
-FCFLAGS="-I${SCT_ROOT}/include -I${YAXT_ROOT}/include -I${CDI_ROOT}/include -I${NETCDFF_ROOT}/include -I${MTIME_ROOT}/include -I${YAC_ROOT}/include -I${SELF_ROOT}/include"
+FCFLAGS="${NETCDFF_FCFLAGS} ${SCT_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
 CFLAGS=
 CPPFLAGS=
-
-LDFLAGS="-L${SCT_ROOT}/lib -L${YAXT_ROOT}/lib -L${CDI_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${MTIME_ROOT}/lib -L${BLAS_ROOT}/lib -L${LAPACK_ROOT}/lib -L${YAC_ROOT}/lib -L${SELF_ROOT}/lib"
-LIBS="${SELF_LIBS} ${YAC_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${NETCDFF_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS}"
+LDFLAGS="${NETCDFF_LDFLAGS} ${NETCDF_LDFLAGS} ${SCT_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
+LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
 
 $(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --enable-sct --enable-grib2 --enable-yaxt "$@"
 
