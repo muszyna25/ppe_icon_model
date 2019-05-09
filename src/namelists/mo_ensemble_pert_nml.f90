@@ -198,7 +198,8 @@ MODULE mo_ensemble_pert_nml
     &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
     &                         range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,             &
     &                         range_lowcapefac, range_negpblcape, stdev_sst_pert, itype_pert_gen,          &
-    &                         timedep_pert, range_a_stab, range_c_diff, range_q_crit
+    &                         timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_box_liq_asy,   &
+    &                         range_rdepths, range_turlen, range_rain_n0fac, range_a_hshr, range_qexc
 
 CONTAINS
 
