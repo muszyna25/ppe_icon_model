@@ -31,7 +31,7 @@
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
-    USE mo_mpi,                 ONLY: p_isend, p_barrier, p_wait, &
+    USE mo_mpi,                 ONLY: p_isend, p_barrier, &
          &                            p_send, p_recv, p_bcast
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
@@ -75,9 +75,12 @@
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_types,      ONLY: t_init_state
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
-      &                               taxisInqVDate, taxisInqVTime, cdiDecodeTime, cdiDecodeDate
+      &                               taxisInqVDate, taxisInqVTime, &
+      &                               cdiDecodeTime, cdiDecodeDate, &
+      &                               cdi_undefid
     USE mo_util_cdi,            ONLY: cdiGetStringError, read_cdi_2d, read_cdi_3d, t_inputParameters,  &
     &                                 makeInputParameters, deleteInputParameters
+    USE mo_util_file,           ONLY: util_filesize
     USE mo_master_config,       ONLY: isRestart
     USE mo_fortran_tools,       ONLY: copy, init
     USE mo_util_string,         ONLY: tolower
@@ -99,6 +102,7 @@
 
 #ifndef NOMPI
     PUBLIC :: read_init_latbc_data
+    PUBLIC :: reopen_latbc_file
 #endif
     PUBLIC ::  async_init_latbc_data, prefetch_latbc_data,     &
          &     update_lin_interpolation, recv_latbc_data
@@ -307,14 +311,13 @@
     !! Replaces the former routine compute_init_latbc_data, which did the same job
     !! in a computationally less efficient way on the prefetch PE
     !!
-    SUBROUTINE read_init_latbc_data(latbc, p_patch, p_int_state, p_nh_state, timelev, fileID_latbc, latbc_dict)
+    SUBROUTINE read_init_latbc_data(latbc, p_patch, p_int_state, p_nh_state, timelev, latbc_dict)
       TYPE(t_latbc_data), TARGET, INTENT(INOUT) :: latbc
       TYPE(t_patch),          INTENT(INOUT) :: p_patch
       TYPE(t_int_state),      INTENT(IN)    :: p_int_state
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       INTEGER,                INTENT(OUT)   :: timelev
-      INTEGER,                INTENT(INOUT) :: fileID_latbc
-      TYPE (t_dictionary),    INTENT(IN)    :: latbc_dict
+      TYPE(t_dictionary), INTENT(IN) :: latbc_dict
 
       ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
@@ -327,9 +330,7 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_init_latbc_data"
       REAL(wp), ALLOCATABLE                 :: z_ifc_in(:,:,:)
       INTEGER, TARGET                       :: idummy(1)
-      CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      LOGICAL                               :: l_exist, is_restart
+      LOGICAL                               :: is_restart
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
       is_restart = isrestart()
@@ -352,8 +353,14 @@
         read_params(iedge)%idx_ptr => idummy
       ENDIF
 
-      read_params(icell)%cdi_params = makeInputParameters(fileID_latbc, p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
-      read_params(iedge)%cdi_params = makeInputParameters(fileID_latbc, p_patch%n_patch_edges_g, p_patch%comm_pat_scatter_e)
+      read_params(icell)%cdi_params &
+        = makeInputParameters(latbc%open_cdi_stream_handle, &
+        &                     p_patch%n_patch_cells_g,      &
+        &                     p_patch%comm_pat_scatter_c)
+      read_params(iedge)%cdi_params &
+        = makeInputParameters(latbc%open_cdi_stream_handle, &
+        &                     p_patch%n_patch_edges_g,      &
+        &                     p_patch%comm_pat_scatter_e)
 
       ! indicators for synchronous read mode
       read_params(icell)%imode_asy = 0
@@ -439,18 +446,13 @@
       IF (.NOT. is_restart .AND. (.NOT. latbc_config%init_latbc_from_fg .OR. timeshift%dt_shift < 0)) THEN
         latbc_read_datetime => newDatetime(time_config%tc_exp_startdate)
         IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
-          latbc_filename      = generate_filename(nroot, latbc%patch_data%level, &
-            &                                     time_config%tc_exp_startdate, time_config%tc_exp_startdate)
-          latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-
           ! Compare validity date of the file with the requested date
-          CALL check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime, TRIM(latbc_full_filename))
+          CALL check_validity_date_and_print_filename(latbc, latbc_read_datetime)
         ENDIF
 
         CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int_state, timelev, read_params, latbc_dict)
       ENDIF
 
-      IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) CALL streamClose(fileID_latbc)
       CALL deleteInputParameters(read_params(icell)%cdi_params)
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
@@ -495,46 +497,88 @@
 
       IF (comp_tendencies) timelev = 3 - timelev
 
-      latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                latbc_read_datetime, time_config%tc_exp_startdate)
-      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
+      IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) &
+        CALL reopen_latbc_file(latbc, latbc_read_datetime, .FALSE.)
       latbc%latbc_data(timelev)%vDateTime = latbc_read_datetime
 
-      INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
-      IF (.NOT. l_exist) THEN
-        CALL finish(routine, "File not found: "//TRIM(latbc_full_filename))
-      ENDIF
-
-      IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
-        ! opening and reading file
-        fileID_latbc  = streamOpenRead(TRIM(latbc_full_filename))
-        ! check if the file could be opened
-        IF (fileID_latbc < 0) THEN
-          CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-          CALL finish(routine, "File "//TRIM(latbc_full_filename)//" cannot be opened: "//TRIM(cdiErrorText))
-        ENDIF
-
-        ! Compare validity date of the file with the requested date
-        CALL check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime, latbc_full_filename)
-
-      ENDIF
-
-      read_params(icell)%cdi_params = makeInputParameters(fileID_latbc, p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
-      read_params(iedge)%cdi_params = makeInputParameters(fileID_latbc, p_patch%n_patch_edges_g, p_patch%comm_pat_scatter_e)
+      read_params(icell)%cdi_params &
+        = makeInputParameters(latbc%open_cdi_stream_handle, &
+        &                     p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
+      read_params(iedge)%cdi_params &
+        = makeInputParameters(latbc%open_cdi_stream_handle, &
+        &                      p_patch%n_patch_edges_g, p_patch%comm_pat_scatter_e)
 
       CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int_state, timelev, read_params, latbc_dict)
 
-      IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) CALL streamClose(fileID_latbc)
       CALL deleteInputParameters(read_params(icell)%cdi_params)
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
       ! Compute tendencies for nest boundary update
-      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, timelev,  &
-          &                                                 latbc%buffer%idx_tracer)
+      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data, &
+           p_patch, p_nh_state, timelev, latbc%buffer%idx_tracer)
 
     END SUBROUTINE read_next_timelevel
     END SUBROUTINE read_init_latbc_data
+
+
+  SUBROUTINE reopen_latbc_file(latbc, latbc_read_datetime, wait_for_creation)
+    TYPE(t_latbc_data), INTENT(inout) :: latbc
+    TYPE(datetime), INTENT(in) :: latbc_read_datetime
+    LOGICAL, INTENT(in) :: wait_for_creation
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::reopen_latbc_file"
+    INTEGER(KIND=i8) :: flen_latbc
+    INTEGER :: fileid_latbc
+    INTEGER :: tlen
+    LOGICAL :: l_exist, file_mismatch
+    CHARACTER(LEN=filename_max) :: latbc_file
+    CHARACTER(len=max_char_length) :: cdiErrorText
+
+    ! generate file name
+    latbc_file = TRIM(latbc_config%latbc_path)                &
+      &   // generate_filename(nroot, latbc%patch_data%level, &
+      &                        latbc_read_datetime,  &
+      &                        time_config%tc_exp_startdate)
+    file_mismatch = latbc%open_cdi_stream_handle == cdi_undefid
+    IF (.NOT. file_mismatch) file_mismatch = latbc%open_filepath /= latbc_file
+    IF (file_mismatch) THEN
+      tlen = LEN_TRIM(latbc_file)
+      IF (.NOT. wait_for_creation) THEN
+        INQUIRE (FILE=latbc_file, EXIST=l_exist)
+      ELSE
+        ! Optional idle-wait-and-retry: Read process waits if files are
+        ! not present. This is *not* performed for the first two time
+        ! slices to avoid unnecessary waiting, eg. when the user has
+        ! mistyped a path name.
+        l_exist = check_file_exists(latbc_file(1:tlen), &
+          &                         latbc_config%nretries, &
+          &                         latbc_config%retry_wait_sec)
+      END IF
+      IF (.NOT.l_exist) &
+        CALL finish(routine,'LATBC file not found: '//latbc_file(1:tlen))
+      flen_latbc = util_filesize(latbc_file(1:tlen))
+      IF (flen_latbc <= 0 ) THEN
+        CALL message(routine, "File "//latbc_file(1:tlen)//" is empty")
+        CALL finish(routine, "STOP: Empty input file")
+      ENDIF
+      IF (latbc%open_cdi_stream_handle /= cdi_undefid) &
+        CALL streamClose(latbc%open_cdi_stream_handle)
+      !
+      ! open file
+      !
+      fileID_latbc = streamOpenRead(latbc_file(1:tlen))
+      IF (fileID_latbc < 0) THEN
+        CALL cdiGetStringError(fileID_latbc, cdiErrorText)
+        CALL finish(routine, "File "//latbc_file(1:tlen)//" cannot be opened: "//TRIM(cdiErrorText))
+      ENDIF
+      latbc%open_filepath = latbc_file(1:tlen)
+      latbc%open_cdi_stream_handle = fileID_latbc
+    END IF
+    ! Compare validity date of the file with the requested date
+    CALL check_validity_date_and_print_filename(latbc, latbc_read_datetime)
+
+  END SUBROUTINE reopen_latbc_file
 #endif
 
 
@@ -929,11 +973,7 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::prefetch_latbc_data"
 
       INTEGER(KIND=MPI_ADDRESS_KIND)        :: ioff(0:num_work_procs-1)
-      INTEGER                               :: jm, latbc_fileID, errno, nlevs_read, nlevs
-      LOGICAL                               :: l_exist
-      CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      TYPE(datetime), POINTER               :: mtime_vdate
+      INTEGER                               :: jm, errno, nlevs_read, nlevs
       TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
       character(len=max_datetime_str_len)   :: vDateTime_str  ! vDateTime in String format
 
@@ -944,35 +984,11 @@
       ! data are required for correct results
       IF (latbc_read_datetime >= time_config%tc_stopdate + latbc%delta_dtime) RETURN
 
-      latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
-        &                                latbc_read_datetime, time_config%tc_exp_startdate)
-      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-
-      ! Optional idle-wait-and-retry: Read process waits if files are
-      ! not present. This is *not* performed for the first two time
-      ! slices to avoid unnecessary waiting, eg. when the user has
-      ! mistyped a path name.
-      l_exist = check_file_exists(latbc_full_filename, &
-        &                         latbc_config%nretries, latbc_config%retry_wait_sec)
-      IF (.NOT. l_exist) THEN
-         CALL finish(routine, "File not found: "//TRIM(latbc_filename))
-      ENDIF
-
-      ! opening and reading file
-      latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
-      ! check if the file could be opened
-      IF (latbc_fileID < 0) THEN
-         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
-         CALL finish(routine, "File "//TRIM(latbc_full_filename)//" cannot be opened: "//TRIM(cdiErrorText))
-      ENDIF
-
-      ! Compare validity date of the file with the requested date
-      CALL check_validity_date_and_print_filename(latbc_fileID, latbc_read_datetime, latbc_full_filename,   &
-        &                                         mtime_vdate=mtime_vdate)
+      CALL reopen_latbc_file(latbc, latbc_read_datetime, .TRUE.)
 
       ! store validity datetime of current boundary data timeslice
-      latbc%buffer%vDateTime = mtime_vdate
-      ! send validity datetime of current boundary data timeslice from prefetch PE0 
+      latbc%buffer%vDateTime = latbc_read_datetime
+      ! send validity datetime of current boundary data timeslice from prefetch PE0
       ! to worker PE0
       IF(p_pe_work == 0) THEN
         vDateTime_ptr => latbc%buffer%vDateTime
@@ -980,7 +996,6 @@
         CALL p_isend(vDateTime_str, p_work_pe0, TAG_VDATETIME)
       ENDIF
 
-      CALL deallocateDatetime(mtime_vdate)
 
       ! initializing the displacement array for each compute processor
       ioff(:) = 0_MPI_ADDRESS_KIND
@@ -1011,11 +1026,11 @@
             CASE(GRID_UNSTRUCTURED_CELL)
            
               ! Read 3d variables
-              CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              CALL prefetch_cdi_3d ( latbc%open_cdi_stream_handle, latbc%buffer%mapped_name(jm), latbc, &
                 &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
             
             CASE(GRID_UNSTRUCTURED_EDGE)
-              CALL prefetch_cdi_3d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              CALL prefetch_cdi_3d ( latbc%open_cdi_stream_handle, latbc%buffer%mapped_name(jm), latbc, &
                 &                    nlevs_read, latbc%buffer%hgrid(jm), ioff )
             CASE default
               CALL finish(routine,'unknown grid type')
@@ -1033,11 +1048,11 @@
             SELECT CASE (latbc%buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
               ! Read 2d variables
-              CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              CALL prefetch_cdi_2d ( latbc%open_cdi_stream_handle, latbc%buffer%mapped_name(jm), latbc, &
                 &                    latbc%buffer%hgrid(jm), ioff )
             
             CASE(GRID_UNSTRUCTURED_EDGE)
-              CALL prefetch_cdi_2d ( latbc_fileID, latbc%buffer%mapped_name(jm), latbc, &
+              CALL prefetch_cdi_2d ( latbc%open_cdi_stream_handle, latbc%buffer%mapped_name(jm), latbc, &
                 &                    latbc%buffer%hgrid(jm), ioff )
             
             CASE default
@@ -1048,9 +1063,6 @@
 
         ENDDO VARLOOP
 
-
-      ! close the open dataset file
-      CALL streamClose(latbc_fileID)
 
       ! Store mtime_last_read
       latbc%mtime_last_read = latbc_read_datetime
@@ -1063,15 +1075,12 @@
     !! Consistency check: Make sure that the requested date is actually contained in the file.
     !!                    Print the file name of the boundary file which will be read.
     !!
-    SUBROUTINE check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime,  &
-      &                                               latbc_full_filename, mtime_vdate)
+    SUBROUTINE check_validity_date_and_print_filename(latbc, latbc_read_datetime,  &
+      &                                               mtime_vdate)
 
-      INTEGER, INTENT(IN)     :: &
-        &  fileID_latbc            !< LatBC file identifier
+      TYPE(t_latbc_data), INTENT(in) :: latbc !< latbc state
       TYPE(datetime), INTENT(IN) :: &
         &  latbc_read_datetime     !< Requested datetime of LatBC file
-      CHARACTER(LEN=*), INTENT(IN) :: &
-        &  latbc_full_filename     !< Path and file name of LatBC file
       TYPE(datetime), POINTER, INTENT(INOUT),OPTIONAL :: &
         &  mtime_vdate             !< LatBC file validity date as mtime object
       ! Local variables
@@ -1089,7 +1098,7 @@
       CHARACTER(LEN=*),PARAMETER :: &
         &  routine = modname//"::check_validity_date_and_print_filename"
 
-      vlistID = streamInqVlist(fileID_latbc)
+      vlistID = streamInqVlist(latbc%open_cdi_stream_handle)
       taxisID = vlistInqTaxis(vlistID)
       idate   = taxisInqVDate(taxisID)
       itime   = taxisInqVTime(taxisID)
@@ -1098,16 +1107,17 @@
       mtime_vdate_loc => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0)
       IF (msg_level >= 10) THEN
         CALL datetimeToString(latbc_read_datetime, dstringA)
-        WRITE (message_text, '(5 A)')  routine, ":: reading boundary data from file ",         &
-          &                            TRIM(latbc_full_filename), " for date: ", TRIM(dstringA)
+        WRITE (message_text, '(5 A)') routine, &
+          ":: reading boundary data from file ", latbc%open_filepath, &
+          " for date: ", TRIM(dstringA)
         WRITE (0,*) TRIM(message_text)
       END IF
       IF (mtime_vdate_loc /= latbc_read_datetime) THEN
         CALL datetimeToString(latbc_read_datetime, dstringA)
         CALL datetimeToString(mtime_vdate_loc, dstringB)
-        WRITE (message_text, '(6 A)')  "File validity date ", TRIM(dstringB)," of file ",            &
-          &                            TRIM(latbc_full_filename), " does not match requested date ", &
-          &                            TRIM(dstringA)
+        WRITE (message_text, '(6 A)')  "File validity date ", TRIM(dstringB), &
+          " of file ", latbc%open_filepath, " does not match requested date ", &
+          TRIM(dstringA)
         CALL finish(routine, message_text)
       END IF
 
