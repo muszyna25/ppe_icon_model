@@ -330,7 +330,6 @@
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
       LOGICAL                               :: l_exist, is_restart
-      INTEGER, TARGET :: dummy(0)
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
       is_restart = isrestart()
@@ -342,8 +341,9 @@
           read_params(icell)%idx_ptr => latbc%global_index%cells
           read_params(iedge)%idx_ptr => latbc%global_index%edges
         ELSE
-          read_params(icell)%idx_ptr => dummy
-          read_params(iedge)%idx_ptr => dummy
+          read_params(:)%npoints = -1
+          read_params(icell)%idx_ptr => idummy
+          read_params(iedge)%idx_ptr => idummy
         END IF
       ELSE
         read_params(icell)%npoints = p_patch%n_patch_cells_g
