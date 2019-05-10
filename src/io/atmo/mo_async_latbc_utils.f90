@@ -309,11 +309,11 @@
       INTEGER                               :: errno, nlevs_read, nlevs
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      LOGICAL                               :: l_exist
+      LOGICAL                               :: l_exist, is_restart
 
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
-
+      is_restart = isrestart()
       ! Fill data type with parameters for cdi read routine
       IF (latbc_config%lsparse_latbc) THEN
         IF (ALLOCATED(latbc%global_index%cells)) THEN
@@ -392,7 +392,7 @@
 
       END IF
 
-      IF (.NOT. isRestart() .AND. latbc_config%init_latbc_from_fg) THEN
+      IF (.NOT. is_restart .AND. latbc_config%init_latbc_from_fg) THEN
 
         latbc_read_datetime => newDatetime(time_config%tc_current_date)
 
@@ -417,7 +417,7 @@
       ENDIF
 
       ! Read atmospheric latbc data for nominal start date if necessary
-      IF (.NOT. isRestart() .AND. (.NOT. latbc_config%init_latbc_from_fg .OR. timeshift%dt_shift < 0)) THEN
+      IF (.NOT. is_restart .AND. (.NOT. latbc_config%init_latbc_from_fg .OR. timeshift%dt_shift < 0)) THEN
         latbc_read_datetime => newDatetime(time_config%tc_exp_startdate)
         IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
           latbc_filename      = generate_filename(nroot, latbc%patch_data%level, &
@@ -436,13 +436,13 @@
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
       ! Compute tendencies for nest boundary update
-      IF (.NOT. isRestart() .AND. timeshift%dt_shift < 0) THEN
-        CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, timelev,  &
-          &                              latbc%buffer%idx_tracer)
+      IF (.NOT. is_restart .AND. timeshift%dt_shift < 0) THEN
+        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state,&
+          &                              timelev, latbc%buffer%idx_tracer)
       ENDIF
 
       ! Read latbc data for first time level in case of restart
-      IF(isRestart()) THEN
+      IF (is_restart) THEN
         !
         CALL getTriggerNextEventAtDateTime(latbc%prefetchEvent,time_config%tc_current_date,nextActive,ierr)
         IF (nextActive > time_config%tc_current_date) THEN
@@ -456,7 +456,7 @@
 
       ! Read input data for second boundary time level; in case of IAU (dt_shift<0), the second time level 
       ! equals the nominal start date, which has already been read above
-      IF (timeshift%dt_shift == 0 .OR. isRestart()) THEN
+      IF (timeshift%dt_shift == 0 .OR. is_restart) THEN
         latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
         CALL read_next_timelevel(.TRUE.)
       ENDIF
