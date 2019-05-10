@@ -214,13 +214,18 @@ CONTAINS
   TYPE(datetime) FUNCTION dummyDateTime()
     !
     ! local
-    TYPE(datetime), POINTER :: dummy_date
+    TYPE(datetime), POINTER :: dummy_date_ptr
+    LOGICAL, SAVE :: dummy_date_is_set = .FALSE.
+    TYPE(datetime), SAVE :: dummy_date
     !---------------------------------------------------------
 
-    dummy_date    => newDatetime("0-01-01T00:00:00.000")
-    dummyDateTime =  dummy_date
-
-    CALL deallocateDatetime(dummy_date)
+    IF (.NOT. dummy_date_is_set) THEN
+      dummy_date_ptr => newDatetime("0-01-01T00:00:00.000")
+      dummy_date = dummy_date_ptr
+      CALL deallocateDatetime(dummy_date_ptr)
+      dummy_date_is_set = .TRUE.
+    END IF
+    dummydatetime = dummy_date
 
   END FUNCTION dummyDateTime
 
