@@ -121,7 +121,7 @@ AC_ARG_WITH([external-cdi],
 
 AC_ARG_WITH([external-mtime],
   [AC_HELP_STRING([--with-external-mtime],
-     [use external mtime library @<:@default=no@:>@])], [],
+     [use external MTIME library @<:@default=no@:>@])], [],
   [with_external_mtime=no])
 
 AC_ARG_WITH([external-yac],
@@ -732,7 +732,7 @@ externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING(
-     [whether the Fortran interface of mtime library is available])
+     [whether the Fortran interface of MTIME library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime
       character(len=max_date_str_len) :: test_date_string
@@ -741,16 +741,16 @@ AS_VAR_IF([with_external_mtime], [yes],
       call dateToString(test_date, test_date_string)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using mtime: either use dnl
-the bundled version of mtime (--without-external-mtime) or set FCFLAGS, dnl
+      AC_MSG_FAILURE([unable to link a test program using MTIME: either use dnl
+the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])],
 dnl
   [icon_subdir_srcdir="$srcdir/externals/mtime"
    icon_subdir_unique_file="include/mtime_calendar.h"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the bundled version of mtime dnl
+     [AC_MSG_ERROR([unable to find sources of the bundled version of MTIME dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of mtime (--with-external-mtime) by setting CFLAGS, dnl
+external version of MTIME (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/mtime],
      [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
@@ -783,16 +783,28 @@ AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_IF([with_external_yac], [yes],
      [AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
 available])
-      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_yac_finterface, only: yac_finit
       implicit none
       character(len=1024) :: a, b
       call yac_finit(a, b)]])],
-        [AC_MSG_RESULT([yes])],
+        [AC_LINK_IFELSE([],
+           [AC_MSG_RESULT([yes])],
+           [AC_MSG_RESULT([no])
+            AS_VAR_IF([with_external_mtime], [yes],
+              [AC_MSG_FAILURE([unable to link a test program using YAC: dnl
+either disable the coupling (--disable-coupling) or use the bundled version dnl
+of YAC (--without-external-yac), or set LDFLAGS and LIBS accordingly])],
+              [AC_MSG_FAILURE([unable to link a test program using YAC: dnl
+you are trying to build with an external YAC and the bundled MTIME, so you dnl
+need to make sure that the version of MTIME that YAC has been built with is dnl
+available by setting LDFLAGS and LIBS accordingly, otherwise disable the dnl
+coupling (--disable-coupling) or use the bundled version of YAC dnl
+(--without-external-yac)])])])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to link a test program using YAC: either dnl
+         AC_MSG_FAILURE([unable to compile a test program using YAC: either dnl
 disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
-(--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+(--without-external-yac), or set FCFLAGS accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],

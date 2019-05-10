@@ -1373,7 +1373,7 @@ Optional Packages:
   --with-external-yaxt    use external YAXT library (when the YAXT data
                           exchange is enabled) [default=no]
   --with-external-cdi     use external CDI library [default=no]
-  --with-external-mtime   use external mtime library [default=no]
+  --with-external-mtime   use external MTIME library [default=no]
   --with-external-yac     use external YAC library (when the coupling is
                           enabled) [default=no]
   --with-external-tixi    use external TIXI library (when ART is enabled)
@@ -5474,8 +5474,8 @@ esac
 fi
 
 if test "x$with_external_mtime" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of mtime library is available" >&5
-$as_echo_n "checking whether the Fortran interface of mtime library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of MTIME library is available" >&5
+$as_echo_n "checking whether the Fortran interface of MTIME library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -5494,7 +5494,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using mtime: either use the bundled version of mtime (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using MTIME: either use the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
@@ -5503,7 +5503,7 @@ else
     icon_subdir_srcdir="$srcdir/externals/mtime"
    icon_subdir_unique_file="include/mtime_calendar.h"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of mtime library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of mtime (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
@@ -5617,19 +5617,36 @@ $as_echo_n "checking whether the Fortran interface of YAC library is available..
       call yac_finit(a, b)
       end
 _ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
+if ac_fn_fc_try_compile "$LINENO"; then :
+  if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+            if test "x$with_external_mtime" = xyes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using YAC: you are trying to build with an external YAC and the bundled MTIME, so you need to make sure that the version of MTIME that YAC has been built with is available by setting LDFLAGS and LIBS accordingly, otherwise disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac)
 See \`config.log' for more details" "$LINENO" 5; }
 fi
+fi
 rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
+    conftest$ac_exeext
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to compile a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 else
   icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
