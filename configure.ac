@@ -389,8 +389,7 @@ AS_VAR_IF([enable_jsbach], [yes],
      [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
 ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
 (--disable-jsbach)])])
-   AC_SUBST([JSBACH_ENABLED], [''])
-   AC_CONFIG_FILES([externals/jsbach.mk])],
+   AC_SUBST([JSBACH_ENABLED], [''])],
   [AC_SUBST([JSBACH_ENABLED], ['#'])
    AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 

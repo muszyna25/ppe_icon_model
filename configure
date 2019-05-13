@@ -4744,8 +4744,6 @@ if test "x$enable_jsbach" = xyes; then :
 fi
    JSBACH_ENABLED=''
 
-   ac_config_files="$ac_config_files externals/jsbach.mk"
-
 else
   JSBACH_ENABLED='#'
 
@@ -6945,7 +6943,6 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
-    "externals/jsbach.mk") CONFIG_FILES="$CONFIG_FILES externals/jsbach.mk" ;;
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;

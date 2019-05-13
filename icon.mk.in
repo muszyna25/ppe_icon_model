@@ -38,35 +38,40 @@ INSTALL= @INSTALL@
 PYTHON= @PYTHON@
 DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
 DEPGEN= $(PYTHON) $(srcdir)/utils/mkhelper/depgen.py
+DEPGEN_FC= $(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) --src-name $(@:.f90.d=.f90) $< -- $(DEPGEN_FCFLAGS)
+DEPGEN_C= $(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) --src-name $(@:.c.d=.c) $< --
 PERL= @PERL@
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V), 0)
-silent_FCLD=   @echo "  FCLD    " $@;
-silent_FC=     @echo "  FC      " $@;
-silent_CC=     @echo "  CC      " $@;
-silent_GEN=    @echo "  GEN     " $@;
-silent_MKDIR=  @echo "  MKDIR   " $(@D);
-silent_DEPGEN= @echo "  DEPGEN  " $@;
+silent_FCLD=    @echo "  FCLD    " $@;
+silent_FC=      @echo "  FC      " $@;
+silent_CC=      @echo "  CC      " $@;
+silent_DSL4JSB= @echo "  DSL4JSB " $@;
+silent_GEN=     @echo "  GEN     " $@;
+silent_MKDIR=   @echo "  MKDIR   " $(@D);
+silent_DEPGEN=  @echo "  DEPGEN  " $@;
 endif
 
 # Source files:
-FC_srcs:= $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.f90')
-C_srcs:= $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.c')
+FC_srcs= $(patsubst $(srcdir)/%, %, $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.f90'))
+C_srcs= $(patsubst $(srcdir)/%, %, $(shell find $(addprefix $(srcdir)/, $(subdirs)) -name '*.c'))
+
+# JSBACH source files (we want to make sure that we always use the
+# post-processed files from the current build directory but not from the
+# possibly "dirty" source directory, therefore we use absolute paths here):
+jsb_srcdir= @abs_srcdir@/externals/jsbach
+jsb_builddir= @abs_builddir@/externals/jsbach.dsl
+jsb_DSL_srcs= $(shell find $(jsb_srcdir)/src -name '*.f90')
+@JSBACH_ENABLED@jsb_FC_srcs= $(patsubst $(jsb_srcdir)/%.f90, $(jsb_builddir)/%.f90, $(jsb_DSL_srcs))
+@JSBACH_ENABLED@FC_srcs+= $(jsb_FC_srcs)
 
 # Stamp files of the build directories:
-dirstamps:= $(patsubst $(srcdir)/%, %.dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs)))) $(moddir)/.dirstamp
+dirstamps= $(addsuffix .dirstamp, $(sort $(dir $(FC_srcs) $(C_srcs)))) $(moddir)/.dirstamp
 
 # Dependency files:
-depfiles:= $(patsubst $(srcdir)/%, %.d, $(FC_srcs) $(C_srcs))
-
-# Default rule:
-all: icon@EXEEXT@
-
-# Additional rules for external packages that do not have their
-# own building systems:
-@JSBACH_ENABLED@include externals/jsbach.mk
+depfiles= $(addsuffix .d, $(FC_srcs) $(C_srcs))
 
 # Root object file:
 rootobj:= src/drivers/icon.@OBJEXT@
@@ -82,21 +87,23 @@ vpath %.c $(srcdir)
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
-.PRECIOUS: $(dirstamps)
+.PRECIOUS: $(dirstamps) $(jsb_FC_srcs)
 
 # User interface rules:
+all: icon@EXEEXT@
+
 depend: $(depfiles)
 
 mostlyclean: $(bundled_subdirs)
-	rm -f icon@EXEEXT@ version.@OBJEXT@ $(patsubst $(srcdir)/%.c, %.@OBJEXT@, $(C_srcs)) $(patsubst $(srcdir)/%.f90, %.@OBJEXT@, $(FC_srcs)) $(patsubst %.f90, %.i, $(notdir $(FC_srcs))) $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f icon@EXEEXT@ version.@OBJEXT@ $(C_srcs:.c=.@OBJEXT@) $(FC_srcs:.f90=.@OBJEXT@) $(notdir $(FC_srcs:.f90=.i)) $(moddir)/*.@FC_MOD_FILE_EXT@
 
 clean: mostlyclean
-	rm -f version.c srclist $(depfiles) $(dirstamps)
+	rm -f version.c srclist $(depfiles) $(dirstamps) $(jsb_FC_srcs)
 
 distclean: clean
 	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config
 	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
-	@for dir in $(subdirs) $(moddir) externals; do \
+	@for dir in src support '$(moddir)' externals; do \
 	  if test -d "$$dir"; then \
 	    echo "find '$$dir' -type d -empty -delete"; \
 	    find "$$dir" -type d -empty -delete; \
@@ -141,6 +148,10 @@ $(moddir)/%.@FC_MOD_FILE_EXT@:
 	  rm -f $<; $(MAKE) $<; \
 	fi
 
+# JSBACH DSL rule:
+$(jsb_builddir)/%.f90: $(jsb_srcdir)/%.f90 | $(dirstamps)
+	$(silent_DSL4JSB)$(PYTHON) $(jsb_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
+
 # Version source file generation rule:
 version.c: force-create-version
 	$(silent_GEN)$(PERL) $(srcdir)/utils/pvcs.pl --srcdir $(srcdir)
@@ -151,20 +162,20 @@ version.c: force-create-version
 
 # Dependency generation rules:
 %.f90.d: %.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN_FC) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_FCFLAGS) $(FCFLAGS)
 
 %.c.d: %.c | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(ICON_OPTIM_CFLAGS) $(CFLAGS) $(ICON_ANCIL_CPPFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN_C) $(ICON_OPTIM_CFLAGS) $(CFLAGS) $(ICON_ANCIL_CPPFLAGS) $(CPPFLAGS)
 
 # ICON-Ocean dependency generation rules:
 src/hamocc/%.f90.d: src/hamocc/%.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN_FC) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
 
 src/ocean/%.f90.d: src/ocean/%.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN_FC) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
 
 src/sea_ice/%.f90.d: src/sea_ice/%.f90 | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN_FC) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
 
 $(depfiles): icon.mk
 
