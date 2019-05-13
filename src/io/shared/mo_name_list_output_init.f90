@@ -168,6 +168,7 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
+  USE mo_level_selection_types,             ONLY: t_level_selection
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,                  ONLY: echam_phy_config
   USE mo_jsb_vertical_axes,                 ONLY: setup_zaxes_jsbach
@@ -218,6 +219,7 @@ MODULE mo_name_list_output_init
   PUBLIC :: collect_requested_ipz_levels
   PUBLIC :: create_vertical_axes
   PUBLIC :: isRegistered
+  PUBLIC :: nlevs_of_var
 
   PUBLIC :: init_cdipio_cb
 
@@ -1971,6 +1973,56 @@ CONTAINS
     END DO
   END SUBROUTINE create_vertical_axes
 
+  FUNCTION nlevs_of_var(info, level_selection, var_ignore_level_selection) &
+       RESULT(nlevs)
+    TYPE(t_var_metadata), INTENT(IN) :: info
+    TYPE(t_level_selection), POINTER, INTENT(IN) :: level_selection
+    LOGICAL, OPTIONAL :: var_ignore_level_selection
+    INTEGER :: nlevs, info_nlevs, jk
+    LOGICAL :: var_ignore_level_selection_
+
+    var_ignore_level_selection_ = .FALSE.
+    IF (info%hgrid .EQ. GRID_ZONAL) THEN
+      ! zonal grids are 2-dim but with a vertical axis
+      nlevs = info%used_dimensions(1)
+    ELSE IF(info%ndims < 3) THEN
+      ! other 2-dim. var are supposed to be horizontal only
+      nlevs = 1
+    ELSE
+      ! handle the case that a few levels have been selected out of
+      ! the total number of levels:
+      info_nlevs = info%used_dimensions(2)
+      IF (ASSOCIATED(level_selection)) THEN
+        nlevs = 0
+        ! Sometimes the user mixes level-selected variables with
+        ! other fields on other z-axes (e.g. soil fields) in the
+        ! output namelist. We try to catch this "wrong" user input
+        ! here and handle it in the following way: if the current
+        ! variable does not have one (or more) of the requested
+        ! levels, then we completely ignore the level selection for
+        ! this variable.
+        !
+        ! (... but note that we accept (nlevs+1) for an nlevs variable.)
+        CHECK_LOOP : DO jk=1,MIN(level_selection%n_selected, info_nlevs)
+          IF (level_selection%global_idx(jk) < 1 .OR.  &
+            & level_selection%global_idx(jk) > info_nlevs+1) THEN
+            var_ignore_level_selection_ = .TRUE.
+            nlevs = info_nlevs
+            EXIT CHECK_LOOP
+          ELSE
+            nlevs = nlevs &
+             & + MERGE(1, 0, &
+             &         level_selection%global_idx(jk) >= 1 &
+             &   .AND. level_selection%global_idx(jk) <= info_nlevs)
+          END IF
+        END DO CHECK_LOOP
+      ELSE
+        nlevs = info_nlevs
+      END IF
+    ENDIF
+    IF (PRESENT(var_ignore_level_selection)) &
+      var_ignore_level_selection = var_ignore_level_selection_
+  END FUNCTION nlevs_of_var
 
   !------------------------------------------------------------------------------------------------
   !
@@ -3313,17 +3365,8 @@ CONTAINS
 
         jp = output_file(i)%phys_patch_id
 
-        IF(output_file(i)%var_desc(iv)%info%ndims == 2) THEN
-          nlevs = 1
-        ELSE
-          ! handle the case that a few levels have been selected out of
-          ! the total number of levels:
-          IF (ASSOCIATED(output_file(i)%level_selection)) THEN
-            nlevs = output_file(i)%level_selection%n_selected
-          ELSE
-            nlevs = output_file(i)%var_desc(iv)%info%used_dimensions(2)
-          END IF
-        ENDIF
+        nlevs = nlevs_of_var(output_file(i)%var_desc(iv)%info, &
+          &                  output_file(i)%level_selection)
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
