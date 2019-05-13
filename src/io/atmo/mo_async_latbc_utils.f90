@@ -888,7 +888,7 @@
       ! local variables
       TYPE(datetime) :: nextActive             ! next trigger date for prefetch event
       INTEGER        :: ierr
-      TYPE(datetime), POINTER :: latbc_read_datetime    ! next input date to be read
+      TYPE(datetime) :: latbc_read_datetime    ! next input date to be read
       REAL(wp)       :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::async_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
@@ -910,7 +910,6 @@
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
       latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
-      latbc_read_datetime    => newDatetime(time_config%tc_current_date)
 
       ! Ensure that the prefetch event control will start reading at the correct date
       IF(isRestart()) THEN
@@ -922,14 +921,12 @@
           latbc_read_datetime = nextActive
         ENDIF
         latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
+      ELSE IF (timeshift%dt_shift < 0 ) THEN
+        ! For IAU, the second frame is always taken at tc_exp_startdate
+        ! which is equivalent to latbc_read_datetime + timeshift%mtime_absshift
+        latbc_read_datetime = time_config%tc_exp_startdate
       ELSE
-        IF (timeshift%dt_shift < 0 ) THEN
-          ! For IAU, the second frame is always taken at tc_exp_startdate
-          ! which is equivalent to latbc_read_datetime + timeshift%mtime_absshift
-          latbc_read_datetime = time_config%tc_exp_startdate
-        ELSE
-          latbc_read_datetime = latbc_read_datetime + latbc%delta_dtime
-        ENDIF
+        latbc_read_datetime = time_config%tc_current_date + latbc%delta_dtime
       ENDIF
 
       latbc%mtime_last_read = latbc_read_datetime
