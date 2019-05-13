@@ -318,11 +318,9 @@
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       INTEGER,                INTENT(OUT)   :: timelev
       TYPE(t_dictionary), INTENT(IN) :: latbc_dict
-
-      ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
-      TYPE(datetime), POINTER :: latbc_read_datetime ! next input date to be read
-      INTEGER        :: ierr, nblks_c, nlev_in, jk, jb, jc
+      TYPE(datetime) :: latbc_read_datetime ! next input date to be read
+      INTEGER :: ierr, nblks_c, nlev_in, jk, jb, jc
       REAL(wp)       :: seconds
       INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
@@ -381,7 +379,7 @@
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
       latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
-      latbc_read_datetime    => newDatetime(time_config%tc_current_date)
+      latbc_read_datetime    = time_config%tc_current_date
 
       timelev  = 1   ! read in the first time-level slot
       latbc%latbc_data(timelev)%vDateTime = time_config%tc_exp_startdate
@@ -420,11 +418,11 @@
 
       IF (.NOT. is_restart .AND. latbc_config%init_latbc_from_fg) THEN
 
-        latbc_read_datetime => newDatetime(time_config%tc_current_date)
+        latbc_read_datetime = time_config%tc_current_date
 
         CALL message('','take lbc for initial time from fg')
         CALL datetimeToString(latbc_read_datetime, latbc_read_datetime_str)
-        WRITE (message_text, '(a,a)')  "  copy date: ", TRIM(latbc_read_datetime_str)
+        WRITE (message_text, '(a,a)')  "  copy date: ", latbc_read_datetime_str
         CALL message('', message_text)
 
         ! The input for the nominal start date (tc_exp_startdate) always goes to time level 1
@@ -444,7 +442,7 @@
 
       ! Read atmospheric latbc data for nominal start date if necessary
       IF (.NOT. is_restart .AND. (.NOT. latbc_config%init_latbc_from_fg .OR. timeshift%dt_shift < 0)) THEN
-        latbc_read_datetime => newDatetime(time_config%tc_exp_startdate)
+        latbc_read_datetime = time_config%tc_exp_startdate
         IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
           ! Compare validity date of the file with the requested date
           CALL check_validity_date_and_print_filename(latbc, latbc_read_datetime)
