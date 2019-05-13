@@ -88,7 +88,8 @@ MODULE mo_name_list_output
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
       &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamDefCompType, CDI_COMPRESS_SZIP, &
-      &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
+      &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps, &
+      &                                   cdi_datatype_flt32, cdi_datatype_flt64
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
@@ -274,6 +275,12 @@ CONTAINS
     CHARACTER(LEN=filename_max)    :: filename
     INTEGER                        :: name_len, part_idx
     LOGICAL                        :: lexist, lappend
+#ifdef HAVE_CDI_PIO
+    TYPE(t_reorder_info), POINTER :: p_ri
+    TYPE(xt_idxlist), ALLOCATABLE :: partdescs(:)
+    INTEGER, ALLOCATABLE :: conversions(:)
+    INTEGER :: i_dom, iv, ierror, lonlat_id, nlevs
+#endif
 
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
@@ -346,7 +353,40 @@ CONTAINS
 
     IF (.NOT. lappend) THEN
       ! assign the vlist (which must have ben set before)
-      CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+#ifdef HAVE_CDI_PIO
+      IF (pio_type == pio_type_cdipio) THEN
+        ALLOCATE(partdescs(of%num_vars), conversions(of%num_vars), STAT=ierror)
+        IF (ierror /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+        i_dom = of%phys_patch_id
+        DO iv = 1, of%num_vars
+          SELECT CASE (of%var_desc(iv)%info%hgrid)
+          CASE (GRID_UNSTRUCTURED_CELL)
+            p_ri => patch_info(of%phys_patch_id)%ri(icell)
+          CASE (GRID_UNSTRUCTURED_EDGE)
+            p_ri => patch_info(of%phys_patch_id)%ri(iedge)
+          CASE (GRID_UNSTRUCTURED_VERT)
+            p_ri => patch_info(of%phys_patch_id)%ri(ivert)
+#ifndef __NO_ICON_ATMO__
+          CASE (GRID_REGULAR_LONLAT)
+            lonlat_id = of%var_desc(iv)%info%hor_interp%lonlat_id
+            p_ri  => lonlat_info(lonlat_id, of%log_patch_id)%ri
+#endif
+          CASE DEFAULT
+            CALL finish(routine,'unknown grid type')
+          END SELECT
+          nlevs = nlevs_of_var(of%var_desc(iv)%info, of%level_selection)
+          partdescs(iv) = get_partdesc(p_ri%reorder_idxlst_xt, nlevs, p_ri%n_glb)
+          conversions(iv) = MERGE(CDI_DATATYPE_FLT64, CDI_DATATYPE_FLT32, &
+            &                     use_dp_mpi2io)
+        END DO
+        CALL cdiPioStreamDefDecomposedVlist(of%cdiFileID, of%cdiVlistID, &
+          partdescs, conversions)
+      ELSE
+#endif
+        CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+#ifdef HAVE_CDI_PIO
+      END IF
+#endif
       ! set cdi internal time index to 0 for writing time slices in netCDF
       of%cdiTimeIndex = 0
     ENDIF
