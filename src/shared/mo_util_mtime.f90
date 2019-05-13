@@ -81,16 +81,14 @@ CONTAINS
     TYPE(datetime),    INTENT(IN)   :: start_date, end_date
     CHARACTER(LEN=*),  INTENT(IN)   :: fmt
     
-    TYPE(timedelta),       POINTER  :: time_delta
-    TYPE(juliandelta),     POINTER  :: julian_delta
-    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
+    TYPE(timedelta) :: time_delta
+    TYPE(juliandelta) :: julian_delta
+    TYPE(t_keyword_list), POINTER  :: keywords => NULL()
 
     ! compute time delta:
-    time_delta => newTimeDelta("P01D")
     time_delta = end_date - start_date
     ! compute the time delta in a Julian calendar, which allows more
     ! than 30 days:
-    julian_delta => newJulianDelta('+', 0_c_int64_t, 0_c_int64_t)
     CALL timeDeltaToJulianDelta(time_delta,start_date,julian_delta)
 
     ! now collect the feasible "building-blocks"
@@ -110,10 +108,8 @@ CONTAINS
       CALL associate_keyword("<ms>",  "", keywords)
     END IF
     ! replace keywords in "ddhhmmss"
-    result_str = TRIM(with_keywords(keywords, fmt))
+    result_str = with_keywords(keywords, fmt)
 
-    CALL deallocateTimeDelta(time_delta)
-    CALL deallocateJulianDelta(julian_delta)
   END FUNCTION t_mtime_utils_ddhhmmss
 
 
