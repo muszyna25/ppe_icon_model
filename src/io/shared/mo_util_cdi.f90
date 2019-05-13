@@ -144,7 +144,7 @@ CONTAINS
     TYPE(t_dictionary), INTENT(IN), OPTIONAL :: opt_dict
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':makeInputParameters'
-    INTEGER :: vlistId, variableCount, i, ierrstat
+    INTEGER :: vlistId, variableCount, i, j, ierrstat
     INTEGER :: subtypeID
     INTEGER :: ientry
     INTEGER :: cnt
@@ -235,12 +235,11 @@ CONTAINS
     IF (is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
-        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3) &
-          = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
-        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 2) &
-          = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
-        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3) &
-          = me%variableTileinfo(i)%tile_index(1:subtypeSize(i))
+        DO j = 1, subtypeSize(i)
+          tileIdxAttTidTemp(cnt+j, 1) = me%variableTileinfo(i)%tile(j)%idx
+          tileIdxAttTidTemp(cnt+j, 2) = me%variableTileinfo(i)%tile(j)%att
+          tileIdxAttTidTemp(cnt+j, 3) = me%variableTileinfo(i)%tile_index(j)
+        END DO
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
@@ -257,12 +256,11 @@ CONTAINS
           ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
             &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx        = &
-            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 1)
-          me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
-            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 2)
-          me%variableTileinfo(i)%tile_index(1:subtypeSize(i))      = &
-            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3)
+          DO j = 1, subtypeSize(i)
+            me%variableTileinfo(i)%tile(j)%idx   = tileIdxAttTidTemp(cnt+j, 1)
+            me%variableTileinfo(i)%tile(j)%att   = tileIdxAttTidTemp(cnt+j, 2)
+            me%variableTileinfo(i)%tile_index(j) = tileIdxAttTidTemp(cnt+j, 3)
+          END DO
           cnt = cnt + subtypeSize(i)
         ENDIF
       ENDDO
