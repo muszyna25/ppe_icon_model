@@ -531,7 +531,7 @@
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_data"
       INTEGER(i8)                         :: eoff
-      INTEGER                             :: jc, jk, jb, j, jv, nlev_in, i_endblk, ierrstat, rl_end, i_startidx,i_endidx, nblks_c
+      INTEGER                             :: jc, jk, jb, jv, nlev_in, i_endblk, ierrstat, rl_end, i_startidx,i_endidx, nblks_c
       REAL(wp)                            :: log_exner, tempv
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
         &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -604,7 +604,7 @@
         CALL get_data(latbc, 'rho',     latbc%latbc_data(tlev)%atm_in%rho,     read_params(icell), latbc_dict)
 
         ! Diagnose pres and temp from prognostic ICON variables
-!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc,log_exner,tempv,i_startidx,i_endidx)
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,log_exner,tempv,i_startidx,i_endidx)
         DO jb = 1, i_endblk
 
           CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
@@ -681,7 +681,7 @@
          END IF
 
          IF (latbc%buffer%lread_w) THEN
-!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = 1, i_endblk
 
              CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
