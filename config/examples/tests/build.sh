@@ -15,10 +15,16 @@ fi
 
 test_suite='mpim-mpipc45-spack'
 
-art_repo='/scratch/local1/ART/icon-art-2.4/art'
+art_repo='/scratch/local1/icon-extra-externals/art'
 art_dir="$root_dir/../../../src/art"
 if test ! -d "$art_dir" && test -d "$art_repo"; then
   git clone "$art_repo" "$art_dir"
+fi
+
+ecrad_repo='/scratch/local1/icon-extra-externals/ecrad'
+ecrad_dir="$root_dir/../../../externals/ecrad"
+if test ! -d "$ecrad_dir" && test -d "$ecrad_repo"; then
+  git clone "$ecrad_repo" "$ecrad_dir"
 fi
 
 for vendor in ${vendors}; do
