@@ -32,13 +32,12 @@ externals/lib/
 externals/include/
 externals/sct/
 externals/cdi/
-externals/ecrad/*/*.i
-externals/ecrad/*/*.lst
-externals/ecrad/Makefile_include.ecradICON
+externals/ecrad/
 /mod
 install
 *.c.d
 *.f90.d
+*.F90.d
 .dirstamp
 /icon
 /srclist

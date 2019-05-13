@@ -601,6 +601,7 @@ DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
 BUNDLED_FCFLAGS
 BUNDLED_LIBS
+ECRAD_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
 ICON_OPTIM_OCEAN_FCFLAGS
@@ -615,6 +616,7 @@ FC_MOD_FILE_UPPER
 FC_MOD_OUT
 FC_MOD_IN
 FCFLAGS_f90
+FCFLAGS_F90
 ac_ct_FC
 FCFLAGS
 FC
@@ -676,6 +678,7 @@ enable_jsbach
 enable_coupling
 enable_psrad
 enable_rttov
+enable_ecrad
 enable_art
 enable_mpi
 enable_active_target_sync
@@ -1332,6 +1335,8 @@ Model Features:
   --enable-psrad          enable the radiation component PSRAD [default=yes]
   --enable-rttov          enable usage of the radiative transfer model for
                           TOVS [default=no]
+  --enable-ecrad          enable usage of the ECMWF radiation scheme
+                          [default=no]
   --enable-art            enable the aerosols and reactive trace component ART
                           [default=no]
 
@@ -2126,6 +2131,14 @@ if test "${enable_rttov+set}" = set; then :
   enableval=$enable_rttov;
 else
   enable_rttov=no
+fi
+
+
+# Check whether --enable-ecrad was given.
+if test "${enable_ecrad+set}" = set; then :
+  enableval=$enable_ecrad;
+else
+  enable_ecrad=no
 fi
 
 
@@ -3750,6 +3763,79 @@ ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran flag to compile preprocessed .F90 files" >&5
+$as_echo_n "checking for Fortran flag to compile preprocessed .F90 files... " >&6; }
+if ${ac_cv_fc_pp_srcext_F90+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_ext=F90
+ac_fcflags_pp_srcext_save=$ac_fcflags_srcext
+ac_fcflags_srcext=
+ac_cv_fc_pp_srcext_F90=unknown
+case $ac_ext in #(
+  [fF]77) ac_try=f77-cpp-input;; #(
+  *) ac_try=f95-cpp-input;;
+esac
+for ac_flag in none -ftpp -fpp -Tf "-fpp -Tf" -xpp=fpp -Mpreprocess "-e Z" \
+               -cpp -xpp=cpp -qsuffix=cpp=F90 "-x $ac_try" +cpp -Cpp; do
+  test "x$ac_flag" != xnone && ac_fcflags_srcext="$ac_flag"
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+#if 0
+#include <ac_nonexistent.h>
+      choke me
+#endif
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+#if 1
+#include <ac_nonexistent.h>
+      choke me
+#endif
+      end
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+
+else
+  ac_cv_fc_pp_srcext_F90=$ac_flag; break
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+done
+rm -f conftest.$ac_objext conftest.F90
+ac_fcflags_srcext=$ac_fcflags_pp_srcext_save
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_fc_pp_srcext_F90" >&5
+$as_echo "$ac_cv_fc_pp_srcext_F90" >&6; }
+if test "x$ac_cv_fc_pp_srcext_F90" = xunknown; then
+  as_fn_error $? "Fortran could not compile preprocessed .F90 files" "$LINENO" 5
+else
+  ac_fc_srcext=F90
+  if test "x$ac_cv_fc_pp_srcext_F90" = xnone; then
+    ac_fcflags_srcext=""
+    FCFLAGS_F90=""
+  else
+    ac_fcflags_srcext=$ac_cv_fc_pp_srcext_F90
+    FCFLAGS_F90=$ac_cv_fc_pp_srcext_F90
+  fi
+
+
+fi
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran flag to compile preprocessed .f90 files" >&5
 $as_echo_n "checking for Fortran flag to compile preprocessed .f90 files... " >&6; }
 if ${ac_cv_fc_pp_srcext_f90+:} false; then :
@@ -4764,6 +4850,20 @@ if test "x$enable_rttov" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
 fi
 
+if test "x$enable_ecrad" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/ecrad"
+   icon_subdir_unique_file="radiation/radiation_config.F90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the the ECMWF radiation scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the scheme (--disable-ecrad)" "$LINENO" 5
+fi
+   ECRAD_ENABLED=''
+
+   as_fn_append FCFLAGS " ${FC_PP_DEF}__ECRAD"
+else
+  ECRAD_ENABLED='#'
+
+fi
+
 if test "x$enable_art" = xyes; then :
   icon_subdir_srcdir="$srcdir/src/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
@@ -4808,15 +4908,15 @@ fi
 
 
 
-DEPGEN_EXTERNAL_MODS=mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
+DEPGEN_EXTERNAL_MODS=netcdf,mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
 
 
 DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
 
 
 if test "x$enable_mpi" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran MPI library is available" >&5
-$as_echo_n "checking whether Fortran MPI library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 90 interface of MPI library is available" >&5
+$as_echo_n "checking whether Fortran 90 interface of MPI library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -4833,7 +4933,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using Fortran 90 interface of MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
@@ -5067,8 +5167,8 @@ cat > conftest.$ac_ext <<_ACEOF
       program main
 
       include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)
+      integer :: status, ncid
+      status = nf_open('conftest.nc', nf_nowrite, ncid)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
@@ -5079,11 +5179,37 @@ else
 $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using NetCDF: set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using Fortran 77 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+if test "x$enable_ecrad" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
+$as_echo_n "checking whether the Fortran 90 interface of NetCDF library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use netcdf, only: nf90_open, nf90_nowrite
+      implicit none
+      integer :: status, ncid
+      status = nf90_open('conftest.nc', nf90_nowrite, ncid)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using Fortran 90 interface of NetCDF library: either disable usage of the ECMWF radiation scheme (--disable-ecrad) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
 if test "x$enable_parallel_netcdf" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
 $as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
@@ -5128,7 +5254,7 @@ $as_echo "$icon_netcdf_supports_parallel" >&6; }
    if test x"$icon_netcdf_supports_parallel" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "the provided version of NetCDF does not support parallel features
+as_fn_error $? "the provided version of NetCDF does not support parallel features: either disable usage of the parallel features of NetCDF (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5

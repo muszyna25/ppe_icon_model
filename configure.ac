@@ -57,6 +57,11 @@ AC_ARG_ENABLE([rttov],
 @<:@default=no@:>@])], [],
   [enable_rttov=no])
 
+AC_ARG_ENABLE([ecrad],
+  [AC_HELP_STRING([--enable-ecrad],
+     [enable usage of the ECMWF radiation scheme @<:@default=no@:>@])], [],
+  [enable_ecrad=no])
+
 AC_ARG_ENABLE([art],
   [AC_HELP_STRING([--enable-art],
      [enable the aerosols and reactive trace component ART
@@ -212,6 +217,7 @@ FCFLAGS=${FCFLAGS-}
 dnl Flags to be passed to the configure scripts of the bundled libraries:
 subdir_FCFLAGS=$FCFLAGS
 AC_PROG_FC
+AC_FC_PP_SRCEXT([F90])
 AC_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 
@@ -402,6 +408,17 @@ AS_VAR_IF([enable_psrad], [yes], [],
 AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
 
+AS_VAR_IF([enable_ecrad], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/ecrad"
+   icon_subdir_unique_file="radiation/radiation_config.F90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the the ECMWF radiation dnl
+scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the dnl
+scheme (--disable-ecrad)])])
+   AC_SUBST([ECRAD_ENABLED], [''])
+   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])],
+  [AC_SUBST([ECRAD_ENABLED], ['#'])])
+
 AS_VAR_IF([enable_art], [yes],
   [icon_subdir_srcdir="$srcdir/src/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
@@ -457,7 +474,7 @@ AC_SUBST([DEPGEN_FCFLAGS], [])
 
 dnl A list of Fortran modules that are used in ICON but are not part of it:
 AC_SUBST([DEPGEN_EXTERNAL_MODS],
-  [[mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,]dnl
+  [[netcdf,mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,]dnl
 [self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
 
 dnl A list of Fortran intrinsic modules:
@@ -466,16 +483,17 @@ AC_SUBST([DEPGEN_INTRINSIC_MODS],
 [[ieee_features,omp_lib,omp_lib_kinds,openacc]])
 
 AS_VAR_IF([enable_mpi], [yes],
-  [AC_MSG_CHECKING([whether Fortran MPI library is available])
+  [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
        use mpi, only: mpi_init
        integer :: error
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using MPI: either dnl
-disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler dnl
-wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
+      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
+interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
+the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])])
 
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -504,12 +522,25 @@ AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
 available])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       include 'netcdf.inc'
-      integer :: status
-      status = nf_open('conftest.nc',0,0)]])],
+      integer :: status, ncid
+      status = nf_open('conftest.nc', nf_nowrite, ncid)]])],
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no])
-   AC_MSG_FAILURE([unable to link a test program using NetCDF: set FCFLAGS, dnl
-LDFLAGS and LIBS accordingly])])
+   AC_MSG_FAILURE([unable to link a test program using Fortran 77 interface dnl
+of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+AS_VAR_IF([enable_ecrad], [yes],
+  [AC_MSG_CHECKING([whether the Fortran 90 interface of NetCDF library is dnl
+available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use netcdf, only: nf90_open, nf90_nowrite
+      implicit none
+      integer :: status, ncid
+      status = nf90_open('conftest.nc', nf90_nowrite, ncid)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
+interface of NetCDF library: either disable usage of the ECMWF radiation dnl
+scheme (--disable-ecrad) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AC_MSG_CHECKING(
      [whether the provided version of NetCDF is built with parallel support])
@@ -544,7 +575,8 @@ grep 'conftest_parallel_yes' >/dev/null 2>&1],
    AC_MSG_RESULT([$icon_netcdf_supports_parallel])
    AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
         [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
-parallel features])],
+parallel features: either disable usage of the parallel features of NetCDF dnl
+(--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly])],
         [test x"$icon_netcdf_supports_parallel" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
 NetCDF supports parallel features])])])
