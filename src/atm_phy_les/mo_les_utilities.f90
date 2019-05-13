@@ -58,7 +58,7 @@ MODULE mo_les_utilities
   !! Initial release by Slavko Brdar, DWD (2014-08-29)
   SUBROUTINE init_vertical_grid_for_les(jg, p_patch, p_int, p_metrics)
     INTEGER,                   INTENT(in)     :: jg
-    TYPE(t_patch),     TARGET, INTENT(inout)  :: p_patch
+    TYPE(t_patch),             INTENT(inout)  :: p_patch
     TYPE(t_int_state),         INTENT(in)     :: p_int
     TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
 
@@ -136,8 +136,8 @@ MODULE mo_les_utilities
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
   SUBROUTINE vert_intp_full2half_cell_3d(p_patch, p_metrics, varin, varout, rl_start, rl_end)
 
-    TYPE(t_nh_metrics),INTENT(in), TARGET :: p_metrics 
-    TYPE(t_patch),     INTENT(in), TARGET :: p_patch
+    TYPE(t_nh_metrics),INTENT(in) :: p_metrics
+    TYPE(t_patch),     INTENT(in) :: p_patch
     REAL(wp), INTENT(in)                  :: varin(:,:,:)
     INTEGER,  INTENT(in)                  :: rl_start, rl_end 
     REAL(wp), INTENT(out)                 :: varout(:,:,:)                     
@@ -229,7 +229,7 @@ MODULE mo_les_utilities
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
   SUBROUTINE global_hor_mean(p_patch, var, varout, inv_no_cells)
 
-    TYPE(t_patch),     INTENT(in), TARGET :: p_patch
+    TYPE(t_patch),     INTENT(in) :: p_patch
     REAL(wp), INTENT(in)                  :: var(:,:,:), inv_no_cells
     REAL(wp), INTENT(out)                 :: varout(:)                     
 
@@ -302,9 +302,9 @@ MODULE mo_les_utilities
   !! Initial release by Anurag Dipankar, MPI-M (2014-July-07)
   SUBROUTINE brunt_vaisala_freq(p_patch, p_metrics, thetav, bru_vais)
 
-    TYPE(t_patch),     INTENT(in), TARGET :: p_patch
-    TYPE(t_nh_metrics),INTENT(in), TARGET :: p_metrics 
-    REAL(wp), DIMENSION(:,:,:), INTENT(in):: thetav
+    TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_nh_metrics), INTENT(in) :: p_metrics
+    REAL(wp), INTENT(in):: thetav(:,:,:)
     REAL(wp), INTENT(INOUT)               :: bru_vais(:,:,:)
 
     REAL(wp) :: thetav_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
