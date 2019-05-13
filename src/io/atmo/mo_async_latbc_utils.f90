@@ -360,7 +360,7 @@
       latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
+      latbc%mtime_last_read  = time_config%tc_current_date
       latbc_read_datetime    = time_config%tc_current_date
 
       timelev  = 1   ! read in the first time-level slot
@@ -889,7 +889,7 @@
       latbc%prefetchEvent => newEvent("Prefetch input", time_config%tc_exp_startdate, &
            time_config%tc_exp_startdate, time_config%tc_stopdate, latbc%delta_dtime)
 
-      latbc%mtime_last_read  => newDatetime(time_config%tc_current_date)
+      latbc%mtime_last_read = time_config%tc_current_date
 
       ! Ensure that the prefetch event control will start reading at the correct date
       IF(isRestart()) THEN
