@@ -149,9 +149,7 @@ CONTAINS
     INTEGER :: ientry
     INTEGER :: cnt
 
-    INTEGER, ALLOCATABLE :: tileIdx_container(:)
-    INTEGER, ALLOCATABLE :: tileAtt_container(:)
-    INTEGER, ALLOCATABLE :: tileTid_container(:)
+    INTEGER, ALLOCATABLE :: tileIdxAttTidTemp(:,:)
     INTEGER, ALLOCATABLE :: subtypeSize(:)
 
     INTEGER :: idx, att, tile_index
@@ -230,27 +228,26 @@ CONTAINS
 
     ! put tile info into local 1D arrays, for broadcasting
     ! currently direct bradcast of variable variableTileinfo not possible
-    ALLOCATE(tileIdx_container(SUM(subtypeSize(1:variableCount))), &
-      &      tileAtt_container(SUM(subtypeSize(1:variableCount))), &
-      &      tileTId_container(SUM(subtypeSize(1:variableCount))), &
+    ALLOCATE(tileIdxAttTidTemp(SUM(subtypeSize(1:variableCount)),3), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     IF (is_workroot) THEN
       cnt = 0
       DO i=1, variableCount
-        tileIdx_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
-        tileAtt_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
-        tileTid_container(cnt+1:cnt+subtypeSize(i)) = me%variableTileinfo(i)%tile_index(1:subtypeSize(i))
+        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3) &
+          = me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx
+        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 2) &
+          = me%variableTileinfo(i)%tile(1:subtypeSize(i))%att
+        tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3) &
+          = me%variableTileinfo(i)%tile_index(1:subtypeSize(i))
         cnt = cnt + subtypeSize(i)
       END DO
     ENDIF
 
     CALL p_bcast(me%variableNames   , p_io, distribution%communicator)
     CALL p_bcast(me%variableDatatype, p_io, distribution%communicator)
-    CALL p_bcast(tileIdx_container  , p_io, distribution%communicator)
-    CALL p_bcast(tileAtt_container  , p_io, distribution%communicator)
-    CALL p_bcast(tileTid_container  , p_io, distribution%communicator)
+    CALL p_bcast(tileIdxAttTidTemp  , p_io, distribution%communicator)
 
     ! read tile info from broadcasted 1D array and store in array variableTileinfo of TYPE t_tileinfo
     IF (.NOT. is_workroot) THEN
@@ -261,11 +258,11 @@ CONTAINS
             &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
           me%variableTileinfo(i)%tile(1:subtypeSize(i))%idx        = &
-            &      tileIdx_container(cnt+1:cnt+subtypeSize(i))
+            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 1)
           me%variableTileinfo(i)%tile(1:subtypeSize(i))%att        = &
-            &      tileAtt_container(cnt+1:cnt+subtypeSize(i))
+            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 2)
           me%variableTileinfo(i)%tile_index(1:subtypeSize(i))      = &
-            &      tileTid_container(cnt+1:cnt+subtypeSize(i))
+            &      tileIdxAttTidTemp(cnt+1:cnt+subtypeSize(i), 3)
           cnt = cnt + subtypeSize(i)
         ENDIF
       ENDDO
@@ -275,7 +272,7 @@ CONTAINS
     me%readBytes = 0_i8
 
     ! cleanup
-    DEALLOCATE(tileIdx_container, tileAtt_container, tileTid_container, subtypeSize, STAT=ierrstat)
+    DEALLOCATE(tileIdxAttTidTemp, subtypeSize, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END FUNCTION makeInputParameters
 
