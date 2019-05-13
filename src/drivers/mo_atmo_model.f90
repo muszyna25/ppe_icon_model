@@ -148,8 +148,10 @@ MODULE mo_atmo_model
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: OPERATOR(<), OPERATOR(+)
-  ! Prefetching  
+#ifndef NOMPI
+  ! Prefetching
   USE mo_async_latbc,             ONLY: prefetch_main_proc
+#endif
   USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
@@ -371,6 +373,7 @@ CONTAINS
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
     CALL detachRestartProcs(timers_level > 1)
 
+#ifndef NOMPI
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
     IF (process_mpi_pref_size > 0) THEN
@@ -378,6 +381,7 @@ CONTAINS
       CALL message(routine, 'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref()) CALL prefetch_main_proc
     ENDIF
+#endif
 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return

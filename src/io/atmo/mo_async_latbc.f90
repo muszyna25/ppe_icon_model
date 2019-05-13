@@ -263,7 +263,9 @@ MODULE mo_async_latbc
     PRIVATE
 
     ! subroutines
+#ifndef NOMPI
     PUBLIC :: prefetch_main_proc
+#endif
     PUBLIC :: init_prefetch
     PUBLIC :: close_prefetch
 
@@ -311,6 +313,7 @@ CONTAINS
 #endif
     END SUBROUTINE close_prefetch
 
+#ifndef NOMPI
     !------------------------------------------------------------------------------------------------
     ! The following routines are only needed for asynchronous Input prefetching
     !-------------------------------------------------------------------------------------------------
@@ -359,7 +362,7 @@ CONTAINS
       STOP
 
     END SUBROUTINE prefetch_main_proc
-
+#endif
     !--------------------------------------------------------------------------
     !
     !> Initialize data structures for prefetching boundary data
