@@ -5,10 +5,29 @@ BUILD_ENV= @BUILD_ENV@
 DELEGATED_RULES = all depend mostlyclean clean maintainer-clean install srclist
 
 .SUFFIXES:
-.PHONY: $(DELEGATED_RULES) distclean dist snapshot
+.PHONY: $(DELEGATED_RULES) distclean dist snapshot help
 
 $(DELEGATED_RULES):
 	@$(BUILD_ENV) $(MAKE) -f icon.mk $(MAKECMDGOALS)
+
+help:
+	@echo "Usage:"; \
+	echo "    make -j <jobs> <target>"; \
+	echo "where <jobs> is the number of simultaneous building jobs and <target> is one of"; \
+	echo "the following:"; \
+	echo "  'all' (default) build ICON"; \
+	echo "  'depend'        generate Fortran dependency files"; \
+	echo "  'mostlyclean'   delete executables, libraries and object files"; \
+	echo "  'clean'         delete the rest of the files generated with 'make' (including"; \
+	echo "                  the dependency files)"; \
+	echo "  'distclean'     delete files generated with 'configure'"; \
+	echo "  'install'       install ICON"; \
+	echo "  'srclist'       generate file './srclist' containing a list of ICON source"; \
+	echo "                  files to be compiled in the current configuration"; \
+	echo "  'dist'          create a tarball containing files from the current HEAD of"; \
+	echo "                  the ICON git repository and its git submodules"; \
+	echo "  'snapshot'      create a tarball containing all files in the source directory"; \
+	echo "                  that are not ignored by git in their current state"
 
 GIT= git
 TAR= tar
@@ -20,7 +39,7 @@ dist:
 	$(GIT) -C @top_srcdir@ submodule foreach '$(GIT) archive --prefix=@PACKAGE_TARNAME@/$$path/ --format tar -o @abs_top_builddir@/$$name.tar HEAD && $(TAR) -Af @abs_top_builddir@/@PACKAGE_TARNAME@.tar @abs_top_builddir@/$$name.tar && rm @abs_top_builddir@/$$name.tar'
 	rm -f @PACKAGE_TARNAME@.tar.bz2 && BZIP2=$${BZIP2--9} $(BZIP2) @PACKAGE_TARNAME@.tar
 
-# Includes all non-ignored files with uncommited changes:
+# Includes all non-ignored files with uncommitted changes:
 snapshot:
 	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi; \
 	GIT_DIR=; unset GIT_DIR; if $(GIT) -C @top_srcdir@ ls-files --recurse-submodules >/dev/null 2>&1; then :; \
