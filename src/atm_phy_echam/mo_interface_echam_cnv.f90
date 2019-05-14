@@ -31,6 +31,8 @@ MODULE mo_interface_echam_cnv
 
   USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqt
   USE mo_cumastr             ,ONLY: cumastr
+  !$ser verbatim USE mo_ser_echam_cnv, ONLY: serialize_cnv_input,&
+  !$ser verbatim                             serialize_cnv_output
 
   IMPLICIT NONE
   PRIVATE
@@ -98,6 +100,9 @@ CONTAINS
     fc_cnv    => echam_phy_config(jg)%fc_cnv
     field     => prm_field(jg)
     tend      => prm_tend (jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_cnv_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     nlevm1 = nlev-1
     nlevp1 = nlev+1
@@ -276,6 +281,9 @@ CONTAINS
        END IF
        !
     END IF
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_cnv_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)

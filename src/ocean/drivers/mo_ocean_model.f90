@@ -26,7 +26,7 @@ MODULE mo_ocean_model
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -296,7 +296,7 @@ MODULE mo_ocean_model
 
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
-      CALL finish_mean_stream()
+      CALL finish_statistics_streams
     ENDIF
 
     CALL destruct_icon_communication()
@@ -649,7 +649,7 @@ MODULE mo_ocean_model
         jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
-      CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
+      CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)
       CALL create_vertical_axes(output_file)

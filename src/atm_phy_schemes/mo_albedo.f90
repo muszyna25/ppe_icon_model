@@ -520,11 +520,11 @@ CONTAINS
   !! snow/ice conditions are taken into account. The snow-free MODIS albedo is updated 
   !! on a daily basis.
   !! We distinguish between
-  !! - shortwave broadband albedo  (diffuse, 0.3-5.0µm): albdif
-  !! - UV visible broadband albedo (diffuse, 0.3-0.7µm): albvisdif
-  !! - near IR broadband albedo    (diffuse, 0.7-5.0µm): albnirdif
-  !! - UV visible broadband albedo (direct , 0.3-0.7µm): albvisdir
-  !! - near IR broadband albedo    (direct , 0.7-5.0µm): albnirdir 
+  !! - shortwave broadband albedo  (diffuse, 0.3-5.0um): albdif
+  !! - UV visible broadband albedo (diffuse, 0.3-0.7um): albvisdif
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0um): albnirdif
+  !! - UV visible broadband albedo (direct , 0.3-0.7um): albvisdir
+  !! - near IR broadband albedo    (direct , 0.7-5.0um): albnirdir
   !!
   !! albvisdif/albvisdir and albnirdif/albnirdir are exclusively used by the RRTM scheme
   !!

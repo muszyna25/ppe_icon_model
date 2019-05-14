@@ -401,7 +401,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ! --- emissions of chemical tracer
     ! ----------------------------------
   
-    IF (art_config(jg)%lart_chem) THEN
+    IF ((art_config(jg)%lart_chem) .OR. (art_config(jg)%lart_passive)) THEN
       ! Get model layer heights
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -421,6 +421,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         land_sea => ext_data%atm%fr_land
         u_10m => prm_diag%u_10m
         v_10m => prm_diag%v_10m
+      ELSE
+         CALL finish('mo_art_emission_interface:art_emission_interface', &
+              &         'ART: no land sea mask for this iforcing available')
       ENDIF
 
         

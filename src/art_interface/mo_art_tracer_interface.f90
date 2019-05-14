@@ -28,7 +28,10 @@ MODULE mo_art_tracer_interface
   USE mo_advection_config,              ONLY: t_advection_config
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_tend
   USE mo_nonhydro_types,                ONLY: t_nh_prog
-  USE mo_run_config,                    ONLY: lart
+  USE mo_run_config,                    ONLY: lart, iforcing
+  USE mo_impl_constants,                ONLY: iecham
+  USE mo_radiation_config,              ONLY: irad_o3
+  USE mo_echam_rad_config,              ONLY: echam_rad_config
   USE mo_art_config,                    ONLY: art_config
   USE mo_time_config,                   ONLY: time_config
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
@@ -114,6 +117,11 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
       ENDIF
         
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
+
+        IF ( iforcing == iecham) THEN
+          irad_o3 = echam_rad_config(jg)%irad_o3
+        END IF
+
         CALL art_init(jg, time_config%tc_dt_model, time_config%tc_exp_refdate, &
           &           this_list,tracer=p_prog%tracer)
       ENDIF

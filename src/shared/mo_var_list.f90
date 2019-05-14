@@ -16,6 +16,7 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: sp, wp, i8
+  USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_cdi,              ONLY: CDI_DATATYPE_FLT64,                &
        &                         CDI_DATATYPE_FLT32,                &
        &                         CDI_DATATYPE_INT32,                &
@@ -65,6 +66,10 @@ MODULE mo_var_list
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
+#ifdef DEBUG_MVSTREAM
+  USE mo_util_string,      ONLY: int2string
+#endif
+  USE self_assert,         ONLY: print_summary
 
   IMPLICIT NONE
 
@@ -1080,6 +1085,7 @@ CONTAINS
 
     new_list_element%field%info%ndims                    = ndims
     new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
+    new_list_element%field%info%dom                      => this_list%p%patch_id
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
@@ -4207,17 +4213,30 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(element)
+  FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
+    INTEGER, OPTIONAL              :: opt_patch_id
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
+    TYPE(t_var_list), POINTER, OPTIONAL     :: opt_returnList
 
     TYPE(t_list_element), POINTER :: element
-    INTEGER :: i
+    INTEGER :: i,patch_id
+
+    patch_id = 1
+    CALL assign_if_present(patch_id,opt_patch_id)
 
     DO i=1,nvar_lists
+      IF ( patch_id /= var_lists(i)%p%patch_id ) CYCLE
       element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
-      IF (ASSOCIATED (element)) RETURN
+      IF (ASSOCIATED (element)) THEN
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) call &
+            & print_summary('destination PATCHID:'//TRIM(int2string(patch_id)))
+#endif
+        IF (PRESENT(opt_returnList)) opt_returnList => var_lists(i)
+        RETURN
+      END IF
     END DO
   END FUNCTION! find_element_from_all_lists
 

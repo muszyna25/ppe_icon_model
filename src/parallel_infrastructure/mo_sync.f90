@@ -541,9 +541,12 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din, opt_varname)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
+#if !defined( __PGI ) || !defined( _OPENACC )
+! The silly PGI OpenACC compiler does not know f4din(i,:,:,:) is present on the device
      DO i = 1, nfields
        CALL check_patch_array_3(typ, p_patch, f4din(i,:,:,:), opt_varname)
      ENDDO
+#endif
    ENDIF
 
    ! Boundary exchange for work PEs

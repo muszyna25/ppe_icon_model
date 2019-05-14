@@ -81,7 +81,7 @@ MODULE mo_hydro_ocean_run
   USE mo_var_list
   USE mo_ocean_statistics
   USE mo_hamocc_types,           ONLY: t_hamocc_state
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
@@ -511,7 +511,7 @@ CONTAINS
 
         stop_detail_timer(timer_extra20,5)
 
-        CALL perform_accumulation(nnew(1),0)
+        CALL update_statistics
 
         CALL output_ocean( patch_3d, ocean_state, &
           &                current_time,              &
@@ -519,7 +519,7 @@ CONTAINS
           &                sea_ice,                 &
           &                jstep, jstep0)
         
-        CALL reset_accumulation
+        CALL reset_statistics
         ! send and receive coupling fluxes for ocean at the end of time stepping loop
         IF (iforc_oce == Coupled_FluxFromAtmo) THEN  !  14
 
@@ -730,11 +730,11 @@ CONTAINS
       & ocean_state%p_diag, operators_coefficients)
     ! CALL update_height_depdendent_variables( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
-    CALL perform_accumulation(nnew(1),0)
+    CALL update_statistics
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_accumulation
+    CALL reset_statistics
  
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
