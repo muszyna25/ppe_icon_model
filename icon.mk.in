@@ -32,7 +32,7 @@ DEPGEN_FCFLAGS= @DEPGEN_FCFLAGS@
 BUNDLED_LIBS= @BUNDLED_LIBS@
 
 # Other utilities:
-SHELL= /bin/sh
+SHELL= @SHELL@
 INSTALL= @INSTALL@
 PYTHON= @PYTHON@
 DEPLIST= $(PYTHON) $(srcdir)/utils/mkhelper/deplist.py
@@ -106,16 +106,30 @@ mostlyclean: $(bundled_subdirs)
 
 clean: mostlyclean
 	rm -f version.c srclist $(depfiles) $(dirstamps) $(jsb_srcs_f90)
-
-distclean: clean
-	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config
 	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
-	@for dir in src support '$(moddir)' externals; do \
+	@for dir in src support '$(moddir)' '$(jsb_builddir)' '$(ecrad_builddir)'; do \
 	  if test -d "$$dir"; then \
 	    echo "find '$$dir' -type d -empty -delete"; \
 	    find "$$dir" -type d -empty -delete; \
 	  fi; \
-	done
+	done; \
+	if test -d 'externals'; then \
+	  echo "find 'externals' -maxdepth 0 -type d -empty -delete"; \
+	  find 'externals' -maxdepth 0 -type d -empty -delete; \
+	fi
+
+distclean: clean
+	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config
+	@for dir in $(bundled_subdirs); do \
+          if test -d "$$dir"; then \
+            echo "find '$$dir' -type d -empty -delete"; \
+            find "$$dir" -type d -empty -delete; \
+          fi; \
+	done; \
+	if test -d 'externals'; then \
+	  echo "find 'externals' -maxdepth 0 -type d -empty -delete"; \
+	  find 'externals' -maxdepth 0 -type d -empty -delete; \
+	fi
 
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
