@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -eu
+
+GRIBAPI_ROOT='/apps/daint/UES/6.0.UP02/sandbox-ws/grib_api'
+GRIBAPI_LIBS='-lgrib_api'
+
+XML_LIBS='-lxml2'
+
+######################
+
+ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../../.."
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4 cray-netcdf/4.6.1.2 cray-hdf5/1.10.2.0;"
+
+FC='ftn'
+CC='cc'
+
+FCFLAGS=
+CFLAGS=
+CPPFLAGS="-I${GRIBAPI_ROOT}/include"
+
+LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
+LIBS="${XML_LIBS} ${GRIBAPI_LIBS}"
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-sct "$@"
+

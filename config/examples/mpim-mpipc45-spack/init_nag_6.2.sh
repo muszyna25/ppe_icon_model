@@ -14,6 +14,11 @@ MPICH_LDFLAGS="-L${MPICH_ROOT}/lib"
 MPICH_LIBS='-lmpifort -lmpi'
 MPICH_LAUNCH="${MPICH_ROOT}/bin/mpirun"
 
+HDF5_ROOT="${SW_ROOT}/hdf5-1.10.3-aehnkhs"
+HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"
+HDF5_LDFLAGS="-L${HDF5_ROOT}/lib"
+HDF5_LIBS='-lhdf5'
+
 NETCDF_ROOT="${SW_ROOT}/netcdf-4.6.1-yalf6ng"
 NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
 NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"

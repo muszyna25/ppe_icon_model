@@ -8,6 +8,11 @@ MPICH_ROOT="${SW_ROOT}/mpich-3.2.1-ohqiwpy"
 MPICH_FC="${MPICH_ROOT}/bin/mpif90"
 MPICH_CC="${MPICH_ROOT}/bin/mpicc"
 
+HDF5_ROOT="${SW_ROOT}/hdf5-1.10.3-uu4ezot"
+HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"
+HDF5_LDFLAGS="-L${HDF5_ROOT}/lib"
+HDF5_LIBS='-lhdf5'
+
 NETCDF_ROOT="${SW_ROOT}/netcdf-4.6.1-ngd34ld"
 NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
 NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -eu
+
+MPI_ROOT='/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14'
+MPI_CPPFLAGS="-I${MPI_ROOT}/include"
+MPI_FCFLAGS="-I${MPI_ROOT}/lib -I${MPI_ROOT}/include"
+MPI_LDFLAGS="-L${MPI_ROOT}/lib"
+MPI_LIBS='-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi'
+
+HDF5_ROOT='/sw/rhel6-x64/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14'
+HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"
+HDF5_LDFLAGS="-L${HDF5_ROOT}/lib"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14'
+NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
+NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT='/sw/rhel6-x64/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14'
+NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
+NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
+NETCDFF_LIBS='-lnetcdff'
+
+GRIBAPI_ROOT='/sw/rhel6-x64/grib_api/grib_api-1.15.0-gcc48'
+GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
+GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
+GRIBAPI_LIBS='-lgrib_api'
+
+BLAS_LAPACK_LDFLAGS='-mkl'
+
+XML_ROOT='/usr'
+XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
+XML_LDFLAGS="-L${XML_ROOT}/lib64"
+XML_LIBS='-lxml2'
+
+######################
+
+ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../../.."
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules intel/16.0 openmpi/2.0.2p1_hpcx-intel14;"
+
+FC='ifort'
+CC='icc'
+
+CFLAGS=
+FCFLAGS="${MPI_FCFLAGS} ${NETCDFF_FCFLAGS}"
+CPPFLAGS="${MPI_CPPFLAGS} ${HDF5_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}"
+
+LDFLAGS="${MPI_LDFLAGS} ${HDF5_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
+LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPI_LIBS}"
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-optimization=precise --enable-active-target-sync --enable-parallel-netcdf --enable-sct "$@"
+
