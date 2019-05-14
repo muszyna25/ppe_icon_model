@@ -113,6 +113,12 @@ Optimization Features:]])
 
 ICON_OPTIMIZATION_ARGS
 
+AC_ARG_WITH([external-sct],
+  [AC_HELP_STRING([--with-external-sct],
+     [use external SCT library (when the SCT timer is enabled)
+@<:@default=no@:>@])], [],
+  [with_external_sct=no])
+
 AC_ARG_WITH([external-yaxt],
   [AC_HELP_STRING([--with-external-yaxt],
      [use external YAXT library (when the YAXT data exchange is enabled)
@@ -267,7 +273,13 @@ dnl
 dnl Currently, the configure scripts of the bundled libraries need the
 dnl following treatment regarding RPATH flags:
 dnl
-dnl 1. YAXT: libtool-based, runs checks using libtool for both C and Fortran
+dnl 1. SCT: libtool-based, no checks using libtool directly (however, the
+dnl    configure script tries to find .la files and parse them), runs linking
+dnl    checks for both C and Fortran compilers. If the original forms of RPATH
+dnl    flags for C and Fortran compilers are the same, we set LDFLAGS,
+dnl    otherwise we append the flags to CFLAGS and FCFLAGS.
+dnl
+dnl 2. YAXT: libtool-based, runs checks using libtool for both C and Fortran
 dnl    compilers, implements custom workarounds that transform FCFLAGS, which
 dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
 dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
@@ -276,27 +288,27 @@ dnl    understood by libtool and expect the latter to take care of the correct
 dnl    transformations. Unfortunately, this will not work if we are using NAG
 dnl    compiler with MPI wrappers.
 dnl
-dnl 2. CDI: libtool-based, runs checks using libtool only for C compiler.
+dnl 3. CDI: libtool-based, runs checks using libtool only for C compiler.
 dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
 dnl    by libtool. Since no checks requiring linking with Fortran compiler are
 dnl    run, we are safe even when using MPI wrappers.
 dnl
-dnl 3. MTIME: libtool-based, no checks using libtool, no linking checks with
+dnl 4. MTIME: libtool-based, no checks using libtool, no linking checks with
 dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
 dnl    the original form of the C compiler. Works even with CC='nagfor =C'.
 dnl
-dnl 4. YAC: does not use libtool, runs linking checks for both C and Fortran
+dnl 5. YAC: does not use libtool, runs linking checks for both C and Fortran
 dnl    compilers. If the original forms of RPATH flags for C and Fortran
 dnl    compilers are the same, we set LDFLAGS, otherwise we append the flags to
 dnl    CFLAGS and FCFLAGS.
 dnl
-dnl 5. SELF: does not use libtool, needs only Fortran compiler. We just pass
-dnl    LDFLAGS containing RPATH flags in the original form understood by the
-dnl    the Fortran compiler.
-dnl
 dnl 6. TIXI: does not use libtool, no linking checks with Fortran compiler.
 dnl    Therefore, we set LDFLAGS containing RPATH flags in the original form of
 dnl    the C compiler.
+dnl
+dnl 7. SELF: does not use libtool, needs only Fortran compiler. We just pass
+dnl    LDFLAGS containing RPATH flags in the original form understood by the
+dnl    the Fortran compiler.
 dnl
 dnl Another possible solution is to rely on the fact that we do not install the
 dnl bundled libraries and link them statically, therefore all we need is their
@@ -431,17 +443,22 @@ AS_VAR_IF([enable_art], [yes],
 
 AS_VAR_IF([enable_mpi], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])
-dnl We pass this variable to the configure scripts of YAC, therefore, we
-dnl need to make sure that it's either 'yes' or 'no'.
+dnl We pass this variable to the configure scripts of YAC and SCT, therefore,
+dnl we need to make sure that it's either 'yes' or 'no'.
    enable_mpi=no])
 
 AS_VAR_IF([enable_active_target_sync], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
 
+AS_VAR_IF([enable_openmp], [yes], [],
+dnl We pass this variable to the configure script of SCT, therefore, we need to
+dnl make sure that it's either 'yes' or 'no'.
+  [enable_openmp=no])
+
 AS_VAR_IF([enable_grib2], [yes], [],
-dnl We pass this variable to the configure scripts of CDI, therefore, we
-dnl need to make sure that it's either 'yes' or 'no'.
+dnl We pass this variable to the configure scripts of CDI, therefore, we need
+dnl to make sure that it's either 'yes' or 'no'.
   [enable_grib2=no])
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
@@ -607,16 +624,57 @@ disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
 
 AS_VAR_IF([enable_sct], [yes],
-  [AC_MSG_CHECKING([whether the Fortran interface of SCT library is available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+  [AS_VAR_IF([with_external_sct], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of SCT library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use sct, only: sct_init
       implicit none
       call sct_init(timer_max=512)]])],
-     [AC_MSG_RESULT([yes])],
-     [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using SCT: either dnl
-disable SCT timer (--disable-sct) or set FCFLAGS, LDFLAGS and LIBS dnl
-accordingly])])])
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using SCT: either dnl
+disable SCT timer (--disable-sct) or use the bundled version of SCT dnl
+(--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+dnl
+     [icon_subdir_srcdir="$srcdir/externals/sct"
+      icon_subdir_unique_file="src/sct_reporter.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the SCT timer (--disable-sct) or provide an external dnl
+version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      sct_CFLAGS=$subdir_CFLAGS
+      sct_FCFLAGS=$subdir_FCFLAGS
+      sct_LDFLAGS=$subdir_LDFLAGS
+      AS_IF([test x"$icon_c_rpaths" = x"$icon_fc_rpaths"],
+        [sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"],
+        [AS_VAR_APPEND([sct_CFLAGS], [" $icon_c_rpaths"])
+         AS_VAR_APPEND([sct_FCFLAGS], [" $icon_fc_rpaths"])])
+      ACX_CONFIG_SUBDIR([externals/sct],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpirun-check])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([rpath])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([papi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([hdf5])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([libpapi-prefix])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([libhdf5-prefix])]],
+        [[FCFLAGS="$sct_FCFLAGS"], [CFLAGS="$sct_CFLAGS"],
+         [LDFLAGS="$sct_LDFLAGS"], [MPICC=], [MPIFC=], [--enable-static],
+         [--disable-shared], [--disable-maintainer-mode],
+         [--enable-mpi="$enable_mpi"], [--enable-openmp="$enable_openmp"],
+         [--disable-rpath], [--disable-papi], [--enable-hdf5],
+         [--enable-silent-rules="$enable_silent_rules"],
+         [--without-libpapi-prefix], [--without-libhdf5-prefix]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/sct/src"])
+      BUNDLED_LIBS="externals/sct/src/.libs/libsct.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([enable_yaxt], [yes],
   [AS_VAR_IF([with_external_yaxt], [yes],

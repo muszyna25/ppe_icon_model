@@ -691,6 +691,7 @@ enable_optimization
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
+with_external_sct
 with_external_yaxt
 with_external_cdi
 with_external_mtime
@@ -1375,6 +1376,8 @@ Optimization Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-external-sct     use external SCT library (when the SCT timer is
+                          enabled) [default=no]
   --with-external-yaxt    use external YAXT library (when the YAXT data
                           exchange is enabled) [default=no]
   --with-external-cdi     use external CDI library [default=no]
@@ -2245,6 +2248,15 @@ if test "${enable_vectorized_lrtm+set}" = set; then :
   enableval=$enable_vectorized_lrtm;
 else
   enable_vectorized_lrtm=auto
+fi
+
+
+
+# Check whether --with-external-sct was given.
+if test "${with_external_sct+set}" = set; then :
+  withval=$with_external_sct;
+else
+  with_external_sct=no
 fi
 
 
@@ -4884,6 +4896,12 @@ if test "x$enable_active_target_sync" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"
 fi
 
+if test "x$enable_openmp" = xyes; then :
+
+else
+    enable_openmp=no
+fi
+
 if test "x$enable_grib2" = xyes; then :
 
 else
@@ -5302,9 +5320,10 @@ rm -f core conftest.err conftest.$ac_objext \
 fi
 
 if test "x$enable_sct" = xyes; then :
+  if test "x$with_external_sct" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SCT library is available" >&5
 $as_echo_n "checking whether the Fortran interface of SCT library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
+      cat > conftest.$ac_ext <<_ACEOF
       program main
 
       use sct, only: sct_init
@@ -5318,13 +5337,102 @@ $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using SCT: either disable SCT timer (--disable-sct) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using SCT: either disable SCT timer (--disable-sct) or use the bundled version of SCT (--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+else
+       icon_subdir_srcdir="$srcdir/externals/sct"
+      icon_subdir_unique_file="src/sct_reporter.c"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      sct_CFLAGS=$subdir_CFLAGS
+      sct_FCFLAGS=$subdir_FCFLAGS
+      sct_LDFLAGS=$subdir_LDFLAGS
+      if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
+  sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"
+else
+  as_fn_append sct_CFLAGS " $icon_c_rpaths"
+         as_fn_append sct_FCFLAGS " $icon_fc_rpaths"
+fi
+         acx_config_subdir_args_externals_sct=
+   acx_config_subdir_ignore_arg=no
+   eval "set dummy $ac_configure_args"; shift
+   for acx_config_subdir_arg; do
+     if test "x$acx_config_subdir_ignore_arg" = xno; then :
+  case $acx_config_subdir_arg in #(
+  -cache-file|--cache-file|--cache-fil|--cache-fi| \
+           --cache-f|--cache-|--cache|--cach|--cac|--ca|--c| \
+           -srcdir|--srcdir|--srcdi|--srcd|--src|--sr| \
+           -prefix|--prefix|--prefi|--pref|--pre|--pr|--p) :
+    acx_config_subdir_ignore_arg=yes ;; #(
+  -cache-file=*|--cache-file=*|--cache-fil=*|--cache-fi=*| \
+           --cache-f=*|--cache-=*|--cache=*|--cach=*|--cac=*|--ca=*|--c=*| \
+           --config-cache|-C| \
+           -srcdir=*|--srcdir=*|--srcdi=*|--srcd=*|--src=*|--sr=*| \
+           -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
+           --disable-option-checking) :
+     ;; #(
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
+     ;; #(
+  -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
+     ;; #(
+  -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
+  -enable-mpi|-enable-mpi=*|--enable-mpi|--enable-mpi=*|-disable-mpi|--disable-mpi) :
+     ;; #(
+  -enable-mpirun-check|-enable-mpirun-check=*|--enable-mpirun-check|--enable-mpirun-check=*|-disable-mpirun-check|--disable-mpirun-check) :
+     ;; #(
+  -enable-openmp|-enable-openmp=*|--enable-openmp|--enable-openmp=*|-disable-openmp|--disable-openmp) :
+     ;; #(
+  -enable-rpath|-enable-rpath=*|--enable-rpath|--enable-rpath=*|-disable-rpath|--disable-rpath) :
+     ;; #(
+  -enable-papi|-enable-papi=*|--enable-papi|--enable-papi=*|-disable-papi|--disable-papi) :
+     ;; #(
+  -enable-hdf5|-enable-hdf5=*|--enable-hdf5|--enable-hdf5=*|-disable-hdf5|--disable-hdf5) :
+     ;; #(
+  -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  -with-libpapi-prefix|-with-libpapi-prefix=*|--with-libpapi-prefix|--with-libpapi-prefix=*|-without-libpapi-prefix|--without-libpapi-prefix) :
+     ;; #(
+  -with-libhdf5-prefix|-with-libhdf5-prefix=*|--with-libhdf5-prefix|--with-libhdf5-prefix=*|-without-libhdf5-prefix|--without-libhdf5-prefix) :
+     ;; #(
+  *) :
+
+           case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+            as_fn_append acx_config_subdir_args_externals_sct " '$acx_config_subdir_arg'" ;;
+esac
+else
+  acx_config_subdir_ignore_arg=no
+fi
+   done
+   set dummy FCFLAGS="$sct_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_sct " '$acx_config_subdir_arg'"
+      done
+      subdirs_extra="externals/sct"
+
+
+      as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/sct/src"
+      BUNDLED_LIBS="externals/sct/src/.libs/libsct.a $BUNDLED_LIBS"
+fi
 fi
 
 if test "x$enable_yaxt" = xyes; then :
@@ -5411,9 +5519,7 @@ fi
 esac
         as_fn_append acx_config_subdir_args_externals_yaxt " '$acx_config_subdir_arg'"
       done
-      subdirs_extra="externals/yaxt"
-
-
+      as_fn_append subdirs_extra " externals/yaxt"
       as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/yaxt/src"
       BUNDLED_LIBS="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBS"
 fi
