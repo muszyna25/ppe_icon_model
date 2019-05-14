@@ -35,3 +35,7 @@
 	path = externals/cdi
 	url = git@gitlab.dkrz.de:mpim-sw/libcdi.git
 	branch = cdi-1.8.x
+[submodule "externals/sct"]
+	path = externals/sct
+	url = git@gitlab.dkrz.de:dkrz-sw/sct.git
+	branch = release
