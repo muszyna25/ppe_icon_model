@@ -116,7 +116,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   mode             =  1
   include_last     = .false.
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
+  ml_varlist       =  'group:oce_geometry'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
