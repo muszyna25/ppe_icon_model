@@ -41,6 +41,7 @@ MODULE mo_ocean_surface_types
     ! dimension: (nproma, nblks_c)
     REAL(wp), POINTER ::   &
       &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
+      &  Sea_level_pressure        (:,:), & ! sea level pressure                                        [Pa]
       &  TopBC_WindStress_u        (:,:), & ! forcing of zonal component of velocity equation           [Pa]
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]

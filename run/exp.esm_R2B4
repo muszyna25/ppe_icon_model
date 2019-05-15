@@ -137,11 +137,11 @@ restart_interval="P1Y"
 # output intervals
 # ----------------
 
-atm_file_interval="P1M"
-atm_output_interval="P1Y"
+atm_file_interval="P1Y"
+atm_output_interval="P1M"
 
-oce_file_interval="P1M"
-oce_output_interval="P1Y"
+oce_file_interval="P1Y"
+oce_output_interval="P1M"
 
 # namelist files
 # --------------
@@ -200,10 +200,7 @@ output_phy_3d=no                   # produces 1 atm file
 
 output_lnd=no                      # produces 1 lnd file
 
-output_oce_2d=yes                  # produces 1 oce file
-output_oce_3d=yes                  # produces 1 oce file
-output_oce_monitor=no              # produces 1 oce file
-output_oce_default=no              # produces 1 oce file, gets really large in R02B09!
+output_oce=yes                     # produces 1 oce file
 
 #--------------------------------------------------------------------------------------------------
 # I. coupling section
@@ -258,7 +255,7 @@ cat > coupling_${EXPNAME}.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	  xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
+          xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
    <redirect redirect_of_root="false" redirect_stdout="false"/>
    <components>
       <component id="1">
@@ -279,6 +276,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
          </transient_grid_refs>
       </component>
       <component id="2">
@@ -299,6 +297,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
          </transient_grid_refs>
       </component>
       <component id="3">
@@ -321,6 +320,7 @@ cat > coupling_${EXPNAME}.xml << EOF
       <transient id="11" transient_standard_name="river_runoff"/>
       <transient id="12" transient_standard_name="co2_mixing_ratio"/>
       <transient id="13" transient_standard_name="co2_flux"/>
+      <transient id="14" transient_standard_name="sea_level_pressure"/>
    </transients>
    <grids>
       <grid alias_name="grid1" id="1"/>
@@ -525,10 +525,32 @@ cat > coupling_${EXPNAME}.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
+         <transient_couple transient_id="14">
+            <source component_ref="1" transient_grid_ref="14"/>
+            <target transient_grid_ref="14"/>
+            <timestep>
+               <source>${atmTimeStep}</source>
+               <target>${oceTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>${oce_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="0.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
       </couple>
    </couples>
-   <created date="20-03-2018 11:54" tool="YAC-CouplingGUI v.1.3.0"/>
+   <created date="10-04-2019 17:21" tool="YAC-CouplingGUI v.1.5.1"/>
 </coupling>
+
+
+
 EOF
 
 #

@@ -134,6 +134,7 @@ CONTAINS
     IF (is_restart .AND. is_coupled_run() ) THEN
         ! Initialize 10m Wind Speed from restart file when run in coupled mode
         p_as%fu10 = p_oce_sfc%Wind_Speed_10m
+        p_as%pao = p_oce_sfc%sea_level_pressure
     ENDIF
 
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
@@ -540,6 +541,7 @@ CONTAINS
 
         ! copy atmospheric wind speed of coupling from p_as%fu10 into forcing to be written by restart
         p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+        p_oce_sfc%sea_level_pressure(:,:) = p_as%pao(:,:)
 
         start_detail_timer(timer_extra21,5)
         

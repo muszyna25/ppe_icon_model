@@ -125,6 +125,12 @@ CONTAINS
       
     ! Coupling fluxes must go into restart file:
     IF (is_coupled_run()) THEN
+  
+      CALL add_var(ocean_restart_list, 'sea_level_pressure', p_oce_sfc%sea_level_pressure, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Sea_Level_Pressure', 'Pa', 'Sea Level Pressure', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.True., in_group=groups("oce_force_essentials"))
       CALL add_var(ocean_restart_list, 'Wind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
@@ -179,7 +185,11 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE., in_group=groups("oce_force_essentials"))
 
     ELSE
-
+      CALL add_var(ocean_default_list, 'sea_level_pressure', p_oce_sfc%sea_level_pressure, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Sea_Level_Pressure', 'Pa', 'Sea Level Pressure', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
       CALL add_var(ocean_default_list, 'Wind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&

@@ -675,7 +675,7 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
 
-      CALL interface_echam_ocean( patch )
+      CALL interface_echam_ocean( patch , pt_diag )
 
       IF (ltimer) CALL timer_stop(timer_coupling)
     END IF
