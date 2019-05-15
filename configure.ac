@@ -149,7 +149,7 @@ AC_ARG_WITH([external-tixi],
 
 AC_ARG_WITH([external-self],
   [AC_HELP_STRING([--with-external-self],
-     [use external self library @<:@default=no@:>@])], [],
+     [use external SELF library @<:@default=no@:>@])], [],
   [with_external_self=no])
 
 ACX_BUILD_ENVIRONMENT
@@ -972,7 +972,7 @@ accordingly])])
       BUNDLED_LIBS="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([with_external_self], [yes],
-  [AC_MSG_CHECKING([whether Fortran self 0.2 library is available])
+  [AC_MSG_CHECKING([whether Fortran SELF 0.2 library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use self_object
       use self_vector_ref
@@ -984,15 +984,15 @@ AS_VAR_IF([with_external_self], [yes],
       call a%init()]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using self 0.2 dnl
-library: either use the bundled version of self (--without-external-self) dnl
+      AC_MSG_FAILURE([unable to link a test program using SELF 0.2 dnl
+library: either use the bundled version of SELF (--without-external-self) dnl
 or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
   [icon_subdir_srcdir="$srcdir/externals/self"
    icon_subdir_unique_file="src/self_object.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the bundled version of self dnl
+     [AC_MSG_ERROR([unable to find sources of the bundled version of SELF dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
-external version of self (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
+external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/self],
      [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],

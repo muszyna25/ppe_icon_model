@@ -1386,7 +1386,7 @@ Optional Packages:
                           enabled) [default=no]
   --with-external-tixi    use external TIXI library (when ART is enabled)
                           [default=no]
-  --with-external-self    use external self library [default=no]
+  --with-external-self    use external SELF library [default=no]
 
 Some influential environment variables:
   BUILD_ENV   initialization code to set up the building environment (must end
@@ -6089,8 +6089,8 @@ fi
 fi
 
 if test "x$with_external_self" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran self 0.2 library is available" >&5
-$as_echo_n "checking whether Fortran self 0.2 library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran SELF 0.2 library is available" >&5
+$as_echo_n "checking whether Fortran SELF 0.2 library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -6112,7 +6112,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using self 0.2 library: either use the bundled version of self (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using SELF 0.2 library: either use the bundled version of SELF (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
@@ -6121,7 +6121,7 @@ else
   icon_subdir_srcdir="$srcdir/externals/self"
    icon_subdir_unique_file="src/self_object.f90"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the bundled version of self library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of self (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+  as_fn_error $? "unable to find sources of the bundled version of SELF library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       acx_config_subdir_args_externals_self=
    acx_config_subdir_ignore_arg=no
