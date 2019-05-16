@@ -1204,9 +1204,9 @@ echam\_rad\_config(jg)\% \newline irad\_o3 & I & 0 & &
 Selects source for concentration of O3 \\
 0: set to zero (or epsilon) \\
 1: from tracer \\
-2: 3-dim concentration, climatological annual cycle, monthly means from an annual file \\
-4: 3-dim concentration, constant in time, 1st time slice file \\
-8: 3-dim concentration, time dependent, monthly means from yearly files &
+2: 3-dim concentration, climatological annual cycle, monthly means from an annual file bc\_ozone\_picontrol.nc\\
+4: 3-dim concentration, constant in time, 1st time slice file bc\_ozone\_picontrol.nc\\
+8: 3-dim concentration, time dependent, monthly means from yearly files bc\_ozone\_historical\_<year>.nc&
 echam\_phy\_config(jg)\% \newline dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% \newline irad\_o2 & I & 2 & &
@@ -4989,16 +4989,20 @@ C(:)&\'' \''& &
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
-
+\hline
 \textbf{operation }&
 C&None& &
- Choose \texttt{"mean"} for generating time averaged output for the
- given list of variables or groups. The corresponding interval is
- the \texttt{output\_interval}. Supported are 2D and 3D fields on 
- model levels of the atmosphere and land model. Any other value than 
- \texttt{mean} will be ignored.
+ Use this variable for internal diagnostics applied on all given
+ output variables or groups except time-constant ones: \texttt{mean}
+ for generating time averaged, \texttt{square} for time averaged
+ square values, \texttt{max} or \texttt{min} for maximum and minimum
+ values within the corresponding interval, i.e.
+ \texttt{output\_interval}.  \\Supported are 2D, 3D and single values
+ like global means on model levels of all components. All operations
+ can be used on global and nested grids.
 &
 \tabularnewline
+\hline
 
 %\hline
  pe\_placement\_il &

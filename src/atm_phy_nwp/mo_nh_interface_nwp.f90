@@ -132,7 +132,8 @@ CONTAINS
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
                             & pt_prog,                             & !inout
-                            & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
+                            & pt_prog_now_rcf,                     & !inout
+                            & pt_prog_rcf,                         & !inout                            
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend, lnd_diag,    & !inout
                             & lnd_prog_now, lnd_prog_new,          & !inout

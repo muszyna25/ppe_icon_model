@@ -87,7 +87,7 @@ MODULE mo_advection_vflux
                                     get_glob_proc0, comm_lev
 #ifdef _OPENACC
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
-  USE mo_mpi,                 ONLY: i_am_accel_node
+  USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
 #endif
   USE mo_timer,               ONLY: timer_adv_vert, timer_start, timer_stop
 
@@ -156,6 +156,9 @@ CONTAINS
     &                      p_iubc_adv, p_iadv_slev, lprint_cfl, p_upflux,     &
     &                      opt_topflx_tra, opt_q_int, opt_rlstart, opt_rlend  )
 
+   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_vflux: vert_upwind_flux'
+
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is 
       &  p_patch                             !< performed
 
@@ -221,6 +224,10 @@ CONTAINS
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
 
+#ifdef _OPENACC
+    LOGICAL  :: save_i_am_accel_node
+#endif
+
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_mflx_contra_v
 #endif
@@ -269,6 +276,17 @@ CONTAINS
 
         iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
+#ifdef _OPENACC
+! In GPU mode, copy data to HOST and perform upwind_vflux_ppm there, then update device
+! NOTE: this is only for testing; use upwind_vflux_ppm4gpu for performance
+        WRITE(message_text,'(a)') 'GPU mode: performing upwind_vflux_ppm on host; for performance use upwind_vflux_ppm4gpu'
+        CALL message(TRIM(routine),message_text)
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_cellhgt_mc_now, p_cellmass_now  ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( opt_topflx_tra(:,:,jt) ), IF( i_am_accel_node .AND. acc_on .AND. PRESENT(opt_topflx_tra ) )
+        save_i_am_accel_node = i_am_accel_node
+        i_am_accel_node = .FALSE.                  ! deactivate GPUs throughout upwind_vflux_ppm
+#endif
         ! CALL third order PPM (unrestricted timestep-version) (i.e. CFL>1)
         CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
           &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
@@ -280,6 +298,10 @@ CONTAINS
           &                  opt_ti_slev=iadv_min_slev,                    &! in
           &                  opt_rlstart=opt_rlstart,                      &! in
           &                  opt_rlend=i_rlend_c                           )! in
+#ifdef _OPENACC
+        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
+!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
+#endif
 
       CASE( ippm4gpu_v )
 
@@ -410,14 +432,14 @@ CONTAINS
 
 
 !$ACC DATA CREATE( zparent_topflx ), PCOPYIN( p_cc, p_mflx_contra_v ), PCOPYOUT( p_upflux ), &
-!$ACC PRESENT( advection_config ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: zparent_topflx
 #endif
-#ifdef _OPENACC
+
 !$ACC UPDATE DEVICE( p_cc, p_mflx_contra_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-#endif
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -470,9 +492,8 @@ CONTAINS
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev+1, nlev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           ! calculate vertical tracer flux
           p_upflux(jc,jk,jb) =                                  &
@@ -815,11 +836,6 @@ CONTAINS
           &  'jk_int_m, z_cflfrac_p, z_cflfrac_m, max_cfl_blk  failed '    )
       ENDIF
     END IF
-
-#ifdef _OPENACC
-    PRINT *, "Sorry: upwind_vflux_ppm not yet available for OpenACC"
-    IF ( .FALSE. ) THEN
-#endif
 
 !$OMP PARALLEL
 
@@ -1434,10 +1450,6 @@ CONTAINS
     ENDIF
 
 
-#ifdef _OPENACC
-! OpenACC is not available.  Skipping entire routine
-    ENDIF
-#else
     !
     ! If desired, print maximum vertical CFL number
     !
@@ -1471,7 +1483,6 @@ CONTAINS
       ENDIF
 
     END IF
-#endif
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays
@@ -1668,7 +1679,7 @@ CONTAINS
       &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core 
 
     REAL(wp) ::   &                      !< auxiliaries for optimization
-      &  zfac, zfac_n(nproma), zgeo1, zgeo2, zgeo3, zgeo4
+      &  zfac, zfac_m1, zgeo1, zgeo2, zgeo3, zgeo4
 
     REAL(wp) :: rdtime                   !< 1/dt
 
@@ -1677,6 +1688,9 @@ CONTAINS
 
     ! inverse of time step for computational efficiency
     rdtime = 1._wp/p_dtime
+
+!$ACC UPDATE DEVICE( p_cc, p_cellhgt_mc_now, p_cellmass_now, p_mflx_contra_v, p_upflux ), &
+!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1741,7 +1755,6 @@ CONTAINS
     i_startblk = p_patch%cells%start_block(i_rlstart)
     i_endblk   = p_patch%cells%end_block(i_rlend)
 
-
     IF ( ld_compute ) THEN
       !
       ! allocate field for storing the density weighted Courant number 
@@ -1750,14 +1763,19 @@ CONTAINS
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation for z_cfl failed')
       ENDIF
+!$ACC ENTER DATA CREATE( z_cfl ),  IF( i_am_accel_node .AND. acc_on )
     END IF
+
+!$ACC DATA CREATE( z_face, z_face_up, z_face_low, z_slope, z_delta_q, z_a1 ), &
+!$ACC      PCOPYIN( p_cc, p_cellhgt_mc_now, p_cellmass_now ), PCOPY( p_mflx_contra_v, p_upflux ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
 
 
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,ikp1,ikp2,  &
 !$OMP            jks,z_mass,p_cc_min,p_cc_max,jk_shift,js,n,   &
-!$OMP            z_iflx,z_delta_q,z_a1,zfac,zfac_n,            &
+!$OMP            z_iflx,z_delta_q,z_a1,zfac,zfac_m1,           &
 !$OMP            zgeo1,zgeo2,zgeo3,zgeo4,z_q_int,z_slope,      &
 !$OMP            wsign,z_cflfrac,z_face,z_face_up,z_face_low  ) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -1769,11 +1787,16 @@ CONTAINS
       ! The contravariant mass flux should never exactly vanish
       !
       IF (l_out_edgeval) THEN
+!$ACC PARALLEL  IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, elev
-          p_mflx_contra_v(i_startidx:i_endidx,jk,jb) =                            &
-          &              p_mflx_contra_v(i_startidx:i_endidx,jk,jb)               &
-          &              + SIGN(dbl_eps,p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
+          DO jc = i_startidx, i_endidx
+            p_mflx_contra_v(jc,jk,jb) =                            &
+          &              p_mflx_contra_v(jc,jk,jb)               &
+          &              + SIGN(dbl_eps,p_mflx_contra_v(jc,jk,jb))
+          ENDDO
         ENDDO
+!$ACC END PARALLEL
       ENDIF
 
       !
@@ -1784,12 +1807,16 @@ CONTAINS
       IF (ld_compute) THEN
 
         ! initialize Courant number
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
         z_cfl(i_startidx:i_endidx,slev_ti:nlevp1,jb) = 0._wp
+!$ACC END KERNELS
 
 
         ! Split density-weighted Courant number into integer and fractional 
         ! part and store the sum in z_cfl (for w>0 and w<0)
         !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( z_mass, jks ) COLLAPSE(2)
         DO jk = slevp1_ti, elev
           DO jc = i_startidx, i_endidx
 
@@ -1840,6 +1867,7 @@ CONTAINS
 
           ENDDO  ! jc
         ENDDO  ! jk
+!$ACC END PARALLEL
 
       END IF ! ld_compute
 
@@ -1849,20 +1877,23 @@ CONTAINS
       ! 2. Compute monotonized slope
       !
 
-      ! Initialize z_slope and zfac_n for jk=slev
+      ! Initialize z_slope for jk=slev
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
       z_slope(i_startidx:i_endidx,slev) = 0._wp
-      zfac_n(i_startidx:i_endidx) = 1._wp/(p_cellhgt_mc_now(i_startidx:i_endidx,slevp1,jb) &
-        &                         + p_cellhgt_mc_now(i_startidx:i_endidx,slev,jb))         &
-        &                         * (p_cc(i_startidx:i_endidx,slevp1,jb) - p_cc(i_startidx:i_endidx,slev,jb))
+!$ACC END KERNELS
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, zfac_m1, zfac, p_cc_min, p_cc_max ) COLLAPSE(2)
       DO jk = slevp1, nlev
-
-        ! index of top half level
-        ikm1    = jk - 1
-        ! index of bottom half level
-        ikp1    = MIN( jk+1, nlev )
-
         DO jc = i_startidx, i_endidx
+          ! index of top half level
+          ikm1    = jk - 1
+          ! index of bottom half level
+          ikp1    = MIN( jk+1, nlev )
+
+          zfac_m1 = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikm1,jb)) &
+            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
+
           zfac = 1._wp / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
             &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
@@ -1870,9 +1901,7 @@ CONTAINS
             &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)                      &
             &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                                 &
             &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) * zfac    &
-            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb)) * zfac_n(jc))
-
-          zfac_n(jc) = zfac
+            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb)) * zfac_m1 )
 
           ! equivalent formulation of Colella and Woodward (1984) slope limiter 
           ! following Lin et al (1994).
@@ -1885,9 +1914,6 @@ CONTAINS
 
         END DO  ! jc
       END DO  ! jk
-
-
-
 
       !
       ! 3. reconstruct face values at vertical half-levels
@@ -1902,6 +1928,7 @@ CONTAINS
       ! for faces k=slev and k=nlevp1 a zero gradient condition is assumed and the
       ! face values are set to the tracer values of the corresponding cell centers
       !
+!$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx
 
         z_face(jc,slevp1) = p_cc(jc,slev,jb)*(1._wp - (p_cellhgt_mc_now(jc,slev,jb)   &
@@ -1921,17 +1948,19 @@ CONTAINS
         z_face(jc,nlevp1) = p_cc(jc,nlev,jb)
 
       ENDDO
+!$ACC END PARALLEL
 
-
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, ikp2, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
       DO jk = slevp1, nlev-2
-
-        ! index of top half level
-        ikm1 = jk - 1
-        ! index of bottom half level
-        ikp1 = jk + 1
-        ikp2 = jk + 2
-
         DO jc = i_startidx, i_endidx
+
+          ! index of top half level
+          ikm1 = jk - 1
+          ! index of bottom half level
+          ikp1 = jk + 1
+          ikp2 = jk + 2
+
           zgeo1 = p_cellhgt_mc_now(jc,jk,jb)                                         &
             &   / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
           zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
@@ -1951,7 +1980,7 @@ CONTAINS
 
         END DO
       END DO
-
+!$ACC END PARALLEL
 
 
       !
@@ -1977,12 +2006,17 @@ CONTAINS
       IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
         ! simply copy face values to 'face_up' and 'face_low' arrays
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( ikp1 ) COLLAPSE(2)
         DO jk = slev, nlev
-          ! index of bottom half level
-          ikp1 = jk + 1
-          z_face_up(i_startidx:i_endidx,jk)  = z_face(i_startidx:i_endidx,jk)
-          z_face_low(i_startidx:i_endidx,jk) = z_face(i_startidx:i_endidx,ikp1)
+          DO jc = i_startidx, i_endidx
+            ! index of bottom half level
+            ikp1 = jk + 1
+            z_face_up(jc,jk)  = z_face(jc,jk)
+            z_face_low(jc,jk) = z_face(jc,ikp1)
+          ENDDO
         ENDDO
+!$ACC END PARALLEL
 
       ENDIF
 
@@ -1999,23 +2033,27 @@ CONTAINS
       !     z_delta_q = 0.5*\Delta q
       !     z_a1 = 1/6*a_6
       !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, nlev
         DO jc = i_startidx, i_endidx
           z_delta_q(jc,jk) = 0.5_wp * (z_face_up(jc,jk) - z_face_low(jc,jk))
           z_a1(jc,jk)      = p_cc(jc,jk,jb) - 0.5_wp*(z_face_up(jc,jk) + z_face_low(jc,jk))
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
 
       !
       ! 5b. First compute the fractional fluxes for all cell faces.
       !     For cell faces with CFL>1, integer fluxes will be added lateron.
       !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( ikm1, js, z_cflfrac, jks, wsign, z_q_int ) COLLAPSE(2)
       DO jk = slevp1, elev
 
-        ikm1 = jk-1
-
         DO jc = i_startidx, i_endidx
+          ikm1 = jk-1
           ! get integer shift (always non-negative)
           js = FLOOR(ABS(z_cfl(jc,jk,jb)))
 
@@ -2049,12 +2087,14 @@ CONTAINS
         ENDDO
 
       ENDDO ! end loop over vertical levels
-
+!$ACC END PARALLEL
 
 
       !
       ! 5c. Now compute the integer fluxes and add them to the fractional flux
       !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( js, z_iflx, jk_shift ) COLLAPSE(2)
       DO jk = slevp1, elev
 
         DO jc = i_startidx, i_endidx
@@ -2095,7 +2135,7 @@ CONTAINS
           p_upflux(jc,jk,jb) = p_upflux(jc,jk,jb) + z_iflx*rdtime
         ENDDO  ! jc
       ENDDO ! jk
-
+!$ACC END PARALLEL
 
 
       !
@@ -2113,11 +2153,14 @@ CONTAINS
       ! If desired, get edge value of advected quantity 
       IF ( l_out_edgeval ) THEN
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, nlev
           DO jc = i_startidx, i_endidx
             p_upflux(jc,jk,jb) = p_upflux(jc,jk,jb)/p_mflx_contra_v(jc,jk,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
       ENDIF
 
@@ -2137,11 +2180,12 @@ CONTAINS
     ENDIF
 
 
-
+#ifndef _OPENACC
+! These diagnostics are not viable on GPU
     !
     ! If desired, print maximum vertical CFL number
     !
-    IF ( ld_compute .AND. msg_level >= 10 .AND. lprint_cfl) THEN
+    IF ( ld_compute .AND. msg_level >= 10 .AND. lprint_cfl ) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,abs_cfl)
@@ -2190,16 +2234,20 @@ CONTAINS
       ENDIF
 
     END IF
+#endif
 
+!$ACC END DATA
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays
+!$ACC EXIT DATA DELETE( z_cfl ) IF( i_am_accel_node .AND. acc_on )
       DEALLOCATE( z_cfl, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation for z_cfl failed' )
       ENDIF
     END IF
 
+!$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
   END SUBROUTINE upwind_vflux_ppm4gpu
 
@@ -2250,12 +2298,12 @@ CONTAINS
     ! 
     SELECT CASE (iubc_adv)
       CASE ( ino_flx )     ! no flux
-!$ACC KERNELS
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = 0._wp
 !$ACC END KERNELS
  
       CASE ( izero_grad )  ! zero gradient
-!$ACC KERNELS
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = upflx_top_p1(i_start:i_end)      &
             &           * mflx_top(i_start:i_end)                   &
             &           / ( mflx_top_p1(i_start:i_end)              &
@@ -2263,7 +2311,7 @@ CONTAINS
 !$ACC END KERNELS
 
       CASE ( iparent_flx ) ! interpolated flux from parent grid
-!$ACC KERNELS
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = parent_topflx(i_start:i_end)
 !$ACC END KERNELS
     END SELECT
@@ -2272,7 +2320,7 @@ CONTAINS
     ! flux at bottom boundary
     !
     IF ( llbc_adv ) THEN
-!$ACC KERNELS
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
       upflx_bottom(i_start:i_end) = 0._wp
 !$ACC END KERNELS
     END IF

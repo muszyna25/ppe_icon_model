@@ -21,7 +21,7 @@ SUBROUTINE lcariolle_init(                            &
          & open_file,        close_file,              &
          & read_3d_var,      read_1d_var,             &
          & get_constants                              )
-USE mo_lcariolle_kind,         ONLY: wp,wi
+USE mo_lcariolle_kind,         ONLY: wp
 USE mo_lcariolle_types,        ONLY: &
      & nlatx,nlevx,nmonthx, & !< number of latitudes, levels, months in climatology
      & pvi                !< derived types: pvi (inside Cariolle),

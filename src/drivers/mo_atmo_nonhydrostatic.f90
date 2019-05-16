@@ -118,7 +118,7 @@ USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
@@ -608,7 +608,7 @@ CONTAINS
         jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
-      CALL init_mean_stream(p_patch(1))
+      CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -780,7 +780,7 @@ CONTAINS
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
-      CALL finish_mean_stream()
+      CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN

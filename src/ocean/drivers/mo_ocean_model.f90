@@ -26,7 +26,7 @@ MODULE mo_ocean_model
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -104,7 +104,7 @@ MODULE mo_ocean_model
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
@@ -164,6 +164,7 @@ MODULE mo_ocean_model
 
     !-------------------------------------------------------------------
     IF (isRestart() .OR. initialize_fromRestart) THEN
+      ocean_initFromRestart_OVERRIDE = initialize_fromRestart
       ! This is an resumed integration. Read model state from restart file(s).
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(1) )
       CALL message(TRIM(method_name),'normal exit from read_restart_files')
@@ -296,7 +297,7 @@ MODULE mo_ocean_model
 
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
-      CALL finish_mean_stream()
+      CALL finish_statistics_streams
     ENDIF
 
     CALL destruct_icon_communication()
@@ -649,7 +650,7 @@ MODULE mo_ocean_model
         jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
-      CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
+      CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)
       CALL create_vertical_axes(output_file)

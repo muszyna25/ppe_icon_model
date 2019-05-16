@@ -105,8 +105,8 @@ MODULE mo_psrad_radiation
 
     TYPE(t_patch),           INTENT(in) :: p_patch
     TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
-         &                                 current_datetime       !< current time step
-    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW radiative transfer calculation has to be done at current time step
+         &                                 current_datetime      !< current date and time
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if SW rad. transfer calculation has to be done at current time step
     REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
          &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
@@ -272,7 +272,7 @@ MODULE mo_psrad_radiation
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = tsi/dist_sun**2 * fsolrad
+      psctm(jg) = tsi/dist_sun**2 * fsolrad
       ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
@@ -513,7 +513,7 @@ MODULE mo_psrad_radiation
       & patch,                                                              &
       & irad_aero     ,klev                                                ,& 
       & ktype                                                              ,&
-      & psctm, ssi_factor,                                                  &
+      & psctm(jg)       ,ssi_factor                                        ,&
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
@@ -732,13 +732,27 @@ MODULE mo_psrad_radiation
     ! --- gases
     !
     ! CO2: use CO2 tracer only if the CO2 index is in the correct range
-    jtrc=MIN(ico2,ntracer)
+    IF (ico2>0) THEN 
+        jtrc=MIN(ico2,ntracer)
     mmr = vmr_co2 * amco2/amd
     xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
          &                            gas_mmr      = mmr,                 &
          &                            gas_scenario = ghg_co2mmr,          &
          &                            gas_val      = xm_trc(:,:,jtrc),    &
          &                            gas_factor   = frad_co2)
+
+
+    ELSE
+
+    mmr = vmr_co2 * amco2/amd
+    xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
+         &                            gas_mmr      = mmr,                 &
+         &                            gas_scenario = ghg_co2mmr,          &
+         &                            gas_factor   = frad_co2)
+
+
+
+    ENDIF
 
     mmr = vmr_ch4 * amch4/amd
     xm_ch4(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_ch4, xm_dry,   &
