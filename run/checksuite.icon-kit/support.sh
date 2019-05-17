@@ -233,7 +233,8 @@ cat > job_ICON << ENDFILE
 #SBATCH --ntasks-per-node=20
 #SBATCH --partition=$4
 
-export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/pfs/imk/ICON/LIBRARIES_IFORT16/grib-api/lib
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
+export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
 
 $5 
 

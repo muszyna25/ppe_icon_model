@@ -1126,8 +1126,7 @@ case "$ac_sitename" in
                              ZLIBROOT    = /usr
                              MPIROOT     = /software/all/mpi/openmpi/3.0_intel_19.0
                              XML2ROOT    = /usr
-                             GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
-                             GRIB_API = /pfs/imk/ICON/LIBRARIES_IFORT16/grib-api
+                             ECCODES     = /software/community/ICON/lib/eccodes/2.12.0_ifort19
                              MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                              CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF2
                              STD_FLAGS = $STD_FLAGS -standard-semantics               
