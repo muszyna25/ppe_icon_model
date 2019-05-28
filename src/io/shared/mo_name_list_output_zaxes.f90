@@ -68,7 +68,6 @@ MODULE mo_name_list_output_zaxes
     &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
-  USE mo_vertical_coord_table,              ONLY: vct
   USE mo_math_utilities,                    ONLY: set_zlev, t_value_set
   USE mo_run_config,                        ONLY: num_lev
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis, t_verticalAxisList

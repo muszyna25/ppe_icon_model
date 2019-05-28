@@ -1798,7 +1798,7 @@ filetype=2
 \tabularnewline
 
 %\hline
-significanceOfReference- Time &
+significanceOfReferenceTime &
 I& 1& &
 Significance of reference time\\
 - GRIB2 code table 1.2 &
@@ -1814,7 +1814,7 @@ filetype=2
 \tabularnewline
 
 %\hline
-typeOfGeneratingPro- cess&
+typeOfGeneratingProcess&
 I& -1 & &
 Type of generating process \\
 - GRIB2 code table 4.3 &
@@ -1838,7 +1838,7 @@ filetype=2
 \tabularnewline
 
 %\hline
-localNumberOfExperi- ment&
+localNumberOfExperiment&
 I& 1 & &
 local Number of Experiment &
 filetype=2
@@ -1850,6 +1850,14 @@ I& -1 & &
 Local definiton for ensemble products
 (only set if value changed from default) &
 filetype=2
+\tabularnewline
+
+typeOfGrib2TileTemplate&
+C& ``DWD'' &&
+type of GRIB2 templates which are used for decoding tiled surface fields\\
+WMO: official WMO templates (55, 59)\\
+DWD: local DWD templates (40455, 40456)&
+filetype = 2
 \tabularnewline
 
 lspecialdate\_invar&

@@ -3120,8 +3120,11 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     ! Go over all output domains
+    !
+    ! from gribout config state
     CALL p_bcast(gribout_config(1:n_dom_out)%generatingCenter,    bcast_root, p_comm_work_2_io)
     CALL p_bcast(gribout_config(1:n_dom_out)%generatingSubcenter, bcast_root, p_comm_work_2_io)
+
       ! from extpar config state
     CALL p_bcast(i_lctype(1:n_dom_out)                          , bcast_root, p_comm_work_2_io)
 
