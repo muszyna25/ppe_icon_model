@@ -194,7 +194,7 @@ MODULE mo_nh_stepping
        &                                 getTotalSecondsTimedelta, getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -209,7 +209,7 @@ MODULE mo_nh_stepping
   USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
   USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
@@ -421,7 +421,7 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -438,7 +438,7 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
-    CALL reset_accumulation
+    CALL reset_statistics
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -451,8 +451,7 @@ MODULE mo_nh_stepping
 
     !AD: Also output special diagnostics for LES on torus
     IF (atm_phy_nwp_config(1)%is_les_phy &
-      .AND. sampl_freq_step>0 &
-      .AND. is_ls_forcing)THEN
+      .AND. sampl_freq_step>0)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -694,13 +693,8 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-
-  CALL save_convenience_pointers( )
-
-!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
-
-  CALL refresh_convenience_pointers( )
-  i_am_accel_node = .false.    ! Dectivate GPUs
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -970,7 +964,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -987,7 +981,7 @@ MODULE mo_nh_stepping
       CALL write_name_list_output(jstep)
     ENDIF
 
-    CALL reset_accumulation
+    CALL reset_statistics
 
 
     ! sample meteogram output
@@ -1162,9 +1156,8 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  CALL save_convenience_pointers( )
-!$ACC END DATA
-  CALL refresh_convenience_pointers( )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1425,7 +1418,13 @@ MODULE mo_nh_stepping
           &                  p_nh_state(jg)%metrics,        &
           &                  p_nh_state(jg)%prog(nnew(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 2)
-          
+
+
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
+
         CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1443,6 +1442,11 @@ MODULE mo_nh_stepping
           &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
           &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
           &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1468,8 +1472,14 @@ MODULE mo_nh_stepping
         ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
         ENDIF
 
         IF (itype_comm == 1) THEN
@@ -1483,11 +1493,20 @@ MODULE mo_nh_stepping
 
             ! diffusion at physics time steps
             !
+#ifdef _OPENACC
+            i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
+
+#ifdef _OPENACC
+            i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
+
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
@@ -1525,6 +1544,10 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
           CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1542,6 +1565,10 @@ MODULE mo_nh_stepping
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
             &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
           IF (iprog_aero >= 1) THEN
             
@@ -1624,6 +1651,7 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout              
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1654,7 +1682,7 @@ MODULE mo_nh_stepping
                 &                  ext_data(jg)           ,            & !in
                 &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
                 &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-                &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+                &                  p_nh_state(jg)%prog(n_new_rcf),     & !inout
                 &                  p_nh_state(jg)%diag ,               & !inout
                 &                  prm_diag  (jg),                     & !inout
                 &                  prm_nwp_tend(jg),                   &
@@ -2179,10 +2207,21 @@ MODULE mo_nh_stepping
       linit_dyn(jg) = .FALSE.
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
-      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
+      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf) THEN
+
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+         
         CALL diffusion(p_nh_state%prog(nnew(jg)), p_nh_state%diag, &
           &            p_nh_state%metrics, p_patch, p_int_state,   &
           &            dt_dyn, .FALSE.)
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.    ! Deactivate GPUs
+#endif
+
+      ENDIF
 
       IF (llast .OR. advection_config(jg)%lfull_comp) &
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in
@@ -2281,6 +2320,7 @@ MODULE mo_nh_stepping
         &                  p_patch(jgp),                       & !in
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout         
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout

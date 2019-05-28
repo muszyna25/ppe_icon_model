@@ -33,7 +33,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, ismag, iedmf
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, ismag, iedmf, iprog
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als, rd, cpd
@@ -707,7 +707,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         ENDDO
       ENDIF
 
-    CASE(igme,ismag)
+    CASE(igme,ismag,iprog)
 
 !-------------------------------------------------------------------------
 !> GME turbulence scheme

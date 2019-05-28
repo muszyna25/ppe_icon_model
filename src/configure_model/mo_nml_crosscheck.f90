@@ -27,7 +27,7 @@ MODULE mo_nml_crosscheck
     &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
+    &                              iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
@@ -442,6 +442,44 @@ CONTAINS
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
+      IF (lart) THEN
+        
+        ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
+            io3    = 0     !! O3
+            ico2   = 0     !! CO2
+            ich4   = 0     !! CH4
+            in2o   = 0     !! N2O
+
+
+        SELECT CASE (art_config(1)%iart_echam_ghg)  
+
+        CASE(1)
+            io3    = 4
+        CASE(2)
+            ico2   = 5
+        CASE(3)
+            ich4   = 6
+        CASE(4)
+            in2o   = 7
+
+        CASE(0)
+
+        CASE DEFAULT
+          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
+
+        END SELECT
+
+
+
+
+        
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
+                                     ' to ',ntracer
+        CALL message(routine,message_text)
+
+      ENDIF
+
     CASE (INWP) ! iforcing
 
       ! ** NWP physics section ** 
@@ -598,7 +636,7 @@ CONTAINS
       ENDIF
 
       IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
-        IF ( atm_phy_nwp_config(1)%inwp_turb == icosmo ) THEN
+        IF ( ANY( (/icosmo,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
@@ -972,13 +1010,13 @@ CONTAINS
     ! XML specification checks
     
     DO jg= 1,n_dom
-      IF(art_config(jg)%lart_aerosol .AND. art_config(jg%cart_aerosol_xml)=='') THEN
+      IF(art_config(jg)%lart_aerosol .AND. art_config(jg)%cart_aerosol_xml =='') THEN
         CALL finish(routine,'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_chem .AND. art_config(jg%cart_chemistry_xml)=='') THEN
+      IF(art_config(jg)%lart_chem .AND. art_config(jg)%cart_chemistry_xml =='') THEN
         CALL finish(routine,'lart_chem=.TRUE. but no cart_chemistry_xml specified')
       ENDIF
-      IF(art_config(jg)%lart_passive .AND. art_config(jg%cart_passive_xml)=='') THEN
+      IF(art_config(jg)%lart_passive .AND. art_config(jg)%cart_passive_xml =='' )THEN
         CALL finish(routine,'lart_passive=.TRUE. but no cart_passive_xml specified')
       ENDIF
     ENDDO

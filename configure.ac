@@ -1348,10 +1348,25 @@ AS_IF([test "x$enable_serialization" != "xno"],
       [
        AS_IF([test -n "${SERIALBOX2ROOT}"],
              [
-              AS_IF([test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
+              AS_IF([test -n "${SERIALBOX2_LIB}"],
                     [
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     AS_IF([test -z "${SERIALBOX2_INCLUDE}"],
+                     [
+                      SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ])
+                     ],
+                    [test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
+                    [
+                     AS_CASE([$fortran_compiler],
+                      [pgi*],
+                      [
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ],
+                      [
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      ])
                      ],
                     [
                      AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
@@ -1360,49 +1375,12 @@ AS_IF([test "x$enable_serialization" != "xno"],
                     [
                      AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
                            [
-                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-                            read -d '' my_pp_init <<EOF
-( echo "";
-  echo "Preprocessing files for serialization ...";
-  cd src/;
-  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
-  echo "Updating SHA1 ...";
-  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
-  echo "Updating headers ...";
-  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
-EOF
-                            AS_CASE([$fortran_compiler],
-                                    [gcc*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
-EOF
-],
-                            [cray*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  my_abs_include="$(realpath src/include)"
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${PP_FFLAGS} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
-EOF
-],
-                            [pgi*],
-                            [PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
-EOF
-])
-                            read -d '' my_pp_ser <<EOF
-  echo "Preprocessing files (Serialbox2) ...";
-  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\; 
-EOF
-                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
+                            ser_vars="SERIALBOX2_PPSER=\"${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py\""
+                            ser_vars="${ser_vars};my_iconppdir=\"${my_iconppdir}\""
+                            ser_vars="${ser_vars};FC=\"${FC}\""
+                            ser_vars="${ser_vars};FFLAGS=\"${FFLAGS}\""
+                            ser_vars="${ser_vars};fortran_compiler=\"${fortran_compiler}\""
+                            my_preprocess_command="${ser_vars};source scripts/serialization/preprocess.sh;serialization_init;serialization_pp"
                             make_command="${my_preprocess_command} ;$make_command;"
                             ],
                            [

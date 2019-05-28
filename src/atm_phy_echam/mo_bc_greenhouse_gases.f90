@@ -27,7 +27,7 @@
 MODULE mo_bc_greenhouse_gases
 
   USE mo_kind,               ONLY: wp, dp, i8
-  USE mo_exception,          ONLY: finish, message
+  USE mo_exception,          ONLY: finish, message, message_text
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amc11, amc12
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
@@ -127,9 +127,6 @@ CONTAINS
     INTEGER(i8) :: yearlen, yearday
     INTEGER :: iyear, iyearm, iyearp
 
-!    CHARACTER(len=32)  :: cdate, cformat
-!    CHARACTER(len=256) :: ccfc
-
     ! interpolation in time
 
     yearlen = getNoOfDaysInYearDateTime(radiation_date)*no_of_sec_in_a_day
@@ -138,11 +135,25 @@ CONTAINS
     zsecref = REAL(yearlen, dp)
     zsecnow = REAL(yearday, dp)
 
-    iyear =  radiation_date%date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
+    iyear  = radiation_date%date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
     iyearm = iyear - 1
     iyearp = iyear + 1
 
+    ! Data are allocated from 1 to ghg_no_years, thus
+    ! iyear, iyearm and iyearp shall stay within this
+    ! range
+
     IF (radiation_date%date%month <= 6) THEN     ! first half of year
+
+      IF ( iyear  < 1 .OR. iyear  > ghg_no_years .OR. &
+   &       iyearm < 1 .OR. iyearm > ghg_no_years ) THEN
+
+        WRITE (message_text,'(a,i8,a,i8,a,i8)') 'iyear ', iyear,    &
+   &                                         ' or iyearm ', iyearm, &
+   &                                         ' are out of range 1 - ', ghg_no_years
+        CALL finish('mo_bc_greenhouse_gases', message_text)
+ 
+      ENDIF
 
       zw1 = zsecnow/zsecref + 0.5_dp
       zw2 = 1.0_dp - zw1
@@ -151,7 +162,18 @@ CONTAINS
       zch4int   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearm)   )
       zn2oint   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearm)   )
       zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearm,:) )
-    ELSE                                    ! second half of year
+
+    ELSE                                         ! second half of year
+
+      IF ( iyear  < 1 .OR. iyear  > ghg_no_years .OR. &
+   &       iyearp < 1 .OR. iyearp > ghg_no_years ) THEN
+
+        WRITE (message_text,'(a,i8,a,i8,a,i8)') 'iyear ', iyear,    &
+   &                                         ' or iyearp ', iyearp, &
+   &                                         ' are out of range 1 - ', ghg_no_years
+        CALL finish('mo_bc_greenhouse_gases', message_text)
+
+      ENDIF
 
       zw2= zsecnow/zsecref - 0.5_dp
       zw1= 1.0_dp - zw2

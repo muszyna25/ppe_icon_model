@@ -44,7 +44,6 @@ INTEGER(wi)            :: inmw1_lat(NCX),inmw2_lat(NCX), &
 REAL(wp)               :: wgt1,wgt2,wp1,wp2
 INTEGER(wi)            :: iw1,iw2,ip1,ip2
 REAL(wp)               :: a3_p1,a3_p2
-REAL(wp)               :: al3(NCX,nlev)
 REAL(wp)               :: at3(0:nlatx+1,nlevx)
 
 ! calculate linear interpolation weights for latitude interpolation

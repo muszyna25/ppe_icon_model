@@ -12,7 +12,6 @@ MODULE mo_psrad_communication
 #endif
 #endif
 
-
   USE iso_c_binding,               ONLY: c_ptr
 
 #ifndef USE_PSRAD_COMMUNICATION
@@ -33,10 +32,15 @@ MODULE mo_psrad_communication
   USE mo_mpi,                      ONLY: get_mpi_work_intercomm, p_pe_work, &
                                          get_my_global_mpi_communicator
   USE yaxt,                        ONLY: xt_initialize, xt_initialized, &
-                                         xt_redist_msg, xt_redist, &
-                                         xt_redist_single_array_base_new, &
-                                         xt_redist_collection_new, &
-                                         xt_redist_delete, xt_redist_s_exchange
+                                         xt_redist, xt_redist_collection_new, &
+                                         xt_redist_p2p_ext_new, xt_redist_p2p_new, &
+                                         xt_offset_ext, xt_redist_p2p_off_new, &
+                                         xt_redist_delete, xt_redist_s_exchange, &
+                                         xt_int_kind, xt_xmap, xt_xmap_delete, &
+                                         xt_xmap_dist_dir_intercomm_new, &
+                                         xt_idxvec_new, xt_idxempty_new, &
+                                         xt_idxlist_delete, xt_idxlist
+  USE mo_communication,            ONLY: blk_no, idx_no
 #endif
 
   IMPLICIT NONE
@@ -69,20 +73,24 @@ CONTAINS
     TYPE(xt_redist), INTENT(OUT) :: exchange_redist_atmo_2_psrad
     TYPE(xt_redist), INTENT(OUT) :: exchange_redist_psrad_2_atmo
 
-    INTEGER :: alloc_cell_blocks
-    INTEGER :: shape2d(2), shape3d(3), shape3d_layer_interfaces(3)
-    INTEGER :: dt_int_2d, dt_logical_2d, dt_wp_nbndsw, dt_wp_2d, dt_wp_3d, &
-               dt_wp_3d_cfc, dt_wp_3d_layer
+    INTEGER :: i, j, dt_wp_nbndsw
 
-    TYPE(xt_redist_msg) :: redist_msg_int(1)
-    TYPE(xt_redist_msg) :: redist_msg_int_2d(1)
-    TYPE(xt_redist_msg) :: redist_msg_logical_2d(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp_nbndsw(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp_2d(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp_3d(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp_3d_cfc(1)
-    TYPE(xt_redist_msg) :: redist_msg_wp_3d_layer(1)
+    INTEGER(xt_int_kind), ALLOCATABLE :: global_index_cpy_3d_cfc(:,:)
+    INTEGER(xt_int_kind) :: n_patch_cells_g
+
+    INTEGER :: idx, blk, num_unmasked_cells
+    INTEGER, ALLOCATABLE :: offsets(:)
+    TYPE(xt_offset_ext), ALLOCATABLE :: extents_3d(:), extents_3d_layer(:), &
+                                        extents_3d_cfc(:)
+
+    TYPE(xt_idxlist) :: idxlist_1d, idxlist_2d, idxlist_3d, idxlist_3d_layer, &
+                        idxlist_3d_cfc, idxlist_empty
+
+    TYPE(xt_xmap) :: atmo_2_psrad_xmap_bcast
+    TYPE(xt_xmap) :: atmo_2_psrad_xmap_2d, psrad_2_atmo_xmap_2d
+    TYPE(xt_xmap) :: atmo_2_psrad_xmap_3d, psrad_2_atmo_xmap_3d
+    TYPE(xt_xmap) :: atmo_2_psrad_xmap_3d_layer, psrad_2_atmo_xmap_3d_layer
+    TYPE(xt_xmap) :: atmo_2_psrad_xmap_3d_cfc
 
     TYPE(xt_redist) :: atmo_2_psrad_redist_int
     TYPE(xt_redist) :: atmo_2_psrad_redist_int_2d
@@ -99,119 +107,156 @@ CONTAINS
     TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d
     TYPE(xt_redist) :: psrad_2_atmo_redist_wp_3d_layer
 
-    INTEGER :: atmo_2_psrad_send_count, atmo_2_psrad_recv_count
-    INTEGER :: psrad_2_atmo_send_count, psrad_2_atmo_recv_count
-
     INTEGER :: ierr
 
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
+    num_unmasked_cells = &
+      COUNT(p_patch%cells%decomp_info%owner_local == p_pe_work)
+    n_patch_cells_g = INT(p_patch%n_patch_cells_g, xt_int_kind)
 
-    ! shapes of data arrays
-    shape2d  = (/nproma,       alloc_cell_blocks/)
-    shape3d  = (/nproma, no_of_levels, alloc_cell_blocks/)
-    shape3d_layer_interfaces = (/nproma,no_of_levels+1,alloc_cell_blocks/)
+    ALLOCATE(global_index_cpy_3d_cfc(2 * no_of_levels, num_unmasked_cells))
+    j = 1
+    DO i = 1, p_patch%n_patch_cells
+      IF (p_patch%cells%decomp_info%owner_local(i) == p_pe_work) THEN
+        global_index_cpy_3d_cfc(1,j) = &
+          INT(p_patch%cells%decomp_info%glb_index(i), xt_int_kind)
+        j = j + 1
+      END IF
+    END DO
+    DO i = 2, 2 * no_of_levels
+      global_index_cpy_3d_cfc(i,:) = &
+        global_index_cpy_3d_cfc(1,:) + n_patch_cells_g * INT(i - 1, xt_int_kind)
+    END DO
+    idxlist_1d = xt_idxvec_new((/1/))
+    idxlist_2d = xt_idxvec_new(global_index_cpy_3d_cfc(1,:))
+    idxlist_3d = xt_idxvec_new(global_index_cpy_3d_cfc(1:no_of_levels,:))
+    idxlist_3d_layer = xt_idxvec_new(global_index_cpy_3d_cfc(1:no_of_levels+1,:))
+    idxlist_3d_cfc = xt_idxvec_new(global_index_cpy_3d_cfc(1:2 * no_of_levels,:))
+    idxlist_empty = xt_idxempty_new()
+
+    deallocate(global_index_cpy_3d_cfc);
+
+    ALLOCATE(offsets(num_unmasked_cells), &
+             extents_3d(num_unmasked_cells), &
+             extents_3d_layer(num_unmasked_cells), &
+             extents_3d_cfc(num_unmasked_cells))
+    j = 1
+    DO i = 1, p_patch%n_patch_cells
+      IF (p_patch%cells%decomp_info%owner_local(i) == p_pe_work) THEN
+        idx = idx_no(i) - 1
+        blk = blk_no(i) - 1
+        offsets(j) = i - 1
+        extents_3d(j)%start = idx + blk * nproma * no_of_levels
+        extents_3d(j)%size = no_of_levels
+        extents_3d(j)%stride = nproma
+        extents_3d_layer(j)%start = idx + blk * nproma * (no_of_levels + 1)
+        extents_3d_layer(j)%size = no_of_levels + 1
+        extents_3d_layer(j)%stride = nproma
+        extents_3d_cfc(j)%start = idx + blk * nproma * 2 * no_of_levels
+        extents_3d_cfc(j)%size = 2 * no_of_levels
+        extents_3d_cfc(j)%stride = nproma
+        j = j + 1;
+      END IF
+    END DO
+
+    IF (is_psrad) THEN
+      atmo_2_psrad_xmap_bcast = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_1d, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_2d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_2d, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_3d, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d_layer = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_3d_layer, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d_cfc = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_3d_cfc, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_2d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_2d, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_3d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_3d, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_3d_layer = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_3d_layer, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+    ELSE
+      atmo_2_psrad_xmap_bcast = &
+        xt_xmap_dist_dir_intercomm_new( &
+          MERGE(idxlist_1d, idxlist_empty, p_pe_work == 0), &
+          idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_2d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_2d, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_3d, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d_layer = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_3d_layer, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      atmo_2_psrad_xmap_3d_cfc = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_3d_cfc, idxlist_empty, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_2d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_2d, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_3d = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_3d, psrad_atm_intercomm, p_patch%comm)
+      psrad_2_atmo_xmap_3d_layer = &
+        xt_xmap_dist_dir_intercomm_new( &
+          idxlist_empty, idxlist_3d_layer, psrad_atm_intercomm, p_patch%comm)
+    END IF
 
     ! MPI data types of a single field
-    CALL MPI_Type_contiguous(shape2d(1) * shape2d(2), MPI_INTEGER, &
-                             dt_int_2d, ierr)
-    CALL MPI_Type_contiguous(shape2d(1) * shape2d(2), MPI_LOGICAL, &
-                             dt_logical_2d, ierr)
     CALL MPI_Type_contiguous(nbndsw, MPI_DOUBLE_PRECISION, &
                              dt_wp_nbndsw, ierr)
-    CALL MPI_Type_contiguous(shape2d(1) * shape2d(2), MPI_DOUBLE_PRECISION, &
-                             dt_wp_2d, ierr)
-    CALL MPI_Type_contiguous(shape3d(1) * shape3d(2) * shape3d(3), &
-                             MPI_DOUBLE_PRECISION, dt_wp_3d, ierr)
-    CALL MPI_Type_contiguous(2 * shape3d(1) * shape3d(2) * shape3d(3), &
-                             MPI_DOUBLE_PRECISION, dt_wp_3d_cfc, ierr)
-    CALL MPI_Type_contiguous(shape3d_layer_interfaces(1) * &
-                             shape3d_layer_interfaces(2) * &
-                             shape3d_layer_interfaces(3), &
-                             MPI_DOUBLE_PRECISION, dt_wp_3d_layer, ierr)
-
-    redist_msg_int(1)%rank = p_pe_work
-    redist_msg_int(1)%datatype = MPI_INTEGER
-    redist_msg_int_2d(1)%rank = p_pe_work
-    redist_msg_int_2d(1)%datatype = dt_int_2d
-    redist_msg_logical_2d(1)%rank = p_pe_work
-    redist_msg_logical_2d(1)%datatype = dt_logical_2d
-    redist_msg_wp(1)%rank = p_pe_work
-    redist_msg_wp(1)%datatype = MPI_DOUBLE_PRECISION
-    redist_msg_wp_nbndsw(1)%rank = p_pe_work
-    redist_msg_wp_nbndsw(1)%datatype = dt_wp_nbndsw
-    redist_msg_wp_2d(1)%rank = p_pe_work
-    redist_msg_wp_2d(1)%datatype = dt_wp_2d
-    redist_msg_wp_3d(1)%rank = p_pe_work
-    redist_msg_wp_3d(1)%datatype = dt_wp_3d
-    redist_msg_wp_3d_cfc(1)%rank = p_pe_work
-    redist_msg_wp_3d_cfc(1)%datatype = dt_wp_3d_cfc
-    redist_msg_wp_3d_layer(1)%rank = p_pe_work
-    redist_msg_wp_3d_layer(1)%datatype = dt_wp_3d_layer
-
-    atmo_2_psrad_send_count = MERGE(0, 1, is_psrad)
-    atmo_2_psrad_recv_count = MERGE(1, 0, is_psrad)
-    psrad_2_atmo_send_count = MERGE(1, 0, is_psrad)
-    psrad_2_atmo_recv_count = MERGE(0, 1, is_psrad)
 
     atmo_2_psrad_redist_int = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_int, redist_msg_int, psrad_atm_intercomm)
+      xt_redist_p2p_new(atmo_2_psrad_xmap_bcast, MPI_INTEGER)
     atmo_2_psrad_redist_int_2d = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_int_2d, redist_msg_int_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        atmo_2_psrad_xmap_2d, offsets, offsets, MPI_INTEGER)
     psrad_2_atmo_redist_int_2d = &
-      xt_redist_single_array_base_new( &
-        psrad_2_atmo_send_count, psrad_2_atmo_recv_count, &
-        redist_msg_int_2d, redist_msg_int_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        psrad_2_atmo_xmap_2d, offsets, offsets, MPI_INTEGER)
     atmo_2_psrad_redist_logical_2d = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_logical_2d, redist_msg_logical_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        atmo_2_psrad_xmap_2d, offsets, offsets, MPI_LOGICAL)
     psrad_2_atmo_redist_logical_2d = &
-      xt_redist_single_array_base_new( &
-        psrad_2_atmo_send_count, psrad_2_atmo_recv_count, &
-        redist_msg_logical_2d, redist_msg_logical_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        psrad_2_atmo_xmap_2d, offsets, offsets, MPI_LOGICAL)
     atmo_2_psrad_redist_wp = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp, redist_msg_wp, psrad_atm_intercomm)
+      xt_redist_p2p_new(atmo_2_psrad_xmap_bcast, MPI_DOUBLE_PRECISION)
     atmo_2_psrad_redist_wp_nbndsw = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp_nbndsw, redist_msg_wp_nbndsw, psrad_atm_intercomm)
+      xt_redist_p2p_new(atmo_2_psrad_xmap_bcast, dt_wp_nbndsw)
     atmo_2_psrad_redist_wp_2d = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp_2d, redist_msg_wp_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        atmo_2_psrad_xmap_2d, offsets, offsets, MPI_DOUBLE_PRECISION)
     psrad_2_atmo_redist_wp_2d = &
-      xt_redist_single_array_base_new( &
-        psrad_2_atmo_send_count, psrad_2_atmo_recv_count, &
-        redist_msg_wp_2d, redist_msg_wp_2d, psrad_atm_intercomm)
+      xt_redist_p2p_off_new( &
+        psrad_2_atmo_xmap_2d, offsets, offsets, MPI_DOUBLE_PRECISION)
     atmo_2_psrad_redist_wp_3d = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp_3d, redist_msg_wp_3d, psrad_atm_intercomm)
+      xt_redist_p2p_ext_new( &
+        atmo_2_psrad_xmap_3d, extents_3d, extents_3d, MPI_DOUBLE_PRECISION)
     psrad_2_atmo_redist_wp_3d = &
-      xt_redist_single_array_base_new( &
-        psrad_2_atmo_send_count, psrad_2_atmo_recv_count, &
-        redist_msg_wp_3d, redist_msg_wp_3d, psrad_atm_intercomm)
+      xt_redist_p2p_ext_new( &
+        psrad_2_atmo_xmap_3d, extents_3d, extents_3d, MPI_DOUBLE_PRECISION)
     atmo_2_psrad_redist_wp_3d_cfc = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp_3d_cfc, redist_msg_wp_3d_cfc, &
-        psrad_atm_intercomm)
+      xt_redist_p2p_ext_new( &
+        atmo_2_psrad_xmap_3d_cfc, extents_3d_cfc, extents_3d_cfc, &
+        MPI_DOUBLE_PRECISION)
     atmo_2_psrad_redist_wp_3d_layer = &
-      xt_redist_single_array_base_new( &
-        atmo_2_psrad_send_count, atmo_2_psrad_recv_count, &
-        redist_msg_wp_3d_layer, redist_msg_wp_3d_layer, &
-        psrad_atm_intercomm)
+      xt_redist_p2p_ext_new( &
+        atmo_2_psrad_xmap_3d_layer, extents_3d_layer, extents_3d_layer, &
+        MPI_DOUBLE_PRECISION)
     psrad_2_atmo_redist_wp_3d_layer = &
-      xt_redist_single_array_base_new( &
-        psrad_2_atmo_send_count, psrad_2_atmo_recv_count, &
-        redist_msg_wp_3d_layer, redist_msg_wp_3d_layer, &
-        psrad_atm_intercomm)
+      xt_redist_p2p_ext_new( &
+        psrad_2_atmo_xmap_3d_layer, extents_3d_layer, extents_3d_layer, &
+        MPI_DOUBLE_PRECISION)
 
     exchange_redist_atmo_2_psrad = &
       xt_redist_collection_new((/atmo_2_psrad_redist_int, & !< aerosol control
@@ -269,6 +314,7 @@ CONTAINS
                                  psrad_2_atmo_redist_wp_2d/), & ! surface_upwelling_nearir_flux_in_air_at_rad_time
                                psrad_atm_intercomm)
 
+    ! clean up
     CALL xt_redist_delete(atmo_2_psrad_redist_int)
     CALL xt_redist_delete(atmo_2_psrad_redist_int_2d)
     CALL xt_redist_delete(atmo_2_psrad_redist_logical_2d)
@@ -284,14 +330,23 @@ CONTAINS
     CALL xt_redist_delete(psrad_2_atmo_redist_wp_3d)
     CALL xt_redist_delete(psrad_2_atmo_redist_wp_3d_layer)
 
-    ! clean up
-    CALL MPI_Type_free(dt_wp_3d_layer, ierr)
-    CALL MPI_Type_free(dt_wp_3d_cfc, ierr)
-    CALL MPI_Type_free(dt_wp_3d, ierr)
-    CALL MPI_Type_free(dt_wp_2d, ierr)
     CALL MPI_Type_free(dt_wp_nbndsw, ierr)
-    CALL MPI_Type_free(dt_logical_2d, ierr)
-    CALL MPI_Type_free(dt_int_2d, ierr)
+
+    CALL xt_xmap_delete(atmo_2_psrad_xmap_bcast)
+    CALL xt_xmap_delete(atmo_2_psrad_xmap_2d)
+    CALL xt_xmap_delete(atmo_2_psrad_xmap_3d)
+    CALL xt_xmap_delete(atmo_2_psrad_xmap_3d_layer)
+    CALL xt_xmap_delete(atmo_2_psrad_xmap_3d_cfc)
+    CALL xt_xmap_delete(psrad_2_atmo_xmap_2d)
+    CALL xt_xmap_delete(psrad_2_atmo_xmap_3d)
+    CALL xt_xmap_delete(psrad_2_atmo_xmap_3d_layer)
+
+    CALL xt_idxlist_delete(idxlist_1d)
+    CALL xt_idxlist_delete(idxlist_2d)
+    CALL xt_idxlist_delete(idxlist_3d)
+    CALL xt_idxlist_delete(idxlist_3d_layer)
+    CALL xt_idxlist_delete(idxlist_3d_cfc)
+    CALL xt_idxlist_delete(idxlist_empty)
 
   END SUBROUTINE generate_redists
 #endif

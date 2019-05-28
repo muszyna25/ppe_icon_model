@@ -60,9 +60,8 @@ MODULE mo_art_nml
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
+  LOGICAL :: lart_psc                !< switch for computation of PSCs 
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-  INTEGER :: iart_psc                !< integer which indicates the computation of PSCs 
-                                     !  (0: no PSC, >0: compute PSCs (for the moment))
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -113,6 +112,11 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
+  INTEGER :: iart_echam_ghg          !< integer for number tracers of hard coded echam greenhouse gases
+  
+
+
+
   NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_passive,                        &
    &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
@@ -126,7 +130,7 @@ MODULE mo_art_nml
    &                lart_emiss_turbdiff,                                               &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                iart_init_passive, iart_psc
+   &                iart_init_passive, lart_psc, iart_echam_ghg
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -177,8 +181,8 @@ CONTAINS
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
+    lart_psc              = .FALSE.
     iart_chem_mechanism   = 0
-    iart_psc              = 0
     cart_vortex_init_date = ''
     cart_cheminit_file(:) = ''
     cart_cheminit_coord   = ''
@@ -215,6 +219,8 @@ CONTAINS
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
+
+    iart_echam_ghg      = 0
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -385,7 +391,7 @@ CONTAINS
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
-      art_config(jg)%iart_psc              = iart_psc
+      art_config(jg)%lart_psc              = lart_psc
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file(jg))
       art_config(jg)%cart_cheminit_coord   = TRIM(cart_cheminit_coord)
@@ -426,6 +432,9 @@ CONTAINS
 
       ! art number of tracers
       art_config(jg)%iart_ntracer        = auto_ntracer 
+
+
+      art_config(jg)%iart_echam_ghg      = iart_echam_ghg 
     ENDDO !jg
 
     !-----------------------------------------------------
