@@ -254,31 +254,103 @@ CONTAINS
     INTEGER                           :: jgp            ! parent/child patch index
     TYPE(t_grid_metadata)             :: grid_metadata(0:max_dom)
     TYPE(t_pre_patch), POINTER        :: p_single_patch => NULL()
+    INTEGER                           :: parent_grid_id(max_dom), ilev
 
     !-----------------------------------------------------------------------
 
     CALL message (routine, 'start to import patches')
 
-    ! Set some basic flow control variables on the patch
+    ! --- Set some basic flow control variables on the patch
 
     max_childdom = 0
 
     IF(n_dom_start==0) THEN
       ! The physics parent (parent of the root patch) should also be read
-      patch_pre(0)%id = 0
-      patch_pre(0)%level = start_lev-1
-      patch_pre(0)%parent_id = -1
-      patch_pre(0)%parent_child_index = 0
-      patch_pre(0)%n_childdom = 1
-      patch_pre(0)%n_chd_total = n_dom
-      patch_pre(0)%child_id(1) = 1
+      patch_pre(0)%id                  = 0
+      patch_pre(0)%level               = start_lev-1
+      patch_pre(0)%parent_id           = -1
+      patch_pre(0)%parent_child_index  = 0
+      patch_pre(0)%n_childdom          = 1
+      patch_pre(0)%n_chd_total         = n_dom
+      patch_pre(0)%child_id(1)         = 1
       DO jg = 1, n_dom
         patch_pre(0)%child_id_list(jg) = jg
       ENDDO
-      patch_pre(1)%parent_child_index = 1
+      patch_pre(1)%parent_child_index  = 1
     ELSE
-      patch_pre(1)%parent_child_index = 0
+      patch_pre(1)%parent_child_index  = 0
     ENDIF
+
+
+    ! --- Begin with reading grid meta data from file, such that we can
+    !     deduce the parent-child relationships:
+
+    CALL set_patches_grid_filename(patch_pre(n_dom_start:n_dom)%grid_filename, &
+      &                            patch_pre(n_dom_start:n_dom)%grid_filename_grfinfo)
+
+    ! nullify UUID buffer and other metadata vars
+    DO jg = n_dom_start, n_dom
+      grid_metadata(jg)%uuid_grid      = ""
+      grid_metadata(jg)%uuid_par       = ""
+      grid_metadata(jg)%grid_level     = -1
+      grid_metadata(jg)%grid_level     = -1
+    END DO
+
+    grid_level_loop: DO jg = n_dom_start, n_dom
+
+      p_single_patch => patch_pre(jg)
+      CALL read_pre_patch( jg, p_single_patch, grid_metadata(jg), lsep_grfinfo )
+
+    ENDDO grid_level_loop
+
+
+    ! --- Deduce the parent grid ID from file metadata.
+
+    ! Note: this metadata is not necessarily available in the grid
+    ! file. For reasons of backward compatibility, this check will
+    ! then be skipped.
+
+    DO jg = 1, n_dom
+
+      parent_grid_id(jg) = -1
+      
+      DO jgp = n_dom_start, n_dom
+        
+        ! perform UUID crosscheck for parent-child connectivities
+        IF ((TRIM(grid_metadata(jg)%uuid_par) == TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
+          & (LEN_TRIM(grid_metadata(jg)%uuid_par)   > 0) .AND. &
+          & (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0)) THEN
+
+          parent_grid_id(jg) = jgp
+
+        ENDIF
+      END DO
+
+      ! if we could not find the parent ID based on the meta-data: use
+      ! the namelist parameter grid_nml:dynamics_parent_grid_id as a
+      ! fallback.
+      IF (parent_grid_id(jg) == -1) THEN
+        parent_grid_id(jg) = dynamics_parent_grid_id(jg)
+      ELSE
+        ! if the user has specified a different parent ID: throw an
+        ! error.
+        IF ((parent_grid_id(jg) /= dynamics_parent_grid_id(jg)) .AND. &
+          & (dynamics_parent_grid_id(jg) > 0)) THEN
+          CALL finish(routine, "Parent grid ID for grid "//TRIM(int2string(jg,"(i0)"))//" namelist mismatch?")
+        END IF
+      END IF
+
+      ! if we still have no clue regarding the parent grid ID: throw
+      ! an error.
+      IF (parent_grid_id(jg) == -1) THEN
+        CALL finish (routine, 'Could not determine parent grid ID for grid '//TRIM(int2string(jg,"(i0)")))
+      END IF
+
+    END DO
+
+
+    ! --- Based on the previous findings, set the parent-child
+    ! --- relationship:
 
     DO jg = 1, n_dom
 
@@ -288,14 +360,14 @@ CONTAINS
         patch_pre(jg)%level = start_lev
         patch_pre(jg)%parent_id = 0
       ELSE
-        patch_pre(jg)%level = patch_pre(dynamics_parent_grid_id(jg))%level + 1
-        patch_pre(jg)%parent_id = dynamics_parent_grid_id(jg)
+        patch_pre(jg)%level = patch_pre(parent_grid_id(jg))%level + 1
+        patch_pre(jg)%parent_id = parent_grid_id(jg)
       ENDIF
 
       n_chd = 0
 
       DO jg1 = jg+1, n_dom
-        IF (jg == dynamics_parent_grid_id(jg1)) THEN
+        IF (jg == parent_grid_id(jg1)) THEN
           n_chd = n_chd + 1
           patch_pre(jg)%child_id(n_chd) = jg1
           patch_pre(jg1)%parent_child_index = n_chd
@@ -305,9 +377,13 @@ CONTAINS
       patch_pre(jg)%n_childdom = n_chd
       max_childdom = MAX(1,max_childdom,n_chd)
 
-      !
-      ! store information about vertical levels
-      !
+    END DO
+
+
+    ! --- Store information about vertical levels.
+    
+    DO jg = 1, n_dom
+
       patch_pre(jg)%nlev   = num_lev(jg)
       patch_pre(jg)%nlevp1 = num_lev(jg) + 1
 
@@ -332,8 +408,9 @@ CONTAINS
 
     ENDDO
 
-    ! Set information about total number of child domains (called recursively)
-    ! and corresponding index lists
+
+    ! --- Set information about total number of child domains
+    !     called recursively, sets corresponding index lists
 
     ! Initialization
     DO jg = 1, n_dom
@@ -352,7 +429,6 @@ CONTAINS
       ENDIF
       patch_pre(jg1)%n_chd_total = n_chd+1+n_chdc
     ENDDO
-
 
     DO jg = 1, n_dom
 
@@ -382,51 +458,35 @@ CONTAINS
 
     patch_pre(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-    CALL set_patches_grid_filename(patch_pre(n_dom_start:n_dom)%grid_filename, &
-      &                            patch_pre(n_dom_start:n_dom)%grid_filename_grfinfo)
 
-    ! nullify UUID buffer and other metadata vars
-    DO jg = n_dom_start, n_dom
-      grid_metadata(jg)%uuid_grid      = ""
-      grid_metadata(jg)%uuid_par       = ""
-      grid_metadata(jg)%grid_level     = -1
-      grid_metadata(jg)%grid_level     = -1
-    END DO
-
-    grid_level_loop: DO jg = n_dom_start, n_dom
-
-      p_single_patch => patch_pre(jg)
-      CALL read_pre_patch( jg, p_single_patch, grid_metadata(jg), lsep_grfinfo )
-
-    ENDDO grid_level_loop
-
-    ! Perform consistency checks for parent-child connectivities
+    ! --- Perform consistency checks for parent-child connectivities
     !
-    ! Note: this metadata is not necessarily available in the grid
-    ! file. For reasons of backward compatibility, this check will
-    ! then be skipped.
+    !     Note: this metadata is not necessarily available in the grid
+    !     file. For reasons of backward compatibility, this check will
+    !     then be skipped.
 
     DO jg = n_dom_start+1, n_dom
       jgp = patch_pre(jg)%parent_id
       
-      ! perform UUID crosscheck for parent-child connectivities
-      IF ((TRIM(grid_metadata(jg)%uuid_par) /= TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
-        & (LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .AND. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0)) THEN
-        IF (check_uuid_gracefully) THEN
-          IF (my_process_is_stdio()) THEN
-            CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
-          END IF
-        ELSE
-          WRITE (0,*) "parent grid UUID in child file: ", grid_metadata(jg)%uuid_par
-          WRITE (0,*) "parent grid UUID: ", grid_metadata(jgp)%uuid_grid
-          CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
-        END IF
-      ENDIF
-
       ! check matching grid root and bisection level:
       IF ((grid_metadata(jg)%grid_root  /= grid_metadata(jgp)%grid_root)  .OR.   &
         & (grid_metadata(jg)%grid_level /= (grid_metadata(jgp)%grid_level+1))) THEN
+
+        CALL message(routine, "Child grid file  : " // TRIM(patch_pre(jg)%grid_filename))
+        CALL message(routine, "Parent grid file : " // TRIM(patch_pre(jgp)%grid_filename))
         CALL finish(routine, "incorrect grid root and/or bisection level!")
+
+      END IF
+
+      ilev = patch_pre(jg)%level
+      IF (grid_metadata(jg)%grid_level /= ilev) THEN
+        CALL message  (routine, TRIM(message_text))
+        WRITE(message_text,'(a,i4,a,i4)') &
+          & 'grid_level attribute:', grid_metadata(jg)%grid_level,', B:',ilev
+        CALL message  (routine, TRIM(message_text))
+        WRITE(message_text,'(a)') &
+          & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
+        CALL finish  (routine, TRIM(message_text))
       END IF
     ENDDO
   END SUBROUTINE import_pre_patches
@@ -1230,14 +1290,6 @@ CONTAINS
     END IF
 
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_metadata%grid_level))
-    IF (grid_metadata%grid_level /= ilev) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid_level attribute:', grid_metadata%grid_level,', B:',ilev
-      CALL message  (routine, TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
-      CALL finish  (routine, TRIM(message_text))
-    END IF
 
     !--------------------------------------
     ! get number of cells, edges and vertices

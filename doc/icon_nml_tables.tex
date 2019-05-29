@@ -2006,27 +2006,22 @@ May contain the keyword \texttt{<path>} which will be substituted by
 \textbf{dynamics\_parent\_ grid\_id} &
 I(n\_dom) & $i-1$& &
 Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates no parent. &
+Indexes start at 1, an index of 0 indicates no parent.
+%
+Specification of this namelist parameter is only required if more than
+one domain is in use \emph{and} the grid files are rather old
+s.t. they do not contain a UUID attribute.
+ &
 \tabularnewline
 
 %\hline
 \textbf{radiation\_grid\_ filename} &
 C & & &
-Array of the grid filenames to be used for the radiation model.
+Grid filename to be used for the radiation model on the coarsest grid.
 Filled only if the radiation grid is different from the dycore grid.
 May contain the keyword \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}.
 & lredgrid\_phys=.TRUE.
-\tabularnewline
-
-%\hline
-\textbf{dynamics\_radiation\_g rid\_link} &
-I(n\_dom) & 1 for i=1 & &
-Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
-and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
-for each entry of the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
-Only needs to be filled when the radiation\_grid\_filename is defined. &
 \tabularnewline
 
 %\hline

@@ -185,7 +185,7 @@ CONTAINS
     ! retrieve vertical axis object
     zaxis => verticalAxisList%getEntry(icon_zaxis_type=info%vgrid)
     IF (.NOT. ASSOCIATED(zaxis)) THEN
-      WRITE (message_text,'(a,i0,a)') 'Zaxis no. ', info%vgrid,' undefined.'
+      WRITE (message_text,*) "variable '", TRIM(info%name), "' :Zaxis no. ", info%vgrid, " undefined."
       CALL finish(routine, message_text)
     END IF
     tmp_zaxisID = zaxis%cdi_id
