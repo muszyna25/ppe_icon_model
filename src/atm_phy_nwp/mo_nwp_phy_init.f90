@@ -256,7 +256,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   dz2 = 0.0_wp
   dz3 = 0.0_wp
 
-  IF ( nh_test_name == 'RCE' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zrefpres(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
@@ -387,7 +387,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
 
-        ELSE IF ( nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
+        ELSE IF ( ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) &
+      &            .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
 
           DO jc = i_startidx, i_endidx
             p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
@@ -554,18 +555,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ENDDO
     ENDDO
 
-    IF (ltestcase .AND. nh_test_name == 'RCE' .AND. &
+    IF (ltestcase .AND. ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) .AND. &
         ANY( (/ismag,iprog/) /= atm_phy_nwp_config(jg)%inwp_turb)) THEN !
-     DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        &  i_startidx, i_endidx, rl_start, rl_end)
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &  i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
           p_diag_lnd%qv_s    (jc,jb) = &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
         ENDDO
-     ENDDO
+      ENDDO
     ENDIF
 
   END IF
@@ -795,7 +796,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       tsi_radt = 1365._wp
     ENDIF  ! APE
 
-    IF ( nh_test_name == 'RCE') THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
       ssi_radt(:) = scale_fac*ssi_amip(:)
@@ -850,7 +851,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             zcdnc=zn2*1.e6_wp
           ENDIF
           prm_diag%acdnc(jc,jk,jb) = zcdnc
-          IF ( nh_test_name == 'RCE' ) THEN
+          IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
             !--- computation of reference pressure field from the reference exner field
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
@@ -859,7 +860,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           END IF
         END DO !jc
       END DO   !jk
-      IF ( nh_test_name == 'RCE') THEN
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
         ! a ref press field needs to be computed for testcases with a
         ! constant ozone.  the reference field allows the ozone to be
         ! interpolated at a restart without changing due to a changing p field.
@@ -901,7 +902,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 !          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
 !          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
 
-        IF ( nh_test_name == 'RCE' ) THEN
+        IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
           CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
             & kbdim=nproma,                                &
             & nlev_pres = nlev_o3,klev= nlev ,             &
@@ -975,7 +976,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! solar constant (W/m2)
     tsi_radt    = SUM(ssi_radt(:))
 
-    IF ( nh_test_name == 'RCE' ) THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
       tsi_radt = 0._wp
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
@@ -1061,7 +1062,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   END SELECT !inwp_radiation
 
-  IF ( nh_test_name == 'RCE' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     DEALLOCATE (zrefpres)
     DEALLOCATE (zreftemp)
     DEALLOCATE (zpres_sfc)
