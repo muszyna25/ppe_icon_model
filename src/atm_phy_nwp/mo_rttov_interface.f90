@@ -38,7 +38,7 @@ MODULE mo_rttov_interface
   USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
     &                               RTTOV_RAD_CL, RTTOV_RAD_CS
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdywidth_c
+  USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_fbk_start_c
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_nh_vert_interp,      ONLY: prepare_lin_intp, prepare_extrap, lin_intp
   USE mo_nh_vert_interp_ipz,  ONLY: z_at_plevels
@@ -330,9 +330,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! Call RTTOV library
   !
   rlstart    = grf_bdyintp_start_c
-  IF (l_limited_area .AND. (jg == 1)) THEN
-    rlstart  = grf_bdywidth_c+1
-  END IF
 
   i_startblk = p_gcp%start_block(rlstart)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
@@ -648,12 +645,12 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
   ! Define RTTOV levels
   CALL define_rttov_levels (nlev_rttov, pres_rttov)
 
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
   ! Upscaling of RTTOV input variables from compute grid to reduced grid
   i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,zdpres,zrho,qv_aux,zclc,zqc,zqcc,zqi,zqs, &
 !$OMP            zfr_land,zfr_lake,zfr_si,zdet_rate,zcon_upd)
   DO jb = i_startblk, i_endblk
@@ -898,9 +895,31 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
     ENDDO
 
   ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
+  ! Fill surface values in the boundary interpolation zone
+  IF (l_limited_area .AND. jg == 1) THEN
+
+    i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+    i_endblk   = p_gcp%end_block(grf_fbk_start_c+1)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,          &
+        i_startidx, i_endidx, grf_bdyintp_start_c, grf_fbk_start_c+1)
+
+      DO jc = i_startidx, i_endidx
+        rg_tsfc(jc,jb) = rg_temp(jc,nlev_rg,jb)
+        rg_t2m(jc,jb)  = rg_temp(jc,nlev_rg,jb)
+        rg_qv2m(jc,jb) = rg_qv  (jc,nlev_rg,jb)
+        rg_u10m(jc,jb) = 0._wp
+        rg_v10m(jc,jb) = 0._wp
+      ENDDO
+    ENDDO
+!$OMP END DO
+  ENDIF
+!$OMP END PARALLEL
 
 
   ! Compute interpolation coefficients
@@ -961,6 +980,9 @@ SUBROUTINE prepare_rttov_input(jg, jgp, nlev_rg, z_ifc, pres, dpres, temp, tot_c
 
   ! Calculate layer averages of cloud variables from vertically integrated fields
   ! The unit required by RTTOV is g/m**3 (!!)
+
+  i_startblk = p_gcp%start_block(grf_bdyintp_start_c)
+  i_endblk   = p_gcp%end_block(min_rlcell_int)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
