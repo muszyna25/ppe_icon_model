@@ -96,7 +96,7 @@ $addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTR
 ./set_builder_flags Active --builders BREEZE_intel  --list $listname
 ./set_builder_flags Active --builders BREEZE_gcc_openmp  --list $listname
 ./set_builder_flags Active --builders BREEZE_intel_openmp  --list $listname
-$addexp exp.atm_amip_noforcing_notransport_nodynamics_test --machines breeze --list $listname
+$addexp exp.ocean_WilliamsonTestCase2_Hex --machines breeze --list $listname
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------
