@@ -91,6 +91,12 @@ $addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTR
 ./rmexp exp.test_nwp_R02B04N06_multifile_restart exp.test_nwp_R02B04N06multi2 checksuite.icon-dev/check.atm_icoles_nested exp.aloy_pre04_bb --builders MISTRAL_nag --list $listname
 #-----------------------------------------------------------
 
+./set_builder_flags Active --builders BREEZE_gcc  --list $listname
+./set_builder_flags Active --builders BREEZE_nag  --list $listname
+./set_builder_flags Active --builders BREEZE_intel  --list $listname
+./set_builder_flags Active --builders BREEZE_gcc_openmp  --list $listname
+./set_builder_flags Active --builders BREEZE_intel_openmp  --list $listname
+$addexp exp.atm_amip_noforcing_notransport_nodynamics_test --machines breeze --list $listname
 #lets see the list
 ./lslist $listname
 #-----------------------------------------------------------
