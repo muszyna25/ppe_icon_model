@@ -1553,6 +1553,17 @@ CONTAINS
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
 
+    ! CMIP6
+    CALL add_var(ocean_default_list, 'mlotst', ocean_state_diag%mlotst , grid_unstructured_cell,za_surface, &
+      &          t_cf_var('mlotst', 'm', 'ocean_mixed_layer_thickness_defined_by_sigma_t', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+    ! CMIP6
+    CALL add_var(ocean_default_list, 'mlotstsq', ocean_state_diag%mlotstsq , grid_unstructured_cell,za_surface, &
+      &          t_cf_var('mlotstsq', 'm', 'square_of_ocean_mixed_layer_thickness_defined_by_sigma_t', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+
     ! heat content of liquid water
       CALL add_var(ocean_default_list, 'heat_content_liquid_water', ocean_state_diag%heat_content_liquid_water,&
        & grid_unstructured_cell, &

@@ -238,6 +238,8 @@ MODULE mo_ocean_types
       & u_vint           ,& ! barotropic zonal velocity. Unit [m*m/s]
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
+      & mlotst           ,& ! mixed layer depth [m]. (CMIP6)
+      & mlotstsq        ,& ! squared mixed layer depth [m]. (CMIP6)
       & condep           ,&! convection depth index
       & heat_content_snow ,&
       & heat_content_seaice ,&

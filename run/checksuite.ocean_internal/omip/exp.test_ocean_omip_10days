@@ -87,6 +87,20 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
 /
 &output_nml
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_max"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  operation        = "max"
+  file_interval    = "${file_interval}"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'mld'
+/
+&output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
   output_interval  = "${daily}"

@@ -497,6 +497,7 @@ CONTAINS
 
       CALL calc_fast_oce_diagnostics( patch_2d, &
           & patch_3d, &
+          & ocean_state(1), &
           & patch_3d%p_patch_1d(1)%dolic_c, &
           & patch_3d%p_patch_1d(1)%prism_thick_c, &
           & patch_3d%p_patch_1d(1)%zlev_m, &
