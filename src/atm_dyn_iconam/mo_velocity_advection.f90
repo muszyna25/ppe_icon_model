@@ -210,7 +210,7 @@ MODULE mo_velocity_advection
 #ifdef _OPENACC
 ! In validation mode, update all the needed fields on the device
     IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
-      CALL h2d_velocity_tendencies( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+      CALL h2d_velocity_tendencies( ntnd, p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
 #endif
 
     ! Limit on vertical CFL number for applying extra diffusion
@@ -776,7 +776,8 @@ MODULE mo_velocity_advection
   END SUBROUTINE velocity_tendencies
 
 #ifdef _OPENACC
-     SUBROUTINE h2d_velocity_tendencies( p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+     SUBROUTINE h2d_velocity_tendencies( ntnd, p_prog, p_diag, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+       INTEGER, INTENT(IN)                       :: ntnd
        TYPE(t_nh_prog), INTENT(INOUT)            :: p_prog
        TYPE(t_nh_diag), INTENT(INOUT)            :: p_diag
        REAL(vp), DIMENSION(:,:,:), INTENT(INOUT) :: z_w_concorr_me, z_kin_hor_e, z_vt_ie
@@ -796,8 +797,8 @@ MODULE mo_velocity_advection
        ddt_vn_adv_tmp      => p_diag%ddt_vn_adv
        ddt_w_adv_tmp       => p_diag%ddt_w_adv
 
-!$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, ddt_vn_adv_tmp, ddt_w_adv_tmp )
-!$ACC UPDATE DEVICE ( z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+!$ACC UPDATE DEVICE ( vn_tmp, w_tmp, vt_tmp, vn_ie_tmp, w_concorr_c_tmp, z_w_concorr_me, z_kin_hor_e, z_vt_ie )
+!$ACC UPDATE DEVICE ( ddt_vn_adv_tmp(:,:,:,ntnd), ddt_w_adv_tmp(:,:,:,ntnd) )
 
      END SUBROUTINE h2d_velocity_tendencies
 
@@ -819,7 +820,7 @@ MODULE mo_velocity_advection
        ddt_w_adv_tmp       => p_diag%ddt_w_adv
 
 !$ACC UPDATE HOST( z_kin_hor_e, z_vt_ie, z_w_concorr_me, vt_tmp, vn_ie_tmp, w_concorr_c_tmp ), IF( istep==1 )
-!$ACC UPDATE HOST( ddt_vn_adv_tmp, ddt_w_adv_tmp(:,:,:,ntnd) )
+!$ACC UPDATE HOST( ddt_vn_adv_tmp(:,:,:,ntnd), ddt_w_adv_tmp(:,:,:,ntnd) )
 
      END SUBROUTINE d2h_velocity_tendencies
 #endif

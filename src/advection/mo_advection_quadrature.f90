@@ -55,7 +55,6 @@ MODULE mo_advection_quadrature
   USE mo_math_constants,      ONLY: dbl_eps, eps
   USE mo_parallel_config,     ONLY: nproma
 #ifdef _OPENACC
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
 
@@ -153,10 +152,6 @@ CONTAINS
 #endif
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -189,6 +184,10 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+!$ACC DATA PCOPYIN( p_coords_dreg_v), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), COPYIN( shape_func_l ) &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y &
 !$OMP ) ICON_OMP_DEFAULT_SCHEDULE
@@ -198,10 +197,8 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE( z_x, z_y )
+!$ACC LOOP GANG VECTOR PRIVATE( z_x, z_y, z_gauss_pts_1, z_gauss_pts_2 ) COLLAPSE(2)
       DO jk = slev, elev
-
-        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -313,11 +310,6 @@ CONTAINS
 #endif
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
-!$ACC      PCOPYOUT( p_quad_vector_sum ),         &
-!$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -338,14 +330,17 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE( z_x, z_y ) 
+!$ACC DATA PCOPYIN( p_coords_dreg_v, falist), PCOPY( p_dreg_area ),   &
+!$ACC      COPYIN( shape_func_l ), PCOPYOUT( p_quad_vector_sum ),     &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,z_gauss_pts_1,z_gauss_pts_2,wgt_t_detjac,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR PRIVATE( je, jk, z_gauss_pts_1, z_gauss_pts_2 ) 
 !CDIR NODEP,VOVERTAKE,VOB
       DO ie = 1, falist%len(jb)
 
@@ -379,13 +374,12 @@ CONTAINS
         p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + wgt_t_detjac
 
       ENDDO ! ie: loop over index list
+!$ACC END PARALLEL
 
     ENDDO  ! loop over blocks
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-!$ACC END PARALLEL
 
 !$ACC UPDATE HOST( p_dreg_area, p_quad_vector_sum ), IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
@@ -467,10 +461,6 @@ CONTAINS
 
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -513,6 +503,11 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
+!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
+!$ACC      COPYIN( z_wgt, z_eta, shape_func ),                                     &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac, &
 !$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
@@ -522,10 +517,8 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
+      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ) COLLAPSE(2)
       DO jk = slev, elev
-
-        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -666,10 +659,6 @@ CONTAINS
 #endif
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
-!$ACC      CREATE( z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
    ! Check for optional arguments
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -700,6 +689,11 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
+!$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area), PCOPYOUT( p_quad_vector_sum ), &
+!$ACC      COPYIN( z_wgt, z_eta, shape_func ), CREATE( z_x, z_y ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac, &
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
@@ -724,7 +718,6 @@ CONTAINS
 
 
         ! get coordinates of the quadrature points in physical space (mapping)
-!WS: TODO:  check whether intrinsic DOT_PRODUCT is properly supported on GPU
         z_gauss_pts(ie,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
         z_gauss_pts(ie,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
         z_gauss_pts(ie,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
@@ -860,11 +853,6 @@ CONTAINS
 
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_wgt, z_eta ), &
-!$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -907,6 +895,11 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 
+!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
+!$ACC      COPYIN( z_wgt, z_eta, shape_func),                                      &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
@@ -916,10 +909,8 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
+      !$ACC LOOP GANG VECTOR PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ) COLLAPSE(2)
       DO jk = slev, elev
-
-        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -1042,7 +1033,7 @@ CONTAINS
       &  opt_elev
 
    ! local variables
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
       &  z_gauss_pts(4,2)    !< in physical space
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
@@ -1076,11 +1067,6 @@ CONTAINS
 #endif
 
   !-----------------------------------------------------------------------
-
-!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
-!$ACC      CREATE( z_wgt, z_eta ), &
-!$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1119,7 +1105,7 @@ CONTAINS
     z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
     z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
 
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
     z_eta(1:4,1) = 1._wp - eta(1:4)
     z_eta(1:4,2) = 1._wp + eta(1:4)
     z_eta(1:4,3) = 1._wp - zeta(1:4)
@@ -1130,6 +1116,11 @@ CONTAINS
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
 #endif
+
+!$ACC DATA PCOPYIN( p_coords_dreg_v ), PCOPYOUT( p_quad_vector_sum, p_dreg_area ), &
+!$ACC      COPYIN( z_wgt, z_eta, shape_func ),                                     &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
@@ -1142,10 +1133,9 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
       DO jk = slev, elev
-
         !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
           z_x(1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
@@ -1198,7 +1188,7 @@ CONTAINS
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER )
             z_quad_vector(jg,1) = wgt_t_detjac(jg)
             z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
             z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
@@ -1225,7 +1215,7 @@ CONTAINS
 
 
           ! Sum quadrature vectors over all integration points
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
           p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(:,1))
           p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(:,2))
           p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(:,3))
@@ -1251,7 +1241,7 @@ CONTAINS
 #endif
 
           ! area of departure region
-#ifdef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER)
           z_area = SUM(wgt_t_detjac(1:4))
 #else
           z_area = SUM(wgt_t_detjac(je,1:4))
@@ -1355,9 +1345,6 @@ CONTAINS
 
   !-----------------------------------------------------------------------
 
-!$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area ), PCOPYOUT( p_quad_vector_sum ), &
-!$ACC      CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y, z_wgt, z_eta ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     ! Check for optional arguments
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -1387,6 +1374,11 @@ CONTAINS
     z_eta(2,1:4) = 1._wp + eta(1:4)
     z_eta(3,1:4) = 1._wp - zeta(1:4)
     z_eta(4,1:4) = 1._wp + zeta(1:4)
+
+!$ACC DATA PCOPYIN( p_coords_dreg_v, falist ), PCOPY( p_dreg_area ), PCOPYOUT( p_quad_vector_sum ),         &
+!$ACC      COPYIN( z_wgt, z_eta, shape_func), CREATE( z_gauss_pts, wgt_t_detjac, z_quad_vector, z_x, z_y ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_coords_dreg_v, p_dreg_area ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac,&

@@ -1457,6 +1457,10 @@ MODULE mo_nh_stepping
           &                  p_nh_state(jg)%prog(nnew(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 2)
 
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
         CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1472,6 +1476,11 @@ MODULE mo_nh_stepping
           &        opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
           &        opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
           &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1569,6 +1578,10 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
           CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1584,6 +1597,10 @@ MODULE mo_nh_stepping
             &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
+
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
           IF (iprog_aero >= 1) THEN
 
@@ -2202,10 +2219,21 @@ MODULE mo_nh_stepping
       linit_dyn(jg) = .FALSE.
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
-      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
+      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf) THEN
+
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+         
         CALL diffusion(p_nh_state%prog(nnew(jg)), p_nh_state%diag, &
           &            p_nh_state%metrics, p_patch, p_int_state,   &
           &            dt_dyn, .FALSE.)
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.    ! Deactivate GPUs
+#endif
+
+      ENDIF
 
       IF (llast .OR. advection_config(jg)%lfull_comp) &
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in

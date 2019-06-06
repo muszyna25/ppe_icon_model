@@ -105,6 +105,8 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
+  !$ser verbatim USE mo_ser_iconam_echam, ONLY: serialize_iconam_input,&
+  !$ser verbatim                                serialize_iconam_output
 
   USE mo_run_config,            ONLY: lart
   USE mo_art_config,            ONLY: art_config
@@ -224,6 +226,11 @@ CONTAINS
     ! associate pointers
     field => prm_field(jg)
     tend  => prm_tend (jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_iconam_input(jg, field, tend,&
+    !$ser verbatim                   pt_int_state, p_metrics, pt_prog_old, pt_prog_old_rcf,&
+    !$ser verbatim                   pt_prog_new, pt_prog_new_rcf, pt_diag)
 
     ! The date and time needed for the radiation computation in the phyiscs is
     ! the date and time of the initial data for this step.
@@ -1100,6 +1107,11 @@ ENDIF
     IF (ltimer) CALL timer_stop(timer_p2d_sync)
     !
     !=====================================================================================
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_iconam_output(jg, field, tend,&
+    !$ser verbatim                    pt_int_state, p_metrics, pt_prog_old, pt_prog_old_rcf,&
+    !$ser verbatim                    pt_prog_new, pt_prog_new_rcf, pt_diag)
 
     NULLIFY(field)
     NULLIFY(tend)

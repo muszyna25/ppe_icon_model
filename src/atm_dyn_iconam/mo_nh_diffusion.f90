@@ -103,7 +103,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, ic, ic_capture, ishift, nshift, jk1
+    INTEGER :: jk, jb, jc, je, ic, ishift, nshift, jk1
     INTEGER :: nlev, nlevp1              !< number of full and half levels
 
     ! start index levels and diffusion coefficient for boundary diffusion
@@ -142,9 +142,10 @@ MODULE mo_nh_diffusion
 
 #ifdef _OPENACC
 ! Workaround limitations in OpenACC of updating derived types
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: vn_tmp, w_tmp, exner_tmp, theta_v_tmp
-    REAL(wp), DIMENSION(:,:,:),   POINTER  :: theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
-    REAL(vp), DIMENSION(:,:,:),   POINTER  :: vt_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER    :: vn_tmp, w_tmp, exner_tmp, theta_v_tmp
+    REAL(wp), DIMENSION(:,:,:),   POINTER    :: theta_v_ic_tmp, div_ic_tmp, hdef_ic_tmp, dwdx_tmp, dwdy_tmp
+    REAL(vp), DIMENSION(:,:,:),   POINTER    :: vt_tmp
+    REAL(vp), DIMENSION(nproma,p_patch%nlev-1:p_patch%nlev,p_patch%nblks_c) :: enh_diffu_3d
 #endif
 
     !--------------------------------------------------------------------------
@@ -279,27 +280,26 @@ MODULE mo_nh_diffusion
       ltemp_diffu = .FALSE.
     ENDIF
 
-!$ACC DATA CREATE( kh_smag_e, kh_smag_ec, u_vert, v_vert, u_cell, v_cell, z_w_v, z_temp, &
-!$ACC              z_nabla4_e, z_nabla4_e2, z_nabla2_e, z_nabla2_c, &
-!$ACC              vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, &
-!$ACC              icount, iclist, iklist, tdlist, &
-!$ACC              z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ), &
-!$ACC      COPYIN( turbdiff_config, nrdmax, diff_multfac_vn, diff_multfac_n2w, diff_multfac_smag, smag_limit, enh_smag_fac ), &
-!$ACC      PRESENT( p_patch%edges%primal_normal_vert,  p_patch%edges%dual_normal_vert, &
-!$ACC               p_patch%edges%inv_primal_edge_length, p_patch%edges%inv_dual_edge_length, &
-!$ACC               p_patch%edges%inv_vert_vert_length, p_patch%edges%tangent_orientation, &
-!$ACC               p_patch%edges%area_edge, p_patch%cells%area, &
-!$ACC               p_int%cells_aw_verts, p_int%c_lin_e, p_int%e_bln_c_s, p_int%geofac_div, &
-!$ACC               p_int%geofac_grg, p_int%geofac_n2s, p_int%nudgecoeff_e,  &
-!$ACC               p_nh_prog%exner, p_nh_prog%theta_v, p_nh_prog%vn, p_nh_prog%w, &
-!$ACC               p_nh_diag%div_ic, p_nh_diag%dwdx, p_nh_diag%dwdy, p_nh_diag%hdef_ic, &
-!$ACC               p_nh_diag%theta_v_ic, p_nh_diag%vt, &
-!$ACC               p_nh_metrics%ddqz_z_full_e, p_nh_metrics%enhfac_diffu, p_nh_metrics%wgtfac_c, &
-!$ACC               p_nh_metrics%wgtfac_e, p_nh_metrics%wgtfacq_e, p_nh_metrics%wgtfacq1_e, &
-!$ACC               p_nh_metrics%zd_blklist, p_nh_metrics%zd_e2cell, p_nh_metrics%zd_edgeidx, &
-!$ACC               p_nh_metrics%zd_edgeblk, p_nh_metrics%zd_geofac, p_nh_metrics%zd_indlist, &
-!$ACC               p_nh_metrics%zd_intcoef, p_nh_metrics%zd_vertidx, &
-!$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk  ), &
+!$ACC DATA CREATE( kh_c, kh_smag_e, kh_smag_ec, u_vert, v_vert, u_cell, v_cell, z_w_v, z_temp,               &
+!$ACC              z_nabla4_e, z_nabla4_e2, z_nabla2_e, z_nabla2_c,                                          &
+!$ACC              vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, icount,                       &
+!$ACC              z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ),                  &
+!$ACC      COPYIN( nrdmax, diff_multfac_vn, diff_multfac_n2w, diff_multfac_smag, smag_limit, enh_smag_fac ), &
+!$ACC      PRESENT( p_patch%edges%primal_normal_vert,  p_patch%edges%dual_normal_vert,                       &
+!$ACC               p_patch%edges%inv_primal_edge_length, p_patch%edges%inv_dual_edge_length,                &
+!$ACC               p_patch%edges%inv_vert_vert_length, p_patch%edges%tangent_orientation,                   &
+!$ACC               p_patch%edges%area_edge, p_patch%cells%area,                                             &
+!$ACC               p_int%cells_aw_verts, p_int%c_lin_e, p_int%e_bln_c_s, p_int%geofac_div,                  &
+!$ACC               p_int%geofac_grg, p_int%geofac_n2s, p_int%nudgecoeff_e,                                  &
+!$ACC               p_nh_prog%exner, p_nh_prog%theta_v, p_nh_prog%vn, p_nh_prog%w,                           &
+!$ACC               p_nh_diag%div_ic, p_nh_diag%dwdx, p_nh_diag%dwdy, p_nh_diag%hdef_ic,                     &
+!$ACC               p_nh_diag%theta_v_ic, p_nh_diag%vt,                                                      &
+!$ACC               p_nh_metrics%ddqz_z_full_e, p_nh_metrics%enhfac_diffu, p_nh_metrics%wgtfac_c,            &
+!$ACC               p_nh_metrics%wgtfac_e, p_nh_metrics%wgtfacq_e, p_nh_metrics%wgtfacq1_e,                  &
+!$ACC               p_nh_metrics%zd_blklist, p_nh_metrics%zd_e2cell, p_nh_metrics%zd_edgeidx,                &
+!$ACC               p_nh_metrics%zd_edgeblk, p_nh_metrics%zd_geofac, p_nh_metrics%zd_indlist,                &
+!$ACC               p_nh_metrics%zd_intcoef, p_nh_metrics%zd_vertidx, p_nh_metrics%theta_ref_mc,             &
+!$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk  ),                             &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
 
 #ifdef _OPENACC
@@ -308,7 +308,7 @@ MODULE mo_nh_diffusion
     theta_v_tmp     => p_nh_prog%theta_v
 !$ACC UPDATE DEVICE( vn_tmp, w_tmp, theta_v_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
     exner_tmp       => p_nh_prog%exner
-!$ACC UPDATE DEVICE( exner_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. l_zdiffu_t )
+!$ACC UPDATE DEVICE( exner_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. ltemp_diffu )
     vt_tmp          => p_nh_diag%vt
     theta_v_ic_tmp  => p_nh_diag%theta_v_ic
 !$ACC UPDATE DEVICE( vt_tmp, theta_v_ic_tmp ) IF ( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -656,7 +656,9 @@ MODULE mo_nh_diffusion
       ENDIF
 
       IF (p_test_run) THEN
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
         z_nabla2_e = 0._wp
+!$ACC END KERNELS        
       ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk,rl_start,rl_end)
@@ -1225,7 +1227,7 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%cells%start_block(rl_start)
       i_endblk   = p_patch%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jk,jc,jb,ic_capture,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1234,7 +1236,7 @@ MODULE mo_nh_diffusion
         ic = 0
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( tdiff, trefdiff )
         DO jk = nlev-1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1249,18 +1251,22 @@ MODULE mo_nh_diffusion
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
 
             IF (tdiff-trefdiff < thresh_tdiff .AND. trefdiff < 0._wp) THEN
-!$ACC ATOMIC CAPTURE
+#ifndef _OPENACC
               ic = ic+1
-              ic_capture = ic
-!$ACC END ATOMIC
-              iclist(ic_capture,jb) = jc
-              iklist(ic_capture,jb) = jk
-              tdlist(ic_capture,jb) = thresh_tdiff - tdiff
+              iclist(ic,jb) = jc
+              iklist(ic,jb) = jk
+              tdlist(ic,jb) = thresh_tdiff - tdiff
+#else
+      ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
+! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
+              enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff)*5.e-4_vp
+            ELSE
+              enh_diffu_3d(jc,jk,jb) = 0._vp
+#endif
             ENDIF
           ENDDO
         ENDDO
 !$ACC END PARALLEL
-
         icount(jb) = ic
 
       ENDDO
@@ -1272,9 +1278,18 @@ MODULE mo_nh_diffusion
 !$OMP MASTER
       DO jb = i_startblk,i_endblk
 
-        IF (icount(jb) > 0) THEN
+#ifdef _OPENACC
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP SEQ    ! TODO:  Test whether this loop can be GANG VECTOR, conceptually I think it should be
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        DO jk = nlev-1, nlev
+          DO je = i_startidx, i_endidx
+            kh_smag_e(je,jk,jb) = MAX(kh_smag_e(je,jk,jb), enh_diffu_3d(iecidx(je,jb,1),jk,iecblk(je,jb,1)), &
+                                      enh_diffu_3d(iecidx(je,jb,2),jk,iecblk(je,jb,2)) )
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
+#else
+        IF (icount(jb) > 0) THEN
           DO ic = 1, icount(jb)
             jc = iclist(ic,jb)
             jk = iklist(ic,jb)
@@ -1283,13 +1298,12 @@ MODULE mo_nh_diffusion
             kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)))
             kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
           ENDDO
-!$ACC END PARALLEL
         ENDIF
-
+#endif
       ENDDO
 !$OMP END MASTER
 !$OMP BARRIER
-
+      
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 
         rl_start = grf_bdywidth_c+1
@@ -1485,19 +1499,22 @@ MODULE mo_nh_diffusion
 
 #ifdef _OPENACC
     vn_tmp         => p_nh_prog%vn
-!$ACC UPDATE HOST ( vn_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     w_tmp          => p_nh_prog%w
-!$ACC UPDATE HOST ( w_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w )
     theta_v_tmp    => p_nh_prog%theta_v
+    theta_v_ic_tmp => p_nh_diag%theta_v_ic
+!$ACC UPDATE HOST ( vn_tmp, w_tmp, theta_v_tmp, theta_v_ic_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
     exner_tmp      => p_nh_prog%exner
-!$ACC UPDATE HOST ( theta_v_tmp, exner_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. l_zdiffu_t )
+!$ACC UPDATE HOST ( theta_v_tmp, exner_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. ltemp_diffu )
     div_ic_tmp     => p_nh_diag%div_ic
     hdef_ic_tmp    => p_nh_diag%hdef_ic
 !$ACC UPDATE HOST ( div_ic_tmp, hdef_ic_tmp ) &
-!$ACC   IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) )
+!$ACC   IF ( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. &
+!$ACC      (diffu_type == 3 .OR. diffu_type == 5) .AND. (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) )
     dwdx_tmp       => p_nh_diag%dwdx
     dwdy_tmp       => p_nh_diag%dwdy
-!$ACC UPDATE HOST ( dwdx_tmp, dwdy_tmp ) IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. (turbdiff_config(jg)%itype_sher >= 2) )
+!$ACC UPDATE HOST ( dwdx_tmp, dwdy_tmp ) &
+!$ACC   IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. &
+!$ACC       lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. (turbdiff_config(jg)%itype_sher >= 2) )
 #endif
 
   END SUBROUTINE diffusion
