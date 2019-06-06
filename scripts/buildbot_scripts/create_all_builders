@@ -39,11 +39,11 @@ machine=mistral
 # breeze builders
 machine=breeze
 ./addmachine $machine --list $list
-./addbuilder BREEZE_gcc           --machine $machine --configureflags="--with-fortran=gcc  --with-yaxt"                  --builderflags="build_only"  --list $list
-./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags="--with-fortran=gcc --with-openmp --with-yaxt"    --builderflags="build_only"  --list $list
-./addbuilder BREEZE_intel         --machine $machine --configureflags="--with-fortran=intel  --with-yaxt"                --builderflags="build_only"  --list $list
-./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags="--with-fortran=intel --with-openmp  --with-yaxt"  --builderflags="build_only"  --list $list
-./addbuilder BREEZE_nag           --machine $machine --configureflags="--with-fortran=nag  --with-yaxt"                  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_gcc           --machine $machine --configureflags="--with-fortran=gcc"                  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags="--with-fortran=gcc --with-openmp"    --builderflags="build_only"  --list $list
+./addbuilder BREEZE_intel         --machine $machine --configureflags="--with-fortran=intel"                --builderflags="build_only"  --list $list
+./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags="--with-fortran=intel --with-openmp"  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_nag           --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="build_only"  --list $list
 
 
 #CSCS builders
