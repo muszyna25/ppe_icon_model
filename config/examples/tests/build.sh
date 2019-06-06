@@ -21,9 +21,9 @@ if test ! -d "$art_dir" && test -d "$art_repo"; then
   git clone "$art_repo" "$art_dir"
 fi
 
-ecrad_repo='/scratch/local1/icon-extra-externals/ecrad'
+ecrad_repo='git@gitlab.dkrz.de:m300488/ecrad.git'
 ecrad_dir="$root_dir/../../../externals/ecrad"
-if test ! -d "$ecrad_dir" && test -d "$ecrad_repo"; then
+if test ! -d "$ecrad_dir"; then
   git clone "$ecrad_repo" "$ecrad_dir"
 fi
 
