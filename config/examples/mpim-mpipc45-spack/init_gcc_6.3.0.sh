@@ -64,7 +64,7 @@ CDI_FCFLAGS="-I${CDI_ROOT}/include"
 CDI_LDFLAGS="-L${CDI_ROOT}/lib"
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
-MTIME_ROOT="${SW_ROOT}/libmtime-1.0.8-wm3fygo"
+MTIME_ROOT="${SW_ROOT}/libmtime-1.0.8-p1-zwn6cyh"
 MTIME_FCFLAGS="-I${MTIME_ROOT}/include"
 MTIME_CPPFLAGS="-I${MTIME_ROOT}/include"
 MTIME_LDFLAGS="-L${MTIME_ROOT}/lib"
@@ -83,7 +83,7 @@ XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 XML2_LDFLAGS="-L${XML2_ROOT}/lib"
 XML2_LIBS='-lxml2'
 
-YAC_ROOT="${SW_ROOT}/yac-1.5.2-rc-vl4pus5"
+YAC_ROOT="${SW_ROOT}/yac-1.5.2-rc-cg6mmw7"
 YAC_FCFLAGS="-I${YAC_ROOT}/include"
 YAC_LDFLAGS="-L${YAC_ROOT}/lib"
 YAC_LIBS='-lyac'
