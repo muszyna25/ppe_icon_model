@@ -21,7 +21,7 @@ FC= @FC@
 FCFLAGS= @FCFLAGS@
 
 # Extra compiler flags:
-ICON_ANCIL_FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) -I$(srcdir)/src/include @BUNDLED_FCFLAGS@
+ICON_ANCIL_FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) @FC_INC_FLAG@$(srcdir)/src/include @FC_INC_FLAG_PP_f90@$(srcdir)/src/include @BUNDLED_FCFLAGS@
 ICON_ANCIL_CPPFLAGS= -I. @DEFS@
 ICON_OPTIM_FCFLAGS= @ICON_OPTIM_FCFLAGS@
 ICON_OPTIM_CFLAGS= @ICON_OPTIM_CFLAGS@
@@ -80,7 +80,7 @@ dirstamps= $(addsuffix .dirstamp, $(sort $(dir $(srcs) ))) $(moddir)/.dirstamp
 depfiles= $(addsuffix .d, $(srcs))
 
 # Root object file:
-rootobj:= src/drivers/icon.@OBJEXT@
+rootobj= src/drivers/icon.@OBJEXT@
 
 # Source file selective search paths:
 vpath %.f90 $(srcdir)
