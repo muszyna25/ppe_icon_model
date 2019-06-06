@@ -515,21 +515,17 @@ accordingly])])])
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
      [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openmp_flag"])
-      ACX_LANG_MACRO_CHECK_DEFINED([_OPENMP])
-      AS_VAR_IF([acx_macro_defined], [yes],
-        [ACX_LANG_MACRO_CHECK_VALUE([_OPENMP],
-           [201511 201307 201107 200805 200505])
-         AS_VAR_IF([acx_macro_value], [unknown],
-           [AC_MSG_WARN([unable to detect supported OpenMP version])
-            AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENMP"])],
-           [AS_IF([test "$acx_macro_value" -lt 201307 2>/dev/null],
-              [AC_MSG_WARN([Fortran compiler does not support OpenMP 4.0 dnl
+      ACX_LANG_MACRO_CHECK_VALUE([_OPENMP],
+         [201511 201307 201107 200805 200505 200011 199911 199710])
+      AS_VAR_IF([acx_macro_value], [unknown],
+        [AC_MSG_WARN([unable to detect supported OpenMP version])
+         AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENMP"])],
+        [AS_IF([test "$acx_macro_value" -lt 201307 2>/dev/null],
+           [AC_MSG_WARN([Fortran compiler does not support OpenMP 4.0 dnl
 (201307): it is strongly recommended to disable OpenMP support dnl
 (--disable-openmp)])])
-            AS_VAR_APPEND([DEPGEN_FCFLAGS],
-              [" ${FC_PP_DEF}_OPENMP=$acx_macro_value"])])],
-        [AC_MSG_FAILURE([Fortran compiler does not define the _OPENMP dnl
-preprocessor macro])])])],
+         AS_VAR_APPEND([DEPGEN_FCFLAGS],
+           [" ${FC_PP_DEF}_OPENMP=$acx_macro_value"])])])],
   [ACX_LANG_MACRO_CHECK_DEFINED([_OPENMP])
    AS_VAR_IF([acx_macro_defined], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
