@@ -101,7 +101,7 @@ MODULE mo_advection_vflux
   PUBLIC :: upwind_vflux_up
   PUBLIC :: upwind_vflux_ppm
   PUBLIC :: upwind_vflux_ppm4gpu
-
+  PUBLIC :: implicit_sedim_tracer
 
 #if defined( _OPENACC )
 #if defined(__ADVECTION_VFLUX_NOACC)
@@ -427,7 +427,7 @@ CONTAINS
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
     !-------------------------------------------------------------------------
 
 
@@ -469,9 +469,6 @@ CONTAINS
       i_rlend = min_rlcell_int
     ENDIF
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -481,8 +478,8 @@ CONTAINS
     ! i.e. a piecewise constant approx. of the cell centered values
     ! is used.
     !
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -658,7 +655,7 @@ CONTAINS
     INTEGER  :: ji_p, ji_m               !< loop variable for index list
     INTEGER  :: ist                      !< status variable
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
 
     INTEGER  :: nlist_max                !< maximum number of index lists
     INTEGER  :: nlist_p, nlist_m         !< list number
@@ -783,9 +780,6 @@ CONTAINS
     ! maximum number of lists
     nlist_max = advection_config(jg)%ivcfl_max
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
@@ -804,8 +798,8 @@ CONTAINS
     END IF
     elev_lim = nlev
 
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
 
 
     !
@@ -2250,6 +2244,176 @@ CONTAINS
 !$ACC UPDATE HOST( p_mflx_contra_v, p_upflux ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
   END SUBROUTINE upwind_vflux_ppm4gpu
+
+
+
+  !---------------------------------------------------------------
+  !>
+  !! Description:
+  !!   solve the vertical flux advection equation for sedimentation
+  !!   of scalar variables (a purely downward directed transport)
+  !!   with the 2-point implicit scheme described in
+  !!   COSMO Sci. doc. II, section 5.2.4.
+  !!
+  !! Method:
+  !!   index convention for the sedimentation velocity :
+  !!   v_new(i,j,k) = v(i,j,k-1/2)
+  !!   sign: v_new, v_old > 0 ! (i.e. directed downward)
+  !!
+  !!   negative values in phi_new are clipped; this destroys
+  !!   mass conservation.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2018-11-07)
+  !
+  SUBROUTINE implicit_sedim_tracer( tracer,                    &
+    &                        rho, rho_inv,                     &
+    &                        v_new, v_old,                     &
+    &                        dt,                               &
+    &                        p_patch, p_metrics,               &
+    &                        i_rlstart, i_rlend,               &
+    &                        rhoS )
+
+    USE mo_parallel_config,         ONLY: nproma
+    USE mo_nonhydro_types ,         ONLY: t_nh_metrics
+    USE mo_impl_constants_grf,      ONLY: grf_bdywidth_c
+
+    IMPLICIT NONE
+
+    REAL (wp),     INTENT(INOUT) :: tracer(:,:,:) !advected cell centered variable
+                                                       !< dim: (nproma, nlev, nblks_c)
+    REAL (wp),     INTENT(IN)  :: rho    (:,:,:)  ! mass density  (in kg/m^3)
+    REAL (wp),     INTENT(IN)  :: rho_inv(:,:,:)  ! 1/rho  (in m^3/kg)
+    REAL (wp),     INTENT(IN)  :: v_new  (:,:,:)  ! sedimentation velocity at time level n+1 (in m/s)
+    REAL (wp),     INTENT(IN)  :: v_old  (:,:,:)  ! sedimentation velocity at time level n   (in m/s)
+    REAL (wp),     INTENT(IN)  :: dt     ! time step
+
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< Patch on which computation is performed
+    TYPE(t_nh_metrics), TARGET,  INTENT(IN) :: p_metrics    !< Metrical fields
+
+    INTEGER, INTENT(IN) :: i_rlstart, i_rlend
+
+    REAL (wp), INTENT(IN), OPTIONAL :: rhoS(:,:,:)
+
+    INTEGER    :: jk, jb, jc
+    REAL (wp)  :: h, dz, c, lambda_im
+
+    REAL (wp) :: phi_old( nproma, p_patch%nlev, p_patch%nblks_c)
+    REAL (wp) :: phi_new( nproma, p_patch%nlev, p_patch%nblks_c)
+
+    INTEGER  :: i_startblk, i_endblk
+    INTEGER  :: i_startidx, i_endidx
+
+    LOGICAL :: is_rhoS_present
+
+    is_rhoS_present = PRESENT( rhoS )   ! own variable may help in vectorisation for some compilers
+
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
+
+#ifdef _OPENACC
+    PRINT *, "Sorry: implicit_sedim_tracer not yet available for OpenACC"
+    IF ( .FALSE. ) THEN
+#else
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,dz,c,lambda_im,h) ICON_OMP_GUIDED_SCHEDULE
+#endif
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,        &
+        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+
+      ! calculate densities (for the following flux advection scheme)
+      DO jk = 1, p_patch%nlev
+        DO jc = i_startidx, i_endidx
+          phi_old(jc,jk,jb) = tracer(jc,jk,jb) * rho(jc,jk,jb)
+        ENDDO ! jc
+      ENDDO ! jk
+
+      IF ( is_rhoS_present ) THEN
+
+        ! top level
+        jk = 1
+        DO jc = i_startidx, i_endidx
+
+          dz = p_metrics%z_ifc(jc,jk,jb) - p_metrics%z_ifc(jc,jk+1,jb)
+          c = dt / ( 2.0_wp * dz );
+          lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
+
+          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+
+          phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+        END DO ! jc
+
+        DO jk=2, p_patch%nlev
+          DO jc = i_startidx, i_endidx
+
+            dz = p_metrics%z_ifc(jc,jk,jb) - p_metrics%z_ifc(jc,jk+1,jb)
+            c = dt / ( 2.0_wp * dz );
+            lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
+
+            h = phi_old(jc,jk,jb) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+
+            phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+
+          END DO ! jc
+        END DO ! jk
+
+      ELSE
+
+        ! the same code as in the if-block before but without the source term rhoS:
+
+        ! top level
+        jk = 1
+        DO jc = i_startidx, i_endidx
+
+          dz = p_metrics%z_ifc(jc,jk,jb) - p_metrics%z_ifc(jc,jk+1,jb)
+          c = dt / ( 2.0_wp * dz );
+          lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
+
+          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+
+          phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+        END DO ! jc
+
+        DO jk=2, p_patch%nlev
+          DO jc = i_startidx, i_endidx
+
+            dz = p_metrics%z_ifc(jc,jk,jb) - p_metrics%z_ifc(jc,jk+1,jb)
+            c = dt / ( 2.0_wp * dz );
+            lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
+
+            h = phi_old(jc,jk,jb) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+
+            phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+          END DO ! jc
+        END DO ! jk
+
+      END IF       ! IF ( is_rhoS_present )
+
+      ! calculate back the specific mass:
+      DO jk = 1, p_patch%nlev
+        DO jc = i_startidx, i_endidx
+          tracer(jc,jk,jb) = phi_new(jc,jk,jb) * rho_inv(jc,jk,jb)
+        ENDDO ! jc
+      ENDDO ! jk
+
+    END DO   ! jb
+#ifdef _OPENACC
+    END IF
+#else
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+
+  END SUBROUTINE implicit_sedim_tracer
+
 
 
   !-------------------------------------------------------------------------

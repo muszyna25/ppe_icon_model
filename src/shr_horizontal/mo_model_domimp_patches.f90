@@ -266,13 +266,14 @@ CONTAINS
 
     IF(n_dom_start==0) THEN
       ! The physics parent (parent of the root patch) should also be read
-      patch_pre(0)%id                  = 0
-      patch_pre(0)%level               = start_lev-1
-      patch_pre(0)%parent_id           = -1
-      patch_pre(0)%parent_child_index  = 0
-      patch_pre(0)%n_childdom          = 1
-      patch_pre(0)%n_chd_total         = n_dom
-      patch_pre(0)%child_id(1)         = 1
+      patch_pre(0)%id = 0
+      patch_pre(0)%level = start_lev-1
+      patch_pre(0)%nest_level = -1
+      patch_pre(0)%parent_id = -1
+      patch_pre(0)%parent_child_index = 0
+      patch_pre(0)%n_childdom = 1
+      patch_pre(0)%n_chd_total = n_dom
+      patch_pre(0)%child_id(1) = 1
       DO jg = 1, n_dom
         patch_pre(0)%child_id_list(jg) = jg
       ENDDO
@@ -358,9 +359,11 @@ CONTAINS
 
       IF (jg == 1) THEN
         patch_pre(jg)%level = start_lev
+        patch_pre(jg)%nest_level = 0
         patch_pre(jg)%parent_id = 0
       ELSE
         patch_pre(jg)%level = patch_pre(parent_grid_id(jg))%level + 1
+        patch_pre(jg)%nest_level = patch_pre(jg)%level - patch_pre(1)%level
         patch_pre(jg)%parent_id = parent_grid_id(jg)
       ENDIF
 

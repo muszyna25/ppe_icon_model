@@ -806,6 +806,9 @@ MODULE mo_model_domain
     ! grid level
     INTEGER :: level
     !
+    ! nest level = grid level - start level
+    INTEGER :: nest_level
+    !
     ! domain ID of current domain
     INTEGER :: id
     !
@@ -1011,6 +1014,9 @@ MODULE mo_model_domain
     !
     ! grid level
     INTEGER :: level
+    !
+    ! nest level = grid level - start level
+    INTEGER :: nest_level
     !
     ! domain ID of current domain
     INTEGER :: id

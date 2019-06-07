@@ -2,7 +2,7 @@
 !! Provides interface to ART-routines dealing with washout
 !!
 !! This module provides an interface to the ART-routines.
-!! The interface is written in such a way, that ICON will compile and run 
+!! The interface is written in such a way, that ICON will compile and run
 !! properly, even if the ART-routines are not available at compile time.
 !!
 !!
@@ -35,6 +35,9 @@ MODULE mo_art_washout_interface
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_washoutInt
+  USE mo_nwp_phy_state,                 ONLY: phy_params
+  USE mo_nonhydro_state,                ONLY: p_nh_state_lists
+  USE mo_nonhydrostatic_config,         ONLY: kstart_tracer, kstart_moist
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -51,6 +54,8 @@ MODULE mo_art_washout_interface
   USE mo_art_washout_radioact,          ONLY: art_washout_radioact
   USE mo_art_washout_aerosol,           ONLY: art_aerosol_washout
   USE omp_lib
+  USE mo_art_diagnostics,               ONLY: art_save_aerosol_wet_deposition
+
 #endif
 
   IMPLICIT NONE
@@ -68,11 +73,11 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
 !>
 !! Interface for ART-routines dealing with washout
 !!
-!! This interface calls the ART-routines, if ICON has been 
-!! built including the ART-package. Otherwise, this is simply a dummy 
+!! This interface calls the ART-routines, if ICON has been
+!! built including the ART-package. Otherwise, this is simply a dummy
 !! routine.
 !!
-  TYPE(t_nh_prog), TARGET, INTENT(inout) :: & 
+  TYPE(t_nh_prog), TARGET, INTENT(inout) :: &
     &  pt_prog                           !< Prognostic variables
   TYPE(t_nh_diag), TARGET, INTENT(inout) :: &
     &  pt_diag                           !< Diagnostic variables
@@ -87,7 +92,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< Tracer mixing ratios [kg/kg]
   ! Local Variables
-  INTEGER                 :: & 
+  INTEGER                 :: &
     &  jg, jb, ijsp,         & !< patch id, counter for block loop, conuter for jsp loop
     &  i_startblk, i_endblk, & !< Start and end of block loop
     &  istart, iend,         & !< Start and end of nproma loop
@@ -99,13 +104,16 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  rho(:,:,:)              !< Pointer to air density [kg m-3]
   REAL(wp),ALLOCATABLE    :: &
     &  wash_rate_m0(:,:),    & !< Washout rates [# m-3 s-1]
-    &  wash_rate_m3(:,:)       !< Washout rates [UNIT m-3 s-1], UNIT might be mug, kg
+    &  wash_rate_m3(:,:),    & !< Washout rates [UNIT m-3 s-1], UNIT might be mug, kg
+    &  rain_con_rate_wo(:,:)   !< convective rain rate for 2mom aerosol washout (eg dust)
+  INTEGER                 :: &
+    &  kstart_wo               !< start level for washout routine
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
   !-----------------------------------------------------------------------
-    
+
   rho => pt_prog%rho
-  
+
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -114,31 +122,37 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   i_rlend    = min_rlcell_int
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-  
-  IF(lart) THEN 
+
+  IF(lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_washoutInt)
 
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
       ALLOCATE(wash_rate_m3(nproma,nlev))
+      ALLOCATE(rain_con_rate_wo(nproma,nlev))
+
+!$omp parallel do default(shared) private(jb, istart, iend)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
         CALL art_air_properties(pt_diag%pres(:,:,jb),pt_diag%temp(:,:,jb), &
           &                     istart,iend,1,nlev,jb,p_art_data(jg))
       ENDDO
-      
+!$omp end parallel do
+
       num_radioact = 0
 
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-     
+
       DO WHILE(ASSOCIATED(this_mode))
         ! Select type of mode
         SELECT TYPE (fields=>this_mode%fields)
           CLASS IS (t_fields_2mom)
 
-!$omp parallel do default(shared) private(jb, istart, iend, wash_rate_m0, wash_rate_m3)            
+          kstart_wo = MAX(kstart_tracer(jg,fields%itr0),kstart_moist(jg))
+
+!$omp parallel do default(shared) private(jb, istart, iend, ijsp, wash_rate_m0, wash_rate_m3, rain_con_rate_wo)
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
@@ -151,50 +165,138 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    &                tracer(:,:,jb,fields%itr0), fields%density(:,:,jb),                      &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
-                   &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
-                   &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
+                   &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend,             &
+                   &                kstart_wo, nlev, .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),           &
                    &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=tracer(:,:,jb,iqnr))
+
+                ! Update mass mixing ratios
+                DO ijsp = 1, fields%ntr-1
+                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime,     &
+                    &                         istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
+                ENDDO
+                ! Update mass-specific number
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,              &
+                  &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
+
               ELSE
+                !iart_aero_washout=0: washout with gscp+con precipitation, only 1 call to washout routine
+                !iart_aero_washout=1: washout with gscp, con precipitation separately, 2 calls to washout routine
+                !iart_aero_washout=2: washout with gscp, con precipitation separately with con/rcucov, 2 calls to washout routine
+                !-------------------
+                !1st call:
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
                    &                tracer(:,:,jb,fields%itr0), fields%density(:,:,jb),                      &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
-                   &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
-                   &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
-                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb))
+                   &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend,             &
+                   &                kstart_wo, nlev, .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),           &
+                   &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb),                             &
+                   &                iart_aero_washout=art_config(jg)%iart_aero_washout)
+
+
+                ! Update mass mixing ratios
+                DO ijsp = 1, fields%ntr-1
+                   CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime,  &
+                        & istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
+                  ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
+                   CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),      &
+                        & wash_rate_m3(:,:), art_config(jg)%iart_aero_washout,                               &
+                        & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                         &
+                        & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb,                        &
+                        & istart, iend, kstart_wo, nlev, opt_fac=(1._wp/fields%info%mode_fac))
+                ENDDO !ijsp
+
+                ! Update mass-specific number
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,            &
+                     &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
+                ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
+                CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),         &
+                     & wash_rate_m0(:,:), art_config(jg)%iart_aero_washout,                                  &
+                     & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                            &
+                     & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb,                                 &
+                     & istart, iend, kstart_wo, nlev )
+
+
+                IF (art_config(jg)%iart_aero_washout .GT. 0) THEN
+                !-------------------
+                !2nd call: (washout due to convective precipitation)
+
+                  rain_con_rate_wo(:,:) = prm_diag%rain_con_rate_3d(:,:,jb)
+                  IF (art_config(jg)%iart_aero_washout == 2) THEN
+                    !scale convective precipitation rate with rcucov
+                    rain_con_rate_wo(:,:) = rain_con_rate_wo(:,:)/phy_params(jg)%rcucov
+                  ENDIF
+
+                  !add 100 to iart_aero_washout to indicate second call to washout routine
+                  CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                              &
+                     &                tracer(:,:,jb,fields%itr0), fields%density(:,:,jb),                     &
+                     &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),         &
+                     &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),              &
+                     &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend,            &
+                     &                kstart_wo, nlev, .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),          &
+                     &                rrconv_3d=rain_con_rate_wo,                                             &
+                     &                iart_aero_washout=art_config(jg)%iart_aero_washout+100)
+
+                  IF (art_config(jg)%iart_aero_washout == 2) THEN
+                    !rescale washout rate due to convective precipitation with rcucov
+                    wash_rate_m3(:,:) = wash_rate_m3(:,:)*phy_params(jg)%rcucov
+                    wash_rate_m0(:,:) = wash_rate_m0(:,:)*phy_params(jg)%rcucov
+                  ENDIF
+
+                  ! Update mass mixing ratios
+                  DO ijsp = 1, fields%ntr-1
+                    CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime, &
+                      &  istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
+                   ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
+                    CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),     &
+                         & wash_rate_m3(:,:), art_config(jg)%iart_aero_washout+100,                          &
+                         & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                        &
+                         & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb,                       &
+                         & istart, iend, kstart_wo, nlev, opt_fac=(1._wp/fields%info%mode_fac))
+                  ENDDO
+                  ! Update mass-specific number
+                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,     &
+                       &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
+                  ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
+                  CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),  &
+                       & wash_rate_m0(:,:), art_config(jg)%iart_aero_washout+100,                       &
+                       & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                     &
+                       & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb,                          &
+                       & istart, iend, kstart_wo, nlev )
+               ENDIF !2nd call
               ENDIF
-              ! Update mass mixing ratios
-              DO ijsp = 1, fields%ntr-1
-                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime,     &
-                  &                         istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
-              ENDDO
-              ! Update mass-specific number
-              CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,              &
-                &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
             ENDDO
 !$omp end parallel do
-              
+
           CLASS IS (t_fields_pollen)
+            kstart_wo = MAX(kstart_tracer(jg,fields%itr),kstart_moist(jg))
+!$omp parallel do default(shared) private(jb, istart, iend)
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
               ! CAREFUL: For the time being we are using this washout routine designed for 1-moment volcanic ash
               !          in order to calculate pollen washout. We need to replace this routine by the proper
               !          pollen washout routine from COSMO-ART (see issue #18 in ICON-ART redmine)
-              CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
-                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
+              CALL art_washout_volc(dtime,istart, iend, kstart_wo, nlev, tracer(:,:,jb,iqr),            &
+                &                   prm_diag%rain_gsp_rate(:,jb),                                       &
+                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),    &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
+!$omp end parallel do
           CLASS IS (t_fields_volc)
+            kstart_wo = MAX(kstart_tracer(jg,fields%itr),kstart_moist(jg))
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
-              CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
-                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
+              CALL art_washout_volc(dtime,istart, iend, kstart_wo, nlev, tracer(:,:,jb,iqr),             &
+                &                   prm_diag%rain_gsp_rate(:,jb),                                        &
+                &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),     &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
             num_radioact = num_radioact+1
+            kstart_wo = MAX(kstart_tracer(jg,fields%itr),kstart_moist(jg))
+!$omp parallel do default(shared) private(jb, istart, iend)
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                 &                istart, iend, i_rlstart, i_rlend)
@@ -204,17 +306,18 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                       prm_diag%rain_con_rate_3d(:,:,jb),                                   &
                 &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb),          &
                 &                       prm_diag%snow_con_rate_3d(:,:,jb), num_radioact,                     &
-                &                       fields%fac_wetdep, fields%exp_wetdep, istart, iend, nlev, jb, dtime, &
-                &                       tracer(:,:,jb,fields%itr), p_art_data(jg))
+                &                       fields%fac_wetdep, fields%exp_wetdep, istart, iend, kstart_wo, nlev, &
+                &                       jb, dtime, tracer(:,:,jb,fields%itr), p_art_data(jg))
             ENDDO
+!$omp end parallel do
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
                  &      'ART: Unknown mode field type')
         END SELECT
-                                  
+
         this_mode => this_mode%next_mode
       ENDDO !associated(this_mode)
-    
+
       ! ----------------------------------
       ! --- Clip the tracers
       ! ----------------------------------
@@ -225,9 +328,11 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
         CALL art_clip_lt(tracer(istart:iend,1:nlev,jb,:),0.0_wp)
       ENDDO
 !$omp end parallel do
-      
+
       DEALLOCATE(wash_rate_m0)
       DEALLOCATE(wash_rate_m3)
+      DEALLOCATE(rain_con_rate_wo)
+
     ENDIF !lart_aerosol
 
     IF (timers_level > 3) CALL timer_stop(timer_art_washoutInt)

@@ -56,7 +56,8 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &          prm_nwp_tend,                 & !>in
     &          ncloud_offset,                & !>in
     &          ptr,                          & !>out
-    &          p_rho,                        & !>in
+    &          idx_nturb_tracer,             & !>out, optional
+    &          p_rho,                        & !>in, optional
     &          p_metrics, p_diag, prm_diag,  & !>in, optional
     &          jb,                           & !>in, optional
     &          opt_sv, opt_fc,               & !>in, optional
@@ -78,11 +79,13 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   INTEGER, INTENT(IN)                       :: &
     &  ncloud_offset                     !< index offset due to additional cloud variables 
                                          !< to be diffused.
-  TYPE(modvar), INTENT(inout) :: &
+  TYPE(modvar), INTENT(inout)               :: &
     &  ptr(:)                            !< passive tracer pointer type structure for diffusion
   REAL(wp), INTENT(in)                      :: &
     &  dt
 
+  INTEGER, INTENT(inout), OPTIONAL          :: &
+    &  idx_nturb_tracer(:)               !< indices of the turbulent tracers in the prognostic list
   REAL(wp), INTENT(in), OPTIONAL            :: &
     &  p_rho(:,:,:)                      !< air density
   TYPE(t_nh_metrics), INTENT(in), OPTIONAL  :: &
@@ -153,6 +156,11 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
          & .AND. (p_art_data(jg)%emiss%exists(p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer))) THEN
 
           ptr(idx_tot)%fc = .TRUE.
+        END IF
+
+        ! save the index of the current turbulent tracer in the prognostic list
+        IF (PRESENT(idx_nturb_tracer)) THEN
+           idx_nturb_tracer(idx_trac) = p_prog_rcf%turb_tracer(jb,idx_trac)%idx_tracer
         END IF
 
       END DO

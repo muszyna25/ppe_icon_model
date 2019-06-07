@@ -85,8 +85,9 @@ MODULE mo_nonhydro_state
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
+  USE mo_art_diagnostics_interface, ONLY: art_diagnostics_interface_init
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,                      &
+  USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,                &
     &                                ZA_REFERENCE_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64,                 &
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
@@ -248,6 +249,12 @@ MODULE mo_nonhydro_state
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
         &  p_nh_state_lists(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
 
+      ! art: add ART diagnostics to diag list
+      IF (lart) THEN
+        CALL art_diagnostics_interface_init(jg, p_nh_state_lists(jg)%diag_list, &
+          & p_prog_list=p_nh_state_lists(jg)%prog_list(1))
+      ENDIF
+    
       !
       ! Build metrics state list
       ! includes memory allocation
@@ -1191,7 +1198,8 @@ MODULE mo_nonhydro_state
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
-            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF)
+            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF, &
+            &                       nest_level=p_patch%nest_level)
         ENDIF
    
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -1405,7 +1413,7 @@ MODULE mo_nonhydro_state
 
     LOGICAL :: lrestart
 
-    CHARACTER(LEN=2) :: ctrc
+    CHARACTER(LEN=3) :: ctrc
     CHARACTER(len=4) suffix
     !--------------------------------------------------------------
 
@@ -2613,12 +2621,6 @@ MODULE mo_nonhydro_state
       ENDDO
     ENDIF
     
-    ! art
-    IF (lart) THEN
-      CALL art_tracer_interface('diag',p_patch%id,p_patch%nblks_c,p_diag_list,' ')
-    ENDIF
-    
-
   END SUBROUTINE new_nh_state_diag_list
 
 

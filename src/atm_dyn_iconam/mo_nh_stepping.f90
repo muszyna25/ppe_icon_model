@@ -1582,7 +1582,7 @@ MODULE mo_nh_stepping
           ENDIF
 
         ! ART tracer sedimentation:
-        !     Internal substepping with ndyn_substeps_var(jg)
+        !     Optional internal substepping with nart_substeps_sedi
         !-----------------------
           IF (lart) THEN
             CALL art_sedi_interface( p_patch(jg),             &!in
@@ -1592,7 +1592,6 @@ MODULE mo_nh_stepping
                &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
                &      prm_diag(jg),                           &!in
-               &      ndyn_substeps_var(jg),                  &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart

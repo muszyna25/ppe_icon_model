@@ -121,6 +121,14 @@ MODULE mo_art_config
     INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
     INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
     
+    ! Treatment of grid scale and convective precipitation in dust washout
+    INTEGER :: iart_aero_washout       !< 0:gscp+con; 1:gscp,con; 2:gscp,rcucov*con
+
+    ! Number of substeps for sedimentation
+    INTEGER :: nart_substeps_sedi
+
+    CHARACTER(LEN=4) :: cart_type_sedim  !< type of sedimentation scheme: "expl": explicit, "impl": implicit
+
     ! Fast Physics Processes (Details: cf. Tab. 2.6 ICON-ART User Guide)
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
     INTEGER :: nconv_tracer            !< number of tracers in convection 

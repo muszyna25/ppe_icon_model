@@ -3866,6 +3866,15 @@ Height above which QV is advected with substepping scheme (must be at least as l
 ihadv\_tracer=22, 32, 42 or 52
 \tabularnewline
 
+%\hline
+htop\_tracer\_proc&
+R& 1000000.0& m&
+Height above which physical processes and advection of additional tracer variables are turned off; the default value
+is set to an very high value, i.e. by default this possible restriction is not active.
+This value is taken for all additional tracers in the tracer container with an index equal or greater than iqt;
+it may be overwritten for specific ART tracers by the tag 'htop\_proc' in the XML file when defining the individual
+ART tracers.& tracers with an index $\ge$ iqt
+\tabularnewline
 
 %\hline
 vwind\_offctr&

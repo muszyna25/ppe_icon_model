@@ -241,21 +241,25 @@ SUBROUTINE vertdiff ( &
                 lsfluse, lqvcrst, lrunscm,   &
           dt_var, nvec, ke, ke1,             &
 !
-          kcm, iblock, ivstart, ivend,       &
+          kcm, kstart_tracer,                &
+          iblock, ivstart, ivend,            &
 !
-          hhl,  dp0, r_air, zvari,           &
+          hhl, dp0, r_air, zvari,            &
 !
           t_g, qv_s, ps,                     &
-          u, v,    t, qv, qc, prs, rhoh, rhon, epr, &
+          u, v, t, qv, qc, prs,              &
+          rhoh, rhon, epr,                   &
 !
-          impl_weight, ptr, ndtr,            &
+          impl_weight,                       &
+          ptr, ndtr,                         &
+          ncloud_offset, idx_nturb_tracer,   &
 !
           tvm, tvh, tkvm, tkvh,              &
           u_tens, v_tens, t_tens,            &
           qv_tens, qc_tens,                  &
           qv_conv,                           &
 !
-          shfl_s, qvfl_s, umfl_s, vmfl_s, &
+          shfl_s, qvfl_s, umfl_s, vmfl_s,    &
 !
           ierrstat, yerrormsg, yroutine)
 
@@ -311,6 +315,9 @@ INTEGER,        INTENT(IN) :: &
   ke1,          & ! index of the lowest model half level (=ke+1)
   kcm,          & ! level index of the upper canopy bound
   iblock
+
+INTEGER, DIMENSION(:), OPTIONAL, INTENT(IN) :: &
+   kstart_tracer  ! start level index for vertical diffusion of art tracers
 
 INTEGER,        INTENT(IN) :: &
 
@@ -421,10 +428,17 @@ REAL (KIND=wp), DIMENSION(:), OPTIONAL, TARGET, INTENT(INOUT) :: &
   umfl_s,       & ! u-momentum flux at the surface                (N/m2)    (positive downward)
   vmfl_s          ! v-momentum flux at the surface                (N/m2)    (positive downward)
 
-INTEGER, INTENT(INOUT) :: ierrstat
+INTEGER, INTENT(INOUT)           :: ierrstat
 
 CHARACTER (LEN=*), INTENT(INOUT) :: yroutine
 CHARACTER (LEN=*), INTENT(INOUT) :: yerrormsg
+
+!
+! Indices concerning ART-tracer:
+! -----------------------------------------------
+!
+INTEGER, OPTIONAL                :: ncloud_offset       ! offset for ptr-indexing in ART
+INTEGER, OPTIONAL                :: idx_nturb_tracer(:) ! indices of the turbulent tracers in the prognostic list
 
 !-------------------------------------------------------------------------------
 !Local Parameters:
@@ -434,7 +448,12 @@ INTEGER ::    &
   i, k,       & !horizontaler und vertikaler Laufindex
 !
   ntrac,      & !number of included passive tracers in tracer vector 'ptr'
-  ndiff         !number of 1-st order variables
+  ndiff,      & !number of 1-st order variables
+  idx_trac,   & !index of current turbulent art tracer
+  idx_tracer    !index of current turbulent art tracer with respect to the prognostic list
+
+!
+
 
 LOGICAL ::    &
   ldovardif,  & !berechne (teil-)implizite Vert.diff von Mod.var 1-ter Ordnung
@@ -468,7 +487,9 @@ REAL (KIND=wp), POINTER :: &
     ncorr,     & !Startindex der Variablen mit Gradientkorrektur
     igrdcon,   & !Index fuer Modus der Gradientberuecksichtigung
     itndcon,   & !Index fuer Modus der  Tendenzberuecksichtigung
-    ivtype       !Index fuer Variablentyp
+    ivtype,    & !Index fuer Variablentyp
+    kstart_vdiff !Index to start vertical diffusion
+
 
 
 ! local reals
@@ -825,6 +846,19 @@ enddo
 
 !        DO n=nprim, nlast !loop over all variables to be diffused
          DO n=1, ndiff !loop over all variables to be diffused potentially
+
+         ! define start index for vertical diffusion
+         IF ( PRESENT(ncloud_offset) .AND. n .GT. (nmvar + ncloud_offset) ) THEN  ! passive art tracers
+            ! get index of turbulent art tracer:
+            ! ndiff = nmvar + ntrac
+            ! ndiff = nmvar + ncloud_offset + nturb_tracer
+            idx_trac     = n - nmvar - ncloud_offset    ! index of turbulent art tracer
+            idx_tracer   = idx_nturb_tracer(idx_trac)   ! index of turbulent art tracer with respect to prognostic list
+            kstart_vdiff = kstart_tracer(idx_tracer)
+         ELSE
+            kstart_vdiff = 1
+         END IF
+
          IF ( (lum_dif .AND. n.EQ.u_m)   .OR. &                   !u_m-diffusion or
               (lvm_dif .AND. n.EQ.v_m)   .OR. &                   !v_m-diffusion or
               (lscadif .AND. n.GT.nvel)  .OR. &                   !sca-diffusion or
@@ -909,7 +943,7 @@ enddo
             dvar_av => dvar(n)%av    ! OpenACC issue with derived type
 
             !$acc parallel present(cur_prof,dvar_av)
-            DO k=1,ke
+            DO k=kstart_vdiff,ke
 !DIR$ IVDEP
               !$acc loop gang vector
                DO i=ivstart, ivend
@@ -943,7 +977,7 @@ enddo
             IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
               dvar_at => dvar(n)%at
               !$acc parallel present(dicke,dvar_at)
-               DO k=1,ke
+               DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
                   DO i=ivstart, ivend
@@ -955,7 +989,7 @@ enddo
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
               !$acc parallel present(cur_prof,epr)
-               DO k=1,ke
+               DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
                   DO i=ivstart, ivend
@@ -970,7 +1004,7 @@ enddo
                END DO
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
                  !$acc parallel present(dicke,epr)
-                  DO k=1,ke
+                  DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                     !$acc loop gang vector
                      DO i=ivstart, ivend
@@ -999,9 +1033,9 @@ enddo
 !XL_COMMENTS : this print seems to occurs for any debug level, on purpose ?
 !            print*, ivtype, associated(vtyp(ivtype)%tkv)
 
-            CALL vert_grad_diff( kcm, kgc,                            &
+            CALL vert_grad_diff( kcm, kgc=kstart_vdiff-1+kgc,         &
 !
-                 i_st=ivstart, i_en=ivend, k_tp=0, k_sf=ke1,          &
+                 i_st=ivstart, i_en=ivend, k_tp=kstart_vdiff-1, k_sf=ke1, &
 !
                  dt_var=dt_var, ivtype=ivtype, igrdcon=igrdcon, itndcon=itndcon, &
 !
@@ -1035,7 +1069,7 @@ enddo
             IF (n.EQ.tem) THEN
               dvar_at => dvar(n)%at
               !$acc parallel present(dvar_at,epr,dicke,tinc)
-               DO k=1,ke
+               DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
                   DO i=ivstart, ivend
@@ -1046,7 +1080,7 @@ enddo
             ELSE
               dvar_at => dvar(n)%at
               !$acc parallel present(dvar_at,dicke,tinc)
-               DO k=1,ke
+               DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
                   DO i=ivstart, ivend
@@ -1059,7 +1093,7 @@ enddo
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                !qv-flux-convergence (always a tendency) needs to be adapted:
               !$acc parallel present(qv_conv,dicke)
-               DO k=1,ke
+               DO k=kstart_vdiff,ke
                   IF (lqvcrst) THEN 
                      !by initializing 'qv_conv' with vertical qv-diffusion:
 !DIR$ IVDEP
