@@ -40,6 +40,7 @@ MODULE mo_ocean_surface_types
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
     REAL(wp), POINTER ::   &
+      &  top_dilution_coeff        (:,:), & ! wind speed in 10m height                                  [m/s]
       &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
       &  Sea_level_pressure        (:,:), & ! sea level pressure                                        [Pa]
       &  TopBC_WindStress_u        (:,:), & ! forcing of zonal component of velocity equation           [Pa]

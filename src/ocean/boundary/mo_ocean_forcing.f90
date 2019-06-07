@@ -124,6 +124,12 @@ CONTAINS
   ! nblks_e           =  p_patch%nblks_e
       
     ! Coupling fluxes must go into restart file:
+    CALL add_var(ocean_default_list, 'top_dilution_coeff', p_oce_sfc%top_dilution_coeff, &
+      &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &        t_cf_var('top_dilution_coeff', '', 'top_dilution_coeff', datatype_flt),&
+      &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.false., in_group=groups("oce_force_essentials"))
+      
     IF (is_coupled_run()) THEN
   
       CALL add_var(ocean_restart_list, 'sea_level_pressure', p_oce_sfc%sea_level_pressure, &

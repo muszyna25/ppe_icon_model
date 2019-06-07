@@ -130,8 +130,8 @@ CONTAINS
   SUBROUTINE init_free_sfc_ab_mimetic(patch_3d, ocean_state, op_coeffs, solverCoeff_sp)
     TYPE(t_patch_3d ),POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: ocean_state
-    TYPE(t_operator_coeff), INTENT(IN), POINTER :: op_coeffs
-    TYPE(t_solverCoeff_singlePrecision), INTENT(in), POINTER :: solverCoeff_sp
+    TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_surface_height_lhs), POINTER :: lhs_sh
     TYPE(t_trivial_transfer), POINTER :: trans_triv
@@ -247,8 +247,8 @@ CONTAINS
     TYPE(t_atmos_for_ocean), INTENT(inout) :: p_as
     TYPE (t_ho_params), INTENT(inout) :: p_phys_param
     INTEGER, INTENT(in) :: timestep
-    TYPE(t_operator_coeff), INTENT(IN), POINTER :: op_coeffs
-    TYPE(t_solverCoeff_singlePrecision), INTENT(in), POINTER :: solverCoeff_sp
+    TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     INTEGER :: n_it, n_it_sp, ret_status
     REAL(wp) :: rn, minmaxmean(3)
     LOGICAL :: l_is_compare_step
@@ -409,7 +409,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE (t_ho_params)                   :: p_phys_param
     LOGICAL,INTENT(in)                   :: is_first_timestep
-    TYPE(t_operator_coeff), INTENT(IN), POINTER :: op_coeffs
+    TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
     TYPE(t_atmos_for_ocean), INTENT(inout) :: p_as
     TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
     

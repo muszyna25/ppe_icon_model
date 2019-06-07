@@ -323,7 +323,7 @@ CONTAINS
     REAL(wp), INTENT(inout)                    :: vn(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(inout):: p_vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
     REAL(wp), INTENT(inout)                    :: vort_v   (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff),INTENT(in), POINTER :: operators_coefficients
+    TYPE(t_operator_coeff),INTENT(in), TARGET :: operators_coefficients
     REAL(wp), INTENT(inout)                    :: vort_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -592,7 +592,7 @@ CONTAINS
     REAL(wp), INTENT(inout)                    :: vn(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     TYPE(t_cartesian_coordinates), INTENT(inout)  :: p_vn_dual(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
     REAL(wp), INTENT(inout)                    :: vort_v   (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff),POINTER,INTENT(in) :: operators_coefficients
+    TYPE(t_operator_coeff),TARGET,INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(inout)                    :: vort_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     
     !Local variables

@@ -474,13 +474,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
 !<Optimize:inUse>
-  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp, var_list)
+  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp)
     TYPE(t_patch_3D),TARGET,INTENT(inout) :: patch_3D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-    TYPE(t_var_list)                      :: var_list
 
-    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, solverCoeff_sp, var_list)
+    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, solverCoeff_sp)
     CALL par_init_operator_coeff( patch_3d, operators_coefficients, solverCoeff_sp)
 
   END SUBROUTINE construct_operators_coefficients
@@ -506,12 +505,11 @@ CONTAINS
   ! Peter Korn (2012-2)
   !
 !<Optimize:inUse>
-  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp, var_list)
+  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp)
     !
     TYPE(t_patch),TARGET,INTENT(in)       :: patch_2D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-    TYPE(t_var_list)                      :: var_list
 
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, nz_lev
     INTEGER :: return_status,ie,i

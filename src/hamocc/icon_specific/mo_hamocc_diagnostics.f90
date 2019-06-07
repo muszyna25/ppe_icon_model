@@ -38,10 +38,10 @@ PUBLIC:: get_inventories, get_monitoring,get_omz
 
 CONTAINS
 
-SUBROUTINE get_omz(hamocc_state, ocean_state, p_patch_3d)
+SUBROUTINE get_omz(hamocc_state, h_old, p_patch_3d)
 
 TYPE(t_hamocc_state) :: hamocc_state
-TYPE(t_hydro_ocean_state) :: ocean_state
+REAL(wp) :: h_old(:,:)
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
 ! Local variables
@@ -66,13 +66,13 @@ DO jb = all_cells%start_block, all_cells%end_block
       if (max_lev > 0)then
 
       !o2min = o2(jc,calc_omz_depth_index(max_levels,o2),jb) in mol m-3
-       hamocc_state%p_tend%o2min(jc,jb)=kilo*ocean_state%p_prog(i_time_stat)%tracer(jc,&
-&calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb,ioxygen+no_tracer)
+       hamocc_state%p_tend%o2min(jc,jb)=kilo*hamocc_state%p_prog(i_time_stat)%tracer(jc,&
+&calc_omz_depth_index(max_lev,hamocc_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen)),jb,ioxygen)
     
       !zo2min = sum(thickness(1:calc_omz_depth_index(max_levels,o2))) + zeta
        hamocc_state%p_tend%zo2min(jc,jb)=SUM(p_patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,&
-&1:calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb))&
-&+ocean_state%p_prog(i_time_stat)%h(jc,jb)
+&1:calc_omz_depth_index(max_lev,hamocc_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen)),jb))&
+&+ h_old(jc,jb)
 
        endif
 
@@ -104,7 +104,7 @@ END SUBROUTINE get_omz
 
   END FUNCTION calc_omz_depth_index
 
-  SUBROUTINE get_monitoring(hamocc_state, ssh, tracer, p_patch_3d)
+  SUBROUTINE get_monitoring(hamocc_state, tracer, ssh, p_patch_3d)
 
     USE mo_memory_bgc, ONLY: rn2, n2prod, doccya_fac
     TYPE(t_hamocc_state) :: hamocc_state
@@ -285,25 +285,25 @@ END SUBROUTINE get_omz
     ENDIF
     IF (isRegistered('global_surface_alk')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,ialkali+no_tracer), &
+        &                   tracer(:,1,:,ialkali), &
         &                   hamocc_state%p_tend%monitor%sfalk(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_dic')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,isco212+no_tracer), &
+        &                   tracer(:,1,:,isco212), &
         &                   hamocc_state%p_tend%monitor%sfdic(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_phosphate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,iphosph+no_tracer), &
+        &                   tracer(:,1,:,iphosph), &
         &                   hamocc_state%p_tend%monitor%sfphos(1), &
         &                   -2)
     ENDIF
     IF (isRegistered('global_surface_silicate')) THEN
       CALL calc_inventory2d(p_patch_3d, &
-        &                   tracer(:,1,:,isilica+no_tracer), &
+        &                   tracer(:,1,:,isilica), &
         &                   hamocc_state%p_tend%monitor%sfsil(1), &
         &                   -2)
     ENDIF
@@ -398,38 +398,38 @@ rcyano = MERGE(1._wp,0._wp, l_cyadyn)
 ! Calculate global inventories of individual tracers
 ! Water column
 
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idoc+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idoc), &
 &                      glob_doc)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idet+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,idet), &
 &                      glob_det)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphy+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphy), &
 &                      glob_phy)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,izoo+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,izoo), &
 &                      glob_zoo)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphosph+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iphosph),&
 &                      glob_phos)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iano3+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iano3),&
 &                      glob_nit)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,igasnit+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,igasnit),&
 &                      glob_gnit)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ian2o+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ian2o), &
 &                      glob_n2o)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isilica+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isilica), &
 &                      glob_sil)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icalc+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icalc), &
 &                      glob_calc)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iopal+no_tracer), &
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iopal), &
 &                      glob_opal)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ialkali+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ialkali),&
 &                      glob_alk)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isco212+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,isco212),&
 &                      glob_dic)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ioxygen+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,ioxygen),&
 &                      glob_o2)
-CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iiron+no_tracer),&
+CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,iiron),&
 &                      glob_fe)
 IF(l_cyadyn)THEN
- CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icya+no_tracer),&
+ CALL calc_inventory3d(p_patch_3d, ssh, tracer(:,:,:,icya),&
 &                       glob_cya)
 else
  glob_cya=0._wp

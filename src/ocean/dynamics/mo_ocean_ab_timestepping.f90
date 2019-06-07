@@ -62,8 +62,8 @@ CONTAINS
     TYPE(t_atmos_for_ocean), INTENT(INOUT) :: p_as
     TYPE (t_ho_params) :: physics_parameters
     INTEGER, INTENT(IN) :: timestep
-    TYPE(t_operator_coeff), INTENT(IN), POINTER :: op_coeffs
-    TYPE(t_solverCoeff_singlePrecision), INTENT(in), POINTER :: solverCoeff_sp
+    TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     INTEGER :: return_status
     
     IF(discretization_scheme==MIMETIC_TYPE)THEN

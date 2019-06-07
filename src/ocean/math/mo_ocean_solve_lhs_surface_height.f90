@@ -78,8 +78,8 @@ CONTAINS
     CLASS(t_surface_height_lhs), INTENT(INOUT) :: this
     TYPE(t_patch_3d), POINTER, INTENT(IN) :: patch_3d
     REAL(wp), POINTER, INTENT(IN) :: thick_e(:,:)
-    TYPE(t_operator_coeff), POINTER, INTENT(IN) :: op_coeffs_wp
-    TYPE(t_solverCoeff_singlePrecision), POINTER, INTENT(IN) :: op_coeffs_sp
+    TYPE(t_operator_coeff), TARGET, INTENT(IN) :: op_coeffs_wp
+    TYPE(t_solverCoeff_singlePrecision), TARGET, INTENT(IN) :: op_coeffs_sp
 
     CALL this%destruct()
     this%patch_3d => patch_3d

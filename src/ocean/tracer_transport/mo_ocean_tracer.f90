@@ -75,7 +75,7 @@ CONTAINS
     TYPE(t_patch_3d ), POINTER     :: patch_3d
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------------
-    patch_3d => old_tracers%patch_3d
+    patch_3d => transport_state%patch_3d
 
     DO tracer_index = 1, old_tracers%no_of_tracers
       IF ( old_tracers%tracer(tracer_index)%is_advected) THEN

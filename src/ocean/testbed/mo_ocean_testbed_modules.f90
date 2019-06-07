@@ -647,7 +647,7 @@ CONTAINS
     ! write initial
     ! this is done 
       IF (output_mode%l_nml) THEN
-        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice,hamocc_state, operators_coefficients)
+        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice, operators_coefficients)
       ENDIF
 
     restartDescriptor => createRestartDescriptor("oce")
@@ -1627,7 +1627,7 @@ CONTAINS
 
     IF (output_mode%l_nml) THEN
       CALL write_initial_ocean_timestep(patch_3d,ocean_state, &
-          &  p_oce_sfc,p_ice,hamocc_state, operators_coefficients)
+          &  p_oce_sfc,p_ice, operators_coefficients)
     ENDIF
   END SUBROUTINE checkVarlistsForOutput
   

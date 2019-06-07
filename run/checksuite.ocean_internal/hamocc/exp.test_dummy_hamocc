@@ -2,7 +2,7 @@
 #=============================================================================
 #-----------------------------------------------------------------------------
 # the namelist filename
-ocean_namelist=NAMELIST_${EXPNAME}
+hamocc_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
@@ -24,7 +24,7 @@ autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
-iforc=12
+iforc=10
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 init_relax=1
 ocean_vertical_levels=40
@@ -50,17 +50,16 @@ else
 lhamocc=".false."
 lbgcadv=".false."
 fi
-
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
 # -------------------------
-cat > ${ocean_namelist} << EOF0
+cat > ${hamocc_namelist} << EOF0
 !
 &parallel_nml
  nproma         = $nproma
  p_test_run     = .false.
- l_fast_sum     = .false.
+ l_fast_sum     = .true.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -107,7 +106,7 @@ cat > ${ocean_namelist} << EOF0
 /
 EOF0
 if [  "x${use_hamocc}"  = "xyes" ]; then
-cat >> ${ocean_namelist} << EOF1
+cat >> ${hamocc_namelist} << EOF1
 &output_nml
   output_filename  = "${EXPNAME}_hamocc_monitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -185,7 +184,7 @@ cat >> ${ocean_namelist} << EOF1
 EOF1
 fi
 
-cat >> ${ocean_namelist} << EOF2
+cat >> ${hamocc_namelist} << EOF2
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -209,14 +208,13 @@ cat >> ${ocean_namelist} << EOF2
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
 
-  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
-                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
+  select_solver                   = 2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                = 1.0E-13 ! this may further be reduced
-
-  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
-  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
-  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+  solver_max_iter_per_restart     = 16        ! this may adjusted according the total iterations
+  solver_max_restart_iterations   = 100
+  select_lhs                      = 2
+  solver_FirstGuess               = 2
 
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
@@ -267,21 +265,6 @@ cat >> ${ocean_namelist} << EOF2
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  tapering_scheme=1
-  GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-4                                   !1.0
-  S_critical=0.01                             ! 1e-1 to 1e-2
-  S_d=0.00005                                 ! 5e-3 to 5e-4
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
-  SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
-  SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
-  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
-  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
-  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
-  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
@@ -300,7 +283,7 @@ cat >> ${ocean_namelist} << EOF2
 /
 EOF2
 if [  "x${use_hamocc}"  = "xyes" ]; then
-cat >> ${ocean_namelist} << EOF3
+cat >> ${hamocc_namelist} << EOF3
 &hamocc_nml
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
@@ -319,10 +302,11 @@ sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.    ! implicit sediment formulation
+l_init_bgc                        =.TRUE.
 /
 EOF3
 fi
-cat >> ${ocean_namelist} << EOF4
+cat >> ${hamocc_namelist} << EOF4
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
@@ -373,3 +357,21 @@ EOF4
 #-----------------------------------------------------------------------------
 . ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
+. ${thisdir}/exec.iconrun
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#  compare with reference
+if [[ x$BB_SYSTEM != x ]]; then
+. ${thisdir}/postFunx.sh
+  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  cd ${dataPath}
+  slave=${BB_SYSTEM:-mistral}_${BB_SLAVE:-gcc}
+  refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
+
+  directoryDiff ${refDir} .
+  check_error $? "DIFFCHECK for exp: ${EXPNAME}"
+  cd -
+fi
+
+exit

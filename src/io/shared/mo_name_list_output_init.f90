@@ -51,7 +51,7 @@ MODULE mo_name_list_output_init
     &                                             GRID_EDGE, GRID_CELL
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
-  USE mo_master_control,                    ONLY: my_process_is_ocean
+  USE mo_master_control,                    ONLY: my_process_is_oceanic
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
@@ -2654,7 +2654,7 @@ CONTAINS
 
       ! Verts
       nvert = MERGE(max_vertex_connectivity, 9-max_cell_connectivity, &
-           my_process_is_ocean())
+           my_process_is_oceanic())
 #ifdef HAVE_CDI_PIO
       IF (pio_type == pio_type_cdipio) THEN
         grid_size_desc = extent(0, patch_info(i_dom)%ri(ivert)%n_glb)

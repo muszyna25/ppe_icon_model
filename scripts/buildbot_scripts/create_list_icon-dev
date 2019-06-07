@@ -33,13 +33,11 @@ $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.oce
  --machines mistral --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
 
 # add ocean tests to the restricted builder MISTRAL_ocean incl. its intel17 version
-./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
-./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname
+./set_builder_flags Active             --builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --list $listname
 $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
 checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
---builders MISTRAL_ocean MISTRAL_ocean_intel17 --runflags "cpu_time=00:30:00 queue=compute" --list $listname
-./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
-./set_builder_flags Ocean             --builders MISTRAL_ocean_intel17  --list $listname
+--builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --runflags "cpu_time=00:30:00 queue=compute" --list $listname
+./set_builder_flags Ocean             --builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --list $listname
 
 #-----------------------------------------------------------
 # CSCS

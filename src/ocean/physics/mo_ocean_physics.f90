@@ -120,7 +120,8 @@ MODULE mo_ocean_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
   PUBLIC :: calc_characteristic_physical_numbers
-
+  PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
+  
   ! variables
   TYPE (t_var_list), PUBLIC :: ocean_params_list
 

@@ -68,8 +68,6 @@ MODULE mo_ocean_diagnostics
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
     &  t_ocean_region_areas, t_ocean_monitor
-  USE mo_hamocc_types,       ONLY: t_hamocc_state
-  USE mo_hamocc_diagnostics, ONLY: get_monitoring 
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
@@ -785,9 +783,9 @@ CONTAINS
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, ocean_state, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, hamocc, ice, lhamocc)
-    TYPE(t_patch), TARGET, INTENT(inout)        :: patch_2d
-    TYPE(t_patch_3d), TARGET, INTENT(inout)     :: patch_3d
+          &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, ice)
+    TYPE(t_patch ),TARGET :: patch_2d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout)    :: ocean_state
     INTEGER,  POINTER                           :: dolic(:,:)
     REAL(wp), POINTER                           :: prism_thickness(:,:,:)
@@ -796,11 +794,9 @@ CONTAINS
     REAL(wp), POINTER                           :: sea_surface_height(:,:)
     REAL(wp), POINTER                           :: normal_veloc(:,:,:)
     REAL(wp), POINTER                           :: tracers(:,:,:,:)
-    TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
+     TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
     TYPE(t_ocean_surface), INTENT(IN)           :: p_oce_sfc
-    TYPE(t_hamocc_state), TARGET, INTENT(inout) :: hamocc
     TYPE(t_sea_ice),          INTENT(inout)     :: ice
-    LOGICAL, INTENT(IN)                         :: lhamocc
 
     !Local variables
     INTEGER :: start_cell_index, end_cell_index,i
@@ -1145,10 +1141,8 @@ CONTAINS
       ENDIF
 
 
-
-      ! hamocc global diagnostics
-      IF (lhamocc) CALL get_monitoring( hamocc, sea_surface_height , tracers, patch_3d)
-
+      CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
+      
       ! square of ssh
       p_diag%zos_square = merge(sea_surface_height*sea_surface_height,0.0_wp,isRegistered('zos_square'))
 
