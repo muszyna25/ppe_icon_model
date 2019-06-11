@@ -23,6 +23,11 @@ NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
 NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
 NETCDFF_LIBS='-lnetcdff'
 
+ECRAD_ROOT="${SW_ROOT}/ecrad-1.1.0-ysf5r7f"
+ECRAD_FCFLAGS="-I${ECRAD_ROOT}/include"
+ECRAD_LDFLAGS="-L${ECRAD_ROOT}/lib"
+ECRAD_LIBS='-lradiation -lifsrrtm -lutilities -lifsaux'
+
 SCT_ROOT="${SW_ROOT}/libsct-develop-qexve7s"
 SCT_FCFLAGS="-I${SCT_ROOT}/include"
 SCT_LDFLAGS="-L${SCT_ROOT}/lib"

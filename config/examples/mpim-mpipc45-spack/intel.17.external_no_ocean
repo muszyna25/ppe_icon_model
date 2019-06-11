@@ -5,16 +5,16 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-. "${MY_DIR}/init_intel_16.0.2.sh"
+. "${MY_DIR}/init_intel_17.0.2.sh"
 
 FC=$MPICH_FC
 CC=$PLAIN_CC
 
-FCFLAGS="${NETCDFF_FCFLAGS} ${SCT_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
+FCFLAGS="${NETCDFF_FCFLAGS} ${ECRAD_FCFLAGS} ${SCT_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
 CFLAGS='-gcc-name=/usr/bin/gcc'
 CPPFLAGS=
-LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${SCT_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
-LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
+LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${ECRAD_LDFLAGS} ${SCT_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
+LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS} ${ECRAD_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --with-external-sct --enable-sct --enable-grib2 --enable-yaxt --disable-ocean "$@"
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --with-external-sct --with-external-ecrad --enable-sct --enable-grib2 --enable-yaxt --disable-ocean --enable-ecrad "$@"
 

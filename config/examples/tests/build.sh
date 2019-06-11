@@ -21,12 +21,6 @@ if test ! -d "$art_dir" && test -d "$art_repo"; then
   git clone "$art_repo" "$art_dir"
 fi
 
-ecrad_repo='git@gitlab.dkrz.de:m300488/ecrad.git'
-ecrad_dir="$root_dir/../../../externals/ecrad"
-if test ! -d "$ecrad_dir"; then
-  git clone "$ecrad_repo" "$ecrad_dir"
-fi
-
 for vendor in ${vendors}; do
   vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f -executable | sort)
   for vendor_test in ${vendor_tests}; do
