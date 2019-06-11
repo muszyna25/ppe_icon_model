@@ -689,6 +689,7 @@ enable_optimization
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
+enable_mixed_precision
 with_external_ecrad
 with_external_sct
 with_external_yaxt
@@ -1371,6 +1372,8 @@ Optimization Features:
   --enable-vectorized-lrtm
                           enable the parallelization-invariant version of LRTM
                           [default=auto]
+  --enable-mixed-precision
+                          enable mixed precision dycore [default=auto]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -2248,6 +2251,13 @@ if test "${enable_vectorized_lrtm+set}" = set; then :
   enableval=$enable_vectorized_lrtm;
 else
   enable_vectorized_lrtm=auto
+fi
+
+   # Check whether --enable-mixed-precision was given.
+if test "${enable_mixed_precision+set}" = set; then :
+  enableval=$enable_mixed_precision;
+else
+  enable_mixed_precision=auto
 fi
 
 
@@ -3519,8 +3529,7 @@ set of extra CFLAGS is not defined" ;;
 
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_CFLAGS=$icon_optim_CFLAGS
-
- if test -n "$icon_optim_error"; then :
+   if test -n "$icon_optim_error"; then :
   as_fn_error $? "$icon_optim_error" "$LINENO" 5
 fi
       if test x"$enable_optimization" != xnone; then :
@@ -4704,9 +4713,14 @@ set of extra FCFLAGS is not defined" ;;
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
 
-   # Currently, exchange loops regardless of the optimization level:
+   # Currently, enable loop exchange by default,
+   # regardless of the optimization level:
    test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes
-  if test -n "$icon_optim_error"; then :
+
+   # Currently, disable mixed precision by default,
+   # regardless of the optimization level:
+   test x"$enable_mixed_precision" = xauto && enable_mixed_precision=no
+   if test -n "$icon_optim_error"; then :
   as_fn_error $? "$icon_optim_error" "$LINENO" 5
 fi
    if test "x$enable_loop_exchange" = xyes; then :
@@ -4717,6 +4731,9 @@ fi
 fi
    if test "x$enable_vectorized_lrtm" = xyes; then :
   as_fn_append icon_optim_FCFLAGS " ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"
+fi
+   if test "x$enable_mixed_precision" = xyes; then :
+  as_fn_append icon_optim_FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"
 fi
       if test x"$enable_optimization" != xnone; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts flags for optimization level '$enable_optimization'" >&5

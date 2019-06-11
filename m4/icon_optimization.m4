@@ -20,6 +20,8 @@
 #
 #   '--enable-vectorized-lrtm' for enabling full vectorization of LRTM
 #
+#   '--enable-mixed-precision' for enabling mixed precision dycore
+#
 AC_DEFUN([ICON_OPTIMIZATION_ARGS],
   [AC_ARG_ENABLE([optimization],
 [  --enable-optimization   prepend CFLAGS and FCFLAGS with additional
@@ -51,13 +53,18 @@ dnl
      [AC_HELP_STRING([--enable-intel-consistency],
         [enable Intel compiler directives enforcing consistency
 @<:@default=auto@:>@])], [],
-  [enable_intel_consistency=auto])
+     [enable_intel_consistency=auto])
 dnl
    AC_ARG_ENABLE([vectorized-lrtm],
      [AC_HELP_STRING([--enable-vectorized-lrtm],
         [enable the parallelization-invariant version of LRTM
 @<:@default=auto@:>@])], [],
-  [enable_vectorized_lrtm=auto])])
+     [enable_vectorized_lrtm=auto])
+dnl
+   AC_ARG_ENABLE([mixed-precision],
+     [AC_HELP_STRING([--enable-mixed-precision],
+        [enable mixed precision dycore @<:@default=auto@:>@])], [],
+     [enable_mixed_precision=auto])])
 
 # ICON_OPTIMIZATION_SET_FCFLAGS()
 # -----------------------------------------------------------------------------
@@ -165,11 +172,17 @@ set of extra FCFLAGS is not defined" ;;
    # Currently, we compile the bundled libraries with the same flags:
    icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
 
-   # Currently, exchange loops regardless of the optimization level:
-   test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes]
+   # Currently, enable loop exchange by default,
+   # regardless of the optimization level:
+   test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes
+
+   # Currently, disable mixed precision by default,
+   # regardless of the optimization level:
+   test x"$enable_mixed_precision" = xauto && enable_mixed_precision=no]
+dnl The plain shell section ends here
 dnl
-  AS_IF([test -n "$icon_optim_error"],
-    [AC_MSG_ERROR([$icon_optim_error])])
+   AS_IF([test -n "$icon_optim_error"],
+     [AC_MSG_ERROR([$icon_optim_error])])
 dnl
    AS_VAR_IF([enable_loop_exchange], [yes],
      [AS_VAR_APPEND([icon_optim_FCFLAGS],
@@ -181,7 +194,11 @@ dnl
 dnl
    AS_VAR_IF([enable_vectorized_lrtm], [yes],
      [AS_VAR_APPEND([icon_optim_FCFLAGS],
-        [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])])
+        [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])
+dnl
+   AS_VAR_IF([enable_mixed_precision], [yes],
+     [AS_VAR_APPEND([icon_optim_FCFLAGS],
+        [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])])
 
 # ICON_OPTIMIZATION_SET_CFLAGS()
 # -----------------------------------------------------------------------------
@@ -275,9 +292,11 @@ set of extra CFLAGS is not defined" ;;
    esac
 
    # Currently, we compile the bundled libraries with the same flags:
-   icon_optim_subdir_CFLAGS=$icon_optim_CFLAGS
-
-] AS_IF([test -n "$icon_optim_error"], [AC_MSG_ERROR([$icon_optim_error])])])
+   icon_optim_subdir_CFLAGS=$icon_optim_CFLAGS]
+dnl The plain shell section ends here
+dnl
+   AS_IF([test -n "$icon_optim_error"],
+     [AC_MSG_ERROR([$icon_optim_error])])])
 
 # ICON_OPTIMIZATION_CHECK_FCFLAGS()
 # -----------------------------------------------------------------------------
@@ -330,4 +349,3 @@ optimization level '$enable_optimization': disable optimizations dnl
 (--disable-optimization)])])
       _AC_LANG_PREFIX[]FLAGS=dnl
 $icon_optimization_save_[]_AC_LANG_PREFIX[]FLAGS])])
-
