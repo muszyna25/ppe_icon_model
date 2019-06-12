@@ -174,23 +174,21 @@ version.c: force-create-version
 	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
 # Dependency generation rules:
-%.f90.d: %.f90 | $(dirstamps)
+%.f90.d: %.f90 icon.mk | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) --src-name $(basename $@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_FCFLAGS) $(FCFLAGS)
 
-%.c.d: %.c | $(dirstamps)
+%.c.d: %.c icon.mk | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) --src-name $(basename $@) $< -- $(ICON_OPTIM_CFLAGS) $(CFLAGS) $(ICON_ANCIL_CPPFLAGS) $(CPPFLAGS)
 
 # ICON-Ocean dependency generation rules:
-src/hamocc/%.f90.d: src/hamocc/%.f90 | $(dirstamps)
+src/hamocc/%.f90.d: src/hamocc/%.f90 icon.mk | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) --src-name $(basename $@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
 
-src/ocean/%.f90.d: src/ocean/%.f90 | $(dirstamps)
+src/ocean/%.f90.d: src/ocean/%.f90 icon.mk | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) --src-name $(basename $@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
 
-src/sea_ice/%.f90.d: src/sea_ice/%.f90 | $(dirstamps)
+src/sea_ice/%.f90.d: src/sea_ice/%.f90 icon.mk | $(dirstamps)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) --src-name $(basename $@) $< -- $(DEPGEN_FCFLAGS) $(ICON_ANCIL_FCFLAGS) $(ICON_OPTIM_OCEAN_FCFLAGS) $(FCFLAGS)
-
-$(depfiles): icon.mk
 
 # Make bundled libraries:
 $(bundled_subdirs):
