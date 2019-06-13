@@ -1073,4 +1073,10 @@ AC_CONFIG_FILES([
   icon.mk
 ])
 
+dnl An additional step to generate dummy dependencies:
+AC_CONFIG_COMMANDS([depfiles],
+  [${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&AS_MESSAGE_LOG_FD
+   sleep 1
+   touch icon.mk])
+
 AC_OUTPUT

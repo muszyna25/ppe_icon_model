@@ -82,7 +82,7 @@ vpath %.c $(srcdir)
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Targets not associated with files:
-.PHONY: all depend mostlyclean clean distclean maintainer-clean install force-create-version
+.PHONY: all depend dummy-depend mostlyclean clean distclean maintainer-clean install force-create-version
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
@@ -97,22 +97,12 @@ mostlyclean: $(bundled_subdirs)
 	rm -f icon@EXEEXT@ version.@OBJEXT@ $(addsuffix .@OBJEXT@, $(basename $(srcs))) $(notdir $(srcs_f90:.f90=.i)) $(moddir)/*.@FC_MOD_FILE_EXT@
 
 clean: mostlyclean
-	rm -f version.c srclist $(depfiles) $(dirstamps) $(jsb_srcs_f90)
+	rm -f version.c srclist $(jsb_srcs_f90)
 	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
-	@for dir in src support '$(moddir)' '$(jsb_builddir)'; do \
-	  if test -d "$$dir"; then \
-	    echo "find '$$dir' -type d -empty -delete"; \
-	    find "$$dir" -type d -empty -delete; \
-	  fi; \
-	done; \
-	if test -d 'externals'; then \
-	  echo "find 'externals' -maxdepth 0 -type d -empty -delete"; \
-	  find 'externals' -maxdepth 0 -type d -empty -delete; \
-	fi
 
 distclean: clean
-	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config
-	@for dir in $(bundled_subdirs); do \
+	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config $(depfiles) $(dirstamps)
+	@for dir in src support '$(moddir)' '$(jsb_builddir)' $(bundled_subdirs); do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
@@ -244,7 +234,13 @@ src/ocean/drivers/mo_hydro_ocean_run.@OBJEXT@:|  \
   src/hamocc/icon_specific/bgc_icon.@OBJEXT@     \
   src/hamocc/icon_specific/ini_bgc_icon.@OBJEXT@
 
-ifeq (,$(filter $(MAKECMDGOALS), depend mostlyclean clean distclean maintainer-clean))
--include $(depfiles)
+# Dummy dependency file generation rule (called by config.status): 
+dummy-depend: | $(dirstamps)
+	@for file in $(depfiles); do \
+	  test -e "$$file" || touch "$$file"; \
+	done
+
+ifeq (,$(filter $(MAKECMDGOALS), depend mostlyclean clean distclean maintainer-clean dummy-depend))
+include $(depfiles)
 endif
 
