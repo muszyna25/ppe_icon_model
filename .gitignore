@@ -7,7 +7,6 @@
 .DS_Store
 /Makefile
 /icon.mk
-/externals/jsbach.dsl
 /config.h
 /version.c
 /depgen.f90.config
@@ -42,3 +41,6 @@ install
 /icon
 /srclist
 /icon-*.bz2
+/pp
+/c_binding.d
+/extra_f90.d

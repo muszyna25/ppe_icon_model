@@ -109,6 +109,21 @@ AC_ARG_ENABLE([yaxt],
      [enable the YAXT data exchange @<:@default=no@:>@])], [],
   [enable_yaxt=no])
 
+AC_ARG_ENABLE([serialization],
+[  --enable-serialization  enable Serialbox2 serialization. The value of the
+                          argument must be one of the following @<:@default=no@:>@:
+                            read|yes  enable READ mode
+                            perturb   enable READ & PERTURB mode
+                            create    enable CREATE mode
+                            no        disable serialization],
+[AS_CASE(["$enableval"],
+   [yes], [enable_serialization=read],
+   [read|perturb|create|no], [],
+   [AC_MSG_ERROR([unexpected value for the argument dnl
+--enable-serialization='$enableval'; valid values are 'read', 'perturb', dnl
+'create', 'yes' (same as 'read'), 'no'])])],
+[enable_serialization=no])
+
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
@@ -471,11 +486,23 @@ AS_VAR_IF([enable_sct], [yes],
 AS_VAR_IF([enable_yaxt], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
 
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_SUBST([SB2_ENABLED], [''])
+   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}SERIALIZE"])
+   AS_CASE(["$enable_serialization"],
+     [read], [AS_VAR_APPEND([FCFLAGS],
+                [" ${FC_PP_DEF}SERIALIZE_READ_REFERENCE"])],
+     [perturb], [AS_VAR_APPEND([FCFLAGS],
+                   [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
+     [create], [AS_VAR_APPEND([FCFLAGS],
+                  [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])],
+  [AC_SUBST([SB2_ENABLED], ['#'])])
+
 dnl One of the topological orderings of the ICON dependency graph:
 dnl
-dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)', '-lmtime',
-dnl '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct',
-dnl '-lradiance -lrttov10.2 (etc.)',
+dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
+dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi',
+dnl '-lyaxt -lyaxt_c', '-lsct', '-lradiance -lrttov10.2 (etc.)',
 dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lnetcdff',
 dnl '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
@@ -508,6 +535,8 @@ dnl YAXT:
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',yaxt'])
 dnl CDI:
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_cdi'])
+dnl SERIALBOX2
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',m_serialize,utils_ppser'])
 dnl MTIME:
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
 dnl YAC:
@@ -527,6 +556,7 @@ AS_VAR_IF([enable_mpi], [yes],
   [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
        use mpi, only: mpi_init
+       implicit none
        integer :: error
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
@@ -571,11 +601,12 @@ AS_VAR_IF([enable_parallel_netcdf], [yes],
    icon_netcdf_supports_parallel=unknown
    AS_VAR_IF([cross_compiling], [no],
      [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mpi
+      use mpi, only: mpi_init, MPI_COMM_WORLD, &
+                   & MPI_INFO_NULL
       implicit none
       include 'netcdf.inc'
       integer :: result, tmp
-      call MPI_Init(tmp)
+      call mpi_init(tmp)
       result = nf_create_par('conftest.nc', &
                            & NF_MPIIO, &
                            & MPI_COMM_WORLD, &
@@ -863,11 +894,26 @@ dnl Disable unwanted extra dependencies.
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
 
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_MSG_CHECKING(
+     [whether the Fortran interface of SERIALBOX2 library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use utils_ppser, only: ppser_set_mode
+      implicit none
+      call ppser_set_mode(1)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using SERIALBOX2: dnl
+either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])])
+
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING(
      [whether the Fortran interface of MTIME library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mtime
+      use mtime, only: max_date_str_len, date, &
+                     & newdate, dateToString
+      implicit none
       character(len=max_date_str_len) :: test_date_string
       type(date), pointer :: test_date
       test_date => newdate(0,0,0)
@@ -1021,7 +1067,7 @@ AS_VAR_IF([with_external_self], [yes],
       use self_object
       use self_vector_ref
       use self_vector
-      use self_map
+      use self_map, only: map
       use self_assert
       implicit none
       type(map) :: a
@@ -1049,21 +1095,54 @@ and LIBS accordingly])])
 
 AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
 ACX_PROG_SEARCH([PYTHON], [python python3],
-  [acx_depgen_try=dnl
+  [icon_prog_try=dnl
 '$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
-   AC_TRY_EVAL([acx_depgen_try])],
+   AC_TRY_EVAL([icon_prog_try])],
   [PYTHON=$acx_candidate])
 
 AC_ARG_VAR([PERL], [Perl interpreter command])dnl
 ACX_PROG_SEARCH([PERL], [perl],
-  [acx_depgen_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
-   AC_TRY_EVAL([acx_depgen_try])
+  [icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
+   AC_TRY_EVAL([icon_prog_try])
    test $ac_status -eq 0 || test $ac_status -eq 1],
   [PERL=$acx_candidate])
 
+AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command])
+AC_MSG_CHECKING([for Serialbox2 preprocessor command])
+AS_VAR_IF([enable_serialization], [no],
+  [SB2PP=
+   AC_MSG_RESULT([none needed])],
+  [AC_LANG_ASSERT([Fortran])
+   icon_sb2pp_result=unknown
+   SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
+dnl pp_ser.py can not process a code like this:
+dnl   program main
+dnl   end
+dnl Therefore, we need to generate the source code manually:
+   AC_LANG_CONFTEST([AC_LANG_SOURCE(
+[[      program main
+      implicit none
+      !\$ser mode write
+      call ppser_set_mode(1)
+      end program]])])
+   icon_prog_try=dnl
+"$SB2PP -o conftest.$ac_ext conftest.$ac_ext >&AS_MESSAGE_LOG_FD"
+   AC_TRY_EVAL([icon_prog_try])
+   AS_IF([test $? -eq 0], [AC_LINK_IFELSE([], [icon_sb2pp_result=$SB2PP])])
+   rm -f conftest.$ac_ext
+   AC_MSG_RESULT([$icon_sb2pp_result])
+   AS_VAR_IF([icon_sb2pp_result], [unknown],
+     [AC_MSG_FAILURE([unable to find a valid Serialbox2 preprocessor: dnl
+either disable the serialization (--disable-serialization) or make sure dnl
+that path to the 'pp_ser' module is in the PYTHONPATH environment variable, dnl
+or set SB2PP accordingly])])])
+
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
+dnl The message generated by AC_PROG_LN_S is misleading in our case, therefore
+dnl we do what the standard macro does but without the message:
 AC_SUBST([LN_S], [$as_ln_s])
+AC_PROG_SED
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([

@@ -197,7 +197,8 @@ test -x / || exit 1"
   as_suggested="  as_lineno_1=";as_suggested=$as_suggested$LINENO;as_suggested=$as_suggested" as_lineno_1a=\$LINENO
   as_lineno_2=";as_suggested=$as_suggested$LINENO;as_suggested=$as_suggested" as_lineno_2a=\$LINENO
   eval 'test \"x\$as_lineno_1'\$as_run'\" != \"x\$as_lineno_2'\$as_run'\" &&
-  test \"x\`expr \$as_lineno_1'\$as_run' + 1\`\" = \"x\$as_lineno_2'\$as_run'\"' || exit 1"
+  test \"x\`expr \$as_lineno_1'\$as_run' + 1\`\" = \"x\$as_lineno_2'\$as_run'\"' || exit 1
+test \$(( 1 + 1 )) = 2 || exit 1"
   if (eval "$as_required") 2>/dev/null; then :
   as_have_required=yes
 else
@@ -588,11 +589,13 @@ ac_unique_file="src/drivers/icon.f90"
 ac_default_prefix="`pwd`/install"
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+SED
 LN_S
 MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
+SB2PP
 PERL
 PYTHON
 subdirs_extra
@@ -601,6 +604,7 @@ DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
 BUNDLED_FCFLAGS
 BUNDLED_LIBS
+SB2_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
 ICON_OPTIM_OCEAN_FCFLAGS
@@ -685,6 +689,7 @@ enable_grib2
 enable_parallel_netcdf
 enable_sct
 enable_yaxt
+enable_serialization
 enable_optimization
 enable_loop_exchange
 enable_intel_consistency
@@ -711,7 +716,8 @@ CPPFLAGS
 FC
 FCFLAGS
 PYTHON
-PERL'
+PERL
+SB2PP'
 
 
 # Initialize some variables set by options.
@@ -1353,18 +1359,24 @@ Infrastructural Features:
                           [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
+  --enable-serialization  enable Serialbox2 serialization. The value of the
+                          argument must be one of the following [default=no]:
+                            read|yes  enable READ mode
+                            perturb   enable READ & PERTURB mode
+                            create    enable CREATE mode
+                            no        disable serialization
 
 Optimization Features:
   --enable-optimization   prepend CFLAGS and FCFLAGS with additional
                           predefined compiler-specific set of flags. The value
-                          of the argument should be one of the following
+                          of the argument must be one of the following
                           [default=release]:
-                            release      optimizations for production runs
+                            release|yes  optimizations for production runs
                             aggressive   most aggressive optimizations
                             precise      optimizations ensuring reproducibility
                             debug        optimizations for debugging
                             test         optimizations for regression testing
-                            none         no optimizations at all
+                            none|no      no optimizations at all
   --enable-loop-exchange  enable loop exchange [default=auto]
   --enable-intel-consistency
                           enable Intel compiler directives enforcing
@@ -1405,6 +1417,7 @@ Some influential environment variables:
   FCFLAGS     Fortran compiler flags
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
+  SB2PP       Serialbox2 preprocessor command
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2214,6 +2227,21 @@ else
 fi
 
 
+# Check whether --enable-serialization was given.
+if test "${enable_serialization+set}" = set; then :
+  enableval=$enable_serialization; case "$enableval" in #(
+  yes) :
+    enable_serialization=read ;; #(
+  read|perturb|create|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "unexpected value for the argument --enable-serialization='$enableval'; valid values are 'read', 'perturb', 'create', 'yes' (same as 'read'), 'no'" "$LINENO" 5 ;;
+esac
+else
+  enable_serialization=no
+fi
+
+
 
 
 # Check whether --enable-optimization was given.
@@ -2226,7 +2254,7 @@ if test "${enable_optimization+set}" = set; then :
   release|aggressive|precise|debug|test|none) :
      ;; #(
   *) :
-    as_fn_error $? "unexpected value for the argument --enable-optimization='$enableval'; valid values are 'release', 'aggressive', 'precise', 'debug', 'test', 'none', 'yes' (same as 'release'), 'no' (same as 'none')." "$LINENO" 5 ;;
+    as_fn_error $? "unexpected value for the argument --enable-optimization='$enableval'; valid values are 'release', 'aggressive', 'precise', 'debug', 'test', 'none', 'yes' (same as 'release'), 'no' (same as 'none')" "$LINENO" 5 ;;
 esac
 else
   enable_optimization=release
@@ -4869,6 +4897,25 @@ if test "x$enable_yaxt" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_YAXT"
 fi
 
+if test "x$enable_serialization" != xno; then :
+  SB2_ENABLED=''
+
+   as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE"
+   case "$enable_serialization" in #(
+  read) :
+    as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE_READ_REFERENCE" ;; #(
+  perturb) :
+    as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE" ;; #(
+  create) :
+    as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE" ;; #(
+  *) :
+     ;;
+esac
+else
+  SB2_ENABLED='#'
+
+fi
+
 
 
 
@@ -4884,6 +4931,7 @@ as_fn_append DEPGEN_EXTERNAL_MODS ',mo_rttov_ifc'
 as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
 as_fn_append DEPGEN_EXTERNAL_MODS ',yaxt'
 as_fn_append DEPGEN_EXTERNAL_MODS ',mo_cdi'
+as_fn_append DEPGEN_EXTERNAL_MODS ',m_serialize,utils_ppser'
 as_fn_append DEPGEN_EXTERNAL_MODS ',mtime,mtime_datetime'
 as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
 as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
@@ -4899,6 +4947,7 @@ $as_echo_n "checking whether Fortran 90 interface of MPI library is available...
       program main
 
        use mpi, only: mpi_init
+       implicit none
        integer :: error
        call mpi_init(error)
       end
@@ -5129,11 +5178,12 @@ $as_echo_n "checking whether the provided version of NetCDF is built with parall
   cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mpi
+      use mpi, only: mpi_init, MPI_COMM_WORLD, &
+                   & MPI_INFO_NULL
       implicit none
       include 'netcdf.inc'
       integer :: result, tmp
-      call MPI_Init(tmp)
+      call mpi_init(tmp)
       result = nf_create_par('conftest.nc', &
                            & NF_MPIIO, &
                            & MPI_COMM_WORLD, &
@@ -5688,13 +5738,41 @@ esac
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"
 fi
 
+if test "x$enable_serialization" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SERIALBOX2 library is available" >&5
+$as_echo_n "checking whether the Fortran interface of SERIALBOX2 library is available... " >&6; }
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use utils_ppser, only: ppser_set_mode
+      implicit none
+      call ppser_set_mode(1)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using SERIALBOX2: either disable the serialization (--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
 if test "x$with_external_mtime" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of MTIME library is available" >&5
 $as_echo_n "checking whether the Fortran interface of MTIME library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mtime
+      use mtime, only: max_date_str_len, date, &
+                     & newdate, dateToString
+      implicit none
       character(len=max_date_str_len) :: test_date_string
       type(date), pointer :: test_date
       test_date => newdate(0,0,0)
@@ -6082,7 +6160,7 @@ $as_echo_n "checking whether Fortran SELF 0.2 library is available... " >&6; }
       use self_object
       use self_vector_ref
       use self_vector
-      use self_map
+      use self_map, only: map
       use self_assert
       implicit none
       type(map) :: a
@@ -6171,9 +6249,9 @@ else
 fi
       shift
       for acx_candidate in "$@"; do
-        acx_depgen_try='$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_depgen_try\""; } >&5
-  (eval $acx_depgen_try) 2>&5
+        icon_prog_try='$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }
@@ -6209,9 +6287,9 @@ else
 fi
       shift
       for acx_candidate in "$@"; do
-        acx_depgen_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$acx_depgen_try\""; } >&5
-  (eval $acx_depgen_try) 2>&5
+        icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }
@@ -6235,6 +6313,48 @@ as_fn_error $? "unable to find perl
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
+$as_echo_n "checking for Serialbox2 preprocessor command... " >&6; }
+if test "x$enable_serialization" = xno; then :
+  SB2PP=
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: none needed" >&5
+$as_echo "none needed" >&6; }
+else
+
+   icon_sb2pp_result=unknown
+   SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+      implicit none
+      !\$ser mode write
+      call ppser_set_mode(1)
+      end program
+_ACEOF
+   icon_prog_try="$SB2PP -o conftest.$ac_ext conftest.$ac_ext >&5"
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   if test $? -eq 0; then :
+  if ac_fn_fc_try_link "$LINENO"; then :
+  icon_sb2pp_result=$SB2PP
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+fi
+   rm -f conftest.$ac_ext
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_sb2pp_result" >&5
+$as_echo "$icon_sb2pp_result" >&6; }
+   if test "x$icon_sb2pp_result" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find a valid Serialbox2 preprocessor: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+fi
 
 # Find a good install program.  We prefer a C program (faster),
 # so one script is as good as another.  But avoid the broken or
@@ -6372,6 +6492,75 @@ fi
 $as_echo "$MKDIR_P" >&6; }
 
 LN_S=$as_ln_s
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for a sed that does not truncate output" >&5
+$as_echo_n "checking for a sed that does not truncate output... " >&6; }
+if ${ac_cv_path_SED+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+            ac_script=s/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/
+     for ac_i in 1 2 3 4 5 6 7; do
+       ac_script="$ac_script$as_nl$ac_script"
+     done
+     echo "$ac_script" 2>/dev/null | sed 99q >conftest.sed
+     { ac_script=; unset ac_script;}
+     if test -z "$SED"; then
+  ac_path_SED_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in sed gsed; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_SED="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_SED" || continue
+# Check for GNU ac_path_SED and select it if it is found.
+  # Check for GNU $ac_path_SED
+case `"$ac_path_SED" --version 2>&1` in
+*GNU*)
+  ac_cv_path_SED="$ac_path_SED" ac_path_SED_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo '' >> "conftest.nl"
+    "$ac_path_SED" -f conftest.sed < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_SED_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_SED="$ac_path_SED"
+      ac_path_SED_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_SED_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_SED"; then
+    as_fn_error $? "no acceptable sed could be found in \$PATH" "$LINENO" 5
+  fi
+else
+  ac_cv_path_SED=$SED
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_SED" >&5
+$as_echo "$ac_cv_path_SED" >&6; }
+ SED="$ac_cv_path_SED"
+  rm -f conftest.sed
 
 
 ac_config_headers="$ac_config_headers config.h"
