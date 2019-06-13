@@ -13,6 +13,7 @@
 !!
 !! @par Revision History
 !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+!! Added tot_prec_interval, mxt_interval by Trang Van Pham, DWD (2018-05-25)
 !!
 !! @par Copyright and License
 !!
@@ -44,6 +45,8 @@ MODULE mo_io_config
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
   REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
+  REAL(wp):: tot_prec_interval(max_dom) ! time interval over which tot_prec is accumulated
+  REAL(wp):: mxt_interval(max_dom)      ! time interval for tmax_2m, tmin_2m
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging

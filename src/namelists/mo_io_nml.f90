@@ -32,6 +32,8 @@ MODULE mo_io_nml
   USE mo_io_config,          ONLY: config_lkeep_in_sync           => lkeep_in_sync          , &
                                  & config_dt_diag                 => dt_diag                , &
                                  & config_gust_interval           => gust_interval          , &
+                                 & config_tot_prec_interval       => tot_prec_interval      , &
+                                 & config_mxt_interval            => mxt_interval           , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
                                  & config_inextra_3d              => inextra_3d             , &
@@ -76,6 +78,8 @@ CONTAINS
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
+  !! History:
+  !! Added tot_prec_interval, mxt_interval by Trang Van Pham, DWD 2018-05-25
   !!
   SUBROUTINE read_io_namelist( filename )
 
@@ -92,8 +96,9 @@ CONTAINS
     LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
     REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
+    REAL(wp):: tot_prec_interval(max_dom)          ! time interval over which tot_prec is accumulated
+    REAL(wp):: mxt_interval(max_dom)               ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
-
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
     INTEGER :: inextra_3d                 ! number of extra output fields for debugging
     LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated
@@ -147,7 +152,8 @@ CONTAINS
       &              lnetcdf_flt64_output,                              &
       &              restart_file_type, write_initial_state,            &
       &              write_last_restart, timeSteps_per_outputStep,      &
-      &              lmask_boundary, gust_interval, restart_write_mode, &
+      &              lmask_boundary, tot_prec_interval, mxt_interval,   &
+      &              gust_interval, restart_write_mode,                 &
       &              nrestart_streams
 
     !-----------------------
@@ -162,6 +168,8 @@ CONTAINS
     dt_checkpoint           = 0._wp  ! unspecified
 
     gust_interval(:)        = 3600._wp     ! 1 hour
+    tot_prec_interval(:)    = 86400._wp    ! 1 day
+    mxt_interval(:)         = 86400._wp    ! 1 day
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
@@ -218,6 +226,8 @@ CONTAINS
     config_lkeep_in_sync           = lkeep_in_sync
     config_dt_diag                 = dt_diag
     config_gust_interval(:)        = gust_interval(:)
+    config_tot_prec_interval(:)    = tot_prec_interval(:)
+    config_mxt_interval(:)         = mxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_inextra_2d              = inextra_2d
     config_inextra_3d              = inextra_3d
