@@ -58,7 +58,7 @@ MODULE mo_cover
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
-  USE mo_echam_cld_config,     ONLY : echam_cld_config
+  USE mo_echam_cov_config,     ONLY : echam_cov_config
 
   IMPLICIT NONE
   PRIVATE
@@ -67,16 +67,16 @@ MODULE mo_cover
 CONTAINS
   !>
   !!
-  SUBROUTINE cover (         jg                                                    & !in
-    &                      , jb                                                    & !in
-    &                      , jcs,      kproma,   kbdim, klev, klevp1               & !in
-    &                      , ktype,    pfrw,     pfri                              & !in
-    &                      , zf                                                    & !in
-    &                      , paphm1,   papm1                                       & !in
-    &                      , ptm1,     pqm1,     pxim1                             & !in
-    &                      , paclc                                                 & !inout
-    &                      , printop                                               & !out
-    &              )
+  SUBROUTINE cover ( jg                                                    & !in
+       &           , jb                                                    & !in
+       &           , jcs,      kproma,   kbdim, klev, klevp1               & !in
+       &           , ktype,    pfrw,     pfri                              & !in
+       &           , zf                                                    & !in
+       &           , paphm1,   papm1                                       & !in
+       &           , ptm1,     pqm1,     pxim1                             & !in
+       &           , paclc                                                 & !out
+       &           , printop                                               & !out
+       &           )
     !---------------------------------------------------------------------------------
     !
     INTEGER, INTENT(in)    :: jg
@@ -84,18 +84,18 @@ CONTAINS
     INTEGER, INTENT(in)    :: kbdim, klevp1, klev, jcs, kproma
     INTEGER, INTENT(in)    :: ktype(kbdim)          !< type of convection
     REAL(wp),INTENT(in)    :: pfrw(kbdim)         ,&!< water mask
-      &                       pfri(kbdim)           !< ice mask
+         &                       pfri(kbdim)           !< ice mask
     REAL(wp),INTENT(in)    :: zf(kbdim,klev)      ,&!< geometric height thickness [m]
-      &                       paphm1(kbdim,klevp1),&!< pressure at half levels
-      &                       papm1(kbdim,klev)   ,&!< pressure at full levels
-      &                       pqm1(kbdim,klev)    ,&!< specific humidity
-      &                       ptm1(kbdim,klev)    ,&!< temperature
-      &                       pxim1(kbdim,klev)     !< cloud ice
+         &                       paphm1(kbdim,klevp1),&!< pressure at half levels
+         &                       papm1(kbdim,klev)   ,&!< pressure at full levels
+         &                       pqm1(kbdim,klev)    ,&!< specific humidity
+         &                       ptm1(kbdim,klev)    ,&!< temperature
+         &                       pxim1(kbdim,klev)     !< cloud ice
     REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
     REAL(wp),INTENT(out)   :: printop(kbdim)
 
     INTEGER :: jl, jk, jbm
-    INTEGER :: locnt, nl, ilev
+    INTEGER :: locnt, nl
     REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
     INTEGER :: itv1(kproma), itv2(kproma)
 
@@ -111,136 +111,205 @@ CONTAINS
     !   variables required for zriddr iteration scheme:
     !
     REAL(wp) :: zjk, zgam
-    REAL(wp) :: zqsm1(kproma*klev)
+    REAL(wp) :: zqsm1(kbdim,klev)
     REAL(wp) :: ua(kproma)
 
     LOGICAL :: lao, lao1
 
-    REAL(wp) :: zpapm1i(kbdim,klev),     ztmp(kproma*klev)
+    REAL(wp) :: zpapm1i(kbdim),     ztmp(kbdim)
 
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-    INTEGER :: knvb(kbdim), loidx(kproma*klev)
+    INTEGER :: knvb(kbdim), loidx(kbdim)
 
-    ! Shortcuts to components of echam_cld_config
+    ! Shortcuts to components of echam_cov_config
     !
-    INTEGER , POINTER :: jks, jbmin, jbmax, nex
-    REAL(wp), POINTER :: csatsc, crt, crs, cinv
+    INTEGER , POINTER :: nex, icov, jkscov, jksinv, jkeinv
+    REAL(wp), POINTER :: csatsc, csat, crt, crs, cinv
     !
-    jks    => echam_cld_config(jg)% jks
-    jbmin  => echam_cld_config(jg)% jbmin
-    jbmax  => echam_cld_config(jg)% jbmax
-    csatsc => echam_cld_config(jg)% csatsc
-    crs    => echam_cld_config(jg)% crs
-    crt    => echam_cld_config(jg)% crt
-    nex    => echam_cld_config(jg)% nex
-    cinv   => echam_cld_config(jg)% cinv
+    icov   => echam_cov_config(jg)% icov
+    jkscov => echam_cov_config(jg)% jkscov
+    jksinv => echam_cov_config(jg)% jksinv
+    jkeinv => echam_cov_config(jg)% jkeinv
+    csatsc => echam_cov_config(jg)% csatsc
+    csat   => echam_cov_config(jg)% csat
+    crs    => echam_cov_config(jg)% crs
+    crt    => echam_cov_config(jg)% crt
+    nex    => echam_cov_config(jg)% nex
+    cinv   => echam_cov_config(jg)% cinv
 
+    ! Initialize output arrays
     !
-    !   Initialize variables
-    !
-    DO jk = 1,jks-1
-      DO jl = jcs,kproma
-         paclc(jl,jk) = 0.0_wp
-      END DO
+    DO jk = 1,klev
+       DO jl = jcs,kproma
+          !
+          paclc(jl,jk) = 0.0_wp
+          !
+       END DO
     END DO
-    !
+
     DO jl = jcs,kproma
-      zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
-      zknvb(jl)  = 1.0_wp
-      printop(jl)= 0.0_wp
-    END DO
-    !
-    DO jk = jks,klev
-      DO jl = jcs,kproma
-         zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
-      END DO
-    END DO
-    !
-    !       1.3   Checking occurrence of low-level inversion
-    !             (below 2000 m, sea points only, no convection)
-    !
-    locnt = jcs-1
-    DO jl = jcs,kproma
-      IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
-        locnt = locnt + 1
-        loidx(locnt) = jl
-      END IF
+       !
+       printop(jl) = 0.0_wp
+       !
     END DO
 
-    IF (locnt.GT.jcs-1) THEN
-      DO jk = klev,jbmin,-1
-
-!IBM* ASSERT(NODEPS)
-!IBM* novector
-        DO nl = jcs,locnt
-          jl = loidx(nl)
-          ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
-        END DO
-
-        zjk = REAL(jk,wp)
-!IBM* ASSERT(NODEPS)
-        DO nl = jcs,locnt
-          jl = loidx(nl)
-          zdtdz       = MIN(0.0_wp, ztmp(nl))
-          zknvb(jl)   = FSEL(zdtmin(jl)-zdtdz,zknvb(jl),zjk)
-          zdtmin(jl)  = MAX(zdtdz,zdtmin(jl))
-        END DO
-      END DO
-    END IF
-    knvb(jcs:kproma) = INT(zknvb(jcs:kproma))
+    ! Calculate the saturation mixing ratio
     !
-    !       1.   Calculate the saturation mixing ratio
+    DO jk = jkscov,klev
+       !
+       CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(1,jk),itv1(1),   &
+            za(1),pxim1(1,jk),nphase,zphase,itv2,       &
+            klev=jk,kblock=jb,kblock_size=kbdim)
+       ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
+       CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
+       ! output: ua
+       !
+       !IBM* novector
+       !
+       DO jl = jcs,kproma
+          zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
+          zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
+          zcor         = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+          zqsm1(jl,jk) = zqsm1(jl,jk)*zcor  ! qsat
+       END DO
+       !
+    END DO
+
+    ! Calculate the cloud cover as a function of relative humidity
     !
-    IF (jks < klev+1) THEN
-
-      DO jk = jks,klev
-
-        CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(1,jk),itv1(1),   &
-                                         za(1),pxim1(1,jk),nphase,zphase,itv2,       &
-                                         klev=jk,kblock=jb,kblock_size=kbdim)
-        ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
-        CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
-        ! output: ua
-
-!IBM* novector
-
-        DO jl = jcs,kproma
-          zqsm1(jl) = MIN(ua(jl)*zpapm1i(jl,jk),0.5_wp)
-          zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl))
-          zqsm1(jl) = zqsm1(jl)*zcor  ! qsat
-        END DO
-        !
-        !       Threshold relative humidity, qsat and cloud cover
-        !       This is from cloud, and is the original calculation for
-        !       cloud cover, based on relative humidity
-        !       (Lohmann and Roeckner, Clim. Dyn.  96)
-        !
-        DO jl = jcs,kproma
-        !
-          zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
-          zsat=1._wp
-          jbm=knvb(jl)
-          lao=(jbm.GE.jbmin .AND. jbm.LE.jbmax)
-          lao1=(jk.EQ.jbm)
-          ilev=klev
-          IF (lao .AND. lao1) THEN
-          !  ilev=klevp1-jbm
-            ilev=100
-            printop(jl)=REAL(ilev,wp)
-            zdtdz = (ptm1(jl,jbm-1)-ptm1(jl,jbm))/(zf(jl,jk-1)-zf(jl,jk))
-            zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
-            zsat  = MIN(1.0_wp,csatsc+zgam)
+    SELECT CASE (icov)
+       !
+    CASE(1) ! Fractional cloud cover scheme
+       !      The relative humidity dependence follows Sundqvist et al. (1989), Eqs.3.11-3.13,
+       !      see also Lohmann and Roeckner (1996), Eq.4, and Roeckner et al. (1996), Eq.55 and 56.
+       !      The modification of the fractional cloud cover below inversions, to capture marine
+       !      stratocumulus clouds follows Mauritsen et al. (2019), Eq.3.
+       !      The vertical dependence of the critical relative humidity is fitted to results
+       !      obtained by Xu and Krueger (1991). The vertical dependence on pressure is given
+       !      by Roeckner et al. (1996), Eq.57.
+       !      - Lohmann and Roeckner, Clim. Dyn., 12, 557–572, 1996.
+       !      - Mauritsen et al, JAMES, 11, 998-1038, 2019
+       !      - Roeckner et al., MPI-Rport 218, 90pp., 1996.
+       !      - Sundqvist et al., Mon. Wea. Rev., 117, 1641-1657, 1989.
+       !      - Xu and Krueger., Mon. Wea. Rev., 119, 342-367, 1991.
+       !
+       !   Initialize variables
+       !
+       DO jl = jcs,kproma
+          zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
+          zknvb(jl)  = 1.0_wp
+       END DO
+       !
+       !   Checking occurrence of low-level inversion
+       !   (below 2000 m, sea points only, no convection)
+       !
+       ! Build index list for columns, which have >50% sea surface, practically no sea ice, and
+       ! which are not convective.
+       ! Indixes of these columns are stored in the index list loidx, with list indices jcs:locnt.
+       locnt = jcs-1
+       DO jl = jcs,kproma
+          IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
+             locnt = locnt + 1
+             loidx(locnt) = jl
           END IF
-          zqr=pqm1(jl,jk)/(zqsm1(jl)*zsat)      ! r in Lohmann-scheme (grid-mean rel hum)
-          paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc) ! b_o in Lohman-scheme
-          paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp)
-          paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
-        END DO !jl
-      END DO  !jk
-    END IF
-
-    !
+       END DO
+       !
+       ! For these columns, search from the lowermost layer jk=klev up to jk=jksinv at ~2000m height.
+       ! Find the level index with the least negative lapse rate towards
+       ! the adjacent upper layer, supposed to be the layer below the inversion.
+       IF (locnt.GT.jcs-1) THEN
+          DO jk = klev,jksinv,-1
+             !
+             !IBM* ASSERT(NODEPS)
+             !IBM* novector
+             DO nl = jcs,locnt
+                jl = loidx(nl)
+                ! Lapse rate dT/dz (K/m) between layers k-1 and k.
+                ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
+             END DO
+             !
+             zjk = REAL(jk,wp)
+             !IBM* ASSERT(NODEPS)
+             DO nl = jcs,locnt
+                jl = loidx(nl)
+                ! Truncate lapse rate dT/dz (K/m) to value <= 0.
+                zdtdz       = MIN(0.0_wp, ztmp(nl))
+                ! Update inversion level index if the lapse rate is weaker than zdtmin,
+                ! otherwise keep old value (initial value = 1)
+                zknvb(jl)   = FSEL(zdtmin(jl)-zdtdz,zknvb(jl),zjk)
+                ! Update minimum lapse rate, if the lapse rate is less negative,
+                ! otherwise keep the old value (initial value = -cinv*grav/cpd)
+                zdtmin(jl)  = MAX(zdtdz,zdtmin(jl))
+             END DO
+          END DO
+       END IF
+       !
+       DO jl = jcs,kproma
+          knvb(jl) = INT(zknvb(jl))
+       END DO
+       !
+       DO jk = jkscov,klev
+          DO jl = jcs,kproma
+             !
+             ! Scaling factor zsat for the saturation mass mixing ratio, with range [csatsc,1].
+             ! Scaling factors < 1 are computed for cells below an inversion in conditions
+             ! allowing for marine stratocumulus clouds.
+             !
+             jbm=knvb(jl)                           ! if inversion was found: level below inversion, otherwise = 1 
+             lao=(jksinv <= jbm .AND. jbm <= jkeinv)! true if jbm of this column is in valid range of height
+             lao1=(jk == jbm)                       ! true if jk is the level just below the inversion
+             IF (lao .AND. lao1) THEN               ! this is a layer below an inversion, where zsat needs to be modified
+                printop(jl)=REAL(jk,wp)             ! store level index
+                zdtdz = (ptm1(jl,jbm-1)-ptm1(jl,jbm))/(zf(jl,jk-1)-zf(jl,jk)) ! lapse rate dT/dz (K/m)
+                zgam  = MAX(0.0_wp,-zdtdz*cpd/grav) ! ratio (dT/dz)/(dry adiab. dT/dz), truncated >= 0
+                zsat  = MIN(1.0_wp,csatsc+zgam)     ! scaling factor for saturation mixing ratio, with range [csatsc,1]
+                !                                     Mauritsen et al. (2019), Eq.3
+             ELSE
+                !
+                zsat  = 1.0_wp
+                !
+             END IF
+             !
+             ! Relative humidity
+             zqr=pqm1(jl,jk)/(zqsm1(jl,jk)*zsat)    ! r in Lohmann-scheme (grid-mean rel hum)
+             !                                        but scaled by zsat in layer below inversion
+             !                                        following Mauritsen et al. (2019)
+             !
+             ! Critical relative humidity for cloud formation
+             zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
+             !
+             ! Compute fractional cloud cover
+             paclc(jl,jk)=(zqr-zrhc)/(csat-zrhc)    ! = b_o in Eq.4 of Lohmann and Roeckner (1996), linear in zqr
+             !                                        = 0 for zqr=zrhc
+             !                                        = 1 for zqr=csat
+             !
+             paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp) ! limit to range [0,1]
+             !                                                   = 0                     , zqr<=zrhc
+             !                                                   = (zqr-zrhc)/(csat-zrhc), zrhc<zqr<csat
+             !                                                   = 1                     , csat<=zqr
+             paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))       ! = b in Eq.4 in LR (1996)
+             !                                                   = b in Eq.3.13 of Sundqvist et al. (1989)
+             !
+          END DO
+       END DO
+       !
+    CASE(2) ! 0/1 cloud cover scheme
+       !      Cloud cover is 1 if the relative humidity is >= csat, and 0 otherwise
+       !
+       DO jk = jkscov,klev
+          DO jl = jcs,kproma
+             !
+             zqr = pqm1(jl,jk)/zqsm1(jl,jk)
+             !
+             IF (zqr >= csat) THEN
+                paclc(jl,jk) = 1.0_wp
+             END IF
+             !
+          END DO
+       END DO
+       !
+    END SELECT
     !
   END SUBROUTINE cover
 

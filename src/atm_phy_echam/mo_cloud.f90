@@ -195,12 +195,12 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    INTEGER , POINTER :: jks
+    INTEGER , POINTER :: jkscld
     REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
          &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
          &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
     !
-    jks      => echam_cld_config(jg)% jks
+    jkscld   => echam_cld_config(jg)% jkscld
     cqtmin   => echam_cld_config(jg)% cqtmin
     cvtfall  => echam_cld_config(jg)% cvtfall
     crhosno  => echam_cld_config(jg)% crhosno
@@ -269,7 +269,7 @@ CONTAINS
 111 END DO
 
     !
-    DO 831 jk = jks,klev  ! the big jk-loop
+    DO 831 jk = jkscld,klev  ! the big jk-loop
     !
     !       1.3   Air density
     !
@@ -1168,7 +1168,7 @@ CONTAINS
        zclcov(jl) = 1.0_wp-paclc(jl,1)
 921 END DO
     !
-    DO 923 jk      = jks+1,klev
+    DO 923 jk      = jkscld+1,klev
 !IBM* NOVECTOR
       DO 922 jl    = jcs,kproma
          zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))         &
@@ -1187,7 +1187,7 @@ CONTAINS
        zxlvi(jl) = 0.0_wp
 931 END DO
     !
-    DO 933 jk     = jks,klev
+    DO 933 jk     = jkscld,klev
        DO 932 jl   = jcs,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 932    END DO
@@ -1197,7 +1197,7 @@ CONTAINS
     DO 938 jl = jcs,kproma
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
-       DO 936 jk = jks, klevtop
+       DO 936 jk = jkscld, klevtop
           zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 936    END DO
 938 END DO

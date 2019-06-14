@@ -87,7 +87,10 @@ MODULE mo_echam_phy_init
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
   ! cloud microphysics
-  USE mo_echam_cld_config,     ONLY: print_echam_cld_config, echam_cld_config
+  USE mo_echam_cld_config,     ONLY: eval_echam_cld_config, print_echam_cld_config, echam_cld_config
+
+  ! cloud cover
+  USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
 
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
@@ -270,7 +273,16 @@ CONTAINS
        lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
     END DO
     IF (lany) THEN
+      CALL  eval_echam_cld_config
       CALL print_echam_cld_config
+    END IF
+
+    ! cloud cover
+    !
+    lany=.TRUE.
+    IF (lany) THEN
+      CALL  eval_echam_cov_config
+      CALL print_echam_cov_config
     END IF
 
     ! atmospheric gravity wave drag

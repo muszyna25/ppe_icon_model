@@ -23,11 +23,13 @@
 !!
 MODULE mo_echam_cld_config
 
-  USE mo_exception            ,ONLY: message, print_value
+  USE mo_exception            ,ONLY: finish, message, print_value
   USE mo_kind                 ,ONLY: wp
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
+  USE mo_vertical_coord_table ,ONLY: vct_a
   USE mo_physical_constants   ,ONLY: tmelt
+  USE mo_echam_phy_config     ,ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -36,7 +38,7 @@ MODULE mo_echam_cld_config
   ! configuration
   PUBLIC ::         echam_cld_config   !< user specified configuration parameters
   PUBLIC ::    init_echam_cld_config   !< allocate and initialize echam_cld_config
-!!$  PUBLIC ::    eval_echam_cld_config   !< evaluate echam_cld_config
+  PUBLIC ::    eval_echam_cld_config   !< evaluate echam_cld_config
   PUBLIC ::   print_echam_cld_config   !< print out
 
   !>
@@ -53,8 +55,9 @@ MODULE mo_echam_cld_config
      ! ------------------------
      !
      ! vertical loop limit
-     INTEGER  :: jks      !          start index of jk loops in "cover" and "cloud"
-     !
+     REAL(wp) :: zmaxcld  ! [m]      maximum height for cloud microphysics calculation
+     INTEGER  :: jkscld   !          vertical start index for cloud microphysics calculation
+     !                               diagnosed in eval_echam_cld_config
      ! general thresholds
      REAL(wp) :: ccwmin   ! [kg/kg]  cloud water and ice minimum mass mixing ratio for cover>0
      REAL(wp) :: cqtmin   ! [kg/kg]  cloud water/ice minimum for microphysical processes
@@ -99,15 +102,6 @@ MODULE mo_echam_cld_config
      !                    !          the top of shallow convection
      !                    !          for ratio > clwprat -> change ktype from 2 to 4
      !
-     ! cloud cover
-     REAL(wp) :: crs      !          critical relative humidity at surface
-     REAL(wp) :: crt      !          critical relative humidity aloft
-     INTEGER  :: nex      !          transition parameter for critical relative humidity profile
-     INTEGER  :: jbmin    !          index of highest level for search of top level of inversion layer over sea (ca. 2 km)
-     INTEGER  :: jbmax    !          index of bottom level of inversion layer over sea
-     REAL(wp) :: cinv     !          fraction of dry adiabatic lapse rate for search of top level of inversion layer over sea
-     REAL(wp) :: csatsc   !          minimum effective saturation for cloud cover below an invesion layer over sea
-     !
      ! tropopause diagnostics
 !!$     REAL(wp) :: cptop    ! [Pa]     pressure of highest level for tropopause calculation
 !!$     REAL(wp) :: cpbot    ! [Pa]     pressure of lowest  level for tropopause calculation
@@ -133,8 +127,10 @@ CONTAINS
     ! ECHAM cloud microphyiscs configuration
     ! --------------------------------------
     !
+    ! vertical range
+    echam_cld_config(:)% zmaxcld  = echam_phy_config(:)% zmaxcloudy
+    !
     ! general thresholds
-    echam_cld_config(:)% jks      = 15             ! L47: jks=15 is at ca. 30km
     echam_cld_config(:)% ccwmin   = 1.e-7_wp
     echam_cld_config(:)% cqtmin   = 1.e-12_wp
     !
@@ -172,15 +168,6 @@ CONTAINS
     echam_cld_config(:)% cinhoml3 = 0.80_wp
     echam_cld_config(:)% clwprat  = 4.0_wp
     !
-    ! cloud cover
-    echam_cld_config(:)% crs      = 0.968_wp
-    echam_cld_config(:)% crt      = 0.8_wp
-    echam_cld_config(:)% nex      = 2
-    echam_cld_config(:)% jbmin    = 40
-    echam_cld_config(:)% jbmax    = 45
-    echam_cld_config(:)% cinv     = 0.25_wp
-    echam_cld_config(:)% csatsc   = 0.7_wp
-    !
     ! tropopause diagnostics
 !!$    echam_cld_config(:)% cptop  = 1000.0_wp
 !!$    echam_cld_config(:)% cpbot  = 50000.0_wp
@@ -191,14 +178,36 @@ CONTAINS
 
   !----
 
-!!$  !>
-!!$  !! Evaluate additional derived parameters
-!!$  !!
-!!$  SUBROUTINE eval_echam_cld_config
-!!$    !
-!!$    ...
-!!$    !
-!!$  END SUBROUTINE eval_echam_cld_config
+  !>
+  !! Evaluate additional derived parameters
+  !!
+  SUBROUTINE eval_echam_cld_config
+    !
+    INTEGER           :: jg, jk, klev
+    CHARACTER(LEN=2)  :: cg
+    !
+    klev = SIZE(vct_a)-1
+    !
+    DO jg = 1,n_dom
+       !
+       WRITE(cg,'(i0)') jg
+       !
+       ! diagnose jkscld
+       echam_cld_config(jg)% jkscld = 1
+       !
+       DO jk = 1,klev
+          !
+          IF ((vct_a(jk)+vct_a(jk+1))*0.5_wp > echam_cld_config(jg)% zmaxcld) THEN
+             echam_cld_config(jg)% jkscld = echam_cld_config(jg)% jkscld + 1
+          ELSE
+             EXIT
+          END IF
+          !
+       END DO
+       !
+    END DO
+    !
+  END SUBROUTINE eval_echam_cld_config
 
   !----
 
@@ -224,7 +233,8 @@ CONTAINS
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jks      ',echam_cld_config(jg)% jks     )
+       CALL print_value('    echam_cld_config('//TRIM(cg)//')% zmaxcld  ',echam_cld_config(jg)% zmaxcld )
+       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jkscld   ',echam_cld_config(jg)% jkscld  )
        CALL message    ('','')
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccwmin   ',echam_cld_config(jg)% ccwmin  )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% cqtmin   ',echam_cld_config(jg)% cqtmin  )
@@ -257,14 +267,6 @@ CONTAINS
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml2 ',echam_cld_config(jg)% cinhoml2)
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml3 ',echam_cld_config(jg)% cinhoml3)
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
-       CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crs      ',echam_cld_config(jg)% crs     )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% crt      ',echam_cld_config(jg)% crt     )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% nex      ',echam_cld_config(jg)% nex     )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jbmin    ',echam_cld_config(jg)% jbmin   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% jbmax    ',echam_cld_config(jg)% jbmax   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinv     ',echam_cld_config(jg)% cinv    )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% csatsc   ',echam_cld_config(jg)% csatsc  )
        CALL message    ('','')
 !!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cptop    ',echam_cld_config(jg)% cptop   )
 !!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cpbot    ',echam_cld_config(jg)% cpbot   )
