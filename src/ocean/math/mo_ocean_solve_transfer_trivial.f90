@@ -6,7 +6,7 @@ MODULE mo_ocean_solve_trivial_transfer
   USE mo_kind, ONLY: wp, sp
   USE mo_exception, ONLY: finish
   USE mo_ocean_solve_transfer, ONLY: t_transfer
-  USE mo_ocean_solve_aux, ONLY: t_destructible, solve_cell, solve_edge
+  USE mo_ocean_solve_aux, ONLY: t_destructible, solve_cell, solve_edge, solve_vert
   USE mo_model_domain, ONLY: t_patch
   USE mo_mpi, ONLY: p_pe_work, p_comm_work, my_process_is_mpi_parallel
   USE mo_parallel_config, ONLY: nproma
@@ -100,6 +100,14 @@ CONTAINS
       this%nidx_e = patch_2d%edges%in_domain%end_index
       this%glb_idx_loc => patch_2d%edges%decomp_info%glb_index
       this%comm_pat_sync => patch_2d%comm_pat_e
+    CASE(solve_vert)
+      this%nblk_a = SIZE(patch_2D%verts%decomp_info%owner_mask, 2)
+      this%nblk = patch_2d%verts%in_domain%end_block
+      this%nidx = nproma
+      this%nidx_l = nproma
+      this%nidx_e = patch_2d%verts%in_domain%end_index
+      this%glb_idx_loc => patch_2d%verts%decomp_info%glb_index
+      this%comm_pat_sync => patch_2d%comm_pat_v
     CASE DEFAULT
       CALL finish(routine, "syncing scheme not recognized")
     END SELECT

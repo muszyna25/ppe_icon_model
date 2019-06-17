@@ -78,7 +78,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer, subset_transfer_ptr
   USE mo_ocean_solve_aux, ONLY: t_destructible, t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
    & ocean_solve_clear, solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
-   & solve_trans_scatter, solve_trans_compact, solve_cell, solve_edge
+   & solve_trans_scatter, solve_trans_compact, solve_cell, solve_edge, solve_invalid
   USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs, lhs_primal_flip_flop_ptr
   USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
 
@@ -1244,6 +1244,8 @@ CONTAINS
     IF (.NOT. ASSOCIATED(inv_mm_solver)) THEN
       ALLOCATE(t_primal_flip_flop_lhs :: inv_mm_solver_lhs)
       lhs => lhs_agen_ptr(inv_mm_solver_lhs)
+      lhs_pff => lhs_primal_flip_flop_ptr(inv_mm_solver_lhs)
+      CALL lhs_pff%construct(patch_3d, op_coeffs, solve_invalid) ! bogus-init to make solve%construct happy
       ALLOCATE(t_trivial_transfer :: inv_mm_solver_trans)
       trans_triv => trivial_transfer_ptr(inv_mm_solver_trans)
       trans => transfer_ptr(inv_mm_solver_trans)
@@ -1257,9 +1259,10 @@ CONTAINS
       ALLOCATE(t_ocean_solve :: inv_mm_solver)
       solve => ocean_solve_ptr(inv_mm_solver)
       CALL solve%construct(solve_gmres, par, par_sp, lhs, trans)
+    ELSE
+      lhs_pff => lhs_primal_flip_flop_ptr(inv_mm_solver_lhs)
+      solve => ocean_solve_ptr(inv_mm_solver)
     END IF
-    lhs_pff => lhs_primal_flip_flop_ptr(inv_mm_solver_lhs)
-    solve => ocean_solve_ptr(inv_mm_solver)
     DO jk=1, n_zlev
 ! re-initialize lhs for each level...
       CALL lhs_pff%construct(patch_3d, op_coeffs, jk)

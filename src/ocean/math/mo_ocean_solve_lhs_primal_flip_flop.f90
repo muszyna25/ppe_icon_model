@@ -6,7 +6,7 @@ MODULE mo_primal_flip_flop_lhs
   USE mo_exception, ONLY: finish
   USE mo_kind, ONLY: wp
   USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
-  USE mo_ocean_solve_aux, ONLY: t_destructible
+  USE mo_ocean_solve_aux, ONLY: t_destructible, solve_invalid
   USE mo_model_domain, ONLY: t_patch_3d, t_patch
   USE mo_scalar_product, ONLY: map_edges2edges_viacell_2D_per_level
   USE mo_ocean_types, ONLY: t_operator_coeff
@@ -69,7 +69,7 @@ CONTAINS
     REAL(KIND=wp), INTENT(IN) :: x(:,:)
     REAL(KIND=wp), INTENT(OUT) ::ax(:,:)
 
-    IF(.NOT.ALLOCATED(this%is_init)) &
+    IF(.NOT.ALLOCATED(this%is_init) .OR. this%jk .EQ. solve_invalid) &
       CALL finish("lhs_primal_flip_flop_wp()", "not correctly initialized")
     CALL map_edges2edges_viacell_2D_per_level(this%patch_3d, &
       & x(:,:), this%op_coeffs, ax(:,:), this%jk)
@@ -80,6 +80,7 @@ CONTAINS
     CLASS(t_primal_flip_flop_lhs), INTENT(INOUT) :: this
 
     NULLIFY(this%op_coeffs, this%patch_3d, this%patch_2d)
+    this%jk = solve_invalid
     IF (ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
   END SUBROUTINE lhs_primal_flip_flop_destruct
 
