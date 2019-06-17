@@ -7,7 +7,7 @@ MODULE mo_ocean_solve_subset_transfer
   USE mo_exception, ONLY: finish
   USE mo_ocean_solve_transfer, ONLY: t_transfer
   USE mo_ocean_solve_aux, ONLY: t_destructible, solve_trans_scatter, &
-    & solve_trans_compact, solve_cell, solve_edge
+    & solve_trans_compact, solve_cell, solve_edge, solve_vert
   USE mo_model_domain, ONLY: t_patch
   USE mo_mpi, ONLY: p_n_work, p_pe_work, p_comm_work, p_sum, p_int, &
     & p_bcast, my_process_is_mpi_parallel
@@ -134,6 +134,12 @@ CONTAINS
       this%nidx_e_l = patch_2d%edges%in_domain%end_index
       this%glb_idx_loc => patch_2d%edges%decomp_info%glb_index
       cpat_sync_c => patch_2d%comm_pat_e
+    CASE(solve_vert)
+      this%nblk_a_l = SIZE(patch_2D%verts%decomp_info%owner_mask, 2)
+      this%nblk_l = patch_2d%verts%in_domain%end_block
+      this%nidx_e_l = patch_2d%verts%in_domain%end_index
+      this%glb_idx_loc => patch_2d%verts%decomp_info%glb_index
+      cpat_sync_c => patch_2d%comm_pat_v
     CASE DEFAULT
       CALL finish(routine, "syncing scheme not recognized")
     END SELECT
@@ -275,22 +281,12 @@ CONTAINS
     CALL init_glb2loc_index_lookup(lookupTable, n_glb)
     CALL set_inner_glb_index(lookupTable, this%glb_idx_loc(1:n_core_cl), &
       & [(i, i = 1, n_core_cl)])
-    IF (sync_type .EQ. solve_cell) THEN
-      CALL setup_comm_pattern(n_alloc_sv, tmp_owners_sv_2, this%glb_idx_cal, lookupTable, &
-        & n_core_cl, tmp_owners_cl, this%glb_idx_loc, this%cpat_in, &
-        & inplace=.FALSE., comm=p_comm_work)
-      CALL setup_comm_pattern(n_core_sv, tmp_owners_sv_2(1:n_core_sv), &
-        & this%glb_idx_cal(1:n_core_sv), lookupTable, n_core_cl, tmp_owners_cl(1:n_core_cl), &
-        & this%glb_idx_loc(1:n_core_cl), this%cpat_in2, inplace=.FALSE., comm=p_comm_work)
-    ELSE
-      CALL setup_comm_pattern(n_alloc_sv, tmp_owners_sv_2, this%glb_idx_cal, &
-        & lookupTable, n_core_cl, tmp_owners_cl, &
-        & this%glb_idx_loc, this%cpat_in, inplace=.FALSE., comm=p_comm_work)
-      CALL setup_comm_pattern(n_core_sv, tmp_owners_sv_2(1:n_core_sv), &
-        & this%glb_idx_cal(1:n_core_sv), lookupTable, n_core_cl, &
-        & tmp_owners_cl(1:n_core_cl), this%glb_idx_loc(1:n_core_cl), &
-        & this%cpat_in2, inplace=.FALSE., comm=p_comm_work)
-    END IF
+    CALL setup_comm_pattern(n_alloc_sv, tmp_owners_sv_2, this%glb_idx_cal, lookupTable, &
+      & n_core_cl, tmp_owners_cl, this%glb_idx_loc, this%cpat_in, &
+      & inplace=.FALSE., comm=p_comm_work)
+    CALL setup_comm_pattern(n_core_sv, tmp_owners_sv_2(1:n_core_sv), &
+      & this%glb_idx_cal(1:n_core_sv), lookupTable, n_core_cl, tmp_owners_cl(1:n_core_cl), &
+      & this%glb_idx_loc(1:n_core_cl), this%cpat_in2, inplace=.FALSE., comm=p_comm_work)
     CALL deallocate_glb2loc_index_lookup(lookupTable)
     SELECT CASE(mode)
     CASE(solve_trans_scatter)
