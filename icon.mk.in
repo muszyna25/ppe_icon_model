@@ -183,7 +183,7 @@ src/sea_ice/%.f90.d: src/sea_ice/%.f90 icon.mk | $(dirstamps)
 # Make bundled libraries:
 $(bundled_subdirs):
 	@if test -f '$@/Makefile'; then \
-	  $(MAKE) -C $@ $(filter-out install, $(MAKECMDGOALS)) V=$(V); \
+	  $(MAKE) -C $@ $(filter all mostlyclean clean distclean, $(MAKECMDGOALS)) V=$(V); \
 	else \
 	  test xdistclean = x$(filter distclean, $(MAKECMDGOALS)); \
 	fi
