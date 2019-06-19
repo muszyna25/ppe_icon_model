@@ -26,14 +26,14 @@ AC_DEFUN([ICON_OPTIMIZATION_ARGS],
   [AC_ARG_ENABLE([optimization],
 [  --enable-optimization   prepend CFLAGS and FCFLAGS with additional
                           predefined compiler-specific set of flags. The value
-                          of the argument should be one of the following
+                          of the argument must be one of the following
                           @<:@default=release@:>@:
-                            release      optimizations for production runs
+                            release|yes  optimizations for production runs
                             aggressive   most aggressive optimizations
                             precise      optimizations ensuring reproducibility
                             debug        optimizations for debugging
                             test         optimizations for regression testing
-                            none         no optimizations at all],
+                            none|no      no optimizations at all],
 [AS_CASE(["$enableval"],
    [yes], [enable_optimization=release],
    [no], [enable_optimization=none],
@@ -41,7 +41,7 @@ AC_DEFUN([ICON_OPTIMIZATION_ARGS],
    [AC_MSG_ERROR([unexpected value for the argument dnl
 --enable-optimization='$enableval'; valid values are 'release', dnl
 'aggressive', 'precise', 'debug', 'test', 'none', dnl
-'yes' (same as 'release'), 'no' (same as 'none').])])],
+'yes' (same as 'release'), 'no' (same as 'none')])])],
 [enable_optimization=release])
 dnl
    AC_ARG_ENABLE([loop-exchange],
