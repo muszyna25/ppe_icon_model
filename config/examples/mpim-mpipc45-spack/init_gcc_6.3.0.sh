@@ -69,6 +69,11 @@ CDI_FCFLAGS="-I${CDI_ROOT}/include"
 CDI_LDFLAGS="-L${CDI_ROOT}/lib"
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
+SERIALBOX2_ROOT="${SW_ROOT}/serialbox2-2.5.3-ok62sii"
+SERIALBOX2_FCFLAGS="-I${SERIALBOX2_ROOT}/include"
+SERIALBOX2_LDFLAGS="-L${SERIALBOX2_ROOT}/lib"
+SERIALBOX2_LIBS='-lSerialboxFortranShared'
+
 MTIME_ROOT="${SW_ROOT}/libmtime-1.0.8-p1-zwn6cyh"
 MTIME_FCFLAGS="-I${MTIME_ROOT}/include"
 MTIME_CPPFLAGS="-I${MTIME_ROOT}/include"

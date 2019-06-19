@@ -9,13 +9,13 @@ work_dir=$(basename -s '.sh' "$0")
 rm -rf "${work_dir}" && mkdir -p "${work_dir}" && cd "${work_dir}"
 work_dir=$(pwd)
 
-cfg='mpim-mpipc45-spack/gcc.external'
+cfg='mpim-mpipc45-spack/gcc.no_jsbach'
 time_cmd=$(which time)
 
 "${root_dir}/../${cfg}"
 for i in {1..10}; do
   "$time_cmd" -f '%e' -o time.txt -a make -j8 depend
-  make clean
+  touch icon.mk
 done
 echo
 echo '********************'
