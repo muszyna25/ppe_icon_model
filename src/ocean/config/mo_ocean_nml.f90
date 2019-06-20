@@ -182,7 +182,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_gam                = 0.6_wp     ! Parameter in semi-implicit timestepping
 
 
-  ! parameters for gmres solver
+  ! parameters for linear solvers
   REAL(wp) :: solver_tolerance                   = 1.e-14_wp   ! Maximum value allowed for solver absolute tolerance
   REAL(wp) :: MassMatrix_solver_tolerance        = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
@@ -191,11 +191,22 @@ MODULE mo_ocean_nml
   INTEGER  :: solver_max_iter_per_restart_sp     = 200       ! For inner loop after restart
   REAL(sp) :: solver_tolerance_sp                = 1.e-11_sp   ! Maximum value allowed for solver absolute tolerance
   LOGICAL  :: use_absolute_solver_tolerance      = .true.   ! Maximum value allowed for solver tolerance
-  INTEGER, PARAMETER :: select_gmres             = 1
-  INTEGER, PARAMETER :: select_restart_gmres     = 2
-  INTEGER, PARAMETER :: select_restart_mixedPrecision_gmres     = 3
-  INTEGER :: select_solver                       = select_restart_gmres
-  INTEGER :: solver_FirstGuess                   = 0
+  INTEGER, PARAMETER :: select_gmres = 1 ! GMRES direct
+  INTEGER, PARAMETER :: select_gmres_r = 2  ! GMRES restart
+  INTEGER, PARAMETER :: select_gmres_mp_r = 3 ! GMRES restart mixed precision
+  INTEGER, PARAMETER :: select_cg = 4 ! conjugate gradients - Fletcher-Reeves
+  INTEGER, PARAMETER :: select_cgj = 5  ! conjugate gradients - Fletcher-Reeves + Jacobi-Preconditioner
+  INTEGER, PARAMETER :: select_bcgs = 6 ! bi-conjugate gradients (stabilized)
+  INTEGER, PARAMETER :: select_legacy_gmres = 7  ! GMRES restart former implementation, but in updated calling infrastructure (l_lhs_direct must be true)
+  INTEGER, PARAMETER :: select_mres = 8
+  INTEGER, PARAMETER :: select_cg_mp = 9
+  INTEGER :: select_transfer = 0
+  INTEGER :: select_solver = select_cg
+  INTEGER :: solver_FirstGuess = 2 ! 0: zero, 1. spatially smoothed latest surface height, 2. latest surface height
+  LOGICAL :: l_solver_compare = .FALSE. ! dont compare solutions
+  INTEGER :: solver_comp_nsteps = 100 ! perform comparison every Nth call to solve...
+  REAL(wp) :: solver_tolerance_comp = 1.e-30_wp
+  LOGICAL :: l_lhs_direct = .false.
 
   INTEGER, PARAMETER :: select_lhs_operators = 1
   INTEGER, PARAMETER :: select_lhs_matrix    = 2
@@ -346,6 +357,11 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart_sp, &
     &                 solver_tolerance_sp          , &
     &                 select_lhs                   , &
+    &                 select_transfer              , &
+    &                 l_lhs_direct                 , &
+    &                 l_solver_compare             , &
+    &                 solver_tolerance_comp        , &
+    &                 solver_comp_nsteps           , &
     &                 MassMatrix_solver_tolerance  , &
     &                 threshold_vn                 , &
     &                 surface_module               , &

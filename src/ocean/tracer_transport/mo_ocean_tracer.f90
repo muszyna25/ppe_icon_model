@@ -44,6 +44,7 @@ MODULE mo_ocean_tracer
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_ocean_types,               ONLY: t_hydro_ocean_state
   USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_tracer, t_tracer_collection, t_ocean_transport_state
+
   IMPLICIT NONE
 
   PRIVATE
@@ -68,13 +69,13 @@ CONTAINS
     TYPE(t_tracer_collection), INTENT(inout)      :: old_tracers
     TYPE(t_tracer_collection), INTENT(inout)      :: new_tracers
     TYPE(t_ocean_transport_state), TARGET         :: transport_state
-    TYPE(t_operator_coeff),            INTENT(inout) :: operators_coeff
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coeff
 
     !Local variables
     TYPE(t_patch_3d ), POINTER     :: patch_3d
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------------
-    patch_3d => old_tracers%patch_3d
+    patch_3d => transport_state%patch_3d
 
     DO tracer_index = 1, old_tracers%no_of_tracers
       IF ( old_tracers%tracer(tracer_index)%is_advected) THEN
@@ -138,7 +139,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET :: new_tracer
 
     TYPE(t_ocean_transport_state), TARGET :: transport_state
-    TYPE(t_operator_coeff),INTENT(inout) :: operators_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
 !     REAL(wp), INTENT(inout), OPTIONAL :: horizontally_diffused_tracer(:,:,:)
 
     !Local variables
@@ -202,7 +203,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: old_tracer
     TYPE(t_ocean_transport_state), TARGET :: transport_state
-    TYPE(t_operator_coeff),INTENT(inout) :: operators_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)       !horizontal mixing coeff
     TYPE(t_ocean_tracer), TARGET :: new_tracer
  
@@ -306,7 +307,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: old_tracer
     TYPE(t_ocean_transport_state), TARGET :: transport_state
-    TYPE(t_operator_coeff),INTENT(inout) :: operators_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)       !horizontal mixing coeff
     REAL(wp), INTENT(inout)              :: a_v(:,:,:)       !vertical mixing coeff, in
     TYPE(t_ocean_tracer), TARGET :: new_tracer
@@ -466,92 +467,7 @@ CONTAINS
 
   END SUBROUTINE advect_diffuse_tracer
   !-------------------------------------------------------------------------
-
  
- 
-!   !-------------------------------------------------------------------------
-!   !>
-!   !!    SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
-!   !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
-!   !!    actual velocity. This information is required by MIURA-scheme and is identical
-!   !!    for all tracers.
-!   !!
-!   !! @par Revision History
-!   !! Developed  by  Peter Korn, MPI-M (2012).
-! !<Optimize:inUse>
-!   SUBROUTINE prepare_tracer_transport(patch_3d, ocean_state, operators_coeff)
-! 
-!     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
-!     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-!     TYPE(t_operator_coeff),INTENT(inout) :: operators_coeff
-!     !
-!     !Local variables
-!     INTEGER :: startLevel, fin_level
-!     INTEGER :: start_cell_index, end_cell_index
-!     INTEGER :: start_edge_index, end_edge_index
-!     INTEGER :: je, level, jb,jc         !< index of edge, vert level, block
-!     INTEGER :: edge_cell_index(2), edge_cell_block(2)
-! !     INTEGER :: edge_vert_index(2), edge_vert_block(2)
-!     INTEGER :: upwind_index
-!     REAL(wp) :: delta_z, half_time
-!     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-!     !-------------------------------------------------------------------------------
-!     TYPE(t_patch), POINTER :: patch_2d
-!     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells
-!     !-------------------------------------------------------------------------------
-!     patch_2d        => patch_3d%p_patch_2d(1)
-!     all_cells       => patch_2d%cells%all
-!     edges_in_domain => patch_2d%edges%in_domain
-! 
-!     startLevel = 1
-!     half_time = 0.5_wp * dtime
-! 
-! !ICON_OMP_PARALLEL
-!     ! This should be changed
-!     ! just moving data around should not take place
-! !ICON_OMP_DO SCHEDULE(static)
-!     DO jb = all_cells%start_block, all_cells%end_block
-!       ocean_state%p_diag%w_time_weighted(1:nproma, 1:n_zlev+1, jb) = &
-!         & ocean_state%p_diag%w(1:nproma, 1:n_zlev+1, jb)
-!     ENDDO
-! !ICON_OMP_END_DO
-!     !In case of shallow water we have to to this here, for 3D fluid its done within vertical velocity calculation
-!  
-!     ! p_diag%w is compouted in_domain cells
-!     ! CALL sync_patch_array(SYNC_C, patch_2d,ocean_state%p_diag%w_time_weighted )
-! 
-!     ! This is already synced on edges_in_domain !
-!     ! CALL sync_patch_array(SYNC_E, patch_2d,ocean_state%p_diag%vn_time_weighted )
-! 
-! ! !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, je, edge_cell_index, edge_cell_block, &
-! ! !ICON_OMP fin_level, level, upwind_index) ICON_OMP_DEFAULT_SCHEDULE
-! !     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-! !       CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
-! !       DO je = start_edge_index, end_edge_index
-! !         !Get indices of two adjacent cells
-! !         edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
-! !         edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
-! !         edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
-! !         edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
-! ! 
-! !         fin_level  = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
-! ! 
-! !         DO level = startLevel, fin_level
-! !           upwind_index = MERGE(1, 2, ocean_state%p_diag%vn_time_weighted(je,level,jb) > 0.0_wp)
-! ! 
-! !           operators_coeff%upwind_cell_idx(je,level,jb) = edge_cell_index(upwind_index)
-! !           operators_coeff%upwind_cell_blk(je,level,jb) = edge_cell_block(upwind_index)
-! ! 
-! !         END DO
-! ! 
-! !       END DO
-! !     END DO
-! ! !ICON_OMP_END_DO NOWAIT
-! ! !ICON_OMP_END_PARALLEL
-! 
-!   END SUBROUTINE prepare_tracer_transport
-!   !-------------------------------------------------------------------------
-
   !-------------------------------------------------------------------------
   SUBROUTINE check_min_max_tracer(info_text, tracer, min_tracer, max_tracer, tracer_name, in_subset)
     CHARACTER(*) :: info_text

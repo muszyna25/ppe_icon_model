@@ -101,14 +101,17 @@ dzlev_m(1:32)      =   14.0,   12.0,   12.0,   12.0,   12.0,   12.0,   13.0,   1
   l_partial_cells = .FALSE.           ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1              !  0/1=bottom friction off/on
   i_bc_veloc_top     = 1              ! 2 and 3 must be checked
-  select_solver      = 3              !  1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
-  use_absolute_solver_tolerance = .true.
-  solver_tolerance   = 1.0E-13           !  
-  solver_max_iter_per_restart   = 29     !  
-  solver_tolerance_sp   = 1.0E-13        !
-  solver_max_iter_per_restart_sp = 12  !  
-  solver_max_restart_iterations = 100     !  outer (restart solver) 
-  fast_performance_level        = 50 !500
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
+  use_absolute_solver_tolerance   = .true.
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
+ fast_performance_level        = 50 !500
   use_continuity_correction     = .true.
  veloc_diffusion_form=1
   veloc_diffusion_order=1

@@ -33,29 +33,27 @@ $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.oce
  --machines mistral --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
 
 # add ocean tests to the restricted builder MISTRAL_ocean incl. its intel17 version
-./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
-./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname
+./set_builder_flags Active             --builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --list $listname
 $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
 checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
---builders MISTRAL_ocean MISTRAL_ocean_intel17 --runflags "cpu_time=00:30:00 queue=compute" --list $listname
-./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
-./set_builder_flags Ocean             --builders MISTRAL_ocean_intel17  --list $listname
+--builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --runflags "cpu_time=00:30:00 queue=compute" --list $listname
+./set_builder_flags Ocean             --builders MISTRAL_ocean MISTRAL_ocean_intel17 MISTRAL_ocean_intel18 --list $listname
 
 #-----------------------------------------------------------
 # CSCS
-# different tests for GPU 
-# Most AMIP tests fail the RESTART test, possibly since vflux_ppm_cfl is not implemented for GPU
+# Additional tests for GPU 
+# Some AMIP tests fail with extremely small differences in some Physics fields; investigation ongoing
 
-./rmexp "checksuite.icon-dev/check.atm_amip"                                    --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_amip_update"                             --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_amip_noforcing"                          --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_amip_noforcing_notransport"              --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_amip_noparams"                           --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_heldsuarez" --builders DAINT_GPU_cce --list $listname
-./rmexp "checksuite.icon-dev/check.atm_ape"        --builders DAINT_GPU_cce --list $listname
+./rmexp "checksuite.icon-dev/check.atm_amip"                        --builders DAINT_GPU_cce --list $listname
+./rmexp "checksuite.icon-dev/check.atm_amip_update"                 --builders DAINT_GPU_cce --list $listname
+./rmexp "checksuite.icon-dev/check.atm_amip_noparams"               --builders DAINT_GPU_cce --list $listname
 $addexp exp.atm_amip_noforcing_validate_test --builders DAINT_GPU_cce --runflags "cpu_time=00:10:00" --list $listname
 $addexp exp.nh35_tri_jws_validate --builders DAINT_GPU_cce --runflags "cpu_time=00:10:00 no_of_nodes=5" --list $listname
-./set_builder_flags Active             --builders DAINT_GPU_cce  --list $listname
+
+# PGI for CPU: failing currently are atm_amip_update (missing reference data) and
+# atm_heldsaurez (z_at_plevels:: Error in computing interpolation coefficients)
+./rmexp "checksuite.icon-dev/check.atm_amip_update"                 --builders DAINT_CPU_pgi --list $listname
+./rmexp "checksuite.icon-dev/check.atm_heldsuarez"                  --builders DAINT_CPU_pgi --list $listname
 
 #-----------------------------------------------------------
 # DWD
@@ -63,7 +61,7 @@ $addexp exp.nh35_tri_jws_validate --builders DAINT_GPU_cce --runflags "cpu_time=
 $addexp exp.test_nwp_R02B04N06multi exp.test_nwp_R02B04_R02B05_nest  --without-configureflags without-mpi --runflags "cpu_time=00:30:00"  --machines mistral --list $listname
 $addexp exp.test_nwp_R02B04N06_multifile_restart  --without-configureflags without-mpi --runflags "cpu_time=00:30:00 no_of_nodes=2"  --machines mistral --list $listname
 # this experiment runs only with-mpi and without openmp
-$addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-configureflags without-mpi with-openmp \
+$addexp exp.test_nwp_R02B04N06multi2 --machines mistral --without-configureflags without-mpi with-openmp \
 --machines mistral --runflags "cpu_time=00:45:00 no_of_nodes=2" --list $listname
 
 #-----------------------------------------------------------

@@ -215,17 +215,10 @@ CONTAINS
 #endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),         &
-!$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max, z_fluxdiv_c ),&
-!$ACC      PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_mflx_tracer_h ),                          &
-!$ACC      PRESENT( ptr_patch,  iilc, iibc ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Set default values
     i_rlstart = grf_bdywidth_e
     i_rlend   = min_rledge_int - 1
     beta_fct  = 1._wp  ! the namelist default is 1.005, but it is passed to the limiter for the Miura3 scheme only
-
 
     ! Check for optional arguments
     CALL assign_if_present(i_rlstart,opt_rlstart)
@@ -236,15 +229,6 @@ CONTAINS
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
-
-
-    IF (p_test_run) THEN
-!$ACC KERNELS PRESENT( r_p, r_m), IF( i_am_accel_node .AND. acc_on )
-      r_p = 0._wp
-      r_m = 0._wp
-!$ACC END KERNELS
-    ENDIF
-
 
     ! Set pointers to index-arrays
 
@@ -260,6 +244,20 @@ CONTAINS
     iilnc => ptr_patch%cells%neighbor_idx
     iibnc => ptr_patch%cells%neighbor_blk
 
+!$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),          &
+!$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max, z_fluxdiv_c ),&
+!$ACC      PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_mflx_tracer_h ),                          &
+!$ACC      PRESENT( ptr_patch%cells%refin_ctrl, ptr_int%geofac_div,                          &
+!$ACC               iilc, iibc, iilnc, iibnc, iidx, iblk ),                                  &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mass_flx_e, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
+    IF (p_test_run) THEN
+!$ACC KERNELS PRESENT( r_p, r_m), IF( i_am_accel_node .AND. acc_on )
+      r_p = 0._wp
+      r_m = 0._wp
+!$ACC END KERNELS
+    ENDIF
 
     !
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
@@ -281,16 +279,13 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart_e, i_rlend_e)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=5
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 #endif
           !
@@ -334,16 +329,14 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(z_mflx_anti_1,z_mflx_anti_2,z_mflx_anti_3) COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
 !DIR$ IVDEP,PREFERVECTOR
       DO jc = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=4
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
@@ -463,15 +456,13 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=2
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
@@ -494,9 +485,8 @@ CONTAINS
 
 ! TODO (WS):  is the benefit of fusing this loop not worth sacrificing the __LOOP_EXCHANGE?
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! fraction which must multiply all fluxes out of cell jc to guarantee no
@@ -522,7 +512,7 @@ CONTAINS
     ! Synchronize r_m and r_p and determine i_rlstart/i_rlend
     !
 
-    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
+    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p, opt_varname='r_m and r_p')
 
     !
     ! 5. Now loop over all edges and determine the minimum fraction which must
@@ -549,15 +539,13 @@ CONTAINS
       ! compute final limited fluxes
       !
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(z_signum,r_frac) COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=3
       DO jk = slev, elev
-        !$ACC LOOP VECTOR PRIVATE(z_signum,r_frac)
         DO je = i_startidx, i_endidx
 #endif
 
@@ -687,10 +675,6 @@ CONTAINS
 #endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ), &
-!$ACC      PRESENT( ptr_patch, ptr_int, iidx, iblk ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! set default values
     i_rlstart = grf_bdywidth_e - 1 ! needed for call from miura_cycl scheme, 
                                    ! otherwise grf_bdywidth_e would be sufficient
@@ -710,12 +694,6 @@ CONTAINS
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
 
-    IF (p_test_run) THEN
-!$ACC KERNELS PRESENT( r_m ), IF( i_am_accel_node .AND. acc_on )
-      r_m = 0._wp
-!$ACC END KERNELS
-    ENDIF
-
     !
     ! Set pointers to index-arrays
     !
@@ -727,9 +705,18 @@ CONTAINS
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
 
+!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ),                  &
+!$ACC      PRESENT( ptr_patch%edges%refin_ctrl, ptr_int%geofac_div, iilc, iibc, iidx, iblk ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
+    IF (p_test_run) THEN
+!$ACC KERNELS PRESENT( r_m ), IF( i_am_accel_node .AND. acc_on )
+      r_m = 0._wp
+!$ACC END KERNELS
+    ENDIF
+
 !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
-
-
     ! Additional initialization of lateral boundary points is needed for limited-area mode
     IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
 
@@ -766,15 +753,13 @@ CONTAINS
                          i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
-        !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
 !CDIR UNROLL=4
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 
@@ -798,10 +783,9 @@ CONTAINS
       ! 2. Compute total outward mass
       !
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(p_m) COLLAPSE(2)
       DO jk = slev, elev
 !DIR$ IVDEP
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 
           ! Sum of all outgoing fluxes out of cell jc
@@ -850,7 +834,7 @@ CONTAINS
 
     ! synchronize r_m
 
-    CALL sync_patch_array(SYNC_C1,ptr_patch,r_m)
+    CALL sync_patch_array(SYNC_C1,ptr_patch,r_m,opt_varname='r_m')
 
     !
     ! 3. Limit outward fluxes
@@ -872,12 +856,12 @@ CONTAINS
       DO je = i_startidx, i_endidx
         ! this is potentially needed for calls from miura_cycl
         IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
-        !$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR PRIVATE( z_signum )
         DO jk = slev, elev
 #else
 !CDIR UNROLL=5
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
+        !$ACC LOOP VECTOR PRIVATE( z_signum )
         DO je = i_startidx, i_endidx
           IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
 #endif
@@ -975,10 +959,6 @@ CONTAINS
 #endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
-!$ACC      PRESENT( ptr_patch, ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1006,6 +986,9 @@ CONTAINS
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
 
+!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
+!$ACC      PRESENT( ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
 !$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
@@ -1029,7 +1012,7 @@ CONTAINS
       ! 1. Compute total outward mass
       !
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG PRIVATE(p_m)
       DO jk = slev, elev
         jkp1 = jk+1
 
@@ -1056,11 +1039,10 @@ CONTAINS
       !    Choose r_m depending on the sign of p_mflx_tracer_v
       !
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(jkm1,z_signum) COLLAPSE(2)
       DO jk = slev+1, elev
-        jkm1 = jk-1
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
+          jkm1 = jk-1
 
           ! NH:
           ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k   -> k-1
@@ -1158,10 +1140,6 @@ CONTAINS
 #endif
   !-------------------------------------------------------------------------
 
-!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
-!$ACC      PRESENT( ptr_patch, ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1190,8 +1168,14 @@ CONTAINS
     i_nchdom = MAX(1,ptr_patch%n_childdom)
 
 
+!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
+!$ACC      PRESENT( ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
     IF (p_test_run) THEN
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
       r_m = 0._wp
+!$ACC END KERNELS
     ENDIF
 
 
@@ -1210,9 +1194,8 @@ CONTAINS
       !
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(jkp1, p_m) COLLAPSE(2)
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
           jkp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
@@ -1237,11 +1220,10 @@ CONTAINS
       !
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG VECTOR PRIVATE(jkm1,z_signum) COLLAPSE(2)
       DO jk = slev+1, elev
-        jkm1 = jk-1
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
+          jkm1 = jk-1 ! WS: put inside inner loop to collapse both loops
 
           ! HA:
           ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k-1 -> k
@@ -1321,12 +1303,16 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
+!$ACC DATA PCOPYIN( p_cc, p_face, p_slope ), PCOPY( p_face_up, p_face_low ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_face, p_slope ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i) COLLAPSE(2)
     DO jk = slev, elev
-
-      ! index of bottom half level
-      ikp1 = jk + 1
-
       DO jc = i_startidx, i_endidx
+        ! index of bottom half level
+        ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
         z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
         z_a6i     = 6._wp * (p_cc(jc,jk)                      &
@@ -1351,9 +1337,11 @@ CONTAINS
         ENDIF
 
       END DO
-
     END DO
+!$ACC END PARALLEL
 
+!$ACC UPDATE HOST( p_face_up, p_face_low ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE v_ppm_slimiter_mo
 
@@ -1409,12 +1397,16 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
+!$ACC DATA PCOPYIN( p_cc, p_face ), PCOPYOUT( p_face_up, p_face_low ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_face ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i) COLLAPSE(2)
     DO jk = slev, elev
-
-      ! index of bottom half level
-      ikp1 = jk + 1
-
       DO jc = i_startidx, i_endidx
+        ! index of bottom half level
+        ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
         z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
         z_a6i     = 6._wp * (p_cc(jc,jk)                      &
@@ -1447,8 +1439,11 @@ CONTAINS
         ENDIF
 
       END DO
-
     END DO
+!$ACC END PARALLEL
+
+!$ACC UPDATE HOST( p_face_up, p_face_low ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE v_ppm_slimiter_sm
 

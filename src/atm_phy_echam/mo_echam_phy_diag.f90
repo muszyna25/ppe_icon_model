@@ -31,6 +31,16 @@ MODULE mo_echam_phy_diag
   USE mo_run_config          ,ONLY: iqv
   USE mo_echam_cld_config    ,ONLY: echam_cld_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
+  !$ser verbatim USE mo_ser_echam_diag, ONLY: serialize_fractions_input,&
+  !$ser verbatim                              serialize_droplet_number_input,&
+  !$ser verbatim                              serialize_cpair_cvair_qconv_input,&
+  !$ser verbatim                              serialize_initialize_input,&
+  !$ser verbatim                              serialize_finalize_input,&
+  !$ser verbatim                              serialize_fractions_output,&
+  !$ser verbatim                              serialize_droplet_number_output,&
+  !$ser verbatim                              serialize_cpair_cvair_qconv_output,&
+  !$ser verbatim                              serialize_initialize_output,&
+  !$ser verbatim                              serialize_finalize_output
 
   IMPLICIT NONE
   PRIVATE
@@ -60,6 +70,9 @@ CONTAINS
     INTEGER                             :: jc
 
     field => prm_field(jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_fractions_input(jg, jb, jcs, jce, nproma, nlev, field)
  
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
@@ -118,6 +131,9 @@ CONTAINS
     IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
     IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_fractions_output(jg, jb, jcs, jce, nproma, nlev, field)
+
     NULLIFY(field)
 
   END SUBROUTINE surface_fractions
@@ -150,6 +166,9 @@ CONTAINS
     cn2sea => echam_cld_config(jg)% cn2sea
 
     field => prm_field(jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     DO jc=jcs,jce
       lland(jc) = field%sftlf (jc,jb) > 0._wp
@@ -179,6 +198,10 @@ CONTAINS
     END DO
 
     NULLIFY(cn1lnd, cn2lnd, cn1sea, cn2sea)
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_droplet_number_output(jg, jb, jcs, jce, nproma, nlev, field)
+
     NULLIFY(field)
 
   END SUBROUTINE droplet_number
@@ -198,11 +221,17 @@ CONTAINS
     TYPE(t_echam_phy_field), POINTER    :: field
 
     field => prm_field(jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_cpair_cvair_qconv_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     field%cpair(jcs:jce,:,jb) = cpd+(cpv-cpd)*field%qtrc(jcs:jce,:,jb,iqv)
     field%cvair(jcs:jce,:,jb) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
     !
     field%qconv(jcs:jce,:,jb) = 1._wp/(field%mair(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb))
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_cpair_cvair_qconv_output(jg, jb, jcs, jce, nproma, nlev, field)
     
     NULLIFY(field)
 
@@ -223,9 +252,15 @@ CONTAINS
     TYPE(t_echam_phy_field), POINTER    :: field
 
     field => prm_field(jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_initialize_input(jg, jb, jcs, jce, nproma, nlev, field)
     
     IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = 0._wp
     IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = 0._wp
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_initialize_output(jg, jb, jcs, jce, nproma, nlev, field)
 
     NULLIFY(field)
 
@@ -248,6 +283,9 @@ CONTAINS
 
     field => prm_field(jg)
     tend  => prm_tend (jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_finalize_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
     
     ! precipitation flux from all processes
     !
@@ -259,6 +297,9 @@ CONTAINS
     ! convert the temperature tendency from physics, as computed for constant pressure conditions,
     ! to constant volume conditions, as needed for the coupling to the dynamics
     tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) * field% cpair(jcs:jce,:,jb) / field% cvair(jcs:jce,:,jb)
+
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_finalize_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     NULLIFY(field)
     NULLIFY(tend )

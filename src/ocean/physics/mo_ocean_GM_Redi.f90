@@ -102,7 +102,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
-    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
+    TYPE(t_operator_coeff),            INTENT(in) :: op_coeff
    !-------------------------------------------------------------------------------
 
 
@@ -480,7 +480,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
-    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
+    TYPE(t_operator_coeff),            INTENT(in) :: op_coeff
     
     !Local variables
     REAL(wp) :: grad_T_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)

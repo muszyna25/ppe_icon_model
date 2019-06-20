@@ -742,23 +742,24 @@ cat > ${oce_namelist} << EOF
                       186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
                       286.0,  296.0,  306.0,  318.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
-  select_solver                   =   2       ! 1=gmres_oce_old
-                                              ! 2=ocean_restart_gmres
-                                              ! 3=mixed precisison restart
-  solver_FirstGuess               =   1
+  l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =   7.5E-14
-  solver_max_iter_per_restart     =  17
-  solver_tolerance_sp             =   1.0E-12 !
-  solver_max_iter_per_restart_sp  =  26       !
-  solver_max_restart_iterations   = 100       ! outer (restart solver)
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-  i_bc_veloc_top                  =   1       ! coupled was: 4; now 1 as in 17250-RTC
-  i_bc_veloc_bot                  =   1
-  select_lhs                      =   2       ! default=1, now 2 as in 17250-RTC
+
+  i_bc_veloc_top                  =   1
+  i_bc_veloc_bot                  =   1       ! 0: (def) bottom friction off, 1: on
 /
 &ocean_tracer_transport_nml
   FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
@@ -842,6 +843,9 @@ cat > ${oce_namelist} << EOF
   forcing_windstress_v_type       =  22
   limit_seaice                    = .TRUE.    ! true: mass and energy conserving maximum of sea ice
   seaice_limit                    =   0.8     ! 12m surface layer: 9.6m sea-ice limit
+
+  atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           =   1       ! read S from initial_state.nc
@@ -994,6 +998,9 @@ cat > ${cpl_xmlctrfn} << EOF
             <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
          </transient_grid_refs>
       </component>
       <component id="2">
@@ -1012,7 +1019,15 @@ cat > ${cpl_xmlctrfn} << EOF
             <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="12" transient_ref="12"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="13" transient_ref="13"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="14" transient_ref="14"/>
          </transient_grid_refs>
+      </component>
+      <component id="3">
+         <name>name_list_io</name>
+         <model>ICON</model>
+         <simulated>IO</simulated>
       </component>
    </components>
    <transients>
@@ -1027,6 +1042,9 @@ cat > ${cpl_xmlctrfn} << EOF
       <transient id="9" transient_standard_name="ocean_sea_ice_bundle"/>
       <transient id="10" transient_standard_name="10m_wind_speed"/>
       <transient id="11" transient_standard_name="river_runoff"/>
+      <transient id="12" transient_standard_name="co2_mixing_ratio"/>
+      <transient id="13" transient_standard_name="co2_flux"/>
+      <transient id="14" transient_standard_name="sea_level_pressure"/>
    </transients>
    <grids>
       <grid alias_name="grid1" id="1"/>
@@ -1244,6 +1262,25 @@ cat > ${cpl_xmlctrfn} << EOF
             <interpolation_requirements use_source_mask="false" use_target_mask="true">
                <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="14">
+            <source component_ref="1" transient_grid_ref="14"/>
+            <target transient_grid_ref="14"/>
+            <timestep>
+               <source>${mts_atm}</source>
+               <target>${mts_oce}</target>
+               <coupling_period operation="average">${mts_cpl}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>

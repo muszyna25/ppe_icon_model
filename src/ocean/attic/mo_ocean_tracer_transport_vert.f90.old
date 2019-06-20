@@ -72,7 +72,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET :: patch_3d
     REAL(wp), INTENT(inout)           :: trac_old(:,:,:) ! (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_ocean_transport_state), TARGET :: transport_state
-    TYPE(t_operator_coeff), TARGET    :: operators_coeff
+    TYPE(t_operator_coeff), INTENT(in), TARGET    :: operators_coeff
     REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     
     !Local variables
