@@ -738,8 +738,8 @@ CONTAINS
                  & ' Lookup table problem in ', TRIM(name), ' at ',                                &
                  & ' level   =',klev,                                                              &
                  & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
-                 & ' lon(deg)=',p_patch(1)%edges%center(jl,kblock)%lon*rad2deg,                    &
-                 & ' lat(deg)=',p_patch(1)%edges%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' lon(deg)=',p_patch(1)%cells%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%cells%center(jl,kblock)%lat*rad2deg,                    &
                  & ' value   =',temp(jl)
           ENDIF
         ENDDO
@@ -850,8 +850,8 @@ CONTAINS
                  & ' Lookup table problem in ', TRIM(name), ' at ',                                &
                  & ' level   =',klev,                                                              &
                  & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
-                 & ' lon(deg)=',p_patch(1)%edges%center(jl,kblock)%lon*rad2deg,                    &
-                 & ' lat(deg)=',p_patch(1)%edges%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' lon(deg)=',p_patch(1)%cells%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%cells%center(jl,kblock)%lat*rad2deg,                    &
                  & ' value   =',temp(jl)
           ENDIF
         ENDDO
