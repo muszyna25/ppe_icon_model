@@ -394,7 +394,6 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -414,7 +413,6 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -434,7 +432,6 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -798,11 +795,11 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${atmo_data_InputFolder}/initial_condition/r0001
+datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${atmo_data_InputFolder}/land/r0001
+datadir=${atmo_data_InputFolder}/land/r0003
 add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -810,43 +807,43 @@ add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_lan
 # - ozone
 # -- for irad_o3=8
 #
-datadir=${atmo_data_InputFolder}/ozone/r0001
+datadir=${atmo_data_InputFolder}/ozone/r0002
 #
 add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
 # - sst and sic
 #
-datadir=${atmo_data_InputFolder}/sst_and_seaice/r0001
+datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
 #
-add_link_file ${datadir}/bc_sic_1979_2016.nc                               ./bc_sic.nc
-add_link_file ${datadir}/bc_sst_1979_2016.nc                               ./bc_sst.nc
+add_link_file ${datadir}/bc_sic_1979_2016.nc                            ./bc_sic.nc
+add_link_file ${datadir}/bc_sst_1979_2016.nc                            ./bc_sst.nc
 #
 # - ssi and tsi
 #
 datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
 #
-add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_solar_irradiance_sw_b14.nc
+add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0001
+datadir=${atmo_data_InputFolder}/land/r0003
 #
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc               ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                              ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                               ./bc_land_sso.nc
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
 #
 # - lctlib file for JSBACH
 #
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lctlib_nlct21.def
+add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 #
 # - HD mask for interpolation of runoff
 #
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./hd_mask.nc
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./hd_mask.nc
 #
 # - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
 #
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -1164,7 +1161,8 @@ cat > ${oce_namelist} << EOF
 /
 EOF
 # output of fixed geometry
-&output_nml
+cat >> ${oce_namelist} << EOF
+ &output_nml
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_filename  = "${EXPNAME}_oce_fx"
   filename_format  = "<output_filename>_<datetime2>"
@@ -1175,7 +1173,6 @@ EOF
   output_grid      = .TRUE.
   mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
   include_last     = .false.
-  filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
 EOF
