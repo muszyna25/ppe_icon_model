@@ -445,6 +445,8 @@ cat > $atmo_namelist << EOF
 /
 &echam_cld_nml
 /
+&echam_cov_nml
+/
 &nonhydrostatic_nml
  ndyn_substeps    = 10          ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]

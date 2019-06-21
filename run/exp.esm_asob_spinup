@@ -323,7 +323,9 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
  echam_cld_config(1)%csecfrl    = 5.e-5       ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%crs        = 0.915       ! Critical relative humidity at surface, default 0.968
+/
+&echam_cov_nml
+ echam_cov_config(1)%crs        = 0.915       ! Critical relative humidity at surface, default 0.968
 /
 &sea_ice_nml
 /

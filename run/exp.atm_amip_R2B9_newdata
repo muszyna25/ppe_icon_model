@@ -228,13 +228,13 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
  echam_cld_config(1)%cinhomi    = 1.0
  echam_cld_config(1)%cinhoml1   = 1.0
  echam_cld_config(1)%cinhoml2   = 1.0
  echam_cld_config(1)%cinhoml3   = 1.0
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2      ! 0/1 cloud cover based on rel. hum.
 /
 &sea_ice_nml
 /
