@@ -10,11 +10,11 @@ ICON_DIR="${MY_DIR}/../../.."
 FC=$MPICH_FC
 CC=$PLAIN_CC
 
-FCFLAGS="-mismatch ${NETCDFF_FCFLAGS} ${ECRAD_FCFLAGS} ${SCT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
+FCFLAGS="-mismatch ${NETCDFF_FCFLAGS} ${RTE_RRTMGP_FCFLAGS} ${ECRAD_FCFLAGS} ${SCT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
 CFLAGS=
 CPPFLAGS=
-LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${ECRAD_LDFLAGS} ${SCT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
-LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${SCT_LIBS} ${ECRAD_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
+LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${RTE_RRTMGP_LDFLAGS} ${ECRAD_LDFLAGS} ${SCT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
+LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${SCT_LIBS} ${ECRAD_LIBS} ${RTE_RRTMGP_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-sct --with-external-ecrad --enable-sct --enable-grib2 --enable-ecrad "$@"
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-sct --with-external-ecrad --with-external-rte-rrtmgp --enable-sct --enable-grib2 --enable-ecrad --enable-rte-rrtmgp "$@"
 
