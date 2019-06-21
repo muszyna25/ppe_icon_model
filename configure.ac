@@ -51,16 +51,17 @@ AC_ARG_ENABLE([psrad],
      [enable the radiation component PSRAD @<:@default=yes@:>@])], [],
   [enable_psrad=yes])
 
+AC_ARG_ENABLE([ecrad],
+  [AC_HELP_STRING([--enable-ecrad],
+     [enable usage of the ECMWF radiation scheme (ECRAD) @<:@default=no@:>@])],
+  [],
+  [enable_ecrad=no])
+
 AC_ARG_ENABLE([rttov],
   [AC_HELP_STRING([--enable-rttov],
      [enable usage of the radiative transfer model for TOVS
 @<:@default=no@:>@])], [],
   [enable_rttov=no])
-
-AC_ARG_ENABLE([ecrad],
-  [AC_HELP_STRING([--enable-ecrad],
-     [enable usage of the ECMWF radiation scheme @<:@default=no@:>@])], [],
-  [enable_ecrad=no])
 
 AC_ARG_ENABLE([art],
   [AC_HELP_STRING([--enable-art],
@@ -112,6 +113,11 @@ m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
 ICON_OPTIMIZATION_ARGS
+
+AC_ARG_WITH([external-ecrad],
+  [AC_HELP_STRING([--with-external-ecrad],
+     [use external ECRAD library @<:@default=no@:>@])], [],
+  [with_external_ecrad=no])
 
 AC_ARG_WITH([external-sct],
   [AC_HELP_STRING([--with-external-sct],
@@ -223,7 +229,6 @@ FCFLAGS=${FCFLAGS-}
 dnl Flags to be passed to the configure scripts of the bundled libraries:
 subdir_FCFLAGS=$FCFLAGS
 AC_PROG_FC
-AC_FC_PP_SRCEXT([F90])
 AC_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 
@@ -273,13 +278,17 @@ dnl
 dnl Currently, the configure scripts of the bundled libraries need the
 dnl following treatment regarding RPATH flags:
 dnl
-dnl 1. SCT: libtool-based, no checks using libtool directly (however, the
+dnl 1. ECRAD: does not use libtool, needs only Fortran compiler. We just pass
+dnl    LDFLAGS containing RPATH flags in the original form understood by the
+dnl    the Fortran compiler.
+dnl
+dnl 2. SCT: libtool-based, no checks using libtool directly (however, the
 dnl    configure script tries to find .la files and parse them), runs linking
 dnl    checks for both C and Fortran compilers. If the original forms of RPATH
 dnl    flags for C and Fortran compilers are the same, we set LDFLAGS,
 dnl    otherwise we append the flags to CFLAGS and FCFLAGS.
 dnl
-dnl 2. YAXT: libtool-based, runs checks using libtool for both C and Fortran
+dnl 3. YAXT: libtool-based, runs checks using libtool for both C and Fortran
 dnl    compilers, implements custom workarounds that transform FCFLAGS, which
 dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
 dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
@@ -288,25 +297,25 @@ dnl    understood by libtool and expect the latter to take care of the correct
 dnl    transformations. Unfortunately, this will not work if we are using NAG
 dnl    compiler with MPI wrappers.
 dnl
-dnl 3. CDI: libtool-based, runs checks using libtool only for C compiler.
+dnl 4. CDI: libtool-based, runs checks using libtool only for C compiler.
 dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
 dnl    by libtool. Since no checks requiring linking with Fortran compiler are
 dnl    run, we are safe even when using MPI wrappers.
 dnl
-dnl 4. MTIME: libtool-based, no checks using libtool, no linking checks with
+dnl 5. MTIME: libtool-based, no checks using libtool, no linking checks with
 dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
 dnl    the original form of the C compiler. Works even with CC='nagfor =C'.
 dnl
-dnl 5. YAC: does not use libtool, runs linking checks for both C and Fortran
+dnl 6. YAC: does not use libtool, runs linking checks for both C and Fortran
 dnl    compilers. If the original forms of RPATH flags for C and Fortran
 dnl    compilers are the same, we set LDFLAGS, otherwise we append the flags to
 dnl    CFLAGS and FCFLAGS.
 dnl
-dnl 6. TIXI: does not use libtool, no linking checks with Fortran compiler.
+dnl 7. TIXI: does not use libtool, no linking checks with Fortran compiler.
 dnl    Therefore, we set LDFLAGS containing RPATH flags in the original form of
 dnl    the C compiler.
 dnl
-dnl 7. SELF: does not use libtool, needs only Fortran compiler. We just pass
+dnl 8. SELF: does not use libtool, needs only Fortran compiler. We just pass
 dnl    LDFLAGS containing RPATH flags in the original form understood by the
 dnl    the Fortran compiler.
 dnl
@@ -417,19 +426,11 @@ AS_VAR_IF([enable_coupling], [yes],
 AS_VAR_IF([enable_psrad], [yes], [],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
+AS_VAR_IF([enable_ecrad], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])])
+
 AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
-
-AS_VAR_IF([enable_ecrad], [yes],
-  [icon_subdir_srcdir="$srcdir/externals/ecrad"
-   icon_subdir_unique_file="radiation/radiation_config.F90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the the ECMWF radiation dnl
-scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the dnl
-scheme (--disable-ecrad)])])
-   AC_SUBST([ECRAD_ENABLED], [''])
-   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])],
-  [AC_SUBST([ECRAD_ENABLED], ['#'])])
 
 AS_VAR_IF([enable_art], [yes],
   [icon_subdir_srcdir="$srcdir/src/art"
@@ -474,8 +475,9 @@ dnl One of the topological orderings of the ICON dependency graph:
 dnl
 dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)', '-lmtime',
 dnl '-lcdi_f2003 -lcdi', '-lyaxt -lyaxt_c', '-lsct',
-dnl '-lradiance -lrttov10.2 (etc.)', '-lnetcdff', '-lgomp (or other)',
-dnl '-lmpifort -lmpi (or other)'
+dnl '-lradiance -lrttov10.2 (etc.)',
+dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lnetcdff',
+dnl '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
@@ -490,9 +492,31 @@ dnl e.g. compiler intrinsic macros:
 AC_SUBST([DEPGEN_FCFLAGS], [])
 
 dnl A list of Fortran modules that are used in ICON but are not part of it:
-AC_SUBST([DEPGEN_EXTERNAL_MODS],
-  [[netcdf,mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,]dnl
-[self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi]])
+dnl MPI:
+AC_SUBST([DEPGEN_EXTERNAL_MODS], ['mpi'])
+dnl ECRAD:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',radiation_gas,radiation_thermodynamics,radiation_config'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',radiation_single_level'])
+dnl RTTOV:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_rttov_ifc'])
+dnl SCT:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',sct'])
+dnl YAXT:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',yaxt'])
+dnl CDI:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_cdi'])
+dnl MTIME:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
+dnl YAC:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_yac_finterface'])
+dnl TIXI:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',tixi'])
+dnl SELF:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',self_assert,self_map,self_object,self_vector,self_vector_ref'])
 
 dnl A list of Fortran intrinsic modules:
 AC_SUBST([DEPGEN_INTRINSIC_MODS],
@@ -541,19 +565,6 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
   [AC_MSG_RESULT([no])
    AC_MSG_FAILURE([unable to link a test program using Fortran 77 interface dnl
 of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
-AS_VAR_IF([enable_ecrad], [yes],
-  [AC_MSG_CHECKING([whether the Fortran 90 interface of NetCDF library is dnl
-available])
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use netcdf, only: nf90_open, nf90_nowrite
-      implicit none
-      integer :: status, ncid
-      status = nf90_open('conftest.nc', nf90_nowrite, ncid)]])],
-     [AC_MSG_RESULT([yes])],
-     [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
-interface of NetCDF library: either disable usage of the ECMWF radiation dnl
-scheme (--disable-ecrad) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AC_MSG_CHECKING(
      [whether the provided version of NetCDF is built with parallel support])
@@ -593,6 +604,43 @@ parallel features: either disable usage of the parallel features of NetCDF dnl
         [test x"$icon_netcdf_supports_parallel" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
 NetCDF supports parallel features])])])
+
+AS_VAR_IF([enable_ecrad], [yes],
+  [AS_VAR_IF([with_external_ecrad], [yes],
+     [AC_MSG_CHECKING([whether Fortran ECRAD library is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use radiation_config, only: config_type
+      use radiation_interface, only: setup_radiation
+      implicit none
+      type(config_type) :: conf
+      call setup_radiation(conf)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using ECRAD: either dnl
+disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD dnl
+(--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+dnl
+     [icon_subdir_srcdir="$srcdir/externals/ecrad"
+      icon_subdir_unique_file="radiation/radiation_flux.F90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the the ECMWF radiation dnl
+scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
+(--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+      ACX_CONFIG_SUBDIR([externals/ecrad],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+         [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
+         [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
+         [--enable-silent-rules="$enable_silent_rules"]])
+   AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/ecrad/mod"])
+   BUNDLED_LIBS="externals/ecrad/libifsaux.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libutilities.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libifsrrtm.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libradiation.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])

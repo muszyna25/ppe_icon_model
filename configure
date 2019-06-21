@@ -601,7 +601,6 @@ DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
 BUNDLED_FCFLAGS
 BUNDLED_LIBS
-ECRAD_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
 ICON_OPTIM_OCEAN_FCFLAGS
@@ -616,7 +615,6 @@ FC_MOD_FILE_UPPER
 FC_MOD_OUT
 FC_MOD_IN
 FCFLAGS_f90
-FCFLAGS_F90
 ac_ct_FC
 FCFLAGS
 FC
@@ -677,8 +675,8 @@ enable_ocean
 enable_jsbach
 enable_coupling
 enable_psrad
-enable_rttov
 enable_ecrad
+enable_rttov
 enable_art
 enable_mpi
 enable_active_target_sync
@@ -691,6 +689,7 @@ enable_optimization
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
+with_external_ecrad
 with_external_sct
 with_external_yaxt
 with_external_cdi
@@ -1334,10 +1333,10 @@ Model Features:
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling [default=yes]
   --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
+                          [default=no]
   --enable-rttov          enable usage of the radiative transfer model for
                           TOVS [default=no]
-  --enable-ecrad          enable usage of the ECMWF radiation scheme
-                          [default=no]
   --enable-art            enable the aerosols and reactive trace component ART
                           [default=no]
 
@@ -1376,6 +1375,7 @@ Optimization Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-external-ecrad   use external ECRAD library [default=no]
   --with-external-sct     use external SCT library (when the SCT timer is
                           enabled) [default=no]
   --with-external-yaxt    use external YAXT library (when the YAXT data
@@ -2129,19 +2129,19 @@ else
 fi
 
 
-# Check whether --enable-rttov was given.
-if test "${enable_rttov+set}" = set; then :
-  enableval=$enable_rttov;
-else
-  enable_rttov=no
-fi
-
-
 # Check whether --enable-ecrad was given.
 if test "${enable_ecrad+set}" = set; then :
   enableval=$enable_ecrad;
 else
   enable_ecrad=no
+fi
+
+
+# Check whether --enable-rttov was given.
+if test "${enable_rttov+set}" = set; then :
+  enableval=$enable_rttov;
+else
+  enable_rttov=no
 fi
 
 
@@ -2248,6 +2248,15 @@ if test "${enable_vectorized_lrtm+set}" = set; then :
   enableval=$enable_vectorized_lrtm;
 else
   enable_vectorized_lrtm=auto
+fi
+
+
+
+# Check whether --with-external-ecrad was given.
+if test "${with_external_ecrad+set}" = set; then :
+  withval=$with_external_ecrad;
+else
+  with_external_ecrad=no
 fi
 
 
@@ -3775,79 +3784,6 @@ ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran flag to compile preprocessed .F90 files" >&5
-$as_echo_n "checking for Fortran flag to compile preprocessed .F90 files... " >&6; }
-if ${ac_cv_fc_pp_srcext_F90+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_ext=F90
-ac_fcflags_pp_srcext_save=$ac_fcflags_srcext
-ac_fcflags_srcext=
-ac_cv_fc_pp_srcext_F90=unknown
-case $ac_ext in #(
-  [fF]77) ac_try=f77-cpp-input;; #(
-  *) ac_try=f95-cpp-input;;
-esac
-for ac_flag in none -ftpp -fpp -Tf "-fpp -Tf" -xpp=fpp -Mpreprocess "-e Z" \
-               -cpp -xpp=cpp -qsuffix=cpp=F90 "-x $ac_try" +cpp -Cpp; do
-  test "x$ac_flag" != xnone && ac_fcflags_srcext="$ac_flag"
-  cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-#if 0
-#include <ac_nonexistent.h>
-      choke me
-#endif
-      end
-_ACEOF
-if ac_fn_fc_try_compile "$LINENO"; then :
-  cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-#if 1
-#include <ac_nonexistent.h>
-      choke me
-#endif
-      end
-_ACEOF
-if ac_fn_fc_try_compile "$LINENO"; then :
-
-else
-  ac_cv_fc_pp_srcext_F90=$ac_flag; break
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-done
-rm -f conftest.$ac_objext conftest.F90
-ac_fcflags_srcext=$ac_fcflags_pp_srcext_save
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_fc_pp_srcext_F90" >&5
-$as_echo "$ac_cv_fc_pp_srcext_F90" >&6; }
-if test "x$ac_cv_fc_pp_srcext_F90" = xunknown; then
-  as_fn_error $? "Fortran could not compile preprocessed .F90 files" "$LINENO" 5
-else
-  ac_fc_srcext=F90
-  if test "x$ac_cv_fc_pp_srcext_F90" = xnone; then
-    ac_fcflags_srcext=""
-    FCFLAGS_F90=""
-  else
-    ac_fcflags_srcext=$ac_cv_fc_pp_srcext_F90
-    FCFLAGS_F90=$ac_cv_fc_pp_srcext_F90
-  fi
-
-
-fi
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran flag to compile preprocessed .f90 files" >&5
 $as_echo_n "checking for Fortran flag to compile preprocessed .f90 files... " >&6; }
 if ${ac_cv_fc_pp_srcext_f90+:} false; then :
@@ -4858,22 +4794,12 @@ else
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
+if test "x$enable_ecrad" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__ECRAD"
+fi
+
 if test "x$enable_rttov" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
-fi
-
-if test "x$enable_ecrad" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/ecrad"
-   icon_subdir_unique_file="radiation/radiation_config.F90"
-   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the the ECMWF radiation scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the scheme (--disable-ecrad)" "$LINENO" 5
-fi
-   ECRAD_ENABLED=''
-
-   as_fn_append FCFLAGS " ${FC_PP_DEF}__ECRAD"
-else
-  ECRAD_ENABLED='#'
-
 fi
 
 if test "x$enable_art" = xyes; then :
@@ -4926,8 +4852,19 @@ fi
 
 
 
-DEPGEN_EXTERNAL_MODS=netcdf,mo_rttov_ifc,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,mo_yac_finterface,mtime,mtime_datetime,mo_cdi,yaxt,sct,mpi
+DEPGEN_EXTERNAL_MODS='mpi'
 
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_gas,radiation_thermodynamics,radiation_config'
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_single_level'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_rttov_ifc'
+as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
+as_fn_append DEPGEN_EXTERNAL_MODS ',yaxt'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_cdi'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mtime,mtime_datetime'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
+as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
+as_fn_append DEPGEN_EXTERNAL_MODS ',self_assert,self_map,self_object,self_vector,self_vector_ref'
 
 DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
 
@@ -5161,32 +5098,6 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-if test "x$enable_ecrad" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 90 interface of NetCDF library is available" >&5
-$as_echo_n "checking whether the Fortran 90 interface of NetCDF library is available... " >&6; }
-   cat > conftest.$ac_ext <<_ACEOF
-      program main
-
-      use netcdf, only: nf90_open, nf90_nowrite
-      implicit none
-      integer :: status, ncid
-      status = nf90_open('conftest.nc', nf90_nowrite, ncid)
-      end
-_ACEOF
-if ac_fn_fc_try_link "$LINENO"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using Fortran 90 interface of NetCDF library: either disable usage of the ECMWF radiation scheme (--disable-ecrad) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-fi
 if test "x$enable_parallel_netcdf" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the provided version of NetCDF is built with parallel support" >&5
 $as_echo_n "checking whether the provided version of NetCDF is built with parallel support... " >&6; }
@@ -5236,6 +5147,100 @@ See \`config.log' for more details" "$LINENO" 5; }
 elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
 $as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
+fi
+fi
+
+if test "x$enable_ecrad" = xyes; then :
+  if test "x$with_external_ecrad" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran ECRAD library is available" >&5
+$as_echo_n "checking whether Fortran ECRAD library is available... " >&6; }
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use radiation_config, only: config_type
+      use radiation_interface, only: setup_radiation
+      implicit none
+      type(config_type) :: conf
+      call setup_radiation(conf)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using ECRAD: either disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD (--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+else
+       icon_subdir_srcdir="$srcdir/externals/ecrad"
+      icon_subdir_unique_file="radiation/radiation_flux.F90"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the the ECMWF radiation scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable ECRAD (--disable-ecrad) or provide an external version of ECRAD (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+         acx_config_subdir_args_externals_ecrad=
+   acx_config_subdir_ignore_arg=no
+   eval "set dummy $ac_configure_args"; shift
+   for acx_config_subdir_arg; do
+     if test "x$acx_config_subdir_ignore_arg" = xno; then :
+  case $acx_config_subdir_arg in #(
+  -cache-file|--cache-file|--cache-fil|--cache-fi| \
+           --cache-f|--cache-|--cache|--cach|--cac|--ca|--c| \
+           -srcdir|--srcdir|--srcdi|--srcd|--src|--sr| \
+           -prefix|--prefix|--prefi|--pref|--pre|--pr|--p) :
+    acx_config_subdir_ignore_arg=yes ;; #(
+  -cache-file=*|--cache-file=*|--cache-fil=*|--cache-fi=*| \
+           --cache-f=*|--cache-=*|--cache=*|--cach=*|--cac=*|--ca=*|--c=*| \
+           --config-cache|-C| \
+           -srcdir=*|--srcdir=*|--srcdi=*|--srcd=*|--src=*|--sr=*| \
+           -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
+           --disable-option-checking) :
+     ;; #(
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+     ;; #(
+  NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
+     ;; #(
+  -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  -enable-single-precision|-enable-single-precision=*|--enable-single-precision|--enable-single-precision=*|-disable-single-precision|--disable-single-precision) :
+     ;; #(
+  *) :
+
+           case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+            as_fn_append acx_config_subdir_args_externals_ecrad " '$acx_config_subdir_arg'" ;;
+esac
+else
+  acx_config_subdir_ignore_arg=no
+fi
+   done
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_ecrad " '$acx_config_subdir_arg'"
+      done
+      subdirs_extra="externals/ecrad"
+
+
+   as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/ecrad/mod"
+   BUNDLED_LIBS="externals/ecrad/libifsaux.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libutilities.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libifsrrtm.a $BUNDLED_LIBS"
+   BUNDLED_LIBS="externals/ecrad/libradiation.a $BUNDLED_LIBS"
 fi
 fi
 
@@ -5386,9 +5391,7 @@ fi
 esac
         as_fn_append acx_config_subdir_args_externals_sct " '$acx_config_subdir_arg'"
       done
-      subdirs_extra="externals/sct"
-
-
+      as_fn_append subdirs_extra " externals/sct"
       as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/sct/src"
       BUNDLED_LIBS="externals/sct/src/.libs/libsct.a $BUNDLED_LIBS"
 fi
