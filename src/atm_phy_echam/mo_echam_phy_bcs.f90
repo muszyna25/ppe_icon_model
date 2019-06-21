@@ -213,7 +213,8 @@ CONTAINS
       ! ozone concentration
       IF   (      irad_o3 ==  2 &       ! climatological annual cycle defined by monthly data
            & .OR. irad_o3 ==  4 &       ! constant in time
-           & .OR. irad_o3 ==  8 ) THEN  ! coupled to ART
+           & .OR. irad_o3 ==  8 &
+           & .OR. irad_o3 == 10 ) THEN  ! coupled to ART
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !

@@ -88,8 +88,9 @@ MODULE mo_advection_stepping
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
+!!!  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 
 CONTAINS
 
@@ -250,7 +251,7 @@ CONTAINS
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
-
+    INTEGER  :: iadv_slev_jt                      ! Workaround OpenACC limitation
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
@@ -305,7 +306,7 @@ CONTAINS
 !$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
 !$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
-!$ACC       PRESENT( p_int_state, advection_config, iidx, iblk ),       &
+!$ACC       PRESENT( p_int_state%geofac_div, iidx, iblk ),              &
 !$ACC       IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    & 
 !$ACC                p_vn_contra_traj,                                  &
@@ -388,8 +389,9 @@ CONTAINS
         ! compute vertical flux divergence for each tracer
         !
 
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jt,jc,nt,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jt,jc,nt,ikp1,iadv_slev_jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
@@ -400,10 +402,11 @@ CONTAINS
           DO nt = 1, trAdvect%len ! Tracer loop
 
             jt = trAdvect%list(nt)
+            iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG PRIVATE(ikp1)
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jk = iadv_slev_jt, nlev
 
               ! index of top half level
               ikp1 = jk + 1
@@ -567,7 +570,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,iadv_slev_jt,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -576,6 +579,7 @@ CONTAINS
       DO nt = 1, trAdvect%len ! Tracer loop
 
         jt = trAdvect%list(nt)
+        iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 
         IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
 
@@ -584,10 +588,10 @@ CONTAINS
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jk = iadv_slev_jt, nlev
 #else
 !CDIR UNROLL=6
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jk = iadv_slev_jt, nlev
             DO jc = i_startidx, i_endidx
 #endif
 
@@ -608,10 +612,10 @@ CONTAINS
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jk = iadv_slev_jt, nlev
 #else
 !CDIR UNROLL=6
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jk = iadv_slev_jt, nlev
             DO jc = i_startidx, i_endidx
 #endif
 
@@ -627,9 +631,10 @@ CONTAINS
 
         ENDIF  ! ihadv_tracer(jt) /= 0
 
+        iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = advection_config(jg)%iadv_slev(jt), nlev
+        DO jk = iadv_slev_jt, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
@@ -642,7 +647,7 @@ CONTAINS
 
         ! set tracer(nnew) to tracer(nnow) where advection is turned off
         !$ACC LOOP VECTOR COLLAPSE(2)
-        DO jk = 1, advection_config(jg)%iadv_slev(jt)-1
+        DO jk = 1, iadv_slev_jt-1
           DO jc = i_startidx, i_endidx
             p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
           END DO
@@ -658,7 +663,7 @@ CONTAINS
           IF ( jt == iqv ) THEN
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jk = iadv_slev_jt, nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                   & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
@@ -669,7 +674,7 @@ CONTAINS
           IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jk = iadv_slev_jt, nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                   & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
@@ -684,6 +689,7 @@ CONTAINS
     ENDDO
 
 !$OMP END DO
+
 
     ! Update lateral boundaries of nested domains with interpolated time tendencies
     IF (l_limited_area .OR. p_patch%id > 1) THEN
@@ -770,13 +776,14 @@ CONTAINS
         &              opt_rlend=i_rlend                           )! in
 
 
+
       ! calculate vertical flux divergence
       !
       ! update tracer array
       !
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,nt,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,nt,iadv_slev_jt,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
@@ -785,10 +792,11 @@ CONTAINS
         DO nt = 1, trAdvect%len ! Tracer loop
 
           jt = trAdvect%list(nt)
+          iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jk = iadv_slev_jt, nlev
 
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -813,7 +821,7 @@ CONTAINS
             IF ( jt == iqv ) THEN
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
               !$ACC LOOP GANG VECTOR COLLAPSE(2)
-              DO jk = advection_config(jg)%iadv_slev(jt), nlev
+              DO jk = iadv_slev_jt, nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
@@ -824,7 +832,7 @@ CONTAINS
             IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
               !$ACC LOOP GANG VECTOR COLLAPSE(2)
-              DO jk = advection_config(jg)%iadv_slev(jt), nlev
+              DO jk = iadv_slev_jt, nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
                     & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
@@ -838,11 +846,6 @@ CONTAINS
       END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-!$ACC UPDATE HOST( p_tracer_new ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-      IF ( is_present_opt_ddt_tracer_adv .AND. (MOD( k_step, 2 ) == 0) ) THEN
-!$ACC UPDATE HOST( opt_ddt_tracer_adv ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
-      ENDIF
 
     END IF
 
@@ -891,7 +894,7 @@ CONTAINS
     ! For efficiency, the synchronization is applied for all tracers at once
 
     IF (iforcing /= inwp) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
+      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new, opt_varname='ntracer and p_tracer_nw')
     ENDIF
 
     !
@@ -906,7 +909,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,nt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jt,jc,nt,iadv_slev_jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,     &
@@ -915,10 +918,11 @@ CONTAINS
         DO nt = 1, trAdvect%len
 
           jt = trAdvect%list(nt)
+          iadv_slev_jt = advection_config(jg)%iadv_slev(jt)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jk = iadv_slev_jt, nlev
             DO jc = i_startidx, i_endidx
               opt_ddt_tracer_adv(jc,jk,jb,jt) =               &
                 &           (  p_tracer_new(jc,jk,jb,jt)      &
@@ -930,8 +934,6 @@ CONTAINS
         ENDDO
       ENDDO
 !$OMP END DO
-
-!$ACC UPDATE HOST( opt_ddt_tracer_adv ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     ENDIF
 
@@ -947,9 +949,14 @@ CONTAINS
 !$OMP END PARALLEL
 
     IF (is_present_opt_ddt_tracer_adv .AND. iforcing /= inwp) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  &
-                                 & f4din=opt_ddt_tracer_adv )
+      CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=opt_ddt_tracer_adv, &
+             &                   opt_varname='ntracer and opt_ddt_tracer_adv' )
     ENDIF
+
+!$ACC UPDATE HOST( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
+!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( opt_ddt_tracer_adv ), &
+!$ACC        IF( acc_validate .AND. i_am_accel_node .AND. acc_on .AND. is_present_opt_ddt_tracer_adv )
 
 !$ACC END DATA
 

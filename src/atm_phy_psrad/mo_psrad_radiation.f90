@@ -735,13 +735,27 @@ MODULE mo_psrad_radiation
     ! --- gases
     !
     ! CO2: use CO2 tracer only if the CO2 index is in the correct range
-    jtrc=MIN(ico2,ntracer)
+    IF (ico2>0) THEN 
+        jtrc=MIN(ico2,ntracer)
     mmr = vmr_co2 * amco2/amd
     xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
          &                            gas_mmr      = mmr,                 &
          &                            gas_scenario = ghg_co2mmr,          &
          &                            gas_val      = xm_trc(:,:,jtrc),    &
          &                            gas_factor   = frad_co2)
+
+
+    ELSE
+
+    mmr = vmr_co2 * amco2/amd
+    xm_co2(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_co2, xm_dry,   &
+         &                            gas_mmr      = mmr,                 &
+         &                            gas_scenario = ghg_co2mmr,          &
+         &                            gas_factor   = frad_co2)
+
+
+
+    ENDIF
 
     mmr = vmr_ch4 * amch4/amd
     xm_ch4(jcs:jce,:)   = gas_profile(jcs, jce, klev, irad_ch4, xm_dry,   &

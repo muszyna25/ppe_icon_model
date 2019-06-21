@@ -747,7 +747,7 @@ MODULE mo_nonhydro_state
         END IF ! iqs
 
         !O3
-        IF ( iqt <= io3 .AND. io3 <= ntracer .AND. .NOT. lart) THEN
+        IF ( iqt <= io3 .AND. io3 <= ntracer) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qo3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -767,7 +767,7 @@ MODULE mo_nonhydro_state
         END IF ! io3
 
         !CO2
-        IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. .NOT. lart) THEN
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qco2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -787,7 +787,7 @@ MODULE mo_nonhydro_state
         END IF ! ico2
 
         !CH4
-        IF ( iqt <= ich4 .AND. ich4 <= ntracer .AND. .NOT. lart ) THEN
+        IF ( iqt <= ich4 .AND. ich4 <= ntracer ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qch4'//suffix, p_prog%tracer_ptr(ich4)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -807,7 +807,7 @@ MODULE mo_nonhydro_state
         END IF ! ich4
 
         !N2O
-        IF ( iqt <= in2o .AND. in2o <= ntracer .AND. .NOT. lart ) THEN
+        IF ( iqt <= in2o .AND. in2o <= ntracer) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qn2o'//suffix, p_prog%tracer_ptr(in2o)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &

@@ -1,0 +1,64 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=dwd
+./rmlist $listname
+# ./mklist $listname
+./create_all_builders $listname
+
+# deactivate all builders except DWD_cray
+./set_builder_flags Inactive --builders MISTRAL_gcc                  --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel                --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel_hybrid         --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel_openmp         --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel_hybrid_mixed   --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel17              --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel17_hybrid       --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel17_openmp       --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel17_hybrid_mixed --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel18              --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel18_hybrid       --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel18_openmp       --list $listname
+./set_builder_flags Inactive --builders MISTRAL_intel18_hybrid_mixed --list $listname
+./set_builder_flags Inactive --builders MISTRAL_nag                  --list $listname
+./set_builder_flags Inactive --builders MISTRAL_nag_serial           --list $listname
+./set_builder_flags Inactive --builders MISTRAL_ocean                --list $listname
+./set_builder_flags Inactive --builders MISTRAL_ocean_intel17        --list $listname
+./set_builder_flags Inactive --builders MISTRAL_ocean_intel18        --list $listname
+./set_builder_flags Inactive --builders BREEZE_gcc                   --list $listname
+./set_builder_flags Inactive --builders BREEZE_gcc_openmp            --list $listname
+./set_builder_flags Inactive --builders BREEZE_intel                 --list $listname
+./set_builder_flags Inactive --builders BREEZE_intel_openmp          --list $listname
+./set_builder_flags Inactive --builders BREEZE_nag                   --list $listname
+./set_builder_flags Inactive --builders DAINT_CPU_cce                --list $listname
+./set_builder_flags Inactive --builders DAINT_GPU_cce                --list $listname
+./set_builder_flags Inactive --builders DAINT_CPU_pgi                --list $listname
+./set_builder_flags Inactive --builders DAINT_GPU_pgi                --list $listname
+./set_builder_flags Active   --builders DWD_cray                     --list $listname
+
+# run only some nwp checks on DWD-site and have some tea meanwhile
+$addexp checksuite.xce.dwd.de/exp.run_ICON_03_R19B7N8-ID2_ID1_lam.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_05_R02B06N07_ifsinit_restarttest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_ref.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_01_R3B9_lam.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_14_R2B6N7_oper_IAU_and_restarttest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_13_R2B08-dkltest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_07_R02B04N06M_restarttest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_04_R02B06N08_ifsinit_restarttest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_11_R3B08_lam_initmode7_restarttest.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_02_R2B13_lam.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_12_R3B08_lam_initmode4.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_08_R02B04N06M_ref.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.run --list $listname
+$addexp checksuite.xce.dwd.de/exp.run_ICON_06_R02B06N07_ifsinit_ref.run --list $listname
+
+
+#lets see the list
+./lslist $listname
+#-----------------------------------------------------------
+

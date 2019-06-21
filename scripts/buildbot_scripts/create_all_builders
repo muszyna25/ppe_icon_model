@@ -17,28 +17,33 @@ machine=mistral
 ./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel --with-yaxt"                --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_openmp   --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel_hybrid_mixed   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17 --with-yaxt"                --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
-
 ./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_hybrid_mixed   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel18        --machine $machine --configureflags="--with-fortran=intel18 --with-yaxt"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_openmp --machine $machine --configureflags="--with-fortran=intel18 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_nag_serial     --machine $machine --configureflags="--with-fortran=nag --without-mpi --without-yac"  --builderflags="build_only"  --list $list
 
 ./addbuilder MISTRAL_ocean          --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
 ./addbuilder MISTRAL_ocean_intel17  --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
+./addbuilder MISTRAL_ocean_intel18  --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list
 
 # breeze builders
 machine=breeze
 ./addmachine $machine --list $list
-./addbuilder BREEZE_gcc           --machine $machine --configureflags="--with-fortran=gcc  --with-yaxt"                  --builderflags="build_only"  --list $list
-./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags="--with-fortran=gcc --with-openmp --with-yaxt"    --builderflags="build_only"  --list $list
-./addbuilder BREEZE_intel         --machine $machine --configureflags="--with-fortran=intel  --with-yaxt"                --builderflags="build_only"  --list $list
-./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags="--with-fortran=intel --with-openmp  --with-yaxt"  --builderflags="build_only"  --list $list
-./addbuilder BREEZE_nag           --machine $machine --configureflags="--with-fortran=nag  --with-yaxt"                  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_gcc           --machine $machine --configureflags="--with-fortran=gcc"                  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags="--with-fortran=gcc --with-openmp"    --builderflags="build_only"  --list $list
+./addbuilder BREEZE_intel         --machine $machine --configureflags="--with-fortran=intel"                --builderflags="build_only"  --list $list
+./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags="--with-fortran=intel --with-openmp"  --builderflags="build_only"  --list $list
+./addbuilder BREEZE_nag           --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="build_only"  --list $list
 
 
 #CSCS builders
@@ -46,8 +51,8 @@ machine=daint
 ./addmachine $machine --list $list
 ./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
 ./addbuilder DAINT_GPU_cce        --machine $machine --configureflags="--with-fortran=cray_gpu" --builderflags="Active"  --list $list
-./addbuilder DAINT_CPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_1810" --builderflags="build_only"      --list $list
-./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu_1810" --builderflags="build_only"  --list $list
+./addbuilder DAINT_CPU_pgi        --machine $machine --configureflags="--with-fortran=pgi" --builderflags="Active"      --list $list
+./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu" --builderflags="build_only"  --list $list
 
 #DWD machines
 machine=dwd_cray

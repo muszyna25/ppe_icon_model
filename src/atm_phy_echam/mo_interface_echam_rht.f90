@@ -32,6 +32,10 @@ MODULE mo_interface_echam_rht
 
   USE mo_radheating             ,ONLY: radheating
   USE mo_psrad_solar_parameters ,ONLY: psctm
+  USE mo_ext_data_state         ,ONLY: ext_data
+  USE mo_ext_data_types         ,ONLY: t_external_atmos
+  !$ser verbatim USE mo_ser_echam_rht, ONLY: serialize_rht_input,&
+  !$ser verbatim                             serialize_rht_output
 
   IMPLICIT NONE
   PRIVATE
@@ -71,6 +75,7 @@ CONTAINS
     REAL(wp)                            :: q_rsw(nproma,nlev)
     !
     REAL(wp)                            :: tend_ta_rad(nproma,nlev)
+    TYPE(t_external_atmos), POINTER     :: ext_data_atm
 
     IF (ltimer) CALL timer_start(timer_rht)
 
@@ -79,6 +84,10 @@ CONTAINS
     fc_rht    => echam_phy_config(jg)%fc_rht
     field     => prm_field(jg)
     tend      => prm_tend (jg)
+    ext_data_atm => ext_data(jg)%atm
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend, ext_data_atm%emis_rad)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -228,11 +237,15 @@ CONTAINS
        !
     END IF
 
+    ! Serialbox2 output fields serialization
+    !$ser verbatim call serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend, ext_data_atm%emis_rad)
+
     ! disassociate pointers
     NULLIFY(lparamcpl)
     NULLIFY(fc_rht)
     NULLIFY(field)
     NULLIFY(tend)
+    NULLIFY(ext_data_atm)
 
     IF (ltimer) CALL timer_stop(timer_rht)
 
