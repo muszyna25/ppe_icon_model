@@ -57,6 +57,12 @@ AC_ARG_ENABLE([ecrad],
   [],
   [enable_ecrad=no])
 
+AC_ARG_ENABLE([rte-rrtmgp],
+  [AC_HELP_STRING([--enable-rte-rrtmgp],
+     [enable usage of the RTE+RRTMGP toolbox for radiation calculations
+@<:@default=no@:>@])], [],
+  [enable_rte_rrtmgp=no])
+
 AC_ARG_ENABLE([rttov],
   [AC_HELP_STRING([--enable-rttov],
      [enable usage of the radiative transfer model for TOVS
@@ -138,6 +144,11 @@ AC_ARG_WITH([external-ecrad],
   [AC_HELP_STRING([--with-external-ecrad],
      [use external ECRAD library @<:@default=no@:>@])], [],
   [with_external_ecrad=no])
+
+AC_ARG_WITH([external-rte-rrtmgp],
+     [AC_HELP_STRING([--with-external-rte-rrtmgp],
+        [use external RTE+RRTMGP library @<:@default=no@:>@])], [],
+  [with_external_rte_rrtmgp=no])
 
 AC_ARG_WITH([external-sct],
   [AC_HELP_STRING([--with-external-sct],
@@ -302,13 +313,17 @@ dnl 1. ECRAD: does not use libtool, needs only Fortran compiler. We just pass
 dnl    LDFLAGS containing RPATH flags in the original form understood by the
 dnl    the Fortran compiler.
 dnl
-dnl 2. SCT: libtool-based, no checks using libtool directly (however, the
+dnl 2. RTE+RRTMGP: does not use libtool, needs only Fortran compiler. We just
+dnl    pass LDFLAGS containing RPATH flags in the original form understood by
+dnl    the the Fortran compiler.
+dnl
+dnl 3. SCT: libtool-based, no checks using libtool directly (however, the
 dnl    configure script tries to find .la files and parse them), runs linking
 dnl    checks for both C and Fortran compilers. If the original forms of RPATH
 dnl    flags for C and Fortran compilers are the same, we set LDFLAGS,
 dnl    otherwise we append the flags to CFLAGS and FCFLAGS.
 dnl
-dnl 3. YAXT: libtool-based, runs checks using libtool for both C and Fortran
+dnl 4. YAXT: libtool-based, runs checks using libtool for both C and Fortran
 dnl    compilers, implements custom workarounds that transform FCFLAGS, which
 dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
 dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
@@ -317,25 +332,25 @@ dnl    understood by libtool and expect the latter to take care of the correct
 dnl    transformations. Unfortunately, this will not work if we are using NAG
 dnl    compiler with MPI wrappers.
 dnl
-dnl 4. CDI: libtool-based, runs checks using libtool only for C compiler.
+dnl 5. CDI: libtool-based, runs checks using libtool only for C compiler.
 dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
 dnl    by libtool. Since no checks requiring linking with Fortran compiler are
 dnl    run, we are safe even when using MPI wrappers.
 dnl
-dnl 5. MTIME: libtool-based, no checks using libtool, no linking checks with
+dnl 6. MTIME: libtool-based, no checks using libtool, no linking checks with
 dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
 dnl    the original form of the C compiler. Works even with CC='nagfor =C'.
 dnl
-dnl 6. YAC: does not use libtool, runs linking checks for both C and Fortran
+dnl 7. YAC: does not use libtool, runs linking checks for both C and Fortran
 dnl    compilers. If the original forms of RPATH flags for C and Fortran
 dnl    compilers are the same, we set LDFLAGS, otherwise we append the flags to
 dnl    CFLAGS and FCFLAGS.
 dnl
-dnl 7. TIXI: does not use libtool, no linking checks with Fortran compiler.
+dnl 8. TIXI: does not use libtool, no linking checks with Fortran compiler.
 dnl    Therefore, we set LDFLAGS containing RPATH flags in the original form of
 dnl    the C compiler.
 dnl
-dnl 8. SELF: does not use libtool, needs only Fortran compiler. We just pass
+dnl 9. SELF: does not use libtool, needs only Fortran compiler. We just pass
 dnl    LDFLAGS containing RPATH flags in the original form understood by the
 dnl    the Fortran compiler.
 dnl
@@ -449,6 +464,11 @@ AS_VAR_IF([enable_psrad], [yes], [],
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])])
 
+dnl Currently, the macro __NO_RTE_RRTMGP__ is not used anywhere in the code but
+dnl is set in the configure script of icon-2.6.0-rc:
+AS_VAR_IF([enable_rte_rrtmgp], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
+
 AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
 
@@ -513,8 +533,8 @@ dnl
 dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
 dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi',
 dnl '-lyaxt -lyaxt_c', '-lsct', '-lradiance -lrttov10.2 (etc.)',
-dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lnetcdff',
-dnl '-lgomp (or other)', '-lmpifort -lmpi (or other)'
+dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
+dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
@@ -531,6 +551,11 @@ AC_SUBST([DEPGEN_FCFLAGS], [])
 dnl A list of Fortran modules that are used in ICON but are not part of it:
 dnl MPI:
 AC_SUBST([DEPGEN_EXTERNAL_MODS], ['mpi'])
+dnl RTE+RRTMGP:
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'])
 dnl ECRAD:
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
   [',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'])
@@ -664,6 +689,67 @@ parallel features: either disable usage of the parallel features of NetCDF dnl
         [test x"$icon_netcdf_supports_parallel" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of dnl
 NetCDF supports parallel features])])])
+
+AS_VAR_IF([enable_rte_rrtmgp], [yes],
+  [AS_VAR_IF([with_external_rte_rrtmgp], [yes],
+     [AC_MSG_CHECKING([whether Fortran RTE+RRTMGP library is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_optical_props, only: ty_optical_props_1scl, &
+                                & ty_optical_props_2str
+      use mo_gas_optics_rrtmgp, only: ty_gas_optics_rrtmgp
+      use mo_source_functions, only: ty_source_func_lw
+      use mo_rte_kind, only: wp
+      use mo_fluxes, only: ty_fluxes_broadband
+      use mo_rte_lw, only: rte_lw
+      use mo_rte_sw, only: rte_sw
+      use mo_gas_concentrations, only: ty_gas_concs
+      implicit none
+      type(ty_optical_props_1scl) :: optical_props_lw
+      type(ty_optical_props_2str) :: optical_props_sw
+      logical :: top_at_1
+      type(ty_source_func_lw) :: source
+      real(wp), dimension(:,:), allocatable :: sfc_emis_spec, &
+                                             & toa_flux, &
+                                             & sfc_alb_spec
+      type(ty_fluxes_broadband) :: fluxes
+      real(wp), dimension(:), allocatable :: mu0
+      type(ty_gas_concs), dimension(:), allocatable :: gas_conc_array
+      real(wp), dimension(:,:,:), allocatable :: gas_conc_temp_3d
+      character(len=128) :: error_msg
+
+      error_msg = rte_lw(optical_props_lw, top_at_1, source, &
+                       & sfc_emis_spec, fluxes, n_gauss_angles = 1)
+      error_msg = rte_sw(optical_props_sw, top_at_1, mu0, &
+                       & toa_flux, sfc_alb_spec, sfc_alb_spec, fluxes)
+      error_msg = gas_conc_array(1)%set_vmr('h2o',gas_conc_temp_3d(:,:,1))]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using RTE+RRTMGP: dnl
+either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version dnl
+of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
+      icon_subdir_unique_file="rte/mo_rte_sw.F90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the the RTE+RRTMGP toolbox dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of dnl
+RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])
+      ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+         [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
+         [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
+         [--enable-openacc="$enable_openacc"],
+         [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([BUNDLED_FCFLAGS],
+        [" ${FC_MOD_IN}externals/rte-rrtmgp/mod"])
+      BUNDLED_LIBS="externals/rte-rrtmgp/librte.a $BUNDLED_LIBS"
+      BUNDLED_LIBS="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_IF([with_external_ecrad], [yes],

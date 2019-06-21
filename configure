@@ -680,6 +680,7 @@ enable_jsbach
 enable_coupling
 enable_psrad
 enable_ecrad
+enable_rte_rrtmgp
 enable_rttov
 enable_art
 enable_mpi
@@ -697,6 +698,7 @@ enable_intel_consistency
 enable_vectorized_lrtm
 enable_mixed_precision
 with_external_ecrad
+with_external_rte_rrtmgp
 with_external_sct
 with_external_yaxt
 with_external_cdi
@@ -1343,6 +1345,8 @@ Model Features:
   --enable-psrad          enable the radiation component PSRAD [default=yes]
   --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
                           [default=no]
+  --enable-rte-rrtmgp     enable usage of the RTE+RRTMGP toolbox for radiation
+                          calculations [default=no]
   --enable-rttov          enable usage of the radiative transfer model for
                           TOVS [default=no]
   --enable-art            enable the aerosols and reactive trace component ART
@@ -1393,6 +1397,8 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-external-ecrad   use external ECRAD library [default=no]
+  --with-external-rte-rrtmgp
+                          use external RTE+RRTMGP library [default=no]
   --with-external-sct     use external SCT library (when the SCT timer is
                           enabled) [default=no]
   --with-external-yaxt    use external YAXT library (when the YAXT data
@@ -2155,6 +2161,14 @@ else
 fi
 
 
+# Check whether --enable-rte-rrtmgp was given.
+if test "${enable_rte_rrtmgp+set}" = set; then :
+  enableval=$enable_rte_rrtmgp;
+else
+  enable_rte_rrtmgp=no
+fi
+
+
 # Check whether --enable-rttov was given.
 if test "${enable_rttov+set}" = set; then :
   enableval=$enable_rttov;
@@ -2305,6 +2319,15 @@ if test "${with_external_ecrad+set}" = set; then :
   withval=$with_external_ecrad;
 else
   with_external_ecrad=no
+fi
+
+
+
+# Check whether --with-external-rte-rrtmgp was given.
+if test "${with_external_rte_rrtmgp+set}" = set; then :
+  withval=$with_external_rte_rrtmgp;
+else
+  with_external_rte_rrtmgp=no
 fi
 
 
@@ -4863,6 +4886,10 @@ if test "x$enable_ecrad" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__ECRAD"
 fi
 
+if test "x$enable_rte_rrtmgp" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_RTE_RRTMGP__"
+fi
+
 if test "x$enable_rttov" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__USE_RTTOV"
 fi
@@ -4944,6 +4971,8 @@ fi
 
 DEPGEN_EXTERNAL_MODS='mpi'
 
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'
 as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'
 as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_gas,radiation_thermodynamics,radiation_config'
 as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_single_level'
@@ -5422,6 +5451,121 @@ $as_echo "$as_me: WARNING: unable to check whether the provided version of NetCD
 fi
 fi
 
+if test "x$enable_rte_rrtmgp" = xyes; then :
+  if test "x$with_external_rte_rrtmgp" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTE+RRTMGP library is available" >&5
+$as_echo_n "checking whether Fortran RTE+RRTMGP library is available... " >&6; }
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use mo_optical_props, only: ty_optical_props_1scl, &
+                                & ty_optical_props_2str
+      use mo_gas_optics_rrtmgp, only: ty_gas_optics_rrtmgp
+      use mo_source_functions, only: ty_source_func_lw
+      use mo_rte_kind, only: wp
+      use mo_fluxes, only: ty_fluxes_broadband
+      use mo_rte_lw, only: rte_lw
+      use mo_rte_sw, only: rte_sw
+      use mo_gas_concentrations, only: ty_gas_concs
+      implicit none
+      type(ty_optical_props_1scl) :: optical_props_lw
+      type(ty_optical_props_2str) :: optical_props_sw
+      logical :: top_at_1
+      type(ty_source_func_lw) :: source
+      real(wp), dimension(:,:), allocatable :: sfc_emis_spec, &
+                                             & toa_flux, &
+                                             & sfc_alb_spec
+      type(ty_fluxes_broadband) :: fluxes
+      real(wp), dimension(:), allocatable :: mu0
+      type(ty_gas_concs), dimension(:), allocatable :: gas_conc_array
+      real(wp), dimension(:,:,:), allocatable :: gas_conc_temp_3d
+      character(len=128) :: error_msg
+
+      error_msg = rte_lw(optical_props_lw, top_at_1, source, &
+                       & sfc_emis_spec, fluxes, n_gauss_angles = 1)
+      error_msg = rte_sw(optical_props_sw, top_at_1, mu0, &
+                       & toa_flux, sfc_alb_spec, sfc_alb_spec, fluxes)
+      error_msg = gas_conc_array(1)%set_vmr('h2o',gas_conc_temp_3d(:,:,1))
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using RTE+RRTMGP: either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+else
+  icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
+      icon_subdir_unique_file="rte/mo_rte_sw.F90"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the the RTE+RRTMGP toolbox ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+         acx_config_subdir_args_externals_rte_rrtmgp=
+   acx_config_subdir_ignore_arg=no
+   eval "set dummy $ac_configure_args"; shift
+   for acx_config_subdir_arg; do
+     if test "x$acx_config_subdir_ignore_arg" = xno; then :
+  case $acx_config_subdir_arg in #(
+  -cache-file|--cache-file|--cache-fil|--cache-fi| \
+           --cache-f|--cache-|--cache|--cach|--cac|--ca|--c| \
+           -srcdir|--srcdir|--srcdi|--srcd|--src|--sr| \
+           -prefix|--prefix|--prefi|--pref|--pre|--pr|--p) :
+    acx_config_subdir_ignore_arg=yes ;; #(
+  -cache-file=*|--cache-file=*|--cache-fil=*|--cache-fi=*| \
+           --cache-f=*|--cache-=*|--cache=*|--cach=*|--cac=*|--ca=*|--c=*| \
+           --config-cache|-C| \
+           -srcdir=*|--srcdir=*|--srcdi=*|--srcd=*|--src=*|--sr=*| \
+           -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
+           --disable-option-checking) :
+     ;; #(
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+     ;; #(
+  NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
+     ;; #(
+  -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
+     ;; #(
+  -enable-openacc|-enable-openacc=*|--enable-openacc|--enable-openacc=*|-disable-openacc|--disable-openacc) :
+     ;; #(
+  *) :
+
+           case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+            as_fn_append acx_config_subdir_args_externals_rte_rrtmgp " '$acx_config_subdir_arg'" ;;
+esac
+else
+  acx_config_subdir_ignore_arg=no
+fi
+   done
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_openacc" --enable-silent-rules="$enable_silent_rules" ; shift
+      for acx_config_subdir_arg; do
+        case $acx_config_subdir_arg in #(
+  *\'*) :
+    acx_config_subdir_arg=`$as_echo "$acx_config_subdir_arg" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+        as_fn_append acx_config_subdir_args_externals_rte_rrtmgp " '$acx_config_subdir_arg'"
+      done
+      subdirs_extra="externals/rte-rrtmgp"
+
+
+      as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/rte-rrtmgp/mod"
+      BUNDLED_LIBS="externals/rte-rrtmgp/librte.a $BUNDLED_LIBS"
+      BUNDLED_LIBS="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBS"
+fi
+fi
+
 if test "x$enable_ecrad" = xyes; then :
   if test "x$with_external_ecrad" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran ECRAD library is available" >&5
@@ -5505,9 +5649,7 @@ fi
 esac
         as_fn_append acx_config_subdir_args_externals_ecrad " '$acx_config_subdir_arg'"
       done
-      subdirs_extra="externals/ecrad"
-
-
+      as_fn_append subdirs_extra " externals/ecrad"
    as_fn_append BUNDLED_FCFLAGS " ${FC_MOD_IN}externals/ecrad/mod"
    BUNDLED_LIBS="externals/ecrad/libifsaux.a $BUNDLED_LIBS"
    BUNDLED_LIBS="externals/ecrad/libutilities.a $BUNDLED_LIBS"
