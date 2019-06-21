@@ -88,6 +88,11 @@ AC_ARG_ENABLE([openmp],
      [enable OpenMP support @<:@default=yes@:>@])], [],
   [enable_openmp=yes])
 
+AC_ARG_ENABLE([openacc],
+  [AC_HELP_STRING([--enable-openacc],
+     [enable OpenACC support @<:@default=no@:>@])], [],
+  [enable_openacc=no])
+
 AC_ARG_ENABLE([grib2],
   [AC_HELP_STRING([--enable-grib2],
      [enable GRIB2 I/O @<:@default=no@:>@])], [],
@@ -472,6 +477,11 @@ dnl We pass this variable to the configure script of SCT, therefore, we need to
 dnl make sure that it's either 'yes' or 'no'.
   [enable_openmp=no])
 
+AS_VAR_IF([enable_openacc], [yes], [],
+dnl We pass this variable to the configure script of RTE/RRTMGP, therefore, we
+dnl need to make sure that it's either 'yes' or 'no'.
+  [enable_openacc=no])
+
 AS_VAR_IF([enable_grib2], [yes], [],
 dnl We pass this variable to the configure scripts of CDI, therefore, we need
 dnl to make sure that it's either 'yes' or 'no'.
@@ -574,7 +584,7 @@ AS_VAR_IF([enable_openmp], [yes],
       AS_VAR_IF([acx_macro_value], [unknown],
         [AC_MSG_WARN([unable to detect supported OpenMP version])
          AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENMP"])],
-        [AS_IF([test "$acx_macro_value" -lt 201307 2>/dev/null],
+        [AS_IF([test "$acx_macro_value" -lt 201307 >&AS_MESSAGE_LOG_FD 2>&1],
            [AC_MSG_WARN([Fortran compiler does not support OpenMP 4.0 dnl
 (201307): it is strongly recommended to disable OpenMP support dnl
 (--disable-openmp)])])
@@ -584,6 +594,25 @@ AS_VAR_IF([enable_openmp], [yes],
    AS_VAR_IF([acx_macro_defined], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
 FCFLAGS accordingly to disable it])])])
+
+AS_VAR_IF([enable_openacc], [yes],
+  [ACX_LANG_OPENACC_FLAG(
+     [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openacc_flag"])
+      ACX_LANG_MACRO_CHECK_VALUE([_OPENACC],
+         [201711 201510 201308 201306 201111])
+      AS_VAR_IF([acx_macro_value], [unknown],
+        [AC_MSG_WARN([unable to detect supported OpenACC version])
+         AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENACC"])],
+        [AS_IF([test "$acx_macro_value" -lt 201711 >&AS_MESSAGE_LOG_FD 2>&1],
+           [AC_MSG_ERROR([Fortran compiler does not support OpenACC 2.6 dnl
+(201711): it is strongly recommended to disable OpenACC support dnl
+(--disable-openacc)])])
+      AS_VAR_APPEND([DEPGEN_FCFLAGS],
+        [" ${FC_PP_DEF}_OPENACC=$acx_macro_value"])])])],
+  [ACX_LANG_MACRO_CHECK_DEFINED([_OPENACC])
+   AS_VAR_IF([acx_macro_defined], [yes],
+     [AC_MSG_ERROR([Fortran compiler enables OpenACC support by default: dnl
+set FCFLAGS accordingly to disable it])])])
 
 AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
 available])
