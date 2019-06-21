@@ -279,14 +279,14 @@ dnl 1. RPATH flags must be valid at least for the primary compiler, i.e. the
 dnl    compiler that is checked first by the configure script of the bundled
 dnl    library (the standard cross-compilation check): if AC_PROG_CC is
 dnl    expanded first then the primary compiler is the C compiler, if
-dnl    AC_PROG_FC is expanded first, then the promary compiler is the Fortran
+dnl    AC_PROG_FC is expanded first, then the primary compiler is the Fortran
 dnl    compiler. The primary compiler for a package using libtool is the C
 dnl    compiler.
 dnl
-dnl 2. RPATH flags must not break the compilation and linking with a secondary,
-dnl    which means that the absence of any RPATH flags might be better if the
-dnl    configure script of a bundled library does not run programs linked with
-dnl    them.
+dnl 2. RPATH flags must not break the compilation and linking with a secondary
+dnl    compiler, which means that the absence of any RPATH flags might be
+dnl    better if the configure script of a bundled library does not run
+dnl    programs linked with them.
 dnl
 dnl 3. RPATH flags must be correctly interpreted by libtool if the configure
 dnl    script of a bundled library uses it for the checks. First, this means
@@ -301,7 +301,9 @@ dnl    C compiler, because ac_cv_c_compiler_gnu equals 'yes' in this case (see
 dnl    the implementation of libtool). The second problem is that libtool
 dnl    relies on the name of the compiler executable. This means that depending
 dnl    on whether we are using the MPI compiler wrappers or not, we need to
-dnl    specify RPATH flags differently.
+dnl    specify RPATH flags differently (unless the bundled library has a
+dnl    patched version of libtool that recognizes NAG compiler even if it is
+dnl    called with a wrapper).
 dnl
 dnl 4. The configure script of a bundled library might have its non-standard
 dnl    solutions for the problems above.
@@ -329,13 +331,15 @@ dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
 dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
 dnl    script of YAXT with LDFLAGS containing RPATH flags in the form
 dnl    understood by libtool and expect the latter to take care of the correct
-dnl    transformations. Unfortunately, this will not work if we are using NAG
-dnl    compiler with MPI wrappers.
+dnl    transformations. YAXT has a patched version of libtool, which recognizes
+dnl    NAG compiler when it is called with an MPI wrapper.
 dnl
 dnl 5. CDI: libtool-based, runs checks using libtool only for C compiler.
 dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
 dnl    by libtool. Since no checks requiring linking with Fortran compiler are
-dnl    run, we are safe even when using MPI wrappers.
+dnl    run, we would be safe even when using MPI wrappers. Nonetheless, there
+dnl    is a patch for libtool in CDI that allows for recognition of NAG
+dnl    compiler through a wrapper.
 dnl
 dnl 6. MTIME: libtool-based, no checks using libtool, no linking checks with
 dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
