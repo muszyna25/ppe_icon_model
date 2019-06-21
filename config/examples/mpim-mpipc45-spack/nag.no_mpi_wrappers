@@ -2,8 +2,6 @@
 
 set -eu
 
-set -eu
-
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 

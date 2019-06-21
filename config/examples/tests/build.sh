@@ -15,10 +15,12 @@ fi
 
 test_suite='mpim-mpipc45-spack'
 
-art_repo='/scratch/local1/icon-extra-externals/art'
+art_repo='git@gitlab.dkrz.de:m300488/art.git'
 art_dir="$root_dir/../../../src/art"
-if test ! -d "$art_dir" && test -d "$art_repo"; then
+if test ! -d "$art_dir"; then
   git clone "$art_repo" "$art_dir"
+else
+  git -C "$art_dir" pull
 fi
 
 for vendor in ${vendors}; do

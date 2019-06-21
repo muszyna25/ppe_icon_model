@@ -44,6 +44,11 @@ SCT_FCFLAGS="-I${SCT_ROOT}/include"
 SCT_LDFLAGS="-L${SCT_ROOT}/lib"
 SCT_LIBS='-lsct'
 
+YAXT_ROOT="${SW_ROOT}/yaxt-develop-bstwu2r"
+YAXT_FCFLAGS="-I${YAXT_ROOT}/include"
+YAXT_LDFLAGS="-L${YAXT_ROOT}/lib"
+YAXT_LIBS='-lyaxt'
+
 GRIBAPI_ROOT="${SW_ROOT}/grib-api-1.24.0-i3glwdl"
 GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"

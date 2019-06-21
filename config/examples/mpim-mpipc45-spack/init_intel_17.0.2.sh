@@ -38,7 +38,7 @@ SCT_FCFLAGS="-I${SCT_ROOT}/include"
 SCT_LDFLAGS="-L${SCT_ROOT}/lib"
 SCT_LIBS='-lsct'
 
-YAXT_ROOT="${SW_ROOT}/yaxt-0.7.0-aydhnlf"
+YAXT_ROOT="${SW_ROOT}/yaxt-develop-ynnz4go"
 YAXT_FCFLAGS="-I${YAXT_ROOT}/include"
 YAXT_LDFLAGS="-L${YAXT_ROOT}/lib"
 YAXT_LIBS='-lyaxt'
