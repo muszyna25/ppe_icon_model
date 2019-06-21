@@ -59,10 +59,10 @@ MODULE mo_advection_utils
 
   ! In order to avoid circular dependencies these two pointers
   ! have been moved from mo_advection_stepping to this module.
-  REAL(wp), POINTER ::  &
+  REAL(wp), CONTIGUOUS, POINTER ::  &
     &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
                                         !< at cell center
-  REAL(wp), POINTER ::  &
+  REAL(wp), CONTIGUOUS, POINTER ::  &
     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
                                         !< at cell center
 

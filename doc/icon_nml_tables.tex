@@ -6347,15 +6347,47 @@ Subcycling means that the integration from time step n to n+1 is splitted into s
 For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see nonhydrostatic\_nml/hbot\_qvsubstep).
 & \tabularnewline
 
-
 %\hline
-ivadv\_tracer&
+\textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
 & & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 3: Piecewise parabolic method (PPM): handles $\mathrm{CFL}>1$ & \tabularnewline
-& & & & 4: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+& & & & 4: Parabolic Spline Method (PSM): (handles $\mathrm{CFL}>1$)& \tabularnewline
+& & & & 5: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+
+
+%\hline
+\textbf{itype\_hlimit}&
+I(ntracer)&
+4& & Type of limiter for horizontal transport:& \tabularnewline
+& & & & 0: no limiter& \tabularnewline
+& & & & 3: monotonic flux limiter (FCT)& \tabularnewline
+& & & & 4: positive definite flux limiter& \tabularnewline
+
+%\hline
+\textbf{itype\_vlimit}&
+I(ntracer)&
+1& & Type of limiter for vertical transport:& \tabularnewline
+& & & & 0: no limiter& \tabularnewline
+& & & & 1: semi-monotonic reconstruction filter& \tabularnewline
+& & & & 2: monotonic reconstruction filter& \tabularnewline
+& & & & 3: positive definite flux limiter& \tabularnewline
+
+%\hline
+\textbf{ivlimit\_selective}&
+I(ntracer)&
+0& & Reduce detrimental effect of vertical limiter by applying a method for identifying and avoiding spurious limiting of smooth extrema.& \tabularnewline
+& & & & 1: on& itype\_vlimit=1, 2 \tabularnewline
+& & & & 0: off& \tabularnewline
+
+%\hline
+beta\_fct&
+R& 1.005& & global boost factor for range of permissible values $\left[q_{max},q_{min}\right]$ in (semi-) monotonic flux limiter. A value larger 
+than 1 allows for (small) over and undershoots, while a value of $1$ gives strict monotonicity (at the price of increased diffusivity). & 
+itype\_hlimit = 3, 4
+\tabularnewline
 
 %\hline
 iadv\_tke& 
@@ -6369,8 +6401,8 @@ I&
 %\hline
 lstrang &
 L& .FALSE.& & Time splitting method & \tabularnewline
-& & & & TRUE: second order Strang splitting & \tabularnewline
 & & & & FALSE: first order Godunov splitting & \tabularnewline
+& & & & TRUE: second order Strang splitting & \tabularnewline
 
 %\hline
 tracer\_names&
@@ -6385,36 +6417,12 @@ packages are switched on. & iforcing$\ne$ inwp, iecham'
 npassive\_tracer&
 I& 0 & & number of additional passive tracers which have no sources and are transparent to any physical process (no effect).\\ 
 Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.\\ 
-\textbf{NOTE:} By default, limiters are switched of for passive tracers and the scheme $52$ is selected for horizontal advection. & 
+\textbf{NOTE:} By default, limiters are switched off for passive tracers and the scheme $52$ is selected for horizontal advection. & 
 \tabularnewline
 
 %\hline
 init\_formula&
 C& ' ' & & Comma-separated list of initialization formulas for additional passive tracers. & npassive\_tracer > 0
-\tabularnewline
-
-%\hline
-\textbf{itype\_hlimit}&
-I(ntracer)&
-4& & Type of limiter for horizontal transport:& \tabularnewline
-& & & & 0: no limiter& \tabularnewline
-& & & & 3: monotonous flux limiter& \tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-%\hline
-\textbf{itype\_vlimit}&
-I(ntracer)&
-1& & Type of limiter for vertical transport:& \tabularnewline
-& & & & 0: no limiter& \tabularnewline
-& & & & 1: semi-monotone slope limiter& \tabularnewline
-& & & & 2: monotonous slope limiter& \tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-
-%\hline
-beta\_fct&
-R& 1.005& & factor of allowed over-/undershooting in monotonous limiter & 
-itype\_hlimit = 3
 \tabularnewline
 
 %\hline
@@ -6434,8 +6442,8 @@ I& 1& & Method for gradient reconstruction at cell center for 2nd order miura sc
 %\hline
 ivcfl\_max&
 I& 5& &
-determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
-ivadv\_tracer=3
+determines stability range of vertical PPM/PSM-scheme in terms of the maximum allowable CFL-number&
+ivadv\_tracer=3,4
 \tabularnewline
 
 %\hline

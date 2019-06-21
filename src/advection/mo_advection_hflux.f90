@@ -115,7 +115,7 @@ MODULE mo_advection_hflux
   USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj,                    &
     &                               btraj_compute_o1, btraj_compute_o2
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
-  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
+  USE mo_advection_hlimit,    ONLY: hflx_limiter_mo, hflx_limiter_pd
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_fortran_tools,       ONLY: init, copy
@@ -1244,7 +1244,8 @@ CONTAINS
 !$OMP END PARALLEL
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
@@ -1252,7 +1253,7 @@ CONTAINS
 
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       ! MPI-sync necessary
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
         &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
@@ -1608,7 +1609,7 @@ CONTAINS
       !
       IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
         !
-        CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
+        CALL hflx_limiter_pd( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
           &                   z_tracer_mflx(:,:,:,nsub)        , & !inout
           &                   slev, elev, opt_rlend=i_rlend    , & !in
@@ -2285,7 +2286,8 @@ CONTAINS
 !$OMP END PARALLEL
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
@@ -2294,7 +2296,7 @@ CONTAINS
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
         &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
@@ -2850,7 +2852,8 @@ CONTAINS
 
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
@@ -2859,7 +2862,7 @@ CONTAINS
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
         &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
@@ -3397,7 +3400,8 @@ CONTAINS
 
 
     !
-    ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
+    ! 4. If desired, apply a monotonic or positive definite flux limiter 
+    !    to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
@@ -3406,7 +3410,7 @@ CONTAINS
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
+      CALL hflx_limiter_pd( p_patch, p_int, p_dtime, p_cc, p_out_e,      & !in,inout
         &                   slev, elev, opt_rlend=i_rlend                ) !in
     ENDIF
 
