@@ -5124,7 +5124,8 @@ remap=1
 \textbf{steps\_per\_file }&
 I&-1& &
  Max number of output steps in one output file. If this number is reached, a new output
- file will be opened.
+ file will be opened. Setting steps\_per\_file to 1 enforces a flush when writing is completed, so that the
+ file is immediately accessible for reading.
 &
 \tabularnewline
 
