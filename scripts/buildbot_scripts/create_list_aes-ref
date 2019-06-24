@@ -35,6 +35,8 @@ machine=daint
 ./addmachine $machine --list $list
 ./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
 ./addbuilder DAINT_GPU_cce        --machine $machine --configureflags="--with-fortran=cray_gpu" --builderflags="Active"  --list $list
+# add amip binary-identical test on DAINT_CPU_cce
+$addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_cce --list $list
 
 #-----------------------------------------------------------
 # AES
