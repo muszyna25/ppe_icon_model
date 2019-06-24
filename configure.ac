@@ -633,7 +633,7 @@ AS_VAR_IF([enable_openacc], [yes],
         [AC_MSG_WARN([unable to detect supported OpenACC version])
          AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENACC"])],
         [AS_IF([test "$acx_macro_value" -lt 201711 >&AS_MESSAGE_LOG_FD 2>&1],
-           [AC_MSG_ERROR([Fortran compiler does not support OpenACC 2.6 dnl
+           [AC_MSG_WARN([Fortran compiler does not support OpenACC 2.6 dnl
 (201711): it is strongly recommended to disable OpenACC support dnl
 (--disable-openacc)])])
       AS_VAR_APPEND([DEPGEN_FCFLAGS],

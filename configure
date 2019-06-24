@@ -5326,7 +5326,8 @@ $as_echo "$as_me: WARNING: unable to detect supported OpenACC version" >&2;}
          as_fn_append DEPGEN_FCFLAGS " ${FC_PP_DEF}_OPENACC"
 else
   if test "$acx_macro_value" -lt 201711 >&5 2>&1; then :
-  as_fn_error $? "Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable OpenACC support (--disable-openacc)" "$LINENO" 5
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable OpenACC support (--disable-openacc)" >&5
+$as_echo "$as_me: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable OpenACC support (--disable-openacc)" >&2;}
 fi
       as_fn_append DEPGEN_FCFLAGS " ${FC_PP_DEF}_OPENACC=$acx_macro_value"
 fi
