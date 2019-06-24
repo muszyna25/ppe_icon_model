@@ -138,7 +138,31 @@ AC_ARG_ENABLE([serialization],
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
-ICON_OPTIMIZATION_ARGS
+ICON_OPTIMIZATION_ARG_ENABLE
+
+AC_ARG_ENABLE([loop-exchange],
+  [AC_HELP_STRING([--enable-loop-exchange],
+     [enable loop exchange @<:@default=yes@:>@])], [],
+  [enable_loop_exchange=yes])
+
+AC_ARG_ENABLE([intel-consistency],
+  [AC_HELP_STRING([--enable-intel-consistency],
+     [enable Intel compiler directives enforcing consistency
+@<:@default=auto@:>@])], [],
+  [enable_intel_consistency=auto])
+
+AC_ARG_ENABLE([vectorized-lrtm],
+  [AC_HELP_STRING([--enable-vectorized-lrtm],
+     [enable the parallelization-invariant version of LRTM
+@<:@default=no@:>@])], [],
+  [enable_vectorized_lrtm=no])
+
+AC_ARG_ENABLE([mixed-precision],
+  [AC_HELP_STRING([--enable-mixed-precision],
+     [enable mixed precision dycore @<:@default=no@:>@])], [],
+  [enable_mixed_precision=no])
+
+dnl Optional Packages:
 
 AC_ARG_WITH([external-ecrad],
   [AC_HELP_STRING([--with-external-ecrad],
@@ -531,6 +555,22 @@ AS_IF([test "x$enable_serialization" != xno],
      [create], [AS_VAR_APPEND([FCFLAGS],
                   [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])],
   [AC_SUBST([SB2_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_loop_exchange], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
+
+AS_IF([test "x$enable_intel_consistency" = xauto && dnl
+test "x$acx_cv_fc_compiler_vendor" = xintel],
+  [enable_intel_consistency=yes])
+AS_VAR_IF([enable_intel_consistency], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
+
+AS_VAR_IF([enable_vectorized_lrtm], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])
+
+AS_VAR_IF([enable_mixed_precision], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])
 
 dnl One of the topological orderings of the ICON dependency graph:
 dnl

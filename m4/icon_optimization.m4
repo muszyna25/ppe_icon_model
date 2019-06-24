@@ -1,28 +1,18 @@
-# ICON_OPTIMIZATION_ARGS()
+# ICON_OPTIMIZATION_ARG_ENABLE()
 # -----------------------------------------------------------------------------
-# Sets optimization related command-line arguments of the configure script:
+# Sets '--enable-optimization' command-line argument for choosing of one of the
+# optimization levels:
 #
-#   '--enable-optimization' for choosing of one of the optimization levels:
-#       'release'     default optimization for production runs;
-#       'aggressive'  the most aggressive optimizations (that are known to
-#                     work);
-#       'precise'     optimization level ensuring binary reproducibility of the
-#                     results;
-#       'debug'       optimizations that are unlikely to interfere with
-#                     debugging or profiling;
-#       'test'        optimization level for the test suite;
-#       'none'        all optimizations disabled.
+#   'release'     default optimization for production runs;
+#   'aggressive'  the most aggressive optimizations (that are known to work);
+#   'precise'     optimization level ensuring binary reproducibility of the
+#                 results;
+#   'debug'       optimizations that are unlikely to interfere with debugging
+#                 or profiling;
+#   'test'        optimization level for the test suite;
+#   'none'        all optimizations disabled.
 #
-#   '--enable-loop-exchange' for enabling loop exchange
-#
-#   '--enable-intel-consistency' for enabling Intel compiler directive
-#                                enforcing consistency
-#
-#   '--enable-vectorized-lrtm' for enabling full vectorization of LRTM
-#
-#   '--enable-mixed-precision' for enabling mixed precision dycore
-#
-AC_DEFUN([ICON_OPTIMIZATION_ARGS],
+AC_DEFUN([ICON_OPTIMIZATION_ARG_ENABLE],
   [AC_ARG_ENABLE([optimization],
 [  --enable-optimization   prepend CFLAGS and FCFLAGS with additional
                           predefined compiler-specific set of flags. The value
@@ -42,29 +32,7 @@ AC_DEFUN([ICON_OPTIMIZATION_ARGS],
 --enable-optimization='$enableval'; valid values are 'release', dnl
 'aggressive', 'precise', 'debug', 'test', 'none', dnl
 'yes' (same as 'release'), 'no' (same as 'none')])])],
-[enable_optimization=release])
-dnl
-   AC_ARG_ENABLE([loop-exchange],
-     [AC_HELP_STRING([--enable-loop-exchange],
-        [enable loop exchange @<:@default=auto@:>@])], [],
-     [enable_loop_exchange=auto])
-dnl
-   AC_ARG_ENABLE([intel-consistency],
-     [AC_HELP_STRING([--enable-intel-consistency],
-        [enable Intel compiler directives enforcing consistency
-@<:@default=auto@:>@])], [],
-     [enable_intel_consistency=auto])
-dnl
-   AC_ARG_ENABLE([vectorized-lrtm],
-     [AC_HELP_STRING([--enable-vectorized-lrtm],
-        [enable the parallelization-invariant version of LRTM
-@<:@default=auto@:>@])], [],
-     [enable_vectorized_lrtm=auto])
-dnl
-   AC_ARG_ENABLE([mixed-precision],
-     [AC_HELP_STRING([--enable-mixed-precision],
-        [enable mixed precision dycore @<:@default=auto@:>@])], [],
-     [enable_mixed_precision=auto])])
+[enable_optimization=release])])
 
 # ICON_OPTIMIZATION_SET_FCFLAGS()
 # -----------------------------------------------------------------------------
@@ -90,9 +58,9 @@ dnl
 #
 AC_DEFUN([ICON_OPTIMIZATION_SET_FCFLAGS],
   [AC_REQUIRE([ACX_COMPILER_FC_VERSION])dnl
-   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARGS], [],
+   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARG_ENABLE], [],
      [m4_warn([syntax],
-        [$0 should be called after ICON_OPTIMIZATION_ARGS])])dnl
+        [$0 should be called after ICON_OPTIMIZATION_ARG_ENABLE])])dnl
 dnl The following code is M4-quoted and is implemented using plain shell to
 dnl be more maintainable by those who are less familiar with M4 syntax:
 [
@@ -124,11 +92,7 @@ set of extra FCFLAGS is not defined" ;;
 optimizations for unknown Fortran compiler" ;; #(
          intel)
            # precise, Intel compiler (example)
-           icon_optim_FCFLAGS='-O2 -fp-model precise'
-           test x"$enable_intel_consistency" = xauto && \
-             enable_intel_consistency=yes
-           test x"$enable_vectorized_lrtm" = xauto && \
-             enable_vectorized_lrtm=yes ;; #(
+           icon_optim_FCFLAGS='-O2 -fp-model precise' ;; #(
          *)
            # precise, default (example)
            icon_optim_error="unable to set '$enable_optimization' \
@@ -170,35 +134,11 @@ set of extra FCFLAGS is not defined" ;;
    icon_optim_ocean_FCFLAGS=$icon_optim_FCFLAGS
 
    # Currently, we compile the bundled libraries with the same flags:
-   icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS
-
-   # Currently, enable loop exchange by default,
-   # regardless of the optimization level:
-   test x"$enable_loop_exchange" = xauto && enable_loop_exchange=yes
-
-   # Currently, disable mixed precision by default,
-   # regardless of the optimization level:
-   test x"$enable_mixed_precision" = xauto && enable_mixed_precision=no]
+   icon_optim_subdir_FCFLAGS=$icon_optim_FCFLAGS]
 dnl The plain shell section ends here
 dnl
    AS_IF([test -n "$icon_optim_error"],
-     [AC_MSG_ERROR([$icon_optim_error])])
-dnl
-   AS_VAR_IF([enable_loop_exchange], [yes],
-     [AS_VAR_APPEND([icon_optim_FCFLAGS],
-        [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
-dnl
-   AS_VAR_IF([enable_intel_consistency], [yes],
-     [AS_VAR_APPEND([icon_optim_FCFLAGS],
-        [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
-dnl
-   AS_VAR_IF([enable_vectorized_lrtm], [yes],
-     [AS_VAR_APPEND([icon_optim_FCFLAGS],
-        [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])
-dnl
-   AS_VAR_IF([enable_mixed_precision], [yes],
-     [AS_VAR_APPEND([icon_optim_FCFLAGS],
-        [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])])
+     [AC_MSG_ERROR([$icon_optim_error])])])
 
 # ICON_OPTIMIZATION_SET_CFLAGS()
 # -----------------------------------------------------------------------------
@@ -220,9 +160,9 @@ dnl
 #
 AC_DEFUN([ICON_OPTIMIZATION_SET_CFLAGS],
   [AC_REQUIRE([ACX_COMPILER_CC_VERSION])dnl
-   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARGS], [],
+   AC_PROVIDE_IFELSE([ICON_OPTIMIZATION_ARG_ENABLE], [],
      [m4_warn([syntax],
-        [$0 should be called after ICON_OPTIMIZATION_ARGS])])dnl
+        [$0 should be called after ICON_OPTIMIZATION_ARG_ENABLE])])dnl
 dnl The following code is M4-quoted and is implemented using plain shell to
 dnl be more maintainable by those who are less familiar with M4 syntax:
 [
