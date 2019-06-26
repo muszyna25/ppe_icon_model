@@ -1137,7 +1137,7 @@ CONTAINS
       !     z_delta_q = 0.5*\Delta q
       !     z_a1 = 1/6*a_6
       !
-      DO jk = slev, elev
+      DO jk = slev, nlev
         DO jc = i_startidx, i_endidx
           z_delta_q(jc,jk) = 0.5_wp * (z_face_up(jc,jk) - z_face_low(jc,jk))
           z_a1(jc,jk)      = p_cc(jc,jk,jb) - 0.5_wp*(z_face_up(jc,jk) + z_face_low(jc,jk))
