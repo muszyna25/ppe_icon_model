@@ -98,7 +98,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  istart, iend,         & !< Start and end of nproma loop
     &  i_rlstart, i_rlend,   & !< Relaxation start and end
     &  i_nchdom,             & !< Number of child domains
-    &  nlev,                 & !< Number of levels (equals index of lowest full level)
+    &  nlev, nlevp1,         & !< Number of levels (equals index of lowest full level)
     &  num_radioact            !< counter for number of radionuclides
   REAL(wp),POINTER        :: &
     &  rho(:,:,:)              !< Pointer to air density [kg m-3]
@@ -118,6 +118,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
   nlev       = p_patch%nlev
+  nlevp1     = p_patch%nlevp1
   i_rlstart  = grf_bdywidth_c+1
   i_rlend    = min_rlcell_int
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
@@ -130,7 +131,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
       ALLOCATE(wash_rate_m3(nproma,nlev))
-      ALLOCATE(rain_con_rate_wo(nproma,nlev))
+      ALLOCATE(rain_con_rate_wo(nproma,nlevp1))
 
 !$omp parallel do default(shared) private(jb, istart, iend)
       DO jb = i_startblk, i_endblk

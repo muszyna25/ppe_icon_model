@@ -122,7 +122,10 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     &  istart,iend,               & !< Start and end of nproma loop
     &  jg, jsp, i, n,             & !< jg: patch id, jsp/i/n: counters
     &  iubc=0,                    & !< upper boundary condition 0 = none
-    &  itype_vlimit=2               !< Monotone flux limiter
+    &  ivadv_tracer=3,            & !< piecewise parabolic method (PPM)
+    &  itype_vlimit=2,            & !< Monotone flux limiter
+    &  ivlimit_selective=0          !< avoids spurious limiting of smooth extrema, if active
+                                    !< 0/1:on/off
   LOGICAL                      :: &
     &  lcompute_gt,               & !< compute geometrical terms
     &  lcleanup_gt                  !< clean up geometrical terms.
@@ -349,9 +352,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 ! upwind_vflux_ppm is internally OpenMP parallelized
                 CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
                   &                   iubc, flx_contra_vsed, dt_sub,          &
-                  &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                  &                   lcompute_gt, lcleanup_gt,               &
+                  &                   itype_vlimit, ivlimit_selective,        & 
                   &                   p_metrics%ddqz_z_full,                  &
                   &                   rhodz_new, lprint_cfl,                  &
+                  &                   ivadv_tracer,                           &
                   &                   p_upflux_sed(:,:,:),                    &
                   &                   opt_rlstart=i_rlstart,                  &
                   &                   opt_rlend=i_rlend,                      &
@@ -429,9 +434,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! upwind_vflux_ppm is internally OpenMP parallelized
               CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
                 &                   iubc, flx_contra_vsed, dt_sub,          &
-                &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                   lcompute_gt, lcleanup_gt,               &
+                &                   itype_vlimit, ivlimit_selective,        &
                 &                   p_metrics%ddqz_z_full,                  &
                 &                   rhodz_new, lprint_cfl,                  &
+                &                   ivadv_tracer,                           &
                 &                   p_upflux_sed(:,:,:),                    &
                 &                   opt_rlstart=i_rlstart,                  &
                 &                   opt_rlend=i_rlend,                      &
@@ -468,9 +475,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! upwind_vflux_ppm is internally OpenMP parallelized
               CALL upwind_vflux_ppm(p_patch, tracer(:,:,:,jsp),             &
                 &                   iubc, flx_contra_vsed, dt_sub,          &
-                &                   lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                   lcompute_gt, lcleanup_gt,               &
+                &                   itype_vlimit, ivlimit_selective,        &
                 &                   p_metrics%ddqz_z_full,                  &
                 &                   rhodz_new, lprint_cfl,                  &
+                &                   ivadv_tracer,                           &
                 &                   p_upflux_sed(:,:,:),                    &
                 &                   opt_rlstart=i_rlstart,                  &
                 &                   opt_rlend=i_rlend,                      &
