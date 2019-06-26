@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart
+    &                                    output_mode, lart, ldass_lhn
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -1944,9 +1944,11 @@ MODULE mo_nh_stepping
                   & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
               END IF
             ENDIF
-            IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
-              CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
-                p_grf_state(n_dom_start:n_dom), jgc, jg)
+            IF (ldass_lhn) THEN 
+              IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
+                CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
+                  p_grf_state(n_dom_start:n_dom), jgc, jg)
+              END IF
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
