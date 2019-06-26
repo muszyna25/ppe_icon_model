@@ -29,10 +29,10 @@ MODULE mo_ocean_thermodyn
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
     & LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,OceanReferenceDensity, &
-   &  ReferencePressureIndbars, OceanReferenceDensity_inv, atm_pressure_included_in_ocedyn
+   &  ReferencePressureIndbars, OceanReferenceDensity_inv
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, warning
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
   USE mo_physical_constants,  ONLY: grav, sal_ref,  &
     & sitodbar, sfc_press_bar
@@ -199,12 +199,12 @@ CONTAINS
     !! Initial version by Peter Korn, MPI-M (2014)
     !!
   !<Optimize:inUse>
-  SUBROUTINE calc_internal_press_grad(patch_3d, rho, pressure_hyd, pao, grad_coeff, press_grad)
+  SUBROUTINE calc_internal_press_grad(patch_3d, rho, pressure_hyd, bc_total_top_potential, grad_coeff, press_grad)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(in)                 :: rho          (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
-    REAL(wp), INTENT(in)                 :: pao          (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
     REAL(wp), INTENT(inout)              :: pressure_hyd (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)                 :: bc_total_top_potential(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
     !REAL(wp), INTENT(in), TARGET      :: prism_thick_e(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp), INTENT(in)                 :: grad_coeff(:,:,:)
     REAL(wp), INTENT(inout)              :: press_grad    (nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)  !< hydrostatic pressure gradient
@@ -242,11 +242,9 @@ CONTAINS
 
       DO jc = start_index, end_index
 
-        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb)
-
-        IF ( atm_pressure_included_in_ocedyn ) pressure_hyd(jc,1,jb) =  pressure_hyd(jc,1,jb) &
-                                                                     + (pao(jc,jb)*OceanReferenceDensity_inv)
-
+        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
+          & + bc_total_top_potential(jc,jb)
+          
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
           pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&

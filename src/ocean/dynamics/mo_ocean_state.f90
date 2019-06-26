@@ -1179,6 +1179,13 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"),lrestart_cont=.FALSE.)
 
+      CALL add_var(ocean_default_list, 'verticallyTotal_mass_flux_e', &
+      & ocean_state_diag%verticallyTotal_mass_flux_e, grid_unstructured_edge,&
+      & za_surface, &
+      & t_cf_var('verticallyTotal_mass_flux_e','','vertically integrated mass flux at edges', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED,grid_edge),&
+      & ldims=(/nproma,nblks_e/),in_group=groups("oce_diag"))
+
     ! velocities
     CALL add_var(ocean_restart_list, 'w', ocean_state_diag%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
@@ -2139,6 +2146,18 @@ CONTAINS
       & za_surface, t_cf_var('bc_top_w','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+       
+    CALL add_var(ocean_default_list,'bc_tides_potential',ocean_state_aux%bc_tides_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_tides_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_tides_potential = 0.0_wp
+    CALL add_var(ocean_default_list,'bc_total_top_potential',ocean_state_aux%bc_total_top_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_total_top_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_total_top_potential = 0.0_wp
+        
     CALL add_var(ocean_default_list,'bc_bot_tracer',ocean_state_aux%bc_bot_tracer,grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_bot_tracer','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&

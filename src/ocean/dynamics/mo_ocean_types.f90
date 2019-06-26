@@ -314,6 +314,8 @@ MODULE mo_ocean_types
       & h_e              ,& ! surface height at cell edges. Unit [m].
       & thick_e          ! individual fluid column thickness at edges. Unit [m].
     
+    onEdges_2D :: verticallyTotal_mass_flux_e
+    
     TYPE(t_ocean_monitor) :: monitor
 
     ! for the testbed
@@ -355,7 +357,9 @@ MODULE mo_ocean_types
       & bc_top_u        ,& ! zonal velocity boundary condition at surface
       & bc_top_v        ,& ! meridional velocity boundary condition at surface
       & bc_top_w        ,& ! vertical velocity boundary condition at surface
-      & bc_bot_w           ! vertical velocity boundary condition at bottom
+      & bc_bot_w        ,&   ! vertical velocity boundary condition at bottom
+      & bc_tides_potential, &
+      & bc_total_top_potential
       
     onCells_2D_tracers :: &
       & bc_top_tracer,    &

@@ -33,7 +33,8 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
-    &  Cartesian_Mixing, GMRedi_configuration
+    &  Cartesian_Mixing, GMRedi_configuration, use_tides, OceanReferenceDensity_inv, &
+    &  atm_pressure_included_in_ocedyn
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -84,7 +85,12 @@ MODULE mo_hydro_ocean_run
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
-  USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
+  USE mo_hamocc_diagnostics,     ONLY: get_inventories
+  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
+  USE mo_end_bgc,                ONLY: cleanup_hamocc
+  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_ocean_tides,         ONLY: tide    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
 
   IMPLICIT NONE
@@ -350,6 +356,19 @@ CONTAINS
         start_detail_timer(timer_extra22,4)
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
+        
+        !------------------------------------------------------------------------
+        ! compute tidal potential
+        IF (use_tides) THEN
+          CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
+        ENDIF
+        ! total top potential
+        IF (atm_pressure_included_in_ocedyn) THEN
+          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
+            & + p_as%pao * OceanReferenceDensity_inv
+        ELSE
+          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
+        ENDIF 
 
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -400,7 +419,7 @@ CONTAINS
         ENDIF
         
         stop_timer(timer_solve_ab,1)
-
+          
         !------------------------------------------------------------------------
         ! Step 4: calculate final normal velocity from predicted horizontal
         ! velocity vn_pred and updated surface height

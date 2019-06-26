@@ -50,7 +50,7 @@ MODULE mo_statistics
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
   PUBLIC :: print_value_location
-  PUBLIC :: add_verticallyIntegrated_field
+  PUBLIC :: add_verticallyIntegrated_field, verticallyIntegrated_field
   PUBLIC :: add_verticalSum_field
   PUBLIC :: gather_sums
   PUBLIC :: min_fields, max_fields
@@ -582,7 +582,7 @@ CONTAINS
     number_of_values = 0
 
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx, level) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value, number_of_values)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
@@ -601,7 +601,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, min_in_block, max_in_block)  &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, level, min_in_block, max_in_block)  &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
@@ -818,7 +818,7 @@ CONTAINS
     sum_value(:,  myThreadNo) = 0.0_wp
     sum_weight(:,  myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -833,7 +833,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -1004,7 +1004,7 @@ CONTAINS
     sum_value(:,  myThreadNo) = 0.0_wp
     sum_weight(:,  myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -1019,7 +1019,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -1119,7 +1119,7 @@ CONTAINS
 !ICON_OMP_END_SINGLE NOWAIT
     sum_value(myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -1205,7 +1205,7 @@ CONTAINS
     sum_value(myThreadNo) = 0.0_wp
     sum_weight(myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -2113,6 +2113,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_sqr_fields_2d_nosubset
+  !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   SUBROUTINE add_verticallyIntegrated_field(vint_field_acc,field_3D,subset,height,levels)
@@ -2156,6 +2157,52 @@ CONTAINS
 
     ENDIF
   END SUBROUTINE add_verticallyIntegrated_field
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE verticallyIntegrated_field(vint_field,field_3D,subset,height,levels)
+    REAL(wp),INTENT(inout)          :: vint_field(:,:)
+    REAL(wp),INTENT(in)             :: field_3D(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    REAL(wp),INTENT(in)             :: height(:,:,:)
+    INTEGER,INTENT(in),OPTIONAL :: levels
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level
+
+    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          vint_field(idx,block) = 0.0_wp
+          DO level = 1, subset%vertical_levels(idx,block)
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) * height(idx,level,block)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+      ! use constant levels
+      mylevels   = SIZE(field_3D, VerticalDim_Position)
+      IF (PRESENT(levels)) mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+           vint_field(idx,block) = 0.0_wp
+           DO level = 1, mylevels
+            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) * height(idx,level,block)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
+  END SUBROUTINE verticallyIntegrated_field
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
@@ -2358,6 +2405,8 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE min_fields_2d_nosubset
+  
+  
   SUBROUTINE min_fields_3d(min_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: min_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)

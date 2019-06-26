@@ -2,12 +2,6 @@
 !!        Contains the variables to set up the ocean model.
 !!
 !!        
-!! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3814)
-!!   Modification by Constantin Junk (2010-03-18)
-!!     - separated namelist mpiom_phy_nml, ocean_nml und octst_nml
-!!       from mo_global_variables
-!!     - therefore, added mo_ocean_nml module
 !!
 !! @par Copyright and License
 !!
@@ -688,7 +682,9 @@ MODULE mo_ocean_nml
   LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
   LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
 
-                                                              
+  LOGICAL      :: use_tides  = .FALSE.
+  CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
+  REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
@@ -747,7 +743,10 @@ MODULE mo_ocean_nml
     &                 forcing_windStress_weight           , &
     &                 use_new_forcing                     , &
     &                 atm_pressure_included_in_icedyn     , &
-    &                 atm_pressure_included_in_ocedyn
+    &                 atm_pressure_included_in_ocedyn     , &
+    &                 use_tides                           , &
+    &                 tide_startdate                      , &
+    &                 tides_esl_damping_coeff
   ! } END FORCING
 
   !----------------------------------------------------------------------------

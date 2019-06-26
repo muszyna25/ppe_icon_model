@@ -77,7 +77,8 @@ MODULE mo_ocean_diagnostics
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums
+  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
+    & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
@@ -809,10 +810,11 @@ CONTAINS
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
 !   REAL(wp) :: sflux
 
-    TYPE(t_subset_range), POINTER :: owned_cells
+    TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     TYPE(t_ocean_monitor),  POINTER :: monitor
     !-----------------------------------------------------------------------
     owned_cells    => patch_2d%cells%owned
+    owned_edges    => patch_2d%edges%owned
     monitor        => p_diag%monitor
 
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
@@ -1176,7 +1178,12 @@ CONTAINS
       monitor%ice_framStrait = merge(section_ice_flux(oce_sections(7), ice%hi*ice%conc, ice%vn_e), &
           &                      0.0_wp, &
           &                      isRegistered('ice_framStrait'))
-
+     
+      IF (isRegistered('verticallyTotal_mass_flux_e')) THEN
+        CALL verticallyIntegrated_field(ocean_state%p_diag%verticallyTotal_mass_flux_e, &
+          & ocean_state%p_diag%mass_flx_e, owned_edges, patch_3D%p_patch_1d(1)%prism_thick_e)
+      ENDIF
+      
 !TODO       CASE (10)
 !TODO         monitor%agulhas                = sflux*OceanReferenceDensity
 !TODO       CASE (11)
