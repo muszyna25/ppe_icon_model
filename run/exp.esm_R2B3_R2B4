@@ -649,11 +649,6 @@ cat > ${atm_namelist} << EOF
 ! domain 1
 ! --------
 !
-&echam_rad_nml
-!
-! domain 1
-! --------
-!
  echam_rad_config(1)%isolrad    =  6
  echam_rad_config(1)%irad_h2o   =  1
  echam_rad_config(1)%irad_co2   =  2
