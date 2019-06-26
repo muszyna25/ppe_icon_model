@@ -284,7 +284,7 @@ FCFLAGS=${FCFLAGS-}
 dnl Flags to be passed to the configure scripts of the bundled libraries:
 subdir_FCFLAGS=$FCFLAGS
 AC_PROG_FC
-AC_FC_PP_SRCEXT([f90])
+ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 
 AS_VAR_IF([enable_rpaths], [yes],
