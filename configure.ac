@@ -419,9 +419,7 @@ LDFLAGS="$icon_fc_rpaths$LDFLAGS"
 dnl Run the delayed cross-compilation check:
 ACX_COMPILER_CROSS_CHECK_NOW
 
-dnl Currently, we need this only for ART. Later this check and the
-dnl corresponding modifications of FCFLAGS will be conditional:
-AC_FC_LINE_LENGTH([unlimited])
+ACX_FC_LINE_LENGTH([unlimited])
 
 ACX_FC_MODULE_IN_FLAG([AC_SUBST([FC_MOD_IN], [$acx_cv_fc_module_in_flag])])
 ACX_FC_MODULE_OUT_FLAG([AC_SUBST([FC_MOD_OUT], [$acx_cv_fc_module_out_flag])])
