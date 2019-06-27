@@ -61,6 +61,8 @@ nproma_oce=48
 initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 #
+# 1 ocean node is sufficient.
+mpi_oce_nodes=1
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 #
@@ -123,17 +125,17 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1979-01-01T00:00:00Z"}
-    end_date=${end_date:="1980-01-01T00:00:00Z"}
+start_date=${start_date:="1850-01-01T00:00:00Z"}
+    end_date=${end_date:="1950-01-01T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
-restart_interval="P1Y"
+restart_interval="P10Y"
 checkpoint_interval="P20Y"
 
-atm_file_interval="P20Y"
-oce_file_interval="P20Y"
-lnd_file_interval="P20Y"
+atm_file_interval="P1Y"
+oce_file_interval="P1Y"
+lnd_file_interval="P1Y"
 
 atm_output_interval="P1M"
 oce_output_interval="P1M"
@@ -354,7 +356,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation method="bernstein_bezier"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="n-nearest_neighbor" n="4" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -374,7 +376,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation method="bernstein_bezier"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="n-nearest_neighbor" n="4" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -527,7 +529,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             <mapping_on_source>true</mapping_on_source>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
                <interpolation method="bernstein_bezier"/>
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="n-nearest_neighbor" n="4" weighted="ARITHMETIC_AVERAGE"/>
                <interpolation method="fixed_value" user_value="-999.9"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -641,8 +643,8 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%llake  = ${llake}
 !
 ! fix negative humidity
- echam_phy_config(1)%iqneg_d2p = 0
- echam_phy_config(1)%iqneg_p2d = 0
+ echam_phy_config(1)%iqneg_d2p = 2
+ echam_phy_config(1)%iqneg_p2d = 2
 /
 &echam_rad_nml
 !
@@ -1314,7 +1316,7 @@ cat >> ${oce_namelist} << EOF
 ! solver_tolerance                           = 7.5E-14          ! old value
 ! solver_max_iter_per_restart                = 19               ! old value
 ! solver_max_restart_iterations              = 100              ! outer (restart solver)
-  solver_tolerance                           = 7.5E-14
+! solver_tolerance                           = 7.5E-14
 
   fast_performance_level                     = 200              ! performance level 12: for cell-based; 5: default
   use_continuity_correction                  = .TRUE.           ! height adjustment according to vertical velocity in dynamics
