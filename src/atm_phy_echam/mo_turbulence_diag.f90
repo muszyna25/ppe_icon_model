@@ -30,8 +30,8 @@ MODULE mo_turbulence_diag
     &                             eps_shear, eps_corio, totte_min, cons5,   &
     &                             lmix_max
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
-    &                             vtmpc1, tmelt, alv, als, p0ref,           &
-    &                             earth_angular_velocity
+    &                             vtmpc1, tmelt, alv, als, p0ref
+  USE mo_grid_config       ,ONLY: grid_angular_velocity
 
   IMPLICIT NONE
   PRIVATE
@@ -342,7 +342,7 @@ CONTAINS
         ! mixing length for neutral and stably stratified conditions
 
         imix_neutral =   1._wp/(ckap*pghh(jl,jk+1))                                            &
-                     & + 2._wp*earth_angular_velocity/(c_f*SQRT(f_tau*e_kin))
+                     & + 2._wp*grid_angular_velocity/(c_f*SQRT(f_tau*e_kin))
 
         lmix =   imix_neutral + SQRT(MAX(0._wp,zbuoy))/(c_n*SQRT(f_tau*e_kin))
         lmix =   MIN(lmix_max,1._wp/lmix)
@@ -722,7 +722,7 @@ CONTAINS
  !  Compute mixing length for neutrally stratified conditions:
 
         lmix(js,jsfc) = 1._wp/(ckap*fsl*pghf_b(js))                                       &
-                      & + 2._wp*earth_angular_velocity                                    &
+                      & + 2._wp*grid_angular_velocity                                     &
                       & /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
 
 !   Add term for stably stratified conditions:

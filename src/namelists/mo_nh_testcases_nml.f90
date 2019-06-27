@@ -61,7 +61,7 @@ MODULE mo_nh_testcases_nml
     &       n_flat_level, nh_test_name,                                      &
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
-    &       jw_up, rh_at_1000hpa,  qv_max,                                   &
+    &       jw_up, jw_u0, jw_temp0, rh_at_1000hpa,  qv_max,                  &
     &       tpe_moist, tpe_psfc, tpe_temp,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
@@ -84,7 +84,9 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: nh_brunt_vais          ! (1/s)
   REAL(wp) :: nh_u0                  ! (m/s)
   REAL(wp) :: nh_t0                  ! (K)
-  REAL(wp) :: jw_up                  ! amplitude of the u-perturbation (m/s), jabw  
+  REAL(wp) :: jw_up                  ! amplitude of the u-perturbation (m/s), jabw
+  REAL(wp) :: jw_u0                  ! maximum zonl wind (m/s)
+  REAL(wp) :: jw_temp0               ! horizontal-mean temperature at surface (K)
   REAL(wp) :: rotate_axis_deg        ! (deg) rotation angle
   REAL(wp) :: torus_domain_length    ! (m) length of domain the slice (torus) grid
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
@@ -141,7 +143,8 @@ MODULE mo_nh_testcases_nml
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
-                            n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
+                            n_flat_level, jw_up, jw_u0, jw_temp0,            &
+                            u0_mrw, mount_height_mrw,                        &
                             mount_half_width, mount_lonctr_mrw_deg,          &
                             mount_latctr_mrw_deg, p_int_mwbr_const,          &
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
@@ -202,6 +205,8 @@ MODULE mo_nh_testcases_nml
     nh_brunt_vais          = 0.01_wp
     nh_t0                  = 300.0_wp
     jw_up                  = 1.0_wp
+    jw_u0                  = 35.0_wp
+    jw_temp0               = 288._wp
     u0_mrw                 = 20.0_wp
     mount_height_mrw       = 2000.0_wp
     mount_half_width       = 1500000._wp
