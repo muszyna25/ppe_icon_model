@@ -2095,9 +2095,12 @@ if test "`cd $srcdir && pwd`" != "`pwd`" && test -f "$srcdir/config.status"; the
   as_fn_error $? "source directory already configured; run \"make distclean\" there first" "$LINENO" 5
 fi
 
+
 # Check whether --enable-rpaths was given.
 if test "${enable_rpaths+set}" = set; then :
-  enableval=$enable_rpaths;
+  enableval=$enable_rpaths; if test x"$enableval" != xno; then :
+  enable_rpaths=yes
+fi
 else
   enable_rpaths=yes
 fi
@@ -2105,7 +2108,9 @@ fi
 
 # Check whether --enable-silent-rules was given.
 if test "${enable_silent_rules+set}" = set; then :
-  enableval=$enable_silent_rules;
+  enableval=$enable_silent_rules; if test x"$enableval" != xno; then :
+  enable_silent_rules=yes
+fi
 else
   enable_silent_rules=yes
 fi
@@ -2115,7 +2120,9 @@ fi
 
 # Check whether --enable-atmo was given.
 if test "${enable_atmo+set}" = set; then :
-  enableval=$enable_atmo;
+  enableval=$enable_atmo; if test x"$enableval" != xno; then :
+  enable_atmo=yes
+fi
 else
   enable_atmo=yes
 fi
@@ -2123,7 +2130,9 @@ fi
 
 # Check whether --enable-ocean was given.
 if test "${enable_ocean+set}" = set; then :
-  enableval=$enable_ocean;
+  enableval=$enable_ocean; if test x"$enableval" != xno; then :
+  enable_ocean=yes
+fi
 else
   enable_ocean=yes
 fi
@@ -2131,7 +2140,9 @@ fi
 
 # Check whether --enable-jsbach was given.
 if test "${enable_jsbach+set}" = set; then :
-  enableval=$enable_jsbach;
+  enableval=$enable_jsbach; if test x"$enableval" != xno; then :
+  enable_jsbach=yes
+fi
 else
   enable_jsbach=yes
 fi
@@ -2139,7 +2150,9 @@ fi
 
 # Check whether --enable-coupling was given.
 if test "${enable_coupling+set}" = set; then :
-  enableval=$enable_coupling;
+  enableval=$enable_coupling; if test x"$enableval" != xno; then :
+  enable_coupling=yes
+fi
 else
   enable_coupling=yes
 fi
@@ -2147,7 +2160,9 @@ fi
 
 # Check whether --enable-psrad was given.
 if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad;
+  enableval=$enable_psrad; if test x"$enableval" != xno; then :
+  enable_psrad=yes
+fi
 else
   enable_psrad=yes
 fi
@@ -2155,7 +2170,9 @@ fi
 
 # Check whether --enable-ecrad was given.
 if test "${enable_ecrad+set}" = set; then :
-  enableval=$enable_ecrad;
+  enableval=$enable_ecrad; if test x"$enableval" != xno; then :
+  enable_ecrad=yes
+fi
 else
   enable_ecrad=no
 fi
@@ -2163,7 +2180,9 @@ fi
 
 # Check whether --enable-rte-rrtmgp was given.
 if test "${enable_rte_rrtmgp+set}" = set; then :
-  enableval=$enable_rte_rrtmgp;
+  enableval=$enable_rte_rrtmgp; if test x"$enableval" != xno; then :
+  enable_rte_rrtmgp=yes
+fi
 else
   enable_rte_rrtmgp=no
 fi
@@ -2171,7 +2190,9 @@ fi
 
 # Check whether --enable-rttov was given.
 if test "${enable_rttov+set}" = set; then :
-  enableval=$enable_rttov;
+  enableval=$enable_rttov; if test x"$enableval" != xno; then :
+  enable_rttov=yes
+fi
 else
   enable_rttov=no
 fi
@@ -2179,7 +2200,9 @@ fi
 
 # Check whether --enable-art was given.
 if test "${enable_art+set}" = set; then :
-  enableval=$enable_art;
+  enableval=$enable_art; if test x"$enableval" != xno; then :
+  enable_art=yes
+fi
 else
   enable_art=no
 fi
@@ -2189,7 +2212,9 @@ fi
 
 # Check whether --enable-mpi was given.
 if test "${enable_mpi+set}" = set; then :
-  enableval=$enable_mpi;
+  enableval=$enable_mpi; if test x"$enableval" != xno; then :
+  enable_mpi=yes
+fi
 else
   enable_mpi=yes
 fi
@@ -2197,7 +2222,9 @@ fi
 
 # Check whether --enable-active-target-sync was given.
 if test "${enable_active_target_sync+set}" = set; then :
-  enableval=$enable_active_target_sync;
+  enableval=$enable_active_target_sync; if test x"$enableval" != xno; then :
+  enable_active_target_sync=yes
+fi
 else
   enable_active_target_sync=no
 fi
@@ -2205,7 +2232,9 @@ fi
 
 # Check whether --enable-openmp was given.
 if test "${enable_openmp+set}" = set; then :
-  enableval=$enable_openmp;
+  enableval=$enable_openmp; if test x"$enableval" != xno; then :
+  enable_openmp=yes
+fi
 else
   enable_openmp=yes
 fi
@@ -2213,7 +2242,9 @@ fi
 
 # Check whether --enable-openacc was given.
 if test "${enable_openacc+set}" = set; then :
-  enableval=$enable_openacc;
+  enableval=$enable_openacc; if test x"$enableval" != xno; then :
+  enable_openacc=yes
+fi
 else
   enable_openacc=no
 fi
@@ -2221,7 +2252,9 @@ fi
 
 # Check whether --enable-grib2 was given.
 if test "${enable_grib2+set}" = set; then :
-  enableval=$enable_grib2;
+  enableval=$enable_grib2; if test x"$enableval" != xno; then :
+  enable_grib2=yes
+fi
 else
   enable_grib2=no
 fi
@@ -2229,7 +2262,9 @@ fi
 
 # Check whether --enable-parallel-netcdf was given.
 if test "${enable_parallel_netcdf+set}" = set; then :
-  enableval=$enable_parallel_netcdf;
+  enableval=$enable_parallel_netcdf; if test x"$enableval" != xno; then :
+  enable_parallel_netcdf=yes
+fi
 else
   enable_parallel_netcdf=no
 fi
@@ -2237,7 +2272,9 @@ fi
 
 # Check whether --enable-sct was given.
 if test "${enable_sct+set}" = set; then :
-  enableval=$enable_sct;
+  enableval=$enable_sct; if test x"$enableval" != xno; then :
+  enable_sct=yes
+fi
 else
   enable_sct=no
 fi
@@ -2245,7 +2282,9 @@ fi
 
 # Check whether --enable-yaxt was given.
 if test "${enable_yaxt+set}" = set; then :
-  enableval=$enable_yaxt;
+  enableval=$enable_yaxt; if test x"$enableval" != xno; then :
+  enable_yaxt=yes
+fi
 else
   enable_yaxt=no
 fi
@@ -2287,7 +2326,9 @@ fi
 
 # Check whether --enable-loop-exchange was given.
 if test "${enable_loop_exchange+set}" = set; then :
-  enableval=$enable_loop_exchange;
+  enableval=$enable_loop_exchange; if test x"$enableval" != xno; then :
+  enable_loop_exchange=yes
+fi
 else
   enable_loop_exchange=yes
 fi
@@ -2295,7 +2336,9 @@ fi
 
 # Check whether --enable-intel-consistency was given.
 if test "${enable_intel_consistency+set}" = set; then :
-  enableval=$enable_intel_consistency;
+  enableval=$enable_intel_consistency; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_intel_consistency=yes
+fi
 else
   enable_intel_consistency=auto
 fi
@@ -2303,7 +2346,9 @@ fi
 
 # Check whether --enable-vectorized-lrtm was given.
 if test "${enable_vectorized_lrtm+set}" = set; then :
-  enableval=$enable_vectorized_lrtm;
+  enableval=$enable_vectorized_lrtm; if test x"$enableval" != xno; then :
+  enable_vectorized_lrtm=yes
+fi
 else
   enable_vectorized_lrtm=no
 fi
@@ -2311,7 +2356,9 @@ fi
 
 # Check whether --enable-mixed-precision was given.
 if test "${enable_mixed_precision+set}" = set; then :
-  enableval=$enable_mixed_precision;
+  enableval=$enable_mixed_precision; if test x"$enableval" != xno; then :
+  enable_mixed_precision=yes
+fi
 else
   enable_mixed_precision=no
 fi
@@ -2321,7 +2368,9 @@ fi
 
 # Check whether --with-external-ecrad was given.
 if test "${with_external_ecrad+set}" = set; then :
-  withval=$with_external_ecrad;
+  withval=$with_external_ecrad; if test x"$withval" != xno; then :
+  with_external_ecrad=yes
+fi
 else
   with_external_ecrad=no
 fi
@@ -2330,7 +2379,9 @@ fi
 
 # Check whether --with-external-rte-rrtmgp was given.
 if test "${with_external_rte_rrtmgp+set}" = set; then :
-  withval=$with_external_rte_rrtmgp;
+  withval=$with_external_rte_rrtmgp; if test x"$withval" != xno; then :
+  with_external_rte_rrtmgp=yes
+fi
 else
   with_external_rte_rrtmgp=no
 fi
@@ -2339,7 +2390,9 @@ fi
 
 # Check whether --with-external-sct was given.
 if test "${with_external_sct+set}" = set; then :
-  withval=$with_external_sct;
+  withval=$with_external_sct; if test x"$withval" != xno; then :
+  with_external_sct=yes
+fi
 else
   with_external_sct=no
 fi
@@ -2348,7 +2401,9 @@ fi
 
 # Check whether --with-external-yaxt was given.
 if test "${with_external_yaxt+set}" = set; then :
-  withval=$with_external_yaxt;
+  withval=$with_external_yaxt; if test x"$withval" != xno; then :
+  with_external_yaxt=yes
+fi
 else
   with_external_yaxt=no
 fi
@@ -2357,7 +2412,9 @@ fi
 
 # Check whether --with-external-cdi was given.
 if test "${with_external_cdi+set}" = set; then :
-  withval=$with_external_cdi;
+  withval=$with_external_cdi; if test x"$withval" != xno; then :
+  with_external_cdi=yes
+fi
 else
   with_external_cdi=no
 fi
@@ -2366,7 +2423,9 @@ fi
 
 # Check whether --with-external-mtime was given.
 if test "${with_external_mtime+set}" = set; then :
-  withval=$with_external_mtime;
+  withval=$with_external_mtime; if test x"$withval" != xno; then :
+  with_external_mtime=yes
+fi
 else
   with_external_mtime=no
 fi
@@ -2375,7 +2434,9 @@ fi
 
 # Check whether --with-external-yac was given.
 if test "${with_external_yac+set}" = set; then :
-  withval=$with_external_yac;
+  withval=$with_external_yac; if test x"$withval" != xno; then :
+  with_external_yac=yes
+fi
 else
   with_external_yac=no
 fi
@@ -2384,7 +2445,9 @@ fi
 
 # Check whether --with-external-tixi was given.
 if test "${with_external_tixi+set}" = set; then :
-  withval=$with_external_tixi;
+  withval=$with_external_tixi; if test x"$withval" != xno; then :
+  with_external_tixi=yes
+fi
 else
   with_external_tixi=no
 fi
@@ -2393,7 +2456,9 @@ fi
 
 # Check whether --with-external-self was given.
 if test "${with_external_self+set}" = set; then :
-  withval=$with_external_self;
+  withval=$with_external_self; if test x"$withval" != xno; then :
+  with_external_self=yes
+fi
 else
   with_external_self=no
 fi
@@ -4812,24 +4877,17 @@ subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
 
 DEFAULT_VERBOSITY=0
 
-if test "x$enable_silent_rules" = xyes; then :
-
-else
+if test "x$enable_silent_rules" = xno; then :
   DEFAULT_VERBOSITY=1
-   enable_silent_rules=no
 fi
 
 as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
 
-if test "x$enable_atmo" = xyes; then :
-
-else
+if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
 fi
 
-if test "x$enable_ocean" = xyes; then :
-
-else
+if test "x$enable_ocean" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
 fi
 
@@ -4851,9 +4909,7 @@ if test "x$enable_coupling" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}YAC_coupling"
 fi
 
-if test "x$enable_psrad" = xyes; then :
-
-else
+if test "x$enable_psrad" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
@@ -4878,33 +4934,12 @@ fi
    as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
 fi
 
-if test "x$enable_mpi" = xyes; then :
-
-else
+if test "x$enable_mpi" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}NOMPI"
-   enable_mpi=no
 fi
 
 if test "x$enable_active_target_sync" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"
-fi
-
-if test "x$enable_openmp" = xyes; then :
-
-else
-    enable_openmp=no
-fi
-
-if test "x$enable_openacc" = xyes; then :
-
-else
-    enable_openacc=no
-fi
-
-if test "x$enable_grib2" = xyes; then :
-
-else
-    enable_grib2=no
 fi
 
 if test "x$enable_parallel_netcdf" = xyes; then :

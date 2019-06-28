@@ -11,16 +11,21 @@ test -f "$srcdir/config.status"],
   [AC_MSG_ERROR([source directory already configured; dnl
 run "make distclean" there first])])
 
+dnl First, we declare all the configure options and make sure that they have
+dnl valid values.
+
 AC_ARG_ENABLE([rpaths],
   [AC_HELP_STRING([--enable-rpaths],
      [prepend LDFLAGS with additional linker flags to add directories specified
 with -L flags to the runtime library search path (RPATH)
-@<:@default=yes@:>@])], [],
+@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rpaths=yes])],
   [enable_rpaths=yes])
 
 AC_ARG_ENABLE([silent-rules],
   [AC_HELP_STRING([--enable-silent-rules],
-     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])], [],
+     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
 
 m4_divert_once([HELP_ENABLE], [[
@@ -28,51 +33,59 @@ Model Features:]])
 
 AC_ARG_ENABLE([atmo],
   [AC_HELP_STRING([--enable-atmo],
-     [enable the atmosphere component of ICON @<:@default=yes@:>@])], [],
+     [enable the atmosphere component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
   [enable_atmo=yes])
 
 AC_ARG_ENABLE([ocean],
   [AC_HELP_STRING([--enable-ocean],
-     [enable the ocean component of ICON @<:@default=yes@:>@])], [],
+     [enable the ocean component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_ocean=yes])],
   [enable_ocean=yes])
 
 AC_ARG_ENABLE([jsbach],
   [AC_HELP_STRING([--enable-jsbach],
-     [enable the land component JSBACH @<:@default=yes@:>@])], [],
+     [enable the land component JSBACH @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
   [enable_jsbach=yes])
 
 AC_ARG_ENABLE([coupling],
   [AC_HELP_STRING([--enable-coupling],
-     [enable the coupling @<:@default=yes@:>@])], [],
+     [enable the coupling @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
 AC_ARG_ENABLE([psrad],
   [AC_HELP_STRING([--enable-psrad],
-     [enable the radiation component PSRAD @<:@default=yes@:>@])], [],
+     [enable the radiation component PSRAD @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_psrad=yes])],
   [enable_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
   [AC_HELP_STRING([--enable-ecrad],
      [enable usage of the ECMWF radiation scheme (ECRAD) @<:@default=no@:>@])],
-  [],
+  [AS_IF([test x"$enableval" != xno], [enable_ecrad=yes])],
   [enable_ecrad=no])
 
 AC_ARG_ENABLE([rte-rrtmgp],
   [AC_HELP_STRING([--enable-rte-rrtmgp],
      [enable usage of the RTE+RRTMGP toolbox for radiation calculations
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rte_rrtmgp=yes])],
   [enable_rte_rrtmgp=no])
 
 AC_ARG_ENABLE([rttov],
   [AC_HELP_STRING([--enable-rttov],
      [enable usage of the radiative transfer model for TOVS
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rttov=yes])],
   [enable_rttov=no])
 
 AC_ARG_ENABLE([art],
   [AC_HELP_STRING([--enable-art],
      [enable the aerosols and reactive trace component ART
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_art=yes])],
   [enable_art=no])
 
 m4_divert_once([HELP_ENABLE], [[
@@ -80,44 +93,52 @@ Infrastructural Features:]])
 
 AC_ARG_ENABLE([mpi],
   [AC_HELP_STRING([--enable-mpi],
-     [enable MPI (parallelization) support @<:@default=yes@:>@])], [],
+     [enable MPI (parallelization) support @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mpi=yes])],
   [enable_mpi=yes])
 
 AC_ARG_ENABLE([active-target-sync],
   [AC_HELP_STRING([--enable-active-target-sync],
      [enable MPI active target mode (otherwise, passive target mode is used)
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_active_target_sync=yes])],
   [enable_active_target_sync=no])
 
 AC_ARG_ENABLE([openmp],
   [AC_HELP_STRING([--enable-openmp],
-     [enable OpenMP support @<:@default=yes@:>@])], [],
+     [enable OpenMP support @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
   [enable_openmp=yes])
 
 AC_ARG_ENABLE([openacc],
   [AC_HELP_STRING([--enable-openacc],
-     [enable OpenACC support @<:@default=no@:>@])], [],
+     [enable OpenACC support @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_openacc=yes])],
   [enable_openacc=no])
 
 AC_ARG_ENABLE([grib2],
   [AC_HELP_STRING([--enable-grib2],
-     [enable GRIB2 I/O @<:@default=no@:>@])], [],
+     [enable GRIB2 I/O @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_grib2=yes])],
   [enable_grib2=no])
 
 AC_ARG_ENABLE([parallel-netcdf],
   [AC_HELP_STRING([--enable-parallel-netcdf],
      [enable usage of the parallel features of NetCDF
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_parallel_netcdf=yes])],
   [enable_parallel_netcdf=no])
 
 AC_ARG_ENABLE([sct],
   [AC_HELP_STRING([--enable-sct],
-     [enable the SCT timer @<:@default=no@:>@])], [],
+     [enable the SCT timer @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_sct=yes])],
   [enable_sct=no])
 
 AC_ARG_ENABLE([yaxt],
   [AC_HELP_STRING([--enable-yaxt],
-     [enable the YAXT data exchange @<:@default=no@:>@])], [],
+     [enable the YAXT data exchange @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_yaxt=yes])],
   [enable_yaxt=no])
 
 AC_ARG_ENABLE([serialization],
@@ -142,75 +163,89 @@ ICON_OPTIMIZATION_ARG_ENABLE
 
 AC_ARG_ENABLE([loop-exchange],
   [AC_HELP_STRING([--enable-loop-exchange],
-     [enable loop exchange @<:@default=yes@:>@])], [],
+     [enable loop exchange @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_loop_exchange=yes])],
   [enable_loop_exchange=yes])
 
 AC_ARG_ENABLE([intel-consistency],
   [AC_HELP_STRING([--enable-intel-consistency],
      [enable Intel compiler directives enforcing consistency
-@<:@default=auto@:>@])], [],
+@<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_intel_consistency=yes])],
   [enable_intel_consistency=auto])
 
 AC_ARG_ENABLE([vectorized-lrtm],
   [AC_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_vectorized_lrtm=yes])],
   [enable_vectorized_lrtm=no])
 
 AC_ARG_ENABLE([mixed-precision],
   [AC_HELP_STRING([--enable-mixed-precision],
-     [enable mixed precision dycore @<:@default=no@:>@])], [],
+     [enable mixed precision dycore @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mixed_precision=yes])],
   [enable_mixed_precision=no])
 
 dnl Optional Packages:
 
 AC_ARG_WITH([external-ecrad],
   [AC_HELP_STRING([--with-external-ecrad],
-     [use external ECRAD library @<:@default=no@:>@])], [],
+     [use external ECRAD library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_ecrad=yes])],
   [with_external_ecrad=no])
 
 AC_ARG_WITH([external-rte-rrtmgp],
      [AC_HELP_STRING([--with-external-rte-rrtmgp],
-        [use external RTE+RRTMGP library @<:@default=no@:>@])], [],
+        [use external RTE+RRTMGP library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_rte_rrtmgp=yes])],
   [with_external_rte_rrtmgp=no])
 
 AC_ARG_WITH([external-sct],
   [AC_HELP_STRING([--with-external-sct],
      [use external SCT library (when the SCT timer is enabled)
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_sct=yes])],
   [with_external_sct=no])
 
 AC_ARG_WITH([external-yaxt],
   [AC_HELP_STRING([--with-external-yaxt],
      [use external YAXT library (when the YAXT data exchange is enabled)
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_yaxt=yes])],
   [with_external_yaxt=no])
 
 AC_ARG_WITH([external-cdi],
   [AC_HELP_STRING([--with-external-cdi],
-     [use external CDI library @<:@default=no@:>@])], [],
+     [use external CDI library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_cdi=yes])],
   [with_external_cdi=no])
 
 AC_ARG_WITH([external-mtime],
   [AC_HELP_STRING([--with-external-mtime],
-     [use external MTIME library @<:@default=no@:>@])], [],
+     [use external MTIME library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_mtime=yes])],
   [with_external_mtime=no])
 
 AC_ARG_WITH([external-yac],
   [AC_HELP_STRING([--with-external-yac],
      [use external YAC library (when the coupling is enabled)
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_yac=yes])],
   [with_external_yac=no])
 
 AC_ARG_WITH([external-tixi],
   [AC_HELP_STRING([--with-external-tixi],
      [use external TIXI library (when ART is enabled)
-@<:@default=no@:>@])], [],
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_tixi=yes])],
   [with_external_tixi=no])
 
 AC_ARG_WITH([external-self],
   [AC_HELP_STRING([--with-external-self],
-     [use external SELF library @<:@default=no@:>@])], [],
+     [use external SELF library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
   [with_external_self=no])
 
 ACX_BUILD_ENVIRONMENT
@@ -455,19 +490,15 @@ AC_SUBST([ICON_OPTIM_OCEAN_FCFLAGS], [$icon_optim_ocean_FCFLAGS])
 subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
 
 AC_SUBST([DEFAULT_VERBOSITY], [0])
-AS_VAR_IF([enable_silent_rules], [yes], [],
-  [DEFAULT_VERBOSITY=1
-dnl We pass this variable to the configure scripts of the bundled libraries,
-dnl therefore, we need to make sure that it's either 'yes' or 'no'.
-   enable_silent_rules=no])
+AS_VAR_IF([enable_silent_rules], [no], [DEFAULT_VERBOSITY=1])
 
 AS_VAR_APPEND([FCFLAGS],
   [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
 
-AS_VAR_IF([enable_atmo], [yes], [],
+AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
 
-AS_VAR_IF([enable_ocean], [yes], [],
+AS_VAR_IF([enable_ocean], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
 AS_VAR_IF([enable_jsbach], [yes],
@@ -484,7 +515,7 @@ AS_VAR_IF([enable_jsbach], [yes],
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AS_VAR_IF([enable_psrad], [yes], [],
+AS_VAR_IF([enable_psrad], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
@@ -508,30 +539,12 @@ AS_VAR_IF([enable_art], [yes],
    AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])])
 
-AS_VAR_IF([enable_mpi], [yes], [],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])
-dnl We pass this variable to the configure scripts of YAC and SCT, therefore,
-dnl we need to make sure that it's either 'yes' or 'no'.
-   enable_mpi=no])
+AS_VAR_IF([enable_mpi], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
 
 AS_VAR_IF([enable_active_target_sync], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
-
-AS_VAR_IF([enable_openmp], [yes], [],
-dnl We pass this variable to the configure script of SCT, therefore, we need to
-dnl make sure that it's either 'yes' or 'no'.
-  [enable_openmp=no])
-
-AS_VAR_IF([enable_openacc], [yes], [],
-dnl We pass this variable to the configure script of RTE/RRTMGP, therefore, we
-dnl need to make sure that it's either 'yes' or 'no'.
-  [enable_openacc=no])
-
-AS_VAR_IF([enable_grib2], [yes], [],
-dnl We pass this variable to the configure scripts of CDI, therefore, we need
-dnl to make sure that it's either 'yes' or 'no'.
-  [enable_grib2=no])
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
