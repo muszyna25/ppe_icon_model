@@ -16,16 +16,16 @@
 !!
 MODULE mo_ccycle_config
 
-  USE mo_exception     ,ONLY: message, print_value
+  USE mo_exception     ,ONLY: message, print_value, finish
+  USE mo_kind          ,ONLY: wp
   USE mo_impl_constants,ONLY: max_dom
   USE mo_grid_config   ,ONLY: n_dom
 
   IMPLICIT NONE
-
   PRIVATE
-
   PUBLIC ::                  name       !< name for this unit
 
+  ! configuration
   PUBLIC ::         ccycle_config
   PUBLIC ::    init_ccycle_config       !< initialize ccycle_config
   PUBLIC ::   print_ccycle_config       !< print out
@@ -43,8 +43,10 @@ MODULE mo_ccycle_config
      ! configuration parameters
      ! ------------------------
      !
-     INTEGER  :: iccy_co2conc  !< Type of co2 concentration
-     INTEGER  :: iccy_co2flux  !< Type of co2 flux in the atmosphere
+     INTEGER  :: iccycle   !< c-cycle mode
+     INTEGER  :: ico2conc  !< co2 concentration provided to land and ocean
+     !
+     REAL(wp) :: vmr_co2   !< co2 volume mixing ratio for c-cycle
      !
   END TYPE t_ccycle_config
 
@@ -57,38 +59,43 @@ CONTAINS
 
   !----
   !>
-  !! Initialize the configuration
+  !! Initialize the configuration state vector
   !!
   SUBROUTINE init_ccycle_config
-
+    !
     ! Carbon cycle configuration
     ! --------------------------
-
-    ccycle_config(:)% iccy_co2conc  = 0 ! 0: constant co2 concentration, e.g. 284 ppmv
-                                        ! 1: co2 tracer
-                                        ! 2: co2 concentration idealized scenario (computed)
-                                        ! 4: co2 concentration scenario from file
-    ccycle_config(:)% iccy_co2flux  = 0 ! 0: constant, e.g. 0
-                                        ! 1: idealized (computed)
-                                        ! 2: from ocean and land (needs HAMOCC and JSBACH)
-
+    !
+    ccycle_config(:)% iccycle  = 0            ! 0: no c-cycle
+    !                                           1: c-cycle with interactive atm. co2 concentration
+    !                                           2: c-cycle with prescribed  atm. co2 concentration
+    !
+    ! For iccycle = 2:
+    ccycle_config(:)% ico2conc = 2            ! 2: constant  co2 concentration vmr_co2
+    !                                           4: transient co2 concentration scenario from file
+    !
+    ! For ico2conc = 2:
+    ccycle_config(:)% vmr_co2  = 284.3e-06_wp ! co2 volume mixing ratio of 1850 (CMIP6)
+    !
   END SUBROUTINE init_ccycle_config
+
+  !----
 
   !>
   !! Print out the user controlled configuration
   !!
   SUBROUTINE print_ccycle_config
-
+    !
     INTEGER           :: jg
     CHARACTER(LEN=2)  :: cg
-
+    !
     CALL message    ('','')
     CALL message    ('','========================================================================')
     CALL message    ('','')
     CALL message    ('','Carbon cycle configuration')
     CALL message    ('','==========================')
     CALL message    ('','')
-
+    !
     DO jg = 1,n_dom
        !
        WRITE(cg,'(i0)') jg
@@ -96,15 +103,36 @@ CONTAINS
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    ccycle_config('//TRIM(cg)//')% iccy_co2conc ',ccycle_config(jg)% iccy_co2conc         )
-       CALL print_value('    ccycle_config('//TRIM(cg)//')% iccy_co2flux ',ccycle_config(jg)% iccy_co2flux         )
+       CALL print_value('    ccycle_config('//TRIM(cg)//')% iccycle  ',ccycle_config(jg)% iccycle )
+       CALL print_value('    ccycle_config('//TRIM(cg)//')% ico2conc ',ccycle_config(jg)% ico2conc)
+       CALL print_value('    ccycle_config('//TRIM(cg)//')% vmr_co2  ',ccycle_config(jg)% vmr_co2 )
        CALL message    ('','')
        !
+       SELECT CASE(ccycle_config(jg)% iccycle)
+       CASE (0)
+          CALL message ('','C-cycle is switched off')
+       CASE(1)
+          CALL message ('','C-cycle is used with interactive atmospheric CO2 concentration')
+       CASE (2)
+          CALL message ('','C-cycle is used with prescribed atmospheric CO2 concentration')
+          !
+          SELECT CASE(ccycle_config(jg)% ico2conc)
+          CASE (2)
+             CALL print_value('    CO2 volume mixing ratio is constant (ppv)',ccycle_config(jg)% vmr_co2)
+          CASE (4)
+             CALL message('','CO2 volume mixing ratio is read from scenario file bc_greenhouse_gases.nc')
+          CASE default
+             CALL finish('print_ccycle_config','ccycle_config(jg)% ico2conc invalid, must be 2 or 4')
+          END SELECT
+          !
+       CASE default
+          CALL finish('print_ccycle_config','ccycle_config(jg)% iccycle invalid, must be 0, 1 or 2')
+       END SELECT
+       !
     END DO
-    CALL message    ('','')
-    CALL message    ('','------------------------------------------------------------------------')
-    CALL message    ('','')
-
+    !
   END SUBROUTINE print_ccycle_config
+
+  !----
 
 END MODULE mo_ccycle_config

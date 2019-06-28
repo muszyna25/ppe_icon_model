@@ -287,7 +287,6 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
  echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%ighg       =  0
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration

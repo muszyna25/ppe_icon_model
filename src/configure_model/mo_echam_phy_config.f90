@@ -149,7 +149,6 @@ MODULE mo_echam_phy_config
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
      LOGICAL                              :: llake   !< .true. for using lakes in JSBACH
      LOGICAL                              :: lamip   !< .true. for AMIP simulations
-     LOGICAL                              :: lcpl_co2_atmoce !< .true. for coupling of co2 atmo/ocean
      !
      ! vertical range parameters
      REAL(wp)                             :: zmaxcloudy !< maximum height (m) for cloud computations
@@ -318,7 +317,6 @@ CONTAINS
     echam_phy_config(:)% lamip = .FALSE.
     echam_phy_config(:)% lmlo  = .FALSE.
     echam_phy_config(:)% lice  = .FALSE.
-    echam_phy_config(:)% lcpl_co2_atmoce  = .FALSE.
     !
     ! vertical range parameters
     echam_phy_config(:)% zmaxcloudy = 33000.0_wp
@@ -741,7 +739,6 @@ CONTAINS
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% ljsb ',echam_phy_config(jg)% ljsb  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lamip',echam_phy_config(jg)% lamip )
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',echam_phy_config(jg)% lcpl_co2_atmoce)
        CALL message    ('','')
        !
        CALL message    ('','vertical ranges')

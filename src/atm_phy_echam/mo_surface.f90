@@ -24,6 +24,7 @@ MODULE mo_surface
 #endif
 
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, stbo, tmelt, rhos!!$, rhoi
+  USE mo_coupling_config,   ONLY: is_coupled_run
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
@@ -69,9 +70,9 @@ CONTAINS
                            & plhflx_gbm, pshflx_gbm,            &! out
                            & pevap_gbm,                         &! out
                            & pu_stress_tile,   pv_stress_tile,  &! out
-                           & plhflx_tile, pshflx_tile,          &! out
+                           & plhflx_tile, pshflx_tile,          &! inout
                            & pevap_tile,                        &! out
-                           & pco2nat,                           &! inout
+                           & pco2nat,                           &! out
                            !! optional
                            & nblock,                            &! in
                            & lsm,                               &! in
@@ -105,14 +106,15 @@ CONTAINS
                            & pcair,                             &! inout
                            & q_snocpymlt,                       &! out
                            !
-                           & z0m_tile, z0h_lnd,                 &! out
-                           & albvisdir, albnirdir, albvisdif, albnirdif, &! inout
-                           & albvisdir_tile,                    &! inout
-                           & albnirdir_tile,                    &! inout
-                           & albvisdif_tile,                    &! inout
-                           & albnirdif_tile,                    &! inout
-                           & albedo, albedo_tile,               &! inout
-                           & emissivity,                        &! inout
+                           & z0m_tile,                          &! inout
+                           & z0h_lnd,                           &! out
+                           & albvisdir, albnirdir, albvisdif, albnirdif, &! out
+                           & albvisdir_tile,                    &! out
+                           & albnirdir_tile,                    &! out
+                           & albvisdif_tile,                    &! out
+                           & albnirdif_tile,                    &! out
+                           & albedo, albedo_tile,               &! out
+                           & emissivity,                        &! in
                            & pco2_flux_tile,                    &! inout
                            & ptsfc,                             &! out
                            & ptsfc_rad,                         &! out
@@ -157,8 +159,8 @@ CONTAINS
 
     REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(INOUT) :: plhflx_tile (kbdim,ksfc_type)   ! OUT
-    REAL(wp),INTENT(INOUT) :: pshflx_tile (kbdim,ksfc_type)   ! OUT
+    REAL(wp),INTENT(INOUT) :: plhflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pshflx_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pevap_tile (kbdim,ksfc_type)
 
     !! JSBACH input
@@ -191,18 +193,19 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcsat(kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pcair(kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: q_snocpymlt(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0h_lnd(kbdim), z0m_tile(kbdim,ksfc_type)  ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: z0h_lnd(kbdim)
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: z0m_tile(kbdim,ksfc_type)
     !
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdif_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir(kbdim), albvisdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albnirdir(kbdim), albnirdif(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: emissivity(kbdim)
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: pco2nat  (kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdir_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdir_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdif_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdif_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albedo(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albvisdir(kbdim), albvisdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albnirdir(kbdim), albnirdif(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: albedo_tile(kbdim,ksfc_type)
+    REAL(wp),OPTIONAL,INTENT(IN)    :: emissivity(kbdim)
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: pco2nat  (kbdim)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: pco2_flux_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim)
@@ -216,10 +219,10 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: Tsurf(kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T1   (kbdim,kice) ! for coupled ocean only
     REAL(wp),OPTIONAL,INTENT(INOUT) :: T2   (kbdim,kice) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: hi   (kbdim,kice) ! for coupled ocean only
+    REAL(wp),OPTIONAL,INTENT(IN)    :: hi   (kbdim,kice) ! for coupled ocean only
     REAL(wp),OPTIONAL,INTENT(INOUT) :: hs   (kbdim,kice) ! for coupled ocean only
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qtop (kbdim,kice) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: Qbot (kbdim,kice) ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: Qtop (kbdim,kice) ! OUT
+    REAL(wp),OPTIONAL,INTENT(OUT)   :: Qbot (kbdim,kice) ! OUT
     REAL(wp),OPTIONAL,INTENT(IN)    :: conc (kbdim,kice) ! for coupled ocean only
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdir_ice(kbdim,kice)
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albvisdif_ice(kbdim,kice)
@@ -340,26 +343,44 @@ CONTAINS
     !===========================================================================
     ! all surfaces
     !===========================================================================
+
     rlns_tile(:,:) = 0._wp
     rsns_tile(:,:) = 0._wp
+
     !===========================================================================
     ! Land surface
     !===========================================================================
-    
+
     zlhflx_lnd(:)    = 0._wp
     zlhflx_lwtr(:)   = 0._wp
     zlhflx_lice(:)   = 0._wp
+
     zshflx_lnd(:)    = 0._wp
     zshflx_lwtr(:)   = 0._wp
     zshflx_lice(:)   = 0._wp
+
     zevap_lnd(:)     = 0._wp
     zevap_lwtr(:)    = 0._wp
     zevap_lice(:)    = 0._wp
+
     z0h_lnd(:)       = 0._wp
     q_snocpymlt(:)   = 0._wp
     lake_ice_frc(:)  = 0._wp
 
+    zgrnd_hflx(:,:)  = 0._wp
+    zgrnd_hcap(:,:)  = 0._wp
+
+    zalbedo_lwtr(:)  = 0._wp
+    zalbedo_lice(:)  = 0._wp
+
     IF (idx_lnd <= ksfc_type) THEN
+
+      albvisdir_tile(:,idx_lnd) = 0._wp
+      albnirdir_tile(:,idx_lnd) = 0._wp
+      albvisdif_tile(:,idx_lnd) = 0._wp
+      albnirdif_tile(:,idx_lnd) = 0._wp
+
+      pco2_flux_tile(:,idx_lnd) = 0._wp
 
       ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
 #ifndef __NO_JSBACH__
@@ -384,6 +405,7 @@ CONTAINS
         fract_par_diffuse(jcs:kproma) = 0._wp
       END WHERE
 
+      IF (echam_phy_config(jg)%ljsb ) THEN
       IF (echam_phy_config(jg)%llake) THEN
         CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
@@ -496,7 +518,8 @@ CONTAINS
           & alb_nir_dif       = albnirdif_tile(jcs:kproma, idx_lnd),                         & ! out
           & co2_flux          = pco2_flux_tile(jcs:kproma, idx_lnd)                          & ! out
         )
-      END IF
+      END IF ! llake
+      END IF ! ljsb
 
       ! preliminary, dummy values
       pco2_flux_tile(jcs:kproma, idx_ice) =  0._wp
@@ -540,7 +563,7 @@ CONTAINS
 #else
       CALL finish(method_name, "The JSBACH component is not activated")
 #endif
-    END IF
+    END IF ! idx_lnd
 
     !===========================================================================
     ! Ocean model
@@ -574,7 +597,7 @@ CONTAINS
         albnirdif_tile(jcs:kproma,idx_wtr) = albedoW
       END WHERE
 
-    END IF
+    END IF ! idx_wtr
 
     !===========================================================================
     ! Sea-ice model (thermodynamic)
@@ -611,36 +634,26 @@ CONTAINS
       ENDDO
 
       CALL ice_fast(jcs, kproma, kbdim, kice, pdtime, &
-        &   Tsurf,              &
-        &   T1,                 &
-        &   T2,                 &
-        &   hi,                 &
-        &   hs,                 &
-        &   Qtop,               &
-        &   Qbot,               &
-        &   swflx_ice,          &
-        &   nonsolar_ice,       &
-        &   dnonsolardT,        &
-        &   Tfw,                &
-        &   albvisdir_ice,      &
-        &   albvisdif_ice,      &
-        &   albnirdir_ice,      &
-        &   albnirdif_ice )
+        &   Tsurf,              & ! inout
+        &   T1,                 & ! inout
+        &   T2,                 & ! inout
+        &   hi,                 & ! in
+        &   hs,                 & ! in
+        &   Qtop,               & ! out
+        &   Qbot,               & ! out
+        &   swflx_ice,          & ! in
+        &   nonsolar_ice,       & ! in
+        &   dnonsolardT,        & ! in
+        &   Tfw,                & ! in
+        &   albvisdir_ice,      & ! out
+        &   albvisdif_ice,      & ! out
+        &   albnirdir_ice,      & ! out
+        &   albnirdif_ice )       ! out
 
-      ! Let it snow and melt and grow
-      !      DO k=1,kice
-      !        WHERE ( hi(:,1) > 0._wp )
-      !          hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos &
-      !            &   - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
-      !        ENDWHERE
-      !        hi(:,k) = hi(:,k) - MIN( Qbot(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
-      !        WHERE ( hs(:,1) <= 0._wp )
-      !          hi(:,k) = hi(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
-      !        ENDWHERE
-      !      ENDDO
-      !      hi(:,:) = max( hi(:,:), 0._wp )
-      ! Let it snow in AMIP
-      IF ( echam_phy_config(jg)%lamip ) THEN
+      ! Update the thickness of snow on ice in atmosphere only simulation.
+      ! In coupled experiments this is done by the ocean model in either
+      ! ice_growth_zerolayer or ice_growth_winton.
+      IF ( .NOT. is_coupled_run() ) THEN
         DO k=1,kice
           ! Snowfall on ice - no ice => no snow
           WHERE ( hi(jcs:kproma,k) > 0._wp )
@@ -654,7 +667,7 @@ CONTAINS
             hs(jcs:kproma,k) = 0._wp
           ENDWHERE
         ENDDO
-      ENDIF
+      END IF
 
       ! Average the albedo.
       conc_sum(jcs:kproma) = SUM(conc(jcs:kproma,:),2)

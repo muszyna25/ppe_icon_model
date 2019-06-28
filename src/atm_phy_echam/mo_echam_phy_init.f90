@@ -79,7 +79,7 @@ MODULE mo_echam_phy_init
 #endif
 
   ! carbon cycle
-  USE mo_ccycle_config,        ONLY: print_ccycle_config
+  USE mo_ccycle_config,        ONLY: print_ccycle_config, ccycle_config
 
   ! cumulus convection
   USE mo_echam_cnv_config,     ONLY: alloc_echam_cnv_config, eval_echam_cnv_config, print_echam_cnv_config
@@ -358,13 +358,6 @@ CONTAINS
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
-    ! Shortcuts to components of echam_rad_config
-    !
-    INTEGER, POINTER :: ighg(:), irad_aero(:)
-    !
-    ighg      => echam_rad_config(1:n_dom)% ighg
-    irad_aero => echam_rad_config(1:n_dom)% irad_aero
-    
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     ! external data on ICON grids:
@@ -503,6 +496,8 @@ CONTAINS
 
     ! for radiation
     !
+    ! Read file for simple plumes aerosol distributions
+    !
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. (echam_phy_tc(jg)%dt_rad > dt_zero)
@@ -511,23 +506,41 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
-      IF (ANY(irad_aero(:) == 18)) THEN
+      IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
         CALL setup_bc_aeropt_splumes
       END IF
       !
-      ! well mixed greenhouse gases, horizontally constant
+    END IF
+
+
+    ! for radiation and carbon cycle
+    !
+    ! Read scenario file for concentrations of CO2, CH4, N2O, CFC11 and CFC12
+    ! if radiation is used with any of the gases from the greenhouse gases file
+    ! or if the carbon cycle is used with prescribed co2 from this file.
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. ( echam_phy_tc(jg)%dt_rad > dt_zero .AND.         &
+            &             ( echam_rad_config(jg)%irad_co2   == 4 .OR.     &
+            &               echam_rad_config(jg)%irad_ch4   == 4 .OR.     &
+            &               echam_rad_config(jg)%irad_n2o   == 4 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc11 == 4 .OR.     &
+            &               echam_rad_config(jg)%irad_cfc12 == 4      ) ) &
+            &      .OR. ( ccycle_config(jg)%iccycle  == 2   .AND.         &
+            &             ccycle_config(jg)%ico2conc == 4               )
+    END DO
+    IF (lany) THEN
       !
-      IF (ANY(ighg(:) > 0)) THEN
-        ! read annual means
-        IF (.NOT. bc_greenhouse_gases_file_read) THEN
-          CALL read_bc_greenhouse_gases
-        END IF
-        ! interpolate to the current date and time, placing the annual means at
-        ! the mid points of the current and preceding or following year, if the
-        ! current date is in the 1st or 2nd half of the year, respectively.
-        CALL bc_greenhouse_gases_time_interpolation(mtime_current)
-        !
-      ENDIF
+      ! scenario of well mixed greenhouse gases, horizontally constant
+      !
+      ! read annual means
+      IF (.NOT. bc_greenhouse_gases_file_read) THEN
+        CALL read_bc_greenhouse_gases
+      END IF
+      ! interpolate to the current date and time, placing the annual means at
+      ! the mid points of the current and preceding or following year, if the
+      ! current date is in the 1st or 2nd half of the year, respectively.
+      CALL bc_greenhouse_gases_time_interpolation(mtime_current)
       !
     END IF
 

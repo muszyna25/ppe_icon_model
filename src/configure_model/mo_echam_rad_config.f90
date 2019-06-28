@@ -109,12 +109,6 @@ MODULE mo_echam_rad_config
      INTEGER  :: irad_cfc12     !< CFC 12
      INTEGER  :: irad_aero      !< aerosols
      !
-     ! --- Greenhouse gases scenario (read from file)
-     !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
-     !     ighg = 1 : transient CMIP5 scenario from file
-     !
-     INTEGER  :: ighg
-     !
      ! --- Volume mixing ratios - 1990 values (CMIP5)
      !
      REAL(wp) :: vmr_co2
@@ -178,8 +172,6 @@ CONTAINS
     echam_rad_config(:)% irad_cfc11     = 2
     echam_rad_config(:)% irad_cfc12     = 2
     echam_rad_config(:)% irad_aero      = 2
-    !
-    echam_rad_config(:)% ighg           = 0
     !
     ! Default volume mixing ratios: 1990 values (CMIP5)
     echam_rad_config(:)% vmr_co2        =  348.0e-06_wp
@@ -581,7 +573,7 @@ CONTAINS
        CALL message    ('','-----------------------------------------------------------------------------------')
        CALL message    ('','')
     END IF
-    
+
     DO jg = 1,n_dom
        !
        WRITE(cg,'(i0)') jg
@@ -612,8 +604,6 @@ CONTAINS
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% irad_cfc11    ',echam_rad_config(jg)% irad_cfc11    )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% irad_cfc12    ',echam_rad_config(jg)% irad_cfc12    )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% irad_aero     ',echam_rad_config(jg)% irad_aero     )
-       CALL message    ('','')
-       CALL print_value('    echam_rad_config('//TRIM(cg)//')% ighg          ',echam_rad_config(jg)% ighg          )
        CALL message    ('','')
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% vmr_co2       ',echam_rad_config(jg)% vmr_co2       )
        CALL print_value('    echam_rad_config('//TRIM(cg)//')% vmr_ch4       ',echam_rad_config(jg)% vmr_ch4       )

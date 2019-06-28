@@ -378,6 +378,44 @@ lhn\_bright=.TRUE.
 Defined and used in: \verb+src/namelists/mo_assimilation_nml.f90+
 
 %------------------------------------------------------------------------------
+% ccycle_nml:
+%------------------------------------------------------------------------------
+\subsection{ccycle\_nml}
+
+The coupling of the carbon cycle between the atmosphere and land and ocean is configured by the data structure \textit{ccycle\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains.
+
+\begin{longtab}
+%\hline
+ccycle\_config(jg)\% iccycle &
+I &
+0 &  &
+controls the carbon cycle mode: \\
+0: no C-cycle \\
+1: C-cycle with interactive atmospheric $CO_2$ concentration \\
+2: C-cycle with prescribed atmospheric $CO_2$ concentration &
+echam\_phy\_config(jg)\% dt\_vdf > 0.000s and echam\_phy\_config(jg)\% ljsb = .TRUE. (and atmosphere is coupled to ocean with biogeochemistry)
+\tabularnewline
+
+%\hline
+ccycle\_config(jg)\% ico2conc &
+I &
+2 &  &
+controls the $CO_2$ concentration provided to land/JSBACH and - if coupled to the ocean - to the ocean/HAMOCC \\
+2: constant concentration as defined by  ccycle\_config(jg)\% vmr\_co2 \\
+4: transient concentration scenario from file bc\_greenhouse\_gases.nc&
+ccycle\_config(jg)\% iccycle = 2
+\tabularnewline
+
+ccycle\_config(jg)\% vmr\_co2 &
+R &
+284.32 & ppmv &
+constant $CO_2$ volume mixing ratio of 1850 (CMIP6) &
+ccycle\_config(jg)\% ico2conc = 2
+\tabularnewline
+
+\end{longtab}
+
+%------------------------------------------------------------------------------
 % coupling_model_nml:
 %------------------------------------------------------------------------------
 \subsection{coupling\_mode\_nml}
@@ -1210,7 +1248,7 @@ Selects source for concentration of CO2 \\
 0: set to zero (or epsilon) \\
 1: from tracer  \\
 2: constant vol. mixing ration set by 'vmr \_co2'  \\
-4: spatially constant, time dependent vol. mixing ratio from file &
+4: spatially constant, time dependent vol. mixing ratio from file bc\_greenhouse\_gases.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s and CO2 tracer is defined \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_ch4 & I & 3 & &
@@ -1218,7 +1256,7 @@ Selects source for concentration of CH4 \\
 0: set to zero (or epsilon) \\
 2: constant vol. mixing ration set by 'vmr \_ch4'  \\
 3: horizontally constant, vertically decaying, with surface vol. mixing ratio set by 'vmr \_ch4'  \\
-4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file &
+4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file bc\_greenhouse\_gases.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_n2o & I & 3 & &
@@ -1226,16 +1264,16 @@ Selects source for concentration of N2O \\
 0: set to zero (or epsilon) \\
 2: constant vol. mixing ration set by 'vmr \_n2o'  \\
 3: horizontally constant, vertically decaying, with surface vol. mixing ratio set by 'vmr \_n2o'  \\
-4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file &
+4: horizontally constant, vertically decaying, time dependent with surface vol. mixing ratio from file bc\_greenhouse\_gases.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_o3 & I & 0 & &
 Selects source for concentration of O3 \\
 0: set to zero (or epsilon) \\
 1: from tracer \\
-2: 3-dim concentration, climatological annual cycle, monthly means from an annual file bc\_ozone\_picontrol.nc\\
-4: 3-dim concentration, constant in time, 1st time slice file bc\_ozone\_picontrol.nc\\
-8: 3-dim concentration, time dependent, monthly means from yearly files bc\_ozone\_historical\_<year>.nc&
+2: 3-dim concentration, climatological annual cycle, monthly means from an annual file bc\_ozone.nc or - with nesting - bc\_ozone\_DOM<jg>.nc\\
+4: 3-dim concentration, constant in time, 1st time slice in file bc\_ozone.nc or - with nesting - bc\_ozone\_DOM<jg>.nc\\
+8: 3-dim concentration, time dependent, monthly means from yearly files bc\_ozone\_<year>.nc or - with nesting - bc\_ozone\_DOM<jg>\_<year>.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_o2 & I & 2 & &
@@ -1248,14 +1286,14 @@ echam\_rad\_config(jg)\% irad\_cfc11 & I & 2 & &
 Selects source for concentration of CFC11 \\
 0: set to zero (or epsilon) \\
 2: constant vol. mixing ration set by 'vmr \_cfc11' \\
-4: spatially constant, time dependent vol. mixing ratio from file &
+4: spatially constant, time dependent vol. mixing ratio from file bc\_greenhouse\_gases.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_cfc12 & I & 2 & &
 Selects source for concentration of CFC12 \\
 0: set to zero (or epsilon) \\
 2: constant vol. mixing ration set by 'vmr \_cfc12' \\
-4: spatially constant, time dependent vol. mixing ratio from file &
+4: spatially constant, time dependent vol. mixing ratio from file bc\_greenhouse\_gases.nc&
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_aero & I & 2 & &

@@ -25,7 +25,7 @@ MODULE mo_interface_echam_ocean
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
   USE mo_echam_phy_memory    ,ONLY: prm_field
-  USE mo_echam_phy_config    ,ONLY: echam_phy_config
+  USE mo_ccycle_config       ,ONLY: ccycle_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
@@ -39,6 +39,7 @@ MODULE mo_interface_echam_ocean
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
 
   USE mo_ext_data_state      ,ONLY: ext_data
+  USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
@@ -827,47 +828,62 @@ CONTAINS
     ENDIF
 
 #ifndef __NO_ICON_OCEAN__
-    IF(ANY(echam_phy_config(:)%lcpl_co2_atmoce))then
-    !
-    ! ------------------------------
-    !  Send co2 mixing ratio
-    !   field_id(11) represents "co2_mixing_ratio" - CO2 mixing ratio
-    !
-    buffer(:,:) = 0.0_wp
+    IF (ccycle_config(jg)%iccycle /= 0) THEN
+       !
+       ! ------------------------------
+       !  Send co2 mixing ratio
+       !   field_id(11) represents "co2_mixing_ratio" - CO2 mixing ratio in ppmv
+       !
+       buffer(:,:) = 0.0_wp
 !!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
-    DO i_blk = 1, p_patch%nblks_c
-      nn = (i_blk-1)*nproma
-      IF (i_blk /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      END IF
-      DO n = 1, nlen
-        buffer(nn+n,1) = prm_field(jg)%qtrc(n,nlev,i_blk,ico2) * amd/amco2 * 1.0e6_wp
-      ENDDO
-    ENDDO
+       DO i_blk = 1, p_patch%nblks_c
+          nn = (i_blk-1)*nproma
+          IF (i_blk /= p_patch%nblks_c) THEN
+             nlen = nproma
+          ELSE
+             nlen = p_patch%npromz_c
+          END IF
+          SELECT CASE (ccycle_config(jg)%iccycle)
+          CASE (1) ! c-cycle with interactive atm. co2 concentration, qtrc in kg/kg
+             DO n = 1, nlen
+                buffer(nn+n,1)    =  amd/amco2 * 1.0e6_wp * prm_field(jg)%qtrc(n,nlev,i_blk,ico2)
+             END DO
+          CASE (2) ! c-cycle with prescribed  atm. co2 concentration
+             SELECT CASE (ccycle_config(jg)%ico2conc)
+             CASE (2) ! constant  co2 concentration, vmr_co2 in m3/m3
+                DO n = 1, nlen
+                   buffer(nn+n,1) =              1.0e6_wp * ccycle_config(jg)%vmr_co2
+                END DO
+             CASE (4) ! transient co2 concentration, ghg_co2mmr in kg/kg
+                DO n = 1, nlen
+                   buffer(nn+n,1) =  amd/amco2 * 1.0e6_wp * ghg_co2mmr
+                END DO
+             END SELECT
+          END SELECT
+       ENDDO
 !!ICON_OMP_END_PARALLEL_DO
-    !
-    IF (ltimer) CALL timer_start(timer_coupling_put)
+       !
+       IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    no_arr = 1
-    CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+       no_arr = 1
+       CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
 
-    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
-      write_coupler_restart = .TRUE.
-    ELSE
-      write_coupler_restart = .FALSE.
-    ENDIF
+       IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+          write_coupler_restart = .TRUE.
+       ELSE
+          write_coupler_restart = .FALSE.
+       ENDIF
 
-    IF ( info == OUT_OF_BOUND )                 &
-        & CALL warning('interface_echam_ocean', &
-        &              'YAC says fput called after end of run - id=11, co2 mr')
+       IF ( info == OUT_OF_BOUND )                 &
+            & CALL warning('interface_echam_ocean', &
+            &              'YAC says fput called after end of run - id=11, co2 mr')
 
-    IF (ltimer) CALL timer_stop(timer_coupling_put)
-    !
-    IF ( write_coupler_restart ) THEN
-       CALL message('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
-    ENDIF
+       IF (ltimer) CALL timer_stop(timer_coupling_put)
+       !
+       IF ( write_coupler_restart ) THEN
+          CALL message('interface_echam_ocean', 'YAC says it is put for restart - id=11, co2 mr')
+       ENDIF
+
     ENDIF
 #endif
 
@@ -1074,6 +1090,7 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
+      !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         IF (i_blk /= p_patch%nblks_c) THEN
@@ -1089,49 +1106,50 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      
+      !
     END IF
-  !    !
-    IF(ANY(echam_phy_config(:)%lcpl_co2_atmoce))then
     !
-    ! ------------------------------
-    !  Receive co2 flux
-    !   field_id(12) represents "co2_flux" - ocean co2 flux
     !
-    IF (ltimer) CALL timer_start(timer_coupling_get)
+    IF (ccycle_config(jg)%iccycle /= 0) THEN
+       !
+       ! ------------------------------
+       !  Receive co2 flux
+       !   field_id(12) represents "co2_flux" - ocean co2 flux
+       !
+       IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    buffer(:,:) = 0.0_wp
-    CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
-         & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
-    IF ( info == OUT_OF_BOUND )                      &
-         & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=12, CO2 flux')
+       buffer(:,:) = 0.0_wp
+       CALL yac_fget ( field_id(12), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+       IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) &
+            & CALL message('interface_echam_ocean', 'YAC says it is get for restart - id=12, CO2 flux')
+       IF ( info == OUT_OF_BOUND )                      &
+            & CALL warning('interface_echam_ocean', 'YAC says fget called after end of run - id=12, CO2 flux')
 
-    IF (ltimer) CALL timer_stop(timer_coupling_get)
-    !
-    IF ( info > 0 .AND. info < 7 ) THEN
-      !
+       IF (ltimer) CALL timer_stop(timer_coupling_get)
+       !
+       IF ( info > 0 .AND. info < 7 ) THEN
+          !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
-      DO i_blk = 1, p_patch%nblks_c
-        nn = (i_blk-1)*nproma
-        IF (i_blk /= p_patch%nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = p_patch%npromz_c
-        END IF
-        DO n = 1, nlen
-          IF ( nn+n > nbr_inner_cells ) THEN
-            prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = dummy
-          ELSE
-            prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = buffer(nn+n,1)
-          ENDIF
-        ENDDO
-      ENDDO
+          DO i_blk = 1, p_patch%nblks_c
+             nn = (i_blk-1)*nproma
+             IF (i_blk /= p_patch%nblks_c) THEN
+                nlen = nproma
+             ELSE
+                nlen = p_patch%npromz_c
+             END IF
+             DO n = 1, nlen
+                IF ( nn+n > nbr_inner_cells ) THEN
+                   prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = dummy
+                ELSE
+                   prm_field(jg)%co2_flux_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+                ENDIF
+             ENDDO
+          ENDDO
 !ICON_OMP_END_PARALLEL_DO
-      !
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2_flux_tile(:,:,iwtr))
-    ENDIF ! lcpl_co2_atmoce
-
+          !
+          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%co2_flux_tile(:,:,iwtr))
+       ENDIF
+       !
     END IF
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------

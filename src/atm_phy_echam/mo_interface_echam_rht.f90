@@ -214,9 +214,15 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_rad(jcs:jce,:)*pdtime
-       END IF
+       SELECT CASE(fc_rht)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_rad(jcs:jce,:)*pdtime
+          END IF
+       END SELECT
        !
     ELSE
        !

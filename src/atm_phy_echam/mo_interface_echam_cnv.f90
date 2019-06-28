@@ -82,6 +82,7 @@ CONTAINS
 
     LOGICAL  :: ldland(nproma)               !< land sea mask for using dlev_land or dlev_ocean
 
+    INTEGER  :: ictop(nproma)                !< level index of cnovective cloud top
     REAL(wp) :: ztop(nproma)                 !< convective cloud top pressure   [Pa]
     REAL(wp) :: zta    (nproma,nlev)         !< provisional temperature         [K]
     REAL(wp), TARGET :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
@@ -158,7 +159,7 @@ CONTAINS
                &             ztend_qv  (:,:),        &! in
                &       field% thvsig   (:,  jb),     &! in
                &       itype           (:),          &! out
-               &       field% ictop    (:,  jb),     &! out
+               &       ictop           (:),          &! out
                &       field% rsfc     (:,  jb),     &! out
                &       field% ssfc     (:,  jb),     &! out
                &       field% con_dtrl (:,jb),       &! out
@@ -173,9 +174,6 @@ CONTAINS
                &        tend_qtrc_cnv  (:,:,iqc),    &! out
                &        tend_qtrc_cnv  (:,:,iqi),    &! out
                &             ztop      (:)           )! out
-          !
-          ! store convection type as real value
-          field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
           !
           ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
           IF (ASSOCIATED(field% topmax)) field% topmax(jcs:jce,jb) = MIN(field% topmax(jcs:jce,jb),ztop(jcs:jce))
@@ -244,16 +242,26 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)     *pdtime
-          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)     *pdtime
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)     *pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi) *pdtime
-          IF(iqt .LT. ntracer) &
-            & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
-       END IF
+       SELECT CASE(fc_cnv)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_cnv  (jcs:jce,:)     *pdtime
+             field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_cnv  (jcs:jce,:)     *pdtime
+             field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cnv  (jcs:jce,:)     *pdtime
+             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cnv(jcs:jce,:,iqv) *pdtime
+             field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cnv(jcs:jce,:,iqc) *pdtime
+             field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cnv(jcs:jce,:,iqi) *pdtime
+             IF(iqt .LT. ntracer) &
+                  & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_cnv(jcs:jce,:,iqt:)*pdtime
+             ! diagnostic
+             field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
+             field% ictop(jcs:jce,jb) = ictop(jcs:jce)
+          END IF
+       END SELECT
        !
     ELSE
        !

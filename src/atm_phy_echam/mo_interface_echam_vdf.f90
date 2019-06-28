@@ -32,7 +32,6 @@ MODULE mo_interface_echam_vdf
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_vdf, &
     &                               timer_vdf_dn, timer_vdf_sf, timer_vdf_up
 
-  USE mo_echam_rad_config    ,ONLY: echam_rad_config
   USE mo_ccycle_config       ,ONLY: ccycle_config
   USE mo_physical_constants  ,ONLY: amco2, amd
   USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
@@ -87,7 +86,6 @@ CONTAINS
     !
     LOGICAL                 ,POINTER    :: lparamcpl
     INTEGER                 ,POINTER    :: fc_vdf
-    REAL(wp)                ,POINTER    :: vmr_co2
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
@@ -127,6 +125,16 @@ CONTAINS
     REAL(wp) :: zbm_tile (nproma,nsfc_type)  !< for "nsurf_diag"
     REAL(wp) :: zbh_tile (nproma,nsfc_type)  !< for "nsurf_diag"
 
+    ! inout variables of vdiff
+    !
+    REAL(wp) :: ts_tile(nproma,nsfc_type)
+    REAL(wp) :: z0m_tile(nproma,nsfc_type)
+
+    ! inout variables of vdiff_down
+    !
+    REAL(wp) :: ustar     (nproma)
+    REAL(wp) :: wstar_tile(nproma,nsfc_type)
+
     ! output variables of vdiff_down
     !
     REAL(wp) :: wstar      (nproma)
@@ -141,6 +149,15 @@ CONTAINS
     REAL(wp) :: cfv        (nproma,nlev)
     REAL(wp) :: cftotte    (nproma,nlev)
     REAL(wp) :: cfthv      (nproma,nlev)
+    REAL(wp) :: thvsig     (nproma)
+
+    ! inout variables of update_surface
+    !
+    REAL(wp) :: rlus            (nproma)
+    REAL(wp) :: albvisdir_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albnirdir_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albvisdif_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albnirdif_ice   (nproma,prm_field(jg)%kice)
 
     ! output variables of update_surface
     !
@@ -148,6 +165,23 @@ CONTAINS
     REAL(wp) :: tend_ta_sfc     (nproma)
     REAL(wp) :: q_rlw_impl      (nproma)
     REAL(wp) :: tend_ta_rlw_impl(nproma)
+    REAL(wp) :: ts              (nproma)
+    REAL(wp) :: ts_rad          (nproma)
+    REAL(wp) :: evap            (nproma)
+    REAL(wp) :: cair            (nproma)
+    REAL(wp) :: csat            (nproma)
+    REAL(wp) :: z0h_lnd         (nproma)
+
+    REAL(wp) :: albvisdir       (nproma)
+    REAL(wp) :: albnirdir       (nproma)
+    REAL(wp) :: albvisdif       (nproma)
+    REAL(wp) :: albnirdif       (nproma)
+    REAL(wp) :: albvisdir_tile  (nproma,nsfc_type)
+    REAL(wp) :: albnirdir_tile  (nproma,nsfc_type)
+    REAL(wp) :: albvisdif_tile  (nproma,nsfc_type)
+    REAL(wp) :: albnirdif_tile  (nproma,nsfc_type)
+    REAL(wp) :: albedo          (nproma)
+    REAL(wp) :: albedo_tile     (nproma,nsfc_type)
 
     ! output variables of vdiff_up
     !
@@ -159,14 +193,12 @@ CONTAINS
     REAL(wp), TARGET :: tend_qtrc_vdf(nproma,nlev,ntracer)
     REAL(wp), POINTER, CONTIGUOUS :: tend_qtrc_vdf_iqt(:,:,:)
     REAL(wp), TARGET :: tend_qtrc_vdf_dummy(nproma,nlev,0)
-    REAL(wp) :: mmr_co2
 
     IF (ltimer) CALL timer_start(timer_vdf)
 
     ! associate pointers
     lparamcpl => echam_phy_config(jg)%lparamcpl
     fc_vdf    => echam_phy_config(jg)%fc_vdf
-    vmr_co2   => echam_rad_config(jg)%vmr_co2
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
@@ -181,47 +213,88 @@ CONTAINS
 !!$    IF (ntrac>0) THEN
 !!$       CALL tracer_emission()
 !!$    ENDIF
-    !
-    ! default setting for all tracers
-    zxt_emis(jcs:jce,:) = 0._wp
-    !
-
-    ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
-
-    IF (ntrac>=2 .and. .not. lart) THEN
-      IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
-        zxt_emis(jcs:jce,2) = field%fco2nat(jcs:jce,jb)
-      ELSE
-        CALL warning('echam_vdf','co2 emissions not possible in this setup. Please check your settings!')
-      END IF
-    END IF
+!!$    !
 !!$    ! Dry deposition of aerosols or other tracers (not implemented yet)
 !!$    CALL dry_deposition()
-
-    !
-    ! setting of co2 for jsbach
-    !
-    mmr_co2 = vmr_co2   * amco2/amd
-
-    IF(ccycle_config(jg)%iccy_co2conc .EQ. 0) THEN   !  default
-      zco2(:) = SPREAD(mmr_co2, DIM=1, NCOPIES=nproma)
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 2 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 4) THEN
-      zco2(:) = SPREAD(ghg_co2mmr, DIM=1, NCOPIES=nproma)
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1) THEN
-      zco2(:) = field% qtrc(:,nlev,jb,ico2)
-    ELSE
-      CALL finish('echam_vdf: setting of co2 not recommended. Please check your setting!')
-    END IF
 
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
+          !
           ! Set dummy values to zero to prevent invalid floating point operations:
           dummy (:,:)=0._wp
           dummyx(:,:)=0._wp 
           !
+          ! Surface emissions of extra tracers if ntrac > 0
+          !
+          ! - default is no emission
+          IF (ntrac > 0) THEN
+             zxt_emis(jcs:jce,:) = 0._wp
+          END IF
+          !
+          ! Carbon cycle
+          ! ------------
+          ! (see also after vdiff_up)
+          ! If the c-cycle is used then the surface co2 flux and the
+          ! atmospheric co2 concentration must be prepared for the
+          ! vertical diffusion.
+          !
+          IF (ccycle_config(jg)%iccycle /= 0 .AND. (ico2 < iqt .OR. ntracer < ico2)) THEN
+             CALL finish('interface_echam_vdf','The C-cycle cannot be used without CO2 tracer (ico2<iqt or ntracer<ico2)')
+          END IF
+          !
+          SELECT CASE (ccycle_config(jg)%iccycle)
+             !
+          CASE (0) ! no c-cycle
+             !
+             ! This should have no meaning, but strangely changing zco2(:) changes the result
+             ! of interface_echam_vdf/update_surface/jsbach.
+             ! The original parameter echam_rad_config(jg)%vmr_co2 is replaced by its value:
+             !
+             zco2(:) = SPREAD( 348.0e-06_wp * amco2/amd, DIM=1, NCOPIES=nproma)
+             !
+          CASE (1) ! c-cycle with interactive atm. co2 concentration
+             !
+             ! co2 flux at the surface
+             zxt_emis(jcs:jce,ico2-(iqt-1)) = field%fco2nat(jcs:jce,jb)
+             !
+             ! co2 concentration in the lowermost layer
+             zco2(:) = field% qtrc(:,nlev,jb,ico2)
+             !
+          CASE (2) ! c-cycle with prescribed atm. co2 concentration
+             !
+             ! co2 flux at the surface
+             zxt_emis(jcs:jce,ico2-(iqt-1)) = field%fco2nat(jcs:jce,jb)
+             !
+             ! co2 concentration in the lowermost layer
+             SELECT CASE (ccycle_config(jg)%ico2conc)
+             CASE (2)
+                zco2(:) = SPREAD(ccycle_config(jg)%vmr_co2 * amco2/amd, DIM=1, NCOPIES=nproma)
+             CASE (4)
+                zco2(:) = SPREAD(ghg_co2mmr                           , DIM=1, NCOPIES=nproma)
+             END SELECT
+             !
+          END SELECT
+          !
           zqx(jcs:jce,:) =  prm_field(jg)%qtrc(jcs:jce,:,jb,iqc) &
                &           +prm_field(jg)%qtrc(jcs:jce,:,jb,iqi)
+          !
+          ts_tile   (jcs:jce,:) = field% ts_tile   (jcs:jce,jb,:)
+          ustar     (jcs:jce)   = field% ustar     (jcs:jce,jb)
+          wstar_tile(jcs:jce,:) = field% wstar_tile(jcs:jce,jb,:)
+          !
+          cair      (jcs:jce)   = field% cair      (jcs:jce,jb)
+          csat      (jcs:jce)   = field% csat      (jcs:jce,jb)
+          !
+          z0h_lnd   (jcs:jce)   = field% z0h_lnd   (jcs:jce,jb)
+          z0m_tile  (jcs:jce,:) = field% z0m_tile  (jcs:jce,jb,:)
+          !
+          rlus      (jcs:jce)   = field% rlus      (jcs:jce,jb)
+          !
+          albvisdir_ice (jcs:jce,:) = field% albvisdir_ice(jcs:jce,:,jb)
+          albnirdir_ice (jcs:jce,:) = field% albnirdir_ice(jcs:jce,:,jb)
+          albvisdif_ice (jcs:jce,:) = field% albvisdif_ice(jcs:jce,:,jb)
+          albnirdif_ice (jcs:jce,:) = field% albnirdif_ice(jcs:jce,:,jb)
           !
           ! Serialbox2 intermediate output serialization
           !$ser verbatim call serialize_vdf_chk_A_output(jg, jb, jcs, jce, nproma,&
@@ -255,7 +328,7 @@ CONTAINS
                &          field%   zf(:,:,jb),             &! in, geopot. height above sea level, full level
                &          field%   zh(:,:,jb),             &! in, geopot. height above sea level, half level
                &          field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
-               &          field% ts_tile(:,jb,:),          &! in, surface temperature
+               &                 ts_tile(:,:),             &! in, surface temperature
                &          field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                &          field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
                &          field% presi_old(:,nlevp1,jb),   &! in, sfc pressure
@@ -276,11 +349,11 @@ CONTAINS
                &          zxt_emis,                        &! in, zxtems
                &          dummy(:,:),                      &! in, variance of theta_v at step t-dt
                &          dummyx(:,:),                     &! in
-               &          field% z0m_tile(:,jb,:),         &! in
+               &                 z0m_tile(:,:),            &! in
                &          field%  tottem1(:,:,jb),         &! in, TTE at step t-dt
-               &          field%  ustar  (:,  jb),         &! inout
-               &                  wstar  (:),              &! out, convective velocity scale
-               &          field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
+               &                 ustar  (:),               &! inout
+               &                 wstar  (:),               &! out, convective velocity scale
+               &                 wstar_tile(:,:),          &! inout, convective velocity scale (each sfc type)
                &                 qs_sfc_tile(:,   :),      &! out, sfc specific humidity at saturation
                &                 hdtcbl  (:),              &! out, for output
                &                 ri_atm  (:,:),            &! out, for output
@@ -298,7 +371,7 @@ CONTAINS
                &          zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
                &          zcptgz(:,:),                     &! out, for "vdiff_up"
                &          zthvvar(:,:),                    &! out, for "vdiff_up"
-               &          field%   thvsig(:,  jb),         &! out, for "cucall"
+               &          thvsig(:),                       &! out, for "cucall"
                &          ztottevn (:,:),                  &! out, for "vdiff_up"
                &          zch_tile(:,:),                   &! out, for "nsurf_diag"
 !!$               &          zchn_tile(:,:),                  &! out, for "nsurf_diag"
@@ -308,9 +381,9 @@ CONTAINS
                &          zbhn_tile(:,:),                  &! out, for "nsurf_diag"
                &          zbm_tile(:,:),                   &! out, for "nsurf_diag"
                &          zbh_tile(:,:),                   &! out, for "nsurf_diag"
-               &          pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
-               &          pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
-               &          paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
+               &          pcsat = csat(:),                 &! in, optional, area fraction with wet land surface
+               &          pcair = cair(:),                 &! in, optional, area fraction with wet land surface (air)
+               &          paz0lh = z0h_lnd(:)          )    ! in, optional, roughness length for heat over land
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
@@ -374,20 +447,20 @@ CONTAINS
                &              zaa, zaa_btm, zbb, zbb_btm,                     &! inout
                &               zcpt_sfc_tile(:,:),                            &! inout, from "vdiff_down", for "vdiff_up"
                &                 qs_sfc_tile(:,   :),                         &! inout, from "vdiff_down", for "vdiff_up"
-               &              field% ts_tile(:,jb,:),                         &! inout
+               &                     ts_tile(:,   :),                         &! inout
                &              field%u_stress    (:,  jb),                     &! out
                &              field%v_stress    (:,  jb),                     &! out
                &              field% lhflx      (:,  jb),                     &! out
                &              field% shflx      (:,  jb),                     &! out
-               &              field%  evap      (:,  jb),                     &! out, for "cucall"
+               &                     evap       (:),                          &! out, for "cucall"
                &              field%u_stress_tile  (:,jb,:),                  &! out
                &              field%v_stress_tile  (:,jb,:),                  &! out
                &              field% lhflx_tile    (:,jb,:),                  &! out
                &              field% shflx_tile    (:,jb,:),                  &! out
                &              field%  evap_tile    (:,jb,:),                  &! out
-               &              field%  fco2nat      (:,  jb),                  &! inout
+               &              field%  fco2nat      (:,  jb),                  &! out
                &              nblock = jb,                                    &! in
-               &              lsm = field%lsmask(:,jb),                       &!< in, land-sea mask
+               &              lsm = field%lsmask(:,jb),                       &! in, land-sea mask
                &              alake = field%alake(:,jb),                      &! in, lake fraction
                &              pu    = field% ua(:,nlev,jb),                   &! in, um1
                &              pv    = field% va(:,nlev,jb),                   &! in, vm1
@@ -399,7 +472,7 @@ CONTAINS
                &              pssfl = field% ssfl(:,jb),                      &! in, snow surface large scale (from cloud)
                &              pssfc = field% ssfc(:,jb),                      &! in, snow surface concective (from cucall)
                &              rlds        = field% rlds (:,jb),               &! in,  downward surface  longwave flux [W/m2]
-               &              rlus        = field% rlus (:,jb),               &! inout, upward surface  longwave flux [W/m2]
+               &              rlus        =        rlus (:),                  &! inout, upward surface  longwave flux [W/m2]
                &              rsds        = field% rsds (:,jb),               &! in,  downward surface shortwave flux [W/m2]
                &              rsus        = field% rsus (:,jb),               &! in,  upward surface shortwave flux [W/m2]
                !
@@ -413,40 +486,40 @@ CONTAINS
                &              ps = field% presi_old(:,nlevp1,jb),             &! in, paphm1, half level pressure
                &              pcosmu0 = field% cosmu0(:,jb),                  &! in, amu0_x, cos of zenith angle
                &              pch_tile = zch_tile(:,:),                       &! in, from "vdiff_down" for JSBACH
-               &              pcsat = field%csat(:,jb),                       &! inout, area fraction with wet land surface
-               &              pcair = field%cair(:,jb),                       &! inout, area fraction with wet land surface (air)
+               &              pcsat = csat(:),                                &! inout, area fraction with wet land surface
+               &              pcair = cair(:),                                &! inout, area fraction with wet land surface (air)
                &              q_snocpymlt    = q_snocpymlt(:),                &! out, heating  by melting snow on the canopy [W/m2]
-               &              z0m_tile = field% z0m_tile(:,jb,:),             &! inout, roughness length for momentum over tiles
-               &              z0h_lnd  = field% z0h_lnd (:,jb),               &! out, roughness length for heat over land
-               &              albvisdir      = field% albvisdir     (:,jb)  , &! inout
-               &              albnirdir      = field% albnirdir     (:,jb)  , &! inout
-               &              albvisdif      = field% albvisdif     (:,jb)  , &! inout
-               &              albnirdif      = field% albnirdif     (:,jb)  , &! inout
-               &              albvisdir_tile = field% albvisdir_tile(:,jb,:), &! inout
-               &              albnirdir_tile = field% albnirdir_tile(:,jb,:), &! inout
-               &              albvisdif_tile = field% albvisdif_tile(:,jb,:), &! inout
-               &              albnirdif_tile = field% albnirdif_tile(:,jb,:), &! inout
-               &              albedo         = field% albedo        (:,jb)  , &! inout
-               &              albedo_tile    = field% albedo_tile(:,jb,:),    &! inout
-               &              emissivity     = field% emissivity    (:,jb)  , &! inout
+               &              z0m_tile = z0m_tile(:,:),                       &! inout, roughness length for momentum over tiles
+               &              z0h_lnd  = z0h_lnd (:),                         &! out, roughness length for heat over land
+               &              albvisdir      = albvisdir     (:)  ,           &! out
+               &              albnirdir      = albnirdir     (:)  ,           &! out
+               &              albvisdif      = albvisdif     (:)  ,           &! out
+               &              albnirdif      = albnirdif     (:)  ,           &! out
+               &              albvisdir_tile = albvisdir_tile(:,:),           &! out
+               &              albnirdir_tile = albnirdir_tile(:,:),           &! out
+               &              albvisdif_tile = albvisdif_tile(:,:),           &! out
+               &              albnirdif_tile = albnirdif_tile(:,:),           &! out
+               &              albedo         = albedo        (:)  ,           &! out
+               &              albedo_tile    = albedo_tile   (:,:),           &! out
+               &              emissivity     = field% emissivity    (:,jb)  , &! in
                &              pco2_flux_tile = field% co2_flux_tile(:,jb,:),  &! inout
-               &              ptsfc     = field%ts    (:,jb),                 &! out
-               &              ptsfc_rad = field%ts_rad(:,jb),                 &! out
+               &              ptsfc     = ts    (:),                          &! out
+               &              ptsfc_rad = ts_rad(:),                          &! out
                &              rlns_tile = field%lwflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              rsns_tile = field%swflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              lake_ice_frc = field%lake_ice_frc(:,jb),        &! out
                &              Tsurf = field% Tsurf(:,:,jb),                   &! inout, for sea ice
                &              T1    = field% T1   (:,:,jb),                   &! inout, for sea ice
                &              T2    = field% T2   (:,:,jb),                   &! inout, for sea ice
-               &              hi    = field% hi   (:,:,jb),                   &! in, for sea ice
-               &              hs    = field% hs   (:,:,jb),                   &! in, for sea ice
-               &              conc  = field% conc (:,:,jb),                   &! in, for sea ice
-               &              Qtop  = field% Qtop (:,:,jb),                   &! out, for sea ice
-               &              Qbot  = field% Qbot (:,:,jb),                   &! out, for sea ice
-               &              albvisdir_ice = field% albvisdir_ice(:,:,jb),   &! inout ice albedos
-               &              albnirdir_ice = field% albnirdir_ice(:,:,jb),   &! inout
-               &              albvisdif_ice = field% albvisdif_ice(:,:,jb),   &! inout
-               &              albnirdif_ice = field% albnirdif_ice(:,:,jb))    ! inout
+               &              hi    = field% hi   (:,:,jb),                   &! in   , for sea ice
+               &              hs    = field% hs   (:,:,jb),                   &! inout, for sea ice
+               &              conc  = field% conc (:,:,jb),                   &! in   , for sea ice
+               &              Qtop  = field% Qtop (:,:,jb),                   &! out  , for sea ice
+               &              Qbot  = field% Qbot (:,:,jb),                   &! out  , for sea ice
+               &              albvisdir_ice = albvisdir_ice(:,:),             &! inout ice albedos
+               &              albnirdir_ice = albnirdir_ice(:,:),             &! inout
+               &              albvisdif_ice = albvisdif_ice(:,:),             &! inout
+               &              albnirdif_ice = albnirdif_ice(:,:))              ! inout
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
@@ -482,12 +555,12 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field,&
           !$ser verbatim   cfm_tile, zaa, zcptgz, ztottevn, zbb, zthvvar, dummyx, kedisp)
           !
-          IF(ntracer .GT. iqt) THEN
+          IF(ntracer >= iqt) THEN
             tend_qtrc_vdf_iqt => tend_qtrc_vdf(:,:,iqt:)
           ELSE
             tend_qtrc_vdf_iqt => tend_qtrc_vdf_dummy
           ENDIF
- 
+          !
           CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
@@ -500,17 +573,17 @@ CONTAINS
                &        field%   va(:,:,jb),             &! in, vm1
                &        field%   ta(:,:,jb),             &! in, tm1
                &        field% mair(:,:,jb),             &! in, moist     air mass [kg/m2]
-               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
+!!$               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
                &        field% qtrc(:,:,jb,iqv),         &! in, qm1
                &        field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &        field% qtrc(:,:,jb,iqi),         &! in, xim1
                &        field% qtrc(:,:,jb,iqt:),        &! in, xtm1
                &        field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                &             ztottevn(:,:),              &! in, TTE at intermediate time step
-               &        zbb,                             &! in
-               &        zthvvar(:,:),                    &! inout
+               &        zbb,                             &! inout
+               &        zthvvar(:,:),                    &! in
                &        dummyx(:,:),                     &! inout
-               &        field% z0m_tile(:,jb,:),         &! inout
+               &        z0m_tile(:,:),                   &! inout
                &                 kedisp(:),              &! out, vert. integr. diss. kin. energy [W/m2]
                &          tend_ua_vdf(:,:),              &! out
                &          tend_va_vdf(:,:),              &! out
@@ -522,9 +595,19 @@ CONTAINS
                &        tend_qtrc_vdf_iqt, & ! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
                &        dummy(:,:),                      &! 
-               &        field%      totte(:,:,jb),       &! out
-               &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
-               &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+               &        field%      totte(:,:,jb)        )! out
+!!$               &        field%      totte(:,:,jb),       &! out
+!!$               &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
+!!$               &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+          !
+          ! Carbon -cycle
+          ! -------------
+          ! (see also before vdiff_down)
+          ! For now do not change the co2 tracer if a prescribed co2 concentration
+          ! is used as input to land (and ocean).
+          IF (ccycle_config(jg)%iccycle == 2) THEN
+             tend_qtrc_vdf(:,:,ico2) = 0.0_wp
+          END IF
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
@@ -549,7 +632,7 @@ CONTAINS
              tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = tend_qtrc_vdf(jcs:jce,:,iqv)
              tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = tend_qtrc_vdf(jcs:jce,:,iqc)
              tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = tend_qtrc_vdf(jcs:jce,:,iqi)
-             IF(ntracer .GT. iqt) &
+             IF(ntracer >= iqt) &
                & tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = tend_qtrc_vdf(jcs:jce,:,iqt:)
           END IF
           !
@@ -573,7 +656,7 @@ CONTAINS
              tend_qtrc_vdf(jcs:jce,:,iqv)  = tend% qtrc_vdf(jcs:jce,:,jb,iqv)
              tend_qtrc_vdf(jcs:jce,:,iqc)  = tend% qtrc_vdf(jcs:jce,:,jb,iqc)
              tend_qtrc_vdf(jcs:jce,:,iqi)  = tend% qtrc_vdf(jcs:jce,:,jb,iqi)
-             IF(ntracer .GT. iqt) &
+             IF(ntracer >= iqt) &
                tend_qtrc_vdf(jcs:jce,:,iqt:) = tend% qtrc_vdf(jcs:jce,:,jb,iqt:)
           END IF
           !
@@ -616,9 +699,15 @@ CONTAINS
           END SELECT
           !
           ! update physics state for input to the next physics process
-          IF (lparamcpl) THEN
-             field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend_ta_sfc(jcs:jce)*pdtime
-          END IF
+          SELECT CASE(fc_vdf)
+          CASE(0)
+             ! diagnostic, do not use tendency
+          CASE(1,2)
+             ! use tendency to update the physics state
+             IF (lparamcpl) THEN
+                field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend_ta_sfc(jcs:jce)*pdtime
+             END IF
+          END SELECT
           !
           ! Serialbox2 intermediate output serialization
           !$ser verbatim call serialize_vdf_chk_F_output(jg, jb, jcs, jce, nproma,&
@@ -651,7 +740,7 @@ CONTAINS
           tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv)  + tend_qtrc_vdf(jcs:jce,:,iqv)
           tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc)  + tend_qtrc_vdf(jcs:jce,:,iqc)
           tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi)  + tend_qtrc_vdf(jcs:jce,:,iqi)
-          IF(ntracer .GT. iqt) &
+          IF(ntracer >= iqt) &
            & tend% qtrc_phy(jcs:jce,:,jb,iqt:) = tend% qtrc_phy(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
@@ -659,16 +748,54 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_vdf  (jcs:jce,:)     *pdtime
-          field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_vdf  (jcs:jce,:)     *pdtime
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_vdf  (jcs:jce,:)     *pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_vdf(jcs:jce,:,iqv) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_vdf(jcs:jce,:,iqc) *pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_vdf(jcs:jce,:,iqi) *pdtime
-          IF(ntracer .GT. iqt) &
-            & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)*pdtime
-       END IF
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             field%   ua(jcs:jce,:,jb)      = field%   ua(jcs:jce,:,jb)      + tend_ua_vdf  (jcs:jce,:)     *pdtime
+             field%   va(jcs:jce,:,jb)      = field%   va(jcs:jce,:,jb)      + tend_va_vdf  (jcs:jce,:)     *pdtime
+             field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_vdf  (jcs:jce,:)     *pdtime
+             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_vdf(jcs:jce,:,iqv) *pdtime
+             field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_vdf(jcs:jce,:,iqc) *pdtime
+             field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_vdf(jcs:jce,:,iqi) *pdtime
+             IF(ntracer >= iqt) &
+                  & field% qtrc(jcs:jce,:,jb,iqt:) = field% qtrc(jcs:jce,:,jb,iqt:) + tend_qtrc_vdf(jcs:jce,:,iqt:)*pdtime
+             ! diagnostic
+             field% tottem1   (jcs:jce,:,jb) = field% totte (jcs:jce,:,jb)
+             field% ts_tile   (jcs:jce,jb,:) = ts_tile   (jcs:jce,:)
+             field% ts        (jcs:jce,jb)   = ts        (jcs:jce)
+             field% ts_rad    (jcs:jce,jb)   = ts_rad    (jcs:jce)
+             field% ustar     (jcs:jce,jb)   = ustar     (jcs:jce)
+             field% wstar_tile(jcs:jce,jb,:) = wstar_tile(jcs:jce,:)
+             field% evap      (jcs:jce,jb)   = evap      (jcs:jce)
+             field% thvsig    (jcs:jce,jb)   = thvsig    (jcs:jce)
+             field% cair      (jcs:jce,jb)   = cair      (jcs:jce)
+             field% csat      (jcs:jce,jb)   = csat      (jcs:jce)
+             field% z0h_lnd   (jcs:jce,jb)   = z0h_lnd   (jcs:jce)
+             field% z0m_tile  (jcs:jce,jb,:) = z0m_tile  (jcs:jce,:)
+             field% rlus      (jcs:jce,jb)   = rlus      (jcs:jce)
+             !
+             field% albvisdir      (jcs:jce,jb)   = albvisdir     (jcs:jce)
+             field% albnirdir      (jcs:jce,jb)   = albnirdir     (jcs:jce)
+             field% albvisdif      (jcs:jce,jb)   = albvisdif     (jcs:jce) 
+             field% albnirdif      (jcs:jce,jb)   = albnirdif     (jcs:jce)
+             field% albvisdir_tile (jcs:jce,jb,:) = albvisdir_tile(jcs:jce,:)
+             field% albnirdir_tile (jcs:jce,jb,:) = albnirdir_tile(jcs:jce,:)
+             field% albvisdif_tile (jcs:jce,jb,:) = albvisdif_tile(jcs:jce,:)
+             field% albnirdif_tile (jcs:jce,jb,:) = albnirdif_tile(jcs:jce,:)
+             field% albedo         (jcs:jce,jb)   = albedo        (jcs:jce)
+             field% albedo_tile    (jcs:jce,jb,:) = albedo_tile   (jcs:jce,:)
+             !
+             field% albvisdir_ice(jcs:jce,:,jb) = albvisdir_ice(jcs:jce,:)
+             field% albnirdir_ice(jcs:jce,:,jb) = albnirdir_ice(jcs:jce,:)
+             field% albvisdif_ice(jcs:jce,:,jb) = albvisdif_ice(jcs:jce,:)
+             field% albnirdif_ice(jcs:jce,:,jb) = albnirdif_ice(jcs:jce,:)
+             !
+          END IF
+       END SELECT
        !
        !
        ! Correction related to implicitness, due to the fact that surface model only used
@@ -703,13 +830,16 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend_ta_rlw_impl(jcs:jce)*pdtime
-       END IF
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             field% ta(jcs:jce,nlev,jb) = field% ta(jcs:jce,nlev,jb) + tend_ta_rlw_impl(jcs:jce)*pdtime
+          END IF
+       END SELECT
 
-       ! 2-tl-scheme
-       field% tottem1(jcs:jce,:,jb) = field% totte (jcs:jce,:,jb)
-       !
        ! Serialbox2 intermediate output serialization
        !$ser verbatim call serialize_vdf_chk_G_output(jg, jb, jcs, jce, nproma,&
        !$ser verbatim   nlev, ntrac, nsfc_type, pdtime,&
@@ -841,8 +971,8 @@ CONTAINS
        field% z0m            (jcs:jce,  jb  ) = 0.0_wp
        field% z0m_tile       (jcs:jce,  jb,:) = 0.0_wp
        IF (ASSOCIATED(field% kedisp  )) field% kedisp         (jcs:jce,  jb  ) = 0.0_wp
-       field% sh_vdiff       (jcs:jce,  jb  ) = 0.0_wp
-       field% qv_vdiff       (jcs:jce,  jb  ) = 0.0_wp
+!!$       field% sh_vdiff       (jcs:jce,  jb  ) = 0.0_wp
+!!$       field% qv_vdiff       (jcs:jce,  jb  ) = 0.0_wp
        !
        IF (ASSOCIATED(field% q_vdf   )) field% q_vdf   (jcs:jce,:,jb) = 0.0_wp
        IF (ASSOCIATED(field% q_vdf_vi)) field% q_vdf_vi(jcs:jce,  jb) = 0.0_wp
@@ -855,7 +985,7 @@ CONTAINS
           tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0.0_wp
           tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0.0_wp
           tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0.0_wp
-          IF(ntracer .GT. iqt) &
+          IF(ntracer >= iqt) &
             & tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0.0_wp
        END IF
        !
@@ -872,7 +1002,6 @@ CONTAINS
     ! disassociate pointers
     NULLIFY(lparamcpl)
     NULLIFY(fc_vdf)
-    NULLIFY(vmr_co2)
     NULLIFY(field)
     NULLIFY(tend)
 

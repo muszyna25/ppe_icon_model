@@ -67,6 +67,9 @@ CONTAINS
     !
     INTEGER                             :: itype(nproma)    !< type of convection
     !
+    REAL(wp)                            :: aclc  (nproma,nlev)
+    REAL(wp)                            :: aclcov(nproma)
+    !
     REAL(wp)                            :: hur  (nproma,nlev)
     REAL(wp)                            :: q_cld(nproma,nlev)
     !
@@ -89,6 +92,7 @@ CONTAINS
        IF ( is_active ) THEN
           !
           itype(:) = NINT(field%rtype(:,jb))
+          aclc(:,:) = field% aclc(:,:,jb)
           !
           CALL cloud(jg,                           &! in
                &     jb,                           &! in
@@ -106,10 +110,10 @@ CONTAINS
                &     field% qtrc     (:,:,jb,iqc), &! in  xlm1
                &     field% qtrc     (:,:,jb,iqi), &! in  xim1
                !
-               &     itype,                        &! inout
-               &     field% aclc     (:,:,jb),     &! inout
+               &     itype           (:),          &! inout
+               &     aclc            (:,:),        &! inout
+               &     aclcov          (:),          &! out
                !
-               &     field% aclcov   (:,  jb),     &! out
                &     field% rsfl     (:,  jb),     &! out
                &     field% ssfl     (:,  jb),     &! out
                &            hur      (:,:),        &! out
@@ -117,8 +121,6 @@ CONTAINS
                &      tend_qtrc_cld  (:,:,iqv),        &! out
                &      tend_qtrc_cld  (:,:,iqc),        &! out
                &      tend_qtrc_cld  (:,:,iqi)         )! out
-          !
-          field% rtype(:,jb) = REAL(itype(:),wp)
           !
           ! store in memory for output or recycling
           !
@@ -172,12 +174,23 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cld(jcs:jce,:)*pdtime
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cld(jcs:jce,:,iqv)*pdtime
-          field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cld(jcs:jce,:,iqc)*pdtime
-          field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cld(jcs:jce,:,iqi)*pdtime
-       END IF
+       SELECT CASE(fc_cld)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cld(jcs:jce,:)*pdtime
+             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cld(jcs:jce,:,iqv)*pdtime
+             field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cld(jcs:jce,:,iqc)*pdtime
+             field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cld(jcs:jce,:,iqi)*pdtime
+             ! diagnostic
+             field% rtype (jcs:jce,  jb)    = REAL(itype(jcs:jce),wp)
+             field% aclc  (jcs:jce,:,jb)    = aclc  (jcs:jce,:)
+             field% aclcov(jcs:jce,  jb)    = aclcov(jcs:jce)
+          END IF
+       END SELECT
        !
     ELSE
        !

@@ -114,9 +114,15 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)*pdtime
-       END IF
+       SELECT CASE(fc_mox)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)*pdtime
+          END IF
+       END SELECT
        !
     ELSE
        !

@@ -30,7 +30,7 @@ MODULE mo_nml_crosscheck
     &                              iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config, dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
-  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,                         &
     &                              lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
     &                              num_io_procs, itype_comm,                         &
@@ -834,15 +834,6 @@ CONTAINS
     ELSE
        CALL message(routine,'NetCDF output of floating point variables will be in 32-bit accuracy')
     END IF
-
-    SELECT CASE(iforcing)
-    CASE ( iecham, ildf_echam )
-      inextra_2d   = 0
-      inextra_3d   = 0
-
-    CASE DEFAULT
-    END SELECT
-
 
     IF (activate_sync_timers .AND. .NOT. ltimer) THEN
       activate_sync_timers = .FALSE.

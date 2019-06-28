@@ -1,22 +1,25 @@
 #--------------------------------------------------------------------------------------------------
 #
-# Radiative convective equilibrium (RCE) experiment
+# AMIP experiment without transport and dynamics
+# Parameterizations are used in diagnostic mode
 #
-author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
+author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes a radiative convective equilibrium experiment based on the non-hydrostatic
-# atmosphere and the ECHAM physics. The experiment is intialized analytically and uses constant-in-time
-# boundary conditions for:
+# This file describes an AMIP experiment based on the non-hydrostatic atmosphere and the
+# ECHAM physics, in which neither transport nor dynamics are computed.
+# The parametrization are computed, but not used for the time integration.
+# The experiment is intialized from IFS analysis.
+# Transient boundary conditions are used for:
 # - SST and sea ice
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
 # - O3 concentration
+# - tropospheric aerosol optical properties
+# - stratospheric volcanic aerosol optical properties
 #
-# No aerosols are used
-#
-# _bb_table_Description_  radiative convective equilibrium experiment
+# _bb_table_Description_  AMIP experiment, diagnostic parameterizations, no transport, no dynamics
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -56,8 +59,6 @@ atmo_dyn_grids="'${grid_name}.nc',"
 # start and end date+time
 start_date=${start_date:="1979-01-01T00:00:00Z"}
     end_date=${end_date:="1979-01-01T00:16:00Z"}
-    
-calendar="360 day year"
 
 # restart intervals
 checkpoint_interval="PT8M"
@@ -69,10 +70,33 @@ file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
+lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
+
+# JSBACH settings
+run_jsbach=no
+jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
+jsbach_with_lakes=yes
+jsbach_with_hd=no
+jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
+jsbach_check_wbal=no          # check water balance
+
+# Some further processing for land configuration
+# ----------------------------------------------
+#
+ljsbach=$([ "${run_jsbach:=no}" == yes ] && echo .TRUE. || echo .FALSE. )
+llake=$([ "${jsbach_with_lakes:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
+#
+if [[ $jsbach_usecase == *pfts* ]]
+then
+  pft_file_tag="11pfts_"
+else
+  pft_file_tag=""
+fi
 
 # atmospheric dynamics and physics
 # --------------------------------
@@ -83,14 +107,13 @@ cat > ${atmo_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = ${atmo_dyn_grids}
- grid_angular_velocity  = 0.
 /
 &run_nml
  num_lev          = 47          ! number of full levels
  modelTimeStep    = "PT4M"
- ltestcase        = .TRUE.      ! run testcase
- ldynamics        = .TRUE.      ! dynamics
- ltransport       = .TRUE.      ! transport
+ ltestcase        = .FALSE.     ! run testcase
+ ldynamics        = .FALSE.     ! dynamics
+ ltransport       = .FALSE.     ! transport
  ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
@@ -98,22 +121,13 @@ cat > ${atmo_namelist} << EOF
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
 /
-&nh_testcase_nml
- nh_test_name     = 'RCE_glb'
- ape_sst_case     = 'sst_const'
- ape_sst_val      = 25.
- tpe_temp         = 298.15
- tpe_psfc         = 1013.25e2
+&extpar_nml
+ itopo            = 1           ! 1: read topography from the grid file
+ l_emiss          = .FALSE.
 /
-&nonhydrostatic_nml
- ndyn_substeps    = 2           ! dtime/dt_dyn
- damp_height      = 50000.      ! [m]
- rayleigh_coeff   = 0.10
- vwind_offctr     = 0.2
- divdamp_fac      = 0.004
-/
-&interpol_nml
- rbf_scale_mode_ll = 1
+&initicon_nml
+ init_mode        = 2           ! 2: initialize from IFS analysis
+ ifs2icon_filename= "ifs2icon.nc"
 /
 &sleve_nml
  min_lay_thckn    = 40.         ! [m]
@@ -124,13 +138,8 @@ cat > ${atmo_namelist} << EOF
  decay_exp        = 1.2
  flat_height      = 16000.      ! [m]
 /
-&diffusion_nml
-/
 &transport_nml
 !                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
 !
@@ -138,23 +147,24 @@ cat > ${atmo_namelist} << EOF
 ! --------
 !
 ! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "PT8M"
- echam_phy_config(1)%dt_vdf = "PT4M"
- echam_phy_config(1)%dt_cnv = "PT4M"
- echam_phy_config(1)%dt_cld = "PT4M"
- echam_phy_config(1)%dt_gwd = "PT4M"
+ echam_phy_config(1)%dt_rad = "PT8M", echam_phy_config(1)%fc_rht = 0
+ echam_phy_config(1)%dt_vdf = "PT4M", echam_phy_config(1)%fc_vdf = 0
+ echam_phy_config(1)%dt_cnv = "PT4M", echam_phy_config(1)%fc_cnv = 0
+ echam_phy_config(1)%dt_cld = "PT4M", echam_phy_config(1)%fc_cld = 0
+ echam_phy_config(1)%dt_gwd = "PT4M", echam_phy_config(1)%fc_gwd = 0
+ echam_phy_config(1)%dt_sso = "PT4M", echam_phy_config(1)%fc_sso = 0
 !
 ! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = "PT4M"
+ echam_phy_config(1)%dt_mox = "PT4M", echam_phy_config(1)%fc_mox = 0
  echam_phy_config(1)%dt_car = ""
  echam_phy_config(1)%dt_art = ""
 !
 ! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = .FALSE.
+ echam_phy_config(1)%ljsb   = ${ljsbach}
  echam_phy_config(1)%lamip  = .FALSE.
- echam_phy_config(1)%lice   = .FALSE.
+ echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
- echam_phy_config(1)%llake  = .FALSE.
+ echam_phy_config(1)%llake  = ${llake}
 /
 &echam_rad_nml
 !
@@ -169,15 +179,17 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%l_sph_symm_irr = .TRUE.
  echam_rad_config(1)%irad_h2o   =  1
  echam_rad_config(1)%irad_co2   =  2
- echam_rad_config(1)%irad_ch4   =  0
- echam_rad_config(1)%irad_n2o   =  0
+ echam_rad_config(1)%irad_ch4   =  2
+ echam_rad_config(1)%irad_n2o   =  2
  echam_rad_config(1)%irad_o3    =  4
- echam_rad_config(1)%irad_o2    =  0
- echam_rad_config(1)%irad_cfc11 =  0
- echam_rad_config(1)%irad_cfc12 =  0
+ echam_rad_config(1)%irad_o2    =  2
+ echam_rad_config(1)%irad_cfc11 =  2
+ echam_rad_config(1)%irad_cfc12 =  2
  echam_rad_config(1)%irad_aero  =  0
 /
 &echam_gwd_nml
+/
+&echam_sso_nml
 /
 &echam_vdf_nml
 /
@@ -185,9 +197,98 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_cld_nml
 /
-&echam_cov_nml
+&sea_ice_nml
 /
 EOF
+
+# land surface and soil
+# ---------------------
+cat > ${lnd_namelist} << EOF
+&jsb_model_nml
+  usecase         = "${jsbach_usecase}"
+  use_lakes       = ${llake}
+  fract_filename  = "bc_land_frac.nc"
+  output_tiles    = ${output_tiles}     ! List of tiles to output
+/
+&jsb_seb_nml
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_rad_nml
+  use_alb_veg_simple = .FALSE.          ! Use TRUE for jsbach_lite, FALSE for jsbach_pfts
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_turb_nml
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_sse_nml
+  l_heat_cap_map  = .FALSE.
+  l_heat_cond_map = .FALSE.
+  l_heat_cap_dyn  = .FALSE.
+  l_heat_cond_dyn = .FALSE.
+  l_snow          = .TRUE.
+  l_dynsnow       = .TRUE.
+  l_freeze        = .TRUE.
+  l_supercool     = .TRUE.
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_hydro_nml
+  l_organic       = .FALSE.
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
+/
+&jsb_assimi_nml
+  active          = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
+/
+&jsb_pheno_nml
+  scheme          = 'logrop'            ! scheme = logrop / climatology; use climatology for jsbach_lite
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_carbon_nml
+  active                 = ${lcarbon}
+  bc_filename            = 'bc_land_carbon.nc'
+  ic_filename            = 'ic_land_carbon.nc'
+  read_cpools            = .FALSE.
+  !fire_frac_wood_2_atmos = 0.2
+/
+&jsb_fuel_nml
+  active                 = ${lcarbon}
+  fuel_algorithm         = 1
+/
+&jsb_disturb_nml
+  active                  = .FALSE.
+  ic_filename             = 'ic_land_soil.nc'
+  bc_filename             = 'bc_land_phys.nc'
+  fire_algorithm          = 1
+  windbreak_algorithm     = 1
+  lburn_pasture           = .FALSE.
+  !fire_litter_threshold  = 16.67
+  !fire_rel_hum_threshold = 70.0
+  !fire_minimum_woody     = 0.002
+  !fire_minimum_grass     = 0.006
+  !fire_tau_woody         = 6.0
+  !fire_tau_grass         = 2.0
+  !wnd_threshold          = 2.25
+  !wnd_damage_scale       = 5.e-03
+/
+EOF
+if [[ ${jsbach_with_hd} = yes ]]; then
+  cat >> ${lnd_namelist} << EOF
+&jsb_hd_nml
+  active               = .TRUE.
+  routing_scheme       = 'full'
+  bc_filename          = 'bc_land_hd.nc'
+  diag_water_budget    = .TRUE.
+  debug_hd             = .FALSE.
+  enforce_water_budget = .TRUE.         ! True: stop in case of water conservation problem
+/
+EOF
+fi
 
 #--------------------------------------------------------------------------------------------------
 
@@ -201,12 +302,25 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
+
+# initial conditions
+#
+# - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
+datadir=${icon_data_poolFolder}/initial_condition
+add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
+#
+# - land: source?, date+time?
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+# added in namelist, but not active and not yet available (2017-Dec-07)
+#add_link_file ${datadir}/ic_land_carbon_1976.nc                         ./ic_land_carbon.nc
 
 # boundary conditions
 #
@@ -220,8 +334,65 @@ datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${icon_data_poolFolder}/ozone/rce/${grid_refinement}_${grid_label}
-add_link_file ${datadir}/bc_ozone_rce.nc                                ./bc_ozone.nc
+# -- for irad_o3=4
+datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
+add_link_file $datadir/bc_ozone_picontrol.nc                            ./bc_ozone.nc
+#
+# - tropospheric anthropogenic aerosols, simple plumes
+add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+#
+# - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
+#
+datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}_${grid_label}
+#
+add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc               ./bc_aeropt_kinne_sw_b14_fin.nc
+#
+# - stratospheric aerosol
+year=$start_year
+while [[ $year -le $end_year ]]
+do
+  if [[ $year -le 1999 ]]
+  then
+    datadir=${icon_data_poolFolder}/aerosol/stenchikov
+    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+  else
+    datadir=${icon_data_poolFolder}/aerosol/stenchikov
+    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+  fi
+  (( year = year+1 ))
+done
+#
+# - sst and sic
+datadir=${icon_data_poolFolder}/sst_and_seaice/1.1.2
+add_link_file $datadir/sic_${grid_refinement}_${grid_label}.nc          ./bc_sic.nc
+add_link_file $datadir/sst_${grid_refinement}_${grid_label}.nc          ./bc_sst.nc
+#
+# - ssi and tsi
+datadir=${icon_data_poolFolder}/solar_radiation/3.2
+add_link_file $datadir/swflux_14band_cmip6_1850-2299-v3.2.nc            ./bc_solar_irradiance_sw_b14.nc
+#
+# - topography and sso parameters
+datadir=${icon_data_poolFolder}/preliminary_land_22-02-2018/${grid_refinement}_${grid_label}/land
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+#
+# - land parameters
+datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
+add_link_file $datadir/bc_land_frac_${pft_file_tag}1976.nc              ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+# added in namelist, but not active and not yet available (2017-Dec-07)
+#datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
+#add_link_file $datadir/bc_land_carbon_1976.nc                           ./bc_land_carbon.nc
+# The following bc_land_hd-file is not yet available...
+if [[ ${jsbach_with_hd} = yes ]]; then
+  datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
+  add_link_file $datadir/bc_land_hd.nc                                  ./bc_land_hd.nc
+fi
+#
+# - lctlib file for JSBACH
+add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 
 #--------------------------------------------------------------------------------------------------
 
@@ -326,6 +497,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
                     'ptp'     ,
@@ -353,16 +525,17 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwd'  ,
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
+                    'tend_ta_cnv'  , 'tend_ta_cld'  ,
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwd'  ,
-                    'tend_ua_cnv'  , 
+                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
+                    'tend_ua_cnv'  ,
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwd'  ,
+                    'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
-                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
+                    'tend_qhus_vdf',
+                    'tend_qhus_cnv', 'tend_qhus_cld',
                     !'tend_qhus_mox'
 /
 EOF
@@ -393,6 +566,32 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
                     !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
+/
+EOF
+fi
+
+
+# minimal jsbach output for running atm_amip experiment
+# for more jsbach output see exp.atm_amip_les
+#
+output_lnd=no
+#
+if [[ "$output_lnd" == "yes" ]]; then
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box'
 /
 EOF
 fi

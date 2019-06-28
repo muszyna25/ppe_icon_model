@@ -95,17 +95,23 @@ CONTAINS
 !!$       CASE(0)
 !!$          ! diagnostic, do not use tendency
 !!$       CASE(1)
-!!$          ! use tendencies of ART to update the related tracer fields
+!!$          ! use tendencies to update the model state
 !!$          ...
 !!$       CASE(2)
-!!$          ! use tendencies of ART as forcing in the dynamics
+!!$          ! use tendencies as forcing in the dynamics
 !!$          ...
 !!$       END SELECT
 !!$       !
 !!$       ! update physics state for input to the next physics process
-!!$       IF (lparamcpl) THEN
-!!$          ...
-!!$       END IF
+!!$       SELECT CASE(fc_art)
+!!$       CASE(0)
+!!$          ! diagnostic, do not use tendency
+!!$       CASE(1,2)
+!!$          ! use tendency to update the physics state
+!!$          IF (lparamcpl) THEN
+!!$             ...
+!!$          END IF
+!!$       END SELECT
 !!$       !
 !!$    ELSE
 !!$       !

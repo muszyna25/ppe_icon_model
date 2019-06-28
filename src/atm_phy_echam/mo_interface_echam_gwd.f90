@@ -162,11 +162,17 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_gwd(jcs:jce,:)*pdtime
-          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend_ua_gwd(jcs:jce,:)*pdtime
-          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend_va_gwd(jcs:jce,:)*pdtime
-       END IF
+       SELECT CASE(fc_gwd)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_gwd(jcs:jce,:)*pdtime
+             field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend_ua_gwd(jcs:jce,:)*pdtime
+             field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend_va_gwd(jcs:jce,:)*pdtime
+          END IF
+       END SELECT
        !
     ELSE
        !

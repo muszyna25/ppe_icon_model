@@ -38,18 +38,20 @@ CONTAINS
                        pcfm_tile,                                        &! in 
                        aa,         pcptgz,                               &! in
                        pum1,       pvm1,        ptm1,                    &! in
-                       pmair,      pmref,                                &! in
+                       pmair,                                            &! in
+!!$                       pmref,                                            &! in
                        pqm1,       pxlm1,       pxim1,       pxtm1,      &! in
                        pgeom1,      pztottevn,                           &! in
                        bb,                                               &! inout
-                       pzthvvar,   pxvar,       pz0m_tile,               &! inout
+                       pzthvvar,   pxvar,       pz0m_tile,               &! in, inout, inout
                        pkedisp,                                          &! out
                        pute_vdf,   pvte_vdf,    pq_vdf,                  &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pz0m,                                             &! out
                        pthvvar,                                          &! out
-                       ptotte,                                           &! out
-                       psh_vdiff,  pqv_vdiff                             )! out
+                       ptotte                                            )! out
+!!$                       ptotte,                                           &! out
+!!$                       psh_vdiff,  pqv_vdiff                             )! out
 
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim, klev, klevm1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
@@ -70,7 +72,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pvm1    (kbdim,klev)  !< q-wind at step t-dt
     REAL(wp),INTENT(IN) :: ptm1    (kbdim,klev)  !< temperature at step t-dt
     REAL(wp),INTENT(IN) :: pmair   (kbdim,klev)  !< moist air mass [kg/m2]
-    REAL(wp),INTENT(IN) :: pmref   (kbdim,klev)  !< dry   air mass [kg/m2]
+!!$    REAL(wp),INTENT(IN) :: pmref   (kbdim,klev)  !< dry   air mass [kg/m2]
     REAL(wp),INTENT(IN) :: pqm1    (kbdim,klev)  !< specific humidity at step t-dt
     REAL(wp),INTENT(IN) :: pxlm1   (kbdim,klev)  !< cloud water concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxim1   (kbdim,klev)  !< cloud ice   concentration at step t-dt
@@ -113,8 +115,8 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pthvvar   (kbdim,klev) !< variance of virtual potential temperature
                                                    !< at the new time step t
     REAL(wp),INTENT(OUT) :: ptotte    (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: psh_vdiff (kbdim)      ! sens. heat flux
-    REAL(wp),INTENT(OUT) :: pqv_vdiff (kbdim)      ! qv flux
+!!$    REAL(wp),INTENT(OUT) :: psh_vdiff (kbdim)      ! sens. heat flux
+!!$    REAL(wp),INTENT(OUT) :: pqv_vdiff (kbdim)      ! qv flux
 
 
     !-----------------------------------------------------------------------
@@ -127,17 +129,20 @@ CONTAINS
                          & ktrac, ksfc_type, idx_wtr,                   &! in
                          & pdtime,                                      &! in
                          & pum1, pvm1, ptm1,                            &! in
-                         & pmair, pmref,                                &! in
+                         & pmair,                                       &! in
+!!$                         & pmref,                                       &! in
                          & pqm1, pxlm1, pxim1, pxtm1,                   &! in
                          & pgeom1, pcptgz,                              &! in
                          & pztottevn, pzthvvar,                         &! in
                          & pcfm_tile, pfrc, bb,                         &! in
                          & pkedisp,                                     &! out
-                         & pxvar, pz0m_tile,                            &! inout
+                         & pxvar,                                       &! inout
+                         & pz0m_tile,                                   &! inout (out for iwtr)
                          & pute_vdf, pvte_vdf, pq_vdf,                  &! out
                          & pqte_vdf, pxlte_vdf, pxite_vdf, pxtte_vdf,   &! out
-                         & pz0m, ptotte, pthvvar,                       &! out
-                         & psh_vdiff, pqv_vdiff                         )! out
+                         & pz0m, ptotte, pthvvar                        )! out
+!!$                         & pz0m, ptotte, pthvvar,                       &! out
+!!$                         & psh_vdiff, pqv_vdiff                         )! out
 
     ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,
     !       wind stress, 10m wind, 2m temperature etc., has not been implemented yet.

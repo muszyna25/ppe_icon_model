@@ -62,7 +62,7 @@ CONTAINS
   SUBROUTINE atm_exchange_coeff( jg,                                      &! in
                                & jb,                                      &! in, for debugging only
                                & jcs, kproma, kbdim,                      &! in
-                               & klev, klevm1, klevp1,     &! in
+                               & klev, klevm1, klevp1,                    &! in
                                & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
                                & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -75,7 +75,7 @@ CONTAINS
                                & pcfm, pcfh, pcfv, pcftotte, pcfthv,      &! out
                                & pprfac, ptheta_b, pthetav_b, pthetal_b,  &! out
                                & pqsat_b, plh_b,                          &! out
-                               & pri, pmixlen                             )
+                               & pri, pmixlen                             )! out
     ! Arguments
 
     INTEGER, INTENT(IN) :: jg
@@ -94,7 +94,6 @@ CONTAINS
     REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pthvvar(kbdim,klev)
     REAL(wp),INTENT(IN) :: pustarm(kbdim)
-
     REAL(wp),INTENT(IN) :: ptottem1 (kbdim,klev)
 
     REAL(wp),INTENT(OUT) :: phdtcbl (kbdim)        !< top height of dry convective boundary layer
@@ -452,8 +451,8 @@ CONTAINS
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
                                & ptotte_b, pthvvar_b,                    &! in
-                               & pthvsig_b,                              &! inout
-                               & pwstar, pwstar_tile,                    &! inout
+                               & pthvsig_b,                              &! out
+                               & pwstar, pwstar_tile,                    &! out, inout
                                & pqsat_tile, pcpt_tile,                  &! out
                                & pri_gbm, pri_tile,                      &! out
                                & pcfm_gbm, pcfm_tile,                    &! out

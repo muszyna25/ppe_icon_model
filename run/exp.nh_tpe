@@ -161,7 +161,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  2
  echam_rad_config(1)%irad_cfc12 =  2
  echam_rad_config(1)%irad_aero  = 15
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /

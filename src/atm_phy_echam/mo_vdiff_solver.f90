@@ -193,10 +193,9 @@ CONTAINS
     REAL(wp),INTENT(IN) :: prmairh  (kbdim,klevm1)    !< reciprocal of layer air mass, half levels
     REAL(wp),INTENT(IN) :: prmrefm  (kbdim,klev)      !< reciprocal of layer ref air mass, full levels
 
-    REAL(wp),INTENT(INOUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices    out
-    REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)   !  out
-                                     !< last (the klev-th) row of the coeff. matrices 
-                                     !< of dry static energy and moisture
+    REAL(wp),INTENT(OUT) :: aa    (kbdim,klev,3,nmatrix)       !< exchange coeff. matrices
+    REAL(wp),INTENT(OUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv) !< last (the klev-th) row of the coeff. matrices 
+                                                               !< of dry static energy and moisture
 
     ! Local variables
 
@@ -417,8 +416,8 @@ CONTAINS
     REAL(wp),INTENT(IN) :: prmrefm  (kbdim,klev)
     REAL(wp),INTENT(IN) :: aa       (kbdim,klev,3,nmatrix)
 
-    REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  ! OUT
-    REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)  ! OUT
+    REAL(wp),INTENT(OUT) :: bb    (kbdim,klev,nvar_vdiff)
+    REAL(wp),INTENT(OUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
     ! Local variables
 
@@ -609,10 +608,10 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
-    REAL(wp),INTENT(INOUT) :: pen_h (kbdim,ksfc_type)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pfn_h (kbdim,ksfc_type)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pen_qv(kbdim,ksfc_type)  ! OUT
-    REAL(wp),INTENT(INOUT) :: pfn_qv(kbdim,ksfc_type)  ! OUT
+    REAL(wp),INTENT(OUT) :: pen_h (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pfn_h (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pen_qv(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pfn_qv(kbdim,ksfc_type)
 
     REAL(wp),OPTIONAL,INTENT(IN)    :: pcair(kbdim)
     REAL(wp),OPTIONAL,INTENT(IN)    :: pcsat(kbdim)
@@ -726,7 +725,8 @@ CONTAINS
                              & ktrac, ksfc_type, idx_wtr,                  &! in
                              & pdtime,                                     &! in
                              & pum1, pvm1, ptm1,                           &! in
-                             & pmair, pmref,                               &! in
+                             & pmair,                                      &! in
+!!$                             & pmref,                                      &! in
                              & pqm1, pxlm1, pxim1, pxtm1,                  &! in
                              & pgeom1, pcptgz,                             &! in
                              & pztottevn, pzthvvar,                        &! in
@@ -735,8 +735,9 @@ CONTAINS
                              & pxvar, pz0m_tile,                           &! inout
                              & pute_vdf, pvte_vdf, pq_vdf,                 &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf, pxtte_vdf,  &! out
-                             & pz0m, ptotte, pthvvar,                      &! out
-                             & psh_vdiff,pqv_vdiff                         )! out
+                             & pz0m, ptotte, pthvvar                       )! out
+!!$                             & pz0m, ptotte, pthvvar,                      &! out
+!!$                             & psh_vdiff,pqv_vdiff                         )! out
 
     INTEGER, INTENT(IN) :: jcs, kproma, kbdim, itop, klev, klevm1, ktrac !!$, klevp1
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
@@ -746,7 +747,7 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pvm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: ptm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pmair  (kbdim,klev)  !< moist air mass [kg/m2]
-    REAL(wp),INTENT(IN)  :: pmref  (kbdim,klev)  !< dry   air mass [kg/m2]
+!!$    REAL(wp),INTENT(IN)  :: pmref  (kbdim,klev)  !< dry   air mass [kg/m2]
     REAL(wp),INTENT(IN)  :: pqm1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxlm1  (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pxim1  (kbdim,klev)
@@ -776,8 +777,8 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pz0m     (kbdim)
     REAL(wp),INTENT(OUT) :: ptotte   (kbdim,klev)
     REAL(wp),INTENT(OUT) :: pthvvar  (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: psh_vdiff(kbdim)
-    REAL(wp),INTENT(OUT) :: pqv_vdiff(kbdim)
+!!$    REAL(wp),INTENT(OUT) :: psh_vdiff(kbdim)
+!!$    REAL(wp),INTENT(OUT) :: pqv_vdiff(kbdim)
 
     REAL(wp) :: ztest, zrdt
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, zhnew
