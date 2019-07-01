@@ -4708,6 +4708,15 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+tune\_thicklayfac&
+R&
+0.0025&
+1/m &
+Factor for enhancing the box width for model layer thicknesses exceeding 150 m &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 tune\_box\_liq\_asy&
 R&
 2.5&
@@ -4732,6 +4741,15 @@ run\_nml:iforcing = inwp
 \multicolumn{6}{|l|}{\textbf{Misc}} 
 \tabularnewline
 
+
+\hline
+tune\_gust\_factor&
+R&
+8.0&
+&
+Multiplicative factor for friction velocity in gust parameterization &
+run\_nml:iforcing = inwp
+\tabularnewline
 
 
 \hline

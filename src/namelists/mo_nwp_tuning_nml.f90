@@ -54,6 +54,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
     &                               config_tune_box_liq   => tune_box_liq,       &
     &                               config_tune_box_liq_asy => tune_box_liq_asy, &
+    &                               config_tune_thicklayfac => tune_thicklayfac, &
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
     &                               config_tune_gust_factor => tune_gust_factor, &  
     &                               config_itune_albedo   => itune_albedo,       &
@@ -142,6 +143,9 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Factor for increasing the box width in case of thick model layers
+    &  tune_thicklayfac            ! (in case of inwp_cldcover = 1)
+
   REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
     &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
 
@@ -172,7 +176,7 @@ MODULE mo_nwp_tuning_nml
     &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
     &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,&
     &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor, &
-    &                      tune_rdepths
+    &                      tune_rdepths, tune_thicklayfac
 
 CONTAINS
 
@@ -280,6 +284,7 @@ CONTAINS
     !
     ! cloud cover
     tune_box_liq     = 0.05_wp     ! box width scale of liquid clouds
+    tune_thicklayfac = 0.0025_wp   ! factor [1/m] for increasing the box with for layer thicknesses exceeding 150 m
     tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
 
@@ -381,6 +386,7 @@ CONTAINS
     config_tune_minsnowfrac      = tune_minsnowfrac
     config_tune_box_liq          = tune_box_liq
     config_tune_box_liq_asy      = tune_box_liq_asy
+    config_tune_thicklayfac      = tune_thicklayfac
     config_tune_dust_abs         = tune_dust_abs
     config_tune_gust_factor      = tune_gust_factor
     config_itune_albedo          = itune_albedo

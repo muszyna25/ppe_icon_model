@@ -51,7 +51,7 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac
 
   IMPLICIT NONE
 
@@ -285,7 +285,7 @@ CASE( 1 )
      ! in addition, sub-grid scale moisture variations in the vertical are parameterized depending on vertical resolution
      ! Diagnosed cloud water is proportional to clcov**2
      !
-      thicklay_fac = MIN(1._wp,MAX(0._wp,0.005_wp*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
+      thicklay_fac = MIN(1._wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
       zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
       zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
       deltaq = MAX(0.8_wp*zdeltaq,MIN((4._wp+thicklay_fac)*zrcld,2._wp*zdeltaq))
@@ -307,7 +307,7 @@ CASE( 1 )
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         ! compensating reduction of cloud water content if the thick-layer correction is active
-        fac_aux = 1._wp + (alvdcp*zdqlsat_dT(jl,jk)+thicklay_fac)*MIN(1._wp,2.5_wp*(1._wp-cc_turb_liq(jl,jk)))
+        fac_aux = 1._wp + (alvdcp*zdqlsat_dT(jl,jk)+thicklay_fac)*MIN(1._wp,2._wp*(1._wp-cc_turb_liq(jl,jk)))
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
           qc_turb  (jl,jk) = zaux**4 / (fac_aux*par2*deltaq**3)
         ELSE
