@@ -684,6 +684,7 @@ enable_rte_rrtmgp
 enable_rttov
 enable_art
 enable_mpi
+enable_mpi_checks
 enable_active_target_sync
 enable_openmp
 enable_openacc
@@ -1354,6 +1355,8 @@ Model Features:
 
 Infrastructural Features:
   --enable-mpi            enable MPI (parallelization) support [default=yes]
+  --enable-mpi-checks     enable configure-time checks of MPI library for
+                          known defects [default=yes]
   --enable-active-target-sync
                           enable MPI active target mode (otherwise, passive
                           target mode is used) [default=no]
@@ -2217,6 +2220,16 @@ if test "${enable_mpi+set}" = set; then :
 fi
 else
   enable_mpi=yes
+fi
+
+
+# Check whether --enable-mpi-checks was given.
+if test "${enable_mpi_checks+set}" = set; then :
+  enableval=$enable_mpi_checks; if test x"$enableval" != xno; then :
+  enable_mpi_checks=yes
+fi
+else
+  enable_mpi_checks=yes
 fi
 
 
@@ -5901,6 +5914,8 @@ fi
      ;; #(
   -enable-dependency-tracking|-enable-dependency-tracking=*|--enable-dependency-tracking|--enable-dependency-tracking=*|-disable-dependency-tracking|--disable-dependency-tracking) :
      ;; #(
+  -with-regard-for-quality|-with-regard-for-quality=*|--with-regard-for-quality|--with-regard-for-quality=*|-without-regard-for-quality|--without-regard-for-quality) :
+     ;; #(
   *) :
 
            case $acx_config_subdir_arg in #(
@@ -5915,7 +5930,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6401,6 +6416,8 @@ fi
      ;; #(
   -enable-mpi|-enable-mpi=*|--enable-mpi|--enable-mpi=*|-disable-mpi|--disable-mpi) :
      ;; #(
+  -enable-mpi-checks|-enable-mpi-checks=*|--enable-mpi-checks|--enable-mpi-checks=*|-disable-mpi-checks|--disable-mpi-checks) :
+     ;; #(
   -with-external-lapack|-with-external-lapack=*|--with-external-lapack|--with-external-lapack=*|-without-external-lapack|--without-external-lapack) :
      ;; #(
   -with-external-mtime|-with-external-mtime=*|--with-external-mtime|--with-external-mtime=*|-without-external-mtime|--without-external-mtime) :
@@ -6419,7 +6436,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy FCFLAGS="$yac_FCFLAGS" CFLAGS="$yac_CFLAGS" LDFLAGS="$yac_LDFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS="$yac_MTIME_CLIBS" NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime ; shift
+   set dummy FCFLAGS="$yac_FCFLAGS" CFLAGS="$yac_CFLAGS" LDFLAGS="$yac_LDFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS="$yac_MTIME_CLIBS" NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

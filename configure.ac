@@ -97,6 +97,13 @@ AC_ARG_ENABLE([mpi],
   [AS_IF([test x"$enableval" != xno], [enable_mpi=yes])],
   [enable_mpi=yes])
 
+AC_ARG_ENABLE([mpi-checks],
+  [AC_HELP_STRING([--enable-mpi-checks],
+     [enable configure-time checks of MPI library for known defects ]dnl
+[@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mpi_checks=yes])],
+  [enable_mpi_checks=yes])
+
 AC_ARG_ENABLE([active-target-sync],
   [AC_HELP_STRING([--enable-active-target-sync],
      [enable MPI active target mode (otherwise, passive target mode is used)
@@ -950,11 +957,13 @@ accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
-         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])]],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
          [LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
          [--disable-shared], [--enable-dependency-tracking],
-         [--enable-silent-rules="$enable_silent_rules"]])
+         [--enable-silent-rules="$enable_silent_rules"],
+         [--with-regard-for-quality="$enable_mpi_checks"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
       BUNDLED_LIBS="externals/yaxt/src/.libs/libyaxt.a dnl
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBS"])])
@@ -1184,6 +1193,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([xml])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([netcdf])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi-checks])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-lapack])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
         [[FCFLAGS="$yac_FCFLAGS"], [CFLAGS="$yac_CFLAGS"],
@@ -1193,7 +1203,8 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [MPI_FCFLAGS=], [MPI_FCLIBS=], [FORTRAN_LAPACK_CLIBS=],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
-         [--with-external-lapack=fortran], [--with-external-mtime]])
+         [--with-external-lapack=fortran], [--with-external-mtime],
+         [--enable-mpi-checks="$enable_mpi_checks"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yac/src"])
       BUNDLED_LIBS="externals/yac/src/libyac.a $BUNDLED_LIBS"])])
 
