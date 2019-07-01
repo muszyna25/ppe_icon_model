@@ -1990,8 +1990,10 @@ n\_dom$>$1
 
 %\hline
 lredgrid\_phys &
-L & .FALSE.& &
-If set to .true. radiation is calculated on a reduced grid (= one grid level higher) &
+L(n\_dom) & .FALSE.& &
+If set to .true. radiation is calculated on a reduced grid (= one grid level higher) \\
+Needs to be set for each model domain separately; for the global domain, the file containing the 
+reduced grid must be specified in the variable ``radiation\_grid\_filename" &
 \tabularnewline
 
 %\hline

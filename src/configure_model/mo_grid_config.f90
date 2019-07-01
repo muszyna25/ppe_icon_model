@@ -199,7 +199,7 @@ CONTAINS
       n_dom_start = 0
     ELSE
       n_dom_start = 1
-      lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
+      lredgrid_phys(1) = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
     
       ! the division method starts from 0, shift if there's no 0 grid (ie no reduced radiation)
       DO jg = no_of_dynamics_grids-1, 0, -1
