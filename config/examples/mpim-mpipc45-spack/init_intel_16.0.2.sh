@@ -7,6 +7,7 @@ SW_ROOT='/scratch/local1/icon-bootstrap/opt/intel-16.0.2'
 MPICH_ROOT="${SW_ROOT}/mpich-3.2.1-gubxzw3"
 MPICH_FC="${MPICH_ROOT}/bin/mpif90"
 MPICH_CC="${MPICH_ROOT}/bin/mpicc"
+MPICH_LAUNCH="${MPICH_ROOT}/bin/mpirun"
 
 HDF5_ROOT="${SW_ROOT}/hdf5-1.10.3-3uwessf"
 HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"

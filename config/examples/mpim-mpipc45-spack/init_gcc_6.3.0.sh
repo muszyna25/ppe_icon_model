@@ -8,6 +8,11 @@ SW_ROOT='/scratch/local1/icon-bootstrap/opt/gcc-6.3.0'
 MPICH_ROOT="${SW_ROOT}/mpich-3.2.1-7rbrrmk"
 MPICH_FC="${MPICH_ROOT}/bin/mpif90"
 MPICH_CC="${MPICH_ROOT}/bin/mpicc"
+MPICH_FCFLAGS="-I${MPICH_ROOT}/include"
+MPICH_CPPFLAGS="-I${MPICH_ROOT}/include"
+MPICH_LDFLAGS="-L${MPICH_ROOT}/lib"
+MPICH_LIBS='-lmpifort -lmpi'
+MPICH_LAUNCH="${MPICH_ROOT}/bin/mpirun"
 
 HDF5_ROOT="${SW_ROOT}/hdf5-1.10.3-45iykje"
 HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"

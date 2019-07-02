@@ -15,6 +15,7 @@ CFLAGS=
 CPPFLAGS="${HDF5_CPPFLAGS}"
 LDFLAGS="${HDF5_LDFLAGS} ${NETCDFF_LDFLAGS} ${ECCODES_LDFLAGS} ${CDI_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS}"
 LIBS="${LAPACK_LIBS} ${BLAS_LIBS} ${CDI_LIBS} ${NETCDFF_LIBS} ${HDF5_LIBS}"
+MPI_LAUNCH=$MPICH_LAUNCH
 
-$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-cdi --enable-sct --enable-grib2 --enable-yaxt --disable-coupling "$@"
+$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --with-external-cdi --enable-sct --enable-grib2 --enable-yaxt --disable-coupling "$@"
 

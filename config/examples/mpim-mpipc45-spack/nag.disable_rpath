@@ -20,13 +20,16 @@ MPI_LAUNCH=$MPICH_LAUNCH
 # Append RPATHs:
 # LDFLAGS and LIBS provided to ICON configure script are meant for Fortran
 # compiler and might not be understood by C compiler like in this case.
-# Therefore, we add RPATH flags not to LDFLAGS but to FCFLAGS:
+# Therefore, we add RPATH flags not to LDFLAGS but to FCFLAGS. Unfortunately,
+# we will not be able to link and run the test suites of CDI and SCT.
 FCFLAGS="${FCFLAGS} `echo ${LDFLAGS} | sed 's%-L[ ]*\([^ ][^ ]*\)%-Wl,-Wl,,-rpath -Wl,-Wl,,\1%g'`"
 
-# Some of the bundled libraries use C compiler for linking at the configure
-# time but we do not install the bundled libraries and link them statically.
-# Therefore, it's enough to set LD_LIBRARY_PATH:
-export LD_LIBRARY_PATH="`echo " ${LDFLAGS}" | sed 's/[ ][ ]*-L[ ]*/:/g'`:${LD_LIBRARY_PATH:-}"
+# The configure scripts of some of the bundled libraries need to link and run
+# C programs at configure time, which means that the dynamic linker must be
+# able to find all the libraries specified in the LIBS variable. Moreover, we
+# would like to be able to link and run the test suites of the bundled
+# libraries. Therefore, we extend the BUILD_ENV variable in the following way:
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH`echo "${LDFLAGS}" | sed 's/[ ]*-L[ ]*/:/g'`\"; export LD_LIBRARY_PATH;"
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 --disable-rpaths "$@"
 
