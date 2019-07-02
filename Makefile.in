@@ -2,7 +2,7 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV@
-DELEGATED_RULES = all depend preprocess mostlyclean clean maintainer-clean install srclist
+DELEGATED_RULES = all depend preprocess mostlyclean clean maintainer-clean install srclist check
 
 .SUFFIXES:
 .PHONY: $(DELEGATED_RULES) distclean dist snapshot help
@@ -16,6 +16,7 @@ help:
 	echo "where <jobs> is the number of simultaneous building jobs and <target> is one of"; \
 	echo "the following:"; \
 	echo "  'all' (default) build ICON"; \
+	echo "  'check'         check whether ICON is built correctly"; \
 	echo "  'install'       install ICON"; \
 	echo "  'depend'        generate dependency files"; \
 	echo "  'preprocess'    run source file preprocessing"; \
