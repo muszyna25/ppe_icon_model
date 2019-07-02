@@ -1053,6 +1053,7 @@ and LIBS accordingly])])
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
+      [--disable-mpi],
 dnl Currently, we don't have full control on choosing the GRIB2 backend (e.g.
 dnl grib_api, eccodes) due to the limitations of the configure script of
 dnl libcdi. Therefore, we set --with-grib_api=$enable_grib2 --without-eccodes
@@ -1198,13 +1199,14 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
         [[FCFLAGS="$yac_FCFLAGS"], [CFLAGS="$yac_CFLAGS"],
          [LDFLAGS="$yac_LDFLAGS"], [MTIME_CFLAGS="$yac_MTIME_CFLAGS"],
-         [MTIME_CLIBS="$yac_MTIME_CLIBS"], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
+         [MTIME_CLIBS=], [NETCDF_CFLAGS=], [NETCDF_CLIBS=],
          [XML2_CFLAGS=], [XML2_CLIBS=], [MPI_CFLAGS=], [MPI_CLIBS=],
          [MPI_FCFLAGS=], [MPI_FCLIBS=], [FORTRAN_LAPACK_CLIBS=],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
-         [--enable-mpi-checks="$enable_mpi_checks"]])
+         [--enable-mpi-checks="$enable_mpi_checks"],
+         [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yac/src"])
       BUNDLED_LIBS="externals/yac/src/libyac.a $BUNDLED_LIBS"])])
 
