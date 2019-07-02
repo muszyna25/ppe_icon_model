@@ -66,6 +66,10 @@ MODULE mo_nwp_phy_init
   USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
   USE mo_echam_cld_config,  ONLY: echam_cld_config
   USE mo_psrad_general,         ONLY: nbndsw
+#ifdef __ECRAD
+  USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
+  USE mo_ecrad,               ONLY: ecrad_conf
+#endif
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -766,7 +770,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !< radiation
   !------------------------------------------
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
-  CASE (1, 3)
+  CASE (1, 3, 4)
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
@@ -804,15 +808,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF
 
-    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1) THEN ! RRTM init
-      CALL setup_srtm
-      CALL lrtm_setup(lrtm_filename)
-      CALL setup_newcld_optics(cldopt_filename)
-    ELSE   ! PSRAD init
-      CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
-        & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-        & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
-    ENDIF
+    SELECT CASE(atm_phy_nwp_config(jg)%inwp_radiation)
+      CASE(1) ! RRTM init
+        CALL setup_srtm
+        CALL lrtm_setup(lrtm_filename)
+        CALL setup_newcld_optics(cldopt_filename)
+      CASE(3) ! PSRAD init
+        CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
+          & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+          & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+      CASE(4)
+#ifdef __ECRAD
+        ! Do ecrad initialization only once
+        IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
+#else
+        CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
+          &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
+#endif
+    END SELECT
 
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -1059,7 +1072,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
-
   END SELECT !inwp_radiation
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN

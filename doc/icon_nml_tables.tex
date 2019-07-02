@@ -4321,7 +4321,8 @@ radiation\\
 0: none\\
 1: RRTM radiation\\
 2: Ritter-Geleyn radiation\\
-3: PSRAD radiation
+3: PSRAD radiation\\
+4: ecRad radiation
 &run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -5786,10 +5787,12 @@ Method for cloud overlap calculation in shortwave part of RRTM\\
 1: maximum-random overlap \\
 2: generalized overlap (Hogan, Illingworth, 2000) \\
 3: maximum overlap \\
-4: random overlap
+4: random overlap \\
+5: exponential overlap
 &
 iforcing=inwp\\
-inwp\_radiation=1
+inwp\_radiation=1 (1-4)\\
+inwp\_radiation=4 (1,2,5)
 \tabularnewline
 
 %\hline
@@ -5906,6 +5909,46 @@ I&
 Select dynamic greenhouse gases scenario (read from file)\\
 0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
 1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
+\tabularnewline
+
+%\hline
+ecrad\_data\_path &
+C&
+"."&
+&
+Path to the folder containing ecRad optical properties files. 
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+llw\_cloud\_scat &
+L&
+.FALSE.&
+&
+Long-wave cloud scattering.
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+iliquid\_scat &
+I&
+0&
+&
+Optical properties for liquid cloud scattering. \\
+0: SOCRATES \\
+1: Slingo (1989)
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+iice\_scat &
+I&
+0&
+&
+Optical properties for ice cloud scattering. \\
+0: Fu et al. (1996) \\
+1: Baran et al. (2016)
+& inwp\_radiation=4 (ecRad)
 \tabularnewline
 
 %\hline

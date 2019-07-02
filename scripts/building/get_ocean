@@ -53,7 +53,7 @@ link_source_list "" "$link_list"
 rm $icon_ocean_to/config $icon_ocean_to/run $icon_ocean_to/externals
 link_source_list "config/" all
 link_source_list "run/" all
-link_source_list "externals/" "tixi mtime self"
+link_source_list "externals/" "ecrad tixi mtime self"
 
 
 #-----------------------------------------------------------------------------------

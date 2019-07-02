@@ -197,6 +197,18 @@ AS_IF([test "x$with_yac" = "xno"],
       [use_yac="no"],
       [use_yac="yes"])
 
+dnl ecrad (radiation scheme ecRad)
+
+AC_ARG_WITH([ecrad],
+  [AS_HELP_STRING([--with-ecrad],
+    [enable use of ecrad])],
+    [],
+    [])
+
+AS_IF([test "x$with_ecrad" = "xyes"],
+      [use_ecrad="yes"],
+      [use_ecrad="no"])
+
 dnl selects DLR's MESSy
 
 AC_ARG_ENABLE([cdi-pio],
@@ -1219,6 +1231,11 @@ if [[ "x$use_yac" = xyes ]] ; then
     fi
 fi
 
+if [[ "x$use_ecrad" = xyes ]] ; then
+    FFLAGS="${FFLAGS} -I`pwd`/externals/ecrad/module ${DEFOPT}__ECRAD"
+    CFLAGS="${CFLAGS} -I`pwd`/externals/ecrad/module"
+fi
+
 if [[ "x$use_messy" = xyes ]] ; then
     rm -f src/messy_interface
     ln -s -t src/ ../externals/messy_interface
@@ -1250,6 +1267,9 @@ if test "$use_mpcc_r" = yes ; then
 fi
 
 ac_objdirs=""
+if [[ "x$use_ecrad" = xyes ]] ; then
+    ac_objdirs="${ac_objdirs} `pwd`/externals/ecrad"
+fi
 for dir in $my_srcdirs ; do
     dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
@@ -1291,6 +1311,10 @@ fi
 
 if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+if [[ "x$use_ecrad" = xyes ]] ; then
+   ac_libs="$ac_libs -L`pwd`/externals/ecrad/lib -lradiation -lutilities -lifsrrtm -lifsaux"
 fi
 
 #------------------------
@@ -1476,6 +1500,7 @@ ac_libs="${ac_libs} -ltixi -lmtime -lself"
 AC_SUBST(LIB,$ac_libs)
 
 AC_SUBST(MODDIR,$MODDIR)
+AC_SUBST(MODOPT,$MODOPT)
 
 AC_SUBST(LDFLAGS,$LDFLAGS)
 
@@ -1562,7 +1587,7 @@ AC_SUBST(SRCDIRS,$ac_srcdirs)
 
 AC_SUBST(OBJDIRS,$ac_objdirs)
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES(Makefile externals/ecrad/Makefile_include.ecradICON)
 
 dnl ######################################################################
 dnl compiler versions
