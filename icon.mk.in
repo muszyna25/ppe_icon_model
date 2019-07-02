@@ -128,6 +128,9 @@ vpath %.c $(srcdir)
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
         distclean maintainer-clean install check force-create-version
+# Targets that do not need the inclusion of the dependency files:
+NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
+                 distclean maintainer-clean
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
@@ -155,13 +158,14 @@ clean: mostlyclean
 
 # Delete everything generated at the configure stage (and clean the created directories if they are empty):
 distclean: clean
-	rm -f config.log config.status icon.mk config.h depgen.f90.config depgen.c.config $(deps) $(dirstamps)
+	rm -f config.log config.status config.h depgen.f90.config depgen.c.config $(deps) $(dirstamps)
 	@for dir in $(subdirs) $(moddir) $(ppdir) $(bundled_subdirs) externals; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
           fi; \
 	done
+	rm -f icon.mk
 
 # Delete files generated at the autoreconf stage:
 maintainer-clean: distclean
@@ -321,6 +325,8 @@ $(bundled_subdirs):
 # Build the bundled mtime before the bundled yac:
 externals/yac: $(filter externals/mtime,$(bundled_subdirs))
 
+# Relink ICON executable if any of the source files of the bundled libraries
+# is updated (the semicolon is required to support parallel rebuild):
 $(BUNDLED_LIBS): $(bundled_subdirs);
 
 # Dummy dependency file generation rule (called by config.status): 
@@ -329,7 +335,12 @@ dummy-depend: | $(dirstamps)
 	  test -e "$$file" || touch "$$file"; \
 	done
 
-ifeq (,$(filter $(MAKECMDGOALS),depend dummy-depend preprocess mostlyclean clean distclean maintainer-clean))
+current_targets:= $(strip $(MAKECMDGOALS))
+ifeq (,$(current_targets))
+current_targets:= all
+endif
+
+ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
 include $(deps)
 endif
 

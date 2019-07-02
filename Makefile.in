@@ -2,13 +2,15 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV@
-DELEGATED_RULES = all depend preprocess mostlyclean clean maintainer-clean install srclist check
+DELEGATED_RULES= all depend preprocess mostlyclean clean maintainer-clean install srclist check
+DELEGATEE_FILE= icon.mk
 
 .SUFFIXES:
+.NOTPARALLEL:
 .PHONY: $(DELEGATED_RULES) distclean dist snapshot help
 
 $(DELEGATED_RULES):
-	@$(BUILD_ENV) $(MAKE) -f icon.mk $(MAKECMDGOALS)
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 
 help:
 	@echo "Usage:"; \
@@ -51,6 +53,7 @@ snapshot:
 	GIT_DIR=; unset GIT_DIR; ($(GIT) -C @top_srcdir@ ls-files --recurse-submodules && $(GIT) -C @top_srcdir@ ls-files -o --exclude-standard -x "/$$snapshot") | sed "s%^%$$snapshot/%" | $(TAR) chf - -T - | BZIP2=$${BZIP2--9} $(BZIP2) -c > "$$snapshot.tar.bz2"; \
 	rm -f "$$snapshot"
 
-distclean: clean
+distclean:
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 	rm -f Makefile
 
