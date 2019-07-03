@@ -79,7 +79,6 @@ CONTAINS
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !! History:
-  !! Added tot_prec_interval, mxt_interval by Trang Van Pham, DWD 2018-05-25
   !!
   SUBROUTINE read_io_namelist( filename )
 

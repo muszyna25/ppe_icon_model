@@ -34,8 +34,6 @@ MODULE mo_nwp_phy_state
 !! infrastructure by Kristina Froehlich (MPI-M, 2011-04-27)
 !! Added clch, clcm, clcl, hbas_con, htop_con by Helmut Frank (DWD, 2013-01-17)
 !! Added hzerocl, gust10                      by Helmut Frank (DWD, 2013-03-13)
-!! Added action reset after a user-defined interval by Trang Van Pham (DWD, 2018-05-25) for:
-!!    tot_prec, tmax_2m, tmin_2m,rain_gsp, ice_gsp, snow_gsp, hail_gsp, graupel_gsp, rain_con, snow_con.
 !!
 !! @par Copyright and License
 !!

@@ -13,7 +13,6 @@
 !!
 !! @par Revision History
 !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!! Added tot_prec_interval, mxt_interval by Trang Van Pham, DWD (2018-05-25)
 !!
 !! @par Copyright and License
 !!
