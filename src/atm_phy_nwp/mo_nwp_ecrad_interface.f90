@@ -145,14 +145,12 @@ CONTAINS
       &  nlev, nlevp1,          & !< Number of vertical levels (full, half)
       &  rl_start, rl_end,      & !< 
       &  i_startblk, i_endblk,  & !< blocks
-      &  i_startidx, i_endidx,  & !< slices
-      &  i_nchdom                 !< number of child domains
+      &  i_startidx, i_endidx     !< slices
     LOGICAL, ALLOCATABLE     :: &
       &  cosmu0mask(:)            !< Mask if cosmu0 > 0
 
     nlev      = pt_patch%nlev
     nlevp1    = nlev+1
-    i_nchdom  = MAX(1,pt_patch%n_childdom)
 
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
     
@@ -363,8 +361,6 @@ CONTAINS
       &  jg,                    & !< domain id
       &  nlev,                  & !< number of full levels
       &  nlev_rg, nlev_rgp1,    & !< number of full and half levels at reduced grid
-      &  i_nchdom,              & !< Number of child domains
-      &  i_chidx,               & !< Parent child index
       &  rl_start, rl_end,      & !< 
       &  i_startblk, i_endblk,  & !< blocks
       &  i_startidx, i_endidx     !< slices
@@ -416,8 +412,6 @@ CONTAINS
 
     jg         = pt_patch%id
     nlev       = pt_patch%nlev
-    i_chidx    = pt_patch%parent_child_index
-    i_nchdom   = MAX(1,pt_patch%n_childdom)
 
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
 
