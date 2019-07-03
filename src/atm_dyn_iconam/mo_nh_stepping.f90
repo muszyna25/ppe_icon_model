@@ -442,7 +442,7 @@ MODULE mo_nh_stepping
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
+      IF (output_mode%l_nml        .AND. &    ! meteogram output is only initialized for nml output
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
         CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
@@ -824,7 +824,7 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = l_nml_output
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
-        &          meteogram_is_sample_step(meteogram_output_config(jg), jstep )
+        &          (meteogram_is_sample_step(meteogram_output_config(jg), jstep ) .AND. output_mode%l_nml)
     END DO
     l_compute_diagnostic_quants = jstep >= 0 .AND. l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
@@ -986,7 +986,7 @@ MODULE mo_nh_stepping
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
+      IF (output_mode%l_nml        .AND. &    ! meteogram output is only initialized for nml output
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
         CALL meteogram_sample_vars(jg, jstep, mtime_current)

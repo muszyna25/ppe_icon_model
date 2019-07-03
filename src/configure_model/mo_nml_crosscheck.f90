@@ -37,7 +37,7 @@ MODULE mo_nml_crosscheck
     &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
   USE mo_master_config,      ONLY: isRestart
-  USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
+  USE mo_run_config,         ONLY: nsteps, dtime, iforcing, output_mode,             &
     &                              ltransport, ntracer, nlev, ltestcase,             &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ltimer,             &
@@ -67,7 +67,7 @@ MODULE mo_nml_crosscheck
   USE mo_nh_testcases_nml,   ONLY: nh_test_name, layer_thickness
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
-  USE mo_meteogram_config,   ONLY: check_meteogram_configuration
+  USE mo_meteogram_config,   ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
     &                              nroot, is_plane_torus, n_dom_start
 
@@ -961,8 +961,10 @@ CONTAINS
 
     ENDIF
 
-
     ! check meteogram configuration
+    IF (ANY(meteogram_output_config(:)%lenabled) .AND. .NOT. output_mode%l_nml) THEN
+      CALL finish(routine, "Meteograms work only for run_nml::output='nml'!")
+    END IF
     CALL check_meteogram_configuration(num_io_procs)
 
     IF (iforcing==iecham) CALL land_crosscheck()
