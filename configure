@@ -1331,9 +1331,9 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-rpaths         prepend LDFLAGS with additional linker flags to add
-                          directories specified with -L flags to the runtime
-                          library search path (RPATH) [default=yes]
+  --enable-rpaths         add directories specified with -L flags in LDFLAGS
+                          and LIBS to the runtime library search paths (RPATH)
+                          [default=yes]
   --enable-silent-rules   less verbose build output (undo: "make V=1")
                           [default=yes]
 
@@ -3523,7 +3523,6 @@ fi
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
 
-icon_libdirs=
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler flag needed to add a directory to the runtime library search path" >&5
 $as_echo_n "checking for C compiler flag needed to add a directory to the runtime library search path... " >&6; }
@@ -3540,31 +3539,6 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_rpath_flag" >&5
 $as_echo "$acx_cv_c_rpath_flag" >&6; }
 
-   eval icon_link_cmd="\"$ac_link\""
-   icon_L_args=
-   asx_extract_args_args=`echo $icon_link_cmd`
-   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
-   for asx_extract_args_arg in $asx_extract_args_args; do
-     case $asx_extract_args_arg in #(
-  _ASX_EXTRACT_ARGS_MARKER_*) :
-    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
-        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
-  *) :
-     ;;
-esac
-   done
-   for icon_L_arg in $icon_L_args; do
-     if test -d "$icon_L_arg"; then
-       case ' '$icon_libdirs' ' in #(
-  *' '"$icon_L_arg"' '*) :
-     ;; #(
-  ' '' ') :
-    as_fn_append icon_libdirs "$icon_L_arg" ;; #(
-  *) :
-    as_fn_append icon_libdirs ' '; as_fn_append icon_libdirs "$icon_L_arg" ;;
-esac
-     fi
-   done
 fi
 
 
@@ -4048,6 +4022,8 @@ fi
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 
+
+icon_c_rpaths= ; icon_fc_rpaths= ; icon_lt_rpaths=
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
 $as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
@@ -4064,9 +4040,8 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_rpath_flag" >&5
 $as_echo "$acx_cv_fc_rpath_flag" >&6; }
 
-   eval link_cmd="\"$ac_link\""
    icon_L_args=
-   asx_extract_args_args=`echo $link_cmd`
+   asx_extract_args_args="$LDFLAGS $LIBS"
    asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
    for asx_extract_args_arg in $asx_extract_args_args; do
      case $asx_extract_args_arg in #(
@@ -4077,6 +4052,7 @@ $as_echo "$acx_cv_fc_rpath_flag" >&6; }
      ;;
 esac
    done
+   icon_libdirs=
    for icon_L_arg in $icon_L_args; do
      if test -d "$icon_L_arg"; then
        case ' '$icon_libdirs' ' in #(
@@ -4089,18 +4065,12 @@ esac
 esac
      fi
    done
-fi
-
-
-icon_c_rpaths= ; icon_fc_rpaths= ; icon_lt_rpaths=
-for icon_libdir in $icon_libdirs; do
-  as_fn_append icon_c_rpaths "$acx_cv_c_rpath_flag$icon_libdir "
-  as_fn_append icon_fc_rpaths "$acx_cv_fc_rpath_flag$icon_libdir "
-  as_fn_append icon_lt_rpaths "-Wl,-rpath -Wl,$icon_libdir "
-done
-
-if test "x$enable_rpaths" = xyes; then :
-  ac_ext=c
+   for icon_libdir in $icon_libdirs; do
+     as_fn_append icon_c_rpaths "$acx_cv_c_rpath_flag$icon_libdir "
+     as_fn_append icon_fc_rpaths "$acx_cv_fc_rpath_flag$icon_libdir "
+     as_fn_append icon_lt_rpaths "-Wl,-rpath -Wl,$icon_libdir "
+   done
+   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -5006,9 +4976,12 @@ if test "x$enable_mixed_precision" = xyes; then :
 fi
 
 
+BUNDLED_LIBS=''
+
+BUNDLED_FCFLAGS=''
 
 
-
+DEPGEN_FCFLAGS=''
 
 
 DEPGEN_EXTERNAL_MODS='mpi'
@@ -5772,13 +5745,22 @@ else
   as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
       sct_CFLAGS=$subdir_CFLAGS
-      sct_FCFLAGS=$subdir_FCFLAGS
       sct_LDFLAGS=$subdir_LDFLAGS
-      if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
+      if test -n "$icon_c_rpaths"; then :
+  sct_test_failure_stage=
+         if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
   sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"
 else
   as_fn_append sct_CFLAGS " $icon_c_rpaths"
-         as_fn_append sct_FCFLAGS " $icon_fc_rpaths"
+            sct_test_failure_stage=run
+fi
+         if test x"$icon_c_rpaths" != x"$icon_lt_rpaths"; then :
+  sct_test_failure_stage=link
+fi
+         if test -n "$sct_test_failure_stage"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of SCT: the test suite of SCT might fail at $sct_test_failure_stage time" >&5
+$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of SCT: the test suite of SCT might fail at $sct_test_failure_stage time" >&2;}
+fi
 fi
          acx_config_subdir_args_externals_sct=
    acx_config_subdir_ignore_arg=no
@@ -5838,7 +5820,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy FCFLAGS="$sct_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix ; shift
+   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5886,6 +5868,15 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+      yaxt_LDFLAGS=$subdir_LDFLAGS
+      if test -n "$icon_lt_rpaths"; then :
+  if test x"$icon_c_rpaths" = x"$icon_lt_rpaths"; then :
+  yaxt_LDFLAGS="$icon_lt_rpaths$yaxt_LDFLAGS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of YAXT: the configure script of YAXT might fail" >&5
+$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of YAXT: the configure script of YAXT might fail" >&2;}
+fi
+fi
          acx_config_subdir_args_externals_yaxt=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -5930,7 +5921,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$yaxt_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6049,6 +6040,15 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+   cdi_LDFLAGS=$subdir_LDFLAGS
+   if test -n "$icon_lt_rpaths"; then :
+  if test x"$icon_c_rpaths" = x"$icon_lt_rpaths"; then :
+  cdi_LDFLAGS="$icon_lt_rpaths$cdi_LDFLAGS"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of CDI: the configure script of CDI might fail" >&5
+$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of CDI: the configure script of CDI might fail" >&2;}
+fi
+fi
       acx_config_subdir_args_externals_cdi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6109,7 +6109,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$cdi_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6184,6 +6184,14 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
+   mtime_LDFLAGS=$subdir_LDFLAGS
+   if test -n "$icon_c_rpaths"; then :
+  mtime_LDFLAGS="$icon_c_rpaths$mtime_LDFLAGS"
+      if test x"$icon_c_rpaths" != x"$icon_lt_rpaths"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of MTIME: the test suite of MTIME might fail at link time" >&5
+$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of MTIME: the test suite of MTIME might fail at link time" >&2;}
+fi
+fi
       acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6226,7 +6234,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$mtime_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

@@ -8,6 +8,7 @@
 .dirstamp
 /Makefile
 /c_binding.d
+/confdefs.h
 /config.cache
 /config.cache.externals.*
 /config.h

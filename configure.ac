@@ -16,9 +16,8 @@ dnl valid values.
 
 AC_ARG_ENABLE([rpaths],
   [AC_HELP_STRING([--enable-rpaths],
-     [prepend LDFLAGS with additional linker flags to add directories specified
-with -L flags to the runtime library search path (RPATH)
-@<:@default=yes@:>@])],
+     [add directories specified with -L flags in LDFLAGS and LIBS to the
+runtime library search paths (RPATH) @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_rpaths=yes])],
   [enable_rpaths=yes])
 
@@ -281,16 +280,7 @@ AS_VAR_IF([ac_cv_prog_cc_c99], [no],
 
 ACX_COMPILER_CC_VERSION
 
-icon_libdirs=
-AS_VAR_IF([enable_rpaths], [yes],
-  [ACX_SHLIB_CC_RPATH_FLAG
-   eval icon_link_cmd="\"$ac_link\""
-   ASX_EXTRACT_ARGS([icon_L_args], [`echo $icon_link_cmd`], ['-L@<:@ @:>@*'])
-   for icon_L_arg in $icon_L_args; do
-     if test -d "$icon_L_arg"; then
-       ASX_VAR_APPEND_UNIQ([icon_libdirs], ["$icon_L_arg"], [' '])
-     fi
-   done])
+AS_VAR_IF([enable_rpaths], [yes], [ACX_SHLIB_CC_RPATH_FLAG])
 
 dnl Check for headers that are protected with HAVE_* macros in the code
 dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
@@ -306,14 +296,12 @@ AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
 
 dnl Other header files that are protected in the code but not with the HAVE_*
 dnl macros:
-dnl util_hash.c: endian.h
-dnl util_sysinfo.c: mcheck.h sys/systemcfg.h
-dnl util_timer.c: sys/systemcfg.h asm/msr.h
+dnl support/util_hash.c: endian.h
+dnl support/util_sysinfo.c: mcheck.h sys/systemcfg.h
+dnl support/util_timer.c: sys/systemcfg.h asm/msr.h
 
 dnl Header files that are included from non-mandatory files
-dnl util_pbio.c: ffio.h pthread.h
-dnl util_postgresql.c: libpq-fe.h
-dnl util_signal.c: features.h strings.h fenv.h fptrap.h
+dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
 
 ICON_OPTIMIZATION_SET_CFLAGS
 ICON_OPTIMIZATION_CHECK_CFLAGS
@@ -329,105 +317,141 @@ AC_PROG_FC
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 
-AS_VAR_IF([enable_rpaths], [yes],
-  [ACX_SHLIB_FC_RPATH_FLAG
-   eval link_cmd="\"$ac_link\""
-   ASX_EXTRACT_ARGS([icon_L_args], [`echo $link_cmd`], ['-L@<:@ @:>@*'])
-   for icon_L_arg in $icon_L_args; do
-     if test -d "$icon_L_arg"; then
-       ASX_VAR_APPEND_UNIQ([icon_libdirs], ["$icon_L_arg"], [' '])
-     fi
-   done])
-
 dnl Notes on RPATHs for the bundled libraries:
 dnl
-dnl 1. RPATH flags must be valid at least for the primary compiler, i.e. the
-dnl    compiler that is checked first by the configure script of the bundled
-dnl    library (the standard cross-compilation check): if AC_PROG_CC is
-dnl    expanded first then the primary compiler is the C compiler, if
-dnl    AC_PROG_FC is expanded first, then the primary compiler is the Fortran
-dnl    compiler. The primary compiler for a package using libtool is the C
-dnl    compiler.
+dnl 1. RPATH flags must enable the dynamic linker to locate all the libraries
+dnl    listed in the LIBS at least when running an executable linked with the
+dnl    primary compiler, i.e. the compiler that is checked first by the
+dnl    configure script of a bundled library: if AC_PROG_CC is expanded first
+dnl    then the primary compiler is the C compiler, if AC_PROG_FC is expanded
+dnl    first, then the primary compiler is the Fortran compiler. The primary
+dnl    compiler for a package that uses libtool is always the C compiler. This
+dnl    requirement is induced by the standard cross-compilation check, which,
+dnl    if unsuccessful, fails the configuration. Obviously, this requirement
+dnl    must be satisfied for the rest of the compilers if they are used at
+dnl    configure-time in non-optional checks for linking with a following run
+dnl    of the resulting executable.
 dnl
-dnl 2. RPATH flags must not break the compilation and linking with a secondary
-dnl    compiler, which means that the absence of any RPATH flags might be
-dnl    better if the configure script of a bundled library does not run
-dnl    programs linked with them.
+dnl 2. RPATH flags must not break at least the compilation with the secondary
+dnl    or any other compiler required for building. Obviously, posing such a
+dnl    loose constraint is possible only if we can disable the usage of the
+dnl    secondary compiler for linking. For example, if the configure script of
+dnl    a bundled library does not fail when the linking with the secondary
+dnl    compiler is impossible and allows for generation of a makefile that does
+dnl    not create shared libraries or executables (e.g. the configure script
+dnl    has the option '--disable-shared'). In simple cases, this requirement
+dnl    can be met by moving RPATH flags from LDFLAGS to the list used by the
+dnl    primary compiler only (e.g. CFLAGS).
 dnl
-dnl 3. RPATH flags must be correctly interpreted by libtool if the configure
-dnl    script of a bundled library uses it for the checks. First, this means
-dnl    that such script is most likely unable to process RPATH flags correctly
-dnl    if their prefixes differ from '-Wl,-rpath -Wl,' (or '-Wl,-rpath,'). For
-dnl    example, we cannot run such configure script with CC='nagfor =C',
-dnl    because LDFLAGS='-Wl,-Wl,,-rpath -Wl,-Wl,,<lib dir>', which are valid
-dnl    for the compiler itself, are incorrectly transformed by libtool into
+dnl 3. In some cases, RPATH flags for the secondary compiler do not necessarily
+dnl    have to enable the dynamic linker to locate the libraries when running
+dnl    an executable but they must not break the configure-time checks that
+dnl    require linking with the secondary compiler. This means that sometimes
+dnl    it is better not to set any RPATH flags for the secondary compiler at
+dnl    all.
+dnl
+dnl 4. RPATH flags must be correctly interpreted by libtool. Especially if
+dnl    libtool is used for linking by the configure script of a bundled
+dnl    library. First, this means that such script is most likely unable to
+dnl    process RPATH flags correctly if their prefixes differ from
+dnl    '-Wl,-rpath -Wl,' or '-Wl,-rpath,'. For example, we cannot run such
+dnl    configure script with FC='nagfor', because
+dnl    LDFLAGS='-Wl,-Wl,,-rpath -Wl,-Wl,,<lib dir>', which are valid for the
+dnl    compiler itself, are incorrectly transformed by libtool into
 dnl    '-Wl,-Wl -Wl,"" -Wl,-rpath -Wl,-Wl -Wl,"" -Wl,<lib dir>'. Moreover,
 dnl    NAG compiler doesn't get special treatment by libtool if it is used as
-dnl    C compiler, because ac_cv_c_compiler_gnu equals 'yes' in this case (see
-dnl    the implementation of libtool). The second problem is that libtool
-dnl    relies on the name of the compiler executable. This means that depending
-dnl    on whether we are using the MPI compiler wrappers or not, we need to
-dnl    specify RPATH flags differently (unless the bundled library has a
-dnl    patched version of libtool that recognizes NAG compiler even if it is
-dnl    called with a wrapper).
+dnl    C compiler (i.e. CC='nagfor =C'), because ac_cv_c_compiler_gnu equals
+dnl    'yes' in this case (see the implementation of libtool). The second
+dnl    problem is that libtool relies on the name of the compiler executable.
+dnl    This means that depending on whether we are using the MPI compiler
+dnl    wrappers or not, we need to specify RPATH flags differently (unless the
+dnl    bundled library has a patched version of libtool that can recognize
+dnl    compiler even if it is called with a wrapper).
 dnl
-dnl 4. The configure script of a bundled library might have its non-standard
+dnl 5. The configure script of a bundled library might have its non-standard
 dnl    solutions for the problems above.
 dnl
 dnl Currently, the configure scripts of the bundled libraries need the
 dnl following treatment regarding RPATH flags:
 dnl
-dnl 1. ECRAD: does not use libtool, needs only Fortran compiler. We just pass
-dnl    LDFLAGS containing RPATH flags in the original form understood by the
-dnl    the Fortran compiler.
+dnl 1. RTE+RRTMGP: does not use libtool, needs only Fortran compiler. RPATH
+dnl    flags can be appended to LDFLAGS with the prefixes accepted by the
+dnl    Fortran compiler.
 dnl
-dnl 2. RTE+RRTMGP: does not use libtool, needs only Fortran compiler. We just
-dnl    pass LDFLAGS containing RPATH flags in the original form understood by
-dnl    the the Fortran compiler.
+dnl 2. ECRAD: does not use libtool, needs only Fortran compiler. RPATH flags
+dnl    can be appended to LDFLAGS with the prefixes accepted by the Fortran
+dnl    compiler.
 dnl
-dnl 3. SCT: libtool-based, no checks using libtool directly (however, the
-dnl    configure script tries to find .la files and parse them), runs linking
-dnl    checks for both C and Fortran compilers. If the original forms of RPATH
-dnl    flags for C and Fortran compilers are the same, we set LDFLAGS,
-dnl    otherwise we append the flags to CFLAGS and FCFLAGS.
+dnl 3. SCT: libtool-based, no configure-time checks using libtool directly
+dnl    (however, the configure script tries to find .la files and parse them),
+dnl    runs link-and-run checks for C compiler and link-only checks for Fortran
+dnl    compilers. RPATH flags can be appended to LDFLAGS if the linker prefixes
+dnl    accepted by Fortran and C compilers are the same. It is possible to
+dnl    build the static version of SCT library (--disable-shared) if the linker
+dnl    prefix of the C compiler is different from the prefix of libtool (e.g.
+dnl    CC='nagfor =C') but the linking of the post-build tests (i.e. tests from
+dnl    the test suite that are run with 'make check' command) fail in this
+dnl    case. If the linker prefixes accepted by C and Fortran compilers differ,
+dnl    RPATH flags should be appended to CFLAGS only to give libtool a chance
+dnl    to link the post-build tests. Obviously, in this case, post-build tests
+dnl    that run executables linked with Fortran compiler might not get all
+dnl    required RPATHS (some of them will be added by libtool though) and fail.
 dnl
-dnl 4. YAXT: libtool-based, runs checks using libtool for both C and Fortran
-dnl    compilers, implements custom workarounds that transform FCFLAGS, which
-dnl    don't seem to work as they should (at least with Libtool 2.4.6). So,
-dnl    we should not try to modify FCFLAGS. Thus, we provide the configure
-dnl    script of YAXT with LDFLAGS containing RPATH flags in the form
-dnl    understood by libtool and expect the latter to take care of the correct
-dnl    transformations. YAXT has a patched version of libtool, which recognizes
-dnl    NAG compiler when it is called with an MPI wrapper.
+dnl 4. YAXT: libtool-based, runs link-and-run checks for C compiler directly
+dnl    and link-and-run checks for both C and Fortran compilers using libtool.
+dnl    Implements custom workarounds that transform FCFLAGS, which we can't
+dnl    adopt since they don't seem to work as expected (at least with Libtool
+dnl    2.4.6). Therefore, we should not try to modify FCFLAGS. RPATH flags can
+dnl    be appended to LDFLAGS with the prefixes accepted by libtool (YAXT has a
+dnl    patched version of libtool, which recognizes NAG compiler when it is
+dnl    called with an MPI wrapper). However, this solution works only if the C
+dnl    compiler accepts RPATH flags in the same form (i.e. CC='nagfor =C' is
+dnl    not supported).
 dnl
-dnl 5. CDI: libtool-based, runs checks using libtool only for C compiler.
-dnl    Therefore, we pass LDFLAGS containing RPATH flags in the form understood
-dnl    by libtool. Since no checks requiring linking with Fortran compiler are
-dnl    run, we would be safe even when using MPI wrappers. Nonetheless, there
-dnl    is a patch for libtool in CDI that allows for recognition of NAG
-dnl    compiler through a wrapper.
+dnl 5. CDI: libtool-based, runs link-and-run checks for C compiler directly,
+dnl    link-only checks for C compiler using libtool, and compile-only checks
+dnl    for Fortran compiler using libtool (if MPI support is disabled in CDI).
+dnl    RPATH flags can be appended to LDFLAGS with the linker prefixes accepted
+dnl    by libtool (CDI has a patched version of libtool, which recognizes NAG
+dnl    compiler when it is called with an MPI wrapper). However, this solution
+dnl    works only if the C compiler accepts RPATH flags in the same form (i.e.
+dnl    CC='nagfor =C' is not supported).
 dnl
-dnl 6. MTIME: libtool-based, no checks using libtool, no linking checks with
-dnl    Fortran compiler. Therefore, we set LDFLAGS containing RPATH flags in
-dnl    the original form of the C compiler. Works even with CC='nagfor =C'.
+dnl 6. MTIME: libtool-based, runs link-and-run checks for C compiler directly,
+dnl    no checks using libtool, no link checks for Fortran compiler. It is
+dnl    possible to disable any linking at build-time (--disable-examples,
+dnl    --disable-shared), therefore RPATH flags can be appended to LDFLAGS with
+dnl    the prefixes of the C compiler even if they are different from the
+dnl    prefixes accepted by libtool (e.g. CC='nagfor =C'). However, the linking
+dnl    of post-build tests will fail in this case.
 dnl
-dnl 7. YAC: does not use libtool, runs linking checks for both C and Fortran
-dnl    compilers. If the original forms of RPATH flags for C and Fortran
-dnl    compilers are the same, we set LDFLAGS, otherwise we append the flags to
-dnl    CFLAGS and FCFLAGS.
+dnl 7. YAC: does not use libtool, runs link-and-run checks for both C and
+dnl    Fortran compilers. If the original forms of RPATH flags for C and
+dnl    Fortran compilers are the same, we set LDFLAGS, otherwise we append the
+dnl    flags to CFLAGS and FCFLAGS.
 dnl
-dnl 8. TIXI: does not use libtool, no linking checks with Fortran compiler.
-dnl    Therefore, we set LDFLAGS containing RPATH flags in the original form of
-dnl    the C compiler.
+dnl 8. TIXI: does not use libtool, does not run linking checks for Fortran
+dnl    compiler. RPATH flags can be appended to LDFLAGS wit the prefixes
+dnl    accepted by the C compiler.
 dnl
-dnl 9. SELF: does not use libtool, needs only Fortran compiler. We just pass
-dnl    LDFLAGS containing RPATH flags in the original form understood by the
-dnl    the Fortran compiler.
+dnl 9. SELF: does not use libtool, needs only Fortran compiler. RPATH flags
+dnl    can be appended to LDFLAGS with the prefixes accepted by the Fortran
+dnl    compiler.
 dnl
-dnl Another possible solution is to rely on the fact that we do not install the
-dnl bundled libraries and link them statically, therefore all we need is their
-dnl configure scripts to succeed, which can be done by extending
-dnl LD_LIBRARY_PATH (or its analogue):
+dnl Another possible solution for enabling the building and testing of the
+dnl bundled libraries is to rely on the fact that we do not install the bundled
+dnl libraries and link them statically, therefore all we probably need is to
+dnl export and extend LD_LIBRARY_PATH (or its analogue) here before running
+dnl the configure scripts and in the makefile before running the tests (the
+dnl latter can be done either by extending the BUILD_ENV variable or by
+dnl introducing a separate TESTS_ENVIRONMENT variable like the one supported
+dnl by Automake, see
+dnl https://www.gnu.org/software/automake/manual/html_node/Scripts_002dbased-Testsuites.html).
+dnl
+dnl The detection of the environment variable that the dynamic linker refers to
+dnl when searching for the shared libraries (e.g. LD_LIBRARY_PATH) is already
+dnl implemented in ./m4/acx_shlib.m4 as an M4 macro ACX_SHLIB_PATH_VAR, which
+dnl can be used in the following way:
 dnl
 dnl   ACX_SHLIB_PATH_VAR
 dnl   for icon_libdir in $icon_libdirs; do
@@ -437,19 +461,28 @@ dnl   done
 dnl   eval export $acx_cv_shlib_path_var
 dnl
 dnl The drawback of this approach is that we modify the environment, which a
-dnl user doesn't expect and might not want.
+dnl user doesn't expect and might not want because the modification might
+dnl affect not only the dynamic linker at runtime but the linker at build-time
+dnl too.
 
 icon_c_rpaths= ; icon_fc_rpaths= ; icon_lt_rpaths=
-for icon_libdir in $icon_libdirs; do
-  AS_VAR_APPEND([icon_c_rpaths], ["$acx_cv_c_rpath_flag$icon_libdir "])
-  AS_VAR_APPEND([icon_fc_rpaths], ["$acx_cv_fc_rpath_flag$icon_libdir "])
-  AS_VAR_APPEND([icon_lt_rpaths], ["-Wl,-rpath -Wl,$icon_libdir "])
-done
-
 AS_VAR_IF([enable_rpaths], [yes],
-  [AC_LANG([C])
+  [ACX_SHLIB_FC_RPATH_FLAG
+   ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
+   icon_libdirs=
+   for icon_L_arg in $icon_L_args; do
+     if test -d "$icon_L_arg"; then
+       ASX_VAR_APPEND_UNIQ([icon_libdirs], ["$icon_L_arg"], [' '])
+     fi
+   done
+   for icon_libdir in $icon_libdirs; do
+     AS_VAR_APPEND([icon_c_rpaths], ["$acx_cv_c_rpath_flag$icon_libdir "])
+     AS_VAR_APPEND([icon_fc_rpaths], ["$acx_cv_fc_rpath_flag$icon_libdir "])
+     AS_VAR_APPEND([icon_lt_rpaths], ["-Wl,-rpath -Wl,$icon_libdir "])
+   done
+   AC_LANG_PUSH([C])
    ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_c_rpaths])
-   AC_LANG([Fortran])
+   AC_LANG_POP([C])
    ACX_SHLIB_RPATH_FLAGS_CHECK([$icon_fc_rpaths])])
 
 dnl Original LDFLAGS to be passed to the configure scripts in subdirectories:
@@ -600,15 +633,15 @@ dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
-dnl A list of enabled bundled libraries:
-AC_SUBST([BUNDLED_LIBS], [])
-dnl A list of flags enabling location of the Fortran modules of the bundled
-dnl libraries:
-AC_SUBST([BUNDLED_FCFLAGS], [])
+dnl A list of library files (i.e. *.a files) of the enabled bundled libraries:
+AC_SUBST([BUNDLED_LIBS], [''])
+dnl A list of Fortran compiler flags specifying search paths of the module
+dnl files of the bundled libraries:
+AC_SUBST([BUNDLED_FCFLAGS], [''])
 
 dnl Additional macro definitions to aid the dependency generator,
 dnl e.g. compiler intrinsic macros:
-AC_SUBST([DEPGEN_FCFLAGS], [])
+AC_SUBST([DEPGEN_FCFLAGS], [''])
 
 dnl A list of Fortran modules that are used in ICON but are not part of it:
 dnl MPI:
@@ -898,12 +931,19 @@ disable the SCT timer (--disable-sct) or provide an external dnl
 version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
       sct_CFLAGS=$subdir_CFLAGS
-      sct_FCFLAGS=$subdir_FCFLAGS
       sct_LDFLAGS=$subdir_LDFLAGS
-      AS_IF([test x"$icon_c_rpaths" = x"$icon_fc_rpaths"],
-        [sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"],
-        [AS_VAR_APPEND([sct_CFLAGS], [" $icon_c_rpaths"])
-         AS_VAR_APPEND([sct_FCFLAGS], [" $icon_fc_rpaths"])])
+      AS_IF([test -n "$icon_c_rpaths"],
+        [sct_test_failure_stage=
+         AS_IF([test x"$icon_c_rpaths" = x"$icon_fc_rpaths"],
+           [sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"],
+           [AS_VAR_APPEND([sct_CFLAGS], [" $icon_c_rpaths"])
+            sct_test_failure_stage=run])
+         AS_IF([test x"$icon_c_rpaths" != x"$icon_lt_rpaths"],
+           [sct_test_failure_stage=link])
+         AS_IF([test -n "$sct_test_failure_stage"],
+           [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
+version of SCT: the test suite of SCT might fail at $sct_test_failure_stage dnl
+time])])])
       ACX_CONFIG_SUBDIR([externals/sct],
         [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -918,7 +958,7 @@ accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([libpapi-prefix])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([libhdf5-prefix])]],
-        [[FCFLAGS="$sct_FCFLAGS"], [CFLAGS="$sct_CFLAGS"],
+        [[FCFLAGS="$subdir_FCFLAGS"], [CFLAGS="$sct_CFLAGS"],
          [LDFLAGS="$sct_LDFLAGS"], [MPICC=], [MPIFC=], [--enable-static],
          [--disable-shared], [--disable-maintainer-mode],
          [--enable-mpi="$enable_mpi"], [--enable-openmp="$enable_openmp"],
@@ -952,6 +992,12 @@ YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
 version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
+      yaxt_LDFLAGS=$subdir_LDFLAGS
+      AS_IF([test -n "$icon_lt_rpaths"],
+        [AS_IF([test x"$icon_c_rpaths" = x"$icon_lt_rpaths"],
+           [yaxt_LDFLAGS="$icon_lt_rpaths$yaxt_LDFLAGS"],
+           [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
+version of YAXT: the configure script of YAXT might fail])])])
       ACX_CONFIG_SUBDIR([externals/yaxt],
         [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -960,7 +1006,7 @@ accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-         [LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+         [LDFLAGS="$yaxt_LDFLAGS"], [--enable-static],
          [--disable-shared], [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"],
          [--with-regard-for-quality="$enable_mpi_checks"]])
@@ -1033,6 +1079,12 @@ dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
+   cdi_LDFLAGS=$subdir_LDFLAGS
+   AS_IF([test -n "$icon_lt_rpaths"],
+     [AS_IF([test x"$icon_c_rpaths" = x"$icon_lt_rpaths"],
+        [cdi_LDFLAGS="$icon_lt_rpaths$cdi_LDFLAGS"],
+        [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
+version of CDI: the configure script of CDI might fail])])])
    ACX_CONFIG_SUBDIR([externals/cdi],
      [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -1049,7 +1101,7 @@ and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [LDFLAGS="$icon_lt_rpaths$subdir_LDFLAGS"], [--enable-static],
+      [LDFLAGS="$cdi_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
@@ -1111,6 +1163,12 @@ dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of MTIME (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
+   mtime_LDFLAGS=$subdir_LDFLAGS
+   AS_IF([test -n "$icon_c_rpaths"],
+     [mtime_LDFLAGS="$icon_c_rpaths$mtime_LDFLAGS"
+      AS_IF([test x"$icon_c_rpaths" != x"$icon_lt_rpaths"],
+        [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
+version of MTIME: the test suite of MTIME might fail at link time])])])
    ACX_CONFIG_SUBDIR([externals/mtime],
      [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -1118,7 +1176,7 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS"], [--enable-static],
+      [LDFLAGS="$mtime_LDFLAGS"], [--enable-static],
       [--disable-shared], [--enable-silent-rules="$enable_silent_rules"],
       [--disable-examples]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/mtime/src"])

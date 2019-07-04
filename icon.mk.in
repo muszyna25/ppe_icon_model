@@ -183,11 +183,13 @@ srclist: $(deps)
 # readable and prevent from possible overloading due to
 # multiple MPI runs):
 check: all
-	@all_cheks_passed=yes; \
+	@fail=; pass=; \
 	for d in $(bundled_subdirs); do \
-	  $(MAKE) -C "$$d" check V=$(V) || all_cheks_passed=no; \
+	  if $(MAKE) -C "$$d" check V=$(V); then pass="$$pass$$d "; \
+	  else fail="$$fail$$d "; fi; \
 	done; \
-	test x"$$all_cheks_passed" = xyes
+	echo "PASS: $$pass"; echo "FAIL: $$fail"; \
+	test -z "$$fail"
 
 # ICON executable linking rule:
 icon@EXEEXT@: $(icon_rootobj) $(shell $(DEPLIST) -t $(icon_rootobj) -p '*.@OBJEXT@' --inc-oo -f $(deps)) $(BUNDLED_LIBS)
