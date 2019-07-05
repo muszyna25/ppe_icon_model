@@ -41,11 +41,11 @@ MODULE mo_advection_utils
 
 
 
+  ! functions
   PUBLIC :: laxfr_upflux
   PUBLIC :: laxfr_upflux_v
-  PUBLIC :: ptr_delp_mc_now
-  PUBLIC :: ptr_delp_mc_new
 
+  ! types
   PUBLIC :: t_list2D
 
   
@@ -57,14 +57,6 @@ MODULE mo_advection_utils
   END TYPE t_list2D
 
 
-  ! In order to avoid circular dependencies these two pointers
-  ! have been moved from mo_advection_stepping to this module.
-  REAL(wp), CONTIGUOUS, POINTER ::  &
-    &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
-                                        !< at cell center
-  REAL(wp), CONTIGUOUS, POINTER ::  &
-    &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
-                                        !< at cell center
 
 CONTAINS
 

@@ -46,7 +46,6 @@ MODULE mo_advection_vlimit
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
@@ -99,8 +98,9 @@ CONTAINS
   !! @par Revision History
   !! - Inital revision by Daniel Reinert, DWD (2011-01-07)
   !!
-  SUBROUTINE vflx_limiter_pd( ptr_patch, p_dtime, p_cc, p_mflx_tracer_v, &
-    &                         opt_rlstart, opt_rlend, opt_slev, opt_elev )
+  SUBROUTINE vflx_limiter_pd( ptr_patch, p_dtime, p_cc, p_rhodz_now,     &
+    &                         p_mflx_tracer_v, opt_rlstart, opt_rlend,   &
+    &                         opt_slev, opt_elev )
 
     TYPE(t_patch), INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -108,6 +108,9 @@ CONTAINS
     REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable at time (n)
       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
                                      !< [kg kg^-1]
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::     &    !< time step [s]
       &  p_dtime
@@ -174,8 +177,8 @@ CONTAINS
     ENDIF
 
 
-!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_v ), &
-!$ACC      PRESENT( ptr_delp_mc_now ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_v ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
@@ -215,7 +218,7 @@ CONTAINS
           ! fraction which must multiply the fluxes out of cell jk to guarantee no
           ! undershoot
           ! Nominator: maximum allowable decrease \rho^n q^n
-          r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_delp_mc_now(jc,jk,jb)) &
+          r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) &
             &         /(p_m(jc) + dbl_eps) )
 
         ENDDO
@@ -347,7 +350,8 @@ CONTAINS
 
         ! detect spurious extremum
         !
-        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,lselective_limit)) THEN
+        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
+          &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
 
           !
           ! parabola must be modified to remove local extremum
@@ -478,7 +482,8 @@ CONTAINS
 
         ! detect spurious undershoots
         !
-        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,lselective_limit)) THEN
+        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
+          &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
 
           !
           ! parabola must be modified to remove local undershoots
@@ -542,7 +547,8 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2019-01-11)
   !!
-  LOGICAL FUNCTION isExtremumSpurious(jc, jk, is_main_crit, z_a6i, p_cc, p_face, lselective_limit)
+  LOGICAL FUNCTION isExtremumSpurious(jc, jk, is_main_crit, z_a6i, p_cc, p_face, &
+    &                                 jk_min, jk_max, lselective_limit)
 !$ACC ROUTINE SEQ
 
     INTEGER , INTENT(IN) :: jc, jk           !< cell at hand
@@ -553,22 +559,22 @@ CONTAINS
                                              !  only required for jk+1,jk+2,jk,jk-1,jk-2 at given jc
     LOGICAL , INTENT(IN) :: lselective_limit !< distinguishes between selective 
                                              !  and non-selective limiting
-
+    INTEGER, INTENT(IN)  :: jk_min           !< minimum half level up to which p_face is filled with 
+                                             !< meaningful values 
+    INTEGER, INTENT(IN)  :: jk_max           !< maximum half level up to which p_face is filled with 
+                                             !< meaningful values
+                                             !< Accessing indices beyond this range leads to 
+                                             !< non-reporducible results.
     ! local
     LOGICAL  :: is_crit(5)          ! additional criteria of selective limiter
-    INTEGER  :: jk_max, jk_min
     INTEGER  :: jkp1, jkp2, jkp3, jkm1, jkm2  ! neighbour indices
     REAL(wp) :: loc_extremum        ! location of extreme value in dimensionless coordinate
     REAL(wp) :: val_extremum        ! extreme value
     REAL(wp) :: z_a1                ! linear coefficient of parabolic interpolant
     !-----------------------------------------------------------------------
 
-
     IF (is_main_crit.AND.lselective_limit) THEN
 
-      jk_max = UBOUND(p_face,2)
-      jk_min = LBOUND(p_face,2)
-      !
       jkp1 = MIN(jk+1,jk_max)
       jkp2 = MIN(jk+2,jk_max)
       jkp3 = MIN(jk+3,jk_max)
@@ -582,14 +588,14 @@ CONTAINS
       is_crit(4) = ((p_face(jc,jkp1) - p_face(jc,jkp2)) * z_a1 )                               <= 0._wp
       !
       ! determine location of extremum
-      loc_extremum = 0.5_wp*(1._wp + (p_face(jc,jk) - p_face(jc,jkp1))/(z_a6i+dbl_eps))
+      loc_extremum = 0.5_wp*(1._wp + (p_face(jc,jk) - p_face(jc,jkp1))/(SIGN(ABS(z_a6i)+dbl_eps,z_a6i)))
       ! determine extremum
       val_extremum = p_cc - (p_face(jc,jk) - p_face(jc,jkp1))*(0.5_wp - loc_extremum) &
           &         - z_a6i*(1._wp/6._wp - loc_extremum + loc_extremum*loc_extremum)
       is_crit(5) = val_extremum < 0._wp
 
       ! result
-      isExtremumSpurious = ANY(is_crit(:).eqv..TRUE.)
+      isExtremumSpurious = ANY(is_crit(:))
 
     ELSE
       ! result

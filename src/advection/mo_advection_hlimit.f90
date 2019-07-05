@@ -48,7 +48,6 @@ MODULE mo_advection_hlimit
 #ifndef USE_LAXFR_MACROS
   USE mo_advection_utils,     ONLY: laxfr_upflux
 #endif
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
@@ -101,8 +100,9 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2016-09-21)
   !! - remove iterative flux correction, since it does not pay off
   !!
-  SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc, p_mass_flx_e,  &
-    &                         p_mflx_tracer_h, slev, elev, opt_beta_fct,        &
+  SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc,            &
+    &                         p_rhodz_now, p_rhodz_new, p_mass_flx_e,       &
+    &                         p_mflx_tracer_h, slev, elev, opt_beta_fct,    &
     &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(inout) ::  &   !< patch on which computation is performed
@@ -113,6 +113,12 @@ CONTAINS
 
     REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable
       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n+1
+      &  p_rhodz_new(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(in) ::     &    !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)         !< (provided by dynamical core)
@@ -233,7 +239,7 @@ CONTAINS
 
 !$ACC DATA CREATE( z_mflx_low, z_anti, z_mflx_anti_in, z_mflx_anti_out, r_m, r_p ),          &
 !$ACC      CREATE( z_tracer_new_low, z_tracer_max, z_tracer_min, z_min, z_max, z_fluxdiv_c ),&
-!$ACC      PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_mflx_tracer_h ),                          &
+!$ACC      PCOPYIN( p_cc, p_mass_flx_e, p_rhodz_now, p_rhodz_new ), PCOPY( p_mflx_tracer_h ),&
 !$ACC      PRESENT( ptr_patch%cells%refin_ctrl, ptr_int%geofac_div,                          &
 !$ACC               iilc, iibc, iilnc, iibnc, iidx, iblk ),                                  &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
@@ -335,16 +341,16 @@ CONTAINS
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
 
-          z_mflx_anti_1 =                                                           &
-            &     p_dtime * ptr_int%geofac_div(jc,1,jb) / ptr_delp_mc_new(jc,jk,jb)  &
+          z_mflx_anti_1 =                                                        &
+            &     p_dtime * ptr_int%geofac_div(jc,1,jb) / p_rhodz_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
-          z_mflx_anti_2 =                                                           &
-            &     p_dtime * ptr_int%geofac_div(jc,2,jb) / ptr_delp_mc_new(jc,jk,jb)  &
+          z_mflx_anti_2 =                                                        &
+            &     p_dtime * ptr_int%geofac_div(jc,2,jb) / p_rhodz_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
 
-          z_mflx_anti_3 =                                                           &
-            &     p_dtime * ptr_int%geofac_div(jc,3,jb) / ptr_delp_mc_new(jc,jk,jb)  &
+          z_mflx_anti_3 =                                                        &
+            &     p_dtime * ptr_int%geofac_div(jc,3,jb) / p_rhodz_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           ! Sum of all incoming antidiffusive fluxes into cell jc
@@ -369,10 +375,10 @@ CONTAINS
 !             both iidx(:,:,3) and iblk(:,:,3) possess problem.
 !        Status 2015_09_22: this is related to the COLLAPSE directive mentioned above
 !
-          z_tracer_new_low(jc,jk,jb) =                           &
-            &      ( p_cc(jc,jk,jb) * ptr_delp_mc_now(jc,jk,jb)  &
-            &      - p_dtime * z_fluxdiv_c(jc,jk) )              &
-            &      / ptr_delp_mc_new(jc,jk,jb)
+          z_tracer_new_low(jc,jk,jb) =                        &
+            &      ( p_cc(jc,jk,jb) * p_rhodz_now(jc,jk,jb)   &
+            &      - p_dtime * z_fluxdiv_c(jc,jk) )           &
+            &      / p_rhodz_new(jc,jk,jb)
 
           ! precalculate local maximum of current tracer value and low order
           ! updated value
@@ -587,7 +593,7 @@ CONTAINS
   !! - Adaption for hexagonal model by Almut Gassmann, MPI-M (2010-11-18)
   !!
   SUBROUTINE hflx_limiter_pd( ptr_patch, ptr_int, p_dtime, p_cc,        &
-    &                         p_mflx_tracer_h, slev, elev, opt_rho,     &
+    &                         p_rhodz_now, p_mflx_tracer_h, slev, elev, &
     &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &   !< patch on which computation is performed
@@ -599,6 +605,9 @@ CONTAINS
     REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable
       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
                                      !< [kg kg^-1]
+
+    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::     &    !< time step [s]
       &  p_dtime
@@ -612,10 +621,6 @@ CONTAINS
 
     INTEGER, INTENT(IN) ::      &    !< vertical end level
       &  elev
-
-    REAL(wp), INTENT(IN), TARGET, OPTIONAL :: &!< density (\rho \Delta z)
-      &  opt_rho(:,:,:)                !< dim: (nproma,nlev,nblks_c)
-                                       !< [kg m^-2]
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'edge value'
@@ -650,9 +655,6 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
-    REAL(wp), DIMENSION(:,:,:), POINTER:: &  !< pointer to density field (nnow)
-      &  ptr_rho
-
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
@@ -672,11 +674,6 @@ CONTAINS
     CALL assign_if_present(i_rlstart,opt_rlstart)
     CALL assign_if_present(i_rlend  ,opt_rlend)
 
-    IF ( PRESENT(opt_rho) ) THEN
-      ptr_rho => opt_rho
-    ELSE
-      ptr_rho => ptr_delp_mc_now
-    ENDIF
 
     ! number of child domains
     i_nchdom = MAX(1,ptr_patch%n_childdom)
@@ -692,7 +689,7 @@ CONTAINS
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
 
-!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc ), PCOPY( p_mflx_tracer_h ),                  &
+!$ACC DATA CREATE( z_mflx, r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_h ),     &
 !$ACC      PRESENT( ptr_patch%edges%refin_ctrl, ptr_int%geofac_div, iilc, iibc, iidx, iblk ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_h ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
@@ -783,7 +780,7 @@ CONTAINS
           ! fraction which must multiply all fluxes out of cell jc to guarantee no
           ! undershoot
           ! Nominator: maximum allowable decrease of \rho q
-          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) &
             &                        /(p_m + dbl_eps) )
 
 #else
@@ -806,7 +803,7 @@ CONTAINS
           ! no
           ! undershoot
           ! Nominator: maximum allowable decrease of \rho q
-          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) &
             &                        /(p_m(jc,jk) + dbl_eps) )
 
           

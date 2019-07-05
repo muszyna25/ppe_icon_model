@@ -179,7 +179,7 @@ CONTAINS
       &  p_cellhgt_mc_now(:,:,:)    !< time step n (either \Delta p or \Delta z)
                                     !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(IN)::  &       !< NH: density weighted cell height at full levels
+    REAL(wp), INTENT(IN)::  &       !< NH: density times cell thickness at cell center
       &  p_cellmass_now(:,:,:)      !< at time step n [kg/m**2]
                                     !< dim: (nproma,nlev,nblks_c)
 
@@ -1373,9 +1373,10 @@ CONTAINS
     !
     IF (p_itype_vlimit == IFLUXL_VPD) THEN
       ! positive-definite (pd) limiter
-      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_upflux,     & !in,inout
-        &                   opt_rlstart=i_rlstart,                & !in
-        &                   opt_rlend=i_rlend, opt_slev=slev      ) !in
+      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_cellmass_now, & !in
+        &                   p_upflux,                               & !inout
+        &                   opt_rlstart=i_rlstart,                  & !in
+        &                   opt_rlend=i_rlend, opt_slev=slev        ) !in
     ENDIF
 
 
@@ -2110,9 +2111,10 @@ CONTAINS
     !
     IF (p_itype_vlimit == IFLUXL_VPD) THEN
       ! positive-definite (pd) limiter
-      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_upflux,     & !in,inout
-        &                   opt_rlstart=i_rlstart,                & !in
-        &                   opt_rlend=i_rlend, opt_slev=slev      ) !in
+      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_cellmass_now, & !in
+        &                   p_upflux,                               & !inout
+        &                   opt_rlstart=i_rlstart,                  & !in
+        &                   opt_rlend=i_rlend, opt_slev=slev        ) !in
     ENDIF
 
 
@@ -2218,7 +2220,6 @@ CONTAINS
 
     USE mo_parallel_config,         ONLY: nproma
     USE mo_nonhydro_types ,         ONLY: t_nh_metrics
-    USE mo_impl_constants_grf,      ONLY: grf_bdywidth_c
 
     IMPLICIT NONE
 

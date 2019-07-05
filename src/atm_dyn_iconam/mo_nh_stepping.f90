@@ -95,7 +95,6 @@ MODULE mo_nh_stepping
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases_nml,         ONLY: is_toy_chem, ltestcase_update
-  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
@@ -480,7 +479,7 @@ MODULE mo_nh_stepping
 
   CALL perform_nh_timeloop (mtime_current, latbc)
 
-  CALL deallocate_nh_stepping (latbc)
+  CALL deallocate_nh_stepping
 
 
   END SUBROUTINE perform_nh_stepping
@@ -2836,9 +2835,8 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping(latbc)
+  SUBROUTINE deallocate_nh_stepping
 
-    TYPE (t_latbc_data), INTENT(INOUT) :: latbc
   INTEGER                              ::  jg, ist
 
   !-----------------------------------------------------------------------

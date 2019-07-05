@@ -328,9 +328,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-  ! Does not seem to be needed because undershoots happen practically never
-  !  CALL hflx_limiter_pd(p_patch, p_int, dtime, aerosol, flx_aero,      &
-  !                       1, 5, rhodz_now_int, opt_rlend=min_rlcell_int-1)
+
 
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 

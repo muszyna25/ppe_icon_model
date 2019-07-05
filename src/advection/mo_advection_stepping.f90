@@ -69,7 +69,6 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config, t_trList
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_fortran_tools,       ONLY: negative2zero
 #ifdef _OPENACC
@@ -245,11 +244,19 @@ CONTAINS
     REAL(vp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev) 
 
-    REAL(wp), POINTER   &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    , CONTIGUOUS        &
-#endif
-      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_current_tracer(:,:,:,:) => NULL() !< pointer to tracer field
+
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
+                                          !< at cell center
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
+                                          !< at cell center
+
+    INTEGER, CONTIGUOUS, POINTER ::   &   !< Pointer to line and block indices (array)
+      &  iidx(:,:,:) => NULL(),       &   !< of edges
+      &  iblk(:,:,:) => NULL()
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR)
@@ -260,9 +267,6 @@ CONTAINS
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: iadv_slev_jt                      ! Workaround OpenACC limitation
-
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-      &  iidx, iblk                          !< of edges
 
     TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
     TYPE(t_trList), POINTER :: trNotAdvect   !< Pointer to tracer sublist
@@ -590,7 +594,7 @@ CONTAINS
     i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer,                                &! in
-      &                  ptr_delp_mc_now,                                    &! in
+      &                  ptr_delp_mc_now, ptr_delp_mc_new,                   &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura,                 &! in
