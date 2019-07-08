@@ -41,11 +41,7 @@ MODULE mo_advection_vlimit
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_impl_constants,      ONLY: min_rlcell
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
@@ -98,83 +94,49 @@ CONTAINS
   !! @par Revision History
   !! - Inital revision by Daniel Reinert, DWD (2011-01-07)
   !!
-  SUBROUTINE vflx_limiter_pd( ptr_patch, p_dtime, p_cc, p_rhodz_now,     &
-    &                         p_mflx_tracer_v, opt_rlstart, opt_rlend,   &
-    &                         opt_slev, opt_elev )
-
-    TYPE(t_patch), INTENT(IN) ::  &   !< patch on which computation is performed
-      &  ptr_patch
-
-    REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable at time (n)
-      &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
-                                     !< [kg kg^-1]
-
-    REAL(wp), INTENT(IN) ::    &    !< density times cell thickness at timestep n
-      &  p_rhodz_now(:,:,:)         !< dim: (nproma,nlev,nblks_c)
+  SUBROUTINE vflx_limiter_pd( p_dtime, p_cc, p_rhodz_now,             &
+    &                         p_mflx_tracer_v, i_startidx, i_endidx,  &
+    &                         slev, elev )
 
     REAL(wp), INTENT(IN) ::     &    !< time step [s]
       &  p_dtime
 
+    REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable at time (n)
+      &  p_cc(:,:)                   !< dim: (nproma,nlev)
+                                     !< [kg kg^-1]
+
+    REAL(wp), INTENT(IN) ::     &    !< density times cell thickness at timestep n
+      &  p_rhodz_now(:,:)            !< dim: (nproma,nlev)
+
     REAL(wp), INTENT(INOUT) ::  &    !< calculated vertical tracer mass flux
-      &  p_mflx_tracer_v(:,:,:)      !< dim: (nproma,nlevp1,nblks_c)
+      &  p_mflx_tracer_v(:,:)        !< dim: (nproma,nlevp1)
                                      !< [kg m^-2 s^-1]
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
+    INTEGER, INTENT(IN) ::      &    !< horizontal start and end index of DO loop
+      &  i_startidx, i_endidx
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
+    INTEGER, INTENT(IN) ::      &    !< vertical start and end level
+      &  slev, elev
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
+    ! local
+    !
+    REAL(wp) ::                 &    !< fraction with which all outgoing fluxes 
+      &  r_m(nproma,SIZE(p_cc,2))    !< of cell jk are multiplied 
+                                     !< to guarantee positive definiteness
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+    REAL(wp) :: p_m(nproma)          !< sum of fluxes out of cell
+                                     !< [kg m^-2]
 
-    REAL(wp) ::                      & !< fraction which must multiply all
-      &  r_m(nproma,ptr_patch%nlev)    !< outgoing fluxes of cell jc
-                                       !< to guarantee positive definiteness
+    REAL(wp) :: z_signum             !< sign of mass flux
+                                     !< >0: upward; <0: downward
 
-    REAL(wp) :: p_m(nproma)            !< sum of fluxes out of cell
-                                       !< [kg m^-2]
-
-    REAL(wp) :: z_signum               !< sign of mass flux
-                                       !< >0: upward; <0: downward
-
-    INTEGER  :: slev, elev             !< vertical start and end level
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend
-    INTEGER  :: jk, jb, jc     !< index of edge, vert level, block, cell
+    INTEGER  :: jk, jc               !< index of vert level, cell
     INTEGER  :: jkp1, jkm1
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN :64 :: r_m,p_m
 #endif
   !-------------------------------------------------------------------------
-
-    ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev = opt_slev
-    ELSE
-      slev = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = ptr_patch%nlev
-    END IF
-
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_c
-    ENDIF
-
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rlcell
-    ENDIF
 
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_v ), &
@@ -188,70 +150,56 @@ CONTAINS
     ENDIF
 
 
-    i_startblk   = ptr_patch%cells%start_block(i_rlstart)
-    i_endblk     = ptr_patch%cells%end_block(i_rlend)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,jkp1,p_m,r_m,jkm1,&
-!$OMP z_signum) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-      !
-      ! 1. Compute total outward mass
-      !
+    !
+    ! 1. Compute total outward mass (loop over full levels)
+    !
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG PRIVATE(p_m)
-      DO jk = slev, elev
-        jkp1 = jk+1
+    !$ACC LOOP GANG PRIVATE(p_m)
+    DO jk = slev, elev
+      jkp1 = jk+1
 
-        !$ACC LOOP VECTOR
-        DO jc = i_startidx, i_endidx
+      !$ACC LOOP VECTOR
+      DO jc = i_startidx, i_endidx
 
-          ! Sum of all outgoing fluxes out of cell jk
-          p_m(jc) = p_dtime                                  &
-            &     * (MAX(0._wp,p_mflx_tracer_v(jc,jk,jb))    &  ! upper half level
-            &      - MIN(0._wp,p_mflx_tracer_v(jc,jkp1,jb)) )   ! lower half level
+        ! Sum of all outgoing fluxes out of cell jk
+        p_m(jc) = p_dtime                               &
+          &     * (MAX(0._wp,p_mflx_tracer_v(jc,jk))    &  ! upper half level
+          &      - MIN(0._wp,p_mflx_tracer_v(jc,jkp1)) )   ! lower half level
 
-          ! fraction which must multiply the fluxes out of cell jk to guarantee no
-          ! undershoot
-          ! Nominator: maximum allowable decrease \rho^n q^n
-          r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) &
-            &         /(p_m(jc) + dbl_eps) )
+        ! fraction with which all the fluxes out of cell jk must be multiplied 
+        ! to guarantee no undershoot
+        ! Nominator: maximum allowable mass loss \rho^n q^n
+        r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk)*p_rhodz_now(jc,jk)) &
+          &         /(p_m(jc) + dbl_eps) )
 
-        ENDDO
       ENDDO
-!$ACC END PARALLEL
-
-      !
-      ! 2. Limit outward fluxes (loop over half levels)
-      !    Choose r_m depending on the sign of p_mflx_tracer_v
-      !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG VECTOR PRIVATE(jkm1,z_signum) COLLAPSE(2)
-      DO jk = slev+1, elev
-        DO jc = i_startidx, i_endidx
-          jkm1 = jk-1
-
-          ! NH:
-          ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k   -> k-1
-          ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k-1 -> k
-          !
-          z_signum = SIGN(1._wp,p_mflx_tracer_v(jc,jk,jb))
-
-          p_mflx_tracer_v(jc,jk,jb) =  p_mflx_tracer_v(jc,jk,jb)  * 0.5_wp    &
-            &                       * ( (1._wp + z_signum) * r_m(jc,jk)   &
-            &                       +   (1._wp - z_signum) * r_m(jc,jkm1) )
-  
-        ENDDO
-      ENDDO
-!$ACC END PARALLEL
     ENDDO
+!$ACC END PARALLEL
 
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+    !
+    ! 2. Limit outward fluxes (loop over half levels)
+    !    Choose r_m depending on the sign of p_mflx_tracer_v
+    !
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(jkm1,z_signum) COLLAPSE(2)
+    DO jk = slev+1, elev
+      DO jc = i_startidx, i_endidx
+        jkm1 = jk-1
+
+        ! NH:
+        ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k   -> k-1
+        ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k-1 -> k
+        !
+        z_signum = SIGN(1._wp,p_mflx_tracer_v(jc,jk))
+
+        p_mflx_tracer_v(jc,jk) =  p_mflx_tracer_v(jc,jk)  * 0.5_wp      &
+          &                       * ( (1._wp + z_signum) * r_m(jc,jk)   &
+          &                       +   (1._wp - z_signum) * r_m(jc,jkm1) )
+  
+      ENDDO
+    ENDDO
+!$ACC END PARALLEL
+
 
 !$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA

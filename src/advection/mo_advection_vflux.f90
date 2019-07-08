@@ -1361,23 +1361,26 @@ CONTAINS
 
       ENDIF
 
-    ENDDO
+      !
+      ! 6. If desired, apply positive-definite flux limiter to limit 
+      !    computed fluxes (based on work by Zalesak (1979)).
+      !
+      IF (p_itype_vlimit == IFLUXL_VPD) THEN
+        ! positive-definite (pd) flux limiter
+        CALL vflx_limiter_pd( p_dtime         = p_dtime,                & !in
+          &                   p_cc            = p_cc(:,:,jb),           & !in
+          &                   p_rhodz_now     = p_cellmass_now(:,:,jb), & !in
+          &                   p_mflx_tracer_v = p_upflux(:,:,jb),       & !inout
+          &                   i_startidx      = i_startidx,             & !in
+          &                   i_endidx        = i_endidx,               & !in
+          &                   slev            = slev,                   & !in
+          &                   elev            = elev_lim                ) !in
+      ENDIF
 
+    ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-    !
-    ! 6. If desired, apply positive-definite flux limiter to limit 
-    !    computed fluxes (based on work by Zalesak (1979)).
-    !
-    IF (p_itype_vlimit == IFLUXL_VPD) THEN
-      ! positive-definite (pd) limiter
-      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_cellmass_now, & !in
-        &                   p_upflux,                               & !inout
-        &                   opt_rlstart=i_rlstart,                  & !in
-        &                   opt_rlend=i_rlend, opt_slev=slev        ) !in
-    ENDIF
 
 
     !
@@ -2101,21 +2104,28 @@ CONTAINS
 
       ENDIF
 
+
+      !
+      ! 6. If desired, apply positive-definite flux limiter to limit 
+      !    computed fluxes (based on work by Zalesak (1979)).
+      !
+      IF (p_itype_vlimit == IFLUXL_VPD) THEN
+        ! positive-definite (pd) flux limiter
+        CALL vflx_limiter_pd( p_dtime         = p_dtime,                & !in
+          &                   p_cc            = p_cc(:,:,jb),           & !in
+          &                   p_rhodz_now     = p_cellmass_now(:,:,jb), & !in
+          &                   p_mflx_tracer_v = p_upflux(:,:,jb),       & !inout
+          &                   i_startidx      = i_startidx,             & !in
+          &                   i_endidx        = i_endidx,               & !in
+          &                   slev            = slev,                   & !in
+          &                   elev            = elev_lim                ) !in
+      ENDIF
+
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    !
-    ! 6. If desired, apply positive-definite flux limiter to limit 
-    !    computed fluxes (based on work by Zalesak (1979)).
-    !
-    IF (p_itype_vlimit == IFLUXL_VPD) THEN
-      ! positive-definite (pd) limiter
-      CALL vflx_limiter_pd( p_patch, p_dtime, p_cc, p_cellmass_now, & !in
-        &                   p_upflux,                               & !inout
-        &                   opt_rlstart=i_rlstart,                  & !in
-        &                   opt_rlend=i_rlend, opt_slev=slev        ) !in
-    ENDIF
+
 
 
 #ifndef _OPENACC
