@@ -35,7 +35,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
     &                              num_io_procs, itype_comm,                         &
     &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
+  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
   USE mo_master_config,      ONLY: isRestart
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing, output_mode,             &
     &                              ltransport, ntracer, nlev, ltestcase,             &
@@ -45,7 +45,8 @@ MODULE mo_nml_crosscheck
     &                              iqni, iqni_nuc, iqg, iqm_max,                     &
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                              inccn, ininact, ininpot,                          &
-    &                              activate_sync_timers, timers_level, lart
+    &                              activate_sync_timers, timers_level, lart,         &
+    &                              msg_level
   USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
   USE mo_advection_config,   ONLY: advection_config
 
@@ -81,6 +82,7 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
+  USE mo_nudging_config,     ONLY: nudging_config, indg_type
   USE mo_nudging_nml,        ONLY: check_nudging
   USE mo_upatmo_config,      ONLY: upatmo_config
   USE mo_upatmo_nml,         ONLY: check_upatmo
@@ -110,6 +112,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
     REAL(wp) :: restart_time
     TYPE(datetime), POINTER :: reference_dt
+    LOGICAL  :: l_global_nudging
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
@@ -142,15 +145,19 @@ CONTAINS
       'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    ! or if there are no lateral boundary data to be read
-    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
+    ! or in global nudging mode or if there are no lateral boundary data to be read
+    l_global_nudging = nudging_config%nudge_type == indg_type%globn
+    IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. latbc_config%itype_latbc == 0) THEN
+      IF (num_prefetch_proc /=0) CALL message(routine,' WARNING! num_prefetch_proc reset to 0 !')
+      num_prefetch_proc = 0
+    ENDIF
 
     ! If LatBC data is unavailable: Idle-wait-and-retry
     !
     IF (latbc_config%nretries > 0) THEN
       !
       ! ... only supported for prefetching LatBC mode
-      IF (.NOT. l_limited_area .OR. (num_prefetch_proc == 0)) THEN
+      IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. (num_prefetch_proc == 0)) THEN
         CALL finish(routine, "LatBC: Idle-wait-and-retry only supported for prefetching LatBC mode!")
       END IF
       !
@@ -200,18 +207,6 @@ CONTAINS
                  (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     END SELECT
-
-
-    ! Limited area mode must not be enabled for torus grid:
-    IF (is_plane_torus .AND. l_limited_area) THEN
-      CALL finish(routine, 'Plane torus grid requires l_limited_area = .FALSE.!')
-    END IF
-
-    ! Root bisection "0" does not make sense for limited area mode; it
-    ! is more likely that the user tried to use a torus grid here:
-    IF (l_limited_area .AND. (nroot == 0)) THEN
-      CALL finish(routine, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
-    END IF
 
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
@@ -308,7 +303,7 @@ CONTAINS
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(routine, &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
-    IF (grf_intmethod_e >= 5 .AND. iequations /= INWP .AND. n_dom > 1) THEN
+    IF (grf_intmethod_e >= 5 .AND. iequations /= INH_ATMOSPHERE .AND. n_dom > 1) THEN
       grf_intmethod_e = 4
       CALL message( routine, 'grf_intmethod_e has been reset to 4')
     ENDIF
@@ -971,10 +966,12 @@ CONTAINS
 
     CALL art_crosscheck()
 
-    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                     &
-      &                 l_limited_area, latbc_config%lsparse_latbc, latbc_config%itype_latbc, & 
-      &                 latbc_config%nudge_hydro_pres, LATBC_TYPE_CONST, is_plane_torus,      &
-      &                 lart, ndyn_substeps                                                   )
+    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                &
+      &                 l_limited_area, num_prefetch_proc, latbc_config%lsparse_latbc,   &
+      &                 latbc_config%itype_latbc, latbc_config%nudge_hydro_pres,         &
+      &                 latbc_config%latbc_varnames_map_file, LATBC_TYPE_CONST,          & 
+      &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
+      &                 nsteps, msg_level                                                )
 
     CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
       &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &

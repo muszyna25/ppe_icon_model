@@ -3096,7 +3096,8 @@ Available for synchronous read mode (num\_prefetch\_proc = 0) only!
 R &
 10800.0& s
 &
-Time difference between two consecutive boundary data.
+Time difference between two consecutive boundary data. 
+(Upper bound for asynchronous read-in: 1 day = 86400 s.)
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -4064,10 +4065,10 @@ Defined and used in: \verb+src/namelists/mo_nonhydrostatic_nml.f90+
 \subsection{nudging\_nml}
 
 Parameters for the upper boundary nudging in the limited-area mode 
-(grid\_nml: l\_limited\_area = .TRUE.). For the lateral boundary nudging, 
-please see interpol\_nml and limarea\_nml. 
+(grid\_nml: l\_limited\_area = .TRUE.) or global nudging. 
+For the lateral boundary nudging, please see interpol\_nml and limarea\_nml. 
 The characteristics of the driving data for the nudging can be specified 
-in limarea\_nml. 
+in limarea\_nml.
 
 \begin{longtab}
 
@@ -4077,11 +4078,24 @@ I &
 0 &
   &
 Nudging type: \\
-0: none \\
-1: upper boundary nudging \\
+{\textasteriskcentered} 0: none \\
+{\textasteriskcentered} 1: upper boundary nudging \\
+{\textasteriskcentered} 2: global nudging \\
 Please note: \\
-- nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
-- nudging is applied in primary domian only\\
+{\textbullet} nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
+{\textbullet} nudging is applied in primary domain only \\
+{\textbullet} for global nudging the following settings in limarea\_nml 
+are mandatory: \\
+- itype\_latbc = 1 (time-dependent driving data)\\
+- dtime\_latbc = \ldots \\
+- latbc\_path = "{\ldots}" \\
+- latbc\_boundary\_grid = "{ }"{ }(no boundary grid: driving data have to be available 
+on entire grid)\\
+- latbc\_varnames\_map\_file = "{\ldots}"{ }(e.g., run/dict.latbc), 
+if num\_prefetch\_proc = 1 (asynchronous read-in of driving data) \\
+{\textbullet} defaults and (additional) scopes for global nudging are 
+marked by ($\cdot$)\textsubscript{glbndg}, 
+if a parameter applies to both upper boundary and global nudging \\
 &
 run\_nml:iforcing = 3 (NWP) \\
 ivctype = 2 (SLEVE)
@@ -4090,7 +4104,7 @@ ivctype = 2 (SLEVE)
 %\hline
 max\_nudge\_coeff\_vn&
 R &
-0.04 &
+0.04 (0.016)\textsubscript{glbndg}&
 1  &
 Max. nudging coefficient for the horizontal wind (i.e. the edge-normal wind
 component $v_n$). 
@@ -4100,48 +4114,179 @@ $v_n(t) = v_n^\star(t) + \text{nudge\_coeff\_vn}(z) *
 where $t$ and $z$ denote time and height, respectively, 
 $\overline{v_n}(t)$ is the target wind 
 to nudge to, and $v_n^\star$ is the value before the nudging, 
-the vertical profile of the nudging coefficient reads:\\
+the vertical profile of the coefficient for upper boundary nudging reads:\\
 $\text{nudge\_coeff\_vn}(z) = 
 \text{max\_nudge\_coeff\_vn} * 
 [(z - \text{nudge\_start\_height})/(\text{top\_height} -
   \text{nudge\_start\_height})]^2$,  \\
 for $\text{nudge\_start\_height} \leq z \leq \text{top\_height}$ 
 (see nudge\_start\_height below), 
-and is zero elsewhere. \\
+and is zero elsewhere. 
 The range of validity is 
 $\text{max\_nudge\_coeff\_vn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
 where the lower boundary is mandatory. \\
 &
-nudge\_type > 0
+nudge\_type > 0 \\
+(nudge\_var = "{all}" { or} "...,vn,...")\textsubscript{glbndg}
 \tabularnewline
 
 %\hline
-max\_nudge\_coeff\_$\ldots$\\
-$\ldots$thermdyn&
+max\_nudge\_coeff\_thermdyn &
 R &
-0.075 &
+0.075 (0.03)\textsubscript{glbndg}&
 1  &
 Max. nudging coefficient for the thermodynamic variables 
-selected by limarea\_nml: nudge\_hydro\_pres.
+selected by limarea\_nml: nudge\_hydro\_pres in case of upper boundary 
+nudging and by thermdyn\_type in case of global nudging.
 The range of validity is 
 $\text{max\_nudge\_coeff\_thermdyn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
-where the lower boundary is mandatory. 
+where the lower boundary is mandatory. \\
 &
-nudge\_type > 0
+nudge\_type > 0 \\
+(nudge\_var = "{all}" { or} "...,thermdyn,...")\textsubscript{glbndg}
 \tabularnewline
 
 %\hline
 nudge\_start\_height&
 R &
-12000 &
+12000 (2000)\textsubscript{glbndg}&
 m &
 Nudging is applied for: \\
-$\text{nudge\_start\_height} \leq z \leq \text{top\_height}$, \\
+$\text{nudge\_start\_height} \leq z \leq \text{top\_height}$ 
+in case of upper boundary nudging and for:\\
+$\text{nudge\_start\_height} \leq z \leq \text{nudge\_end\_height}$ 
+in case of global nudging, 
 where $z$ denotes the nominal height of the grid layer center, 
 and top\_height is the height of the model top 
 (see sleve\_nml). 
+For upper boundary nudging the range of validity is 
+$\text{nudge\_start\_height} \in [0, \text{top\_height}]$, 
+where both boundaries are mandatory. 
+For global nudging a nudge\_start\_height in the range $[0, \text{top\_height}]$ 
+has to satisfy nudge\_start\_height < nudge\_end\_height. 
+Values outside $[0, \text{top\_height}]$ will be interpreted 
+as nudge\_start\_height = 0. \\
 &
 nudge\_type > 0
+\tabularnewline
+
+%\hline
+max\_nudge\_coeff\_qv&
+R &
+0.008&
+1  &
+Max. nudging coefficient for water vapor.
+The range of validity is 
+$\text{max\_nudge\_coeff\_qv} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
+where the lower boundary is mandatory. 
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_var = "{all}" { or} "...,qv,..."
+\tabularnewline
+
+%\hline
+nudge\_end\_height&
+R &
+40000&
+m &
+Nudging is applied for: \\
+$\text{nudge\_start\_height} \leq z \leq \text{nudge\_end\_height}$, 
+where $z$ denotes the nominal height of the grid layer center. 
+A nudge\_end\_height in the range $[0, \text{top\_height}]$ 
+has to satisfy nudge\_start\_height < nudge\_end\_height. 
+Values outside $[0, \text{top\_height}]$ will be interpreted 
+as nudge\_start\_height = top\_height. 
+(For global nudging only.) \\
+&
+nudge\_type = 2
+\tabularnewline
+
+%\hline
+nudge\_profile&
+I &
+4 &
+  &
+Vertical profile of the nudging coefficient (nudging strength) 
+between nudge\_start\_height and nudge\_end\_height:\\ 
+{\textasteriskcentered} 1: squared scaled vertical distance from nudge\_start\_height 
+(this is the profile used for upper boundary nudging)\\
+{\textasteriskcentered} 2: constant profile\\
+{\textasteriskcentered} 3: hyperbolic tangent profile\\
+{\textasteriskcentered} 4: trapezoidal profile\\
+The profile values range from 0 to 1. A multiplication with 
+max\_nudge\_coeff\_vn/thermdyn/qv and ndyn\_substeps 
+yields the final value of the nudging coefficient.
+(For global nudging only.) \\
+&
+nudge\_type = 2
+\tabularnewline
+
+%\hline
+nudge\_scale\_height&
+R &
+3000&
+m &
+Scale height of nudging profile.
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_profile = 3 {or} 4
+\tabularnewline
+
+%\hline 
+nudge\_var&
+C &
+"{all}"&
+ &
+Select the variables that shall be nudged:\\
+{\textasteriskcentered} "vn": horizontal wind\\
+{\textasteriskcentered} "thermdyn": thermodynamic variables\\
+{\textasteriskcentered} "qv": water vapor\\
+{\textasteriskcentered} comma-separated list: e.g., "vn,thermdyn"\\
+{\textasteriskcentered} "{all}": all available variables (i.e. equivalent to "vn,thermdyn,qv")\\
+Please note that the nudging of water vapor requires ltransport = .TRUE. 
+(For global nudging only.) \\
+&
+nudge\_type = 2 
+\tabularnewline
+
+%\hline
+thermdyn\_type&
+I &
+1&
+ &
+Set of variables used to compute the thermodynamic nudging increments: \\
+{\textasteriskcentered} 1: hydrostatic set (pressure and temperature)\\
+{\textasteriskcentered} 2: non-hydrostatic set (density and virtual potential temperature)\\
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_var = "{all}" { or} "...,thermdyn,..."
+\tabularnewline
+
+%\hline
+idiagnose&
+I &
+-1 &
+ &
+Switch for nudging diagnostics:\\
+{\textasteriskcentered} $\leq$ 0: switched off\\
+{\textasteriskcentered} $>$ 0: each (idiagnose * dtime) time diagnostics are computed 
+and written to the ASCII file ``nudging\_diagnostics.txt''.\\
+The nudging diagnostics are:\\
+{\textbullet} correlation between the mean sea-level pressure from ICON 
+on the one hand and from the driving model on the other hand (a measure for 
+the nudging success)\\
+{\textbullet} global mean of the absolute horizontal wind divergence 
+(a measure for the nudging impact on the atmospheric ``noise'' 
+or the gravity wave activity, depending on the perspective)\\
+{\textbullet} global mean of the absolute 
+surface pressure time tendency (a further measure for the nudging impact)\\
+(For global nudging only.)
+&
+nudge\_type = 2 \\
+msg\_level >= 11
 \tabularnewline
 
 \end{longtab}
@@ -8020,7 +8165,7 @@ shall be output. Currently available variables are: \\
 \item "rho": density perturbation
 \item "pres": pressure perturbation
 \end{itemize}
-Requirements: the fields "extra\_3d1" and "extra\_3d2" will contain the numerical 
+Requirements: the fields "{extra}\_3d1"{ a}nd "{extra}\_3d2"{ w}ill contain the numerical 
 and the analytical solutions, respectively. 
 Both have to be added to the ml\_varlist of the output\_nml of your choice 
 in combination with inextra\_3d = 2.

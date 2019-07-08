@@ -336,6 +336,7 @@ CONTAINS
     ! local
     INTEGER :: jk
     INTEGER :: nlevp1        !< number of full and half levels
+    REAL(wp), PARAMETER :: eps = 1.e-10_wp
 
     ! number of vertical levels
     nlevp1 = nlev+1
@@ -343,6 +344,12 @@ CONTAINS
     CALL message(TRIM(vcoord_type), 'Coordinate setup finished')
     WRITE(message_text,'(a,i3)') 'flat coordinate surfaces starting at level ', nflat
       CALL message('', TRIM(message_text))
+    ! just a hint for the user (but note that this subroutine is not called for all msg_level)
+    IF ( (ivctype == 2 .OR. ivctype == 12) .AND. (ABS(vct_a(1) - top_height) > eps) ) THEN
+      WRITE(message_text,'(a)') 'WARNING: the model top is NOT at top_height (see table below), ' &
+        & //'please reconsider your settings for sleve_nml!'
+      CALL message('', TRIM(message_text))
+    ENDIF
     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels and layer thicknesses (m):'
       CALL message('', TRIM(message_text))
 

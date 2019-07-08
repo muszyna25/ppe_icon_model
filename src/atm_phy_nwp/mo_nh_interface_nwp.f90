@@ -110,6 +110,7 @@ MODULE mo_nh_interface_nwp
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
   USE mo_upatmo_config,           ONLY: upatmo_config
+  USE mo_nudging_config,          ONLY: nudging_config
 
   IMPLICIT NONE
 
@@ -233,6 +234,8 @@ CONTAINS
     REAL(wp) :: p_sim_time      !< elapsed simulation time on this grid level
 
     LOGICAL :: lconstgrav  !< const. gravitational acceleration?
+
+    REAL(wp) :: dpsdt_avg  !< mean absolute surface pressure tendency
 
 
     IF (ltimer) CALL timer_start(timer_physics)
@@ -1800,9 +1803,11 @@ CONTAINS
     !
     ! dpsdt diagnostic
     IF (lcalc_dpsdt) THEN
-      CALL compute_dpsdt (pt_patch = pt_patch, &
-        &                 dt       = dt_loc,   &
-        &                 pt_diag  = pt_diag   )
+      CALL compute_dpsdt (pt_patch      = pt_patch, &
+        &                 dt            = dt_loc,   &
+        &                 pt_diag       = pt_diag,  &
+        &                 opt_dpsdt_avg = dpsdt_avg )  ! (only stdio-process has reasonable return value!)
+      nudging_config%dpsdt = dpsdt_avg
     ENDIF
     IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
 

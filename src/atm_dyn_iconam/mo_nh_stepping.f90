@@ -217,7 +217,9 @@ MODULE mo_nh_stepping
   USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
-  
+  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
+  USE mo_nudging,                  ONLY: nudging_interface  
+
   IMPLICIT NONE
 
   PRIVATE
@@ -729,7 +731,7 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
@@ -1791,43 +1793,62 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. l_limited_area) THEN
+      IF (jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging)) THEN
+        
+        tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
-         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
-
-         IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
-
-            IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
-               p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
-
-            IF (num_prefetch_proc >= 1) THEN
-
-              ! Asynchronous LatBC read-in:
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
-                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
-            ELSE
-              
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interc(datetime_local(jg)%ptr)
-              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-
-            ENDIF
-
-         ELSE ! constant lateral boundary data
-
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
-
-         ENDIF
+        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+          
+          IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
+            p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
+          
+          IF (num_prefetch_proc >= 1) THEN
+            
+            ! Asynchronous LatBC read-in:
+            ! update the coefficients for the linear interpolation
+            CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+              &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+              &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
+          ELSE
+            
+            ! update the coefficients for the linear interpolation
+            CALL update_lin_interc(datetime_local(jg)%ptr)
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+              &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+              &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+            
+          ENDIF
+          
+        ELSE ! constant lateral boundary data
+          
+          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
+            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          
+        ENDIF
+        
+      ELSEIF (jg == 1 .AND. l_global_nudging) THEN
+        
+        ! Apply global nudging
+        CALL nudging_interface( p_patch          = p_patch(jg),            & !in
+          &                     p_nh_state       = p_nh_state(jg),         & !inout
+          &                     p_latbc_data     = p_latbc_data,           & !in
+          &                     latbc            = latbc,                  & !in
+          &                     p_int_state      = p_int_state(jg),        & !in
+          &                     mtime_datetime   = datetime_local(jg)%ptr, & !in
+          &                     sim_time         = sim_time,               & !in
+          &                     time_config      = time_config,            & !in
+          &                     ndyn_substeps    = ndyn_substeps,          & !in
+          &                     nnew             = nnew(jg),               & !in
+          &                     nnew_rcf         = n_new_rcf,              & !in
+          &                     last_latbc_tlev  = last_latbc_tlev,        & !in
+          &                     read_latbc_tlev  = read_latbc_tlev,        & !in
+          &                     upatmo_config    = upatmo_config(jg),      & !in
+          &                     nudging_config   = nudging_config          ) !inout
 
       ENDIF
 
@@ -2962,7 +2983,7 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+  IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
     CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
   ENDIF
 

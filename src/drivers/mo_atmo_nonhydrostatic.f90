@@ -126,6 +126,7 @@ USE mo_initicon_config,     ONLY: init_mode
 USE mo_sleve_config,        ONLY: flat_height
 USE mo_vertical_coord_table, ONLY: vct_a
 USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_nudging_config,      ONLY: l_global_nudging
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -770,7 +771,7 @@ CONTAINS
     CALL destruct_upatmo()
 
     ! call close name list prefetch
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()
