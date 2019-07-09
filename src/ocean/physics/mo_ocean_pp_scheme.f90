@@ -462,7 +462,7 @@ CONTAINS
     REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
     REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
     REAL(wp) :: z_shear_cell
-    REAL(wp) :: z_ri_cell               (nproma, n_zlev)
+    REAL(wp) :: z_ri_cell(nproma, n_zlev)
     REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
 
     !Below is a set of variables and parameters for tracer and velocity
@@ -493,13 +493,14 @@ CONTAINS
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down)
+!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure, z_ri_cell, tracer_windMixing, z_vert_density_grad_e,velocity_windMixing)
     salinity(1:levels) = sal_ref
     z_rho_up(:)=0.0_wp
     z_rho_down(:)=0.0_wp
+    pressure(:) = 0._wp
     
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
-!ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight, tracer_windMixing) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, &
+!ICON_OMP z_shear_cell, tracer_index, diffusion_weight) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       z_ri_cell(:,:) = 0.0_wp
@@ -598,7 +599,7 @@ CONTAINS
     !--------------------------------------------
     ! Calculate params_oce%A_veloc_v:
 !ICON_OMP_DO PRIVATE(start_index, end_index, je, cell_1_idx, cell_1_block, cell_2_idx, cell_2_block, &
-!ICON_OMP jk, dz, density_differ_edge, z_shear_edge, richardson_edge,z_vert_density_grad_e,velocity_windMixing) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP jk, dz, density_differ_edge, z_shear_edge, richardson_edge) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       velocity_windMixing => params_oce%velocity_windMixing(:,:,blockNo)

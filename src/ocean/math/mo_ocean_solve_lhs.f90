@@ -1,5 +1,8 @@
 #if (defined(_OPENMP) && defined(OCE_SOLVE_OMP))
 #include "omp_definitions.inc"
+#define PURE_OR_OMP
+#else
+#define PURE_OR_OMP PURE
 #endif
 ! contains lhs-type for use in solver-backends
 
@@ -615,7 +618,7 @@ CONTAINS
   END SUBROUTINE lhs_create_matrix_init
 
 ! backend routine applying lhs-matrix
-  PURE SUBROUTINE lhs_doit_wp(this, x, ax, a , b, i)
+  PURE_OR_OMP SUBROUTINE lhs_doit_wp(this, x, ax, a , b, i)
     CLASS(t_lhs), INTENT(IN) :: this
     REAL(KIND=wp), INTENT(IN), DIMENSION(:,:), CONTIGUOUS :: x
     REAL(KIND=wp), INTENT(OUT), DIMENSION(:,:), CONTIGUOUS :: ax
@@ -646,7 +649,7 @@ CONTAINS
   END SUBROUTINE lhs_doit_wp
 
 ! backend routine applying lhs-matrix, but omitting diagonal elements 
-  PURE SUBROUTINE lhs_noaii_doit_wp(this, x, ax, a , b, i)
+  PURE_OR_OMP SUBROUTINE lhs_noaii_doit_wp(this, x, ax, a , b, i)
     CLASS(t_lhs), INTENT(IN) :: this
     REAL(KIND=wp), INTENT(IN), DIMENSION(:,:), CONTIGUOUS :: x
     REAL(KIND=wp), INTENT(OUT), DIMENSION(:,:), CONTIGUOUS :: ax
@@ -721,7 +724,7 @@ CONTAINS
   END SUBROUTINE lhs_apply_noaii_wp
 
 ! sp-variant of lhs_doit_wp
-  PURE SUBROUTINE lhs_doit_sp(this, x, ax, a, b, i)
+  PURE_OR_OMP SUBROUTINE lhs_doit_sp(this, x, ax, a, b, i)
     CLASS(t_lhs), INTENT(IN) :: this
     REAL(KIND=sp), INTENT(IN), DIMENSION(:,:), CONTIGUOUS :: x
     REAL(KIND=sp), INTENT(OUT), DIMENSION(:,:), CONTIGUOUS :: ax

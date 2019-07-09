@@ -1888,7 +1888,7 @@ CONTAINS
 
     REAL(wp) :: z_grav_rho
     REAL(wp) :: z_shear_cell
-    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev) !, density(n_zlev)
     REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
 
     !-------------------------------------------------------------------------------
@@ -1899,12 +1899,13 @@ CONTAINS
 
     z_grav_rho = grav/OceanReferenceDensity
 
-    !ICON_OMP_PARALLEL PRIVATE(salinity)
+    !ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure)
     salinity(1:n_zlev) = sal_ref
     z_rho_up(:)=0.0_wp
     z_rho_down(:)=0.0_wp
+    pressure(:) = 0._wp
 
-    !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, end_level, level, pressure, z_rho_up, z_rho_down, &
+    !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, end_level, level, &
     !ICON_OMP z_shear_cell) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)

@@ -2412,7 +2412,7 @@ CONTAINS
   SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
     INTEGER , INTENT(IN)    :: n_zlev
     REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
-    REAL(wp), INTENT(IN)    :: dzlev_m(100)  ! namelist input of layer thickness
+    REAL(wp), INTENT(IN)    :: dzlev_m(:)  ! namelist input of layer thickness
 
     INTEGER :: jk
 
