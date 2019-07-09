@@ -2794,24 +2794,7 @@ MODULE mo_solve_nonhydro
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
 
-      IF (use_icon_comm) THEN
-        IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
-#ifdef __MIXED_PRECISION
-          CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, &
-               &                        opt_varname="w_nenew and z_dwdz_dd")
-#else
-          CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
-            & name="solve_step1_w")
-#endif
-        ELSE IF (istep == 1) THEN ! Only w is updated in the predictor step
-          CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
-            & name="solve_step1_w")
-        ELSE IF (istep == 2) THEN
-          ! Synchronize all prognostic variables
-          CALL icon_comm_sync(p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w, &
-            & p_patch%sync_cells_not_owned, name="solve_step2_w")
-        ENDIF
-      ELSE IF (itype_comm == 1) THEN
+      IF (itype_comm == 1) THEN
         IF (istep == 1) THEN
           IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
             ! Synchronize w and vertical contribution to divergence damping
