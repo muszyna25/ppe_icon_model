@@ -47,14 +47,13 @@ MODULE mo_grid_nml
     & config_dynamics_grid_filename       => dynamics_grid_filename,        &
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,       &
     & config_radiation_grid_filename      => radiation_grid_filename,       &
-    & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link,  &
     & config_grid_rescale_factor          => grid_rescale_factor,           &
     & config_grid_angular_velocity        => namelist_grid_angular_velocity,&
     & config_lrescale_timestep            => lrescale_timestep,             &
     & config_lrescale_ang_vel             => lrescale_ang_vel,              &
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
     & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
-    & max_rad_dom, DEFAULT_ENDTIME,                                         &
+    & DEFAULT_ENDTIME,                                         &
     & config_create_vgrid                 => create_vgrid,                  &
     & config_vertical_grid_filename       => vertical_grid_filename
 
@@ -112,7 +111,7 @@ MODULE mo_grid_nml
 
     CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
     INTEGER                     :: dynamics_parent_grid_id(max_dom)
-    CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
+    CHARACTER(LEN=filename_max) :: radiation_grid_filename
     INTEGER                     :: dynamics_radiation_grid_link(max_dom)
         
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
@@ -131,7 +130,7 @@ MODULE mo_grid_nml
       &  lrescale_timestep, lrescale_ang_vel,                      &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
-      &  radiation_grid_filename, dynamics_radiation_grid_link,    &
+      &  radiation_grid_filename,    &
       &  grid_angular_velocity, use_duplicated_connectivity,       &
       &  use_dummy_cell_closure, create_vgrid, vertical_grid_filename
 
@@ -147,15 +146,20 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     DO i = 1, max_dom
       dynamics_grid_filename(i)   = ""
-      dynamics_parent_grid_id(i)  = i-1
-      dynamics_radiation_grid_link(i) = 0
-    ENDDO
-    dynamics_radiation_grid_link(1) = 1
-    DO i = 1, max_rad_dom
-      radiation_grid_filename(i)  = ""
+
+      ! "dynamics_parent_grid_id": This namelist parameter is
+      ! necessary only for old ICON grids without a proper UUID
+      ! attribute.
+      dynamics_parent_grid_id(i)  = -1 
     ENDDO
 
-    vertical_grid_filename = " "
+    ! For the coarsest grid, we set the default "parent ID" to 0. This
+    ! is necessary, since we cannot deduce this from another grid's
+    ! UUID later on:
+    dynamics_parent_grid_id(1) = 0
+
+    radiation_grid_filename  = ""
+    vertical_grid_filename   = " "
       
     lfeedback   = .TRUE.
     ifeedback_type = 2
@@ -244,7 +248,6 @@ MODULE mo_grid_nml
     config_dynamics_grid_filename  = dynamics_grid_filename
     config_dynamics_parent_grid_id = dynamics_parent_grid_id
     config_radiation_grid_filename = radiation_grid_filename
-    config_dyn_radiation_grid_link = dynamics_radiation_grid_link
     config_grid_rescale_factor     = grid_rescale_factor
     config_grid_angular_velocity   = grid_angular_velocity
     config_lrescale_timestep       = lrescale_timestep

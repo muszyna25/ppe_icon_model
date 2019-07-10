@@ -60,13 +60,15 @@ MODULE mo_vertical_grid
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
-  USE mo_data_turbdiff,        ONLY: akt
+  USE turb_data,               ONLY: akt
   USE mo_fortran_tools,        ONLY: init
   USE mo_util_string,          ONLY: int2string, real2string
   USE mo_mpi,                  ONLY: my_process_is_stdio
   USE mo_util_table,           ONLY: t_table, initialize_table, add_table_column, &
     &                                set_table_entry, print_table, finalize_table
   USE mo_nudging_config,       ONLY: nudging_config, indg_profile
+  USE mo_dynamics_config,      ONLY: ldeepatmo
+  USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
 
   IMPLICIT NONE
 
@@ -1695,7 +1697,14 @@ MODULE mo_vertical_grid
       ENDIF
       DEALLOCATE(z_me,flat_idx)
 
-    ENDDO
+      ! deep-atmosphere modifications
+      IF (ldeepatmo) THEN 
+        CALL set_deepatmo_metrics( p_patch(jg), p_nh(jg)%metrics, p_int(jg),         &
+          &                        igradp_method, atm_phy_nwp_config(jg)%is_les_phy, &
+          &                        h_scal_bg, t0sl_bg, del_t_bg                      )
+      ENDIF
+
+    ENDDO  !jg
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
@@ -2115,6 +2124,7 @@ MODULE mo_vertical_grid
   !>
   !! Computation of nudging coefficient for nudging types:
   !! - Upper boundary nudging
+  !! - Global nudging
   !!
   !! @par Revision History
   !! Initial revision by Guenther Zaengl and Sebastian Borchert, DWD (2018-09)
@@ -2128,11 +2138,13 @@ MODULE mo_vertical_grid
     ! Local variables
     TYPE(t_table) :: table
     REAL(wp) :: scale_height, distance, distance_scaled
+    REAL(wp) :: start_height, end_height
     REAL(wp) :: height, nudge_coeff
-    INTEGER  :: jg, jk
+    INTEGER  :: jg, jk, irow
     INTEGER  :: nlev
     INTEGER  :: istart, iend
     INTEGER  :: istat
+    INTEGER  :: nexp
     CHARACTER(LEN=16), PARAMETER :: column_jk     = "Full level index"
     CHARACTER(LEN=10), PARAMETER :: column_height = "Height (m)"
     CHARACTER(LEN=35), PARAMETER :: column_coeff  = "Nudging coefficient/max_nudge_coeff"
@@ -2151,8 +2163,8 @@ MODULE mo_vertical_grid
       ! ('lconfigured' should have been set to .true. 
       ! in 'src/configure_model/mo_nudging_config: configure_nudging'
       ! or in 'src/namelists/mo_nudging_nml: check_nudging')
-      CALL finish(routine, "Configuration of nudging_config still pending. &
-        &Please, check the program sequence.")
+      CALL finish(routine, "Configuration of nudging_config still pending. "// &
+        & "Please, check the program sequence.")
     ELSEIF ((.NOT. nudging_config%lnudging) .OR. jg /= 1) THEN
       ! The following computations have to be done only, 
       ! if (upper boundary) nudging is switched on, 
@@ -2164,7 +2176,9 @@ MODULE mo_vertical_grid
     nlev = p_patch%nlev
     
     ! Allocate field for nudging coefficient
-    ! (Note: no explicit deallocation is implemented for 'nudgecoeff_vert')
+    ! (Note: 
+    !  * no explicit deallocation is implemented for 'nudgecoeff_vert'
+    !  * already nullified in 'src/atm_dyn_iconam/mo_nonhydro_state: new_nh_metrics_list')
     ALLOCATE(p_nh%metrics%nudgecoeff_vert(nlev), STAT=istat)
     IF (istat /= SUCCESS)  CALL finish (routine, 'Allocation of nudgecoeff_vert failed!') 
     
@@ -2174,6 +2188,10 @@ MODULE mo_vertical_grid
     ! Start and end indices for vertical loop
     istart = nudging_config%ilev_start
     iend   = nudging_config%ilev_end
+
+    ! Start and end height of vertical nudging region
+    start_height = nudging_config%nudge_start_height
+    end_height   = nudging_config%nudge_end_height
     
     ! Scale height to control, how fast the nudging strength decreases 
     ! with increasing vertical distance from nudging end height
@@ -2185,17 +2203,58 @@ MODULE mo_vertical_grid
       ! Inverse squared scaled vertical distance from nudging start height
       DO jk = istart, iend
         ! Distance from nudging start height
-        distance = 0.5_wp*ABS(vct_a(jk)+vct_a(jk+1)) - nudging_config%nudge_start_height
+        distance = 0.5_wp*ABS(vct_a(jk)+vct_a(jk+1)) - start_height
         ! Scaled distance
         distance_scaled                  = distance / MAX(1.0e-6_wp, scale_height)
         p_nh%metrics%nudgecoeff_vert(jk) = distance_scaled**2
       ENDDO  !jk
+    CASE(indg_profile%const) ! For global nudging
+      ! Constant profile
+      DO jk = istart, iend
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp
+      ENDDO  !jk
+    CASE(indg_profile%tanh) ! For global nudging
+      ! Hyperbolic tangent profile, which decreases in magnitude from nudging end height downwards
+      ! (compare the coefficient profile for the Rayleigh damping based on Klemp et al. (2008) above)
+      DO jk = istart, iend
+        ! Distance from nudging end height
+        distance = ABS(end_height - 0.5_wp * (vct_a(jk) + vct_a(jk+1)))
+        ! Scaled distance
+        distance_scaled                  = distance / MAX(1.0e-6_wp, scale_height)
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp - TANH(3.8_wp * distance_scaled)
+      ENDDO  !jk
+    CASE(indg_profile%trapid) ! For global nudging
+      ! Trapezoidal profile
+      !
+      !                          1
+      ! ... = ---------------------------------------,         (I)
+      !       [     2 * z - (a + b)      ]2*nexp
+      !       [--------------------------]       + 1
+      !       [ (1 - 2 / nexp) * (b - a) ]
+      ! 
+      ! where z, a and b denote nominal height, start height and end height, respectively, 
+      ! and the larger the parameter nexp, the more the trapezoidal profile compares 
+      ! to a rectangular profile (i.e. it is inversely proportional to the scale height).
+      ! 
+      ! A lower bound of 3 for nexp is given by the factor "1 / (1 - 2 / nexp)" in formular (I). 
+      ! An upper bound of "iend - istart + 1" (if > 3) corresponds to a scale height 
+      ! of the order of the grid layer thickness
+      nexp = MIN( MAX(3, NINT(ABS(end_height - start_height)/scale_height)), MAX(3, iend-istart+1) )
+      DO jk = istart, iend
+        ! "Distance"
+        distance = vct_a(jk) + vct_a(jk+1) - ABS(start_height + end_height)
+        ! Scaled "distance"
+        distance_scaled                  = distance / &
+          & MAX( 1.0e-20_wp, (1._wp - 2._wp / REAL(nexp, wp)) * ABS(end_height - start_height) )
+        p_nh%metrics%nudgecoeff_vert(jk) = 1._wp / ( distance_scaled**(2*nexp) + 1._wp )
+      ENDDO  !jk      
     END SELECT
     
     ! Print some info
     IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
       ! Print the vertical profile of the nudging coefficient (nudging strength)
-      WRITE(0,*) TRIM(routine)//': Vertical profile of the nudging coefficient:' 
+      WRITE(0,*) TRIM(routine)//': Vertical profile of the nudging coefficient ' &
+        & //'(only levels, where it is non-zero):' 
       ! Set up table
       CALL initialize_table(table)
       ! Set up table columns
@@ -2206,9 +2265,10 @@ MODULE mo_vertical_grid
       DO jk = istart, iend
         height      = 0.5_wp * (vct_a(jk) + vct_a(jk+1))
         nudge_coeff = p_nh%metrics%nudgecoeff_vert(jk)
-        CALL set_table_entry(table, jk, column_jk, TRIM(int2string(jk)))
-        CALL set_table_entry(table, jk, column_height, TRIM(real2string(height)))
-        CALL set_table_entry(table, jk, column_coeff, TRIM(real2string(nudge_coeff)))
+        irow        = jk-istart+1  ! (row index should start with 1)
+        CALL set_table_entry(table, irow, column_jk, TRIM(int2string(jk)))
+        CALL set_table_entry(table, irow, column_height, TRIM(real2string(height)))
+        CALL set_table_entry(table, irow, column_coeff, TRIM(real2string(nudge_coeff)))
       ENDDO  !jk
       ! Print table
       CALL print_table(table)

@@ -42,7 +42,6 @@ USE mo_netcdf_parallel, ONLY:                     &
   PRIVATE
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
-  PUBLIC :: max_rad_dom
   PUBLIC :: nroot, start_lev, n_dom, lfeedback,      &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
@@ -51,7 +50,7 @@ USE mo_netcdf_parallel, ONLY:                     &
   PUBLIC :: lrescale_timestep, lrescale_ang_vel
   PUBLIC :: namelist_grid_angular_velocity
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
-    &       radiation_grid_filename, dynamics_radiation_grid_link
+    &       radiation_grid_filename
   PUBLIC :: vertical_grid_filename, create_vgrid
   PUBLIC :: set_patches_grid_filename
 
@@ -59,10 +58,13 @@ USE mo_netcdf_parallel, ONLY:                     &
   
   PUBLIC :: n_dom_start, max_childdom     
   PUBLIC :: n_phys_dom
-  PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
+  PUBLIC :: no_of_dynamics_grids
   PUBLIC :: use_duplicated_connectivity, use_dummy_cell_closure
   PUBLIC :: DEFAULT_ENDTIME
   ! ------------------------------------------------------------------------
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grid_config'
 
   REAL(wp), PARAMETER :: DEFAULT_ENDTIME = 1.e30_wp
 
@@ -71,7 +73,6 @@ USE mo_netcdf_parallel, ONLY:                     &
 INCLUDE 'netcdf.inc'
 #endif
 
-  INTEGER, PARAMETER  :: max_rad_dom = 3
   ! ------------------------------------------------------------------------
   !Configuration variables
   ! ------------------------------------------------------------------------
@@ -114,15 +115,13 @@ INCLUDE 'netcdf.inc'
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
-  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
-  INTEGER                     :: dynamics_radiation_grid_link(max_dom)
+  CHARACTER(LEN=filename_max) :: radiation_grid_filename
 
   LOGICAL    :: create_vgrid   ! switch if files containing vct_a, vct_b, z_ifc shall be created
   !> files containing vct_a, vct_b, z_ifc
   CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
 
   INTEGER :: no_of_dynamics_grids  = 0
-  INTEGER :: no_of_radiation_grids = 0
 
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
@@ -139,20 +138,18 @@ CONTAINS
                                                
     !local variables
     INTEGER  :: jg, ncid
-!    INTEGER  :: funit
-    LOGICAL  :: file_exists
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
+    LOGICAL  :: file_exists, lradiation_grid
+    CHARACTER(*), PARAMETER :: routine = modname//"::init_grid_configuration"
 
     IF (no_of_dynamics_grids /= 0) &
-      CALL finish( method_name, 'should not be called twice')
+      CALL finish( routine, 'should not be called twice')
     
     !-----------------------------------------------------------------------
     ! find out how many grids we have
     ! and check if they exist
     no_of_dynamics_grids  = 0
-    no_of_radiation_grids = 0
 
-!     write(0,*) method_name, TRIM(dynamics_grid_filename(1))
+!     write(0,*) routine, TRIM(dynamics_grid_filename(1))
     
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
@@ -161,32 +158,32 @@ CONTAINS
         IF (.NOT. file_exists)   THEN
           WRITE (message_text,'(a,a)')  TRIM(dynamics_grid_filename(jg)), &
             " file does not exist"
-          CALL finish( TRIM(method_name), TRIM(message_text))
+          CALL finish( routine, TRIM(message_text))
         ENDIF
       ENDIF
       jg=jg+1
       IF (jg > max_dom) EXIT
     END DO
     no_of_dynamics_grids  = jg-1
-    
-    jg=1
-    DO WHILE (radiation_grid_filename(jg) /= "")
-      IF (my_process_is_stdio()) THEN
-        INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
-        IF (.NOT. file_exists)   THEN
-          WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename(jg)), &
-            " file does not exist"
-          CALL finish( TRIM(method_name), TRIM(message_text))
-        ENDIF
+
+    lradiation_grid = (LEN_TRIM(radiation_grid_filename) > 0)    
+    IF (lradiation_grid .AND. (my_process_is_stdio())) THEN
+      INQUIRE (FILE=radiation_grid_filename, EXIST=file_exists)
+      IF (.NOT. file_exists)   THEN
+        WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename), &
+          " file does not exist"
+        CALL finish( routine, TRIM(message_text))
       ENDIF
-      jg=jg+1
-      IF (jg > max_rad_dom) EXIT
-    END DO
-    no_of_radiation_grids = jg-1
+      DO jg = 1, no_of_dynamics_grids
+        IF (TRIM(radiation_grid_filename) == TRIM(dynamics_grid_filename(jg))) THEN
+          CALL finish( routine, "radiation_grid_filename must not be equal to dynamics_grid_filename!")
+        END IF
+      END DO
+    END IF
     n_dom = no_of_dynamics_grids
 
     IF (no_of_dynamics_grids < 1) &
-      CALL finish( TRIM(method_name), 'no dynamics grid is defined')
+      CALL finish( routine, 'no dynamics grid is defined')
 
     ! get here the nroot, eventually it should be moved into the patch info
     CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
@@ -205,11 +202,11 @@ CONTAINS
        grid_angular_velocity = namelist_grid_angular_velocity
     END IF
 
-    IF (no_of_radiation_grids > 0) THEN
+    IF (lradiation_grid) THEN
       n_dom_start = 0
     ELSE
       n_dom_start = 1
-      lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
+      lredgrid_phys(1) = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
     
       ! the division method starts from 0, shift if there's no 0 grid (ie no reduced radiation)
       DO jg = no_of_dynamics_grids-1, 0, -1
@@ -303,7 +300,7 @@ CONTAINS
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       grid_name = ""
       IF (jg==0) THEN
-        grid_name = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
+        grid_name = TRIM(with_keywords(keywords, radiation_grid_filename))
       ELSE
         grid_name = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
       ENDIF

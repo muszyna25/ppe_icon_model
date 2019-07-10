@@ -52,6 +52,7 @@ MODULE mo_nh_testcases_nml
                                    &  bruntvais_u_mwbr_const
   USE mo_nh_dcmip_schaer,      ONLY: lshear_dcmip
   USE mo_nh_dcmip_gw,          ONLY: gw_clat, gw_u0, gw_delta_temp
+  USE mo_nh_lahade,            ONLY: lahade, ilahade
 
   IMPLICIT NONE  
 
@@ -70,6 +71,8 @@ MODULE mo_nh_testcases_nml
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
+
+  PUBLIC :: ltestcase_update
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -172,7 +175,10 @@ MODULE mo_nh_testcases_nml
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
-                            tracer_inidist_list
+                            tracer_inidist_list, lahade
+
+  ! Non-namelist-variables
+  LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
                       
 
   CONTAINS
@@ -344,6 +350,41 @@ MODULE mo_nh_testcases_nml
     ! initial tracer distributions for test cases
     ! nh_df_test, nh_pa_test, nh_jabw_exp
     tracer_inidist_list(:) = 1
+
+    ! For lahade-type testcases:
+    ! - variables intended for namelist input
+    lahade%icase       = ilahade%case%ssw  ! 1 = spherical sound wave
+    lahade%omega       = 0._wp             ! [m/s] model Earth's angular velocity: 
+                                           ! in units of the velocity with which the center 
+                                           ! of the sound wave is advected according to the rotation
+    lahade%bkg_temp    = 250._wp           ! [K] temperature of background atmosphere/gas
+    lahade%bkg_pres    = 100000._wp        ! [Pa] pressure of background atmosphere/gas
+    lahade%ptb_ctr_lat = 0._wp             ! [deg] center latitude of spherical perturbation
+    lahade%ptb_ctr_lon = 0._wp             ! [deg] center longitude of spherical perturbation
+    lahade%ptb_ctr_hgt = 0.5_wp            ! [top_height] center height of spherical perturbation,  
+                                           ! in units of the model top height (in [0,1]) 
+    lahade%ptb_rad_min = 0.04_wp           ! [min{ptb_ctr_hgt,(1-ptb_ctr_hgt)} * top_height] min. radius 
+                                           ! of spherical shell within which the initial perturbation is non-zero, 
+                                           ! in units of the distance from 'ptb_ctr_hgt * top_height' to the model bottom, 
+                                           ! or the model top, whichever is shorter
+    lahade%ptb_rad_max = 0.6_wp            ! [min{ptb_ctr_hgt,(1-ptb_ctr_hgt)} * top_height] max. radius of spherical shell ...
+    lahade%ptb_amp_temp = 0.05_wp          ! [K] temperature amplitude of initial perturbation
+    lahade%ptb_n_rad   = 1._wp             ! [1] number of radial wave crests 
+                                           ! of initial perturbation = (ptb_rad_max - ptb_rad_min) / radial wave length 
+    lahade%output_ptb_var = ""             ! no output of the numerical and analytical solution of one variable, 
+                                           ! currently available are:
+                                           ! * "temp"  -> numerical and analytical field of the temperature perturbation
+                                           ! * "rho"   -> --,,-- density perturbation
+                                           ! * "pres"  -> --,,-- pressure perturbation
+    ! - non-namelist variables
+    lahade%lactive     = .FALSE.           ! testcase is not active
+    lahade%lzerograv   = .FALSE.           ! gravity is active
+    lahade%ivarout     = ilahade%varout%default  ! index corresponding to the default of 'output_ptb_var'
+    lahade%lupdate     = .FALSE.           ! no kind of update during integration required
+
+    ! Is current testcase subject to update during integration? 
+    ! (Final setting takes place in 'src/testcases/mo_nh_testcases: init_nh_testcase')
+    ltestcase_update = .FALSE.  ! Initialize with 'No'
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

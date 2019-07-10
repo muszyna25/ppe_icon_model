@@ -55,6 +55,8 @@ MODULE mo_grib2
     TYPE (t_grib2_key_list) :: additional_keys
   END TYPE t_grib2_var
 
+
+
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE grib2_key_list_plus_int
     MODULE PROCEDURE grib2_key_list_plus_dbl
@@ -64,10 +66,14 @@ MODULE mo_grib2
   PUBLIC :: t_grib2_var
   PUBLIC :: t_grib2_int_key
   PUBLIC :: t_grib2_dbl_key
-  PUBLIC :: grib2_var
   PUBLIC :: OPERATOR(+)
 
+  ! constructor
+  PUBLIC :: grib2_var
+
+
 CONTAINS
+
 
   ! constructor for GRIB2 derived data type
   FUNCTION grib2_var(discipline, category, number, bits, gridtype, subgridtype)

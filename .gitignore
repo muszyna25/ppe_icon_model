@@ -30,3 +30,6 @@ externals/lib/
 externals/include/
 externals/sct/
 externals/cdi/
+externals/ecrad/*/*.i
+externals/ecrad/*/*.lst
+externals/ecrad/Makefile_include.ecradICON

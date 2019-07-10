@@ -44,6 +44,7 @@ MODULE mo_nh_supervise
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
+  USE mo_upatmo_config,       ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -191,6 +192,9 @@ CONTAINS
 
     REAL(wp) :: max_vn, max_w
     INTEGER  :: max_vn_level, max_vn_process, max_w_level, max_w_process
+
+    ! (upper-atmosphere-/deep-atmosphere-related variables)
+    REAL(wp), DIMENSION(:), POINTER :: deepatmo_vol
     !-----------------------------------------------------------------------------
 
     ! Hack [ha]:
@@ -228,6 +232,9 @@ CONTAINS
 
     nblks_c   = patch(jg)%nblks_c
     npromz_c  = patch(jg)%npromz_c
+
+    ! (deep atmosphere: metrical modification factor for height-dependence of cell volume)
+    deepatmo_vol => nh_state(jg)%metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)    
 
     ! number of vertical levels
     nlev = patch(jg)%nlev
@@ -284,8 +291,9 @@ CONTAINS
       ENDIF
       DO jk = 1, nlev
         DO jc = 1, nlen
+          ! (deep-atmosphere modification applied)
           z_help = patch(jg)%cells%area(jc,jb)*nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-            &       /patch(jg)%n_patch_cells_g
+            &       /patch(jg)%n_patch_cells_g*deepatmo_vol(jk)
           z_total_mass = z_total_mass + &
             &              prog%rho(jc,jk,jb)*z_help
           z_kin_energy = z_kin_energy + &
@@ -320,9 +328,10 @@ CONTAINS
       z5(1:nlen,jb) = 0.0_wp
       z6(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
+        ! (deep-atmosphere modification applied)
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
-          & /REAL(patch(jg)%n_patch_cells_g,wp)
+          & /REAL(patch(jg)%n_patch_cells_g,wp)*deepatmo_vol(jk)
         z1(1:nlen,jb) = z1(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*z0(1:nlen)
         z2(1:nlen,jb) = z2(1:nlen,jb)&
@@ -397,9 +406,10 @@ CONTAINS
           ! compute tracer mass in each vertical column
           DO jk = 1, nlev
             DO jc = 1, nlen
+              ! (deep-atmosphere modification applied)
               z_help = patch(jg)%cells%area(jc,jb)             &
                 &    * nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-                &    * prog%rho(jc,jk,jb)
+                &    * prog%rho(jc,jk,jb) * deepatmo_vol(jk)
 
               z_aux_tracer(jc,jb,jt) = z_aux_tracer(jc,jb,jt)    &
                 &    + prog_rcf%tracer(jc,jk,jb,jt) * z_help
@@ -492,6 +502,8 @@ CONTAINS
         ENDIF
       ENDIF
     ENDIF
+
+    deepatmo_vol => NULL()
 
   END SUBROUTINE supervise_total_integrals_nh
   !-------------------------------------------------------------------------
@@ -775,11 +787,12 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
 
-    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
-    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
-    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
+    REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -791,6 +804,7 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
+    LOGICAL  :: l_opt_dpsdt_avg
   !-------------------------------------------------------------------------
 
     rl_start = grf_bdywidth_c+1
@@ -805,6 +819,12 @@ CONTAINS
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+
+    l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
+    ! Please note: only the stdio-process will return with a reasonable value 
+    ! for opt_dpsdt_avg from this subroutine!
+    ! So, if required, you have to broadcast opt_dpsdt_avg yourself afterwards!
+    IF (l_opt_dpsdt_avg) opt_dpsdt_avg = -999._wp ! (means missing value; reasonable values should be >0)
 
 
 
@@ -851,6 +871,7 @@ CONTAINS
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
           CALL message('nwp_nh_interface: ', TRIM(message_text))
        ENDIF
+        IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level

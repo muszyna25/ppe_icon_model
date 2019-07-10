@@ -255,6 +255,7 @@ CONTAINS
       &     p_ext_atm%gamso_lk,        &
       &     p_ext_atm%sso_stdh,        &
       &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%l_pat,           &
       &     p_ext_atm%sso_gamma,       &
       &     p_ext_atm%sso_theta,       &
       &     p_ext_atm%sso_sigma,       &
@@ -407,14 +408,14 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT,                       &
-        &           in_group=groups("dwd_fg_sfc_vars","ICON_INI_OUT") )
+        &           in_group=groups("dwd_fg_sfc_vars","mode_iniana") )
 
 
       ! glacier fraction
       !
       ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
       cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', datatype_flt)
-      grib2_desc = grib2_var( 2, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
@@ -554,6 +555,15 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      ! effective length scale of circulation patterns
+      ! l_pat            p_ext_atm%l_pat(nproma,nblks_c)
+      cf_desc    = t_cf_var('effective_length_scale', 'm',    &
+        &                   'effective length scale of circulation patterns', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'l_pat', p_ext_atm%l_pat,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! Anisotropy of sub-gridscale orography
       !
@@ -1009,11 +1019,12 @@ CONTAINS
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', datatype_flt)
-      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+        &            + t_grib2_int_key("typeOfGeneratingProcess", 9)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_AVG )
 
       IF (itype_vegetation_cycle > 1) THEN
         ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)

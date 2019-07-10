@@ -35,9 +35,9 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
     &                              num_io_procs, itype_comm,                         &
     &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST
+  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
   USE mo_master_config,      ONLY: isRestart
-  USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
+  USE mo_run_config,         ONLY: nsteps, dtime, iforcing, output_mode,             &
     &                              ltransport, ntracer, nlev, ltestcase,             &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ltimer,             &
@@ -45,8 +45,9 @@ MODULE mo_nml_crosscheck
     &                              iqni, iqni_nuc, iqg, iqm_max,                     &
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                              inccn, ininact, ininpot,                          &
-    &                              activate_sync_timers, timers_level, lart
-  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime
+    &                              activate_sync_timers, timers_level, lart,         &
+    &                              msg_level
+  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
   USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
@@ -57,15 +58,19 @@ MODULE mo_nml_crosscheck
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero, irad_h2o, irad_co2, irad_ch4, &
+    &                              irad_n2o, irad_o2, irad_cfc11, irad_cfc12,        &
+    &                              icld_overlap, llw_cloud_scat, iliquid_scat,       &
+    &                              iice_scat
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift
-  USE mo_nh_testcases_nml,   ONLY: nh_test_name
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift, &
+    &                              itype_vert_expol
+  USE mo_nh_testcases_nml,   ONLY: nh_test_name, layer_thickness
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
-  USE mo_meteogram_config,   ONLY: check_meteogram_configuration
+  USE mo_meteogram_config,   ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
-    &                              nroot, is_plane_torus
+    &                              nroot, is_plane_torus, n_dom_start
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -77,7 +82,12 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config,     ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
+  USE mo_nudging_config,     ONLY: nudging_config, indg_type
   USE mo_nudging_nml,        ONLY: check_nudging
+  USE mo_upatmo_config,      ONLY: upatmo_config
+  USE mo_upatmo_nml,         ONLY: check_upatmo
+  USE mo_name_list_output_config, ONLY: first_output_name_list
+  USE mo_nh_testcase_check,  ONLY: check_nh_testcase
 
 #ifdef __ICON_ART
   USE mo_grid_config,        ONLY: lredgrid_phys
@@ -102,6 +112,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
     REAL(wp) :: restart_time
     TYPE(datetime), POINTER :: reference_dt
+    LOGICAL  :: l_global_nudging
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
@@ -134,15 +145,19 @@ CONTAINS
       'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
-    ! or if there are no lateral boundary data to be read
-    IF (.NOT. l_limited_area .OR. latbc_config%itype_latbc == 0) num_prefetch_proc = 0
+    ! or in global nudging mode or if there are no lateral boundary data to be read
+    l_global_nudging = nudging_config%nudge_type == indg_type%globn
+    IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. latbc_config%itype_latbc == 0) THEN
+      IF (num_prefetch_proc /=0) CALL message(routine,' WARNING! num_prefetch_proc reset to 0 !')
+      num_prefetch_proc = 0
+    ENDIF
 
     ! If LatBC data is unavailable: Idle-wait-and-retry
     !
     IF (latbc_config%nretries > 0) THEN
       !
       ! ... only supported for prefetching LatBC mode
-      IF (.NOT. l_limited_area .OR. (num_prefetch_proc == 0)) THEN
+      IF (.NOT. (l_limited_area .OR. l_global_nudging) .OR. (num_prefetch_proc == 0)) THEN
         CALL finish(routine, "LatBC: Idle-wait-and-retry only supported for prefetching LatBC mode!")
       END IF
       !
@@ -193,18 +208,6 @@ CONTAINS
 
     END SELECT
 
-
-    ! Limited area mode must not be enabled for torus grid:
-    IF (is_plane_torus .AND. l_limited_area) THEN
-      CALL finish(routine, 'Plane torus grid requires l_limited_area = .FALSE.!')
-    END IF
-
-    ! Root bisection "0" does not make sense for limited area mode; it
-    ! is more likely that the user tried to use a torus grid here:
-    IF (l_limited_area .AND. (nroot == 0)) THEN
-      CALL finish(routine, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
-    END IF
-
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
     ! (in case it is still set in the run script)
@@ -213,6 +216,13 @@ CONTAINS
       nh_test_name = ''
     END IF
     !--------------------------------------------------------------------
+
+    ! Vertical grid
+    IF (ivctype == 12 .AND. (.NOT. ldeepatmo)) THEN
+      CALL finish(routine, "ivctype = 12 requires ldeepatmo = .true.")
+    ELSEIF (ivctype == 12 .AND. .NOT. (layer_thickness < 0.0_wp)) THEN
+      CALL finish(routine, "ivctype = 12 requires layer_thickness < 0.")
+    ENDIF
 
     !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
@@ -270,6 +280,8 @@ CONTAINS
         & 'surface scheme must be switched off, when running the APE test')
     ENDIF
 
+    IF (ltestcase) CALL check_nh_testcase()
+
     !--------------------------------------------------------------------
     ! Shallow water
     !--------------------------------------------------------------------
@@ -291,7 +303,7 @@ CONTAINS
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(routine, &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
-    IF (grf_intmethod_e >= 5 .AND. iequations /= INWP .AND. n_dom > 1) THEN
+    IF (grf_intmethod_e >= 5 .AND. iequations /= INH_ATMOSPHERE .AND. n_dom > 1) THEN
       grf_intmethod_e = 4
       CALL message( routine, 'grf_intmethod_e has been reset to 4')
     ENDIF
@@ -373,6 +385,41 @@ CONTAINS
             irad_o3 = 0
             CALL message(routine,'running without radiation => irad_o3 reset to 0')
           END SELECT
+
+          ! ecRad specific checks
+          IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
+            IF (irad_h2o /= 0 .AND. irad_h2o /= 1) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_h2o has to be 0 or 1')
+            IF (irad_co2 /= 0 .AND. irad_co2 /= 2) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_co2 has to be 0 or 2')
+            IF (irad_ch4 /= 0 .AND. irad_ch4 /= 2 .AND. irad_ch4 /= 3) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_ch4 has to be 0, 2 or 3')
+            IF (irad_n2o /= 0 .AND. irad_n2o /= 2 .AND. irad_n2o /= 3) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_n2o has to be 0, 2 or 3')
+            IF (irad_o3  /= 0 .AND. irad_o3  /= 7 .AND. irad_o3  /= 9 .AND. irad_o3  /= 79 .AND. irad_o3  /= 97) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_o3 has to be 0, 7, 9, 79 or 97')
+            IF (irad_o2  /= 0 .AND. irad_o2  /= 2) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_o2 has to be 0 or 2')
+            IF (irad_cfc11 /= 0 .AND. irad_cfc11 /= 2) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc11 has to be 0 or 2')
+            IF (irad_cfc12 /= 0 .AND. irad_cfc12 /= 2) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_cfc12 has to be 0 or 2')
+            IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 .AND. irad_aero /= 6 .AND. irad_aero /= 9) &
+              &  CALL finish(routine,'For inwp_radiation = 4, irad_aero has to be 0, 2, 5, 6 or 9')
+            IF ( icld_overlap /= 1 .AND. icld_overlap /= 2 .AND. icld_overlap /= 5 ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, icld_overlap has to be 1, 2 or 5')
+            IF ( iliquid_scat /= 0 .AND. iliquid_scat /= 1 ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, iliquid_scat has to be 0 or 1')
+            IF ( iice_scat /= 0 .AND. iice_scat /= 1 ) &
+              &  CALL finish(routine,'For inwp_radiation = 4, iice_scat has to be 0 or 1')
+          ELSE
+            IF ( llw_cloud_scat ) &
+              &  CALL message(routine,'Warning: llw_cloud_scat is set to .true., but ecRad is not used')
+            IF ( iliquid_scat /= 0 ) &
+              &  CALL message(routine,'Warning: iliquid_scat is explicitly set, but ecRad is not used')
+            IF ( iice_scat /= 0 ) &
+              &  CALL message(routine,'Warning: iice_scat is explicitly set, but ecRad is not used')
+          ENDIF
 
         ENDIF !inwp_radiation
 
@@ -900,18 +947,26 @@ CONTAINS
 
     ENDIF
 
-
     ! check meteogram configuration
+    IF (ANY(meteogram_output_config(:)%lenabled) .AND. .NOT. output_mode%l_nml) THEN
+      CALL finish(routine, "Meteograms work only for run_nml::output='nml'!")
+    END IF
     CALL check_meteogram_configuration(num_io_procs)
 
     IF (iforcing==iecham) CALL land_crosscheck()
 
     CALL art_crosscheck()
 
-    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                     &
-      &                 l_limited_area, latbc_config%lsparse_latbc, latbc_config%itype_latbc, & 
-      &                 latbc_config%nudge_hydro_pres, LATBC_TYPE_CONST, is_plane_torus,      &
-      &                 lart, ndyn_substeps                                                   )
+    CALL check_nudging( n_dom, iequations, iforcing, ivctype, top_height,                &
+      &                 l_limited_area, num_prefetch_proc, latbc_config%lsparse_latbc,   &
+      &                 latbc_config%itype_latbc, latbc_config%nudge_hydro_pres,         &
+      &                 latbc_config%latbc_varnames_map_file, LATBC_TYPE_CONST,          & 
+      &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
+      &                 nsteps, msg_level                                                )
+
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
+      &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &
+      &                ltestcase, nh_test_name, first_output_name_list, upatmo_config       ) 
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

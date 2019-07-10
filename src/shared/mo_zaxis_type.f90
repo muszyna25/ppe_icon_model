@@ -1,5 +1,18 @@
 !! Global registry for vertical axis types.
 !!
+!! Please note: The purpose of this module is to register vertical axis types
+!! (ie. categories), which can be used by the "add_var" mechanism in ICON.
+!!
+!! The meta-data for these axis types is *not* defined in this place, but in
+!! the module "src/io/shared/mo_name_list_output_zaxes.f90" . 
+!! The reason for this separation is that the meta-data 
+!! is only required for writing variables to disk.
+!!
+!! To make a long story short: After adding a new vertical axis type here, 
+!! you probably need to add the meta-data definition for this type in
+!! "mo_name_list_output_zaxes.f90", otherwise you won't be able 
+!! to read/write the variable.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in

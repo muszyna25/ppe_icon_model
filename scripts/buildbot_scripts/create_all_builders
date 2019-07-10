@@ -12,7 +12,7 @@ fi
 # mistral builders
 machine=mistral
 ./addmachine $machine --list $list
-./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc --with-yaxt"                  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc --with-yaxt --with-ecrad"     --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel --with-yaxt"                --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
@@ -25,11 +25,11 @@ machine=mistral
 ./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel18        --machine $machine --configureflags="--with-fortran=intel18 --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel18_hybrid --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --with-ecrad"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel18_openmp --machine $machine --configureflags="--with-fortran=intel18 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --enable-mixed"  --builderflags="Active"  --list $list
 
-./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt --with-ecrad"     --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_nag_serial     --machine $machine --configureflags="--with-fortran=nag --without-mpi --without-yac"  --builderflags="build_only"  --list $list
 
 ./addbuilder MISTRAL_ocean          --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-flags=ocean"  --builderflags="Ocean"  --list $list

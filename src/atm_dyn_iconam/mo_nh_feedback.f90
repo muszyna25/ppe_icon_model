@@ -952,6 +952,9 @@ CONTAINS
   !! Modification by Guenther Zaengl, DWD, 2008-09-12:
   !! Change feedback for cell-based variables from area-weighted averaging
   !! to using fbk_wgt (see above routine)
+  !! Deep-atmosphere corrections are neglected because they would largely cancel out 
+  !! in the incremental calculations applied here, implying that the related code complications 
+  !! would not be justified by increased scientific quality
   !!
   SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, dt_fbk, prm_diag)
 

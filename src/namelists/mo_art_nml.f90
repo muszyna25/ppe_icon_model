@@ -46,9 +46,9 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
-  INTEGER :: iart_init_aero          !< Initialization of aerosol species
-  INTEGER :: iart_init_passive       !< Initialization of passive species
-  INTEGER :: iart_init_gas           !< Initialization of gaseous species
+  INTEGER :: iart_init_aero(1:max_dom)          !< Initialization of aerosol species
+  INTEGER :: iart_init_passive(1:max_dom)       !< Initialization of passive species
+  INTEGER :: iart_init_gas(1:max_dom)           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   LOGICAL :: lart_pntSrc             !< Enables point sources
   LOGICAL :: lart_emiss_turbdiff     !< Switch if emissions should be included as surface flux condition
@@ -108,6 +108,13 @@ MODULE mo_art_nml
   INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
   INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
 
+  ! Treatment of grid scale and convective precipitation in dust washout
+  INTEGER :: iart_aero_washout       !< 0:gscp+con; 1:gscp,con; 2:gscp,rcucov*con
+
+  ! Number of substeps for sedimentation
+  INTEGER :: nart_substeps_sedi(1:max_dom)
+  CHARACTER(LEN=4) :: cart_type_sedim  !< type of sedimentation scheme: "expl": explicit, "impl": implicit
+
   ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
@@ -122,15 +129,15 @@ MODULE mo_art_nml
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
-   &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
+   &                iart_aci_warm, iart_aci_cold, iart_ari, iart_aero_washout,         & 
    &                lart_conv, iart_ntracer, lart_turb, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file, cart_ext_data_xml,             &
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
    &                cart_cheminit_type,                                                &
-   &                lart_emiss_turbdiff,                                               &
+   &                lart_emiss_turbdiff, nart_substeps_sedi,                           &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                iart_init_passive, lart_psc, iart_echam_ghg
+   &                iart_init_passive, lart_psc, cart_type_sedim, iart_echam_ghg
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -170,9 +177,9 @@ CONTAINS
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_input_folder          = ''
     iart_ntracer               = -1    !< default value if it is not given
-    iart_init_aero             = 0
-    iart_init_passive          = 0
-    iart_init_gas              = 0
+    iart_init_aero(:)          = 0
+    iart_init_passive(:)       = 0
+    iart_init_gas(:)           = 0
     lart_diag_out              = .FALSE.
     lart_pntSrc                = .FALSE.
     lart_emiss_turbdiff        = .FALSE.
@@ -216,6 +223,14 @@ CONTAINS
     iart_aci_cold       = 0
     iart_ari            = 0
 
+    ! Treatment of grid scale and convective precipitation in dust washout
+    iart_aero_washout   = 0
+
+    ! Number of substeps for sedimentation
+    nart_substeps_sedi(:) = 2
+
+    cart_type_sedim       = "expl"
+
     ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
@@ -243,7 +258,29 @@ CONTAINS
     END IF
     SELECT CASE (istat)
     CASE (POSITIONED)
+
+      ! Set array parameters to dummy values to determine which ones are actively set in the namelist
+      iart_init_aero(:)     = -1
+      iart_init_passive(:)  = -1
+      iart_init_gas(:)      = -1
+      nart_substeps_sedi(:) = -1
+
       READ (nnml, art_nml)                                        ! overwrite default settings
+
+      ! Restore default values for global domain where nothing at all has been specified
+      IF (iart_init_aero(1) < 0)     iart_init_aero(1)     = 0
+      IF (iart_init_passive(1) < 0)  iart_init_passive(1)  = 0
+      IF (iart_init_gas(1) < 0)      iart_init_gas(1)      = 0
+      IF (nart_substeps_sedi(1) < 0) nart_substeps_sedi(1) = 2    ! number of substeps for sedimentation
+
+      ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
+      DO jg = 2, max_dom
+        IF (iart_init_aero(jg) < 0)     iart_init_aero(jg)     = iart_init_aero(jg-1)
+        IF (iart_init_passive(jg) < 0)  iart_init_passive(jg)  = iart_init_passive(jg-1)
+        IF (iart_init_gas(jg) < 0)      iart_init_gas(jg)      = iart_init_gas(jg-1)
+        IF (nart_substeps_sedi(jg) < 0) nart_substeps_sedi(jg) = nart_substeps_sedi(jg-1)
+      ENDDO
+
       IF (my_process_is_stdio()) THEN
         iunit = temp_settings()
         WRITE(iunit, art_nml)    ! write settings to temporary text file
@@ -347,7 +384,6 @@ CONTAINS
           &        //'and will be removed soon.')
       END IF
 
-
       IF ((iart_ntracer > -1)  &
          &  .AND. (auto_ntracer /= iart_ntracer)) THEN
         CALL finish('mo_art_nml:read_art_namelist',                              &
@@ -356,21 +392,19 @@ CONTAINS
               &   //'is obsolete so just remove it from your art_nml.')
       END IF
 
-            
+      ! Diagnostics paths and file
+      IF (TRIM(cart_diagnostics_xml) /= '') THEN
+        INQUIRE(file = TRIM(cart_diagnostics_xml), EXIST = l_exist)
+
+        IF (.NOT. l_exist) THEN
+          CALL finish('mo_art_nml:read_art_namelist',  &
+                      TRIM(cart_diagnostics_xml)//  &
+                      & ' could not be found. Check cart_diagnostics_xml.')
+        END IF
+      END IF
 
     END IF  ! lart
 
-
-    ! Diagnostics paths and file
-    IF (TRIM(cart_diagnostics_xml) /= '') THEN
-      INQUIRE(file = TRIM(cart_diagnostics_xml), EXIST = l_exist)
-
-      IF (.NOT. l_exist) THEN
-        CALL finish('mo_art_nml:read_art_namelist',  &
-                    TRIM(cart_diagnostics_xml)//  &
-                    & ' could not be found. Check cart_diagnostics_xml.')
-      END IF
-    END IF
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -379,9 +413,9 @@ CONTAINS
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
-      art_config(jg)%iart_init_aero      = iart_init_aero
-      art_config(jg)%iart_init_gas       = iart_init_gas
-      art_config(jg)%iart_init_passive   = iart_init_passive
+      art_config(jg)%iart_init_aero      = iart_init_aero(jg)
+      art_config(jg)%iart_init_gas       = iart_init_gas(jg)
+      art_config(jg)%iart_init_passive   = iart_init_passive(jg)
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%lart_pntSrc         = lart_pntSrc
       art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
@@ -425,6 +459,14 @@ CONTAINS
       art_config(jg)%iart_aci_warm       = iart_aci_warm
       art_config(jg)%iart_aci_cold       = iart_aci_cold
       art_config(jg)%iart_ari            = iart_ari
+
+      ! Treatment of grid scale and convective precipitation in dust washout
+      art_config(jg)%iart_aero_washout   = iart_aero_washout
+
+      ! Number of substeps for sedimentation
+      art_config(jg)%nart_substeps_sedi  = nart_substeps_sedi(jg)
+
+      art_config(jg)%cart_type_sedim     = cart_type_sedim
 
       ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv

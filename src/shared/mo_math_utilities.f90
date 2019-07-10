@@ -86,6 +86,9 @@ MODULE mo_math_utilities
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates, &
     &                               t_line, t_tangent_vectors
   USE mo_util_sort,           ONLY: quicksort
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -136,6 +139,7 @@ MODULE mo_math_utilities
   PUBLIC :: line_intersect
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
+  PUBLIC :: tdma_solver_vec
   PUBLIC :: check_orientation
 
   !  vertical coordinates routines
@@ -217,6 +221,11 @@ MODULE mo_math_utilities
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_math_utilities'
 
+#if defined( _OPENACC )
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.    ! Only .TRUE. during unit testing
+#endif
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -2398,6 +2407,74 @@ CONTAINS
         end do
 
   END SUBROUTINE tdma_solver
+
+  !-------------------------------------------------------------------------
+  !>
+  !! TDMA tridiagonal matrix solver for a_i*x_(i-1) + b_i*x_i + c_i*x_(i+1) = d_i
+  !!
+  !! @par Revision History
+  !! Initial revision by Anurag Dipankar(2013, Jan)
+  !! Modification by Daniel Reinert, DWD (2015-11-23)
+  !! - version which vectorizes over horizontal dimension
+  !!
+  !!       a - sub-diagonal (means it is the diagonal below the main diagonal)
+  !!       b - the main diagonal
+  !!       c - sup-diagonal (means it is the diagonal above the main diagonal)
+  !!       d - right part
+  !!  varout - the answer (identical to x in description above)
+  !!    slev - start level (top)
+  !!    elev - end level (bottom)
+  SUBROUTINE tdma_solver_vec(a,b,c,d,slev,elev,startidx,endidx,varout)
+    INTEGER,   INTENT (IN) :: slev, elev
+    INTEGER,   INTENT (IN) :: startidx, endidx
+    REAL(wp),  INTENT (IN) :: a(:,:),b(:,:),c(:,:),d(:,:)
+    REAL(wp),  INTENT(OUT) :: varout(:,:)
+    !
+    ! local
+    REAL(wp):: m, cp(SIZE(a,1),SIZE(a,2)), dp(SIZE(a,1),SIZE(a,2))
+    INTEGER :: i
+    INTEGER :: jc
+
+!$ACC DATA CREATE( cp, dp), PCOPYIN(a, b, c, d), &
+!$ACC PCOPYOUT( varout ), IF( i_am_accel_node .AND. acc_on )
+
+    ! initialize c-prime and d-prime
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR
+    DO jc=startidx, endidx
+      cp(jc,slev) = c(jc,slev)/b(jc,slev)
+      dp(jc,slev) = d(jc,slev)/b(jc,slev)
+    ENDDO
+!$ACC END PARALLEL
+    ! solve for vectors c-prime and d-prime
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP SEQ
+    DO i = slev+1,elev
+!$ACC LOOP GANG VECTOR PRIVATE( m )
+      DO jc=startidx, endidx
+        m = 1._wp/(b(jc,i)-cp(jc,i-1)*a(jc,i))
+        cp(jc,i) = c(jc,i) * m
+        dp(jc,i) = (d(jc,i)-dp(jc,i-1)*a(jc,i)) * m
+      ENDDO
+    ENDDO
+!$ACC END PARALLEL
+    ! initialize varout
+!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+    varout(startidx:endidx,elev) = dp(startidx:endidx,elev)
+!$ACC END KERNELS
+    ! solve for varout from the vectors c-prime and d-prime
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP SEQ
+    DO i = elev-1, slev, -1
+!$ACC LOOP GANG VECTOR
+      DO jc=startidx, endidx
+        varout(jc,i) = dp(jc,i)-cp(jc,i)*varout(jc,i+1)
+      ENDDO
+    ENDDO
+!$ACC END PARALLEL
+
+!$ACC END DATA
+  END SUBROUTINE tdma_solver_vec
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2477,6 +2554,7 @@ CONTAINS
     REAL(wp) :: flp_lon
     flp_lon = lon_contract * REAL(lon, wp)
   END FUNCTION flp_lon
+
 
   !-------------------------------------------------------------------------
   !> Merges a list of REAL(wp) numbers into another list, yielding the

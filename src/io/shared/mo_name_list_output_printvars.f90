@@ -67,19 +67,88 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN) :: get_var_basename
     TYPE(t_var_list_element)   :: var
     ! local variable
-    INTEGER :: idx,idx1, idx2
+    INTEGER          :: endidx
+    CHARACTER(LEN=1) :: suffix_str
 
-    idx1 = INDEX(var%info%name,'.TL')
-    idx2 = INDEX(var%info%name,'_t_')
-    IF (idx1 == 0) idx1=idx2
-    IF (idx2 == 0) idx2=idx1
-    idx = MIN(idx1,idx2)
-    IF (idx==0) THEN
-      get_var_basename = TRIM(var%info%name)
+    ! first cut off the time level suffix:
+    endidx = INDEX(var%info%name,'.TL')
+    IF (endidx==0) THEN
+      endidx = LEN_TRIM(var%info%name)
     ELSE
-      get_var_basename = TRIM(var%info%name(1:idx-1))
+      endidx = endidx - 1
     END IF
+
+    suffix_str = " "
+
+    ! condense two-digit suffices "01, 02, 03, ..." into "*"
+    IF (endidx > 2) THEN
+      IF (.NOT. is_number(var%info%name(endidx-2:endidx-2)) .AND. &
+        &       is_number(var%info%name(endidx-1:endidx-1)) .AND. &
+        &       is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 2
+        suffix_str = "*"
+      END IF
+    END IF
+
+    ! condense one-digit suffices "_1, _2, _3, ..." into "_*"
+    IF ((endidx > 1) .AND. (suffix_str == " ")) THEN
+      IF ((var%info%name(endidx-1:endidx-1) == "_") .AND. &
+        &  is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 1
+        suffix_str = "*"
+      END IF
+    END IF
+
+    get_var_basename = TRIM(var%info%name(1:endidx))//suffix_str
+
+  CONTAINS
+    LOGICAL FUNCTION is_number(char)
+      CHARACTER, INTENT(IN) :: char
+      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+    END FUNCTION is_number
+
   END FUNCTION get_var_basename
+
+
+  !------------------------------------------------------------------------------------------------
+  !> @return container variable
+  !
+  FUNCTION get_var_container(var_lists, nvar_lists, print_patch_id, contained_elt)  RESULT(res)
+    TYPE(t_list_element), POINTER :: res
+    TYPE(t_var_list),              INTENT(IN) :: var_lists(:)
+    INTEGER,                       INTENT(IN) :: nvar_lists
+    INTEGER,                       INTENT(IN) :: print_patch_id
+    TYPE(t_list_element), POINTER, INTENT(IN) :: contained_elt
+    ! local variables
+    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: i
+
+    ! Unfortunately, there does not (yet) exist a link (pointer)
+    ! between the contained element and the variable
+    ! container. Therefore we need to loop over all variables and
+    ! compare pointers.
+
+    res => contained_elt
+    VARLIST_LOOP : DO i = 1, nvar_lists
+      IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
+
+      element => var_lists(i)%p%first_list_element
+      DO
+        IF (.NOT. ASSOCIATED(element)) EXIT
+        IF (element%field%info%ncontained > 0) THEN
+          IF (ASSOCIATED(element%field%r_ptr, contained_elt%field%r_ptr) .OR. &
+            & ASSOCIATED(element%field%s_ptr, contained_elt%field%s_ptr) .OR. &
+            & ASSOCIATED(element%field%i_ptr, contained_elt%field%i_ptr) .OR. &
+            & ASSOCIATED(element%field%l_ptr, contained_elt%field%l_ptr)) THEN
+            res => element
+            EXIT VARLIST_LOOP
+          END IF
+        END IF
+
+        element => element%next_list_element
+      END DO
+    END DO VARLIST_LOOP
+  END FUNCTION get_var_container
 
 
   !------------------------------------------------------------------------------------------------
@@ -116,7 +185,7 @@ CONTAINS
     ! retrieve vertical axis object
     zaxis => verticalAxisList%getEntry(icon_zaxis_type=info%vgrid)
     IF (.NOT. ASSOCIATED(zaxis)) THEN
-      WRITE (message_text,'(a,i0,a)') 'Zaxis no. ', info%vgrid,' undefined.'
+      WRITE (message_text,*) "variable '", TRIM(info%name), "' :Zaxis no. ", info%vgrid, " undefined."
       CALL finish(routine, message_text)
     END IF
     tmp_zaxisID = zaxis%cdi_id
@@ -175,15 +244,19 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::print_var_list"
     INTEGER,          PARAMETER :: max_str_len = cdi_max_name + 1 + 128 + VARNAME_LEN + 99
 
+    CHARACTER(LEN=*), PARAMETER :: varprefix = "\varname{"
+    INTEGER,          PARAMETER :: PREF = LEN_TRIM(varprefix)
+
     TYPE(t_level_selection),  POINTER              :: tmp_level_selection => NULL()
     TYPE(t_verticalAxisList), TARGET               :: tmp_verticalAxisList
     TYPE(t_verticalAxisList), POINTER              :: it
     TYPE (t_var_metadata),    POINTER              :: info
-    TYPE(t_list_element),     POINTER              :: element
+    TYPE(t_list_element),     POINTER              :: element, src_element
     TYPE(t_cf_var),           POINTER              :: this_cf
     INTEGER                                        :: i, nout_vars, iout_var, ierrstat
     CHARACTER(kind=c_char, LEN = cdi_max_name + 1) :: name
     CHARACTER(LEN=max_str_len), ALLOCATABLE        :: out_vars(:)
+    CHARACTER(len=128)                             :: descr_string
     ! ---------------------------------------------------------------------------
 
     ! generate the CDI IDs for vertical axes:
@@ -252,22 +325,35 @@ CONTAINS
         ELSE
           this_cf => info%cf
         END IF
-              
+        ! if no short is available and if the variable is a
+        ! "reference" into another variable, then search for this
+        ! source variable:
+        IF ((LEN_TRIM(this_cf%long_name) == 0) .AND. info%lcontained) THEN
+          src_element => get_var_container(var_lists, nvar_lists, print_patch_id, element)
+          this_cf => src_element%field%info%cf
+        END IF
+
         CALL identify_grb2_shortname(info, tmp_verticalAxisList,     &
           &                          gribout_config, i_lctype,       &
           &                          out_varnames_dict, name)
         name = TRIM(tolower(name))
-        IF (name(1:3) == "var") THEN
+        IF ((name(1:3) == "var") .OR. (name(1:5) == "param")) THEN
           name = ""
+        ELSE
+          name = "\varname{"//TRIM(name)//"}"
         END IF
 
+        descr_string = this_cf%long_name
+        ! upcase first letter of description string:
+        descr_string(1:1) = toupper(descr_string(1:1))
+
         iout_var = iout_var + 1
-        WRITE (out_vars(iout_var),'(5a)')                           &
-          &         TRIM(tolower(get_var_basename(element%field))), &
-          &         ' & ',                                          &
-          &         TRIM(name),                                     &
-          &         ' & ',                                          &
-          &         TRIM(this_cf%long_name)
+        WRITE (out_vars(iout_var),'(5a)')                                             &
+          &         "\varname{"//TRIM(tolower(get_var_basename(element%field)))//"}", &
+          &         ' & ',                                                            &
+          &         TRIM(name),                                                       &
+          &         ' & ',                                                            &
+          &         TRIM(descr_string)
         
         element => element%next_list_element
       ENDDO
@@ -285,7 +371,8 @@ CONTAINS
     WRITE (0,*) " "
     DO i=1,nout_vars
       IF (i < nout_vars) THEN
-        IF (out_vars(i)(1:1) /= out_vars(i+1)(1:1)) THEN
+        ! check for the initial character of the variable name:
+        IF (out_vars(i)(PREF+1:PREF+1) /= out_vars(i+1)(PREF+1:PREF+1)) THEN
           WRITE (0,*) TRIM(out_vars(i)), " \\[0.5em]"
         ELSE
           WRITE (0,*) TRIM(out_vars(i)), " \\"

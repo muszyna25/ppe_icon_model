@@ -25,6 +25,7 @@ MODULE mo_art_diagnostics_interface
 
 ! ICON
   USE mo_kind,                          ONLY: wp
+  USE mo_linked_list,                   ONLY: t_var_list
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_impl_constants,                ONLY: min_rlcell_int
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
@@ -38,21 +39,45 @@ MODULE mo_art_diagnostics_interface
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc
+  USE mo_art_diag_state,                ONLY: art_create_diagnostics
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics, art_radio_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_run_config,                    ONLY: iforcing
   USE mo_impl_constants,                ONLY: iecham, inwp
-  
-  
 #endif
 
   IMPLICIT NONE
   
   PRIVATE
   
-  PUBLIC :: art_diagnostics_interface
+  PUBLIC :: art_diagnostics_interface_init, art_diagnostics_interface
     
 CONTAINS
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
+
+  INTEGER,INTENT(in)             :: &
+    &   jg                            !< patch id
+  TYPE(t_var_list),INTENT(INOUT) :: &
+    &   this_list                     !< current list: prognostic or phys. tend.  
+  TYPE(t_var_list),INTENT(IN)            :: &
+    &   p_prog_list                   !< current prognostic state list (needed in diag-case when this_list=p_diag_list)
+ 
+#ifdef __ICON_ART
+  IF (lart) THEN
+    IF (timers_level > 3) CALL timer_start(timer_art)
+    IF (timers_level > 3) CALL timer_start(timer_art_diagInt)
+
+    CALL art_create_diagnostics(jg, this_list, p_prog_list)
+
+    IF (timers_level > 3) CALL timer_stop(timer_art_diagInt)
+    IF (timers_level > 3) CALL timer_stop(timer_art)
+  ENDIF ! lart
+#endif
+
+END SUBROUTINE art_diagnostics_interface_init
 !!
 !!-------------------------------------------------------------------------
 !!

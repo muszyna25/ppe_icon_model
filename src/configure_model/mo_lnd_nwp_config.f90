@@ -124,7 +124,7 @@ MODULE mo_lnd_nwp_config
 
    CHARACTER(LEN = *), PARAMETER :: modname = "mo_lnd_nwp_config"
 
-   CHARACTER(LEN=VARNAME_LEN),DIMENSION(1) :: groups_smi = (/"ICON_INI_OUT"/)
+   CHARACTER(LEN=VARNAME_LEN),DIMENSION(1) :: groups_smi = (/"mode_iniana"/)
 
 CONTAINS
 

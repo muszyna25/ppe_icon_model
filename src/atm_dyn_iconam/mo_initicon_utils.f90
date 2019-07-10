@@ -80,6 +80,7 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_upatmo_config,       ONLY: upatmo_config
 
 
   IMPLICIT NONE
@@ -751,14 +752,18 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
     ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
+    ! (in case of an upper-atmosphere extrapolation, this is already part 
+    ! of the pressure "extrapolation" in 'src/atm_dyn_iconam/mo_nh_vert_interp: vert_interp')
     DO jg = 1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       ntl = nnow(jg)
 
-      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
-                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
-                        p_nh_state(jg)%prog(ntl)%theta_v )
+      IF (.NOT. upatmo_config(jg)%exp%l_expol) THEN
+        CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
+                          p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
+                          p_nh_state(jg)%prog(ntl)%theta_v )
+      ENDIF
 
     ENDDO
 
