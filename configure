@@ -5541,7 +5541,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
      ;; #(
@@ -5633,7 +5633,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
      ;; #(
@@ -5780,7 +5780,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5895,7 +5895,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6067,7 +6067,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6210,7 +6210,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6406,7 +6406,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  FCFLAGS=*|CFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|FCFLAGS=*|CFLAGS=*|LDFLAGS=*) :
      ;; #(
   MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*) :
      ;; #(
@@ -6511,7 +6511,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*) :
      ;; #(
@@ -6600,7 +6600,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(

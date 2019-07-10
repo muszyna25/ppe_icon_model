@@ -832,7 +832,7 @@ RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of dnl
 RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and dnl
 LIBS accordingly])])
       ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
-        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
@@ -869,7 +869,7 @@ scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
 ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
 (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
       ACX_CONFIG_SUBDIR([externals/ecrad],
-        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])]],
@@ -945,7 +945,7 @@ accordingly])])
 version of SCT: the test suite of SCT might fail at $sct_test_failure_stage dnl
 time])])])
       ACX_CONFIG_SUBDIR([externals/sct],
-        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
@@ -999,7 +999,7 @@ accordingly])])
            [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
 version of YAXT: the configure script of YAXT might fail])])])
       ACX_CONFIG_SUBDIR([externals/yaxt],
-        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1086,7 +1086,7 @@ and LIBS accordingly])])
         [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
 version of CDI: the configure script of CDI might fail])])])
    ACX_CONFIG_SUBDIR([externals/cdi],
-     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+     [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1170,7 +1170,7 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
         [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
 version of MTIME: the test suite of MTIME might fail at link time])])])
    ACX_CONFIG_SUBDIR([externals/mtime],
-     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+     [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1243,7 +1243,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
         [AS_VAR_APPEND([yac_CFLAGS], [" $icon_c_rpaths"])
          AS_VAR_APPEND([yac_FCFLAGS], [" $icon_fc_rpaths"])])
       ACX_CONFIG_SUBDIR([externals/yac],
-        [[FCFLAGS=*|CFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|FCFLAGS=*|CFLAGS=*|LDFLAGS=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
          [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
@@ -1293,7 +1293,7 @@ disable the ART component (--disable-art) or provide an external version of dnl
 TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
       ACX_CONFIG_SUBDIR([externals/tixi],
-        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
@@ -1326,7 +1326,7 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/self],
-     [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+     [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
       [LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS"],
