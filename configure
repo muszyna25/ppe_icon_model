@@ -608,6 +608,7 @@ BUNDLED_LIBS
 SB2_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
+ICON_RPATH_LDFLAGS
 ICON_OPTIM_OCEAN_FCFLAGS
 ICON_OPTIM_FCFLAGS
 FC_PP_DEF
@@ -2528,20 +2529,16 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 fi
 
+CFLAGS=${CFLAGS-}; FCFLAGS=${FCFLAGS-}
+
+subdir_CFLAGS=$CFLAGS; subdir_FCFLAGS=$FCFLAGS
+
 acx_save_cross_compiling=$cross_compiling
    acx_save_ac_tool_warned=$ac_tool_warned
    cross_compiling=yes
    ac_tool_warned=yes
 
 
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-CFLAGS=${CFLAGS-}
-subdir_CFLAGS=$CFLAGS
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -3289,6 +3286,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+
 if test "x$ac_cv_prog_cc_c89" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
@@ -3526,24 +3524,6 @@ fi
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
 
-if test "x$enable_rpaths" = xyes; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler flag needed to add a directory to the runtime library search path" >&5
-$as_echo_n "checking for C compiler flag needed to add a directory to the runtime library search path... " >&6; }
-if ${acx_cv_c_rpath_flag+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $acx_cv_c_compiler_vendor in #(
-  nag) :
-    acx_cv_c_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
-  *) :
-    acx_cv_c_rpath_flag="-Wl,-rpath -Wl," ;;
-esac
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_rpath_flag" >&5
-$as_echo "$acx_cv_c_rpath_flag" >&6; }
-
-fi
-
 
 for ac_header in execinfo.h ucontext.h link.h
 do :
@@ -3692,13 +3672,6 @@ ICON_OPTIM_CFLAGS=$icon_optim_CFLAGS
 
 subdir_CFLAGS="$icon_optim_subdir_CFLAGS $subdir_CFLAGS"
 
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-FCFLAGS=${FCFLAGS-}
-subdir_FCFLAGS=$FCFLAGS
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
@@ -3904,10 +3877,17 @@ if test $ac_compiler_gnu = yes; then
 else
   GFC=
 fi
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
 
 
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to compile preprocessed .f90 files" >&5
@@ -4025,129 +4005,22 @@ fi
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 
-
-icon_c_rpaths= ; icon_fc_rpaths= ; icon_lt_rpaths=
-if test "x$enable_rpaths" = xyes; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
-$as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
-if ${acx_cv_fc_rpath_flag+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $acx_cv_fc_compiler_vendor in #(
-  nag) :
-    acx_cv_fc_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
-  *) :
-    acx_cv_fc_rpath_flag="-Wl,-rpath -Wl," ;;
-esac
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_rpath_flag" >&5
-$as_echo "$acx_cv_fc_rpath_flag" >&6; }
-
-   icon_L_args=
-   asx_extract_args_args="$LDFLAGS $LIBS"
-   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
-   for asx_extract_args_arg in $asx_extract_args_args; do
-     case $asx_extract_args_arg in #(
-  _ASX_EXTRACT_ARGS_MARKER_*) :
-    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
-        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
-  *) :
-     ;;
-esac
-   done
-   icon_libdirs=
-   for icon_L_arg in $icon_L_args; do
-     if test -d "$icon_L_arg"; then
-       case ' '$icon_libdirs' ' in #(
-  *' '"$icon_L_arg"' '*) :
-     ;; #(
-  ' '' ') :
-    as_fn_append icon_libdirs "$icon_L_arg" ;; #(
-  *) :
-    as_fn_append icon_libdirs ' '; as_fn_append icon_libdirs "$icon_L_arg" ;;
-esac
-     fi
-   done
-   for icon_libdir in $icon_libdirs; do
-     as_fn_append icon_c_rpaths "$acx_cv_c_rpath_flag$icon_libdir "
-     as_fn_append icon_fc_rpaths "$acx_cv_fc_rpath_flag$icon_libdir "
-     as_fn_append icon_lt_rpaths "-Wl,-rpath -Wl,$icon_libdir "
-   done
-   ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-   acx_shlib_rpath_flags_check_result=no
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether C compiler accepts the automatically generated RPATH flags" >&5
-$as_echo_n "checking whether C compiler accepts the automatically generated RPATH flags... " >&6; }
-   acx_save_LDFLAGS=$LDFLAGS
-   LDFLAGS="$icon_c_rpaths $LDFLAGS"
-   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-int
-main ()
-{
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  acx_shlib_rpath_flags_check_result=yes
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-   LDFLAGS=$acx_save_LDFLAGS
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
-$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
-   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "C compiler does not accept the automatically generated RPATH flags '$icon_c_rpaths'
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-   ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-   acx_shlib_rpath_flags_check_result=no
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
-$as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
-   acx_save_LDFLAGS=$LDFLAGS
-   LDFLAGS="$icon_fc_rpaths $LDFLAGS"
-   cat > conftest.$ac_ext <<_ACEOF
+if test "x$acx_save_cross_compiling" = xno; then :
+  cat > conftest.$ac_ext <<_ACEOF
       program main
 
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  acx_shlib_rpath_flags_check_result=yes
+  ./conftest$ac_cv_exeext >/dev/null 2>&1
+      if test $? -ne 0; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&5
+$as_echo "$as_me: WARNING: unable to run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&2;}
+fi
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-   LDFLAGS=$acx_save_LDFLAGS
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
-$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
-   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
-
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$icon_fc_rpaths'
-See \`config.log' for more details" "$LINENO" 5; }
 fi
-fi
-
-subdir_LDFLAGS=$LDFLAGS
-
-LDFLAGS="$icon_fc_rpaths$LDFLAGS"
-
    cross_compiling=$acx_save_cross_compiling
    ac_tool_warned=$acx_save_ac_tool_warned
       cat > conftest.$ac_ext <<_ACEOF
@@ -4860,6 +4733,74 @@ ICON_OPTIM_FCFLAGS=$icon_optim_FCFLAGS
 ICON_OPTIM_OCEAN_FCFLAGS=$icon_optim_ocean_FCFLAGS
 
 subdir_FCFLAGS="$icon_optim_subdir_FCFLAGS $subdir_FCFLAGS"
+
+ICON_RPATH_LDFLAGS=
+if test "x$enable_rpaths" = xyes; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
+$as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
+if ${acx_cv_fc_rpath_flag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $acx_cv_fc_compiler_vendor in #(
+  nag) :
+    acx_cv_fc_rpath_flag="-Wl,-Wl,,-rpath -Wl,-Wl,," ;; #(
+  *) :
+    acx_cv_fc_rpath_flag="-Wl,-rpath -Wl," ;;
+esac
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_rpath_flag" >&5
+$as_echo "$acx_cv_fc_rpath_flag" >&6; }
+
+   icon_L_args=
+   asx_extract_args_args="$LDFLAGS $LIBS"
+   asx_extract_args_args=`$as_echo "$asx_extract_args_args" | sed 's%''-L[ ]*''%_ASX_EXTRACT_ARGS_MARKER_%g'`
+   for asx_extract_args_arg in $asx_extract_args_args; do
+     case $asx_extract_args_arg in #(
+  _ASX_EXTRACT_ARGS_MARKER_*) :
+    asx_extract_args_value=`$as_echo "$asx_extract_args_arg" | sed 's%^_ASX_EXTRACT_ARGS_MARKER_%%'`
+        as_fn_append icon_L_args " $asx_extract_args_value" ;; #(
+  *) :
+     ;;
+esac
+   done
+   for icon_L_arg in $icon_L_args; do
+     case ' '$ICON_RPATH_LDFLAGS' ' in #(
+  *' '"$acx_cv_fc_rpath_flag$icon_L_arg"' '*) :
+     ;; #(
+  ' '' ') :
+    as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
+  *) :
+    as_fn_append ICON_RPATH_LDFLAGS ' '; as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
+esac
+   done
+   acx_shlib_rpath_flags_check_result=no
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
+$as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
+   acx_save_LDFLAGS=$LDFLAGS
+   LDFLAGS="$ICON_RPATH_LDFLAGS $LDFLAGS"
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  acx_shlib_rpath_flags_check_result=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+   LDFLAGS=$acx_save_LDFLAGS
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
+$as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
+   if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$ICON_RPATH_LDFLAGS'
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+fi
+
 
 DEFAULT_VERBOSITY=0
 
@@ -5589,7 +5530,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
      ;; #(
@@ -5611,7 +5552,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_openacc" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_openacc" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5681,7 +5622,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*) :
      ;; #(
@@ -5703,7 +5644,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5792,24 +5733,6 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the SCT timer (--disable-sct) or provide an external version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-      sct_CFLAGS=$subdir_CFLAGS
-      sct_LDFLAGS=$subdir_LDFLAGS
-      if test -n "$icon_c_rpaths"; then :
-  sct_test_failure_stage=
-         if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
-  sct_LDFLAGS="$icon_c_rpaths$sct_LDFLAGS"
-else
-  as_fn_append sct_CFLAGS " $icon_c_rpaths"
-            sct_test_failure_stage=run
-fi
-         if test x"$icon_c_rpaths" != x"$icon_lt_rpaths"; then :
-  sct_test_failure_stage=link
-fi
-         if test -n "$sct_test_failure_stage"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of SCT: the test suite of SCT might fail at $sct_test_failure_stage time" >&5
-$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of SCT: the test suite of SCT might fail at $sct_test_failure_stage time" >&2;}
-fi
-fi
          acx_config_subdir_args_externals_sct=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -5828,9 +5751,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
-     ;; #(
-  BUILD_ENV=*|MPI_LAUNCH=*) :
+  CFLAGS=*|FCFLAGS=*|MPICC=*|MPIFC=*|BUILD_ENV=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5870,7 +5791,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$subdir_CFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5918,15 +5839,6 @@ else
       if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable the YAXT data exchange (--disable-yaxt) or provide an external version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-      yaxt_LDFLAGS=$subdir_LDFLAGS
-      if test -n "$icon_lt_rpaths"; then :
-  if test x"$icon_c_rpaths" = x"$icon_lt_rpaths"; then :
-  yaxt_LDFLAGS="$icon_lt_rpaths$yaxt_LDFLAGS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of YAXT: the configure script of YAXT might fail" >&5
-$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of YAXT: the configure script of YAXT might fail" >&2;}
-fi
-fi
          acx_config_subdir_args_externals_yaxt=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -5945,7 +5857,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5971,7 +5883,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$yaxt_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6090,15 +6002,6 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-   cdi_LDFLAGS=$subdir_LDFLAGS
-   if test -n "$icon_lt_rpaths"; then :
-  if test x"$icon_c_rpaths" = x"$icon_lt_rpaths"; then :
-  cdi_LDFLAGS="$icon_lt_rpaths$cdi_LDFLAGS"
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of CDI: the configure script of CDI might fail" >&5
-$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of CDI: the configure script of CDI might fail" >&2;}
-fi
-fi
       acx_config_subdir_args_externals_cdi=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6117,7 +6020,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6159,7 +6062,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$cdi_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6234,14 +6137,6 @@ else
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of MTIME (--with-external-mtime) by setting CFLAGS, FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
 fi
-   mtime_LDFLAGS=$subdir_LDFLAGS
-   if test -n "$icon_c_rpaths"; then :
-  mtime_LDFLAGS="$icon_c_rpaths$mtime_LDFLAGS"
-      if test x"$icon_c_rpaths" != x"$icon_lt_rpaths"; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to set valid RPATH flags for the bundled version of MTIME: the test suite of MTIME might fail at link time" >&5
-$as_echo "$as_me: WARNING: unable to set valid RPATH flags for the bundled version of MTIME: the test suite of MTIME might fail at link time" >&2;}
-fi
-fi
       acx_config_subdir_args_externals_mtime=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6260,7 +6155,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6284,7 +6179,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$mtime_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6429,15 +6324,6 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"
 fi
-      yac_CFLAGS=$subdir_CFLAGS
-      yac_FCFLAGS=$subdir_FCFLAGS
-      yac_LDFLAGS=$subdir_LDFLAGS
-      if test x"$icon_c_rpaths" = x"$icon_fc_rpaths"; then :
-  yac_LDFLAGS="$icon_c_rpaths$yac_LDFLAGS"
-else
-  as_fn_append yac_CFLAGS " $icon_c_rpaths"
-         as_fn_append yac_FCFLAGS " $icon_fc_rpaths"
-fi
          acx_config_subdir_args_externals_yac=
    acx_config_subdir_ignore_arg=no
    eval "set dummy $ac_configure_args"; shift
@@ -6456,7 +6342,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|FCFLAGS=*|CFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|FCFLAGS=*|CFLAGS=*) :
      ;; #(
   MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*) :
      ;; #(
@@ -6494,7 +6380,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy FCFLAGS="$yac_FCFLAGS" CFLAGS="$yac_CFLAGS" LDFLAGS="$yac_LDFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$subdir_CFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6561,7 +6447,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*) :
      ;; #(
@@ -6581,7 +6467,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_c_rpaths$subdir_LDFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6650,7 +6536,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -6668,7 +6554,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$icon_fc_rpaths$subdir_LDFLAGS" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

@@ -58,6 +58,7 @@ ICON_DEFAULT_CPPFLAGS= $(ICON_COMMON_CPPFLAGS) $(CPPFLAGS)
 
 # Linker flags and libraries:
 LDFLAGS= @LDFLAGS@
+ICON_RPATH_LDFLAGS= @ICON_RPATH_LDFLAGS@
 LIBS= @LIBS@
 BUNDLED_LIBS= @BUNDLED_LIBS@
 
@@ -193,7 +194,7 @@ check: all
 
 # ICON executable linking rule:
 icon@EXEEXT@: $(icon_rootobj) $(shell $(DEPLIST) -t $(icon_rootobj) -p '*.@OBJEXT@' --inc-oo -f $(deps)) $(BUNDLED_LIBS)
-	$(silent_FCLD)$(FC) -o $@ $(ICON_DEFAULT_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(ICON_DEFAULT_FCFLAGS) $(ICON_RPATH_LDFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 # Default Fortran compilation rule:
 %.@OBJEXT@: %.f90 | $(dirstamps) $(bundled_subdirs)
