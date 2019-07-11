@@ -5,7 +5,7 @@ set -o pipefail
 
 curr_dir=$(pwd)
 root_dir=$(cd "$(dirname "$0")"; pwd)
-work_dir=$(basename -s '.sh' "$0")
+work_dir=$(basename "$0" '.sh')
 rm -rf "${work_dir}" && mkdir -p "${work_dir}" && cd "${work_dir}"
 work_dir=$(pwd)
 

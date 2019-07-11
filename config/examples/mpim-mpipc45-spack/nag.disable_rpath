@@ -24,12 +24,15 @@ MPI_LAUNCH=$MPICH_LAUNCH
 # we will not be able to link and run the test suites of CDI and SCT.
 FCFLAGS="${FCFLAGS} `echo ${LDFLAGS} | sed 's%-L[ ]*\([^ ][^ ]*\)%-Wl,-Wl,,-rpath -Wl,-Wl,,\1%g'`"
 
-# The configure scripts of some of the bundled libraries need to link and run
-# C programs at configure time, which means that the dynamic linker must be
-# able to find all the libraries specified in the LIBS variable. Moreover, we
-# would like to be able to link and run the test suites of the bundled
-# libraries. Therefore, we extend the BUILD_ENV variable in the following way:
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"\$LD_LIBRARY_PATH`echo "${LDFLAGS}" | sed 's/[ ]*-L[ ]*/:/g'`\"; export LD_LIBRARY_PATH;"
+# The test suites of SCT and CDI will fail because libtool is unable to process
+# RPATH flags correctly when their prefixes differ from '-Wl,-rpath -Wl,' or
+# '-Wl,-rpath,'. For example, the flags '-Wl,-Wl,,-rpath -Wl,-Wl,,<lib dir>',
+# which are valid for the compiler itself, are incorrectly transformed by
+# libtool into '-Wl,-Wl -Wl,"" -Wl,-rpath -Wl,-Wl -Wl,"" -Wl,<lib dir>'.
+
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --disable-openmp --enable-sct --enable-grib2 --disable-rpaths "$@"
 

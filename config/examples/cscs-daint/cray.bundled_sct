@@ -22,5 +22,11 @@ CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
 LIBS="${XML_LIBS} ${GRIBAPI_LIBS}"
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-sct "$@"
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+
+# Although the MPI-related tests are skipped, there are still tests in the test suite of CDI that fail.
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-sct --disable-mpi-checks "$@"
 

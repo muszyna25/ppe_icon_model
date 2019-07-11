@@ -16,5 +16,9 @@ CPPFLAGS=
 LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
 LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
 
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --disable-openmp --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --disable-sct "$@"
 

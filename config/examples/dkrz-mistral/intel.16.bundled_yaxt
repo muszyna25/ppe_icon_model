@@ -11,11 +11,6 @@ MPI_LIBS='-lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi'
 NETCDF_ROOT='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14'
 NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
 NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
-# The configure script of YAXT links with libtool, which explicitly links to
-# -lpnetcdf # But does not set RPATH flags for it. The resulting conftest
-# executable fails because the library is not in the runtime library search
-# path. Therefore, we need to add the following:
-NETCDF_LDFLAGS+=" -Wl,-rpath -Wl,/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib"
 NETCDF_LIBS='-lnetcdf'
 
 NETCDFF_ROOT='/sw/rhel6-x64/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14'
@@ -49,6 +44,14 @@ CPPFLAGS="${MPI_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}
 
 LDFLAGS="${MPI_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
 LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS}"
+
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check'. Note that
+# some of the bundled libraries use libtool, which explicitly links to
+# -lpnetcdf but does not set RPATH flags for it. The resulting executables
+# fail because the library is not in the runtime library search path.
+# Therefore, we need to add an additional path to LD_LIBRARY_PATH:
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-optimization=precise --enable-active-target-sync --enable-parallel-netcdf "$@"
 

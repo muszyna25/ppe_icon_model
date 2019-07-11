@@ -21,6 +21,15 @@ CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
 LIBS="${XML_LIBS} ${GRIBAPI_LIBS}"
+MPI_LAUNCH='srun -C gpu'
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt "$@"
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+
+# The MPI implementation has a defect that is going to be detected by the
+# configure script of YAC. Therefore, we disable the checks to be able to test
+# the building itself by setting --disable-mpi-checks.
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --enable-grib2 --enable-yaxt --disable-mpi-checks "$@"
 

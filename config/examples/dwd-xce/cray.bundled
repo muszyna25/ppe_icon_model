@@ -36,23 +36,49 @@ ECCODES_CPPFLAGS=$ECCODES_INCLUDE
 # We implement the second solution here:
 ECCODES_LIBS="-L${ECCODES_LIB_DIR} -leccodes -L${AEC_DIR}/lib -l:libaec.a"
 
-XML_ROOT='/opt/cray/xc-sysroot/default/usr'
-XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
-XML_LIBS="-L${XML_ROOT}/lib -lxml2"
-
 ######################
 
-BUILD_ENV=". /etc/profile; . ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
 
 FC='ftn'
 CC='cc'
 
 FCFLAGS="${RTTOV_FCFLAGS}"
 CFLAGS=
-CPPFLAGS="${ECCODES_CPPFLAGS} ${XML_CPPFLAGS}"
+CPPFLAGS="${ECCODES_CPPFLAGS}"
 
 LDFLAGS=
-LIBS="${XML_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
+LIBS="${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-active-target-sync --enable-rttov --disable-rpaths --disable-ocean --disable-psrad --disable-jsbach --disable-coupling "$@"
+# Unfortunately, we cannot enable dynamic linking on this machine. At the same
+# time, libtool, which the building system of CDI is based on, cannot handle
+# this case correctly. Libtool tries to find out the full list of libraries
+# required for linking by using some dark magic. Apparently, it tries to do by
+# it parsing the verbose output of the compiler. For example, it finds out
+# that Cray Fortran compiler, for whatever reason, needs the runtime libraries
+# of GNU Fortran compiler, i.e. -lquadmath, -lgfortran, etc. And now we face a
+# problem that is very similar to the one described above: libtool finds
+# /opt/gcc/4.8.1/snos/lib/../lib64/libquadmath.la and starts treating it in a
+# special way. In particular it replaces '-lquadmath' with the absolute path
+# to the library. The problem is that libtool does not know that we link
+# statically, therefore, instead of setting the absolute path to the static
+# library, it sets the path to the dynamic one, i.e.
+# /opt/gcc/4.8.1/snos/lib/../lib64/libquadmath.so, which confuses the linker
+# and it is unable to link the test suite of CDI. We cannot solve this
+# problem using the same workaround as before, because the dependency on
+# '-lquadmath' does not come from the arguments of the configure script.
+# The only thing we can do is to use the feature of the configure script of
+# CDI, which is enabled with the '--enable-all-static' argument. When this
+# feature is enabled, libtool receives an additional argument '-all-static'
+# from the makefile of CDI, which tells libtool that we do link statically.
+# The argument '--enable-all-static' is not a standard argument for
+# libtool-based packages, therefore it is not a universal solution. For
+# example, we might experience the same problem when building YAXT, which is
+# disabled in this example. We can pass the '--enable-all-static' argument to
+# the configure script of ICON, which will issue a warning but pass it to all
+# the configure scripts of the bundled libraries. All of them but CDI will
+# ignore it. This will help to get the test suite of CDI linked. Nonetheless,
+# most of the tests will fail, but that is another issue.
+
+${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-active-target-sync --enable-rttov --disable-rpaths --disable-ocean --disable-psrad --disable-jsbach --disable-coupling --enable-ecrad --enable-all-static "$@"
 
