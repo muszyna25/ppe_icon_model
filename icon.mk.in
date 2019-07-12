@@ -150,7 +150,9 @@ preprocess: $(pp_srcs)
 
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
-	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_srcs) $(c_srcs))) version.@OBJEXT@ $(notdir $(f90_srcs:.f90=.i)) $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_srcs) $(c_srcs))) version.@OBJEXT@
+	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f $(notdir $(f90_srcs:.f90=.i))
 
 # Delete files generated at the building stage:
 clean: mostlyclean
@@ -159,7 +161,9 @@ clean: mostlyclean
 
 # Delete everything generated at the configure stage (and clean the created directories if they are empty):
 distclean: clean
-	rm -f config.log config.status config.h depgen.f90.config depgen.c.config $(deps) $(dirstamps)
+	rm -f config.log config.status config.h depgen.f90.config depgen.c.config
+	rm -f $(deps)
+	rm -f $(dirstamps)
 	@for dir in $(subdirs) $(moddir) $(ppdir) $(bundled_subdirs) externals; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
