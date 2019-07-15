@@ -447,7 +447,9 @@
 
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
-        CALL finish(routine, "File not found: "//TRIM(latbc_filename))
+        CALL finish(routine, "File not found: "//TRIM(latbc_full_filename))
+      ELSE
+        CALL message("","reading boundary data: "//TRIM(latbc_full_filename))
       ENDIF
 
       IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN

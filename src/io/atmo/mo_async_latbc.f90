@@ -819,6 +819,8 @@ MODULE mo_async_latbc
         INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
             CALL finish(routine,'LATBC file not found: '//latbc_file)
+         ELSE
+            CALL message("", "reading boundary data: "//latbc_file)
          ENDIF
 
          ! open file
@@ -998,7 +1000,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
       ! local variables
       CHARACTER(*), PARAMETER        :: routine = modname//"::check_variables"
-      LOGICAL                        :: l_exist, lhave_ps_geop, lhave_ps, lhave_geop,  &
+      LOGICAL                        :: lhave_ps_geop, lhave_ps, lhave_geop,           &
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
 
