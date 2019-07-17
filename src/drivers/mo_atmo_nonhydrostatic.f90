@@ -45,11 +45,12 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
 USE mo_nh_testcases,         ONLY: init_nh_testcase
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method, &
+  &                                ldeepatmo
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area
+     &                             is_plane_torus, l_limited_area, n_dom_start
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -58,8 +59,8 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
-  &                                itime_scheme
+USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
+  &                                itime_scheme, ndyn_substeps, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
@@ -121,6 +122,11 @@ USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statisti
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
+USE mo_initicon_config,     ONLY: init_mode
+USE mo_sleve_config,        ONLY: flat_height
+USE mo_vertical_coord_table, ONLY: vct_a
+USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_nudging_config,      ONLY: l_global_nudging
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -202,6 +208,12 @@ CONTAINS
      ENDDO
 
     ENDIF
+
+    ! upper atmosphere
+    CALL configure_upatmo( n_dom_start=n_dom_start, n_dom=n_dom,                 & 
+      & p_patch=p_patch(n_dom_start:), ldeepatmo=ldeepatmo, init_mode=init_mode, &
+      & iforcing=iforcing, dtime=dtime, ndyn_substeps=ndyn_substeps,             &
+      & flat_height=flat_height, msg_level=msg_level, vct_a=vct_a                ) 
 
     ! initialize ldom_active flag if this is not a restart run
 
@@ -300,7 +312,9 @@ CONTAINS
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
        &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:)  )
+       &                      p_nh_state_lists(jg)%tracer_list(:),     &
+       &                      kstart_tracer(jg,:))
+
     ENDDO
 
    IF (ldass_lhn) THEN 
@@ -689,7 +703,7 @@ CONTAINS
     ! variable group information
     IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
       CALL print_group_details(idom=1,                            &
-        &                      opt_latex_fmt           = .FALSE., &
+        &                      opt_latex_fmt           = .TRUE., &
         &                      opt_reduce_trailing_num = .TRUE.,  &
         &                      opt_skip_trivial        = .TRUE.)
     END IF
@@ -754,8 +768,10 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
+    CALL destruct_upatmo()
+
     ! call close name list prefetch
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()

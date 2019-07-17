@@ -53,6 +53,9 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_tkmmin    => range_tkmmin,    &
     &                               config_range_turlen    => range_turlen,    &
     &                               config_range_a_hshr    => range_a_hshr,    &
+    &                               config_range_a_stab    => range_a_stab,    &
+    &                               config_range_c_diff    => range_c_diff,    &
+    &                               config_range_q_crit    => range_q_crit,    &
     &                               config_range_tkred_sfc => range_tkred_sfc, &
     &                               config_range_rlam_heat => range_rlam_heat, &
     &                               config_range_charnock  => range_charnock,  &  
@@ -157,6 +160,15 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Scaling factor for extended horizontal shear term in turbulence scheme 
     &  range_a_hshr
 
+  REAL(wp) :: &                    !< Scaling factor for stability correction in turbulence scheme 
+    &  range_a_stab
+
+  REAL(wp) :: &                    !< Length scale factor for vertical diffusion in turbulence scheme 
+    &  range_c_diff
+
+  REAL(wp) :: &                    !< Critical value for normalized supersaturation in turbulent cloud scheme
+    &  range_q_crit
+
   REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
     &  range_charnock
 
@@ -186,7 +198,9 @@ MODULE mo_ensemble_pert_nml
     &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc,    &
     &                         range_gfrcrit, range_c_soil, range_cwimax_ml, range_capdcfac_tr,             &
     &                         range_lowcapefac, range_negpblcape, stdev_sst_pert, itype_pert_gen,          &
-    &                         timedep_pert
+    &                         timedep_pert, range_a_stab, range_c_diff, range_q_crit, range_box_liq_asy,   &
+    &                         range_rdepths, range_turlen, range_rain_n0fac, range_a_hshr, range_qexc,     &
+    &                         range_rprcon
 
 CONTAINS
 
@@ -260,6 +274,9 @@ CONTAINS
                                     ! (compensated by an inverse change of rat_sea)
     range_turlen     = 150._wp      ! turbulent length scale (m)
     range_a_hshr     = 1._wp        ! scaling factor for extended horizontal shear term
+    range_a_stab     = 0._wp        ! scaling factor for stability correction in turbulence scheme
+    range_c_diff     = 1._wp        ! length scale factor for vertical diffusion in turbulence scheme (multiplicative)
+    range_q_crit     = 0._wp        ! critical value for normalized super-saturation in turbulent cloud scheme
     range_charnock   = 1.5_wp       ! multiplicative change of upper and lower bound of wind-speed dependent
                                     ! Charnock parameter
     !
@@ -355,6 +372,9 @@ CONTAINS
     config_range_rlam_heat    = range_rlam_heat
     config_range_turlen       = range_turlen
     config_range_a_hshr       = range_a_hshr
+    config_range_a_stab       = range_a_stab
+    config_range_c_diff       = range_c_diff
+    config_range_q_crit       = range_q_crit
     config_range_charnock     = range_charnock
     config_range_z0_lcc       = range_z0_lcc
     config_range_rootdp       = range_rootdp

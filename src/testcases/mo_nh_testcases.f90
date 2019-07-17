@@ -28,7 +28,9 @@ MODULE mo_nh_testcases
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_nh_testcases_nml
   USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, icosmo, iedmf
-  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area
+  USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area, &
+    &                                grid_sphere_radius, grid_angular_velocity, &
+    &                                grid_rescale_factor
   USE mo_model_domain,         ONLY: t_patch
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_math_constants,       ONLY: pi
@@ -73,6 +75,10 @@ MODULE mo_nh_testcases
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
                                      init_torus_with_sounding, init_warm_bubble
   USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
+  USE mo_nonhydrostatic_config, ONLY: ndyn_substeps, vwind_offctr
+  USE mo_sleve_config,         ONLY: top_height
+  USE mo_nh_lahade,            ONLY: init_nh_lahade
+  USE mo_upatmo_config,        ONLY: upatmo_config
   
   IMPLICIT NONE  
   
@@ -401,6 +407,11 @@ MODULE mo_nh_testcases
    ! Running Radiative Convective Equilibrium testcase
    CALL message(TRIM(routine),'running ICON in RCE on a global domain')
 
+  CASE ('RCE_Tconst')
+
+   ! Running Radiative Convective Equilibrium testcase
+   CALL message(TRIM(routine),'running ICON in RCE with constant initial T profile')
+
   CASE ('RICO')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -416,6 +427,11 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running LES with sounding')
+
+  CASE ('lahade')
+
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running lahade testcase')
 
   CASE DEFAULT
 
@@ -1083,7 +1099,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
-  CASE ('RCE_glb')
+  CASE ('RCE_glb','RCE_Tconst')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom
@@ -1172,6 +1188,41 @@ MODULE mo_nh_testcases
     END DO !jg
 
     CALL message(TRIM(routine),'End initilization of 2D warm bubble')
+
+  CASE ('lahade')
+
+    CALL message(TRIM(routine), 'Setup lahade testcase')
+
+    DO jg = 1, n_dom
+      
+      CALL init_nh_lahade (p_patch(jg),                   &  !in
+        &                  p_nh_state(jg)%prog(nnow(jg)), &  !inout
+        &                  p_nh_state(jg)%diag,           &  !inout
+        &                  p_int(jg),                     &  !in
+        &                  p_nh_state(jg)%metrics,        &  !inout
+        &                  grid_sphere_radius,            &  !in
+        &                  grid_angular_velocity,         &  !in
+        &                  grid_rescale_factor,           &  !in
+        &                  top_height,                    &  !in
+        &                  vwind_offctr,                  &  !in
+        &                  ndyn_substeps,                 &  !in
+        &                  upatmo_config(jg)              )  !in
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+      
+    ENDDO !jg
+
+    CALL message(TRIM(routine),'End setup lahade testcase') 
+
+  END SELECT
+
+  ! Is current testcase subject to update during integration?
+  SELECT CASE(TRIM(nh_test_name))
+  ! Testcases which (potentially) require an update:
+  CASE ("PA", "DF1", "DF2", "DF3", "DF4", "DCMIP_PA_12", "dcmip_pa_12", "lahade")
+    ltestcase_update = .TRUE.
+  CASE default
+    ltestcase_update = .FALSE.
   END SELECT
 
 

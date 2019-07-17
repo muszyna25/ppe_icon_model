@@ -63,7 +63,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,          ONLY: t_external_data
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
+  USE mo_parallel_config,         ONLY: nproma, p_test_run, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_initicon_config,         ONLY: is_iau_active
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
@@ -109,6 +109,8 @@ MODULE mo_nh_interface_nwp
   USE mo_radar_data_state,        ONLY: radar_data, lhn_fields
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
+  USE mo_upatmo_config,           ONLY: upatmo_config
+  USE mo_nudging_config,          ONLY: nudging_config
 
   IMPLICIT NONE
 
@@ -231,6 +233,10 @@ CONTAINS
 
     REAL(wp) :: p_sim_time      !< elapsed simulation time on this grid level
 
+    LOGICAL :: lconstgrav  !< const. gravitational acceleration?
+
+    REAL(wp) :: dpsdt_avg  !< mean absolute surface pressure tendency
+
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -290,6 +296,8 @@ CONTAINS
       lcompute_tt_lheat = .FALSE.
     ENDIF
 
+    lconstgrav = upatmo_config(jg)%phy%l_constgrav  ! const. gravitational acceleration?
+
 
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
@@ -324,7 +332,8 @@ CONTAINS
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
            &                              opt_calc_pres=.FALSE.,   &
-           &                              opt_rlend=min_rlcell_int )
+           &                              opt_rlend=min_rlcell_int,&
+           &                              opt_lconstgrav=lconstgrav)
 
       ! Write extensive debugging output
       CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
@@ -360,9 +369,9 @@ CONTAINS
 
         CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag,    &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
-
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
-                        jb, i_startidx, i_endidx, 1, nlev)
+        
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,                                &
+                        jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -525,7 +534,7 @@ CONTAINS
 
       IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
         ! diagnose pressure for subsequent fast-physics parameterizations
-        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
+        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
       ENDIF
 
 
@@ -555,6 +564,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
+                          & pt_prog,                          & !>in
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
@@ -853,8 +863,8 @@ CONTAINS
 
       IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
         ! rediagnose pressure
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
-                        jb, i_startidx, i_endidx, 1, nlev)
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,                                &
+                        jb, i_startidx, i_endidx, 1, nlev, opt_lconstgrav=lconstgrav)
       ENDIF
 
       IF (iprog_aero >= 1 .AND. .NOT. linit) THEN
@@ -883,6 +893,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
+                          & pt_prog,                          & !>in
                           & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
@@ -932,7 +943,8 @@ CONTAINS
         &                      opt_calc_pres     = lpres,         &
         &                      lnd_prog          = lnd_prog_new,  &
         &                      opt_calc_temp_ifc = ltemp_ifc,     &
-        &                      opt_rlend         = min_rlcell_int )
+        &                      opt_rlend         = min_rlcell_int,&
+        &                      opt_lconstgrav    = lconstgrav     )
 
     ENDIF
 
@@ -1019,6 +1031,7 @@ CONTAINS
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
 &              t_g    = lnd_prog_new%t_g     (:,jb)       ,       & !! in:  surface temperature
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
+&              deltaz = p_metrics%ddqz_z_full(:,:,jb)     ,       & !! in:  layer thickness
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
 &              rcld   = prm_diag%rcld        (:,:,jb)     ,       & !! in:  standard deviation of saturation deficit
 &              ldland = ext_data%atm%llsm_atm_c (:,jb)    ,       & !! in:  land/sea mask
@@ -1203,6 +1216,7 @@ CONTAINS
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
           & swflx_par_sfc=prm_diag%swflx_par_sfc(:,jb) ,&   ! out shortwave upward flux at the surface [W/m2]
+          & swflx_clr_sfc=prm_diag%swflxclr_sfc(:,jb)  ,&   ! out clear-sky shortwave flux at the surface [W/m2]
           & swflx_dn_sfc_diff=prm_diag%swflx_dn_sfc_diff(:,jb) ) ! out shortwave diffuse downward flux at the surface [W/m2]
 
         ELSE
@@ -1574,39 +1588,19 @@ CONTAINS
 
       IF (timers_level > 10) CALL timer_start(timer_phys_sync_tracers)
 
-      IF (use_icon_comm) THEN ! use communication library
-
-        tracers_comm = new_icon_comm_variable(pt_prog_rcf%tracer, pt_patch%sync_cells_not_in_domain,  &
-          & status=is_ready, scope=until_sync, name="pt_prog_rcf%tracer")
-        tempv_comm = new_icon_comm_variable(pt_diag%tempv, pt_patch%sync_cells_not_in_domain, &
-          & status=is_ready, scope=until_sync, name="pt_diag%tempv")
-
-        IF (lhdiff_rcf) THEN
-          exner_pr_comm = new_icon_comm_variable(pt_diag%exner_pr, &
-            & pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%exner_pr")
-          IF (diffusion_config(jg)%lhdiff_w) &
-            w_comm = new_icon_comm_variable(pt_prog%w, &
-              & pt_patch%sync_cells_not_in_domain, &
-              & status=is_ready, scope=until_sync, name="pt_prog%w")
-        ENDIF
-
+      IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
+                                   pt_diag%exner_pr, prm_diag%aerosol,                         &
+                                   f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+      ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
+                                   pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+      ELSE IF (lhdiff_rcf) THEN
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
+                                   pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero >= 1) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_pr, prm_diag%aerosol,                         &
-                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE IF (lhdiff_rcf) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
-                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ELSE
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
-                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
-        ENDIF
-
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
+                                   f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
       ENDIF
 
       IF (timers_level > 10) THEN
@@ -1626,42 +1620,18 @@ CONTAINS
     ENDIF
     !-------------------------------------------------------------------
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_ddt_u)
-    IF (use_icon_comm) THEN
 
-      IF (lcall_phy_jg(itturb) ) THEN
-        ddt_u_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_u_turb, &
-          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
-          & name="prm_nwp_tend%ddt_u_turb")
-        ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
-          & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
-          & name="prm_nwp_tend%ddt_v_turb")
+    IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
 
-        IF ( l_any_slowphys .OR. is_ls_forcing ) THEN
-          z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
-          z_ddt_v_tot_comm = new_icon_comm_variable(z_ddt_v_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
-        ENDIF
-      ENDIF
-
-       ! sync everything here
-      CALL icon_comm_sync_all()
-
-    ELSE
-
-      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
-
-        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
 
-      ELSE IF (lcall_phy_jg(itturb) ) THEN
+    ELSE IF (lcall_phy_jg(itturb) ) THEN
 
-        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
                                  prm_nwp_tend%ddt_v_turb)
-      ENDIF
     ENDIF
+
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_ddt_u)
     !------------------------------------------------------------
@@ -1833,9 +1803,11 @@ CONTAINS
     !
     ! dpsdt diagnostic
     IF (lcalc_dpsdt) THEN
-      CALL compute_dpsdt (pt_patch = pt_patch, &
-        &                 dt       = dt_loc,   &
-        &                 pt_diag  = pt_diag   )
+      CALL compute_dpsdt (pt_patch      = pt_patch, &
+        &                 dt            = dt_loc,   &
+        &                 pt_diag       = pt_diag,  &
+        &                 opt_dpsdt_avg = dpsdt_avg )  ! (only stdio-process has reasonable return value!)
+      nudging_config%dpsdt = dpsdt_avg
     ENDIF
     IF (timers_level > 10) CALL timer_stop(timer_phys_dpsdt)
 

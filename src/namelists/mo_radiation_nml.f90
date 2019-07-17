@@ -54,9 +54,14 @@ MODULE mo_radiation_nml
                                  & config_mmr_n2o    => mmr_n2o,     &
                                  & config_mmr_o2     => mmr_o2,      &
                                  & config_mmr_cfc11  => mmr_cfc11,   &
-                                 & config_mmr_cfc12  => mmr_cfc12
+                                 & config_mmr_cfc12  => mmr_cfc12,   &
+                                 & config_llw_cloud_scat => llw_cloud_scat, &
+                                 & config_iliquid_scat => iliquid_scat, &
+                                 & config_iice_scat => iice_scat,    &
+                                 & config_ecrad_data_path => ecrad_data_path
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
@@ -162,6 +167,12 @@ MODULE mo_radiation_nml
   ! --- Different specifications of the zenith angle
   INTEGER  :: izenith
   !
+  ! ecRad specific configuration
+  LOGICAL  :: llw_cloud_scat
+  INTEGER  :: iliquid_scat
+  INTEGER  :: iice_scat
+  CHARACTER(len=MAX_CHAR_LENGTH) :: ecrad_data_path
+  !
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
@@ -178,7 +189,11 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
     &                      izenith, icld_overlap, &
-    &                      islope_rad
+    &                      islope_rad,            &
+    &                      llw_cloud_scat,        &
+    &                      iliquid_scat,          &
+    &                      iice_scat,             &
+    &                      ecrad_data_path
 
 CONTAINS
 
@@ -239,6 +254,11 @@ CONTAINS
     vmr_cfc12   =  371.1e-12_wp
 
     izenith     = 4  ! Default: seasonal orbit and diurnal cycle
+
+    llw_cloud_scat  = .FALSE.
+    iliquid_scat    = 0
+    iice_scat       = 0
+    ecrad_data_path = '.'
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -308,6 +328,11 @@ CONTAINS
     config_mmr_cfc12  = vmr_cfc12 * amc12/amd
 
     config_izenith    = izenith
+
+    config_llw_cloud_scat  = llw_cloud_scat
+    config_iliquid_scat    = iliquid_scat
+    config_iice_scat       = iice_scat
+    config_ecrad_data_path = TRIM(ecrad_data_path)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
