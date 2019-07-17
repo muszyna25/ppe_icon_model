@@ -22,7 +22,7 @@ create_namelist()
 namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
-  testbed_model       = 4  ! test_halo_communication 
+  testbed_model       = 9
   testbed_iterations  = 100
   calculate_iterations  = 0
 /
@@ -30,6 +30,7 @@ cat > $namelist_filename << EOF
  iorder_sendrecv = 1
  nproma          = 16
  use_icon_comm   = .true.
+ default_comm_pattern_type = 1
  ! icon_comm_method = ${icon_comm_method} 
  ! max_send_recv_buffer_size = ${max_send_recv_buffer_size}
  ! max_mpi_message_size = ${max_mpi_message_size}

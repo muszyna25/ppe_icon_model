@@ -32,6 +32,14 @@ $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocea
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
  --machines mistral --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
 
+
+#-----------------------------------------------------------
+# communication
+$addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_orig --builders MISTRAL_intel17
+$addexp checksuite.infrastructure/testbed/exp.icon-testbed_communication_yaxt --builders MISTRAL_intel17
+$addexp run/checksuite.infrastructure/testbed/exp.atm_amip_yaxt    --builders MISTRAL_intel17
+$addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MISTRAL_intel17
+
 # add ocean tests to the restricted builder MISTRAL_ocean incl. its intel17 version
 ./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
 ./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname
