@@ -57,9 +57,12 @@ ocean_refinement="R02B04"
 nproma_atm=48
 nproma_oce=48
 
-# initialiseOcean="fromRestart"
-initialiseOcean="fromClimatology"
+# use alternatively: full restart, init from (ocean) restart, init from climatology
+# restart=.true.
+initialiseOcean="fromRestart"
+# initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
+
 #
 # 1 ocean node is sufficient.
 mpi_oce_nodes=1
@@ -73,10 +76,8 @@ mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
 atmTimeStep="PT15M"              # atmosphere time step:   96 time steps per day
-                                 #                          8 time steps per radTimeStep
-                                 #                          4 time steps per couplingTimeStep
+atm_substeps=8                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
 oceTimeStep="PT60M"              # ocean time step:        24 time steps per day
-                                 #                          1 time step  per couplingTimeStep
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
 #--------------------------------------------------------------------------------------------------
@@ -591,7 +592,7 @@ cat > ${atm_namelist} << EOF
  ifs2icon_filename= "ifs2icon.nc"
 /
 &nonhydrostatic_nml
- ndyn_substeps    = 8           ! dtime/dt_dyn
+ ndyn_substeps    = $atm_substeps ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.1000      ! set to 0.1001 for rerun with little change
  vwind_offctr     = 0.2
@@ -671,6 +672,7 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
+ !echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
 /
 &echam_vdf_nml
 /
@@ -1316,7 +1318,6 @@ cat >> ${oce_namelist} << EOF
 ! solver_tolerance                           = 7.5E-14          ! old value
 ! solver_max_iter_per_restart                = 19               ! old value
 ! solver_max_restart_iterations              = 100              ! outer (restart solver)
-! solver_tolerance                           = 7.5E-14
 
   fast_performance_level                     = 200              ! performance level 12: for cell-based; 5: default
   use_continuity_correction                  = .TRUE.           ! height adjustment according to vertical velocity in dynamics
@@ -1415,7 +1416,7 @@ cat >> ${oce_namelist} << EOF
                                                                 ! salt-change due to internal fluxes only
   limit_seaice                               = .TRUE.           ! default: TRUE
   seaice_limit                               = 0.8              ! hard limit set to 80% of upper layer for sea ice
-  limit_elevation                            = .TRUE.           ! to be checked!
+  limit_elevation                            = .FALSE.          ! true: adjust daily to zero, default=false: free surface
 /
 EOF
 #
