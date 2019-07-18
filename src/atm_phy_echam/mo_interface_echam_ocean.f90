@@ -339,22 +339,21 @@ CONTAINS
 
     !
     ! Define cell_mask_ids(1): all ocean and coastal points are valid
-    !   This is the standard for the coupling fields listed below
+    !   This is the standard for the coupling of atmospheric fields listed below
     !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             ! Ocean point (lsm_ctr_c = -1 or -2) is valid
-!            IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-             ! Ocean point (fraction of ocean is greater than zero) is valid
+
              IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
+               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-             ! Land point (lsm_ctr_c = 1 or 2) is undef
-             ! Land point (fraction of land is one) is undef
+               ! land point (fraction of land is one, no sea water, lsmnolake=1.) is undef
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
+
           ENDDO
        ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -399,30 +398,26 @@ CONTAINS
 
 #if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
     !
-    ! Define cell_mask_ids(2) for runoff:
-    !   Ocean coastal points with respect to HDmodel mask only are valid.
-    !   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
-    !   Caution: jg=1 is only valid for coupling to ocean
-    !
+    ! ! Define cell_mask_ids(2) for runoff:
+    ! !slo old!   Ocean coastal points with respect to HDmodel mask only are valid.
+    ! !slo old!   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
+    ! !slo old!   Caution: jg=1 is only valid for coupling to ocean
+    ! !
+    ! Define cell_mask_ids(1) for runoff - same as above, ocean wet points are valid
     IF ( mask_checksum > 0 ) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
         DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-!            IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
-             ! preliminary: fractional lsm (0<lsf<1) is a coastal point
-             IF ( ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) .AND. &
-               &  ( lsmnolake(idx, BLOCK) .GT. 0.0_wp ) ) THEN
-!            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
-!            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
-!            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
-!              &  prm_field(1)%hdmask(idx, BLOCK) > -1.1_wp) THEN
-                ! Ocean point at coast is valid
-                ibuffer((BLOCK-1)*nproma+idx) = 0
+
+             IF ( lsmnolake(idx, BLOCK) .LT. 1.0_wp ) THEN
+               ! ocean point (fraction of ocean is >0., lsmnolake .lt. 1.) is valid
+               ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-                ! Land point or ocean point without coast is undef
-                ibuffer((BLOCK-1)*nproma+idx) = 1
+               ! land point (fraction of land is one, lsmnolake=1.) is undef
+               ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
+
           ENDDO
         ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -437,7 +432,8 @@ CONTAINS
 
       ! Define additional coupling field(s) for JSBACH/HD
       ! Utilize mask field for runoff
-      !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+      ! !slo old!  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+      !  - cell_mask_ids(2:2) is ocean wet points as above - todo: use cell_mask_ids(1:1)
       CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
 
 #endif
