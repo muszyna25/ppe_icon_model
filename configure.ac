@@ -294,7 +294,7 @@ AS_IF([test $use_mh_file = yes],
 
        ACX_GET_PROFILE_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_modules" ],
-             [ACX_SWAP_MODULES(["$load_modules"])])
+             [ACX_SWAP_MODULES(["$load_modules"], ["$ignore_if_loaded"])])
 
        ACX_GET_MH($host_frag)])
 
