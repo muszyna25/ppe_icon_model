@@ -572,9 +572,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                     &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
-
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  )
 
 
     ! &      diag%rain_con(nproma,nblks_c)
@@ -637,8 +637,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                     &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  )
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
@@ -653,7 +654,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_int)) ) 
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  ) 
 
 
 
@@ -668,8 +669,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  )
+
 
     ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &
@@ -682,8 +685,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
@@ -695,8 +699,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,tot_prec_int))  )
 
 
 
