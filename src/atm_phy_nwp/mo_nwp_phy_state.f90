@@ -336,8 +336,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     kcloud= 3
 
-    ! get reset interval for all precipiation variables 
+    ! get reset interval for all precipiation variables, and for max/min 2m-temperature
     CALL getPTStringFromMS(NINT(1000*tot_prec_interval(k_jg), i8), tot_prec_int)
+    CALL getPTStringFromMS(NINT(1000*mxt_interval(k_jg), i8), mxt_int)
 
     ! &      diag%rain_gsp_rate(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1', 'gridscale rain rate ', &
@@ -2261,7 +2262,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("pbl_vars") )
 
     ! &      diag%tmax_2m(nproma,nblks_c)
-    CALL getPTStringFromMS(NINT(1000*mxt_interval(k_jg), i8), mxt_int)
     cf_desc    = t_cf_var('tmax_2m', 'K ','Max 2m temperature', datatype_flt)
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'tmax_2m', diag%tmax_2m,                     &
@@ -2275,7 +2275,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ! &      diag%tmin_2m(nproma,nblks_c)
     cf_desc    = t_cf_var('tmin_2m', 'K ','Min 2m temperature', datatype_flt)
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL getPTStringFromMS(NINT(1000*mxt_interval(k_jg), i8), mxt_int)
     CALL add_var( diag_list, 'tmin_2m', diag%tmin_2m,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
