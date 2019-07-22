@@ -1211,7 +1211,7 @@ MODULE mo_initicon_io
     REAL(dp), POINTER :: levelValues(:)
     TYPE(t_fetchParams) :: params
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
-    LOGICAL :: lfound_thv, lfound_rho, lfound_vn
+    LOGICAL :: lfound_thv, lfound_rho, lfound_vn, lfound_qr, lfound_qs
 
     ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
@@ -1254,17 +1254,12 @@ MODULE mo_initicon_io
             CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
             CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
             CALL fetchRequired3d(params, 'qi', jg, initicon(jg)%atm_in%qi)
-            IF ( iqr /= 0 ) THEN
-            CALL fetchRequired3d(params, 'qr', jg, initicon(jg)%atm_in%qr)
-            ELSE
-            initicon(jg)%atm_in%qr(:,:,:) = 0._wp
-            END IF
-
-            IF ( iqs /= 0 ) THEN
-            CALL fetchRequired3d(params, 'qs', jg, initicon(jg)%atm_in%qs)
-            ELSE
-            initicon(jg)%atm_in%qs(:,:,:) = 0._wp
-            END IF
+            CALL fetch3d(params, 'qr', jg, initicon(jg)%atm_in%qr, lfound_qr)
+            CALL fetch3d(params, 'qs', jg, initicon(jg)%atm_in%qs, lfound_qs)
+!$OMP PARALLEL
+            IF (.NOT. lfound_qr) CALL init(initicon(jg)%atm_in%qr(:,:,:))
+            IF (.NOT. lfound_qs) CALL init(initicon(jg)%atm_in%qs(:,:,:))
+!$OMP END PARALLEL
 
             CALL fetch3d(params, 'vn', jg, initicon(jg)%atm_in%vn, lfound_vn)
             IF (lfound_vn) THEN
