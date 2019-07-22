@@ -166,8 +166,8 @@ CONTAINS
     dt_checkpoint           = 0._wp  ! unspecified
 
     gust_interval(:)        = 3600._wp     ! 1 hour
-    tot_prec_interval(:)    = 86400._wp    ! 1 day
-    mxt_interval(:)         = 86400._wp    ! 1 day
+    tot_prec_interval(:)    = "P01D"       ! 1 day
+    mxt_interval(:)         = "PT06H"      ! 1 day
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
