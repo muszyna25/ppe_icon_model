@@ -55,6 +55,7 @@
 MODULE mo_advection_stepping
 
   USE mo_kind,                ONLY: wp, vp
+  USE mo_exception,           ONLY: finish
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_transport
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -68,13 +69,14 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config, t_trList
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_fortran_tools,       ONLY: negative2zero
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
 #endif
+  USE mo_dynamics_config,     ONLY: ldeepatmo
+  USE mo_upatmo_config,       ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -140,7 +142,8 @@ CONTAINS
     &                        p_cellhgt_mc_now, p_delp_mc_new,                     &
     &                        p_delp_mc_now, p_grf_tend_tracer, p_tracer_new,      &
     &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
-    &                        opt_q_int, opt_ddt_tracer_adv )
+    &                        opt_q_int, opt_ddt_tracer_adv,                       &
+    &                        opt_deepatmo_t1mc, opt_deepatmo_t2mc                 )
   !
     TYPE(t_patch), TARGET, INTENT(INOUT) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
@@ -217,6 +220,10 @@ CONTAINS
     REAL(wp), INTENT(INOUT), OPTIONAL :: & !< advective tendency    [kg/kg/s]
       &  opt_ddt_tracer_adv(:,:,:,:)     !< dim: (nproma,nlev,nblks_c,ntracer)
 
+    REAL(wp), INTENT(IN), OPTIONAL ::  &   !< deep-atmosphere modification factors,
+      &  opt_deepatmo_t1mc(:,:),       &   !< type 1: (nlev,nitem1)
+      &  opt_deepatmo_t2mc(:,:)            !< type 2: (nitem2,nlev)
+
 
     REAL(wp), INTENT(IN) :: &           !< advective time step [s]
       &  p_dtime  
@@ -237,11 +244,19 @@ CONTAINS
     REAL(vp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev) 
 
-    REAL(wp), POINTER   &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    , CONTIGUOUS        &
-#endif
-      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_current_tracer(:,:,:,:) => NULL() !< pointer to tracer field
+
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
+                                          !< at cell center
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
+                                          !< at cell center
+
+    INTEGER, CONTIGUOUS, POINTER ::   &   !< Pointer to line and block indices (array)
+      &  iidx(:,:,:) => NULL(),       &   !< of edges
+      &  iblk(:,:,:) => NULL()
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR)
@@ -250,13 +265,14 @@ CONTAINS
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: iadv_slev_jt                      ! Workaround OpenACC limitation
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-      &  iidx, iblk                          !< of edges
 
     TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
     TYPE(t_trList), POINTER :: trNotAdvect   !< Pointer to tracer sublist
+
+    REAL(wp), DIMENSION(p_patch%nlev) ::   &  !< Local copies of opt_deepatmo_t1mc and opt_deepatmo_t2mc
+      & deepatmo_divh, deepatmo_divzu, deepatmo_divzl
 
     LOGICAL  :: is_present_opt_ddt_tracer_adv
 
@@ -268,7 +284,6 @@ CONTAINS
     ! number of vertical levels
     nlev   = p_patch%nlev
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     jg  = p_patch%id
 
     ! precompute modified timestep (timestep multiplied by Strang-splitting
@@ -288,6 +303,23 @@ CONTAINS
     ! tracer fields which are not advected
     trNotAdvect => advection_config(jg)%trNotAdvect ! 2018-06-05: cray bug do not add to PRESENT list
 
+    ! deep-atmosphere modification factors: 
+    ! direct access of opt_deepatmo_t1mc, opt_deepatmo_t2mc not possible, 
+    ! due to co-use of step_advection by hydrostatic model configuration
+    IF ( .NOT. (PRESENT(opt_deepatmo_t1mc) .AND. PRESENT(opt_deepatmo_t2mc)) .AND. &
+      &  ldeepatmo                                                                 ) THEN
+      CALL finish('mo_advection_stepping: step_advection', 'Missing deepatmo argument(s).')
+    ELSEIF ( PRESENT(opt_deepatmo_t1mc) .AND. PRESENT(opt_deepatmo_t2mc) .AND.     &
+      &      ldeepatmo                                                             ) THEN
+      deepatmo_divh(:)  = opt_deepatmo_t1mc(:,idamtr%t1mc%divh)
+      deepatmo_divzu(:) = opt_deepatmo_t2mc(idamtr%t2mc%divzU,:)
+      deepatmo_divzl(:) = opt_deepatmo_t2mc(idamtr%t2mc%divzL,:)
+    ELSE
+      deepatmo_divh(:)  = 1._wp
+      deepatmo_divzu(:) = 1._wp
+      deepatmo_divzl(:) = 1._wp
+    ENDIF
+
     !---------------------------------------------------!
     !                                                   !
     !  time integration of tracer continuity-equation   !
@@ -303,7 +335,8 @@ CONTAINS
 
 !$ACC DATA  PCOPYIN( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    &
 !$ACC                p_vn_contra_traj,                                  &
-!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
+!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new,    &
+!$ACC                deepatmo_divh, deepatmo_divzu, deepatmo_divzl),    &
 !$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
 !$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
 !$ACC       PRESENT( p_int_state%geofac_div, iidx, iblk ),              &
@@ -331,8 +364,8 @@ CONTAINS
         !
         i_rlstart  = 2
         i_rlend    = min_rlcell
-        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%cells%start_block(i_rlstart)
+        i_endblk   = p_patch%cells%end_block(i_rlend)
 
 
         ! calculation of intermediate layer thickness (density)
@@ -346,7 +379,7 @@ CONTAINS
         ! computed only once.
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
@@ -355,10 +388,13 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
+
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! integration of mass continuity equation
-              ptr_delp_mc_new(jc,jk,jb) =  ptr_delp_mc_now(jc,jk,jb) + pdtime_mod  &
-              &   * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
+              ptr_delp_mc_new(jc,jk,jb) = ptr_delp_mc_now(jc,jk,jb) + pdtime_mod  &
+                * ( p_mflx_contra_v(jc,jk+1,jb) * deepatmo_divzl(jk)              &
+                -   p_mflx_contra_v(jc,jk,jb)   * deepatmo_divzu(jk) )
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -376,6 +412,7 @@ CONTAINS
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
+          &              advection_config(jg)%ivlimit_selective,     &! in
           &              advection_config(jg)%iubc_adv,              &! in
           &              advection_config(jg)%iadv_slev(:),          &! in
           &              .TRUE.,                                     &! print CFL number
@@ -415,10 +452,10 @@ CONTAINS
               !$ACC LOOP VECTOR
               DO jc = i_startidx, i_endidx
 
-                p_tracer_new(jc,jk,jb,jt) =                                         &
-                  &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)  &
-                  &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
-                  &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) ) )            &
+                p_tracer_new(jc,jk,jb,jt) =                                                   &
+                  &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)            &
+                  &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt) * deepatmo_divzl(jk)     &
+                  &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) * deepatmo_divzu(jk) ) ) &
                   &  / ptr_delp_mc_new(jc,jk,jb)
 
               END DO
@@ -452,11 +489,11 @@ CONTAINS
           ! computation to halo points.
           i_rlstart  = 1
           i_rlend    = min_rlcell
-          i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-          i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+          i_startblk = p_patch%cells%start_block(i_rlstart)
+          i_endblk   = p_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
 
             CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -465,9 +502,12 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
             !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1, nlev
+!DIR$ IVDEP
               DO jc = i_startidx, i_endidx
-                ptr_delp_mc_new(jc,jk,jb) = p_delp_mc_new(jc,jk,jb) - pdtime_mod    &
-                &       * ( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )
+                ptr_delp_mc_new(jc,jk,jb) =                                &
+                  &       p_delp_mc_new(jc,jk,jb)  + pdtime_mod            &
+                  &   * ( p_mflx_contra_v(jc,jk+1,jb) * deepatmo_divzl(jk) &
+                  &   -   p_mflx_contra_v(jc,jk,jb)   * deepatmo_divzu(jk) )
               ENDDO
             ENDDO
 !$ACC END PARALLEL
@@ -502,12 +542,12 @@ CONTAINS
         i_rlstart  = grf_bdywidth_c-1
         ! Note that delp is needed for the horizontal limiter
         i_rlend    = min_rlcell
-        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%cells%start_block(i_rlstart)
+        i_endblk   = p_patch%cells%end_block(i_rlend)
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -519,9 +559,13 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
+
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              ptr_delp_mc_new(jc,jk,jb) = MAX(0.1_wp*p_delp_mc_new(jc,jk,jb), p_delp_mc_new(jc,jk,jb) &
-            &    - pdtime_mod*( p_mflx_contra_v(jc,jk+1,jb) - p_mflx_contra_v(jc,jk,jb) )  )
+              ptr_delp_mc_new(jc,jk,jb) = MAX(0.1_wp*p_delp_mc_new(jc,jk,jb), &
+                &       p_delp_mc_new(jc,jk,jb)  - pdtime_mod                 &
+                &   * ( p_mflx_contra_v(jc,jk+1,jb) * deepatmo_divzl(jk)      &
+                &   -   p_mflx_contra_v(jc,jk,jb)   * deepatmo_divzu(jk) ) )
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -550,11 +594,11 @@ CONTAINS
     i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer,                                &! in
-      &                  ptr_delp_mc_now,                                    &! in
+      &                  ptr_delp_mc_now, ptr_delp_mc_new,                   &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura,                 &! in
-      &                  advection_config(jg)%itype_hlimit,                &! in
+      &                  advection_config(jg)%itype_hlimit,                  &! in
       &                  advection_config(jg)%iadv_slev(:),                  &! in
       &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
@@ -567,8 +611,8 @@ CONTAINS
     !
     i_rlstart  = grf_bdywidth_c+1
     i_rlend    = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block  (i_rlend)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,iadv_slev_jt,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -596,10 +640,10 @@ CONTAINS
 #endif
 
 ! TODO: possible GPU optimization: add p_tracer_new calculation here
-              z_fluxdiv_c(jc,jk) =  &
+              z_fluxdiv_c(jc,jk) =  deepatmo_divh(jk) * (                                              &
                 & p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_int_state%geofac_div(jc,1,jb) + &
                 & p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_int_state%geofac_div(jc,2,jb) + &
-                & p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_int_state%geofac_div(jc,3,jb)
+                & p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_int_state%geofac_div(jc,3,jb) )
 
             ENDDO
           ENDDO
@@ -620,7 +664,7 @@ CONTAINS
 #endif
 
 ! TODO: possible GPU optimization: add p_tracer_new calculation here
-              z_fluxdiv_c(jc,jk) =  ptr_current_tracer(jc,jk,jb,jt) * ( &
+              z_fluxdiv_c(jc,jk) =  ptr_current_tracer(jc,jk,jb,jt) * deepatmo_divh(jk) * (         &
                 & p_mflx_contra_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int_state%geofac_div(jc,1,jb) + &
                 & p_mflx_contra_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int_state%geofac_div(jc,2,jb) + &
                 & p_mflx_contra_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_int_state%geofac_div(jc,3,jb) )
@@ -756,8 +800,8 @@ CONTAINS
 
       i_rlstart  = grf_bdywidth_c+1
       i_rlend    = min_rlcell_int
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
 
       CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
         &              p_mflx_contra_v,                            &! inout
@@ -766,6 +810,7 @@ CONTAINS
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in
+        &              advection_config(jg)%ivlimit_selective,     &! in
         &              advection_config(jg)%iubc_adv,              &! in
         &              advection_config(jg)%iadv_slev(:),          &! in
         &              .FALSE.,                                    &! do not print CFL number
@@ -804,10 +849,10 @@ CONTAINS
               ikp1 = jk + 1   ! WS: put in here to ensure loops can be collapsed
 
 
-              p_tracer_new(jc,jk,jb,jt) =                                         &
-                &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)  &
-                &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt)                &
-                &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) ) )            &
+              p_tracer_new(jc,jk,jb,jt) =                                                   &
+                &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)            &
+                &  + pdtime_mod * ( p_mflx_tracer_v(jc,ikp1,jb,jt) * deepatmo_divzl(jk)     &
+                &               -   p_mflx_tracer_v(jc,jk  ,jb,jt) * deepatmo_divzu(jk) ) ) & 
                 &  / ptr_delp_mc_new(jc,jk,jb)
 
             END DO
@@ -906,8 +951,8 @@ CONTAINS
 
       i_rlstart = grf_bdywidth_c+1
       i_rlend   = min_rlcell_int
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
 
 !$OMP DO PRIVATE(jb,jk,jt,jc,nt,iadv_slev_jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk

@@ -42,7 +42,7 @@ MODULE mo_nwp_soil_init
     &                              cporv, cpwp, cadp, cfcap,     & 
     &                              crock, crhoc, cala0, cala1,   &
     &                              csandf, cclayf, csnow_tmin,   &
-   &                               crhosmax_tmin, crhosmax_ml
+   &                               crhosmax_tmin, crhosmax_ml, crhosmin_ml
 
 
   IMPLICIT NONE
@@ -642,7 +642,7 @@ CONTAINS
       END DO
     ELSE
       DO i = istarts, iends
-        h_snow(i) = w_snow_now(i)/rho_snow_now(i)*rho_w
+        h_snow(i) = w_snow_now(i)/MAX(crhosmin_ml,rho_snow_now(i))*rho_w
       END DO
     END IF
 
@@ -653,7 +653,7 @@ CONTAINS
 
     IF ( init_mode == 2 ) THEN  ! snow depth increment needs to be computed
       DO i = istarts, iends
-        h_snow_fg(i)   = w_snow_now(i)/rho_snow_now(i)*rho_w
+        h_snow_fg(i)   = w_snow_now(i)/MAX(crhosmin_ml,rho_snow_now(i))*rho_w
         ! Self-consistency fix needed because of possible GRIB truncation errors
         IF (lmulti_snow .AND. h_snow_fg(i) > zepsi) THEN
           dzh_snow_now(i,2:ke_snow) = MAX(dzh_snow_now(i,1),dzh_snow_now(i,2:ke_snow))

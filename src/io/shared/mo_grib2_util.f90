@@ -36,6 +36,7 @@ MODULE mo_grib2_util
   USE mo_lnd_nwp_config,     ONLY: tile_list
   USE mo_nwp_sfc_tiles,      ONLY: t_tileinfo_icon, t_tileinfo_grb2
 #endif
+  USE mo_grib2_tile,         ONLY: t_grib2_template_tile
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -308,7 +309,7 @@ CONTAINS
     CASE (CLASS_DISTR)
       productDefinitionTemplate = 57
     CASE (CLASS_DISTR_STAT)
-      productDefinitionTemplate = 40067  ! FIXME (temporary, see also mo_art_diag_state.f90)
+      productDefinitionTemplate = 67
     CASE DEFAULT
       ! skip inapplicable fields
       RETURN
@@ -327,7 +328,6 @@ CONTAINS
   END SUBROUTINE set_GRIB2_chem_keys
 
 
-
   !>
   !! Set tile-specific keys
   !!
@@ -335,12 +335,17 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-20)
+  !! Modification by Daniel Reinert, DWD (2019-05-13)
+  !! * Replace hardcoded GRIB2 tile keys (names) by grib2_template_tile%keys.
+  !!   Due to this generalization, it is possible to use either our local 
+  !!   DWD tile templates or the official WMO ones for writing tiled data sets. 
   !!
-  SUBROUTINE set_GRIB2_tile_keys (vlistID, varID, info, i_lctype)
+  SUBROUTINE set_GRIB2_tile_keys (vlistID, varID, info, i_lctype, grib2_template_tile)
 
-    INTEGER,                INTENT(IN) :: vlistID, varID
-    TYPE (t_var_metadata),  INTENT(IN) :: info
-    INTEGER,                INTENT(IN) :: i_lctype  !< Tile classification
+    INTEGER,                     INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),       INTENT(IN) :: info
+    INTEGER,                     INTENT(IN) :: i_lctype  !< Tile classification
+    TYPE(t_grib2_template_tile), INTENT(IN) :: grib2_template_tile ! set of allowed tile templates
 
 #ifndef __NO_ICON_ATMO__
     ! local
@@ -359,21 +364,42 @@ CONTAINS
     !
     IF (typeOfGeneratingProcess == 4) THEN
       ! ensemble
-      productDefinitionTemplate = 40456     ! FIXME (temporary)
+      productDefinitionTemplate = grib2_template_tile%tpl_inst_ens
     ELSE
       ! deterministic
-      productDefinitionTemplate = 40455     ! FIXME (temporary)
+      productDefinitionTemplate = grib2_template_tile%tpl_inst
     ENDIF
+
+! use the following IF condition, once the WMO tile templates for statistical processing 
+! become available (validation by WMO pending).
+!
+!!$    IF (typeOfGeneratingProcess == 4) THEN
+!!$      ! ensemble
+!!$      IF (ANY((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) == info%isteptype)) THEN
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_acc_ens
+!!$      ELSE
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_inst_ens
+!!$      ENDIF
+!!$    ELSE
+!!$      ! deterministic
+!!$      IF (ANY((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) == info%isteptype)) THEN
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_acc
+!!$      ELSE
+!!$        productDefinitionTemplate = grib2_template_tile%tpl_inst
+!!$      ENDIF
+!!$    ENDIF
+
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
 
     ! Set tile classification
-    CALL vlistDefVarIntKey(vlistID, varID, "tileClassification" , i_lctype)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%tileClassification), i_lctype)
 
     ! Set total number of tile/attribute pairs
-    CALL vlistDefVarIntKey(vlistID, varID, "totalNumberOfTileAttributePairs" , info%maxcontained)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%totalNumberOfTileAttributePairs), &
+      &                    info%maxcontained)
 
     ! Set number of used tiles
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTiles" , &
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%numberOfUsedSpatialTiles), &
       &                    tile_list%getNumberOfTiles(varClass=info%var_class))
 
     ! get the following attributes:
@@ -387,16 +413,19 @@ CONTAINS
     natt          = tile_list%getNumberOfTileAttributes( t_tileinfo_icon(info%ncontained) )
 
     ! Set tile index
-    CALL vlistDefVarIntKey(vlistID, varID, "tileIndex" , tileinfo_grb2%idx)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%tileIndex), tileinfo_grb2%idx)
 
     ! Set total number of tile attributes for given tile
-    CALL vlistDefVarIntKey(vlistID, varID, "numberOfTileAttributes" , natt)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%numberOfUsedTileAttributes), natt)
 
     ! Set tile attribute
-    CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tileinfo_grb2%att)
+    CALL vlistDefVarIntKey(vlistID, varID, TRIM(grib2_template_tile%keys%attributeOfTile), &
+      &                    tileinfo_grb2%att)
 #endif
 
   END SUBROUTINE set_GRIB2_tile_keys
+
+
 
 
   !------------------------------------------------------------------------------------------------

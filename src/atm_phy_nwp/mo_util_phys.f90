@@ -60,6 +60,7 @@ MODULE mo_util_phys
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
+  USE mo_upatmo_config,         ONLY: upatmo_config
 
   IMPLICIT NONE
 
@@ -1036,7 +1037,8 @@ CONTAINS
     ! Diagnose pressure and temperature for subsequent calculations
     CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
                     jb, i_startidx, i_endidx, 1, kstart_moist(jg), kend)
-    CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, kend)
+    CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, kend, &
+      &             opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav)
 
     ! Compute relative humidity w.r.t. water
     DO jk = 1, kend

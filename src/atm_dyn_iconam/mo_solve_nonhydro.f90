@@ -34,8 +34,7 @@ MODULE mo_solve_nonhydro
                                      divdamp_type, rayleigh_type, rhotheta_offctr,          &
                                      veladv_offctr, divdamp_fac_o2, kstart_dd3d, ndyn_substeps_var
   USE mo_dynamics_config,   ONLY: idiv_method
-  USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
-    & use_icon_comm
+  USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,        ONLY: ltimer, timers_level, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_grid_config,       ONLY: l_limited_area
@@ -107,6 +106,11 @@ MODULE mo_solve_nonhydro
   !!
   !! @par Revision History
   !! Development started by Guenther Zaengl on 2010-02-03
+  !! Modification by Sebastian Borchert, DWD (2017-07-07)
+  !! (Dear developer, for computational efficiency reasons, a copy of this subroutine 
+  !! exists in 'src/atm_dyn_iconam/mo_nh_deepatmo_solve'. If you would change something here, 
+  !! please consider to apply your development there, too, in order to help preventing 
+  !! the copy from diverging and becoming a code corpse sooner or later. Thank you!)
   !!
   SUBROUTINE solve_nh (p_nh, p_patch, p_int, prep_adv, nnow, nnew, l_init, l_recompute, lsave_mflx, &
                        lprep_adv, lclean_mflx, idyn_timestep, jstep, dtime)
@@ -341,6 +345,10 @@ MODULE mo_solve_nonhydro
        z_raylfac(jk) = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
     ENDDO
 
+    ! Fourth-order divergence damping
+    !
+    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
+    ! with height to a value of 0.004 (= the namelist default) at 40 km
     DO jk = 1, nlev
       jks = jk + nshift_total
       zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
@@ -401,10 +409,6 @@ MODULE mo_solve_nonhydro
     ! delta_x**2 is approximated by the mean cell area
     scal_divdamp_o2 = divdamp_fac_o2 * p_patch%geometry_info%mean_cell_area
 
-    ! Fourth-order divergence damping
-    !
-    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
-    ! with height to a value of 0.004 (= the namelist default) at 40 km
 
     IF (p_test_run) THEN
 !$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
@@ -1659,15 +1663,7 @@ MODULE mo_solve_nonhydro
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
 
-      IF (use_icon_comm) THEN
-        IF (istep == 1) THEN
-          CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned, &
-            & name="solve_step1_vn")
-        ELSE
-          CALL icon_comm_sync(p_nh%prog(nnew)%vn, p_patch%sync_edges_not_owned, &
-            & name="solve_step2_vn")
-        ENDIF
-      ELSE IF (itype_comm == 1) THEN
+      IF (itype_comm == 1) THEN
         IF (istep == 1) THEN
           CALL sync_patch_array_mult(SYNC_E,p_patch,2,p_nh%prog(nnew)%vn,z_rho_e,opt_varname="vn_nnew and z_rho_e")
         ELSE
@@ -2798,24 +2794,7 @@ MODULE mo_solve_nonhydro
         CALL timer_start(timer_solve_nh_exch)
       ENDIF
 
-      IF (use_icon_comm) THEN
-        IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
-#ifdef __MIXED_PRECISION
-          CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, &
-               &                        opt_varname="w_nenew and z_dwdz_dd")
-#else
-          CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
-            & name="solve_step1_w")
-#endif
-        ELSE IF (istep == 1) THEN ! Only w is updated in the predictor step
-          CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
-            & name="solve_step1_w")
-        ELSE IF (istep == 2) THEN
-          ! Synchronize all prognostic variables
-          CALL icon_comm_sync(p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w, &
-            & p_patch%sync_cells_not_owned, name="solve_step2_w")
-        ENDIF
-      ELSE IF (itype_comm == 1) THEN
+      IF (itype_comm == 1) THEN
         IF (istep == 1) THEN
           IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
             ! Synchronize w and vertical contribution to divergence damping
@@ -2976,8 +2955,8 @@ MODULE mo_solve_nonhydro
 #ifdef _OPENACC
 ! In validation mode, update all the output fields on the host
     IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
-      CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, l_child_vertnest, &
-           &                   lprep_adv, p_nh, prep_adv )
+      CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
+           &                   l_child_vertnest, lprep_adv, p_nh, prep_adv )
     ENDIF
 #endif
 
@@ -2990,6 +2969,7 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 #ifdef _OPENACC
+
      SUBROUTINE h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, is_iau_active, &
                                     p_nh, prep_adv )
 

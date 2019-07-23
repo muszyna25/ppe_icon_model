@@ -99,6 +99,24 @@ if ( -d "externals/mtime/include" ) {
     }
 }
 
+if ( -d "externals/ecrad/include" ) {
+    opendir(DIR, "externals/ecrad/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+        copy ( "externals/ecrad/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( -d "externals/ecrad/radiation" ) {
+    opendir(DIR, "externals/ecrad/radiation");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+        copy ( "externals/ecrad/radiation/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
 if ( -d "externals/tixi/include" ) {
     opendir(DIR, "externals/tixi/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -458,7 +476,8 @@ sub ScanDirectory {
     my %ignored_entries;
     {
       my @ignored_list = ('.', '..', '.svn', 'templates', 'hydro',
-                          'interface', 'nh', 'phys', 'sw_options');
+                          'interface', 'nh', 'phys', 'sw_options',
+                          'ecrad');
       push(@ignored_list, 'ocean', 'sea_ice', 'hamocc')
           if ($enable_ocean eq "no");
       push(@ignored_list, 'lnd_phy_jsbach') if ($enable_jsbach eq "no");
