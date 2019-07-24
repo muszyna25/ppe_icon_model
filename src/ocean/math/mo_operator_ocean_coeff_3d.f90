@@ -343,27 +343,28 @@ CONTAINS
 
     CASE (planar_torus_geometry)
       d_vector%x = y%x - x%x
-      channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
+      channel_x_modulo = geometry_info%domain_length ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
-      channel_y_modulo = geometry_info%domain_height / geometry_info%sphere_radius
+      channel_y_modulo = geometry_info%domain_height ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(2)) > channel_y_modulo  * 0.5_wp) THEN
         d_vector%x(2) = SIGN(1.0_wp, d_vector%x(2)) * (ABS(d_vector%x(2)) - channel_y_modulo)
       ENDIF
-
+      d_vector%x = d_vector%x / grid_sphere_radius
+      
     CASE (sphere_geometry)
       d_vector%x = y%x - x%x
 
     CASE ( planar_channel_geometry )
       d_vector%x = y%x - x%x
-      channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
+      channel_x_modulo = geometry_info%domain_length ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
-
+      d_vector%x = d_vector%x / grid_sphere_radius
     CASE ( planar_geometry )
-      d_vector%x = y%x - x%x
+      d_vector%x = (y%x - x%x) / grid_sphere_radius
 
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
@@ -1163,7 +1164,8 @@ CONTAINS
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
     
-
+!    CALL dbg_print('dual_edge_length',dual_edge_length, &
+!      & this_mod_name,1, in_subset=owned_edges)
    !2c) curl coefficients
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
@@ -1186,6 +1188,10 @@ CONTAINS
               & patch_2D%geometry_info)
             IF (DOT_PRODUCT(patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x, dist_vector%x) &
                  * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor) < 0.0_wp ) THEN
+              write(0,*) "dist_vector: ", dist_vector%x
+              write(0,*) "dual_cart_normal: ", patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x
+              write(0,*) "orientation: ",  patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
+              write(0,*) "DOT_PRODUCT: ", DOT_PRODUCT(patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x, dist_vector%x)
               CALL finish(method_name, "wrong orientation for rot_coeff")
             ENDIF
 
