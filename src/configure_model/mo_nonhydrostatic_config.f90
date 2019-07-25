@@ -175,7 +175,8 @@ CONTAINS
     ENDIF
 
 
-    ! Determine start level for processes related to (ART) tracers (specified by htop_tracer_proc)
+    ! Determine start level for processes related to (ART) tracers
+    ! (specified by htop_tracer_proc)
     kstart_tracer(jg,:) = 1
     DO jk = 1, nlev
       jk1 = jk + nshift_total
@@ -187,7 +188,8 @@ CONTAINS
 
     IF ( kstart_tracer(jg,1) >= 1 ) THEN
       WRITE(message_text,'(a,i4,a,i4,a)') 'Domain', jg, &
-        '; computations related to (ART) tracers start in layer ', kstart_tracer(jg,1), '(might be overwritten by ART-xml settings)'
+        '; computations related to (ART) tracers start in layer ', kstart_tracer(jg,1), &
+        ' (might be overwritten by ART-xml settings)'
       CALL message(TRIM(routine),message_text)
     ENDIF
 

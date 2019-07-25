@@ -223,20 +223,22 @@ MODULE mo_async_latbc
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX, &
+         &                                  VARNAME_LEN, max_ntracer
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,             ONLY: idx_no, blk_no
-    USE mo_nonhydro_state,            ONLY: p_nh_state
+    USE mo_nonhydro_state,            ONLY: p_nh_state, p_nh_state_lists
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_linked_list,               ONLY: t_var_list, t_list_element
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
-         &                                  collect_group
+         &                                  collect_group, get_var_name
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
+    USE mo_run_config,                ONLY: iqs
     USE mo_util_sort,                 ONLY: quicksort
     USE mo_time_config,               ONLY: time_config
     USE mtime,                        ONLY: datetime, OPERATOR(+)
@@ -789,6 +791,20 @@ MODULE mo_async_latbc
       ! allocating buffers containing name of variables
       ALLOCATE(grp_vars(MAX_NUM_GRPVARS))
 
+
+      !!!! FIXME !!!
+      ! Strictly speaking, the group LATBC_PREFETCH_VARS is no longer necessary.
+      ! Currently, the group size is used below for allocating nlev, mapped_name, ... (see below).
+      ! A better way to do this, is to count the total number of 'lreads' in check_variables.
+      ! This would give the exact number of necessary buffers (rather than an upper bound). 
+      ! The corresponding ALLOCATE (latbc%buffer%nlev ...) then must be performed after the call 
+      ! to check_variables.
+      ! In addition the group LATBC_PREFETCH_VARS is used for determining the internal names 
+      ! of the variables to be read. If we decide to remove LATBC_PREFETCH_VARS, an alternative 
+      ! way of getting the names is required (e.g. getting them somehow from check_variables).
+      ! For optional variables, e.g. the additional (ART) tracers, this change would require a
+      ! different way to specify which of these tracers are to be used as lateral boundary.  
+      !  
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
@@ -898,8 +914,8 @@ MODULE mo_async_latbc
                   StrLowCasegrp(counter) = grp_vars(jp)
 
                   IF (ldebug) THEN
-                    WRITE(0,*) '=> internal_name ',  (latbc%buffer%internal_name(counter))
-                    WRITE(0,*) '=> mapped_name   ',  (latbc%buffer%mapped_name(counter))
+                    WRITE(0,*) '=> internal_name(',counter,') ',  (latbc%buffer%internal_name(counter))
+                    WRITE(0,*) '=> mapped_name(',counter,')   ',  (latbc%buffer%mapped_name(counter))
                   END IF
                ENDIF
             ENDDO
@@ -929,6 +945,9 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc%buffer%hhl_var,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_qs,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_qr,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%lread_tracer(:),   p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%name_tracer(:),    p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc%buffer%idx_tracer(:),     p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_vn,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_u_v,         p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_w,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
@@ -1004,6 +1023,12 @@ MODULE mo_async_latbc
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
 
+      CHARACTER(LEN=VARNAME_LEN)      :: current_name     !< name of current tracer
+      TYPE(t_list_element), POINTER   :: current_element  !< pointer to current element in the list
+      INTEGER                         :: current_index    !< index of current tracer in container
+      INTEGER                         :: idx, numlbc_tracer
+
+         ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
 
          ! Check if rain water (QR) is provided as input
          buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
@@ -1012,7 +1037,34 @@ MODULE mo_async_latbc
          buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QS', latbc_dict) /= -1)
 
 
-         ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
+         ! initialize tracer arrays
+         buffer%lread_tracer(:) = .FALSE.
+         buffer%name_tracer(:) = ''
+         buffer%idx_tracer(:) = -1
+
+         numlbc_tracer = 0
+         ! Loop through the p_tracer_list
+         current_element => p_nh_state_lists(1)%tracer_list(1)%p%first_list_element
+         DO WHILE (ASSOCIATED(current_element))
+
+           ! Plain variable name (i.e. without TIMELEVEL_SUFFIX)
+           current_name  = tolower(get_var_name(current_element%field))
+           ! Index
+           current_index = current_element%field%info%ncontained
+
+           IF (current_index > iqs) THEN
+             numlbc_tracer = numlbc_tracer + 1
+             ! Check if additional tracer variables are provided as input
+             buffer%lread_tracer(numlbc_tracer) = &
+               &  (test_cdi_varID(fileID_latbc, TRIM(current_name), latbc_dict) /= -1)
+             ! Save plain variable name and index
+             buffer%name_tracer(numlbc_tracer) = TRIM(current_name)
+             buffer%idx_tracer(numlbc_tracer)  = current_index
+           END IF
+
+           current_element => current_element%next_list_element
+         ENDDO !Loop through p_tracer_list
+
 
          ! Check if vertical velocity (or OMEGA) is provided as input
          buffer%lread_w = (test_cdi_varID(fileID_latbc, 'W', latbc_dict) /= -1)
@@ -1142,6 +1194,11 @@ MODULE mo_async_latbc
          IF (.NOT. buffer%lread_qs) THEN
             CALL message(routine,'Snow water (QS) not available in input data.')
          ENDIF
+
+         DO idx=1, numlbc_tracer
+            IF (.NOT. buffer%lread_tracer(idx)) &
+              &  CALL message(routine,'Tracer variable '//TRIM(buffer%name_tracer(idx))//' not available in input DATA.')
+         ENDDO
 
          IF (buffer%lread_hhl) THEN
             CALL message(routine,'Input levels (HHL) are read from file.')

@@ -71,7 +71,7 @@
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename
     USE mo_initicon_config,     ONLY: timeshift
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level, ntracer
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_types,      ONLY: t_init_state
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
@@ -157,7 +157,7 @@
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_pref_latbc_data"
-      INTEGER               :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat
+      INTEGER               :: tlev, nlev, nlevp1, nblks_c, nblks_e, ierrstat, idx
 
       ! Allocate memory for variables (3D and 2D) on work processors
       nlev    = p_patch%nlev
@@ -193,6 +193,18 @@
            latbc%latbc_data(tlev)%atm_in%qr   (nproma,nlev_in,nblks_c), &
            latbc%latbc_data(tlev)%atm_in%qs   (nproma,nlev_in,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+         ! ... for additional tracer variables
+         DO idx=1, ntracer
+           IF (latbc%buffer%lread_tracer(idx)) THEN
+             ALLOCATE(latbc%latbc_data(tlev)%atm_in%tracer(idx)%field(nproma,nlev_in,nblks_c), &
+               &      STAT=ierrstat)
+             ! initialize with zero to simplify implementation of sparse lateral boundary condition mode
+!$OMP PARALLEL
+             CALL init(latbc%latbc_data(tlev)%atm_in%tracer(idx)%field)
+!$OMP END PARALLEL
+           END IF
+         END DO
 
          ! allocate also vn (though sometimes not needed)
          ALLOCATE(latbc%latbc_data(tlev)%atm_in%vn(nproma, nlev_in, nblks_e), STAT=ierrstat)
@@ -242,6 +254,14 @@
               latbc%latbc_data(tlev)%atm%qr       (nproma,nlev,nblks_c), &
               latbc%latbc_data(tlev)%atm%qs       (nproma,nlev,nblks_c), STAT=ierrstat)
          IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+         ! ... for additional tracer variables
+         DO idx=1, ntracer
+           IF (latbc%buffer%lread_tracer(idx)) THEN
+             ALLOCATE(latbc%latbc_data(tlev)%atm%tracer(idx)%field(nproma,nlev,nblks_c), &
+               &      STAT=ierrstat)
+           END IF
+         END DO
 
          latbc%latbc_data(tlev)%const => latbc%latbc_data_const
 
@@ -383,7 +403,8 @@
         ENDIF
 
         ! copy initial data to latbc state
-        CALL copy_fg_to_latbc(latbc%latbc_data, p_nh_state, prev_latbc_tlev)
+        CALL copy_fg_to_latbc(latbc%latbc_data, p_nh_state, prev_latbc_tlev,  &
+          &                   latbc%buffer%idx_tracer)
         ! set validity Datetime
         latbc%latbc_data(prev_latbc_tlev)%vDateTime = time_config%tc_current_date
 
@@ -401,7 +422,8 @@
 
       ! Compute tendencies for nest boundary update
       IF (.NOT. isRestart() .AND. timeshift%dt_shift < 0) THEN
-        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev)
+        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev,  &
+          &                              latbc%buffer%idx_tracer)
       ENDIF
 
       ! Read latbc data for first time level in case of restart
@@ -486,7 +508,8 @@
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
       ! Compute tendencies for nest boundary update
-      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev)
+      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev,  &
+          &                                                 latbc%buffer%idx_tracer)
 
     END SUBROUTINE read_next_timelevel
 #endif
@@ -531,7 +554,9 @@
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_data"
       INTEGER(i8)                         :: eoff
-      INTEGER                             :: jc, jk, jb, jv, nlev_in, i_endblk, ierrstat, rl_end, i_startidx,i_endidx, nblks_c
+      INTEGER                             :: jc, jk, jb, jv, nlev_in, idx, &
+        &                                    i_endblk, ierrstat, rl_end,   &
+        &                                    i_startidx,i_endidx, nblks_c
       REAL(wp)                            :: log_exner, tempv
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
         &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -588,7 +613,6 @@
 !$OMP END PARALLEL
       ENDIF
 
-
       ! Read parameter QS
       IF (latbc%buffer%lread_qs) THEN
         CALL get_data(latbc, 'qs', latbc%latbc_data(tlev)%atm_in%qs, read_params(icell))
@@ -597,6 +621,14 @@
         CALL init(latbc%latbc_data(tlev)%atm_in%qs(:,:,:))
 !$OMP END PARALLEL
       ENDIF
+
+      ! Read additional tracer variables
+      DO idx=1, ntracer
+        IF (latbc%buffer%lread_tracer(idx)) THEN
+          CALL get_data(latbc, TRIM(latbc%buffer%name_tracer(idx)), latbc%latbc_data(tlev)%atm_in%tracer(idx)%field,  &
+            &           read_params(icell), latbc_dict)
+        ENDIF
+      END DO
 
       IF (latbc%buffer%lread_theta_rho) THEN
 
@@ -1109,7 +1141,8 @@
       CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int, tlev, read_params)
 
       ! Compute tendencies for nest boundary update
-      CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, tlev)
+      CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, tlev,  &
+        &                              latbc%buffer%idx_tracer)
 
 
       ! Store mtime_last_read
@@ -1121,12 +1154,14 @@
     ! Wrapper routine for copying prognostic variables from initial state to the 
     ! first time level of the lateral boundary data
     !
-    SUBROUTINE copy_fg_to_latbc(latbc_data, p_nh, tlev)
+    SUBROUTINE copy_fg_to_latbc(latbc_data, p_nh, tlev, idx_tracer)
       TYPE(t_init_state),     INTENT(INOUT) :: latbc_data(:)
       TYPE(t_nh_state),       INTENT(IN)    :: p_nh
       INTEGER,                INTENT(IN)    :: tlev
+      INTEGER,                INTENT(IN)    :: idx_tracer(:)
 
       INTEGER, PARAMETER :: jg = 1
+      INTEGER            :: idx
 
 !$OMP PARALLEL
       CALL copy(p_nh%prog(nnow(jg))%vn,      latbc_data(tlev)%atm%vn)
@@ -1140,7 +1175,16 @@
       CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqi), latbc_data(tlev)%atm%qi)
       CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqr), latbc_data(tlev)%atm%qr)
       CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqs), latbc_data(tlev)%atm%qs)
+
+      ! Copy additional tracer variables
+      DO idx=1, ntracer
+        IF (ASSOCIATED(latbc_data(tlev)%atm%tracer(idx)%field)) THEN
+          CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,idx_tracer(idx)), &
+            &       latbc_data(tlev)%atm%tracer(idx)%field)
+        ENDIF
+      END DO
 !$OMP END PARALLEL
+
     END SUBROUTINE copy_fg_to_latbc
 
 
@@ -1149,16 +1193,18 @@
     !! @par Revision History
     !! Initial version by G. Zaengl, DWD (2013-10-22)
     !!
-    SUBROUTINE compute_boundary_tendencies ( latbc_data, p_patch, p_nh, tlev )
+    SUBROUTINE compute_boundary_tendencies ( latbc_data, p_patch, p_nh, tlev, idx_tracer )
       TYPE(t_init_state),     INTENT(IN)    :: latbc_data(:)
       TYPE(t_patch),          INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       INTENT(INOUT) :: p_nh
       INTEGER,                INTENT(IN)    :: tlev
+      INTEGER,                INTENT(IN)    :: idx_tracer(:)
 
 #ifndef NOMPI
       ! Local variables
       INTEGER                         :: i_startblk, i_endblk, i_startidx, i_endidx,    &
-        &                                jc, jk, jb, je, nlev, nlevp1, prev_latbc_tlev
+        &                                jc, jk, jb, je, nlev, nlevp1, prev_latbc_tlev, &
+        &                                idx
       TYPE(timedelta)                 :: td
       REAL(wp)                        :: dt, rdt
       CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: vDateTime_str_cur, vDateTime_str_prev
@@ -1221,7 +1267,7 @@
       i_startblk = p_patch%cells%start_blk(1,1)
       i_endblk   = p_patch%cells%end_blk(grf_bdywidth_c,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,idx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1277,6 +1323,21 @@
 
                ENDDO
             ENDDO
+
+            ! ... additional tracer variables
+            DO idx = 1, ntracer
+              IF ( ASSOCIATED(latbc_data(tlev)%atm%tracer(idx)%field) ) THEN
+                DO jk = 1, nlev
+                   DO jc = i_startidx, i_endidx
+                      p_nh%diag%grf_tend_tracer(jc,jk,jb,idx_tracer(idx)) =  rdt * (   &
+                           &   latbc_data(tlev)%atm%tracer(idx)%field(jc,jk,jb) &
+                           & - latbc_data(prev_latbc_tlev)%atm%tracer(idx)%field(jc,jk,jb) )
+
+                   ENDDO
+                ENDDO
+              ENDIF
+            ENDDO
+
          ENDIF
 
       ENDDO
@@ -1505,7 +1566,7 @@
       INTEGER                        :: nlev
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = dict_get(opt_latbc_dict,name)
+        mapped_name = dict_get(opt_latbc_dict,name,default=name)
       ELSE
         mapped_name = name
       ENDIF
@@ -1535,7 +1596,7 @@
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: mapped_name
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = dict_get(opt_latbc_dict,name)
+        mapped_name = dict_get(opt_latbc_dict,name,default=name)
       ELSE
         mapped_name = name
       ENDIF

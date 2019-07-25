@@ -913,7 +913,7 @@ MODULE mo_nh_stepping
 
       END IF !iforcing=inwp
 
-      IF (ntracer>0) THEN
+      IF (lart .AND. ntracer>0) THEN
          !
          ! Unit conversion for output from mass mixing ratios to densities
          ! and calculation of ART diagnostics

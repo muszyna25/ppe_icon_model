@@ -24142,11 +24142,11 @@ static int getAvailabilityOfRelativeTimes(grib_handle* gh, bool* outHaveForecast
         return 0;
 
       //case 55 and case 40455 are the same: 55 is the proposed standard value, 40455 is the value in the local use range that is used by the dwd until the standard is updated.
-      case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 15: case 32: case 33: case 40: case 41: case 44: case 45: case 48: case 51: case 53: case 54: case 55: case 56: case 60: case 1000: case 1002: case 1100: case 40033: case 40455: case 40456:
+    case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 15: case 32: case 33: case 40: case 41: case 44: case 45: case 48: case 51: case 53: case 54: case 55: case 56: case 57: case 58: case 60: case 1000: case 1002: case 1100: case 40033: case 40455: case 40456:
         *outHaveForecastTime = true, *outHaveTimeRange = false;
         return 0;
 
-      case 8: case 9: case 10: case 11: case 12: case 13: case 14: case 34: case 42: case 43: case 46: case 47: case 61: case 91: case 1001: case 1101: case 40034:
+    case 8: case 9: case 10: case 11: case 12: case 13: case 14: case 34: case 42: case 43: case 46: case 47: case 61: case 67: case 68: case 91: case 1001: case 1101: case 40034:
         *outHaveForecastTime = true, *outHaveTimeRange = true;
         return 0;
 

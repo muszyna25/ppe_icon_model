@@ -44,7 +44,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
   USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqnc, iqni, iqtke, &
-    &                                  iqs, iqns, iqtvar
+    &                                  iqs, iqns, iqtvar, lart
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist, kstart_tracer
   USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, nmvar, ndim
@@ -199,7 +199,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
-  IF ( art_config(jg)%nturb_tracer > 0 ) THEN
+  IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
      ALLOCATE(idx_nturb_tracer(art_config(jg)%nturb_tracer))
   END IF
 
@@ -343,7 +343,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qs
 
-      IF ( art_config(jg)%nturb_tracer > 0 ) THEN
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
          CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
            &                          ncloud_offset=ncloud_offset,                     &
            &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
@@ -515,7 +515,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * alv
       END IF
 
-      IF ( art_config(jg)%nturb_tracer > 0 ) THEN
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
          CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
            &                          ncloud_offset=ncloud_offset,                      &
            &                          ptr=ptr(:), dt=tcall_turb_jg,                     &

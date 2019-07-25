@@ -40,8 +40,8 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing, output_mode,             &
     &                              ltransport, ntracer, nlev, ltestcase,             &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
-    &                              iqs, iqr, iqt, iqtvar, ltimer,             &
-    &                              ico2, ich4, in2o, io3,                     &
+    &                              iqs, iqr, iqt, iqtvar, ltimer,                    &
+    &                              ico2, ich4, in2o, io3,                            &
     &                              iqni, iqni_nuc, iqg, iqm_max,                     &
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                              inccn, ininact, ininpot,                          &
@@ -466,7 +466,7 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 0     !! rain water
       iqs    = 0     !! snow
-      iqm_max= 3     !! end index of water species mixing ratios
+      iqm_max= 3     !! end index of water species mass mixing ratios
       iqt    = 4     !! starting index of non-water species
       io3    = 4     !! O3
       ico2   = 5     !! CO2
@@ -547,7 +547,7 @@ CONTAINS
       !
       ! The following parameters may be reset depending on the selected physics scheme
       !
-      iqm_max   = 5     !! end index of water species mixing ratios
+      iqm_max   = 5     !! end index of water species mass mixing ratios
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
       ntracer   = 5     !! total number of tracers
@@ -579,7 +579,7 @@ CONTAINS
        ! CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
         
         iqg     = 6       !! graupel
-        iqm_max = iqg
+        iqm_max = 6
         iqt     = iqt + 1
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -588,8 +588,8 @@ CONTAINS
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
 
         iqni     = 6     !! cloud ice number
-        iqni_nuc = 7     !! activated ice nuclei  
-        iqt     = iqt + 2
+        iqni_nuc = 7     !! activated ice nuclei
+        iqt      = iqt + 2
 
         ntracer = ntracer + 2  !! increase total number of tracers by 2
 
@@ -606,7 +606,7 @@ CONTAINS
         ininact = 14
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
+        iqm_max   = 7     !! end index of water species mass mixing ratios
         iqt       = 15    !! start index of other tracers not related at all to moisture
        
         ntracer = 14
@@ -626,7 +626,7 @@ CONTAINS
         ininpot = 16
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
+        iqm_max   = 7     !! end index of water species mass mixing ratios
         iqt       = 17    !! start index of other tracers not related at all to moisture
        
         ntracer = 16
@@ -644,8 +644,8 @@ CONTAINS
         ininact = 14
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
-        iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 14    !! start index of other tracers not related at all to moisture
+        iqm_max   = 7     !! end index of water species mass mixing ratios
+        iqt       = 15    !! start index of other tracers not related at all to moisture
         
         ntracer = 14
         
@@ -719,7 +719,7 @@ CONTAINS
         iqr    = 0     !! 0: no rain water
         iqs    = 0     !! 0: no snow
         ico2   = 4     !! CO2
-        iqm_max= 3     !! end index of water species mixing ratios
+        iqm_max= 3     !! end index of water species mass mixing ratios
         iqt    = 4     !! starting index of non-water species
         nqtendphy = 0  !! number of water species for which convective and turbulent
                        !! tendencies are stored
