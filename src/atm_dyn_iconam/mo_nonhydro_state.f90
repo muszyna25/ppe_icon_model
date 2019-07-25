@@ -80,7 +80,7 @@ MODULE mo_nonhydro_state
     &                                vintp_types, new_action, actions
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
-  USE mo_add_tracer_ref,       ONLY: add_tracer_ref
+  USE mo_advection_utils,      ONLY: add_tracer_ref
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
