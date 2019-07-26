@@ -349,7 +349,7 @@ CONTAINS
     field_name(13) = "co2_flux"
     field_name(14) = "sea_level_pressure"
 
-    ! Define the mask for all fields but the runoff (idx=1 to 10)
+    ! Define the mask for all fields but the runoff
 
     DO idx = 1, no_of_fields 
       if(field_name(idx).ne. "river_runoff")then
@@ -365,6 +365,7 @@ CONTAINS
     ENDDO
 
     ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
+    !  - todo: use same mask as for other ones: all points, better wet points only
 
     IF ( mask_checksum > 0 ) THEN
 
@@ -372,6 +373,7 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
+!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
             ! ocean coast (-1) is valid
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
@@ -382,13 +384,22 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-      CALL yac_fdef_mask (          &
-        & patch_horz%n_patch_cells, &
-        & ibuffer,                  &
-        & cell_point_ids(1),        &
-        & cell_mask_ids(2) )
+    ELSE
+
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
+      DO idx = 1, patch_horz%nblks_c * nproma
+        ibuffer(idx) = 0
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     ENDIF
+
+    CALL yac_fdef_mask (          &
+      & patch_horz%n_patch_cells, &
+      & ibuffer,                  &
+      & cell_point_ids(1),        &
+      & cell_mask_ids(2) )
+
 
     DEALLOCATE(ibuffer)
 

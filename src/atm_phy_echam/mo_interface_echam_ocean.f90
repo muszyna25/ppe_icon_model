@@ -421,20 +421,26 @@ CONTAINS
           ENDDO
         ENDDO
 !ICON_OMP_END_PARALLEL_DO
+    ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
+       DO idx = 1,patch_horz%nblks_c * nproma
+          ibuffer(idx) = 0
+       ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
-        CALL yac_fdef_mask (           &
-          & patch_horz%n_patch_cells,  &
-          & ibuffer,                   &
-          & cell_point_ids(1),         &
-          & cell_mask_ids(2) )
+    ENDIF
 
-      ENDIF
+    CALL yac_fdef_mask (           &
+      & patch_horz%n_patch_cells,  &
+      & ibuffer,                   &
+      & cell_point_ids(1),         &
+      & cell_mask_ids(2) )
 
-      ! Define additional coupling field(s) for JSBACH/HD
-      ! Utilize mask field for runoff
-      ! !slo old!  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
-      !  - cell_mask_ids(2:2) is ocean wet points as above - todo: use cell_mask_ids(1:1)
-      CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
+    ! Define additional coupling field(s) for JSBACH/HD
+    ! Utilize mask field for runoff
+    ! !slo old!  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
+    !  - cell_mask_ids(2:2) is ocean wet points as above - todo: use cell_mask_ids(1:1)
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
 
 #endif
 
