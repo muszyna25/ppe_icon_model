@@ -364,17 +364,19 @@ CONTAINS
       endif
     ENDDO
 
-    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
-    !  - todo: use same mask as for other ones: all points, better wet points only
+    ! Define cell_mask_ids(2) for runoff: all ocean points are valid.
+    !!slo! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
+    !!slo!  - todo: use same mask as for other ones: all points, better wet points only
 
     IF ( mask_checksum > 0 ) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
-          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
-!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
-            ! ocean coast (-1) is valid
+          ! ocean coast (-1) is valid
+!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
+          ! all ocean points (-1, -2) are valid
+          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
             ! elsewhere (land or open ocean 1, 2, -2) is undef
