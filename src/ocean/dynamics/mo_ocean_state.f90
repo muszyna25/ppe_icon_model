@@ -1817,6 +1817,26 @@ CONTAINS
       & ldims=(/1,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)
 
+    ! Implied ocean fw transport
+    CALL add_var(ocean_default_list, 'global_wfl',ocean_state_diag%global_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_wfl','m3s-1','global implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_wfl',ocean_state_diag%atlantic_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_wfl','m3s-1','atlantic implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_wfl',ocean_state_diag%pacific_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_wfl','W','indopacific implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
     ! hfbasin ocean heat transport
     CALL add_var(ocean_default_list, 'global_hfbasin',ocean_state_diag%global_hfbasin,    &
       & GRID_ZONAL, za_surface,&

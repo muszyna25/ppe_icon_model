@@ -255,6 +255,9 @@ MODULE mo_ocean_types
       & global_hfl       ,& ! implied ocean heat transport global
       & atlantic_hfl     ,& ! implied ocean heat transport atlantic
       & pacific_hfl      ,& ! implied ocean heat transport pacific
+      & global_wfl       ,& ! implied ocean freshwater transport global
+      & atlantic_wfl     ,& ! implied ocean freshwater transport atlantic
+      & pacific_wfl      ,& ! implied ocean freshwater transport pacific
       & global_hfbasin   ,& ! northward ocean heat transport global
       & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
       & pacific_hfbasin     ! northward ocean heat transport pacific

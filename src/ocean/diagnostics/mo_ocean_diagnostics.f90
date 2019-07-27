@@ -1041,6 +1041,7 @@ CONTAINS
         CALL calc_moc(patch_2d, patch_3d, &
              & p_diag%w, &
              & p_oce_sfc%heatflux_total, &
+             & p_oce_sfc%frshflux_volumetotal, &
              & p_diag%delta_thetao, &
              & p_diag%delta_snow, &
              & p_diag%delta_ice, &
@@ -1050,6 +1051,9 @@ CONTAINS
              & p_diag%global_hfl, &
              & p_diag%atlantic_hfl, &
              & p_diag%pacific_hfl, &
+             & p_diag%global_wfl, &
+             & p_diag%atlantic_wfl, &
+             & p_diag%pacific_wfl, &
              & p_diag%global_hfbasin, &
              & p_diag%atlantic_hfbasin, &
              & p_diag%pacific_hfbasin)
@@ -1721,8 +1725,10 @@ CONTAINS
   END SUBROUTINE calc_moc_internal
   !-------------------------------------------------------------------------
 
-  SUBROUTINE calc_moc_hfl_internal (patch_2d, patch_3d, w, heatflux_total, delta_thetao, delta_snow, delta_ice, &
+  SUBROUTINE calc_moc_hfl_internal (patch_2d, patch_3d, w, heatflux_total, &
+             frshflux_volumetotal, delta_thetao, delta_snow, delta_ice, &
              global_moc, atlant_moc, pacind_moc, global_hfl, atlant_hfl, pacind_hfl, &
+             global_wfl, atlant_wfl, pacind_wfl, &
              global_hfbasin, atlant_hfbasin, pacind_hfbasin)
 
     TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
@@ -1730,6 +1736,7 @@ CONTAINS
 
     REAL(wp), INTENT(in)  :: w(:,:,:)   ! vertical velocity (nproma,nlev+1,alloc_cell_blocks)
     REAL(wp), INTENT(in)  :: heatflux_total(:,:)   ! heatflux_total (nproma,alloc_cell_blocks)
+    REAL(wp), INTENT(in)  :: frshflux_volumetotal(:,:)   ! fw flux (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_snow(:,:)       ! tendency of snow thickness (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_ice(:,:)        ! tendendy of ice  thickness (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_thetao(:,:,:)   ! temerature tendency (nproma,nlev+1,alloc_cell_blocks)
@@ -1738,6 +1745,9 @@ CONTAINS
 
     ! implied ocean heat transport calculated from surface fluxes
     REAL(wp), INTENT(inout) :: global_hfl(:,:), atlant_hfl(:,:), pacind_hfl(:,:) ! (1,180)
+
+    ! implied ocean fw transport calculated from surface fluxes
+    REAL(wp), INTENT(inout) :: global_wfl(:,:), atlant_wfl(:,:), pacind_wfl(:,:) ! (1,180)
 
     ! northward ocean heat transport calculated from tendencies
     REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,180)
@@ -1748,7 +1758,7 @@ CONTAINS
     INTEGER :: BLOCK, level, start_index, end_index, idx, ilat, l, n
     INTEGER :: mpi_comm
 
-    REAL(wp) :: lat, deltaMoc, deltahfl, deltahfbasin, smoothWeight
+    REAL(wp) :: lat, deltaMoc, deltahfl, deltawfl, deltahfbasin, smoothWeight
     REAL(wp), ALLOCATABLE :: allmocs(:,:,:)
 
     TYPE(t_subset_range), POINTER :: cells
@@ -1771,6 +1781,10 @@ CONTAINS
     pacind_hfl(:,:) = 0.0_wp
     atlant_hfl(:,:) = 0.0_wp
 
+    global_wfl(:,:) = 0.0_wp
+    pacind_wfl(:,:) = 0.0_wp
+    atlant_wfl(:,:) = 0.0_wp
+
     global_hfbasin(:,:) = 0.0_wp
     pacind_hfbasin(:,:) = 0.0_wp
     atlant_hfbasin(:,:) = 0.0_wp
@@ -1792,7 +1806,12 @@ CONTAINS
           deltahfbasin = patch_2d%cells%area(idx,BLOCK) * delta_thetao(idx,level,BLOCK)
 
           IF (level .EQ. 1) THEN
-            deltahfl = patch_2d%cells%area(idx,BLOCK) * heatflux_total(idx,BLOCK)
+            deltahfl = patch_2d%cells%area(idx,BLOCK) * heatflux_total(idx,BLOCK) &
+                    * patch_3D%wet_c(idx,1,BLOCK)
+
+            deltawfl = patch_2d%cells%area(idx,BLOCK) * frshflux_volumetotal(idx,BLOCK) &
+                     * patch_3D%wet_c(idx,1,BLOCK)
+
             deltahfbasin = deltahfbasin                                &
                  + patch_2d%cells%area(idx,BLOCK) * ( delta_ice(idx,BLOCK) + delta_snow(idx,BLOCK) )
           ENDIF
@@ -1824,11 +1843,16 @@ CONTAINS
               pacind_hfbasin(level,ilat) = MERGE(pacind_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
 
-          
               global_hfl(level,ilat) =       global_hfl(level,ilat) - deltahfl*smoothWeight
               atlant_hfl(level,ilat) = MERGE(atlant_hfl(level,ilat) - deltahfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
               pacind_hfl(level,ilat) = MERGE(pacind_hfl(level,ilat) - deltahfl*smoothWeight, &
+                   0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
+              global_wfl(level,ilat) =       global_wfl(level,ilat) - deltawfl*smoothWeight
+              atlant_wfl(level,ilat) = MERGE(atlant_wfl(level,ilat) - deltawfl*smoothWeight, &
+                   0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+              pacind_wfl(level,ilat) = MERGE(pacind_wfl(level,ilat) - deltawfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
             END IF
 
@@ -1849,6 +1873,10 @@ CONTAINS
     allmocs(4,5,:) = atlant_hfbasin(1,:)
     allmocs(4,6,:) = pacind_hfbasin(1,:)
 
+    allmocs(4,7,:) = global_wfl(1,:)
+    allmocs(4,8,:) = atlant_wfl(1,:)
+    allmocs(4,9,:) = pacind_wfl(1,:)
+
     allmocs = p_sum(allmocs,mpi_comm)
 
     global_moc(1:n_zlev,:) = allmocs(1,1:n_zlev,:)
@@ -1860,6 +1888,10 @@ CONTAINS
     global_hfbasin(1,:) = allmocs(4,4,:)
     atlant_hfbasin(1,:) = allmocs(4,5,:)
     pacind_hfbasin(1,:) = allmocs(4,6,:)
+    global_wfl(1,:) = allmocs(4,7,:)
+    atlant_wfl(1,:) = allmocs(4,8,:)
+    pacind_wfl(1,:) = allmocs(4,9,:)
+
 
     ! compute partial sums along meridian
     DO l=179,1,-1   ! fixed to 1 deg meridional resolution
@@ -1872,7 +1904,9 @@ CONTAINS
       global_hfbasin(:,l)=global_hfbasin(:,l+1)+global_hfbasin(:,l)
       atlant_hfbasin(:,l)=atlant_hfbasin(:,l+1)+atlant_hfbasin(:,l)
       pacind_hfbasin(:,l)=pacind_hfbasin(:,l+1)+pacind_hfbasin(:,l)
-
+      global_wfl(:,l)=global_wfl(:,l+1)+global_wfl(:,l)
+      atlant_wfl(:,l)=atlant_wfl(:,l+1)+atlant_wfl(:,l)
+      pacind_wfl(:,l)=pacind_wfl(:,l+1)+pacind_wfl(:,l)
     END DO
 
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
@@ -1882,7 +1916,7 @@ CONTAINS
     atlant_hfbasin(:,:)=atlant_hfbasin(:,:)+atlant_hfl(:,:)
     pacind_hfbasin(:,:)=pacind_hfbasin(:,:)+pacind_hfl(:,:)
 
-    DEALLOCATE (allmocs) 
+    DEALLOCATE (allmocs)
 
   END SUBROUTINE calc_moc_hfl_internal
   !-------------------------------------------------------------------------
