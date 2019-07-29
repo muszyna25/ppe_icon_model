@@ -4860,7 +4860,7 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \hline
 tune\_thicklayfac&
 R&
-0.0025&
+0.005&
 1/m &
 Factor for enhancing the box width for model layer thicknesses exceeding 150 m &
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
@@ -4875,6 +4875,15 @@ Asymmetry factor for liquid cloud cover diagnostic&
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
+\hline
+tune\_sgsclifac&
+R&
+0.0 &
+ &
+Scaling factor for parameterization of subgrid-scale (turbulence-induced) cloud ice 
+(values $>$ 0 not recommended for global configurations with RRTM radiation) &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
 
 \hline
 lcalib\_clcov&

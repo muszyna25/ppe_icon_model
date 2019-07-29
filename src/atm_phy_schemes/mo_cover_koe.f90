@@ -51,7 +51,7 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac
 
   IMPLICIT NONE
 
@@ -179,7 +179,7 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , zqs, &
-  & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, &
+  & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, rhcrit_sgsice, &
   & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
@@ -192,7 +192,8 @@ REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
   & box_ice  = 0.05_wp  , & ! box width scale ice clouds
-  & tm10     = tmelt - 10.0_wp
+  & tm10     = tmelt - 10.0_wp, &
+  & tm40     = tmelt - 40.0_wp
 
   REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
@@ -220,6 +221,7 @@ zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
+rhcrit_sgsice = 1._wp - 0.05_wp*tune_sgsclifac
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -285,7 +287,7 @@ CASE( 1 )
      ! in addition, sub-grid scale moisture variations in the vertical are parameterized depending on vertical resolution
      ! Diagnosed cloud water is proportional to clcov**2
      !
-      thicklay_fac = MIN(1._wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
+      thicklay_fac = MIN(0.6_wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
       zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
       zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
       deltaq = MAX(0.8_wp*zdeltaq,MIN((4._wp+thicklay_fac)*zrcld,2._wp*zdeltaq))
@@ -316,7 +318,10 @@ CASE( 1 )
       ENDIF
 
 !  ice cloud
-      qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) )
+      fac_aux = 1._wp - MIN(1._wp,MAX(0._wp,tt(jl,jk)-tm40)/15._wp)
+      qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) ) +                  &
+               fac_aux*MIN(1._wp,tune_sgsclifac*zrcld/(box_ice*zqisat(jl,jk)))* &
+               MAX(0._wp,qv(jl,jk)-rhcrit_sgsice*zqisat(jl,jk))
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi_mod > zcldlim ) THEN
