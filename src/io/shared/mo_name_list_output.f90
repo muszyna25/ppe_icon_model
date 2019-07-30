@@ -614,7 +614,8 @@ CONTAINS
 #ifndef NOMPI
         IF (ofile_is_assigned_here(i)) THEN
           CALL io_proc_write_name_list(output_file(i), ofile_has_first_write(i))
-          do_sync = check_write_readyfile(output_file(i)%out_event%output_event)
+          do_sync = lkeep_in_sync .OR. check_write_readyfile(output_file(i)%out_event%output_event) .OR. &
+                    output_file(i)%name_list%steps_per_file == 1
         END IF
 #endif
       ELSE

@@ -367,7 +367,9 @@ SUBROUTINE kessler  (             &
     qr_in                !! specific rain content                         (kg/kg)
 
   REAL (KIND=wp)   ::  &
+#ifdef __COSMO__
     fpvsw, fqvs  ,     & !
+#endif
     zpv          ,     & !
     zdtdh, zphi  ,     & !
     zqrk, lnzqrk ,     & !
@@ -405,8 +407,10 @@ SUBROUTINE kessler  (             &
 
 ! saturation vapour pressure over water (fpvsw)
 ! and specific humidity at vapour saturation (fqvs)
+#ifdef __COSMO__
   fpvsw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) )
   fqvs (zpv,zpx) = rdv*zpv/( zpx - o_m_rdv*zpv )
+#endif
   fsa3(ztx) = 3.86E-3_wp - 9.41E-5_wp*(ztx-t0)
 
   

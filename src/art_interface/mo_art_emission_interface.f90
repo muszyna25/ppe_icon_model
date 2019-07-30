@@ -2,7 +2,7 @@
 !! Provides interface to ART-routines dealing with emissions
 !!
 !! This module provides an interface to the ART emission routines.
-!! The interface is written in such a way, that ICON will compile and run 
+!! The interface is written in such a way, that ICON will compile and run
 !! properly, even if the ART-routines are not available at compile time.
 !!
 !!
@@ -44,11 +44,12 @@ MODULE mo_art_emission_interface
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_parallel_config,               ONLY: nproma
   USE mo_exception,                     ONLY: finish
+  USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydro_types,                ONLY: t_nh_state
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
+  USE mo_run_config,                    ONLY: lart,ntracer,iforcing
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
   USE mo_echam_phy_memory,              ONLY: prm_field
@@ -84,6 +85,7 @@ MODULE mo_art_emission_interface
   USE mo_art_prescribed_state,          ONLY: art_prescribe_tracers
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
+  USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
 
 #endif
 
@@ -105,7 +107,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
   TYPE(t_external_data), INTENT(in) ::  &
     &  ext_data                !< Atmosphere external data
-  TYPE(t_patch), TARGET, INTENT(in) ::  & 
+  TYPE(t_patch), TARGET, INTENT(in) ::  &
     &  p_patch                 !< Patch on which computation is performed
   REAL(wp), INTENT(in)    :: &
     &  dtime                   !< Time step (advection)
@@ -124,7 +126,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
-  INTEGER                 :: & 
+  INTEGER                 :: &
     &  jg, jb, ijsp, jk, jc, & !< Patch id, counter for block loop, jsp loop, vertical loop
     &  i_startblk, i_endblk, & !< Start and end of block loop
     &  istart, iend,         & !< Start and end of nproma loop
@@ -144,10 +146,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  this_mode               !< pointer to current aerosol mode
   REAL(wp)                :: &
     &  p_sim_time              !< elapsed simulation time on this grid level
-  
+
   ! calculate elapsed simulation time in seconds (local time for
   ! this domain!)
-  p_sim_time = getElapsedSimTimeInSeconds(current_date) 
+  p_sim_time = getElapsedSimTimeInSeconds(current_date)
 
 
   ! --- Get the loop indizes
@@ -208,7 +210,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
           ENDDO
         ENDDO
-        
+
         ! ----------------------------------
         ! --- Preparations for emission routines
         ! ----------------------------------
@@ -238,16 +240,16 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL finish('mo_art_emission_interface:art_emission_interface', &
                  &      'ART: Unknown volc emissions configuration')
         END SELECT
-      ENDDO !jb   
+      ENDDO !jb
 !$omp end parallel do
 
 
         ! ----------------------------------
         ! --- Call the emission routines
         ! ----------------------------------
-        
+
         this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-      
+
         DO WHILE(ASSOCIATED(this_mode))
           ! Check how many moments the mode has
           SELECT TYPE (fields=>this_mode%fields)
@@ -257,9 +259,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                   &                istart, iend, i_rlstart, i_rlend)
-                  
+
                 emiss_rate(:,:) = 0._wp
-                
+
                 ! Get model layer heights
                 DO jk = 1, nlev
                   DO jc = istart, iend
@@ -289,11 +291,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dusta',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
-                    ! Compute emission rate [mug m-2 s-1] and collect for output
-                    p_art_data(jg)%diag%emiss_rate_dusta(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
-                    ! Accumulate emission rate 
-                    p_art_data(jg)%diag%acc_emiss_dusta(:,jb) = p_art_data(jg)%diag%acc_emiss_dusta(:,jb) &
-                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dusta(:,jb)
                   CASE ('dustb')
                     CALL art_emission_dust(dz(:,nlev),                                                 &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
@@ -302,11 +299,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dustb',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
-                    ! Compute emission rate [mug m-2 s-1] and collect for output
-                    p_art_data(jg)%diag%emiss_rate_dustb(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
-                    ! Accumulate emission rate 
-                    p_art_data(jg)%diag%acc_emiss_dustb(:,jb) = p_art_data(jg)%diag%acc_emiss_dustb(:,jb) &
-                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dustb(:,jb)
                   CASE ('dustc')
                     CALL art_emission_dust(dz(:,nlev),                                                 &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
@@ -315,11 +307,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                       &             jb,istart,iend,'dustc',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
-                    ! Compute emission rate [mug m-2 s-1] and collect for output
-                    p_art_data(jg)%diag%emiss_rate_dustc(:,jb) = emiss_rate(:,nlev)*dz(:,nlev)
-                    ! Accumulate emission rate 
-                    p_art_data(jg)%diag%acc_emiss_dustc(:,jb) = p_art_data(jg)%diag%acc_emiss_dustc(:,jb) &
-                                                              + dtime * p_art_data(jg)%diag%emiss_rate_dustc(:,jb)
                   CASE ('asha')
                     CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
@@ -333,16 +320,24 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                       &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                 END SELECT
-                
+
                 ! Update mass mixing ratios
                 DO ijsp = 1, fields%ntr-1
                   CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:),      &
                     &                         dtime, istart, iend, nlev, opt_rho = rho(:,:,jb))
+                  ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
+                  CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),               &
+                       & emiss_rate(:,:), p_nh_state%metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb, &
+                       & istart, iend, 1, nlev)
                 ENDDO
                 ! Update mass-specific number
                 CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,        &
                   &                         istart, iend, nlev, opt_rho = rho(:,:,jb),                 &
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
+                ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
+                CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),         &
+                     & emiss_rate(:,:), p_nh_state%metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb, &
+                     & istart, iend, 1, nlev, opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb
 !$omp end parallel do
             TYPE is (t_fields_pollen)
@@ -396,12 +391,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
 
     ENDIF !lart_aerosol
-    
+
     ! ----------------------------------
     ! --- emissions of chemical tracer
     ! ----------------------------------
   
-    IF (art_config(jg)%lart_chem) THEN
+    IF ((art_config(jg)%lart_chem) .OR. (art_config(jg)%lart_passive)) THEN
       ! Get model layer heights
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -421,6 +416,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         land_sea => ext_data%atm%fr_land
         u_10m => prm_diag%u_10m
         v_10m => prm_diag%v_10m
+      ELSE
+         CALL finish('mo_art_emission_interface:art_emission_interface', &
+              &         'ART: no land sea mask for this iforcing available')
       ENDIF
 
         
@@ -484,7 +482,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     IF (timers_level > 3) CALL timer_stop(timer_art)
 
   ENDIF !lart
-       
+
 #endif
 END SUBROUTINE art_emission_interface
 !!

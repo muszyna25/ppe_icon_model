@@ -16,6 +16,7 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: sp, wp, i8
+  USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_cdi,              ONLY: CDI_DATATYPE_FLT64,                &
        &                         CDI_DATATYPE_FLT32,                &
        &                         CDI_DATATYPE_INT32,                &
@@ -65,6 +66,10 @@ MODULE mo_var_list
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
+#ifdef DEBUG_MVSTREAM
+  USE mo_util_string,      ONLY: int2string
+#endif
+  USE self_assert,         ONLY: print_summary
 
   IMPLICIT NONE
 
@@ -711,7 +716,7 @@ CONTAINS
          &                     tlev_source, vert_interp,                       &
          &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op, action_list,      &
-         &                     var_class, data_type)
+         &                     var_class, data_type, idx_tracer, idx_diag)    
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -739,6 +744,8 @@ CONTAINS
     TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
     INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
     !
     LOGICAL :: lverbose
     !
@@ -802,6 +809,10 @@ CONTAINS
     CALL struct_assign_if_present (info%post_op, post_op)
 
     CALL struct_assign_if_present (info%action_list, action_list)
+
+    ! indices of tracer in tracer container and in diagnostic container
+    CALL assign_if_present (info%idx_tracer, idx_tracer)
+    CALL assign_if_present (info%idx_diag, idx_diag)
 
     !
     ! printout (optional)
@@ -1080,6 +1091,7 @@ CONTAINS
 
     new_list_element%field%info%ndims                    = ndims
     new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
+    new_list_element%field%info%dom                      => this_list%p%patch_id
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
@@ -2822,7 +2834,8 @@ CONTAINS
        &                                 resetval, lmiss, missval, tlev_source, tracer_info,     &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, l_pp_scheduler_task,              &
-       &                                 post_op, action_list, opt_var_ref_pos, var_class)
+       &                                 post_op, action_list, opt_var_ref_pos, var_class,       &
+       &                                 idx_tracer, idx_diag) 
 
     TYPE(t_var_list),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
@@ -2855,6 +2868,9 @@ CONTAINS
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                 !< regularly triggered events
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_var_ref_pos             !< (optional:) position of container index
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                   !< variable type/species
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer                  !< index of tracer in tracer container 
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag                    !< index of tracer in diagnostics container 
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r2d"
     !
@@ -2950,7 +2966,7 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class,      &
-         data_type=REAL_T )
+         data_type=REAL_T, idx_tracer=idx_tracer, idx_diag=idx_diag)     
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -4207,17 +4223,30 @@ CONTAINS
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_hgrid,opt_caseInsensitive) RESULT(element)
+  FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
+    INTEGER, OPTIONAL              :: opt_patch_id
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
+    TYPE(t_var_list), POINTER, OPTIONAL     :: opt_returnList
 
     TYPE(t_list_element), POINTER :: element
-    INTEGER :: i
+    INTEGER :: i,patch_id
+
+    patch_id = 1
+    CALL assign_if_present(patch_id,opt_patch_id)
 
     DO i=1,nvar_lists
+      IF ( patch_id /= var_lists(i)%p%patch_id ) CYCLE
       element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
-      IF (ASSOCIATED (element)) RETURN
+      IF (ASSOCIATED (element)) THEN
+#ifdef DEBUG_MVSTREAM
+        if (my_process_is_stdio()) call &
+            & print_summary('destination PATCHID:'//TRIM(int2string(patch_id)))
+#endif
+        IF (PRESENT(opt_returnList)) opt_returnList => var_lists(i)
+        RETURN
+      END IF
     END DO
   END FUNCTION! find_element_from_all_lists
 

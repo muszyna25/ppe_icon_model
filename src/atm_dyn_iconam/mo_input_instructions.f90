@@ -17,7 +17,7 @@ MODULE mo_input_instructions
     USE mo_dictionary,         ONLY: dict_get
     USE mo_exception,          ONLY: message, finish
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
-      &                              MODE_COMBINED, MODE_COSMO
+      &                              MODE_COMBINED, MODE_COSMO, max_ntracer
     USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
       &                              lp2cintp_sfcana, lvert_remap_fg
     USE mo_initicon_types,     ONLY: ana_varnames_dict
@@ -159,11 +159,21 @@ CONTAINS
         INTEGER, INTENT(OUT) :: outGroupSize
         INTEGER, VALUE :: init_mode
 
+        ! local tracerGroup to add all vars in group tracer_fg_in to first guess
+        CHARACTER(LEN = VARNAME_LEN) :: tracerGroup(max_ntracer)
+        INTEGER :: tracerGroupSize
+
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
                 CALL collect_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                ! fgGroup += tracerGroup
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
             CASE(MODE_IAU)
                 CALL collect_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL collect_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                ! fgGroup += tracerGroup
+                CALL add_to_list(outGroup, outGroupSize, tracerGroup(1:tracerGroupSize), tracerGroupSize)
             CASE(MODE_IAU_OLD)
                 CALL collect_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)

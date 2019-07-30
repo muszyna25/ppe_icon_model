@@ -26,6 +26,9 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
+  USE mo_impl_constants,       ONLY: max_ntracer
+  USE mo_run_config,           ONLY: ntracer
+  USE mo_var_list_element,     ONLY: t_var_list_element
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
@@ -44,11 +47,23 @@ MODULE mo_initicon_types
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
+  PUBLIC :: t_pi_tracer
   PUBLIC :: t_pi_sfc
   PUBLIC :: t_sfc_inc
   PUBLIC :: t_saveinit_state ! state for saving initial state for double IAU runs
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
+
+
+ !
+  TYPE :: t_pi_tracer
+
+    REAL(wp), POINTER, DIMENSION(:,:,:) :: field => NULL()
+    TYPE(t_var_list_element), POINTER   :: var_element => NULL()
+
+  CONTAINS
+    PROCEDURE :: finalize => t_pi_tracer_finalize   !< destructor
+  END TYPE t_pi_tracer
 
 
   ! atmospheric input variables
@@ -77,6 +92,8 @@ MODULE mo_initicon_types
       &                                    rho     => NULL(), &
       &                                    theta_v => NULL(), &
       &                                    tke     => NULL()
+
+    TYPE (t_pi_tracer), DIMENSION(max_ntracer) :: tracer
 
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_in_finalize   !< destructor
@@ -134,6 +151,9 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
                                                pres, qv, qc, qi, qr, qs, qg, tke
+
+    TYPE (t_pi_tracer), DIMENSION(max_ntracer) :: tracer
+
   CONTAINS
     PROCEDURE :: finalize => t_pi_atm_finalize   !< destructor
   END TYPE t_pi_atm
@@ -242,8 +262,17 @@ CONTAINS
 
   ! FINALIZE ROUTINES
 
+  SUBROUTINE t_pi_tracer_finalize(tracer)
+    CLASS(t_pi_tracer), INTENT(INOUT) :: tracer
+
+    CALL DO_PTR_DEALLOCATE(tracer%field)
+  END SUBROUTINE t_pi_tracer_finalize
+
+
   SUBROUTINE t_pi_atm_in_finalize(atm_in)
     CLASS(t_pi_atm_in), INTENT(INOUT) :: atm_in
+
+    INTEGER :: idx
 
     atm_in%linitialized = .FALSE.
     CALL DO_PTR_DEALLOCATE(atm_in%temp)
@@ -261,6 +290,10 @@ CONTAINS
     CALL DO_PTR_DEALLOCATE(atm_in%rho)
     CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
     CALL DO_PTR_DEALLOCATE(atm_in%tke)
+
+    DO idx=1, ntracer
+      CALL atm_in%tracer(idx)%finalize()
+    END DO
   END SUBROUTINE t_pi_atm_in_finalize
 
 
@@ -303,6 +336,8 @@ CONTAINS
   SUBROUTINE t_pi_atm_finalize(atm)
     CLASS(t_pi_atm), INTENT(INOUT) :: atm
 
+    INTEGER :: idx
+
     atm%linitialized = .FALSE.
     CALL DO_DEALLOCATE(atm%vn)
     CALL DO_DEALLOCATE(atm%u)
@@ -320,6 +355,10 @@ CONTAINS
     CALL DO_DEALLOCATE(atm%qs)
     CALL DO_DEALLOCATE(atm%qg)
     CALL DO_DEALLOCATE(atm%tke)
+
+    DO idx=1, ntracer
+      CALL atm%tracer(idx)%finalize()
+    END DO
   END SUBROUTINE t_pi_atm_finalize
 
 

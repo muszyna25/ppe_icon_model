@@ -59,7 +59,7 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM_OPTP     = 6   !< atmospheric chemical constituent (PDT 48)
                                                           !< optical properties
   INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR         = 7   !< variable based on a distribuition function (PDT 57)
-  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 40467)
+  INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 67)
                                                           !< statistical process
 
 
@@ -149,7 +149,8 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type
-    TYPE(t_subset_range)       :: subset             ! subset for latter field access
+    TYPE(t_subset_range)       :: subset                ! subset for latter field access
+    INTEGER, POINTER           :: dom                   ! pointer to the variable list
     !
     INTEGER                    :: tlev_source           ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        
@@ -190,6 +191,10 @@ MODULE mo_var_metadata_types
     LOGICAL                    :: lmiss          ! flag: true, if variable should be initialized with missval
     TYPE(t_union_vals)         :: missval        ! missing value
     LOGICAL                    :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
+
+    ! Index of tracer in tracer and in diagnostics container
+    INTEGER                    :: idx_tracer          !< index of tracer in tracer container
+    INTEGER                    :: idx_diag            !< index of tracer in diagnostics container
 
   END TYPE t_var_metadata
 

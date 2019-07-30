@@ -33,8 +33,8 @@ MODULE mo_load_restart
     USE mo_model_domain,       ONLY: t_patch
     USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, my_process_is_mpi_workroot, my_process_is_stdio
     USE mo_multifile_restart_util, ONLY: multifileRestartLinkName, multifileAttributesPath
-    USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make,           &
-      &                              setAttributesForRestarting, getAttributesForRestarting
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, &
+      & setAttributesForRestarting, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
     USE mo_restart_namelist,   ONLY: t_NamelistArchive, namelistArchive
     USE mo_restart_util,       ONLY: restartSymlinkName
     USE mo_restart_var_data,   ONLY: t_restartVarData, createRestartVarData
@@ -135,7 +135,10 @@ CONTAINS
 
     myRank = p_comm_rank(p_comm_work)
 
-    namelists => namelistArchive()
+    IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+! no namelists needed in case of initialize_FromRestart=true
+! only the other attributes are actually of interest...
+      & namelists => namelistArchive()
     IF(myRank == 0) THEN
         fileId  = streamOpenRead(attributeFile)
         ! check if the file could be opened
@@ -143,36 +146,24 @@ CONTAINS
             cdiErrorText => toCharacter(cdiStringError(fileId))
             CALL finish(routine, 'File '//attributeFile//' cannot be opened: '//cdiErrorText)
         END IF
-
         vlistId = streamInqVlist(fileId)
-        CALL namelists%readFromFile(vlistId)
+        IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+          & CALL namelists%readFromFile(vlistId)
     END IF
-
-    CALL namelists%bcast(0, p_comm_work)
+    IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+      & CALL namelists%bcast(0, p_comm_work)
     restartAttributes => RestartAttributeList_make(vlistId, 0, p_comm_work)
     CALL setAttributesForRestarting(restartAttributes)
     IF(myRank == 0) THEN
         CALL streamClose(fileId)
-
         WRITE(0,*) "restart: read namelists and attributes from restart file"
     END IF
   END SUBROUTINE readRestartAttributeFile
 
-  SUBROUTINE multifileReadRestartMetadata(filename)
-    CHARACTER(*), INTENT(IN) :: filename
-
-    CHARACTER(*), PARAMETER :: routine = modname//":multifileReadRestartMetadata"
-    CHARACTER(:), ALLOCATABLE :: mfaname
-
-    CALL multifileAttributesPath(filename, mfaname)
-    CALL readRestartAttributeFile(mfaname)
-  END SUBROUTINE multifileReadRestartMetadata
-
   ! Reads attributes and namelists for all available domains from restart file.
   SUBROUTINE read_restart_header(modelType)
     CHARACTER(LEN=*), INTENT(IN) :: modelType
-
-    CHARACTER(:), ALLOCATABLE :: filename
+    CHARACTER(:), ALLOCATABLE :: filename, mfaname
     LOGICAL :: lIsMultifile
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
 
@@ -183,7 +174,8 @@ CONTAINS
 
     CALL findRestartFile(modelType, lIsMultifile, filename)
     IF(lIsMultifile) THEN
-        CALL multifileReadRestartMetadata(filename)
+        CALL multifileAttributesPath(filename, mfaname)
+        CALL readRestartAttributeFile(mfaname)
         IF(my_process_is_stdio()) CALL multifileCheckRestartFiles(filename)
     ELSE
         CALL readRestartAttributeFile(filename)
@@ -226,7 +218,6 @@ CONTAINS
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER, OPTIONAL, INTENT(in) :: opt_ndom
-
     CHARACTER(:), ALLOCATABLE :: restartPath
     LOGICAL :: lIsMultifileRestart, lMultifileTimersInitialized
     TYPE(t_alloc_character), ALLOCATABLE :: modelTypes(:)
@@ -235,6 +226,7 @@ CONTAINS
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
+    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header("oce")
     ! Make sure that all the subcounters are recognized as subcounters on all work processes.
     IF(timers_level >= 7) THEN
         CALL timer_start(timer_load_restart_io)

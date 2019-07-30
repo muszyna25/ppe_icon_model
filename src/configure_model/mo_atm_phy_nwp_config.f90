@@ -22,14 +22,14 @@ MODULE mo_atm_phy_nwp_config
   USE mo_kind,                ONLY: wp, i8
   USE mo_grid_config,         ONLY: l_limited_area, start_time, end_time,      &
     &                               DEFAULT_ENDTIME
-  USE mo_run_config,          ONLY: msg_level
+  USE mo_run_config,          ONLY: msg_level, timers_level
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf,  &
-    &                               SUCCESS
+    &                               iprog, SUCCESS
   USE mo_math_constants,      ONLY: dbl_eps, pi_2, deg2rad
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
@@ -46,7 +46,7 @@ MODULE mo_atm_phy_nwp_config
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
-  USE mo_nudging_config,      ONLY: configure_nudging
+  USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
 
   IMPLICIT NONE
 
@@ -316,7 +316,7 @@ CONTAINS
       !
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
     
-      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
+      IF(ANY( (/ismag,iprog/)  == atm_phy_nwp_config(jg)%inwp_turb ) )THEN
         CALL configure_les(jg,dtime)
         atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
       END IF 
@@ -482,12 +482,12 @@ CONTAINS
 
 
 
-    ! Configure lateral boundary condition for limited area model
-    IF(l_limited_area) THEN
+    ! Configure lateral boundary condition for limited area model (or global nudging)
+    IF(l_limited_area .OR. nudging_config%lnudging) THEN
       CALL configure_latbc()
     END IF
     ! Configure nudging (primary domain only)
-    CALL configure_nudging(p_patch(1)%nlev) 
+    CALL configure_nudging(p_patch(1)%nlev, msg_level, timers_level) 
 
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)

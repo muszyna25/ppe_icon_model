@@ -213,7 +213,7 @@ CONTAINS
         prm_diag%rain_con_rate_3d(:,:,jb)         = 0._wp
         prm_diag%snow_con_rate_3d(:,:,jb)         = 0._wp
 
-        IF(lart .AND. art_config(jg)%nconv_tracer > 0) THEN
+        IF ( lart .AND. art_config(jg)%nconv_tracer > 0 ) THEN
           DO jt=1,art_config(jg)%nconv_tracer
             prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(:,:) = 0._wp
           ENDDO
@@ -229,7 +229,7 @@ CONTAINS
           ENDDO
         ENDIF
 
-        IF(art_config(jg)%nconv_tracer > 0) THEN
+        IF ( lart .AND. art_config(jg)%nconv_tracer > 0 ) THEN
           CALL cumastrn &
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN

@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
-    &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
+    &                               iprog, igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,   &
     &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
@@ -66,6 +66,10 @@ MODULE mo_nwp_phy_init
   USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
   USE mo_echam_cld_config,  ONLY: echam_cld_config
   USE mo_psrad_general,         ONLY: nbndsw
+#ifdef __ECRAD
+  USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
+  USE mo_ecrad,               ONLY: ecrad_conf
+#endif
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -256,7 +260,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   dz2 = 0.0_wp
   dz3 = 0.0_wp
 
-  IF ( nh_test_name == 'RCE' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zrefpres(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
@@ -387,7 +391,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             p_diag_lnd%qv_s_t(jc,jb,1) = p_diag_lnd%qv_s(jc,jb)
           END DO
 
-        ELSE IF ( nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
+        ELSE IF ( ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) &
+      &            .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
 
           DO jc = i_startidx, i_endidx
             p_prog_lnd_now%t_g  (jc,jb)   = th_cbl(1)
@@ -554,17 +559,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ENDDO
     ENDDO
 
-    IF (ltestcase .AND. nh_test_name == 'RCE' .AND. atm_phy_nwp_config(jg)%inwp_turb/=ismag) THEN !
-     DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        &  i_startidx, i_endidx, rl_start, rl_end)
+    IF (ltestcase .AND. ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) .AND. &
+        ANY( (/ismag,iprog/) /= atm_phy_nwp_config(jg)%inwp_turb)) THEN !
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &  i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
           p_diag_lnd%qv_s    (jc,jb) = &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
         ENDDO
-     ENDDO
+      ENDDO
     ENDIF
 
   END IF
@@ -764,7 +770,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !< radiation
   !------------------------------------------
   SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
-  CASE (1, 3)
+  CASE (1, 3, 4)
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
@@ -794,7 +800,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       tsi_radt = 1365._wp
     ENDIF  ! APE
 
-    IF ( nh_test_name == 'RCE') THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
       ssi_radt(:) = scale_fac*ssi_amip(:)
@@ -802,15 +808,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF
 
-    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1) THEN ! RRTM init
-      CALL setup_srtm
-      CALL lrtm_setup(lrtm_filename)
-      CALL setup_newcld_optics(cldopt_filename)
-    ELSE   ! PSRAD init
-      CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
-        & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-        & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
-    ENDIF
+    SELECT CASE(atm_phy_nwp_config(jg)%inwp_radiation)
+      CASE(1) ! RRTM init
+        CALL setup_srtm
+        CALL lrtm_setup(lrtm_filename)
+        CALL setup_newcld_optics(cldopt_filename)
+      CASE(3) ! PSRAD init
+        CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
+          & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+          & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+      CASE(4)
+#ifdef __ECRAD
+        ! Do ecrad initialization only once
+        IF (.NOT.lreset_mode .AND. jg==1) CALL setup_ecrad(ecrad_conf)
+#else
+        CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
+          &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
+#endif
+    END SELECT
 
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -849,7 +864,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             zcdnc=zn2*1.e6_wp
           ENDIF
           prm_diag%acdnc(jc,jk,jb) = zcdnc
-          IF ( nh_test_name == 'RCE' ) THEN
+          IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
             !--- computation of reference pressure field from the reference exner field
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
@@ -858,7 +873,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           END IF
         END DO !jc
       END DO   !jk
-      IF ( nh_test_name == 'RCE') THEN
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
         ! a ref press field needs to be computed for testcases with a
         ! constant ozone.  the reference field allows the ozone to be
         ! interpolated at a restart without changing due to a changing p field.
@@ -900,7 +915,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 !          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
 !          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
 
-        IF ( nh_test_name == 'RCE' ) THEN
+        IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
           CALL o3_pl2ml (jcs=i_startidx, jce=i_endidx,     &
             & kbdim=nproma,                                &
             & nlev_pres = nlev_o3,klev= nlev ,             &
@@ -974,7 +989,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! solar constant (W/m2)
     tsi_radt    = SUM(ssi_radt(:))
 
-    IF ( nh_test_name == 'RCE' ) THEN
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
       tsi_radt = 0._wp
       ! solar flux (W/m2) in 14 SW bands
       scale_fac = sol_const/1361.371_wp ! computed relative to amip (1361)
@@ -1057,10 +1072,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
-
   END SELECT !inwp_radiation
 
-  IF ( nh_test_name == 'RCE' ) THEN
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     DEALLOCATE (zrefpres)
     DEALLOCATE (zreftemp)
     DEALLOCATE (zpres_sfc)
@@ -1225,8 +1239,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme,ismag,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
-
+  IF ( ANY( (/icosmo,igme,ismag,iprog,iedmf/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+       linit_mode ) THEN
 
     ! gz0 is initialized if we do not start from an own first guess
     IF (lturb_init) THEN
@@ -1584,9 +1598,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 !$OMP END DO
 !$OMP END PARALLEL
 
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == ismag .AND. linit_mode ) THEN
+  ELSE IF ( ANY( (/ismag,iprog/) == atm_phy_nwp_config(jg)%inwp_turb) .AND. linit_mode ) THEN
 
-    CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
+    CALL message('mo_nwp_phy_init:', 'init LES turbulence')
 
     IF(atm_phy_nwp_config(jg)%inwp_surface == 0)THEN
       IF (turbdiff_config(jg)%lconst_z0) THEN

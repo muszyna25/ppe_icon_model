@@ -407,6 +407,11 @@ MODULE mo_nh_testcases
    ! Running Radiative Convective Equilibrium testcase
    CALL message(TRIM(routine),'running ICON in RCE on a global domain')
 
+  CASE ('RCE_Tconst')
+
+   ! Running Radiative Convective Equilibrium testcase
+   CALL message(TRIM(routine),'running ICON in RCE with constant initial T profile')
+
   CASE ('RICO')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -1094,7 +1099,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
-  CASE ('RCE_glb')
+  CASE ('RCE_glb','RCE_Tconst')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom

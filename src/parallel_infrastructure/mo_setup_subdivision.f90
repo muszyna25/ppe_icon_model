@@ -1555,6 +1555,7 @@ CONTAINS
       wrk_p_patch%grid_filename      = wrk_p_patch_pre%grid_filename
       wrk_p_patch%grid_filename_grfinfo = wrk_p_patch_pre%grid_filename_grfinfo
       wrk_p_patch%level              = wrk_p_patch_pre%level
+      wrk_p_patch%nest_level         = wrk_p_patch_pre%nest_level
       wrk_p_patch%id                 = wrk_p_patch_pre%id
       wrk_p_patch%cells%max_connectivity = wrk_p_patch_pre%cells%max_connectivity
       wrk_p_patch%verts%max_connectivity = wrk_p_patch_pre%verts%max_connectivity

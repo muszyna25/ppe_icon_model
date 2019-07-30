@@ -13,7 +13,7 @@ MODULE mo_psrad_interface_test
 
   USE mo_kind,                       ONLY: wp
   USE mo_exception,                  ONLY: finish
-  USE mo_model_domain,               ONLY: t_patch, p_patch
+  USE mo_model_domain,               ONLY: p_patch
   USE mtime,                         ONLY: datetime
   USE mo_psrad_general,              ONLY: nbndsw  ! constants
   USE mo_psrad_interface,            ONLY: psrad_interface
@@ -35,7 +35,6 @@ CONTAINS
   !-----------------------------------------------------------------------------
   !>
   SUBROUTINE psrad_interface_test(                                               &
-      & patch,                                                              &
       & irad_aero     ,klev                                                ,& 
       & ktype                                                              ,&
       & psctm, ssi_factor,                                                  &
@@ -55,8 +54,6 @@ CONTAINS
       & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
       & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )     
      !-------------------------------------------------------------------
-
-    TYPE(t_patch)   ,TARGET ,INTENT(in)    :: patch
 
     INTEGER,INTENT(IN)  ::             &
          irad_aero,                    & !< aerosol control

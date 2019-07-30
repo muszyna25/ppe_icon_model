@@ -28,7 +28,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
-  USE mo_echam_phy_config,       ONLY: echam_phy_config
+  USE mo_echam_rad_config,       ONLY: echam_rad_config
   USE mtime,                     ONLY: datetime 
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
@@ -36,7 +36,8 @@ MODULE mo_bc_aeropt_stenchikov
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC                           :: read_bc_aeropt_stenchikov, add_bc_aeropt_stenchikov
+  PUBLIC                           :: read_bc_aeropt_stenchikov, &
+    &                                 add_bc_aeropt_stenchikov
 
   INTERFACE reorder_stenchikov
     MODULE PROCEDURE reorder_stenchikov_2d
@@ -57,6 +58,8 @@ MODULE mo_bc_aeropt_stenchikov
   INTEGER, PARAMETER               :: lev_clim=40, lat_clim=90, nmonths=2
   REAL(wp), PARAMETER              :: rdog=rd*rgrav
 
+  TYPE(t_time_interpolation_weights) :: tiw
+
 CONTAINS
   !>
   !! SUBROUTINE su_bc_aeropt_stenchikov -- sets up the memory for fields in which
@@ -76,27 +79,27 @@ SUBROUTINE su_bc_aeropt_stenchikov
   ALLOCATE(r_lat_clim(0:lat_clim+1))
 
 ! initialize with zero
-  aod_v_s(:,:,:)=0._wp
-  ext_v_s(:,:,:,:)=0._wp
-  ssa_v_s(:,:,:,:)=0._wp
-  asy_v_s(:,:,:,:)=0._wp
-  aod_v_t(:,:,:)=0._wp
-  ext_v_t(:,:,:,:)=0._wp
-  ssa_v_t(:,:,:,:)=0._wp
-  p_lim_clim(lev_clim+1)=0._wp
+  aod_v_s(:,:,:)   = 0._wp
+  ext_v_s(:,:,:,:) = 0._wp
+  ssa_v_s(:,:,:,:) = 0._wp
+  asy_v_s(:,:,:,:) = 0._wp
+  aod_v_t(:,:,:)   = 0._wp
+  ext_v_t(:,:,:,:) = 0._wp
+  ssa_v_t(:,:,:,:) = 0._wp
+  p_lim_clim(lev_clim+1) = 0._wp
 END SUBROUTINE su_bc_aeropt_stenchikov
 
   !> SUBROUTINE shift_months_bc_aeropt_stenchikov -- shifts months in order to read a new one.
 
 SUBROUTINE shift_months_bc_aeropt_stenchikov
 
-  aod_v_s(:,:,1)=aod_v_s(:,:,2)
-  ext_v_s(:,:,:,1)=ext_v_s(:,:,:,2)
-  ssa_v_s(:,:,:,1)=ssa_v_s(:,:,:,2)
-  asy_v_s(:,:,:,1)=asy_v_s(:,:,:,2)
-  aod_v_t(:,:,1)=aod_v_t(:,:,2)
-  ext_v_t(:,:,:,1)=ext_v_t(:,:,:,2)
-  ssa_v_t(:,:,:,1)=ssa_v_t(:,:,:,2)
+  aod_v_s(:,:,1)   = aod_v_s(:,:,2)
+  ext_v_s(:,:,:,1) = ext_v_s(:,:,:,2)
+  ssa_v_s(:,:,:,1) = ssa_v_s(:,:,:,2)
+  asy_v_s(:,:,:,1) = asy_v_s(:,:,:,2)
+  aod_v_t(:,:,1)   = aod_v_t(:,:,2)
+  ext_v_t(:,:,:,1) = ext_v_t(:,:,:,2)
+  ssa_v_t(:,:,:,1) = ssa_v_t(:,:,:,2)
   
 END SUBROUTINE shift_months_bc_aeropt_stenchikov
 
@@ -110,8 +113,6 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
   INTEGER :: imonth(2), nmonths, imonths
-
-  TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)  
 
@@ -226,8 +227,6 @@ SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
   REAL(wp), DIMENSION(kbdim,nb_lw)      :: zaod_t, zext_t_int, zfact_t 
   REAL(wp)                              :: p_lat_shift, p_rdeltalat
   INTEGER                               :: jc
-
-  TYPE(t_time_interpolation_weights) :: tiw
 
   tiw = calculate_time_interpolation_weights(current_date)
 
@@ -496,12 +495,20 @@ END SUBROUTINE pressure_index
                  'month to be read outside valid range 1<=kmonth<=12, '// &
                  'kmonth='//TRIM(ADJUSTL(ckmonth))) 
   END IF
-  WRITE(ckyear,*) kyear
 
-  IF ( echam_phy_config(jg)%lamip ) THEN
+  IF ( echam_rad_config(jg)%irad_aero == 13 .OR. &
+       echam_rad_config(jg)%irad_aero == 14 .OR. &
+       echam_rad_config(jg)%irad_aero == 15 .OR. &
+       echam_rad_config(jg)%irad_aero == 18 ) THEN
+
+    WRITE(ckyear,*) kyear
+
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
+
   ELSE
+
     cfname='bc_aeropt_stenchikov_lw_b16_sw_b14.nc'
+
   ENDIF
 
   ifile_id=openInputFile(cfname)

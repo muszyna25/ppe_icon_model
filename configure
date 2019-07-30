@@ -664,6 +664,7 @@ YAXT_INCLUDE
 YAXT_LIB
 subdirs
 YAXTROOT
+MODOPT
 MODDIR
 LIB
 F77FLAGS
@@ -797,6 +798,7 @@ with_fortran
 with_openmp
 with_yaxt
 with_yac
+with_ecrad
 enable_cdi_pio
 with_messy
 with_flags
@@ -1472,6 +1474,7 @@ Optional Packages:
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-yaxt             enable experimental use of yaxt
   --with-yac              enable use of yac
+  --with-ecrad            enable use of ecrad
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group of flags (std, hiopt, noopt, etc
@@ -2524,6 +2527,21 @@ fi
 
 
 
+
+# Check whether --with-ecrad was given.
+if test "${with_ecrad+set}" = set; then
+  withval=$with_ecrad;
+fi
+
+
+if test "x$with_ecrad" = "xyes"; then
+  use_ecrad="yes"
+else
+  use_ecrad="no"
+fi
+
+
+
 # Check whether --enable-cdi-pio was given.
 if test "${enable_cdi_pio+set}" = set; then
   enableval=$enable_cdi_pio;
@@ -2671,6 +2689,7 @@ EOF
 fi
 
           load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_profile" ; then
@@ -2744,6 +2763,7 @@ fi
 
           moduleshome_in_use="${MODULESHOME-}"
           load_modules_in_use="$load_modules"
+          check_loaded="$ignore_if_loaded"
           shell_in_use="${SHELL##*/}"
 
           # in case specific modules are required do replace those only
@@ -2784,14 +2804,25 @@ fi
                      is_loaded=false
                      for mod in $modules_loaded
                      do
+                         mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
 		         if test ${mod%%/*} = ${replacement%%/*}; then
   if test "$mod" != "$replacement"; then
-  if test ! -z prgenv_loaded; then
+  if test ! -z $mod_ignore; then
+  { $as_echo "$as_me:$LINENO: Module $mod already loaded, ignoring." >&5
+$as_echo "$as_me: Module $mod already loaded, ignoring." >&6;}
+                                              is_loaded=true
+else
+
+                                              if test ! -z prgenv_loaded; then
   module unload $mod
-                                              module load $replacement
+                                                     module load $replacement
 else
   module swap $mod $replacement
 fi
+
+
+fi
+
 
 else
   is_loaded=true
@@ -7510,6 +7541,11 @@ if [ "x$use_yac" = xyes ] ; then
     fi
 fi
 
+if [ "x$use_ecrad" = xyes ] ; then
+    FFLAGS="${FFLAGS} -I`pwd`/externals/ecrad/module ${DEFOPT}__ECRAD"
+    CFLAGS="${CFLAGS} -I`pwd`/externals/ecrad/module"
+fi
+
 if [ "x$use_messy" = xyes ] ; then
     rm -f src/messy_interface
     ln -s -t src/ ../externals/messy_interface
@@ -7541,6 +7577,9 @@ if test "$use_mpcc_r" = yes ; then
 fi
 
 ac_objdirs=""
+if [ "x$use_ecrad" = xyes ] ; then
+    ac_objdirs="${ac_objdirs} `pwd`/externals/ecrad"
+fi
 for dir in $my_srcdirs ; do
     dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
@@ -7582,6 +7621,10 @@ fi
 
 if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+if [ "x$use_ecrad" = xyes ] ; then
+   ac_libs="$ac_libs -L`pwd`/externals/ecrad/lib -lradiation -lutilities -lifsrrtm -lifsaux"
 fi
 
 #------------------------
@@ -7693,10 +7736,28 @@ if test "x$enable_serialization" != "xno"; then
 
        if test -n "${SERIALBOX2ROOT}"; then
 
-              if test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then
+              if test -n "${SERIALBOX2_LIB}"; then
 
-                     SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                     SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                     if test -z "${SERIALBOX2_INCLUDE}"; then
+
+                      SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+
+fi
+
+
+elif test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then
+
+                     case $fortran_compiler in
+  pgi*)
+                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                       ;;
+  *)
+                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
+                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                       ;;
+esac
+
 
 else
 
@@ -7710,48 +7771,12 @@ fi
 
                      if test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"; then
 
-                            SERIALBOX2_PPSER="${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"
-                            read -d '' my_pp_init <<EOF
-( echo "";
-  echo "Preprocessing files for serialization ...";
-  cd src/;
-  find ./ -type d -exec mkdir -p "../${my_iconppdir}/{}" \\\;
-  echo "Updating SHA1 ...";
-  find ./ -type f -regextype posix-egrep -regex \"\.\*\\\.(f90|inc|incf|F90)\$\" -exec sh -c "(test -e \\\"../${my_iconppdir}/{}.sha1\\\" && sha1sum --status -c \\\"../${my_iconppdir}/{}.sha1\\\") && rm -f \\\"../${my_iconppdir}/{}.modified\\\" || ( rm -f \\\"../${my_iconppdir}/{}.sha1\\\";sha1sum \\\"{}\\\" > \\\"../${my_iconppdir}/{}.modified\\\")" \\\;
-  echo "Updating headers ...";
-  find ./ -type f \\\( -name "*.inc" -o -name "*.incf" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( cp \\\"{}\\\" \\\"../${my_iconppdir}/{}\\\" && mv \\\"../${my_iconppdir}/{}.modified\\\" \\\"../${my_iconppdir}/{}.sha1\\\" )" \\\; )
-EOF
-                            case $fortran_compiler in
-  gcc*) PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -C -E \\\"{}\\\")" \\\; )
-EOF
- ;;
-  cray*) PP_FFLAGS=`echo $FFLAGS | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-PP_FFLAGS="${PP_FFLAGS} ${NETCDF_INCLUDE}"
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  my_abs_include="$(realpath src/include)"
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( pushd \\\\\`dirname \\\"{}\\\"\\\\\` > /dev/null;${FC} -I\$\{my_abs_include\} ${PP_FFLAGS} -eP \\\\\`basename \\\"{}\\\"\\\\\`;popd > /dev/null;mv \\\\\`echo \\\"{}\\\" | sed -e 's/.f90//I'\\\\\`.i \\\"../${my_iconppdir}/{}\\\")" \\\; )
-EOF
- ;;
-  pgi*) PP_FFLAGS=`echo $FFLAGS | sed -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||'`
-read -d '' my_pp_command <<EOF
-( cd src/;
-  echo "Preprocessing files (CPP) ...";
-  find ./ -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"../${my_iconppdir}/{}.modified\\\" && ( ${FC} -I./include ${PP_FFLAGS} -o "../${my_iconppdir}/{}" -Mcpp \\\"{}\\\")" \\\; )
-EOF
- ;;
-esac
-
-                            read -d '' my_pp_ser <<EOF
-  echo "Preprocessing files (Serialbox2) ...";
-  find ${my_iconppdir} -type f \\\( -name "*.f90" -o -name "*.F90" \\\) -exec sh -c "test -e \\\"{}.modified\\\" && ( ${SERIALBOX2_PPSER} -o \\\"{}\\\" \\\"{}\\\" && mv \\\"{}.modified\\\" \\\"{}.sha1\\\")" \\\;
-EOF
-                            my_preprocess_command="${my_pp_init};${my_pp_command};${my_pp_ser}"
+                            ser_vars="SERIALBOX2_PPSER=\"${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py\""
+                            ser_vars="${ser_vars};my_iconppdir=\"${my_iconppdir}\""
+                            ser_vars="${ser_vars};FC=\"${FC}\""
+                            ser_vars="${ser_vars};FFLAGS=\"${FFLAGS}\""
+                            ser_vars="${ser_vars};fortran_compiler=\"${fortran_compiler}\""
+                            my_preprocess_command="${ser_vars};source scripts/serialization/preprocess.sh;serialization_init;serialization_pp"
                             make_command="${my_preprocess_command} ;$make_command;"
 
 else
@@ -7917,6 +7942,8 @@ LIB=$ac_libs
 
 MODDIR=$MODDIR
 
+MODOPT=$MODOPT
+
 
 LDFLAGS=$LDFLAGS
 
@@ -8041,7 +8068,7 @@ SRCDIRS=$ac_srcdirs
 OBJDIRS=$ac_objdirs
 
 
-ac_config_files="$ac_config_files Makefile"
+ac_config_files="$ac_config_files Makefile externals/ecrad/Makefile_include.ecradICON"
 
 
 
@@ -8896,6 +8923,7 @@ do
   case $ac_config_target in
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "externals/ecrad/Makefile_include.ecradICON") CONFIG_FILES="$CONFIG_FILES externals/ecrad/Makefile_include.ecradICON" ;;
     "Makefiles") CONFIG_COMMANDS="$CONFIG_COMMANDS Makefiles" ;;
     "build_command") CONFIG_FILES="$CONFIG_FILES build_command:config/build_command.in" ;;
     "config/set-up.info") CONFIG_FILES="$CONFIG_FILES config/set-up.info" ;;

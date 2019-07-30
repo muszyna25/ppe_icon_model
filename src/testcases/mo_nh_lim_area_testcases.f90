@@ -756,7 +756,7 @@ jnlayer(:,:,:)=0
                relhum(jc,jk,jb)=rh_nconst(jn)
               END IF
               relhum(jc,jk,jb)=MAX(0._wp,MIN(1._wp,relhum(jc,jk,jb)))
-              IF (jk < nlev .AND. jn == jnlayer(jc,jk+1,jb) ) THEN
+              IF (jk < nlev .AND. jn == jnlayer(jc,MIN(jk+1,nlev),jb) ) THEN
                ! in this case we integrate starting in the level bellow, instead of 
                !  starting in the base of the layer
 

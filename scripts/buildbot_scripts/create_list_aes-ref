@@ -20,8 +20,12 @@ machine=mistral
 ./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17 --with-yaxt"                --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18        --machine $machine --configureflags="--with-fortran=intel18 --with-yaxt"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_openmp --machine $machine --configureflags="--with-fortran=intel18 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_hybrid_mixed   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
 
 ./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list

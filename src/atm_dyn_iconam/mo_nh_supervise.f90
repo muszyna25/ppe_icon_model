@@ -657,7 +657,7 @@ CONTAINS
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
-#ifdef __INTEL_COMPILER
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
     INTEGER  :: jec
 #endif
     INTEGER  :: proc_id(2), keyval(2)
@@ -670,8 +670,8 @@ CONTAINS
     iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
     jg          = patch%id
 
-!$ACC DATA CREATE( vn_aux, w_aux ),  &
-!$ACC      COPY( vn_aux_lev, w_aux_lev ),                            &
+!$ACC DATA CREATE( vn_aux, w_aux ),                                   &
+!$ACC      COPYOUT( vn_aux_lev, w_aux_lev ),                          &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
 
     IF (jg > 1 .OR. l_limited_area) THEN
@@ -681,26 +681,23 @@ CONTAINS
 !$ACC END KERNELS
     ENDIF
 
-#ifdef _OPENACC
-!$ACC PARALLEL PRESENT( patch, vn, vn_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
 !$OMP PARALLEL
 #ifdef __INTEL_COMPILER
 !$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
-#endif
     DO jb = istartblk_e, iendblk_e
 
       CALL get_indices_e(patch, jb, istartblk_e, iendblk_e, i_startidx, i_endidx, &
                          grf_bdywidth_e+1, min_rledge_int)
 
-!$ACC LOOP VECTOR
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = 1, patch%nlev
-#ifdef __INTEL_COMPILER
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
         vn_aux(jb,jk) = 0._wp
+        !$ACC LOOP VECTOR
         DO jec = i_startidx,i_endidx
           vn_aux(jb,jk) = MAX(vn_aux(jb,jk), -vn(jec,jk,jb), vn(jec,jk,jb))
         ENDDO
@@ -708,27 +705,26 @@ CONTAINS
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
 #endif
       ENDDO
-    END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC PARALLEL PRESENT( patch, w, w_aux ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG PRIVATE(i_startidx, i_endidx)
-#else
+    END DO
 !$OMP END DO
+
 #ifdef __INTEL_COMPILER
 !$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-#endif
 #endif
     DO jb = istartblk_c, iendblk_c
 
       CALL get_indices_c(patch, jb, istartblk_c, iendblk_c, i_startidx, i_endidx, &
                          grf_bdywidth_c+1, min_rlcell_int)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC LOOP GANG
       DO jk = 1, patch%nlevp1
-#ifdef __INTEL_COMPILER
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
         w_aux(jb,jk) = 0._wp
+        !$ACC LOOP VECTOR
         DO jec = i_startidx,i_endidx
           w_aux(jb,jk) = MAX(w_aux(jb,jk), -w(jec,jk,jb), w(jec,jk,jb))
         ENDDO
@@ -736,26 +732,22 @@ CONTAINS
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
 #endif
       ENDDO
-    END DO
-#ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC PARALLEL PRESENT( vn_aux, w_aux, vn_aux_lev, w_aux_lev), IF ( i_am_accel_node .AND. acc_on )
-!$ACC LOOP
-#else
+    END DO
 !$OMP END DO
+
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG
     DO jk = 1, patch%nlev
       vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
       w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
     END DO
-
-#ifdef _OPENACC
 !$ACC END PARALLEL
-#else
+
 !$OMP END DO
 !$OMP END PARALLEL
-#endif
 
     ! Add surface level for w
     jk = patch%nlevp1
@@ -795,11 +787,12 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
 
-    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
-    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
-    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
+    REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -811,6 +804,7 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
+    LOGICAL  :: l_opt_dpsdt_avg
   !-------------------------------------------------------------------------
 
     rl_start = grf_bdywidth_c+1
@@ -825,6 +819,12 @@ CONTAINS
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+
+    l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
+    ! Please note: only the stdio-process will return with a reasonable value 
+    ! for opt_dpsdt_avg from this subroutine!
+    ! So, if required, you have to broadcast opt_dpsdt_avg yourself afterwards!
+    IF (l_opt_dpsdt_avg) opt_dpsdt_avg = -999._wp ! (means missing value; reasonable values should be >0)
 
 
 
@@ -871,6 +871,7 @@ CONTAINS
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
           CALL message('nwp_nh_interface: ', TRIM(message_text))
        ENDIF
+        IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level

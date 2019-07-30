@@ -109,7 +109,6 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
-
   ! psrad
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
@@ -479,7 +478,8 @@ CONTAINS
 
     END DO ! jg
 
-    ! external data independent of ICON grids:
+    ! external data:
+
 
     ! for radiation
     !
@@ -488,6 +488,12 @@ CONTAINS
        lany = lany .OR. (echam_phy_tc(jg)%dt_rad > dt_zero)
     END DO
     IF (lany) THEN
+      !
+      ! parameterized simple plumes of tropospheric aerosols
+      !
+      IF (ANY(irad_aero(:) == 18)) THEN
+        CALL setup_bc_aeropt_splumes
+      END IF
       !
       ! well mixed greenhouse gases, horizontally constant
       !
@@ -502,12 +508,6 @@ CONTAINS
         CALL bc_greenhouse_gases_time_interpolation(mtime_current)
         !
       ENDIF
-      !
-      ! parameterized simple plumes of tropospheric aerosols
-      !
-      IF (ANY(irad_aero(:) == 18)) THEN
-        CALL setup_bc_aeropt_splumes
-      END IF
       !
     END IF
 
@@ -726,7 +726,7 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst') !Note that there is only one surface type in this case
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe

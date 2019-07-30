@@ -71,9 +71,9 @@ MODULE mo_art_config
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
+    LOGICAL :: lart_psc                !< switch for computation of PSCs
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    INTEGER :: iart_psc                !< integer which indicates how to compute PSCs 
-                                       !  (0: no PSCs, >0: compute PSCs (for the moment)
+    INTEGER :: O3_feedback             !< O3 radiation feedback from ART? (0 = false, 1 = true)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -121,11 +121,21 @@ MODULE mo_art_config
     INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
     INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
     
+    ! Treatment of grid scale and convective precipitation in dust washout
+    INTEGER :: iart_aero_washout       !< 0:gscp+con; 1:gscp,con; 2:gscp,rcucov*con
+
+    ! Number of substeps for sedimentation
+    INTEGER :: nart_substeps_sedi
+
+    CHARACTER(LEN=4) :: cart_type_sedim  !< type of sedimentation scheme: "expl": explicit, "impl": implicit
+
     ! Fast Physics Processes (Details: cf. Tab. 2.6 ICON-ART User Guide)
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
     INTEGER :: nturb_tracer            !< number of tracers in turbulence
+
+    INTEGER :: iart_echam_ghg
     
   END TYPE t_art_config
 

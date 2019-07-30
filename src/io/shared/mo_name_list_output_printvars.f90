@@ -31,7 +31,7 @@ MODULE mo_name_list_output_printvars
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection
-  USE mo_var_list_element,                  ONLY: t_var_list_element
+  USE mo_var_list_element,                  ONLY: t_var_list_element, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
   USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower
@@ -185,7 +185,7 @@ CONTAINS
     ! retrieve vertical axis object
     zaxis => verticalAxisList%getEntry(icon_zaxis_type=info%vgrid)
     IF (.NOT. ASSOCIATED(zaxis)) THEN
-      WRITE (message_text,'(a,i0,a)') 'Zaxis no. ', info%vgrid,' undefined.'
+      WRITE (message_text,*) "variable '", TRIM(info%name), "' :Zaxis no. ", info%vgrid, " undefined."
       CALL finish(routine, message_text)
     END IF
     tmp_zaxisID = zaxis%cdi_id
@@ -281,6 +281,7 @@ CONTAINS
     DO i = 1, nvar_lists
       IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
       IF(.NOT. var_lists(i)%p%loutput) CYCLE
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
       element => var_lists(i)%p%first_list_element
       DO
         IF (.NOT. ASSOCIATED(element)) EXIT
@@ -302,6 +303,8 @@ CONTAINS
     DO i = 1, nvar_lists
 
       IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
+      ! Inspect only model level variables
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
       ! Do not inspect element if output is disabled
       IF(.NOT. var_lists(i)%p%loutput) CYCLE
 

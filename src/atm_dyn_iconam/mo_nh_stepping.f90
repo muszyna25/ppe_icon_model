@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart
+    &                                    output_mode, lart, ldass_lhn
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -95,7 +95,6 @@ MODULE mo_nh_stepping
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_gribout_config,           ONLY: gribout_config
   USE mo_nh_testcases_nml,         ONLY: is_toy_chem, ltestcase_update
-  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
@@ -194,7 +193,7 @@ MODULE mo_nh_stepping
        &                                 getTotalSecondsTimedelta, getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -209,7 +208,7 @@ MODULE mo_nh_stepping
   USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
   USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
@@ -218,7 +217,9 @@ MODULE mo_nh_stepping
   USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
-  
+  USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
+  USE mo_nudging,                  ONLY: nudging_interface  
+
   IMPLICIT NONE
 
   PRIVATE
@@ -421,7 +422,7 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -438,11 +439,11 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
-    CALL reset_accumulation
+    CALL reset_statistics
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
+      IF (output_mode%l_nml        .AND. &    ! meteogram output is only initialized for nml output
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
         CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
@@ -451,8 +452,7 @@ MODULE mo_nh_stepping
 
     !AD: Also output special diagnostics for LES on torus
     IF (atm_phy_nwp_config(1)%is_les_phy &
-      .AND. sampl_freq_step>0 &
-      .AND. is_ls_forcing)THEN
+      .AND. sampl_freq_step>0)THEN
       CALL calculate_turbulent_diagnostics(                      &
                              & p_patch(1),                       & !in
                              & p_nh_state(1)%prog(nnow(1)),      &
@@ -481,7 +481,7 @@ MODULE mo_nh_stepping
 
   CALL perform_nh_timeloop (mtime_current, latbc)
 
-  CALL deallocate_nh_stepping (latbc)
+  CALL deallocate_nh_stepping
 
 
   END SUBROUTINE perform_nh_stepping
@@ -694,13 +694,8 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-
-  CALL save_convenience_pointers( )
-
-!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
-
-  CALL refresh_convenience_pointers( )
-  i_am_accel_node = .false.    ! Dectivate GPUs
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
@@ -736,7 +731,7 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
@@ -830,7 +825,7 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = l_nml_output
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
-        &          meteogram_is_sample_step(meteogram_output_config(jg), jstep )
+        &          (meteogram_is_sample_step(meteogram_output_config(jg), jstep ) .AND. output_mode%l_nml)
     END DO
     l_compute_diagnostic_quants = jstep >= 0 .AND. l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
@@ -918,7 +913,7 @@ MODULE mo_nh_stepping
 
       END IF !iforcing=inwp
 
-      IF (ntracer>0) THEN
+      IF (lart .AND. ntracer>0) THEN
          !
          ! Unit conversion for output from mass mixing ratios to densities
          ! and calculation of ART diagnostics
@@ -970,7 +965,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL perform_accumulation(nnow(1),nnow_rcf(1))
+    CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -987,12 +982,12 @@ MODULE mo_nh_stepping
       CALL write_name_list_output(jstep)
     ENDIF
 
-    CALL reset_accumulation
+    CALL reset_statistics
 
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
+      IF (output_mode%l_nml        .AND. &    ! meteogram output is only initialized for nml output
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
         CALL meteogram_sample_vars(jg, jstep, mtime_current)
@@ -1162,9 +1157,8 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  CALL save_convenience_pointers( )
-!$ACC END DATA
-  CALL refresh_convenience_pointers( )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1425,7 +1419,13 @@ MODULE mo_nh_stepping
           &                  p_nh_state(jg)%metrics,        &
           &                  p_nh_state(jg)%prog(nnew(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 2)
-          
+
+
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
+
         CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
           &        jstep_adv(jg)%marchuk_order,                          & !in
           &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1443,6 +1443,11 @@ MODULE mo_nh_stepping
           &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
           &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
           &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1468,8 +1473,14 @@ MODULE mo_nh_stepping
         ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
         ENDIF
 
         IF (itype_comm == 1) THEN
@@ -1483,11 +1494,20 @@ MODULE mo_nh_stepping
 
             ! diffusion at physics time steps
             !
+#ifdef _OPENACC
+            i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
+
+#ifdef _OPENACC
+            i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
+
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
@@ -1525,6 +1545,10 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
+#ifdef _OPENACC
+          i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
           CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1543,6 +1567,10 @@ MODULE mo_nh_stepping
             &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
 
+#ifdef _OPENACC
+          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
           IF (iprog_aero >= 1) THEN
             
             CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
@@ -1555,7 +1583,7 @@ MODULE mo_nh_stepping
           ENDIF
 
         ! ART tracer sedimentation:
-        !     Internal substepping with ndyn_substeps_var(jg)
+        !     Optional internal substepping with nart_substeps_sedi
         !-----------------------
           IF (lart) THEN
             CALL art_sedi_interface( p_patch(jg),             &!in
@@ -1565,7 +1593,6 @@ MODULE mo_nh_stepping
                &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
                &      prm_diag(jg),                           &!in
-               &      ndyn_substeps_var(jg),                  &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
@@ -1624,6 +1651,7 @@ MODULE mo_nh_stepping
               &                  p_patch(jgp),                       & !in
               &                  ext_data(jg)           ,            & !in
               &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
+              &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout              
               &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
               &                  p_nh_state(jg)%diag ,               & !inout
               &                  prm_diag  (jg),                     & !inout
@@ -1654,7 +1682,7 @@ MODULE mo_nh_stepping
                 &                  ext_data(jg)           ,            & !in
                 &                  p_nh_state(jg)%prog(nnew(jg)) ,     & !inout
                 &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-                &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+                &                  p_nh_state(jg)%prog(n_new_rcf),     & !inout
                 &                  p_nh_state(jg)%diag ,               & !inout
                 &                  prm_diag  (jg),                     & !inout
                 &                  prm_nwp_tend(jg),                   &
@@ -1765,43 +1793,62 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. l_limited_area) THEN
+      IF (jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging)) THEN
+        
+        tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
-         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
-
-         IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
-
-            IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
-               p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
-
-            IF (num_prefetch_proc >= 1) THEN
-
-              ! Asynchronous LatBC read-in:
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
-              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
-                &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
-            ELSE
-              
-              ! update the coefficients for the linear interpolation
-              CALL update_lin_interc(datetime_local(jg)%ptr)
-              CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
-                &  p_nh_state(jg)%prog(n_new_rcf),                                    &
-                &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
-                &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
-                &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
-
-            ENDIF
-
-         ELSE ! constant lateral boundary data
-
-            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
-
-         ENDIF
+        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+          
+          IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
+            p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
+          
+          IF (num_prefetch_proc >= 1) THEN
+            
+            ! Asynchronous LatBC read-in:
+            ! update the coefficients for the linear interpolation
+            CALL update_lin_interpolation(latbc, datetime_local(jg)%ptr)
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+              &  p_latbc_old=latbc%latbc_data(latbc%prev_latbc_tlev())%atm,         &
+              &  p_latbc_new=latbc%latbc_data(latbc%new_latbc_tlev)%atm)
+          ELSE
+            
+            ! update the coefficients for the linear interpolation
+            CALL update_lin_interc(datetime_local(jg)%ptr)
+            CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),     &
+              &  p_nh_state(jg)%prog(n_new_rcf),                                    &
+              &  p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,  &
+              &  p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,                     &
+              &  p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+            
+          ENDIF
+          
+        ELSE ! constant lateral boundary data
+          
+          CALL limarea_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
+            & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+          
+        ENDIF
+        
+      ELSEIF (jg == 1 .AND. l_global_nudging) THEN
+        
+        ! Apply global nudging
+        CALL nudging_interface( p_patch          = p_patch(jg),            & !in
+          &                     p_nh_state       = p_nh_state(jg),         & !inout
+          &                     p_latbc_data     = p_latbc_data,           & !in
+          &                     latbc            = latbc,                  & !in
+          &                     p_int_state      = p_int_state(jg),        & !in
+          &                     mtime_datetime   = datetime_local(jg)%ptr, & !in
+          &                     sim_time         = sim_time,               & !in
+          &                     time_config      = time_config,            & !in
+          &                     ndyn_substeps    = ndyn_substeps,          & !in
+          &                     nnew             = nnew(jg),               & !in
+          &                     nnew_rcf         = n_new_rcf,              & !in
+          &                     last_latbc_tlev  = last_latbc_tlev,        & !in
+          &                     read_latbc_tlev  = read_latbc_tlev,        & !in
+          &                     upatmo_config    = upatmo_config(jg),      & !in
+          &                     nudging_config   = nudging_config          ) !inout
 
       ENDIF
 
@@ -1917,9 +1964,11 @@ MODULE mo_nh_stepping
                   & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
               END IF
             ENDIF
-            IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
-              CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
-                p_grf_state(n_dom_start:n_dom), jgc, jg)
+            IF (ldass_lhn) THEN 
+              IF (assimilation_config(jgc)%dass_lhn%isActive(datetime_local(jgc)%ptr)) THEN
+                CALL lhn_feedback(p_patch(n_dom_start:n_dom), lhn_fields, &
+                  p_grf_state(n_dom_start:n_dom), jgc, jg)
+              END IF
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
@@ -2179,10 +2228,21 @@ MODULE mo_nh_stepping
       linit_dyn(jg) = .FALSE.
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
-      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
+      IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf) THEN
+
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+         
         CALL diffusion(p_nh_state%prog(nnew(jg)), p_nh_state%diag, &
           &            p_nh_state%metrics, p_patch, p_int_state,   &
           &            dt_dyn, .FALSE.)
+
+#ifdef _OPENACC
+        i_am_accel_node = .FALSE.    ! Deactivate GPUs
+#endif
+
+      ENDIF
 
       IF (llast .OR. advection_config(jg)%lfull_comp) &
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in
@@ -2281,6 +2341,7 @@ MODULE mo_nh_stepping
         &                  p_patch(jgp),                       & !in
         &                  ext_data(jg)           ,            & !in
         &                  p_nh_state(jg)%prog(nnow(jg)) ,     & !inout
+        &                  p_nh_state(jg)%prog(n_now_rcf),     & !inout         
         &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
         &                  p_nh_state(jg)%diag,                & !inout
         &                  prm_diag  (jg),                     & !inout
@@ -2795,9 +2856,8 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping(latbc)
+  SUBROUTINE deallocate_nh_stepping
 
-    TYPE (t_latbc_data), INTENT(INOUT) :: latbc
   INTEGER                              ::  jg, ist
 
   !-----------------------------------------------------------------------
@@ -2923,7 +2983,7 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+  IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
     CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
   ENDIF
 

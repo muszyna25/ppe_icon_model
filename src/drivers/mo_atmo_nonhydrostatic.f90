@@ -59,8 +59,8 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
-  &                                itime_scheme, ndyn_substeps
+USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
+  &                                itime_scheme, ndyn_substeps, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
@@ -118,7 +118,7 @@ USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
@@ -126,6 +126,7 @@ USE mo_initicon_config,     ONLY: init_mode
 USE mo_sleve_config,        ONLY: flat_height
 USE mo_vertical_coord_table, ONLY: vct_a
 USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_nudging_config,      ONLY: l_global_nudging
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -311,7 +312,9 @@ CONTAINS
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
        &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:)  )
+       &                      p_nh_state_lists(jg)%tracer_list(:),     &
+       &                      kstart_tracer(jg,:))
+
     ENDDO
 
    IF (ldass_lhn) THEN 
@@ -608,7 +611,7 @@ CONTAINS
         jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
-      CALL init_mean_stream(p_patch(1))
+      CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -768,7 +771,7 @@ CONTAINS
     CALL destruct_upatmo()
 
     ! call close name list prefetch
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()
@@ -780,7 +783,7 @@ CONTAINS
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
-      CALL finish_mean_stream()
+      CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN

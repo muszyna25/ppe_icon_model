@@ -1270,7 +1270,7 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
       ! Set tile-specific GRIB2 keys (if applicable)
-      CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype)
+      CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype, gribout_config%grib2_template_tile)
 #endif
 
       ! Set further additional integer keys

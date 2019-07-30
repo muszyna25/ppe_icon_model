@@ -246,7 +246,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 IF (timers_level > 5) CALL timer_start(timer_grad)
 
 !$ACC DATA PCOPYIN( psi_c ) PCOPYOUT( grad_norm_psi_e )                    &
-!$ACC      PRESENT( ptr_patch, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_patch%edges%inv_dual_edge_length, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL
@@ -389,7 +389,9 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$ACC DATA PCOPYIN( psi_v ) PCOPYOUT( grad_tang_psi_e ) PRESENT( ptr_patch )   &
+!$ACC DATA PCOPYIN( psi_v ) PCOPYOUT( grad_tang_psi_e ) &
+!$ACC      PRESENT( ptr_patch%edges%vertex_idx, ptr_patch%edges%vertex_blk, &
+!$ACC               ptr_patch%edges%tangent_orientation, ptr_patch%edges%primal_edge_length )   &
 !$ACC      CREATE( ilv1, ibv1, ilv2, ibv2 ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( psi_v ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
@@ -539,7 +541,7 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !
 
 !$ACC DATA PCOPYIN( p_cc ) PCOPYOUT( p_grad )                                      &
-!$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int%gradc_bmat, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 ! Add $ser directives here
 
@@ -831,7 +833,7 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !
 
 !$ACC DATA PCOPYIN( p_ccpr ) PCOPYOUT( p_grad )                                      &
-!$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int%gradc_bmat, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -1008,7 +1010,7 @@ ENDIF
 ! 2. reconstruction of cell based geographical gradient
 !
 !$ACC DATA PCOPYIN( p_cc ) PCOPYOUT( p_grad )                                  &
-!$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int%geofac_grg, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -1148,7 +1150,7 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
   !
 
 !$ACC DATA PCOPYIN( p_ccpr ) PCOPYOUT( p_grad )                                     &
-!$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int%geofac_grg, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)

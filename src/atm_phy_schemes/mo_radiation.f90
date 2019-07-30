@@ -370,9 +370,9 @@ CONTAINS
     ENDIF
 
     IF (PRESENT(zsct)) THEN
-      psctm = zsct
+      psctm(:) = zsct
     ELSE
-      psctm = tsi_radt
+      psctm(:) = tsi_radt
     ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
@@ -1441,8 +1441,8 @@ CONTAINS
       CALL psrad_srtm(jce                                                      , & 
          &  kbdim           ,klev            , &
          &  alb_vis_dir     ,alb_vis_dif     , &
-         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm  , &
-         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0, zdayfrc   ,ssi_radt/psctm(jg), &
+         &  psctm(jg)       ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,&
       laytrop, jp_psrad, iabs, wkl_vr, colmol, fac, &
@@ -1475,41 +1475,29 @@ CONTAINS
 
     DO jk = 1, klev+1
       jkb = klev+2-jk
-      DO jl = 1, kbdim
-        flx_lw_net(jl,jk)     = MERGE(flx_dnlw_vr(jl,jkb)-flx_uplw_vr(jl,jkb), &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_lw_net_clr(jl,jk) = MERGE(  flx_dnlw_clr_vr(jl,jkb)                &
-          &                           - flx_uplw_clr_vr(jl,jkb),               &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_sw_net(jl,jk)     = MERGE(flx_dnsw(jl,jk) - flx_upsw(jl,jk),       &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
-        flx_sw_net_clr(jl,jk) = MERGE(  flx_dnsw_clr(jl,jk)                    &
-          &                           - flx_upsw_clr(jl,jk),                   &
-          &                           0.0_wp, jl <= jce .AND. jl >= jcs)
+      DO jl = jcs, jce
+        flx_lw_net(jl,jk)     = flx_dnlw_vr(jl,jkb) - flx_uplw_vr(jl,jkb)
+        flx_lw_net_clr(jl,jk) = flx_dnlw_clr_vr(jl,jkb) - flx_uplw_clr_vr(jl,jkb)
+        flx_sw_net(jl,jk)     = flx_dnsw(jl,jk) - flx_upsw(jl,jk)
+        flx_sw_net_clr(jl,jk) = flx_dnsw_clr(jl,jk) - flx_upsw_clr(jl,jk)
       END DO
     END DO
-    DO jl = 1, kbdim
-      flx_uplw_sfc(jl)     = MERGE(flx_uplw_vr(jl,1), 0.0_wp,             &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_uplw_sfc_clr(jl) = MERGE(flx_uplw_clr_vr(jl,1), 0.0_wp,         &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_upsw_sfc(jl)     = MERGE(flx_upsw(jl,klev+1), 0.0_wp,           &
-        &                          jl <= jce .AND. jl >= jcs)
-      flx_upsw_sfc_clr(jl) = MERGE(flx_upsw_clr(jl,klev+1), 0.0_wp,       &
-        &                          jl <= jce .AND. jl >= jcs)
+    DO jl = jcs, jce
+      flx_uplw_sfc(jl)     = flx_uplw_vr(jl,1)
+      flx_uplw_sfc_clr(jl) = flx_uplw_clr_vr(jl,1)
+      flx_upsw_sfc(jl)     = flx_upsw(jl,klev+1)
+      flx_upsw_sfc_clr(jl) = flx_upsw_clr(jl,klev+1)
     END DO
     IF (PRESENT(flx_upsw_toa)) THEN
-      DO jl = 1, kbdim
-        flx_upsw_toa(jl) = MERGE(flx_upsw(jl,1), 0.0_wp,             &
-          &                      jl <= jce .AND. jl >= jcs)
+      DO jl = jcs, jce
+        flx_upsw_toa(jl) = flx_upsw(jl,1)
       END DO
     END IF
     IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc)) THEN
       ! approximate calculation!!
-      DO jl = 1, kbdim
-        !   dnsw_diff_sfc        = vis_dn_dff_sfc   + nir_dn_dff_sfc
-        flx_dnsw_diff_sfc(jl) = MERGE(aux_out(jl,4) + aux_out(jl,6), 0.0_wp, &
-          &                           jl <= jce .AND. jl >= jcs)
+      DO jl = jcs, jce
+        !   dnsw_diff_sfc     = vis_dn_dff_sfc + nir_dn_dff_sfc
+        flx_dnsw_diff_sfc(jl) = aux_out(jl,4) + aux_out(jl,6)
       END DO
     END IF
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
