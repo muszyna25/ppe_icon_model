@@ -753,6 +753,7 @@ CONTAINS
 
       ! calc moc each timestep from non-accumulated vertical veloc
       IF ( isRegistered('global_moc') .OR. isRegistered('atlant_moc') .OR. isRegistered('pacind_moc') .OR. &
+           isRegistered('amoc26n') .OR. &
            isRegistered('global_hfl') .OR. isRegistered('atlant_hfl') .OR. isRegistered('pacind_hfl') .OR. &
            isRegistered('global_wfl') .OR. isRegistered('atlant_wfl') .OR. isRegistered('pacind_wfl') .OR. &
            isRegistered('global_sltbasin') .OR. isRegistered('atlant_sltbasin') .OR. isRegistered('pacind_sltbasin') .OR. &
@@ -780,8 +781,8 @@ CONTAINS
              & p_diag%pacific_hfbasin, & 
              & p_diag%global_sltbasin, &
              & p_diag%atlantic_sltbasin, &
-             & p_diag%pacific_sltbasin)
-
+             & p_diag%pacific_sltbasin, &
+             & monitor%amoc26n)
 
 
         CALL timer_stop(timer_calc_moc)
@@ -1456,7 +1457,7 @@ CONTAINS
              global_moc, atlant_moc, pacind_moc, global_hfl, atlant_hfl, pacind_hfl, &
              global_wfl, atlant_wfl, pacind_wfl, &
              global_hfbasin, atlant_hfbasin, pacind_hfbasin, &
-             global_sltbasin, atlant_sltbasin, pacind_sltbasin)
+             global_sltbasin, atlant_sltbasin, pacind_sltbasin, amoc26n)
 
     TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3d
@@ -1468,6 +1469,7 @@ CONTAINS
     REAL(wp), INTENT(inout)  :: delta_ice(:,:)        ! tendendy of ice  thickness (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_thetao(:,:,:)   ! temperature tendency (nproma,nlev+1,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_so(:,:,:)   ! salinity tendency (nproma,nlev+1,alloc_cell_blocks)
+    REAL(wp), INTENT(inout)  :: amoc26n(:)
 
     REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
 
@@ -1490,6 +1492,8 @@ CONTAINS
 
     REAL(wp) :: lat, deltaMoc, deltahfl, deltawfl, deltahfbasin, deltasltbasin, smoothWeight
     REAL(wp), ALLOCATABLE :: allmocs(:,:,:)
+
+    REAL(wp) :: factor_to_sv
 
     TYPE(t_subset_range), POINTER :: cells
 
@@ -1663,6 +1667,11 @@ CONTAINS
       atlant_sltbasin(:,l)=atlant_sltbasin(:,l+1)+atlant_sltbasin(:,l)
       pacind_sltbasin(:,l)=pacind_sltbasin(:,l+1)+pacind_sltbasin(:,l)
     END DO
+
+    !find atlantic moc at 26n , depth=1000m
+    factor_to_sv=1.0_wp/OceanReferenceDensity*1e-6_wp
+    amoc26n(1)=atlant_moc(116,get_level_index_by_depth(patch_3d, 1000.0_wp))*factor_to_sv
+
 
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
     ! minus the integral of surface heat flux
@@ -2473,5 +2482,24 @@ END SUBROUTINE diag_heat_salt_tendency
     !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE calc_mld
 
+  !>
+  !! Find level index of layer containing given depth.
+  !!
+  !! If depth is exactly at layer boundary, take layer above given depth.
+  !! Return top layer for zero depth. Use bottom layer for too large depths.
+  !!
+  FUNCTION get_level_index_by_depth(patch_3d, depth) RESULT(level_index)
+
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3D
+    REAL(dp), INTENT(in) :: depth
+    INTEGER :: level_index
+
+    level_index = 1
+    DO WHILE(patch_3d%p_patch_1d(1)%zlev_i(level_index+1) < depth .AND. level_index < n_zlev)
+      level_index = level_index + 1
+    END DO
+
+  END FUNCTION get_level_index_by_depth
 
 END MODULE mo_ocean_diagnostics

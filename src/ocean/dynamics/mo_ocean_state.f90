@@ -773,6 +773,13 @@ CONTAINS
     nblks_v = patch_2d%nblks_v
 
     ! add monitoring {{{
+
+    CALL add_var(ocean_default_list, 'amoc26n', ocean_state_diag%monitor%amoc26n , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('amoc26n', 'Sv', 'amoc26n', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'kin_energy_global', ocean_state_diag%monitor%kin_energy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('kin_energy', 'J', 'kin_energy', datatype_flt),&
