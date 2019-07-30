@@ -41,7 +41,7 @@ MODULE mo_ocean_output
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   !USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_ocean_diagnostics, ONLY: calc_slow_oce_diagnostics, destruct_oce_diagnostics, calc_moc, calc_psi
+  USE mo_ocean_diagnostics, ONLY: destruct_oce_diagnostics, calc_moc, calc_psi
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -122,20 +122,6 @@ CONTAINS
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-   !CALL calc_slow_oce_diagnostics( patch_3d       , &
-   !  &                             ocean_state(jg), &
-   !  &                             surface_fluxes      , &
-   !  &                             sea_ice          , &
-   !  &                             jstep-jstep0   , &
-   !  &                             this_datetime) ! , &
-          ! &                             oce_ts)
-  
-!   IF (diagnostics_level > 0 ) THEN
-!     IF (no_tracer>=2) THEN
-!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
-!       CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_acc%w(:,:,:), this_datetime)
-!     ENDIF
-!   ENDIF
 
     IF (output_mode%l_nml) CALL write_name_list_output(out_step)
 

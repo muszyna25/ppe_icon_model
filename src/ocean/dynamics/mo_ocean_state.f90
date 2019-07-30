@@ -1233,6 +1233,14 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
+      CALL add_var(ocean_default_list, 'delta_so', ocean_state_diag%delta_so,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('delta_so','kg s-1 m-2','tendency_of_sea_water_salinity_expressed_as_salt_content', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+
       CALL add_var(ocean_default_list, 'opottemptend', ocean_state_diag%opottemptend,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
@@ -1853,6 +1861,26 @@ CONTAINS
     CALL add_var(ocean_default_list, 'pacific_hfbasin',ocean_state_diag%pacific_hfbasin,    &
       & GRID_ZONAL, za_surface,&
       & t_cf_var('pacific_hfbasin','W','indopacific northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
+    ! hfbasin ocean salt transport
+    CALL add_var(ocean_default_list, 'global_sltbasin',ocean_state_diag%global_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_sltbasin','kg s-1','global northward ocean salt transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_sltbasin',ocean_state_diag%atlantic_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_sltbasin','kg s-1','atlantic northward ocean salt transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_sltbasin',ocean_state_diag%pacific_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_sltbasin','kg s-1','indopacific northward ocean salt transport', datatype_flt), &
       & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/1,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)

@@ -112,12 +112,12 @@ MODULE mo_ocean_diagnostics
   !
   ! PUBLIC INTERFACE
   !
-  PUBLIC :: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics
+  PUBLIC :: calc_fast_oce_diagnostics
   PUBLIC :: construct_oce_diagnostics
   PUBLIC :: destruct_oce_diagnostics
   PUBLIC :: calc_moc
   PUBLIC :: calc_psi
-  PUBLIC :: diag_heat_tendency
+  PUBLIC :: diag_heat_salt_tendency
 
   INTERFACE calc_moc
     MODULE PROCEDURE calc_moc_acc
@@ -496,292 +496,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  !-------------------------------------------------------------------------
-  !>
-  ! !  calculate_oce_diagnostics
-  !
-  ! @par Revision History
-  ! Developed  by  Peter Korn, MPI-M (2010).
-  !
-  SUBROUTINE calc_slow_oce_diagnostics(patch_3D, ocean_state, surface_fluxes, ice, &
-    & timestep, this_datetime)
-    TYPE(t_patch_3D ),TARGET, INTENT(in)    :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
-    TYPE(t_ocean_surface),    INTENT(in)    :: surface_fluxes
-    TYPE (t_sea_ice),   INTENT(in)          :: ice
-    INTEGER, INTENT(in) :: timestep
-    TYPE(datetime), POINTER                 :: this_datetime
-
-    !Local variables
-    INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
-    INTEGER :: start_edge_index, end_edge_index !,i_startblk_c, i_endblk_c,
-    INTEGER :: jk,jc,je,blockNo, level !,je
-    INTEGER :: edge_1_of_cell_idx, edge_1_of_cell_blk
-    INTEGER :: edge_2_of_cell_idx, edge_2_of_cell_blk
-    INTEGER :: edge_3_of_cell_idx, edge_3_of_cell_blk
-    INTEGER :: i_no_t, i
-    REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
-!   REAL(wp):: ssh_global_mean ! - is in calc_fast_oce_diagnostics
-    INTEGER :: reference_timestep
-    TYPE(t_patch), POINTER :: patch_2d
-    REAL(wp) :: sflux
-
-    TYPE(t_subset_range), POINTER :: owned_cells, edges_inDomain
-    TYPE(t_ocean_monitor),  POINTER :: monitor
-    CHARACTER(LEN=linecharacters) :: line, nvars
-    CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
-    REAL(wp), PARAMETER :: equator = 0.00001_wp
-    TYPE(t_ocean_regions)         :: ocean_regions
-    CHARACTER(len=32) :: fmtstr
-
-    !-----------------------------------------------------------------------
-    patch_2d       => patch_3D%p_patch_2d(1)
-    owned_cells    => patch_2d%cells%owned
-    edges_inDomain => patch_2d%edges%in_domain
-    !-----------------------------------------------------------------------
-
-    IF (diagnose_for_horizontalVelocity) THEN
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = edges_inDomain%start_block,edges_inDomain%end_block
-        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
-        DO je =  start_edge_index, end_edge_index
-          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
-
-            veloc_adv_horz_u(je, level, blockNo) = &
-              & ocean_state%p_diag%veloc_adv_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
-            veloc_adv_horz_v(je, level, blockNo) = &
-              & ocean_state%p_diag%veloc_adv_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
-            laplacian_horz_u(je, level, blockNo) = &
-              & ocean_state%p_diag%laplacian_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
-            laplacian_horz_v(je, level, blockNo) = &
-              & ocean_state%p_diag%laplacian_horz(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
-            vn_u(je, level, blockNo) = &
-              & ocean_state%p_prog(nnew(1))%vn(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
-            vn_v(je, level, blockNo) = &
-              & ocean_state%p_prog(nnew(1))%vn(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
-            mass_flx_e_u(je, level, blockNo) = &
-              & ocean_state%p_diag%mass_flx_e(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
-            mass_flx_e_v(je, level, blockNo) = &
-              & ocean_state%p_diag%mass_flx_e(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
-            pressure_grad_u(je, level, blockNo) = &
-              & ocean_state%p_diag%press_grad(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v1
-            pressure_grad_v(je, level, blockNo) = &
-              & ocean_state%p_diag%press_grad(je, level, blockNo) * patch_2d%edges%primal_normal(je,blockNo)%v2
-
-          ENDDO
-        ENDDO
-      ENDDO
-!ICON_OMP_END_DO
-
-!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = edges_inDomain%start_block,edges_inDomain%end_block
-        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
-        DO je =  start_edge_index, end_edge_index
-          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
-            ! this is when it is calculated by the veloc_adv_horz_mimetic_rot
-            potential_vort_e(je, level, blockNo) = ocean_state%p_diag%veloc_adv_horz(je, level, blockNo)
-          ENDDO
-        ENDDO
-      ENDDO
-!ICON_OMP_END_DO
-
-
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, level, &
-!ICON_OMP edge_1_of_cell_idx, edge_1_of_cell_blk, edge_2_of_cell_idx, edge_2_of_cell_blk, &
-!ICON_OMP edge_3_of_cell_idx, edge_3_of_cell_blk) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = owned_cells%start_block, owned_cells%end_block
-        CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
-        DO jc =  start_cell_index, end_cell_index
-          edge_1_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,1)
-          edge_1_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,1)
-          edge_2_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,2)
-          edge_2_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,2)
-          edge_3_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,3)
-          edge_3_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,3)
-
-          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
-
-            potential_vort_c(jc, level, blockNo) = &
-              & (potential_vort_e(edge_1_of_cell_idx,level,edge_1_of_cell_blk)  &
-              & +potential_vort_e(edge_2_of_cell_idx,level,edge_2_of_cell_blk)  &
-              & +potential_vort_e(edge_3_of_cell_idx,level,edge_3_of_cell_blk))/3.0_wp
-
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL
-
-    ENDIF
-
-
-    !-----------------------------------------------------------------------
-    IF (diagnostics_level < 1) RETURN
-
-    monitor        => ocean_state%p_diag%monitor
-    surface_area   = 0.0_wp
-    surface_height = 0.0_wp
-    prism_vol      = 0.0_wp
-    prism_area     = 0.0_wp
-    z_w            = 0.0_wp
-
-    fmtstr = '%Y-%m-%d %H:%M:%S'
-    call datetimeToPosixString(this_datetime, datestring, fmtstr)
-
-    !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
-    SELECT CASE (iswm_oce)
-    CASE (1) ! shallow water mode
-      !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
-      DO blockNo = owned_cells%start_block,owned_cells%end_block
-        CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
-
-        DO jc =  start_cell_index, end_cell_index
-          IF ( patch_3D%lsm_c(jc,1,blockNo) <= sea_boundary ) THEN
-            surface_area = surface_area + patch_2d%cells%area(jc,blockNo)
-
-            prism_vol      = patch_2d%cells%area(jc,blockNo)*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,blockNo)
-            monitor%volume = monitor%volume + prism_vol
-
-
-!TODO          monitor%pot_energy = monitor%pot_energy &
-!TODO            & + 0.5_wp*grav* prism_vol*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,blockNo)
-
-!TODO          monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,1,blockNo)*prism_vol
-
-!TODO          monitor%total_energy=monitor%kin_energy+monitor%pot_energy
-!             DO i_no_t=1, no_tracer
-!               monitor%tracer_content(i_no_t) = monitor%tracer_content(i_no_t)&
-!                 & + prism_vol*ocean_state%p_prog(nold(1))%tracer(jc,1,blockNo,i_no_t)
-!             END DO
-          ENDIF
-        END DO
-      END DO
-
-    CASE default !3D model
-      DO blockNo = owned_cells%start_block, owned_cells%end_block
-        CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
-        !We are dealing with the surface layer first
-        DO jc =  start_cell_index, end_cell_index
-
-          ! area
-          prism_area   = patch_2d%cells%area(jc,blockNo)
-          surface_area = surface_area + prism_area
-          ! sum of top layer vertical velocities abolsute values
-          monitor%absolute_vertical_velocity = &
-            & monitor%absolute_vertical_velocity + ABS(ocean_state%p_diag%w(jc,1,blockNo))*prism_area
-
-          monitor%HeatFlux_ShortWave   = monitor%HeatFlux_ShortWave   + surface_fluxes%HeatFlux_ShortWave(jc,blockNo)*prism_area
-          monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + surface_fluxes%HeatFlux_LongWave (jc,blockNo)*prism_area
-          monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + surface_fluxes%HeatFlux_Sensible (jc,blockNo)*prism_area
-          monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + surface_fluxes%HeatFlux_Latent   (jc,blockNo)*prism_area
-          monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + surface_fluxes%FrshFlux_SnowFall(jc,blockNo)*prism_area
-          monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + surface_fluxes%FrshFlux_TotalSalt(jc,blockNo)*prism_area
-          monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + &
-            & surface_fluxes%FrshFlux_TotalOcean(jc,blockNo)*prism_area
-          monitor%FrshFlux_TotalIce    = monitor%FrshFlux_TotalIce    + surface_fluxes%FrshFlux_TotalIce(jc,blockNo)*prism_area
-          monitor%FrshFlux_VolumeIce   = monitor%FrshFlux_VolumeIce   + surface_fluxes%FrshFlux_VolumeIce (jc,blockNo)*prism_area
-          monitor%FrshFlux_VolumeTotal  = monitor%FrshFlux_VolumeTotal  + &
-            & surface_fluxes%FrshFlux_VolumeTotal(jc,blockNo)*prism_area
-          monitor%HeatFlux_Relax = monitor%HeatFlux_Relax + surface_fluxes%HeatFlux_Relax(jc,blockNo)*prism_area
-          monitor%FrshFlux_Relax = monitor%FrshFlux_Relax + surface_fluxes%FrshFlux_Relax(jc,blockNo)*prism_area
-          monitor%TempFlux_Relax = monitor%TempFlux_Relax + surface_fluxes%TempFlux_Relax(jc,blockNo)*prism_area
-          monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + surface_fluxes%SaltFlux_Relax(jc,blockNo)*prism_area
-
-          ! ice budgets
-          ! heat
-          !
-          ! salinity
-          ! volume
-
-          DO jk = 1,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-
-            !local volume
-            surface_height = MERGE(ocean_state%p_prog(nold(1))%h(jc,blockNo),0.0_wp, 1 == jk)
-            prism_vol      = prism_area * (patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo) + surface_height)
-
-            !Fluid volume
-            monitor%volume = monitor%volume + prism_vol
-
-            !kinetic energy
-!TODO           monitor%kin_energy = monitor%kin_energy + ocean_state%p_diag%kin(jc,jk,blockNo)*prism_vol
-!TODO
-!TODO           !Potential energy
-!TODO           IF(jk==1)THEN
-!TODO             z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*ocean_state%p_prog(nold(1))%h(jc,blockNo)&
-!TODO               & +ocean_state%p_diag%w(jc,jk+1,blockNo)*0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk))&
-!TODO               & /(0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk)+ocean_state%p_prog(nold(1))%h(jc,blockNo))
-!TODO           ELSEIF(jk>1.AND.jk<n_zlev)THEN
-!TODO             z_w = (ocean_state%p_diag%w(jc,jk,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk)&
-!TODO               & +ocean_state%p_diag%w(jc,jk+1,blockNo)*patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))&
-!TODO               & /(patch_3D%p_patch_1d(1)%del_zlev_i(jk)+patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))
-!TODO           ENDIF
-!TODO           monitor%pot_energy = monitor%pot_energy + grav*z_w* ocean_state%p_diag%rho(jc,jk,blockNo)* prism_vol
-
-            !Tracer content
-!             DO i_no_t=1, no_tracer
-!               monitor%tracer_content(i_no_t) = &
-!                 & monitor%tracer_content(i_no_t) + prism_vol*ocean_state%p_prog(nold(1))%tracer(jc,jk,blockNo,i_no_t)
-!             END DO
-          END DO
-        END DO
-      END DO
-
-    END SELECT
-
-    ! compute global sums {
-    CALL disable_sync_checks()
-    monitor%volume                     = global_sum_array(monitor%volume)
-    surface_area                       = global_sum_array(surface_area)
-!TODO    monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
-!TODO    monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
-!TODO    monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
-    monitor%total_salt                 = calc_total_salt_content(patch_2d, &
-      &                                                          patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
-      &                                                          ice, ocean_state,surface_fluxes,ice%zUnderIce)
-!TODO    monitor%vorticity                  = global_sum_array(monitor%vorticity)
-
-
-
-!TODO    monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
-    monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
-
-    IF (iforc_oce > No_Forcing) THEN
-      monitor%HeatFlux_ShortWave         = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
-      monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
-      monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
-      monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
-      monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
-      monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
-      monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
-      monitor%FrshFlux_TotalIce          = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
-      monitor%FrshFlux_VolumeIce         = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
-      monitor%FrshFlux_VolumeTotal       = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
-      monitor%HeatFlux_Relax             = global_sum_array(monitor%HeatFlux_Relax)/surface_area
-      monitor%FrshFlux_Relax             = global_sum_array(monitor%FrshFlux_Relax)/surface_area
-      monitor%SaltFlux_Relax             = global_sum_array(monitor%SaltFlux_Relax)/surface_area
-      monitor%TempFlux_Relax             = global_sum_array(monitor%TempFlux_Relax)/surface_area
-    ENDIF
-
-    CALL enable_sync_checks()
-
-    IF (i_sea_ice >= 1) THEN
-      IF (my_process_is_stdio() .AND. idbg_val > 0) &
-        & WRITE(0,*) "--------------- ice fluxes -----------------------------"
-          ! ice transport through given paths
-      sflux = section_ice_flux(oce_sections(7), ice%hi*ice%conc, ice%vn_e) ! TODO: Replace hi/conc to himean
-
-      IF (my_process_is_stdio() .AND. idbg_val > 0) &
-        & WRITE(0,*) oce_sections(7)%subset%name, ":", sflux
-
-      monitor%ice_framStrait             = sflux
-    ENDIF
-
-    IF (my_process_is_stdio() .AND. idbg_val > 0) &
-      & WRITE(0,*) "---------------  end fluxes ----------------------------"
-
-  END SUBROUTINE calc_slow_oce_diagnostics
-
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, ocean_state, dolic, prism_thickness, depths, &
           &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, ice)
@@ -1024,18 +738,24 @@ CONTAINS
 
       IF ( isRegistered('delta_ice') .OR. isRegistered('delta_snow') .OR. &
            isRegistered('delta_thetao') .OR. &
+           isRegistered('delta_so') .OR. &
+           isRegistered('global_sltbasin') .OR. isRegistered('atlant_sltbasin') .OR. &
+           isRegistered('pacind_sltbasin') .OR. &
            isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. &
            isRegistered('pacind_hfbasin') ) THEN
 
-        CALL diag_heat_tendency(patch_3d, 2, ice, tracers(:,:,:,1), &
+        CALL diag_heat_salt_tendency(patch_3d, 2, ice, tracers(:,:,:,1), tracers(:,:,:,2), &
              p_diag%delta_ice,                                      &
              p_diag%delta_snow,                                     &
-             p_diag%delta_thetao)
+             p_diag%delta_thetao,                                   &
+             p_diag%delta_so)
       ENDIF
 
       ! calc moc each timestep from non-accumulated vertical veloc
       IF ( isRegistered('global_moc') .OR. isRegistered('atlant_moc') .OR. isRegistered('pacind_moc') .OR. &
            isRegistered('global_hfl') .OR. isRegistered('atlant_hfl') .OR. isRegistered('pacind_hfl') .OR. &
+           isRegistered('global_wfl') .OR. isRegistered('atlant_wfl') .OR. isRegistered('pacind_wfl') .OR. &
+           isRegistered('global_sltbasin') .OR. isRegistered('atlant_sltbasin') .OR. isRegistered('pacind_sltbasin') .OR. &
            isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. isRegistered('pacind_hfbasin') ) THEN
         CALL timer_start(timer_calc_moc)
         CALL calc_moc(patch_2d, patch_3d, &
@@ -1043,6 +763,7 @@ CONTAINS
              & p_oce_sfc%heatflux_total, &
              & p_oce_sfc%frshflux_volumetotal, &
              & p_diag%delta_thetao, &
+             & p_diag%delta_so, &
              & p_diag%delta_snow, &
              & p_diag%delta_ice, &
              & p_diag%global_moc, &
@@ -1056,7 +777,12 @@ CONTAINS
              & p_diag%pacific_wfl, &
              & p_diag%global_hfbasin, &
              & p_diag%atlantic_hfbasin, &
-             & p_diag%pacific_hfbasin)
+             & p_diag%pacific_hfbasin, & 
+             & p_diag%global_sltbasin, &
+             & p_diag%atlantic_sltbasin, &
+             & p_diag%pacific_sltbasin)
+
+
 
         CALL timer_stop(timer_calc_moc)
       ENDIF
@@ -1726,10 +1452,11 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   SUBROUTINE calc_moc_hfl_internal (patch_2d, patch_3d, w, heatflux_total, &
-             frshflux_volumetotal, delta_thetao, delta_snow, delta_ice, &
+             frshflux_volumetotal, delta_thetao, delta_so, delta_snow, delta_ice, &
              global_moc, atlant_moc, pacind_moc, global_hfl, atlant_hfl, pacind_hfl, &
              global_wfl, atlant_wfl, pacind_wfl, &
-             global_hfbasin, atlant_hfbasin, pacind_hfbasin)
+             global_hfbasin, atlant_hfbasin, pacind_hfbasin, &
+             global_sltbasin, atlant_sltbasin, pacind_sltbasin)
 
     TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3d
@@ -1739,7 +1466,8 @@ CONTAINS
     REAL(wp), INTENT(in)  :: frshflux_volumetotal(:,:)   ! fw flux (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_snow(:,:)       ! tendency of snow thickness (nproma,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: delta_ice(:,:)        ! tendendy of ice  thickness (nproma,alloc_cell_blocks)
-    REAL(wp), INTENT(inout)  :: delta_thetao(:,:,:)   ! temerature tendency (nproma,nlev+1,alloc_cell_blocks)
+    REAL(wp), INTENT(inout)  :: delta_thetao(:,:,:)   ! temperature tendency (nproma,nlev+1,alloc_cell_blocks)
+    REAL(wp), INTENT(inout)  :: delta_so(:,:,:)   ! salinity tendency (nproma,nlev+1,alloc_cell_blocks)
 
     REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
 
@@ -1752,13 +1480,15 @@ CONTAINS
     ! northward ocean heat transport calculated from tendencies
     REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,180)
 
+    ! northward ocean salt transport calculated from tendencies
+    REAL(wp), INTENT(inout) :: global_sltbasin(:,:), atlant_sltbasin(:,:), pacind_sltbasin(:,:) ! (1,180)
 
     ! local variables
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
     INTEGER :: BLOCK, level, start_index, end_index, idx, ilat, l, n
     INTEGER :: mpi_comm
 
-    REAL(wp) :: lat, deltaMoc, deltahfl, deltawfl, deltahfbasin, smoothWeight
+    REAL(wp) :: lat, deltaMoc, deltahfl, deltawfl, deltahfbasin, deltasltbasin, smoothWeight
     REAL(wp), ALLOCATABLE :: allmocs(:,:,:)
 
     TYPE(t_subset_range), POINTER :: cells
@@ -1768,7 +1498,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
-    n=MAX(6,n_zlev) !needs at leat 6 levels to store the hfl/hfbasin variables
+    n=MAX(12,n_zlev) !needs at leat 12 levels to store the wfl/hfl/hfbasin variables
     ALLOCATE(allmocs(4,n,180))
 
     allmocs(:,:,:)  = 0.0_wp
@@ -1789,6 +1519,10 @@ CONTAINS
     pacind_hfbasin(:,:) = 0.0_wp
     atlant_hfbasin(:,:) = 0.0_wp
 
+    global_sltbasin(:,:) = 0.0_wp
+    pacind_sltbasin(:,:) = 0.0_wp
+    atlant_sltbasin(:,:) = 0.0_wp
+
 
     ! limit cells to in-domain because of summation
     cells   => patch_2d%cells%in_domain
@@ -1805,6 +1539,8 @@ CONTAINS
 
           deltahfbasin = patch_2d%cells%area(idx,BLOCK) * delta_thetao(idx,level,BLOCK)
 
+          deltasltbasin = patch_2d%cells%area(idx,BLOCK) * delta_so(idx,level,BLOCK)
+
           IF (level .EQ. 1) THEN
             deltahfl = patch_2d%cells%area(idx,BLOCK) * heatflux_total(idx,BLOCK) &
                     * patch_3D%wet_c(idx,1,BLOCK)
@@ -1814,6 +1550,7 @@ CONTAINS
 
             deltahfbasin = deltahfbasin                                &
                  + patch_2d%cells%area(idx,BLOCK) * ( delta_ice(idx,BLOCK) + delta_snow(idx,BLOCK) )
+
           ENDIF
 
           ! lat: corresponding latitude row of 1 deg extension
@@ -1843,6 +1580,12 @@ CONTAINS
               pacind_hfbasin(level,ilat) = MERGE(pacind_hfbasin(level,ilat) - deltahfbasin*smoothWeight, &
                  0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
 
+              global_sltbasin(level,ilat) =       global_sltbasin(level,ilat) - deltasltbasin*smoothWeight
+              atlant_sltbasin(level,ilat) = MERGE(atlant_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
+                 0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
+              pacind_sltbasin(level,ilat) = MERGE(pacind_sltbasin(level,ilat) - deltasltbasin*smoothWeight, &
+                 0.0_wp, patch_3D%basin_c(idx,BLOCK) >= 2)
+
               global_hfl(level,ilat) =       global_hfl(level,ilat) - deltahfl*smoothWeight
               atlant_hfl(level,ilat) = MERGE(atlant_hfl(level,ilat) - deltahfl*smoothWeight, &
                    0.0_wp, patch_3D%basin_c(idx,BLOCK) == 1)
@@ -1869,6 +1612,7 @@ CONTAINS
     allmocs(4,1,:) = global_hfl(1,:)
     allmocs(4,2,:) = atlant_hfl(1,:)
     allmocs(4,3,:) = pacind_hfl(1,:)
+
     allmocs(4,4,:) = global_hfbasin(1,:)
     allmocs(4,5,:) = atlant_hfbasin(1,:)
     allmocs(4,6,:) = pacind_hfbasin(1,:)
@@ -1876,6 +1620,10 @@ CONTAINS
     allmocs(4,7,:) = global_wfl(1,:)
     allmocs(4,8,:) = atlant_wfl(1,:)
     allmocs(4,9,:) = pacind_wfl(1,:)
+
+    allmocs(4,10,:) = global_sltbasin(1,:)
+    allmocs(4,11,:) = atlant_sltbasin(1,:)
+    allmocs(4,12,:) = pacind_sltbasin(1,:)
 
     allmocs = p_sum(allmocs,mpi_comm)
 
@@ -1891,6 +1639,10 @@ CONTAINS
     global_wfl(1,:) = allmocs(4,7,:)
     atlant_wfl(1,:) = allmocs(4,8,:)
     pacind_wfl(1,:) = allmocs(4,9,:)
+    global_sltbasin(1,:) = allmocs(4,10,:)
+    atlant_sltbasin(1,:) = allmocs(4,11,:)
+    pacind_sltbasin(1,:) = allmocs(4,12,:)
+
 
 
     ! compute partial sums along meridian
@@ -1907,6 +1659,9 @@ CONTAINS
       global_wfl(:,l)=global_wfl(:,l+1)+global_wfl(:,l)
       atlant_wfl(:,l)=atlant_wfl(:,l+1)+atlant_wfl(:,l)
       pacind_wfl(:,l)=pacind_wfl(:,l+1)+pacind_wfl(:,l)
+      global_sltbasin(:,l)=global_sltbasin(:,l+1)+global_sltbasin(:,l)
+      atlant_sltbasin(:,l)=atlant_sltbasin(:,l+1)+atlant_sltbasin(:,l)
+      pacind_sltbasin(:,l)=pacind_sltbasin(:,l+1)+pacind_sltbasin(:,l)
     END DO
 
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
@@ -2365,17 +2120,20 @@ CONTAINS
     END DO !block
   END FUNCTION calc_salt_content
 
-  SUBROUTINE diag_heat_tendency(patch_3d, n, ice, thetao, delta_ice, delta_snow, delta_thetao)
+  SUBROUTINE diag_heat_salt_tendency(patch_3d, n, ice, thetao, so, delta_ice, delta_snow, &
+       delta_thetao, delta_so)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3D
 
     REAL(wp), INTENT(in)                     :: thetao(:,:,:)   ! temperature
+    REAL(wp), INTENT(in)                     :: so(:,:,:)   ! salinity
     TYPE(t_sea_ice), INTENT(IN)              :: ice
     TYPE(t_subset_range), POINTER            :: subset
 
     REAL(wp), INTENT(INOUT)  :: delta_ice(:,:)
     REAL(wp), INTENT(INOUT)  :: delta_snow(:,:)
     REAL(wp), INTENT(INOUT)  :: delta_thetao(:,:,:)
+    REAL(wp), INTENT(INOUT)  :: delta_so(:,:,:)
 
     INTEGER  :: n, blk, cell, cellStart,cellEnd, level, dz
     REAL(wp) :: dti, rhoicwa, rhosnic, rhosnwa, tfreeze, tmelt,           &
@@ -2403,6 +2161,8 @@ CONTAINS
 
           DO level = 1,subset%vertical_levels(cell,blk)
             delta_thetao(cell,level,blk) = thetao(cell,level,blk)
+            delta_so(cell,level,blk) = so(cell,level,blk)
+
           END DO ! level
 
         END DO ! cell
@@ -2440,6 +2200,9 @@ CONTAINS
             dz = MERGE(ice%zunderice(cell,blk),patch_3D%p_patch_1d(1)%prism_thick_c(cell,level,blk),level.EQ.1)
             delta_thetao(cell,level,blk) = ( thetao(cell,level,blk) - delta_thetao(cell,level,blk) ) &
                  * clw * OceanReferenceDensity * dz * dti
+            delta_so(cell,level,blk) = ( so(cell,level,blk) - delta_so(cell,level,blk) ) &
+                 * dz * dti
+
           END DO ! level
 
       END DO ! cell
@@ -2447,7 +2210,7 @@ CONTAINS
 
   ENDIF
 
-END SUBROUTINE diag_heat_tendency
+END SUBROUTINE diag_heat_salt_tendency
 
   SUBROUTINE calc_heat_content(patch_3d, thickness, ice, tracers, &
        heat_content_liquid_water, heat_content_seaice,            &

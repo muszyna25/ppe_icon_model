@@ -64,7 +64,7 @@ MODULE mo_ocean_surface_refactor
                                 &   update_flux_fromFile, calc_omip_budgets_ice, calc_omip_budgets_oce, &
                                 &   update_ocean_surface_stress, balance_elevation
 
-  USE mo_ocean_diagnostics, ONLY : diag_heat_tendency
+  USE mo_ocean_diagnostics, ONLY : diag_heat_salt_tendency
   USE mo_name_list_output_init, ONLY: isRegistered
 
   IMPLICIT NONE
@@ -128,13 +128,17 @@ CONTAINS
     ! save values of ice, snow and temperature for the tendendy and hfbasin diagnostic
     IF ( isRegistered('delta_ice') .OR. isRegistered('delta_snow') .OR. &
            isRegistered('delta_thetao') .OR. &
+           isRegistered('delta_so') .OR. &
+           isRegistered('global_sltbasin') .OR. isRegistered('atlant_sltbasin') .OR. &
+           isRegistered('pacind_sltbasin') .OR. &
            isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. &
-           isRegistered('pacind_hfbasin') ) THEN  
+           isRegistered('pacind_hfbasin') ) THEN
 
-      CALL diag_heat_tendency(p_patch_3d, 1, p_ice,            &
+      CALL diag_heat_salt_tendency(p_patch_3d, 1, p_ice,            &
          p_os%p_prog(nold(1))%tracer(:,:,:,1),               &
+         p_os%p_prog(nold(1))%tracer(:,:,:,2),               &
          p_os%p_diag%delta_ice,                              &
-         p_os%p_diag%delta_snow, p_os%p_diag%delta_thetao)
+         p_os%p_diag%delta_snow, p_os%p_diag%delta_thetao, p_os%p_diag%delta_so)
 
      END IF
 

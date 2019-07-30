@@ -212,7 +212,8 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
-      & delta_thetao, & 
+      & delta_thetao, &
+      & delta_so, &
       & uT, &  !< product of temperature and u-velocity
       & uS, &  !< product of salinity and u-velocity
       & uR, &  !< product of density and u-velocity
@@ -260,7 +261,10 @@ MODULE mo_ocean_types
       & pacific_wfl      ,& ! implied ocean freshwater transport pacific
       & global_hfbasin   ,& ! northward ocean heat transport global
       & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
-      & pacific_hfbasin     ! northward ocean heat transport pacific
+      & pacific_hfbasin  ,& ! northward ocean heat transport pacific
+      & global_sltbasin   ,& ! northward ocean salt transport global
+      & atlantic_sltbasin ,& ! northward ocean salt transport atlantic
+      & pacific_sltbasin     ! northward ocean salt transport pacific
 
    onCells_2D :: &
       & northernHemisphere ,&
