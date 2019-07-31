@@ -1669,8 +1669,8 @@ CONTAINS
     END DO
 
     !find atlantic moc at 26n , depth=1000m
-    factor_to_sv=1.0_wp/OceanReferenceDensity*1e-6_wp
-    amoc26n(1)=atlant_moc(116,get_level_index_by_depth(patch_3d, 1000.0_wp))*factor_to_sv
+    factor_to_sv=1.0_wp/OceanReferenceDensity*1e-6_wp  
+    amoc26n(1)=atlant_moc(get_level_index_by_depth(patch_3d, 1000.0_wp),116)*factor_to_sv
 
 
     ! calculate ocean heat transport as residual from the tendency in heat content (dH/dt)
