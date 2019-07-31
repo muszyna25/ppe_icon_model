@@ -8,12 +8,12 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz"
 #
 # This file describes a coupled experiment test setup on a R2B3 grid based on the non-hydrostatic
 # atmosphere with ECHAM physics and the hydrostatic ocean running on an R2B4 grid. The atmosphere
-# is intialized from analysis files and using transient boundary conditions (1850) for:
+# is intialized from analysis files and using constant pre-industrial (PI-control) boundary
+# conditions for the year 1850:
 # - spectral solar irradiation
-# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
+# - well mixed greenhouse gases CO2, CH4, N2O, no CFCs
 # - O3 concentration
 # - SST and sea ice are transferred via YAC from the ocean.
-#
 # - and no (!) aerosols
 #
 # There is no (!) hydrological discharge into the ocean
@@ -64,9 +64,9 @@ initialiseOcean="fromRestart"
 # initialiseOcean="FALSE"
 
 #
-# 1 ocean node is sufficient.
+# 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
 mpi_oce_nodes=1
-mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
+#mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 #
 #--------------------------------------------------------------------------------------------------
@@ -126,17 +126,18 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1850-01-01T00:00:00Z"}
-    end_date=${end_date:="1950-01-01T00:00:00Z"}
+start_date=${start_date:="1000-01-01T00:00:00Z"}
+    end_date=${end_date:="1000-03-01T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
 restart_interval="P10Y"
 checkpoint_interval="P20Y"
 
-atm_file_interval="P1Y"
-oce_file_interval="P1Y"
-lnd_file_interval="P1Y"
+# file interval is restart-interval
+atm_file_interval="P20Y"
+oce_file_interval="P20Y"
+lnd_file_interval="P20Y"
 
 atm_output_interval="P1M"
 oce_output_interval="P1M"
@@ -537,6 +538,24 @@ cat > coupling_${EXPNAME}.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
+         <transient_couple transient_id="11">
+            <source component_ref="1" transient_grid_ref="11"/>
+            <target transient_grid_ref="11"/>
+            <timestep>
+               <source>${atmTimeStep}</source>
+               <target>${oceTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>${oce_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="source_to_target_map"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="runoff_a2o_r2b3_r2b4.nc">true</enforce_write_weight_file>
+         </transient_couple>
       </couple>
    </couples>
    <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
@@ -762,11 +781,11 @@ cat > ${lnd_namelist} << EOF
 /
 &jsb_hd_nml
   active               = .TRUE.
-  routing_scheme       = 'zero'          ! simple scheme with zero runoff everywhere
+  routing_scheme       = 'full'          ! simple scheme with zero runoff everywhere
   bc_filename          = 'bc_land_hd.nc'
   diag_water_budget    = .TRUE.
   debug_hd             = .FALSE.
-  enforce_water_budget = .FALSE.         ! Rene: check! TRUE: stop in case of water conservation problem
+  enforce_water_budget = .FALSE.         ! TRUE: stop in case of water conservation problem
 /
 EOF
 
@@ -831,6 +850,11 @@ add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_lan
 add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
 add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
 add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
+#
+# - HD model input
+#
+datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
+add_link_file $datadir/hdpara_icon_${atmos_gridID}_G_250719_1545.nc     ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
