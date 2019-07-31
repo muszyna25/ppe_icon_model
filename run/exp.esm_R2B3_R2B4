@@ -58,11 +58,11 @@ nproma_atm=48
 nproma_oce=48
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology
-# restart=.true.
 initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 
+# restart=.true.    # deactivate semaphore mechanism
 #
 # 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
 mpi_oce_nodes=1
