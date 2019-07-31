@@ -127,11 +127,12 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # start and end date+time of experiment
 # -------------------------------------
 start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1000-03-01T00:00:00Z"}
+    end_date=${end_date:="1002-01-01T00:00:00Z"}   #  test run 30 min, 2x 1year, no production
 
 # restart/checkpoint/output intervals
 # -----------------
-restart_interval="P10Y"
+#restart_interval="P10Y"
+restart_interval="P1Y"
 checkpoint_interval="P20Y"
 
 # file interval is restart-interval
