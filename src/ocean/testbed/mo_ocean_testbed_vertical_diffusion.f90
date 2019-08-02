@@ -648,7 +648,7 @@ CONTAINS
     REAL(wp) :: dt_inv, diagonal_product
     REAL(wp) :: dt_mod, mu ! Testing dt and viscosity
     REAL(wp) :: H, eta                                                   ! Stretching parameters 
-    REAL(wp) :: stretch_z_i(1:n_zlev), stretch_z_m(1:n_zlev)             ! Stretching parameters 
+    REAL(wp) :: inv_stretch_z_i(1:n_zlev), inv_stretch_z_m(1:n_zlev)     ! Stretching parameters 
     REAL(wp) :: inv_cart_thick(1:n_zlev), inv_cart_center_dist(1:n_zlev) ! Stretching parameters 
     REAL(wp), POINTER   :: field_column(:,:,:)
     INTEGER  :: bottom_level
@@ -664,7 +664,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     dt_inv = 1.0_wp/dtime
 
-    test_diff =  2 
+    test_diff =  4 
 
     field_column(:, :, :) = 0.; 
     field_column(:,11, :) = 1.; 
@@ -679,15 +679,16 @@ CONTAINS
         H   = patch_3D%column_thick_e(jc, jb)
         eta = patch_3D%p_patch_1D(1)%depth_CellInterface(jc, bottom_level + 1, jb) - H
 
-        write(*, *), 'depth ', jb, jc, &
-            & patch_3D%p_patch_1D(1)%depth_CellInterface(jc, bottom_level + 1, jb), &
-            & patch_3D%column_thick_e(jc, jb), H, eta 
-
         IF (bottom_level < 1 ) CYCLE
 
         DO jk=1,bottom_level
-            stretch_z_i(jk) = ( H + eta )/H 
-            stretch_z_m(jk) = ( H + eta )/H ! Identical for z* co-ords
+            inv_stretch_z_i(jk) = H/( H + eta ) 
+            inv_stretch_z_m(jk) = H/( H + eta )   ! Identical for z* co-ords
+         
+            ! FIXME: Are the following assumptions true
+            inv_cart_thick(jk)       = 1.0_wp/patch_3d%p_patch_1d(1)%del_zlev_m(jk)
+            inv_cart_center_dist(jk) = 1.0_wp/patch_3d%p_patch_1d(1)%del_zlev_i(jk)
+
         END DO
 
         DO jk=1,bottom_level
@@ -717,15 +718,13 @@ CONTAINS
               b(jk) = - a(jk) - c(jk)
             END DO
             ! bottom
-            a(bottom_level) = -A_v(jc,bottom_level,jb) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+            a(bottom_level) = -A_v(jc,bottom_level,jb) * &
+                & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
             b(bottom_level) = - 2.*a(bottom_level)
             c(bottom_level) = 0.0_wp
     
-            ! precondition: set diagonal equal to diagonal_product
-            diagonal_product = PRODUCT(b(1:bottom_level))
-    
             DO jk = 1, bottom_level
-               column_tracer(jk) = field_column(jc,jk,jb)* A_v(jc,bottom_level,jb) * inv_prism_thickness(jk) 
+               column_tracer(jk) = field_column(jc,jk,jb)* A_v(jc,bottom_level,jb) 
             ENDDO
 
         CASE (2)
@@ -749,7 +748,8 @@ CONTAINS
               b(jk) = dt_mod - a(jk) - c(jk)
             END DO
             ! bottom
-            a(bottom_level) = -A_v(jc,bottom_level,jb) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+            a(bottom_level) = -A_v(jc,bottom_level,jb) * &
+                & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
             b(bottom_level) = dt_mod - a(bottom_level)
             c(bottom_level) = 0.0_wp
     
@@ -767,24 +767,64 @@ CONTAINS
             ! b is diagonal, a is the lower diagonal, c is the upper
             !   top level
             a(1) = 0.0_wp
-            c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+            c(1) = -A_v(jc,2,jb) * inv_stretch_z_i(1) * inv_cart_thick(1) &
+                & * inv_stretch_z_m(2) * inv_cart_center_dist(2)
             b(1) = - 2.*c(1)
             DO jk = 2, bottom_level-1
-              a(jk) = - A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
-              c(jk) = - A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
+              a(jk) = - A_v(jc,jk,jb)    * inv_stretch_z_i(jk) * inv_cart_thick(jk) &
+                 & * inv_stretch_z_m(jk) * inv_cart_center_dist(jk)
+              c(jk) = - A_v(jc,jk+1,jb)  * inv_stretch_z_i(jk) * inv_cart_thick(jk) &
+                 & * inv_stretch_z_m(jk+ 1) * inv_cart_center_dist(jk+1)
               b(jk) = - a(jk) - c(jk)
             END DO
             ! bottom
-            a(bottom_level) = -A_v(jc,bottom_level,jb) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+            a(bottom_level) = -A_v(jc,bottom_level,jb) *inv_stretch_z_i(bottom_level) &
+                & * inv_cart_thick(bottom_level) * inv_stretch_z_m(bottom_level ) &
+                & * inv_cart_center_dist(bottom_level)
             b(bottom_level) = - 2.*a(bottom_level)
             c(bottom_level) = 0.0_wp
     
-            ! precondition: set diagonal equal to diagonal_product
-            diagonal_product = PRODUCT(b(1:bottom_level))
+            DO jk = 1, bottom_level
+               column_tracer(jk) = field_column(jc,jk,jb)* A_v(jc,bottom_level,jb)  
+            ENDDO
+
+        CASE (4)
+        !------------------------------------
+        ! Test d2q/dz2 = f/dt
+        ! With stretched grid 
+        !------------------------------------
+            dt_mod = 1.0_wp*dt_inv 
+            mu     = 0.001
+
+            !------------------------------------
+            ! Fill triangular matrix
+            ! b is diagonal, a is the lower diagonal, c is the upper
+            !   top level
+            a(1) = 0.0_wp
+            c(1) = -A_v(jc,2,jb) * inv_stretch_z_i(1) * inv_cart_thick(1) &
+                & * inv_stretch_z_m(2) * inv_cart_center_dist(2)
+            b(1) = dt_mod - c(1)
+            DO jk = 2, bottom_level-1
+              a(jk) = - A_v(jc,jk,jb)    * inv_stretch_z_i(jk) * inv_cart_thick(jk) &
+                 & * inv_stretch_z_m(jk) * inv_cart_center_dist(jk)
+              c(jk) = - A_v(jc,jk+1,jb)  * inv_stretch_z_i(jk) * inv_cart_thick(jk) &
+                 & * inv_stretch_z_m(jk+ 1) * inv_cart_center_dist(jk+1)
+
+              b(jk) = dt_mod - a(jk) - c(jk)
+            END DO
+            ! bottom
+
+            a(bottom_level) = -A_v(jc,bottom_level,jb) *inv_stretch_z_i(bottom_level) &
+                & * inv_cart_thick(bottom_level) * inv_stretch_z_m(bottom_level ) &
+                & * inv_cart_center_dist(bottom_level)
+
+            b(bottom_level) = dt_mod - a(bottom_level)
+            c(bottom_level) = 0.0_wp
     
             DO jk = 1, bottom_level
-               column_tracer(jk) = field_column(jc,jk,jb)* A_v(jc,bottom_level,jb) * inv_prism_thickness(jk) 
+               column_tracer(jk) = field_column(jc,jk,jb) * dt_mod 
             ENDDO
+
 
 
         END SELECT 
