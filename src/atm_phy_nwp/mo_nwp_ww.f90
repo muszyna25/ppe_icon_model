@@ -132,7 +132,7 @@ CONTAINS
 !   The following values are calculated as height difference between the height of the pressure level
 !   and the height of 1000 hPa for a US standard atmosphere; h_1000hPa=110.88 m
     REAL(wp), PARAMETER :: h_500hPa = 5463.56_wp    ! height of 500 hPa level
-    REAL(wp), PARAMETER :: h_700hPa = 2091.30_wp    ! height of 700 hPa level
+    REAL(wp), PARAMETER :: h_700hPa = 2901.30_wp    ! height of 700 hPa level
     REAL(wp), PARAMETER :: h_850hPa = 1346.42_wp    ! height of 850 hPa level
     REAL(wp), PARAMETER :: h_950hPa =  429.46_wp    ! height of 950 hPa level
 !   The followin heights are used to calculate a fox index
