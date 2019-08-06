@@ -1990,8 +1990,10 @@ n\_dom$>$1
 
 %\hline
 lredgrid\_phys &
-L & .FALSE.& &
-If set to .true. radiation is calculated on a reduced grid (= one grid level higher) &
+L(n\_dom) & .FALSE.& &
+If set to .true. radiation is calculated on a reduced grid (= one grid level higher) \\
+Needs to be set for each model domain separately; for the global domain, the file containing the 
+reduced grid must be specified in the variable ``radiation\_grid\_filename" &
 \tabularnewline
 
 %\hline
@@ -2006,27 +2008,22 @@ May contain the keyword \texttt{<path>} which will be substituted by
 \textbf{dynamics\_parent\_ grid\_id} &
 I(n\_dom) & $i-1$& &
 Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates no parent. &
+Indexes start at 1, an index of 0 indicates no parent.
+%
+Specification of this namelist parameter is only required if more than
+one domain is in use \emph{and} the grid files are rather old
+s.t. they do not contain a UUID attribute.
+ &
 \tabularnewline
 
 %\hline
 \textbf{radiation\_grid\_ filename} &
 C & & &
-Array of the grid filenames to be used for the radiation model.
+Grid filename to be used for the radiation model on the coarsest grid.
 Filled only if the radiation grid is different from the dycore grid.
 May contain the keyword \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}.
 & lredgrid\_phys=.TRUE.
-\tabularnewline
-
-%\hline
-\textbf{dynamics\_radiation\_g rid\_link} &
-I(n\_dom) & 1 for i=1 & &
-Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
-and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
-for each entry of the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
-Only needs to be filled when the radiation\_grid\_filename is defined. &
 \tabularnewline
 
 %\hline
@@ -3113,7 +3110,8 @@ Available for synchronous read mode (num\_prefetch\_proc = 0) only!
 R &
 10800.0& s
 &
-Time difference between two consecutive boundary data.
+Time difference between two consecutive boundary data. 
+(Upper bound for asynchronous read-in: 1 day = 86400 s.)
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -3746,6 +3744,8 @@ current running job.&
 % meteogram_output_nml:
 %------------------------------------------------------------------------------
 \subsection{meteogram\_output\_nml}
+
+This namelist is relevant if run\_nml:output=``nml''.\\
 Nearest neighbour 'interpolation' is used for all variables.
 \begin{longtab}
 
@@ -3885,6 +3885,15 @@ Height above which QV is advected with substepping scheme (must be at least as l
 ihadv\_tracer=22, 32, 42 or 52
 \tabularnewline
 
+%\hline
+htop\_tracer\_proc&
+R& 1000000.0& m&
+Height above which physical processes and advection of additional tracer variables are turned off; the default value
+is set to an very high value, i.e. by default this possible restriction is not active.
+This value is taken for all additional tracers in the tracer container with an index equal or greater than iqt;
+it may be overwritten for specific ART tracers by the tag 'htop\_proc' in the XML file when defining the individual
+ART tracers.& tracers with an index $\ge$ iqt
+\tabularnewline
 
 %\hline
 vwind\_offctr&
@@ -4070,10 +4079,10 @@ Defined and used in: \verb+src/namelists/mo_nonhydrostatic_nml.f90+
 \subsection{nudging\_nml}
 
 Parameters for the upper boundary nudging in the limited-area mode 
-(grid\_nml: l\_limited\_area = .TRUE.). For the lateral boundary nudging, 
-please see interpol\_nml and limarea\_nml. 
+(grid\_nml: l\_limited\_area = .TRUE.) or global nudging. 
+For the lateral boundary nudging, please see interpol\_nml and limarea\_nml. 
 The characteristics of the driving data for the nudging can be specified 
-in limarea\_nml. 
+in limarea\_nml.
 
 \begin{longtab}
 
@@ -4083,11 +4092,24 @@ I &
 0 &
   &
 Nudging type: \\
-0: none \\
-1: upper boundary nudging \\
+{\textasteriskcentered} 0: none \\
+{\textasteriskcentered} 1: upper boundary nudging \\
+{\textasteriskcentered} 2: global nudging \\
 Please note: \\
-- nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
-- nudging is applied in primary domian only\\
+{\textbullet} nudge\_type = 1 requires l\_limited\_area = .TRUE. \\
+{\textbullet} nudging is applied in primary domain only \\
+{\textbullet} for global nudging the following settings in limarea\_nml 
+are mandatory: \\
+- itype\_latbc = 1 (time-dependent driving data)\\
+- dtime\_latbc = \ldots \\
+- latbc\_path = "{\ldots}" \\
+- latbc\_boundary\_grid = "{ }"{ }(no boundary grid: driving data have to be available 
+on entire grid)\\
+- latbc\_varnames\_map\_file = "{\ldots}"{ }(e.g., run/dict.latbc), 
+if num\_prefetch\_proc = 1 (asynchronous read-in of driving data) \\
+{\textbullet} defaults and (additional) scopes for global nudging are 
+marked by ($\cdot$)\textsubscript{glbndg}, 
+if a parameter applies to both upper boundary and global nudging \\
 &
 run\_nml:iforcing = 3 (NWP) \\
 ivctype = 2 (SLEVE)
@@ -4096,7 +4118,7 @@ ivctype = 2 (SLEVE)
 %\hline
 max\_nudge\_coeff\_vn&
 R &
-0.04 &
+0.04 (0.016)\textsubscript{glbndg}&
 1  &
 Max. nudging coefficient for the horizontal wind (i.e. the edge-normal wind
 component $v_n$). 
@@ -4106,48 +4128,179 @@ $v_n(t) = v_n^\star(t) + \text{nudge\_coeff\_vn}(z) *
 where $t$ and $z$ denote time and height, respectively, 
 $\overline{v_n}(t)$ is the target wind 
 to nudge to, and $v_n^\star$ is the value before the nudging, 
-the vertical profile of the nudging coefficient reads:\\
+the vertical profile of the coefficient for upper boundary nudging reads:\\
 $\text{nudge\_coeff\_vn}(z) = 
 \text{max\_nudge\_coeff\_vn} * 
 [(z - \text{nudge\_start\_height})/(\text{top\_height} -
   \text{nudge\_start\_height})]^2$,  \\
 for $\text{nudge\_start\_height} \leq z \leq \text{top\_height}$ 
 (see nudge\_start\_height below), 
-and is zero elsewhere. \\
+and is zero elsewhere. 
 The range of validity is 
 $\text{max\_nudge\_coeff\_vn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
 where the lower boundary is mandatory. \\
 &
-nudge\_type > 0
+nudge\_type > 0 \\
+(nudge\_var = "{all}" { or} "...,vn,...")\textsubscript{glbndg}
 \tabularnewline
 
 %\hline
-max\_nudge\_coeff\_$\ldots$\\
-$\ldots$thermdyn&
+max\_nudge\_coeff\_thermdyn &
 R &
-0.075 &
+0.075 (0.03)\textsubscript{glbndg}&
 1  &
 Max. nudging coefficient for the thermodynamic variables 
-selected by limarea\_nml: nudge\_hydro\_pres.
+selected by limarea\_nml: nudge\_hydro\_pres in case of upper boundary 
+nudging and by thermdyn\_type in case of global nudging.
 The range of validity is 
 $\text{max\_nudge\_coeff\_thermdyn} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
-where the lower boundary is mandatory. 
+where the lower boundary is mandatory. \\
 &
-nudge\_type > 0
+nudge\_type > 0 \\
+(nudge\_var = "{all}" { or} "...,thermdyn,...")\textsubscript{glbndg}
 \tabularnewline
 
 %\hline
 nudge\_start\_height&
 R &
-12000 &
+12000 (2000)\textsubscript{glbndg}&
 m &
 Nudging is applied for: \\
-$\text{nudge\_start\_height} \leq z \leq \text{top\_height}$, \\
+$\text{nudge\_start\_height} \leq z \leq \text{top\_height}$ 
+in case of upper boundary nudging and for:\\
+$\text{nudge\_start\_height} \leq z \leq \text{nudge\_end\_height}$ 
+in case of global nudging, 
 where $z$ denotes the nominal height of the grid layer center, 
 and top\_height is the height of the model top 
 (see sleve\_nml). 
+For upper boundary nudging the range of validity is 
+$\text{nudge\_start\_height} \in [0, \text{top\_height}]$, 
+where both boundaries are mandatory. 
+For global nudging a nudge\_start\_height in the range $[0, \text{top\_height}]$ 
+has to satisfy nudge\_start\_height < nudge\_end\_height. 
+Values outside $[0, \text{top\_height}]$ will be interpreted 
+as nudge\_start\_height = 0. \\
 &
 nudge\_type > 0
+\tabularnewline
+
+%\hline
+max\_nudge\_coeff\_qv&
+R &
+0.008&
+1  &
+Max. nudging coefficient for water vapor.
+The range of validity is 
+$\text{max\_nudge\_coeff\_qv} \in [0, \sim 1/\text{ndyn\_substeps}]$, 
+where the lower boundary is mandatory. 
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_var = "{all}" { or} "...,qv,..."
+\tabularnewline
+
+%\hline
+nudge\_end\_height&
+R &
+40000&
+m &
+Nudging is applied for: \\
+$\text{nudge\_start\_height} \leq z \leq \text{nudge\_end\_height}$, 
+where $z$ denotes the nominal height of the grid layer center. 
+A nudge\_end\_height in the range $[0, \text{top\_height}]$ 
+has to satisfy nudge\_start\_height < nudge\_end\_height. 
+Values outside $[0, \text{top\_height}]$ will be interpreted 
+as nudge\_start\_height = top\_height. 
+(For global nudging only.) \\
+&
+nudge\_type = 2
+\tabularnewline
+
+%\hline
+nudge\_profile&
+I &
+4 &
+  &
+Vertical profile of the nudging coefficient (nudging strength) 
+between nudge\_start\_height and nudge\_end\_height:\\ 
+{\textasteriskcentered} 1: squared scaled vertical distance from nudge\_start\_height 
+(this is the profile used for upper boundary nudging)\\
+{\textasteriskcentered} 2: constant profile\\
+{\textasteriskcentered} 3: hyperbolic tangent profile\\
+{\textasteriskcentered} 4: trapezoidal profile\\
+The profile values range from 0 to 1. A multiplication with 
+max\_nudge\_coeff\_vn/thermdyn/qv and ndyn\_substeps 
+yields the final value of the nudging coefficient.
+(For global nudging only.) \\
+&
+nudge\_type = 2
+\tabularnewline
+
+%\hline
+nudge\_scale\_height&
+R &
+3000&
+m &
+Scale height of nudging profile.
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_profile = 3 {or} 4
+\tabularnewline
+
+%\hline 
+nudge\_var&
+C &
+"{all}"&
+ &
+Select the variables that shall be nudged:\\
+{\textasteriskcentered} "vn": horizontal wind\\
+{\textasteriskcentered} "thermdyn": thermodynamic variables\\
+{\textasteriskcentered} "qv": water vapor\\
+{\textasteriskcentered} comma-separated list: e.g., "vn,thermdyn"\\
+{\textasteriskcentered} "{all}": all available variables (i.e. equivalent to "vn,thermdyn,qv")\\
+Please note that the nudging of water vapor requires ltransport = .TRUE. 
+(For global nudging only.) \\
+&
+nudge\_type = 2 
+\tabularnewline
+
+%\hline
+thermdyn\_type&
+I &
+1&
+ &
+Set of variables used to compute the thermodynamic nudging increments: \\
+{\textasteriskcentered} 1: hydrostatic set (pressure and temperature)\\
+{\textasteriskcentered} 2: non-hydrostatic set (density and virtual potential temperature)\\
+(For global nudging only.) \\
+&
+nudge\_type = 2 \\
+nudge\_var = "{all}" { or} "...,thermdyn,..."
+\tabularnewline
+
+%\hline
+idiagnose&
+I &
+-1 &
+ &
+Switch for nudging diagnostics:\\
+{\textasteriskcentered} $\leq$ 0: switched off\\
+{\textasteriskcentered} $>$ 0: each (idiagnose * dtime) time diagnostics are computed 
+and written to the ASCII file ``nudging\_diagnostics.txt''.\\
+The nudging diagnostics are:\\
+{\textbullet} correlation between the mean sea-level pressure from ICON 
+on the one hand and from the driving model on the other hand (a measure for 
+the nudging success)\\
+{\textbullet} global mean of the absolute horizontal wind divergence 
+(a measure for the nudging impact on the atmospheric ``noise'' 
+or the gravity wave activity, depending on the perspective)\\
+{\textbullet} global mean of the absolute 
+surface pressure time tendency (a further measure for the nudging impact)\\
+(For global nudging only.)
+&
+nudge\_type = 2 \\
+msg\_level >= 11
 \tabularnewline
 
 \end{longtab}
@@ -4329,7 +4482,8 @@ radiation\\
 0: none\\
 1: RRTM radiation\\
 2: Ritter-Geleyn radiation\\
-3: PSRAD radiation
+3: PSRAD radiation\\
+4: ecRad radiation
 &run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -4718,6 +4872,15 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+tune\_thicklayfac&
+R&
+0.005&
+1/m &
+Factor for enhancing the box width for model layer thicknesses exceeding 150 m &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 tune\_box\_liq\_asy&
 R&
 2.5&
@@ -4726,6 +4889,15 @@ Asymmetry factor for liquid cloud cover diagnostic&
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
+\hline
+tune\_sgsclifac&
+R&
+0.0 &
+ &
+Scaling factor for parameterization of subgrid-scale (turbulence-induced) cloud ice 
+(values $>$ 0 not recommended for global configurations with RRTM radiation) &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
 
 \hline
 lcalib\_clcov&
@@ -4742,6 +4914,15 @@ run\_nml:iforcing = inwp
 \multicolumn{6}{|l|}{\textbf{Misc}} 
 \tabularnewline
 
+
+\hline
+tune\_gust\_factor&
+R&
+8.0&
+&
+Multiplicative factor for friction velocity in gust parameterization &
+run\_nml:iforcing = inwp
+\tabularnewline
 
 
 \hline
@@ -5134,7 +5315,8 @@ remap=1
 \textbf{steps\_per\_file }&
 I&-1& &
  Max number of output steps in one output file. If this number is reached, a new output
- file will be opened.
+ file will be opened. Setting steps\_per\_file to 1 enforces a flush when writing is completed, so that the
+ file is immediately accessible for reading.
 &
 \tabularnewline
 
@@ -5775,10 +5957,12 @@ Method for cloud overlap calculation in shortwave part of RRTM\\
 1: maximum-random overlap \\
 2: generalized overlap (Hogan, Illingworth, 2000) \\
 3: maximum overlap \\
-4: random overlap
+4: random overlap \\
+5: exponential overlap
 &
 iforcing=inwp\\
-inwp\_radiation=1
+inwp\_radiation=1 (1-4)\\
+inwp\_radiation=4 (1,2,5)
 \tabularnewline
 
 %\hline
@@ -5895,6 +6079,46 @@ I&
 Select dynamic greenhouse gases scenario (read from file)\\
 0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
 1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
+\tabularnewline
+
+%\hline
+ecrad\_data\_path &
+C&
+"."&
+&
+Path to the folder containing ecRad optical properties files. 
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+llw\_cloud\_scat &
+L&
+.FALSE.&
+&
+Long-wave cloud scattering.
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+iliquid\_scat &
+I&
+0&
+&
+Optical properties for liquid cloud scattering. \\
+0: SOCRATES \\
+1: Slingo (1989)
+& inwp\_radiation=4 (ecRad)
+\tabularnewline
+
+%\hline
+iice\_scat &
+I&
+0&
+&
+Optical properties for ice cloud scattering. \\
+0: Fu et al. (1996) \\
+1: Baran et al. (2016)
+& inwp\_radiation=4 (ecRad)
 \tabularnewline
 
 %\hline
@@ -6357,15 +6581,47 @@ Subcycling means that the integration from time step n to n+1 is splitted into s
 For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see nonhydrostatic\_nml/hbot\_qvsubstep).
 & \tabularnewline
 
-
 %\hline
-ivadv\_tracer&
+\textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
 & & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 3: Piecewise parabolic method (PPM): handles $\mathrm{CFL}>1$ & \tabularnewline
-& & & & 4: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+& & & & 4: Parabolic Spline Method (PSM): (handles $\mathrm{CFL}>1$)& \tabularnewline
+& & & & 5: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+
+
+%\hline
+\textbf{itype\_hlimit}&
+I(ntracer)&
+4& & Type of limiter for horizontal transport:& \tabularnewline
+& & & & 0: no limiter& \tabularnewline
+& & & & 3: monotonic flux limiter (FCT)& \tabularnewline
+& & & & 4: positive definite flux limiter& \tabularnewline
+
+%\hline
+\textbf{itype\_vlimit}&
+I(ntracer)&
+1& & Type of limiter for vertical transport:& \tabularnewline
+& & & & 0: no limiter& \tabularnewline
+& & & & 1: semi-monotonic reconstruction filter& \tabularnewline
+& & & & 2: monotonic reconstruction filter& \tabularnewline
+& & & & 3: positive definite flux limiter& \tabularnewline
+
+%\hline
+\textbf{ivlimit\_selective}&
+I(ntracer)&
+0& & Reduce detrimental effect of vertical limiter by applying a method for identifying and avoiding spurious limiting of smooth extrema.& \tabularnewline
+& & & & 1: on& itype\_vlimit=1, 2 \tabularnewline
+& & & & 0: off& \tabularnewline
+
+%\hline
+beta\_fct&
+R& 1.005& & global boost factor for range of permissible values $\left[q_{max},q_{min}\right]$ in (semi-) monotonic flux limiter. A value larger 
+than 1 allows for (small) over and undershoots, while a value of $1$ gives strict monotonicity (at the price of increased diffusivity). & 
+itype\_hlimit = 3, 4
+\tabularnewline
 
 %\hline
 iadv\_tke& 
@@ -6379,8 +6635,8 @@ I&
 %\hline
 lstrang &
 L& .FALSE.& & Time splitting method & \tabularnewline
-& & & & TRUE: second order Strang splitting & \tabularnewline
 & & & & FALSE: first order Godunov splitting & \tabularnewline
+& & & & TRUE: second order Strang splitting & \tabularnewline
 
 %\hline
 tracer\_names&
@@ -6395,36 +6651,12 @@ packages are switched on. & iforcing$\ne$ inwp, iecham'
 npassive\_tracer&
 I& 0 & & number of additional passive tracers which have no sources and are transparent to any physical process (no effect).\\ 
 Passive tracers are named Qpassive\_ID, where ID is a number between \texttt{ntracer} and \texttt{ntracer}$+$\texttt{npassive\_tracer}.\\ 
-\textbf{NOTE:} By default, limiters are switched of for passive tracers and the scheme $52$ is selected for horizontal advection. & 
+\textbf{NOTE:} By default, limiters are switched off for passive tracers and the scheme $52$ is selected for horizontal advection. & 
 \tabularnewline
 
 %\hline
 init\_formula&
 C& ' ' & & Comma-separated list of initialization formulas for additional passive tracers. & npassive\_tracer > 0
-\tabularnewline
-
-%\hline
-\textbf{itype\_hlimit}&
-I(ntracer)&
-4& & Type of limiter for horizontal transport:& \tabularnewline
-& & & & 0: no limiter& \tabularnewline
-& & & & 3: monotonous flux limiter& \tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-%\hline
-\textbf{itype\_vlimit}&
-I(ntracer)&
-1& & Type of limiter for vertical transport:& \tabularnewline
-& & & & 0: no limiter& \tabularnewline
-& & & & 1: semi-monotone slope limiter& \tabularnewline
-& & & & 2: monotonous slope limiter& \tabularnewline
-& & & & 4: positive definite flux limiter& \tabularnewline
-
-
-%\hline
-beta\_fct&
-R& 1.005& & factor of allowed over-/undershooting in monotonous limiter & 
-itype\_hlimit = 3
 \tabularnewline
 
 %\hline
@@ -6444,8 +6676,8 @@ I& 1& & Method for gradient reconstruction at cell center for 2nd order miura sc
 %\hline
 ivcfl\_max&
 I& 5& &
-determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
-ivadv\_tracer=3
+determines stability range of vertical PPM/PSM-scheme in terms of the maximum allowable CFL-number&
+ivadv\_tracer=3,4
 \tabularnewline
 
 %\hline
@@ -7956,7 +8188,7 @@ shall be output. Currently available variables are: \\
 \item "rho": density perturbation
 \item "pres": pressure perturbation
 \end{itemize}
-Requirements: the fields "extra\_3d1" and "extra\_3d2" will contain the numerical 
+Requirements: the fields "{extra}\_3d1"{ a}nd "{extra}\_3d2"{ w}ill contain the numerical 
 and the analytical solutions, respectively. 
 Both have to be added to the ml\_varlist of the output\_nml of your choice 
 in combination with inextra\_3d = 2.

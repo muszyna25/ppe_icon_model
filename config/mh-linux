@@ -696,7 +696,8 @@ case "$ac_sitename" in
                 make_command=make -j 8
                 case "$fortran_compiler" in
                     cray)
-                      load_modules    = cray-netcdf cray-hdf5
+                      load_modules      = cray-netcdf cray-hdf5
+                      ignore_if_loaded  = cray-netcdf cray-hdf5
 		      #	Add "eccodes" GRIB library, if nothing else has been
 		      # set.  Note that we use an intermediate variable
 		      # "dwd_gribapi_env"! Since mh-linux is processed twice

@@ -53,6 +53,8 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_minsnowfrac
   PUBLIC :: tune_box_liq
   PUBLIC :: tune_box_liq_asy
+  PUBLIC :: tune_thicklayfac
+  PUBLIC :: tune_sgsclifac
   PUBLIC :: tune_dust_abs
   PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
@@ -145,8 +147,14 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Factor for increasing the box width in case of thick model layers
+    &  tune_thicklayfac            ! (in case of inwp_cldcover = 1)
+
   REAL(wp) :: &                    !< Asymmetry factor liquid cloud parameterization
     &  tune_box_liq_asy            ! (in case of inwp_cldcover = 1)
+
+  REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
+    &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
 
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !

@@ -787,11 +787,12 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
 
-    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
-    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
-    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
+    REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -803,6 +804,7 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
+    LOGICAL  :: l_opt_dpsdt_avg
   !-------------------------------------------------------------------------
 
     rl_start = grf_bdywidth_c+1
@@ -817,6 +819,12 @@ CONTAINS
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+
+    l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
+    ! Please note: only the stdio-process will return with a reasonable value 
+    ! for opt_dpsdt_avg from this subroutine!
+    ! So, if required, you have to broadcast opt_dpsdt_avg yourself afterwards!
+    IF (l_opt_dpsdt_avg) opt_dpsdt_avg = -999._wp ! (means missing value; reasonable values should be >0)
 
 
 
@@ -863,6 +871,7 @@ CONTAINS
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
           CALL message('nwp_nh_interface: ', TRIM(message_text))
        ENDIF
+        IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level

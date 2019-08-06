@@ -32,7 +32,7 @@ MODULE mo_name_list_output_init
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,      &
                                                 & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,  &
                                                 & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, GRID_ZONAL, vlistDefVarDblKey, &
-                                                & gridDefProj, GRID_PROJECTION
+                                                & gridDefProj, GRID_PROJECTION, GRID_CURVILINEAR
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -69,6 +69,7 @@ MODULE mo_name_list_output_init
   USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
+  USE mo_math_constants,                    ONLY: rad2deg
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
        use_dp_mpi2io, pio_type
@@ -123,7 +124,8 @@ MODULE mo_name_list_output_init
     &                                             level_type_il
   ! lon-lat interpolation
   USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
-    &                                             compute_lonlat_specs, threshold_delta_or_intvls
+    &                                             compute_lonlat_specs, threshold_delta_or_intvls,&
+    &                                             rotate_latlon_grid
   USE mo_intp_lonlat_types,                 ONLY: t_lon_lat_intp, t_lon_lat_data, lonlat_grids
   ! output events
   USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
@@ -2469,11 +2471,15 @@ CONTAINS
     REAL(wp), PARAMETER               :: pi_180 = ATAN(1._wp)/45._wp
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
       &                                  cdiInstID
-    INTEGER                           :: i, cdi_grid_ids(3), nvert
+    INTEGER                           :: i, cdi_grid_ids(3), nvert, errstat, &
+      &                                  cdiLonLatGridID, curvilinearGridID
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
     CHARACTER(len=128)                :: comment
     LOGICAL                           :: lrotated
+    REAL(wp), ALLOCATABLE             :: rotated_pts(:,:,:)
+    TYPE (t_lon_lat_grid), POINTER :: grid
+
 #ifdef HAVE_CDI_PIO
     TYPE(xt_idxlist)                  :: null_idxlist
     INTEGER                           :: grid_deco_part(2)
@@ -2549,25 +2555,24 @@ CONTAINS
       &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL )
 
       IF (.NOT. lrotated) THEN
-        gridtype = GRID_LONLAT
+        cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim1*ll_dim2)
+        of%cdiLonLatGridID = cdiLonLatGridID
       ELSE
-        gridtype = GRID_PROJECTION
-      END IF
+        cdiLonLatGridID   = gridCreate(GRID_PROJECTION, ll_dim1*ll_dim2)
+        curvilinearGridID = gridCreate(GRID_CURVILINEAR, ll_dim1*ll_dim2)
+        of%cdiLonLatGridID = curvilinearGridID
 
-      of%cdiLonLatGridID = gridCreate(gridtype, ll_dim1*ll_dim2)
-
-      IF (lrotated) THEN
-        CALL gridDefParamRLL(of%cdiLonLatGridID, lonlat%grid%north_pole(1), &
+        CALL gridDefParamRLL(cdiLonLatGridID, lonlat%grid%north_pole(1), &
           &                  lonlat%grid%north_pole(2), lonlat%grid%north_pole(1))
       END IF
 
-      CALL gridDefXsize(of%cdiLonLatGridID, ll_dim1)
-      CALL gridDefXname(of%cdiLonLatGridID, 'lon')
-      CALL gridDefXunits(of%cdiLonLatGridID, 'degrees_east')
+      CALL gridDefXsize(cdiLonLatGridID, ll_dim1)
+      CALL gridDefXname(cdiLonLatGridID, 'lon')
+      CALL gridDefXunits(cdiLonLatGridID, 'degrees_east')
 
-      CALL gridDefYsize(of%cdiLonLatGridID, ll_dim2)
-      CALL gridDefYname(of%cdiLonLatGridID, 'lat')
-      CALL gridDefYunits(of%cdiLonLatGridID, 'degrees_north')
+      CALL gridDefYsize(cdiLonLatGridID, ll_dim2)
+      CALL gridDefYname(cdiLonLatGridID, 'lat')
+      CALL gridDefYunits(cdiLonLatGridID, 'degrees_north')
 
       ALLOCATE(p_lonlat(ll_dim1))
       IF (lonlat%grid%reg_lon_def(2) <= threshold_delta_or_intvls) THEN
@@ -2579,7 +2584,7 @@ CONTAINS
           p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
         END DO
       END IF
-      CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
+      CALL gridDefXvals(cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim2))
@@ -2592,8 +2597,33 @@ CONTAINS
           p_lonlat(k) = (lonlat%grid%start_corner(2) + REAL(k-1,wp)*lonlat%grid%delta(2)) / pi_180
         END DO
       END IF
-      CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
+      CALL gridDefYvals(cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
+
+      IF (lrotated) THEN
+
+        grid => lonlat%grid
+        ! compute some entries of lon-lat grid specification:
+        CALL compute_lonlat_specs(grid)
+        ALLOCATE(rotated_pts(grid%lon_dim, grid%lat_dim, 2), stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
+        ! compute grid points of rotated lon/lat grid
+        CALL rotate_latlon_grid(grid, rotated_pts)
+
+        CALL gridDefXsize(curvilinearGridID, ll_dim1)
+        CALL gridDefYsize(curvilinearGridID, ll_dim2)
+        CALL gridDefXvals(curvilinearGridID, rotated_pts(:,:,1) * rad2deg)
+        CALL gridDefYvals(curvilinearGridID, rotated_pts(:,:,2) * rad2deg)
+        CALL gridDefXname(curvilinearGridID, 'lon')
+        CALL gridDefYname(curvilinearGridID, 'lat')
+        CALL gridDefProj(curvilinearGridID, cdiLonLatGridID)
+
+        ! clean up
+        DEALLOCATE(rotated_pts, stat=errstat)
+        IF (errstat /= SUCCESS) CALL finish(routine, 'DEALLOCATE failed!')
+
+      END IF
+
 #endif
 ! #ifndef __NO_ICON_ATMO__
     ELSE

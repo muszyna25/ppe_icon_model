@@ -24,11 +24,11 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg, ntracer
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, kstart_tracer
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
@@ -630,7 +630,7 @@ MODULE mo_initicon_utils
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: jg, jb, jk, jc, je, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -666,7 +666,7 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -731,6 +731,26 @@ MODULE mo_initicon_utils
           ENDDO
         ENDDO
 
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm%tracer(idx)%var_element%info%ncontained
+            ! above kstart_tracer(jg,itracer): set to zero
+            DO jk = 1, kstart_tracer(jg,itracer)-1
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) = 0.0_wp
+              ENDDO
+            ENDDO
+            ! at and below kstart_tracer(jg,itracer): copy from initicon%atm
+            DO jk = kstart_tracer(jg,itracer), nlev
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) =  &
+                  &  initicon(jg)%atm%tracer(idx)%field(jc,jk,jb)
+              ENDDO
+            ENDDO
+          END IF
+        ENDDO
+
         ! w at surface level
         DO jc = 1, nlen
           p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)      = initicon(jg)%atm%w(jc,nlevp1,jb)
@@ -788,7 +808,7 @@ MODULE mo_initicon_utils
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_fg2initicon"
-    INTEGER :: jg, jb, jk, jc, je, ierrstat
+    INTEGER :: jg, jb, jk, jc, je, ierrstat, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
     REAL(wp), ALLOCATABLE :: w_ifc(:,:,:), tke_ifc(:,:,:)
 
@@ -832,7 +852,7 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -858,6 +878,19 @@ MODULE mo_initicon_utils
             initicon(jg)%atm_in%qr(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr)
             initicon(jg)%atm_in%qs(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs)
           ENDDO
+        ENDDO
+
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm_in%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm_in%tracer(idx)%var_element%info%ncontained
+            DO jk = 1, nlev
+              DO jc = 1, nlen
+                initicon(jg)%atm_in%tracer(idx)%field(jc,jk,jb) =  &
+                  &  p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer)
+              ENDDO
+            ENDDO
+          END IF
         ENDDO
 
         ! w and TKE at surface level

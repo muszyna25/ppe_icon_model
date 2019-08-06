@@ -309,7 +309,7 @@ CONTAINS
     CASE (CLASS_DISTR)
       productDefinitionTemplate = 57
     CASE (CLASS_DISTR_STAT)
-      productDefinitionTemplate = 40067  ! FIXME (temporary, see also mo_art_diag_state.f90)
+      productDefinitionTemplate = 67
     CASE DEFAULT
       ! skip inapplicable fields
       RETURN

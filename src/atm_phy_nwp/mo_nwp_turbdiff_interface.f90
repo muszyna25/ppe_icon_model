@@ -44,9 +44,9 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
   USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqi, iqnc, iqni, iqtke, &
-    &                                  iqs, iqns, iqtvar
+    &                                  iqs, iqns, iqtvar, lart
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,  ONLY: kstart_moist
+  USE mo_nonhydrostatic_config,  ONLY: kstart_moist, kstart_tracer
   USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, nmvar, ndim
   USE turb_diffusion,            ONLY: turbdiff
   USE turb_vertdiff,             ONLY: vertdiff
@@ -135,9 +135,11 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
 
-  INTEGER :: ncloud_offset                  !< offset for ptr-indexing in ART 
-                                            !< interface due to additionally 
-                                            !< diffused cloud fields
+  INTEGER :: ncloud_offset                       !< offset for ptr-indexing in ART
+                                                 !< interface due to additionally
+                                                 !< diffused cloud fields
+  INTEGER, ALLOCATABLE :: idx_nturb_tracer(:)    !< indices of the turbulent tracers in the prognostic list
+
   LOGICAL  :: ltwomoment                    !< using 2mom microphysics?
   REAL(wp), TARGET      :: & 
     &  ddt_turb_qnc(nproma,p_patch%nlev), & !< tendency field for qnc
@@ -196,6 +198,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+  IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+     ALLOCATE(idx_nturb_tracer(art_config(jg)%nturb_tracer))
+  END IF
 
   ! logical for SB two-moment scheme
   ltwomoment = .FALSE.
@@ -337,13 +343,15 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ENDIF ! ltwomoment
       ENDIF ! turbdiff_config(jg)%ldiff_qs
 
-      CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
-        &                          ncloud_offset=ncloud_offset,                     &
-        &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
-        &                          p_rho=p_prog%rho(:,:,:),                         &
-        &                          p_metrics=p_metrics,                             &
-        &                          p_diag=p_diag, prm_diag=prm_diag,                &
-        &                          jb=jb )
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+         CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+           &                          ncloud_offset=ncloud_offset,                     &
+           &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
+           &                          p_rho=p_prog%rho(:,:,:),                         &
+           &                          p_metrics=p_metrics,                             &
+           &                          p_diag=p_diag, prm_diag=prm_diag,                &
+           &                          jb=jb, idx_nturb_tracer=idx_nturb_tracer )
+      ENDIF
 
       !should be dependent on location in future!
       l_hori(i_startidx:i_endidx)=phy_params(jg)%mean_charlen
@@ -435,6 +443,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  nvec=nproma,                                           & !in
         &  ke=nlev, ke1=nlevp1,                                   & !in
         &  kcm=nlevcm, iblock=jb,                                 & !in
+        &  kstart_tracer=kstart_tracer(jg,:),                     & !in start index for vertical diffusion of art tracers
         &  ivstart=i_startidx, ivend=i_endidx,                    & !in
         &  hhl       = p_metrics%z_ifc(:,:,jb),                   & !in
         &  zvari     = zvari(:,:,:),                              & !out
@@ -452,7 +461,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  epr       = p_prog%exner(:,:,jb),                      & !in
         &  impl_weight=turbdiff_config(jg)%impl_weight,           & !in
         &  ptr       = ptr(:),                                    & !inout
-        &  ndtr      = art_config(jg)%nturb_tracer,               & !in: diffusion of additional tracer variables!
+        &  ndtr      = art_config(jg)%nturb_tracer+ncloud_offset, & !in: diffusion of additional tracer variables!
+        &  ncloud_offset =    ncloud_offset,                      & !in
+        &  idx_nturb_tracer = idx_nturb_tracer,                   & !in
         &  tvm       = prm_diag%tvm(:,jb),                        & !inout
         &  tvh       = prm_diag%tvh(:,jb),                        & !inout
         &  tkvm      = prm_diag%tkvm(:,:,jb),                     & !inout
@@ -504,11 +515,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * alv
       END IF
 
-      CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
-        &                          ncloud_offset=ncloud_offset,                      &
-        &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
-        &                          i_st=i_startidx, i_en=i_endidx )
-
+      IF ( lart .AND. art_config(jg)%nturb_tracer > 0 ) THEN
+         CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+           &                          ncloud_offset=ncloud_offset,                      &
+           &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
+           &                          i_st=i_startidx, i_en=i_endidx )
+      ENDIF
 
       IF (ierrstat.NE.0) THEN
         CALL finish(eroutine, errormsg)

@@ -154,8 +154,8 @@ CONTAINS
   SUBROUTINE configure_gribout(grid_generatingCenter, grid_generatingSubcenter, &
     &                          n_dom)
   !
-    INTEGER,       INTENT(IN)  :: grid_generatingCenter(:)
-    INTEGER,       INTENT(IN)  :: grid_generatingSubcenter(:)
+    INTEGER,       INTENT(IN)  :: grid_generatingCenter(0:)
+    INTEGER,       INTENT(IN)  :: grid_generatingSubcenter(0:)
     INTEGER,       INTENT(IN)  :: n_dom
 
     ! local fields

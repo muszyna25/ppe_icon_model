@@ -716,7 +716,7 @@ CONTAINS
          &                     tlev_source, vert_interp,                       &
          &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op, action_list,      &
-         &                     var_class, data_type)
+         &                     var_class, data_type, idx_tracer, idx_diag)    
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -744,6 +744,8 @@ CONTAINS
     TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
     INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
     !
     LOGICAL :: lverbose
     !
@@ -807,6 +809,10 @@ CONTAINS
     CALL struct_assign_if_present (info%post_op, post_op)
 
     CALL struct_assign_if_present (info%action_list, action_list)
+
+    ! indices of tracer in tracer container and in diagnostic container
+    CALL assign_if_present (info%idx_tracer, idx_tracer)
+    CALL assign_if_present (info%idx_diag, idx_diag)
 
     !
     ! printout (optional)
@@ -2828,7 +2834,8 @@ CONTAINS
        &                                 resetval, lmiss, missval, tlev_source, tracer_info,     &
        &                                 info, vert_interp, hor_interp, in_group,                &
        &                                 verbose, new_element, l_pp_scheduler_task,              &
-       &                                 post_op, action_list, opt_var_ref_pos, var_class)
+       &                                 post_op, action_list, opt_var_ref_pos, var_class,       &
+       &                                 idx_tracer, idx_diag) 
 
     TYPE(t_var_list),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
@@ -2861,6 +2868,9 @@ CONTAINS
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                 !< regularly triggered events
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_var_ref_pos             !< (optional:) position of container index
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                   !< variable type/species
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer                  !< index of tracer in tracer container 
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag                    !< index of tracer in diagnostics container 
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r2d"
     !
@@ -2956,7 +2966,7 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class,      &
-         data_type=REAL_T )
+         data_type=REAL_T, idx_tracer=idx_tracer, idx_diag=idx_diag)     
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)

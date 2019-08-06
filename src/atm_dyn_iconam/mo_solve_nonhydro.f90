@@ -306,8 +306,10 @@ MODULE mo_solve_nonhydro
 
 #ifdef _OPENACC
 ! In validation mode, update all the needed fields on the device
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
-      CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, is_iau_active, p_nh, prep_adv )
+    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
+         CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, &
+         &                        is_iau_active, p_nh, prep_adv )
+       ENDIF
 #endif
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
@@ -2798,9 +2800,10 @@ MODULE mo_solve_nonhydro
             ! Synchronize w and vertical contribution to divergence damping
 #ifdef __MIXED_PRECISION
             CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd, &
-              opt_varname="w_nnew and z_dwdz_dd")
+                 &                        opt_varname="w_nnew and z_dwdz_dd")
 #else
-            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd,opt_varname="w_nnew and z_dwdz_dd")
+            CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd, &
+                 &                     opt_varname="w_nnew and z_dwdz_dd")
 #endif
           ELSE
             ! Only w needs to be synchronized
@@ -2951,9 +2954,10 @@ MODULE mo_solve_nonhydro
 
 #ifdef _OPENACC
 ! In validation mode, update all the output fields on the host
-    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) &
+    IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
       CALL d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
-                               l_child_vertnest, lprep_adv, p_nh, prep_adv )
+           &                   l_child_vertnest, lprep_adv, p_nh, prep_adv )
+    ENDIF
 #endif
 
 !$ACC END DATA
@@ -3077,7 +3081,7 @@ MODULE mo_solve_nonhydro
      END SUBROUTINE h2d_solve_nonhydro
 
      SUBROUTINE d2h_solve_nonhydro( nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method, lsave_mflx, &
-                                    l_child_vertnest, lprep_adv, p_nh, prep_adv )
+          &                         l_child_vertnest, lprep_adv, p_nh, prep_adv )
 
        INTEGER, INTENT(IN)       :: nnew, jstep, jg, idyn_timestep, grf_intmethod_e, idiv_method
        LOGICAL, INTENT(IN)       :: lsave_mflx, l_child_vertnest, lprep_adv

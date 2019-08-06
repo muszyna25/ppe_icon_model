@@ -69,7 +69,6 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config, t_trList
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_fortran_tools,       ONLY: negative2zero
 #ifdef _OPENACC
@@ -245,11 +244,19 @@ CONTAINS
     REAL(vp) ::  &                      !< flux divergence at cell center
       &  z_fluxdiv_c(nproma,p_patch%nlev) 
 
-    REAL(wp), POINTER   &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    , CONTIGUOUS        &
-#endif
-      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_current_tracer(:,:,:,:) => NULL() !< pointer to tracer field
+
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
+                                          !< at cell center
+    REAL(wp), CONTIGUOUS, POINTER ::  &
+      &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
+                                          !< at cell center
+
+    INTEGER, CONTIGUOUS, POINTER ::   &   !< Pointer to line and block indices (array)
+      &  iidx(:,:,:) => NULL(),       &   !< of edges
+      &  iblk(:,:,:) => NULL()
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR)
@@ -258,10 +265,8 @@ CONTAINS
     INTEGER  :: jb, jk, jt, jc, jg, nt            !< loop indices
     INTEGER  :: ikp1                              !< vertical level + 1
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: iadv_slev_jt                      ! Workaround OpenACC limitation
-    INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-      &  iidx, iblk                          !< of edges
 
     TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
     TYPE(t_trList), POINTER :: trNotAdvect   !< Pointer to tracer sublist
@@ -279,7 +284,6 @@ CONTAINS
     ! number of vertical levels
     nlev   = p_patch%nlev
 
-    i_nchdom  = MAX(1,p_patch%n_childdom)
     jg  = p_patch%id
 
     ! precompute modified timestep (timestep multiplied by Strang-splitting
@@ -360,8 +364,8 @@ CONTAINS
         !
         i_rlstart  = 2
         i_rlend    = min_rlcell
-        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%cells%start_block(i_rlstart)
+        i_endblk   = p_patch%cells%end_block(i_rlend)
 
 
         ! calculation of intermediate layer thickness (density)
@@ -408,6 +412,7 @@ CONTAINS
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
+          &              advection_config(jg)%ivlimit_selective,     &! in
           &              advection_config(jg)%iubc_adv,              &! in
           &              advection_config(jg)%iadv_slev(:),          &! in
           &              .TRUE.,                                     &! print CFL number
@@ -484,8 +489,8 @@ CONTAINS
           ! computation to halo points.
           i_rlstart  = 1
           i_rlend    = min_rlcell
-          i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-          i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+          i_startblk = p_patch%cells%start_block(i_rlstart)
+          i_endblk   = p_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -537,8 +542,8 @@ CONTAINS
         i_rlstart  = grf_bdywidth_c-1
         ! Note that delp is needed for the horizontal limiter
         i_rlend    = min_rlcell
-        i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-        i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+        i_startblk = p_patch%cells%start_block(i_rlstart)
+        i_endblk   = p_patch%cells%end_block(i_rlend)
 
 
 !$OMP PARALLEL
@@ -589,11 +594,11 @@ CONTAINS
     i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer,                                &! in
-      &                  ptr_delp_mc_now,                                    &! in
+      &                  ptr_delp_mc_now, ptr_delp_mc_new,                   &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura,                 &! in
-      &                  advection_config(jg)%itype_hlimit,                &! in
+      &                  advection_config(jg)%itype_hlimit,                  &! in
       &                  advection_config(jg)%iadv_slev(:),                  &! in
       &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
@@ -606,8 +611,8 @@ CONTAINS
     !
     i_rlstart  = grf_bdywidth_c+1
     i_rlend    = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block  (i_rlend)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,iadv_slev_jt,jk,jt,jc,nt,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -795,8 +800,8 @@ CONTAINS
 
       i_rlstart  = grf_bdywidth_c+1
       i_rlend    = min_rlcell_int
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
 
       CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
         &              p_mflx_contra_v,                            &! inout
@@ -805,6 +810,7 @@ CONTAINS
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in
+        &              advection_config(jg)%ivlimit_selective,     &! in
         &              advection_config(jg)%iubc_adv,              &! in
         &              advection_config(jg)%iadv_slev(:),          &! in
         &              .FALSE.,                                    &! do not print CFL number
@@ -945,8 +951,8 @@ CONTAINS
 
       i_rlstart = grf_bdywidth_c+1
       i_rlend   = min_rlcell_int
-      i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+      i_startblk = p_patch%cells%start_block(i_rlstart)
+      i_endblk   = p_patch%cells%end_block(i_rlend)
 
 !$OMP DO PRIVATE(jb,jk,jt,jc,nt,iadv_slev_jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
