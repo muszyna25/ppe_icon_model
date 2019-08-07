@@ -2903,91 +2903,92 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !!
   SUBROUTINE allocate_nh_stepping(mtime_current)
-!
-  TYPE(datetime),     POINTER          :: mtime_current     !< current datetime (mtime)
 
-  INTEGER                              :: jg
-  INTEGER                              :: ist
-  CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(datetime),     POINTER          :: mtime_current     !< current datetime (mtime)
 
-!-----------------------------------------------------------------------
+    INTEGER                              :: jg
+    INTEGER                              :: ist
+    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
-  !
-  ! allocate axiliary fields for transport
-  !
-  ALLOCATE(prep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for prep_adv failed' )
-  ENDIF
+    !-----------------------------------------------------------------------
 
-  ALLOCATE(jstep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for jstep_adv failed' )
-  ENDIF
-
-
-  ! allocate flow control variables for transport and slow physics calls
-  ALLOCATE(linit_dyn(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for flow control variables failed' )
-  ENDIF
-  !
-  ! initialize
-  restartAttributes => getAttributesForRestarting()
-  IF (ASSOCIATED(restartAttributes)) THEN
     !
-    ! Get attributes from restart file
-    DO jg = 1,n_dom
-      WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-      ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
-      WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
-    ENDDO
-    linit_dyn(:)      = .FALSE.
-  ELSE
-    jstep_adv(:)%marchuk_order = 0
-    linit_dyn(:)               = .TRUE.
-  ENDIF
-
-  DO jg=1, n_dom
-    ALLOCATE(                                                                      &
-      &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
-      &       STAT=ist )
+    ! allocate axiliary fields for transport
+    !
+    ALLOCATE(prep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',           &
-      &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'topflx_tra failed' )
+        &      'allocation for prep_adv failed' )
+    ENDIF
+
+    ALLOCATE(jstep_adv(n_dom), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( modname//': perform_nh_stepping',           &
+        &      'allocation for jstep_adv failed' )
+    ENDIF
+
+
+    ! allocate flow control variables for transport and slow physics calls
+    ALLOCATE(linit_dyn(n_dom), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( modname//': perform_nh_stepping',           &
+        &      'allocation for flow control variables failed' )
     ENDIF
     !
-    ! initialize (as long as restart output is synchroinzed with advection,
-    ! these variables do not need to go into the restart file)
-!$OMP PARALLEL
-    CALL init(prep_adv(jg)%mass_flx_me)
-    CALL init(prep_adv(jg)%mass_flx_ic)
-    CALL init(prep_adv(jg)%vn_traj)
-    CALL init(prep_adv(jg)%topflx_tra)
-!$OMP END PARALLEL
-
-    IF (iforcing == inwp) THEN
-      ! reads elapsed_time from the restart file, to re-initialize 
-      ! NWP physics events.
-      CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+    ! initialize
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      !
+      ! Get attributes from restart file
+      DO jg = 1,n_dom
+        WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
+        ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+        jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
+      ENDDO
+      linit_dyn(:)      = .FALSE.
+    ELSE
+      jstep_adv(:)%marchuk_order = 0
+      linit_dyn(:)               = .TRUE.
     ENDIF
 
-  ENDDO
+    DO jg=1, n_dom
+      ALLOCATE(                                                                      &
+        &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
+        &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
+        &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
+        &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
+        &       STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( modname//': perform_nh_stepping',           &
+          &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
+          &      'topflx_tra failed' )
+      ENDIF
+      !
+      ! initialize (as long as restart output is synchroinzed with advection,
+      ! these variables do not need to go into the restart file)
+!$OMP PARALLEL
+      CALL init(prep_adv(jg)%mass_flx_me)
+      CALL init(prep_adv(jg)%mass_flx_ic)
+      CALL init(prep_adv(jg)%vn_traj)
+      CALL init(prep_adv(jg)%topflx_tra)
+!$OMP END PARALLEL
 
-  IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-    CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
-  ENDIF
 
-END SUBROUTINE allocate_nh_stepping
+      IF (iforcing == inwp) THEN
+        ! reads elapsed_time from the restart file, to re-initialize 
+        ! NWP physics events.
+        CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+      ENDIF
+
+    ENDDO
+
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+      CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+    ENDIF
+
+  END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
 
 END MODULE mo_nh_stepping

@@ -585,7 +585,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PV        = 15 !< task: compute potential vorticity
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 16 !< task: compute soil moisture index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SDI2      = 16 !< task: compute supercell detection index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_LPI       = 17 !< task: compute lightning potential index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 18 !< task: compute soil moisture index
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
