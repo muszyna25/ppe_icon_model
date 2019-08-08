@@ -258,6 +258,9 @@ cat > ${ocean_namelist} << EOF
   atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
   use_tides = .true.
   tide_startdate='2001-01-01 00:00'
+
+  lswr_jerlov                     = .FALSE.    ! use jerlov water types for sw absorption
+
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file

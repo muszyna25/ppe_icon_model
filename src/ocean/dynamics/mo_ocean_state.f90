@@ -1611,6 +1611,52 @@ CONTAINS
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
+   ! swr fraction absorbed in the surface layer
+    CALL add_var(ocean_default_list, 'swsum', ocean_state_diag%swsum , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('swsum', '1', 'swsum', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! (total subsurface ) heating due to absorption [J m-2]
+    CALL add_var(ocean_default_list, 'heatabs', ocean_state_diag%heatabs , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heatabs', 'J m-2', 'heatabs', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+ 
+   ! dummy2d
+!    CALL add_var(ocean_default_list, 'dummy2d', ocean_state_diag%dummy2d , &
+!      &         grid_unstructured_cell, za_surface,&
+!      &         t_cf_var('dummy2d', '', 'dummy2d', datatype_flt),&
+!      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+ 
+
+   ! relative swr absorption factor
+      CALL add_var(ocean_default_list, 'swrab', ocean_state_diag%swrab,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('swrab','1','swrab', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! CMIP6 Net Rate of Absorption of Shortwave Energy in Ocean Layer
+      CALL add_var(ocean_default_list, 'rsdoabsorb', ocean_state_diag%rsdoabsorb,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('rsdoabsorb','W m-2','Net Rate of Absorption of Shortwave Energy in Ocean Layer', &
+       & datatype_flt), grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! dummy3d
+!      CALL add_var(ocean_default_list, 'dummy3d', ocean_state_diag%dummy3d,&
+!       & grid_unstructured_cell, &
+!       & za_depth_below_sea, &
+!       & t_cf_var('dummy3d','','dummy3d', &
+!       & datatype_flt), grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
 
     ! number of deepest convection layer
     CALL add_var(ocean_default_list, 'condep', ocean_state_diag%condep , grid_unstructured_cell, za_surface,&

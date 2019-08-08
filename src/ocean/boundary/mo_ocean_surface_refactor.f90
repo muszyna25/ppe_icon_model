@@ -40,7 +40,7 @@ MODULE mo_ocean_surface_refactor
   USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer, type_surfRelax_Temp, type_surfRelax_Salt, &
     &  No_Forcing, Analytical_Forcing, OMIP_FluxFromFile, Coupled_FluxFromAtmo,                     &
     &  i_sea_ice, zero_freshwater_flux, atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-    &  limit_elevation, lhamocc
+    &  limit_elevation, lhamocc, lswr_jerlov
 
   USE mo_ocean_nml,           ONLY: atmos_flux_analytical_type, relax_analytical_type, &
     &  n_zlev, para_surfRelax_Salt, para_surfRelax_Temp, atmos_precip_const, &  ! atmos_evap_constant
@@ -66,6 +66,8 @@ MODULE mo_ocean_surface_refactor
 
   USE mo_ocean_diagnostics, ONLY : diag_heat_salt_tendency
   USE mo_name_list_output_init, ONLY: isRegistered
+
+  USE mo_swr_absorption
 
   IMPLICIT NONE
   
@@ -207,7 +209,26 @@ CONTAINS
     ! (5) Apply thermal and haline fluxes to the ocean surface layer
     !---------------------------------------------------------------------
 !    CALL apply_surface_fluxes(p_patch_3D, p_os, p_ice, p_oce_sfc)
+
+!   calculate the sw flux used for subsurface heating
+
+    IF ( lswr_jerlov ) THEN
+     p_os%p_diag%heatabs(:,:)=(p_os%p_diag%swsum(:,:)  &
+             *p_oce_sfc%HeatFlux_ShortWave(:,:)*(1.0_wp-p_ice%concsum(:,:)))
+
+    ELSE
+      p_os%p_diag%heatabs(:,:)=0.0_wp
+    ENDIF
+
     CALL apply_surface_fluxes_slo(p_patch_3D, p_os, p_ice, p_oce_sfc)
+
+!   apply subsurface heating
+    IF ( lswr_jerlov ) THEN
+
+      CALL subsurface_swr_absorption(p_patch_3d, p_os)
+
+    ENDIF
+
 
     !---------------------------------------------------------------------
     ! (6) Apply volume flux correction
@@ -251,6 +272,8 @@ CONTAINS
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface_refactor:apply_surface_fluxes'
 
+    REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
+
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -265,15 +288,17 @@ CONTAINS
     ! Note: old freeboard is stored in p_oce_sfc%cellThicknessUnderIce (equiv. to zUnderIceIni in apply_surface_fluxes_slo)
 
     IF (no_tracer > 0) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, i_bgc_tra) SCHEDULE(dynamic)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, i_bgc_tra, heatflux_surface_layer) SCHEDULE(dynamic)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-
             ! (5a) Net heat flux changes sst using old freeboard (Thermodynamic Eq. 1)
+
+            ! substract the fraction of heatflux used for subsurface heating
+            heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
-              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*p_oce_sfc%cellThicknessUnderIce(jc,jb))
+              &                    heatflux_surface_layer*dtime/(clw*rho_ref*p_oce_sfc%cellThicknessUnderIce(jc,jb))
 
             ! (5b) Net volume flux (plus snow fall on ice) changes ssh (Thermodynamic Eq. 5)
             p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               &
@@ -342,6 +367,9 @@ CONTAINS
 
     REAL(wp) :: h_old_test, h_new_test
 
+    REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
+
+
     TYPE(t_patch), POINTER:: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -380,8 +408,12 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+
+            ! substract the fraction of heatflux used for subsurface heating
+            heatflux_surface_layer=p_oce_sfc%HeatFlux_Total(jc,jb)-p_os%p_diag%heatabs(jc,jb)
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
-              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+              &                    heatflux_surface_layer*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+
           ENDIF
         ENDDO
       ENDDO
@@ -595,6 +627,8 @@ CONTAINS
        ! HAMOCC uses p_as to get SW radiation and wind, so we need to copy
        ! the SW radiation onto it in the coupled case
        if(lhamocc) p_as%fswr(:,:) = p_oce_sfc%HeatFlux_ShortWave(:,:)
+
+! heatflux_total(:,:) is provided by coupling interface
 
       ! these 4 fluxes over open ocean are used in sea ice thermodynamics
       atmos_fluxes%SWnetw (:,:)   = p_oce_sfc%HeatFlux_ShortWave(:,:)

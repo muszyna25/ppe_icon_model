@@ -352,6 +352,8 @@ CONTAINS
     CASE (230)  ! 2d salinity blubb
       CALL salinity_GM_idealized3(patch_3d,ocean_salinity)  
 
+    CASE (235)  ! const 35
+      ocean_salinity(:,:,:) = 35.0_wp 
 
     CASE (300)
       CALL tracer_bubble(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
@@ -625,6 +627,9 @@ CONTAINS
 
     CASE(231) ! horizontal constant 
       CALL temperature_GM_idealized4(patch_3d,ocean_temperature)
+
+    CASE (235)
+      ocean_temperature(:,:,:) = 10.0_wp
 
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')

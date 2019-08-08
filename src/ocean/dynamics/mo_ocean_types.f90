@@ -229,6 +229,9 @@ MODULE mo_ocean_types
       & uw, &  !< product of u-velocity and w-velocity 
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
+      & swrab, &  !< relative swr absorption factor
+      & rsdoabsorb, &  !< Net Rate of Absorption of Shortwave Energy in Ocean Layer
+!      & dummy3d,&
       & sigma0, &  !< potential density anomaly (desitity - 1000)
       & heat_content_liquid_water,    &
       & odensitytend
@@ -242,6 +245,11 @@ MODULE mo_ocean_types
       & mlotst           ,& ! mixed layer depth [m]. (CMIP6)
       & mlotstsq        ,& ! squared mixed layer depth [m]. (CMIP6)
       & condep           ,&! convection depth index
+      & swsum            ,& ! swr fraction absorbed in the surface layer
+      & heatabs          ,& ! ( total subsurface ) heating due to absorption [J m-2]
+!      & dummy2d          ,&
+      & heatabs_t        ,&
+      & heatabb          ,&
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 
