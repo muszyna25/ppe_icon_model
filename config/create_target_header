@@ -612,7 +612,7 @@ set_run_target_bullx()
       add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
       add_free_var HCOLL_ML_DISABLE_BARRIER 1
       add_free_var HCOLL_ML_DISABLE_IBARRIER 1
-      add_free_var HCOLL_ML_DISABLE_BCAST 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 0
       add_free_var HCOLL_ENABLE_MCAST_ALL 1
       add_free_var HCOLL_ENABLE_MCAST 1
       add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
