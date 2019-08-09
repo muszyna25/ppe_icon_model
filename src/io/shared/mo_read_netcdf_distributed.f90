@@ -251,6 +251,7 @@ CONTAINS
        n_io_processes, io_process_stride)
     INTEGER, INTENT(out) :: n_io_processes, io_process_stride
     INTEGER :: io_process_rotate
+    INTEGER :: temp_n_io_processes, temp_io_process_stride
 
     IF (config_io_process_stride > 0) THEN
       io_process_stride = MAX(1, MODULO(config_io_process_stride, p_n_work))
@@ -258,8 +259,12 @@ CONTAINS
       n_io_processes = (p_n_work - io_process_rotate + io_process_stride - 1)&
            / io_process_stride
     ELSE
-      n_io_processes = NINT(SQRT(REAL(p_n_work)))
-      io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
+      temp_n_io_processes = NINT(SQRT(REAL(p_n_work)))
+      temp_io_process_stride = &
+        (p_n_work + temp_n_io_processes - 1) / temp_n_io_processes
+      ! improve io process stride by rounding to the next power of two
+      io_process_stride = 2**CEILING(LOG(REAL(temp_io_process_stride))/LOG(2.))
+      n_io_processes = (p_n_work + io_process_stride - 1) / io_process_stride
     END IF
   END SUBROUTINE distrib_nf_io_rank_distribution
 
@@ -364,7 +369,6 @@ CONTAINS
     INTEGER :: n_io_processes, io_process_stride
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       CALL nf(nf_close(ncid))
     END IF
