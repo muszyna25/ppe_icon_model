@@ -52,6 +52,7 @@ MODULE mo_swr_absorption
 
   PUBLIC :: jerlov_swr_absorption                      &
        , subsurface_swr_absorption                  &
+       , dynamic_swr_absorption                     &
        , jerlov_atten,jerlov_bluefrac,check_hc2
 
 
@@ -182,11 +183,12 @@ CONTAINS
           ! diagnostic for subfurface sw absorbtion
           rsdoabsorb(jc,level,blockNo)=heatabb(jc,blockno)*cc*dti
 
-
-          ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) = &
-               ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) + &
-                patch_3d%wet_c(jc,level,blockNo) &    
-           * (heatabb(jc,blockno)/patch_3d%p_patch_1d(1)%prism_thick_c(jc,level,blockNo))
+          IF (patch_3d%wet_c(jc,level,blockNo) .GT. 0.5 ) THEN
+            ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) = &
+                 ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) + &
+                 patch_3d%wet_c(jc,level,blockNo) &
+                 * (heatabb(jc,blockno)/patch_3d%p_patch_1d(1)%prism_thick_c(jc,level,blockNo))
+          ENDIF
 
           heatabb(jc,blockno) = heatabb(jc,blockno) * ( 1.0_wp - patch_3d%wet_c(jc,level,blockNo))
 
@@ -198,7 +200,68 @@ CONTAINS
   END SUBROUTINE subsurface_swr_absorption
 
 
+  !>
+  !! This is the first part of the sw-absorption scheme
+  !! ( needs to be called directly before upper layer thermodynamics )
+  !! This sbr calculates the relative swr absorption factor (swrab) in each level.
+  !!
+  !! Availble light fraction (swr_frac) is derived from a 3d chlorophyll map taken
+  !! from hamocc ( LFB_BGC_OCE=.true.)
 
+
+  SUBROUTINE  dynamic_swr_absorption(patch_3d, ocean_state)
+
+    USE mo_model_domain,              ONLY: t_patch, t_patch_3d
+    USE mo_ocean_types,               ONLY: t_hydro_ocean_state
+    USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
+    USE mo_run_config,                ONLY: dtime
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)              :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout)  :: ocean_state
+
+    REAL(wp), POINTER :: swsum(:,:)
+    REAL(wp), POINTER :: swrab(:,:,:)
+    REAL(wp), POINTER :: swr_frac(:,:,:)
+
+    INTEGER  :: blockNo, jc, start_index, end_index, level
+  
+    REAL(wp), PARAMETER :: fvisible=0.58_wp ! visible fraction of the spectrum
+                                      ! only this part has potential to
+                                      ! penetrate into deeper ocean layers
+    
+
+    TYPE(t_patch), POINTER                   :: patch_2d
+    TYPE(t_subset_range), POINTER            :: all_cells
+
+
+    patch_2d => patch_3D%p_patch_2d(1)
+    all_cells => patch_2d%cells%all
+ 
+    swsum => ocean_state%p_diag%swsum
+    swrab => ocean_state%p_diag%swrab
+    swr_frac => ocean_state%p_diag%swr_frac
+
+    
+
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index) SCHEDULE(dynamic)
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc =  start_index, end_index
+
+        swsum(jc,blockNo)=swr_frac(jc,2,blockNo)
+
+    
+        DO level=1,n_zlev
+          swrab(:,:,level)=1.0_wp / swsum(jc,blockNo) &
+	  * (swr_frac(jc,level,blockNo) - swr_frac(jc,level+1,blockNo))
+        ENDDO
+
+        swsum(jc,blockNo)=swsum(jc,blockNo)*fvisible
+      END DO
+    END DO
+
+
+  END SUBROUTINE dynamic_swr_absorption
 
   SUBROUTINE check_hc2(patch_3d, ocean_state, p_oce_sfc, hc, hcs)
 

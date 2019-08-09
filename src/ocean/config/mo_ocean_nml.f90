@@ -682,7 +682,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
   LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
 
-
+  LOGICAL  :: lfb_bgc_oce = .FALSE.   !chlorophyll determines optical properties of sea water  
   LOGICAL  :: lswr_jerlov = .TRUE.
   REAL(wp)  :: jerlov_atten = 0.08_wp
   REAL(wp)  :: jerlov_bluefrac = 0.36_wp
@@ -762,6 +762,7 @@ MODULE mo_ocean_nml
     &                 use_new_forcing                     , &
     &                 atm_pressure_included_in_icedyn     , &
     &                 atm_pressure_included_in_ocedyn     , &
+    &                 lfb_bgc_oce                         , &
     &                 lswr_jerlov                         , &
     &                 jerlov_atten                        , &
     &                 jerlov_bluefrac                     , &

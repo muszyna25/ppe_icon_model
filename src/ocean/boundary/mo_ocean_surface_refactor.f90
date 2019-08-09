@@ -40,7 +40,7 @@ MODULE mo_ocean_surface_refactor
   USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer, type_surfRelax_Temp, type_surfRelax_Salt, &
     &  No_Forcing, Analytical_Forcing, OMIP_FluxFromFile, Coupled_FluxFromAtmo,                     &
     &  i_sea_ice, zero_freshwater_flux, atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-    &  limit_elevation, lhamocc, lswr_jerlov
+    &  limit_elevation, lhamocc, lswr_jerlov, lhamocc, lfb_bgc_oce
 
   USE mo_ocean_nml,           ONLY: atmos_flux_analytical_type, relax_analytical_type, &
     &  n_zlev, para_surfRelax_Salt, para_surfRelax_Temp, atmos_precip_const, &  ! atmos_evap_constant
@@ -211,6 +211,10 @@ CONTAINS
 !    CALL apply_surface_fluxes(p_patch_3D, p_os, p_ice, p_oce_sfc)
 
 !   calculate the sw flux used for subsurface heating
+
+!   include hamoccs chlorophylls effect sw absorption 
+    IF ( lhamocc .AND. lfb_bgc_oce ) CALL dynamic_swr_absorption(p_patch_3d, p_os)
+
 
     IF ( lswr_jerlov ) THEN
      p_os%p_diag%heatabs(:,:)=(p_os%p_diag%swsum(:,:)  &

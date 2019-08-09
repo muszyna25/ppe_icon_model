@@ -232,6 +232,7 @@ MODULE mo_ocean_types
       & swrab, &  !< relative swr absorption factor
       & rsdoabsorb, &  !< Net Rate of Absorption of Shortwave Energy in Ocean Layer
 !      & dummy3d,&
+      & swr_frac, &  !< relative swr absorption factor from hamocc (LFB_BGC_OCE)
       & sigma0, &  !< potential density anomaly (desitity - 1000)
       & heat_content_liquid_water,    &
       & odensitytend

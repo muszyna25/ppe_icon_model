@@ -1641,6 +1641,14 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
 
+   ! relative swr absorption factor from hamocc (LFB_BGC_OCE)
+      CALL add_var(ocean_default_list, 'swr_frac', ocean_state_diag%swr_frac,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('swr_frac','1','swr_frac', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
    ! CMIP6 Net Rate of Absorption of Shortwave Energy in Ocean Layer
       CALL add_var(ocean_default_list, 'rsdoabsorb', ocean_state_diag%rsdoabsorb,&
        & grid_unstructured_cell, &
