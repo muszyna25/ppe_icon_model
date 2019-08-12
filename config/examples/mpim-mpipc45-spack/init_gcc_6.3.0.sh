@@ -79,6 +79,11 @@ CDI_FCFLAGS="-I${CDI_ROOT}/include"
 CDI_LDFLAGS="-L${CDI_ROOT}/lib"
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
+CDI_PIO_ROOT="${SW_ROOT}/libcdi-pio-develop-bx5jzjx"
+CDI_PIO_FCFLAGS="-I${CDI_PIO_ROOT}/include"
+CDI_PIO_LDFLAGS="-L${CDI_PIO_ROOT}/lib"
+CDI_PIO_LIBS='-lcdi_f2003 -lcdipio -lcdi'
+
 SERIALBOX2_ROOT="${SW_ROOT}/serialbox2-2.5.3-ok62sii"
 SERIALBOX2_FCFLAGS="-I${SERIALBOX2_ROOT}/include"
 SERIALBOX2_LDFLAGS="-L${SERIALBOX2_ROOT}/lib"

@@ -64,6 +64,11 @@ CDI_FCFLAGS="-I${CDI_ROOT}/include"
 CDI_LDFLAGS="-L${CDI_ROOT}/lib"
 CDI_LIBS='-lcdi_f2003 -lcdi'
 
+CDI_PIO_ROOT="${SW_ROOT}/libcdi-pio-develop-kthdbwn"
+CDI_PIO_FCFLAGS="-I${CDI_PIO_ROOT}/include"
+CDI_PIO_LDFLAGS="-L${CDI_PIO_ROOT}/lib"
+CDI_PIO_LIBS='-lcdi_f2003 -lcdipio -lcdi'
+
 MTIME_ROOT="${SW_ROOT}/libmtime-1.0.8-p1-psgf6sn"
 MTIME_FCFLAGS="-I${MTIME_ROOT}/include"
 MTIME_CPPFLAGS="-I${MTIME_ROOT}/include"
