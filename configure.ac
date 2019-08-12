@@ -135,6 +135,12 @@ AC_ARG_ENABLE([parallel-netcdf],
   [AS_IF([test x"$enableval" != xno], [enable_parallel_netcdf=yes])],
   [enable_parallel_netcdf=no])
 
+AC_ARG_ENABLE([cdi-pio],
+  [AC_HELP_STRING([--enable-cdi-pio],
+     [enable usage of the parallel features of CDI @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_cdi_pio=yes])],
+  [enable_cdi_pio=no])
+
 AC_ARG_ENABLE([sct],
   [AC_HELP_STRING([--enable-sct],
      [enable the SCT timer @<:@default=no@:>@])],
@@ -433,6 +439,9 @@ AS_VAR_IF([enable_active_target_sync], [yes],
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
+
+AS_VAR_IF([enable_cdi_pio], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_CDI_PIO"])])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__SCT__"])])
@@ -808,7 +817,7 @@ accordingly])])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/sct/src"])
       BUNDLED_LIBS="externals/sct/src/.libs/libsct.a $BUNDLED_LIBS"])])
 
-AS_VAR_IF([enable_yaxt], [yes],
+AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
   [AS_VAR_IF([with_external_yaxt], [yes],
      [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
 is available])
@@ -849,6 +858,7 @@ accordingly])])
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBS"])])
 
 AS_VAR_IF([with_external_cdi], [yes],
+dnl Check whether an external version of CDI is provided:
   [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library dnl
 is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
@@ -865,7 +875,7 @@ is available])
       AC_MSG_FAILURE([unable to link a test program using CDI: either use dnl
 the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
-dnl
+dnl Check whether the provided external version is compatible with ICON:
    AC_MSG_CHECKING([whether the provided version of CDI 1.8.x is patched])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
@@ -877,7 +887,8 @@ dnl
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
 required patches])])
-dnl
+dnl Check whether the provided external version supports the required file
+dnl formats:
    icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 dnl
 GRIB1:CDI_FILETYPE_GRB"
    AS_VAR_IF([enable_grib2], [yes],
@@ -904,9 +915,45 @@ $icon_cdi_format_name])],
         [test x"$icon_cdi_format_result" = xunknown],
         [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
 supports $icon_cdi_format_name])])
-   done],
-dnl
-  [icon_subdir_srcdir="$srcdir/externals/cdi"
+   done
+dnl Check whether the provided external version supports the parallel features:
+   AS_VAR_IF([enable_cdi_pio], [yes],
+     [AS_VAR_IF([with_external_yaxt], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with the parallel features of an external CDI dnl
+and the bundled YAXT: either disable the parallel features of CDI dnl
+(--disable-cdi-pio) or use the bundled version of CDI dnl
+(--without-external-cdi), or provide the version of YAXT dnl
+(--with-external-yaxt) that CDI has been built with by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+      AC_MSG_CHECKING([whether the Fortran interface of CDI-PIO library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use yaxt, only: xt_idxlist
+      implicit none
+      include 'cdipio.inc'
+      integer :: cdiCellGridID, gridtype, n_glb, &
+               & max_cell_connectivity, grid_deco_part(2)
+      type(xt_idxlist), allocatable :: reorder_idxlst_xt(:)
+      type(xt_idxlist) :: null_idxlist
+      cdiCellGridID = &
+      &  cdiPioDistGridCreate(gridtype, n_glb, -1, -1, &
+                            & max_cell_connectivity, &
+                            & grid_deco_part, &
+                            & reorder_idxlst_xt(1), &
+                            & null_idxlist, null_idxlist)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using CDI-PIO: dnl
+either disable the usage of the parallel features of CDI dnl
+(--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
+dnl Configure the bundled version of CDI:
+  [AS_VAR_IF([enable_cdi_pio], [yes],
+     [AC_MSG_ERROR([the bundled version of CDI does not currently support dnl
+the parallel features: either disable the usage of the parallel features of dnl
+CDI (--disable-cdi-pio) or provide an external version of CDI dnl
+(--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+   icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
@@ -969,8 +1016,8 @@ either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])])
 
 AS_VAR_IF([with_external_mtime], [yes],
-  [AC_MSG_CHECKING(
-     [whether the Fortran interface of MTIME library is available])
+  [AC_MSG_CHECKING([whether the Fortran interface of MTIME library is dnl
+available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mtime, only: max_date_str_len, date, &
                      & newdate, dateToString
@@ -1020,30 +1067,26 @@ LDFLAGS and LIBS accordingly])])
 
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_IF([with_external_yac], [yes],
-     [AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
+     [AS_VAR_IF([with_external_mtime], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with external YAC and the bundled MTIME: either dnl
+disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
+(--without-external-yac), or provide the version of MTIME dnl
+(--with-external-mtime) that YAC has been built with by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+      AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
 available])
-      AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
       use mo_yac_finterface, only: yac_finit
       implicit none
       character(len=1024) :: a, b
       call yac_finit(a, b)]])],
-        [AC_LINK_IFELSE([],
-           [AC_MSG_RESULT([yes])],
-           [AC_MSG_RESULT([no])
-            AS_VAR_IF([with_external_mtime], [yes],
-              [AC_MSG_FAILURE([unable to link a test program using YAC: dnl
-either disable the coupling (--disable-coupling) or use the bundled version dnl
-of YAC (--without-external-yac), or set LDFLAGS and LIBS accordingly])],
-              [AC_MSG_FAILURE([unable to link a test program using YAC: dnl
-you are trying to build with an external YAC and the bundled MTIME, so you dnl
-need to make sure that the version of MTIME that YAC has been built with is dnl
-available by setting LDFLAGS and LIBS accordingly, otherwise disable the dnl
-coupling (--disable-coupling) or use the bundled version of YAC dnl
-(--without-external-yac)])])])],
+        [AC_MSG_RESULT([yes])],
         [AC_MSG_RESULT([no])
-         AC_MSG_FAILURE([unable to compile a test program using YAC: either dnl
-disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
-(--without-external-yac), or set FCFLAGS accordingly])])],
+         AC_MSG_FAILURE([unable to link a test program using YAC: dnl
+either disable the coupling (--disable-coupling) or use the bundled version dnl
+of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
      [icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
       AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],

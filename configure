@@ -692,6 +692,7 @@ enable_openmp
 enable_openacc
 enable_grib2
 enable_parallel_netcdf
+enable_cdi_pio
 enable_sct
 enable_yaxt
 enable_serialization
@@ -1368,6 +1369,8 @@ Infrastructural Features:
   --enable-grib2          enable GRIB2 I/O [default=no]
   --enable-parallel-netcdf
                           enable usage of the parallel features of NetCDF
+                          [default=no]
+  --enable-cdi-pio        enable usage of the parallel features of CDI
                           [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
@@ -2284,6 +2287,16 @@ if test "${enable_parallel_netcdf+set}" = set; then :
 fi
 else
   enable_parallel_netcdf=no
+fi
+
+
+# Check whether --enable-cdi-pio was given.
+if test "${enable_cdi_pio+set}" = set; then :
+  enableval=$enable_cdi_pio; if test x"$enableval" != xno; then :
+  enable_cdi_pio=yes
+fi
+else
+  enable_cdi_pio=no
 fi
 
 
@@ -4873,6 +4886,10 @@ if test "x$enable_parallel_netcdf" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"
 fi
 
+if test "x$enable_cdi_pio" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_CDI_PIO"
+fi
+
 if test "x$enable_sct" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__SCT__"
 fi
@@ -5807,7 +5824,7 @@ esac
 fi
 fi
 
-if test "x$enable_yaxt" = xyes; then :
+if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
   if test "x$with_external_yaxt" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAXT library is available" >&5
 $as_echo_n "checking whether the Fortran interface of YAXT library is available... " >&6; }
@@ -5900,7 +5917,7 @@ fi
 fi
 
 if test "x$with_external_cdi" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
 $as_echo_n "checking whether the Fortran 2003 interface of CDI 1.8.x library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
@@ -5996,8 +6013,49 @@ elif test x"$icon_cdi_format_result" = xunknown; then :
 $as_echo "$as_me: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&2;}
 fi
    done
+   if test "x$enable_cdi_pio" = xyes; then :
+  if test "x$with_external_yaxt" = xno; then :
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with the parallel features of an external CDI and the bundled YAXT: either disable the parallel features of CDI (--disable-cdi-pio) or use the bundled version of CDI (--without-external-cdi), or provide the version of YAXT (--with-external-yaxt) that CDI has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of CDI-PIO library is available" >&5
+$as_echo_n "checking whether the Fortran interface of CDI-PIO library is available... " >&6; }
+      cat > conftest.$ac_ext <<_ACEOF
+      program main
+
+      use yaxt, only: xt_idxlist
+      implicit none
+      include 'cdipio.inc'
+      integer :: cdiCellGridID, gridtype, n_glb, &
+               & max_cell_connectivity, grid_deco_part(2)
+      type(xt_idxlist), allocatable :: reorder_idxlst_xt(:)
+      type(xt_idxlist) :: null_idxlist
+      cdiCellGridID = &
+      &  cdiPioDistGridCreate(gridtype, n_glb, -1, -1, &
+                            & max_cell_connectivity, &
+                            & grid_deco_part, &
+                            & reorder_idxlst_xt(1), &
+                            & null_idxlist, null_idxlist)
+      end
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
 else
-    icon_subdir_srcdir="$srcdir/externals/cdi"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+         { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using CDI-PIO: either disable the usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+else
+    if test "x$enable_cdi_pio" = xyes; then :
+  as_fn_error $? "the bundled version of CDI does not currently support the parallel features: either disable the usage of the parallel features of CDI (--disable-cdi-pio) or provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+   icon_subdir_srcdir="$srcdir/externals/cdi"
    icon_subdir_unique_file="src/cdi.h"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
@@ -6238,7 +6296,10 @@ rm -f core conftest.err conftest.$ac_objext \
 
 if test "x$enable_coupling" = xyes; then :
   if test "x$with_external_yac" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
+  if test "x$with_external_mtime" = xno; then :
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with external YAC and the bundled MTIME: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or provide the version of MTIME (--with-external-mtime) that YAC has been built with by setting FCFLAGS, LDFLAGS and LIBS accordingly" "$LINENO" 5
+fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of YAC library is available" >&5
 $as_echo_n "checking whether the Fortran interface of YAC library is available... " >&6; }
       cat > conftest.$ac_ext <<_ACEOF
       program main
@@ -6249,36 +6310,19 @@ $as_echo_n "checking whether the Fortran interface of YAC library is available..
       call yac_finit(a, b)
       end
 _ACEOF
-if ac_fn_fc_try_compile "$LINENO"; then :
-  if ac_fn_fc_try_link "$LINENO"; then :
+if ac_fn_fc_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
-            if test "x$with_external_mtime" = xyes; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
-else
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using YAC: you are trying to build with an external YAC and the bundled MTIME, so you need to make sure that the version of MTIME that YAC has been built with is available by setting LDFLAGS and LIBS accordingly, otherwise disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac)
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to compile a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS accordingly
+as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 else
   icon_subdir_srcdir="$srcdir/externals/yac"
       icon_subdir_unique_file="src/grid.c"
