@@ -682,6 +682,24 @@ MODULE mo_ocean_nml
   LOGICAL  :: atm_pressure_included_in_ocedyn  = .FALSE.
   LOGICAL  :: atm_pressure_included_in_icedyn  = .FALSE.
 
+  LOGICAL  :: lfb_bgc_oce = .FALSE.   !chlorophyll determines optical properties of sea water  
+  LOGICAL  :: lswr_jerlov = .TRUE.
+  REAL(wp)  :: jerlov_atten = 0.08_wp
+  REAL(wp)  :: jerlov_bluefrac = 0.36_wp
+
+! type   jerlov_atten [m-1] jerlov_bluefrac [%]
+! --------------------------------------------
+!  I       0.05                   0.45
+!  IA      0.06                   0.41
+!  IB      0.08                   0.36
+!  II      0.12                   0.28
+!  III     0.17                   0.27
+! Jerlov Water Type values from Kara et. al. (2005)
+! jerlov_atten is taken from figure 2 ; jerlov_bluefrac
+! is taken from figure 3
+!
+!   - Namelist (default Type IB) 
+
   LOGICAL      :: use_tides  = .FALSE.
   CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
@@ -744,6 +762,10 @@ MODULE mo_ocean_nml
     &                 use_new_forcing                     , &
     &                 atm_pressure_included_in_icedyn     , &
     &                 atm_pressure_included_in_ocedyn     , &
+    &                 lfb_bgc_oce                         , &
+    &                 lswr_jerlov                         , &
+    &                 jerlov_atten                        , &
+    &                 jerlov_bluefrac                     , &
     &                 use_tides                           , &
     &                 tide_startdate                      , &
     &                 tides_esl_damping_coeff

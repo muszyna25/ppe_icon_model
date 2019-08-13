@@ -27,7 +27,6 @@ MODULE mo_var_metadata
     &                              MAX_CHAR_LENGTH
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
-  USE mo_var_groups,         ONLY: var_groups_dyn
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
     &                              t_union_vals,                          &
     &                              t_post_op_meta,                        &

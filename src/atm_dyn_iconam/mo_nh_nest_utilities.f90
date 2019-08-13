@@ -76,6 +76,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD, 2010-05-05
+  !! (Note: since we have not modified 'src/atm_dyn_iconam/mo_nh_feedback: feedback' 
+  !! for the deep atmosphere, there is no reason to modify 'fbk_dom_volume'.)
   !!
   SUBROUTINE complete_nesting_setup
 
@@ -1247,12 +1249,14 @@ CONTAINS
     ! Please note that we cannot use sync_patch_array here (comparing parallel/non parallel results)
     ! since the arrays don't start with lower bound 1 in the non parallel case!
 
-    ! Synchronization is needed after the interpolation step for cell-based variables because for
-    ! those, the nudging tendencies are applied outside the dynamical core for reasons of mass consistency
+    ! Synchronization is needed after the interpolation step because the nudging tendencies are applied outside 
+    ! the dynamical core. This is needed for the scalars for reasons of mass consistency, but is also done for the
+    ! wind tendencies because this turns out to improve noise filtering
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_e, diff_vn)
     CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grfc,    &
       &                        i_chidx, 0, istartblk_e, diff_vn,p_diag%grf_tend_vn )
+    CALL sync_patch_array(SYNC_E,p_pc,p_diag%grf_tend_vn)
 
     IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_c+1, &
       recv1=diff_thv, recv2=diff_rho, recv3=diff_w)

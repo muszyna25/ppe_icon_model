@@ -189,7 +189,7 @@ MODULE mo_pp_scheduler
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
-    &                                   GRID_UNSTRUCTURED
+    &                                   GRID_UNSTRUCTURED,TSTEP_INSTANT, TSTEP_CONSTANT
   USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
   USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
@@ -1113,7 +1113,8 @@ CONTAINS
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i,      &
       &  iaxis, vgrid, nlev, nvars_pl, nvars_hl, nvars_il, nvars,   &
-      &  job_type, z_id, p_id, i_id, shape3d(3), datatype_flt
+      &  job_type, z_id, p_id, i_id, shape3d(3), datatype_flt,      &
+      &  isteptype
     LOGICAL                            :: &
       &  l_intp_p, l_intp_z, l_intp_i, found, &
       &  l_uv_vertical_intp_z, l_uv_vertical_intp_p, l_uv_vertical_intp_i, &
@@ -1414,12 +1415,19 @@ CONTAINS
               ! vertex-based vars to cell-based vars first:
               shape3d  = (/ info%used_dimensions(1), nlev, nblks_c /)
 
+              ! fields interpolated to pressure levels are time
+              ! dependent, rather than constant in time:
+              isteptype = info%isteptype
+              IF ((isteptype==TSTEP_CONSTANT) .AND. (l_intp_p .OR. l_intp_i)) THEN
+                isteptype=TSTEP_INSTANT
+              END IF
+
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
                 &           info%hgrid, vgrid, info%cf, info%grib2,         &
                 &           ldims=shape3d, lrestart=.FALSE.,                &
                 &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
-                &           isteptype=info%isteptype,                       &
+                &           isteptype=isteptype,                            &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source,                   &
                 &           hor_interp=info%hor_interp,                     &

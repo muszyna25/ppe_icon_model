@@ -492,8 +492,8 @@ CONTAINS
     z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
-
-!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure, z_ri_cell, tracer_windMixing, z_vert_density_grad_e,velocity_windMixing)
+!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure, z_ri_cell, &
+!ICON_OMP tracer_windMixing, z_vert_density_grad_e,velocity_windMixing)
     salinity(1:levels) = sal_ref
     z_rho_up(:)=0.0_wp
     z_rho_down(:)=0.0_wp

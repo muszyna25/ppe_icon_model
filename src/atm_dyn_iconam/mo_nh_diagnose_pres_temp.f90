@@ -58,7 +58,7 @@ MODULE mo_nh_diagnose_pres_temp
   !!
   SUBROUTINE diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, pt_diag, pt_patch, &
     &                            opt_calc_temp, opt_calc_pres, opt_calc_temp_ifc,    &
-    &                            lnd_prog, opt_slev, opt_rlend )
+    &                            lnd_prog, opt_slev, opt_rlend, opt_lconstgrav       )
 
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -79,6 +79,8 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER, INTENT(IN), OPTIONAL :: opt_slev, opt_rlend 
 
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_lconstgrav
+
     INTEGER  :: jb,jk,jc,jg
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -86,6 +88,7 @@ MODULE mo_nh_diagnose_pres_temp
     INTEGER  :: slev, slev_moist
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
+    LOGICAL  :: lconstgrav
 
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
@@ -121,6 +124,12 @@ MODULE mo_nh_diagnose_pres_temp
       slev = opt_slev
     ELSE
       slev = 1
+    ENDIF
+
+    IF ( PRESENT(opt_lconstgrav) ) THEN
+      lconstgrav = opt_lconstgrav
+    ELSE
+      lconstgrav = .TRUE.
     ENDIF
 
     ! number of vertical levels
@@ -202,8 +211,8 @@ MODULE mo_nh_diagnose_pres_temp
 
       IF ( l_opt_calc_pres ) THEN
 
-        CALL diag_pres (pt_prog, pt_diag, p_metrics,        &
-                        jb, i_startidx, i_endidx, slev, nlev)
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,                                   &
+                        jb, i_startidx, i_endidx, slev, nlev, opt_lconstgrav=lconstgrav)
 
       ENDIF ! calc_pres
       
@@ -226,8 +235,8 @@ MODULE mo_nh_diagnose_pres_temp
   !! Note that the pressure is diagnosed by vertical integration of the 
   !! hydrostatic equation!
   !!
-  SUBROUTINE diag_pres (pt_prog, pt_diag, p_metrics,        &
-                        jb, i_startidx, i_endidx, slev, nlev)
+  SUBROUTINE diag_pres (pt_prog, pt_diag, p_metrics,                         &
+                        jb, i_startidx, i_endidx, slev, nlev, opt_lconstgrav )
 
 
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
@@ -236,55 +245,108 @@ MODULE mo_nh_diagnose_pres_temp
     TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
 
 
-    INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, nlev 
+    INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, nlev
+
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_lconstgrav
 
     INTEGER  :: jk,jc
 
     REAL(wp) :: dz1, dz2, dz3
 
+    LOGICAL  :: lconstgrav
 
-!DIR$ IVDEP
-    DO jc = i_startidx, i_endidx
-      ! Height differences between surface and third-lowest main level
-      dz1 = p_metrics%ddqz_z_full(jc,nlev,jb)
-      dz2 = p_metrics%ddqz_z_full(jc,nlev-1,jb)
-      dz3 = 0.5_wp*p_metrics%ddqz_z_full(jc,nlev-2,jb)
+    IF ( PRESENT(opt_lconstgrav) ) THEN
+      lconstgrav = opt_lconstgrav
+    ELSE
+      lconstgrav = .TRUE.
+    ENDIF
 
-      ! Compute surface pressure starting from third-lowest level; this is done
-      ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
-      pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-2,jb)) + &
-        grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb) +     &
-        dz3/pt_diag%tempv(jc,nlev-2,jb)) )
-
-      pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
-    ENDDO
-
-
-    !-------------------------------------------------------------------------
-    !> diagnose pressure for physics parameterizations
-    !! this is accomplished by vertical integration of the hydrostatic equation
-    !! because the physics schemes actually need the air mass represented 
-    !! by a given model layer
-    !-------------------------------------------------------------------------
-
-    DO jk = nlev, slev,-1
+    IF (lconstgrav) THEN
+      
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
-
-        ! pressure at interface levels
-        pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                  &
-          & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
-
-        ! pressure at main levels
-        pt_diag%pres(jc,jk,jb) = SQRT(pt_diag%pres_ifc(jc,jk,jb) * &
-                                      pt_diag%pres_ifc(jc,jk+1,jb) )
-
-        ! layer thickness with respect to pressure
-        pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
-                                   - pt_diag%pres_ifc(jc,jk  ,jb)
-
+        ! Height differences between surface and third-lowest main level
+        dz1 = p_metrics%ddqz_z_full(jc,nlev,jb)
+        dz2 = p_metrics%ddqz_z_full(jc,nlev-1,jb)
+        dz3 = 0.5_wp*p_metrics%ddqz_z_full(jc,nlev-2,jb)
+        
+        ! Compute surface pressure starting from third-lowest level; this is done
+        ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
+        pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-2,jb)) + &
+          grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb) +     &
+          dz3/pt_diag%tempv(jc,nlev-2,jb)) )
+        
+        pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
-    ENDDO
+      
+      
+      !-------------------------------------------------------------------------
+      !> diagnose pressure for physics parameterizations
+      !! this is accomplished by vertical integration of the hydrostatic equation
+      !! because the physics schemes actually need the air mass represented 
+      !! by a given model layer
+      !-------------------------------------------------------------------------
+      
+      DO jk = nlev, slev,-1
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          
+          ! pressure at interface levels
+          pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                  &
+            & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
+          
+          ! pressure at main levels
+          pt_diag%pres(jc,jk,jb) = SQRT(pt_diag%pres_ifc(jc,jk,jb) * &
+                                        pt_diag%pres_ifc(jc,jk+1,jb) )
+          
+          ! layer thickness with respect to pressure
+          pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
+                                     - pt_diag%pres_ifc(jc,jk  ,jb)
+          
+        ENDDO
+      ENDDO
+
+    ELSE
+
+      ! Deep-atmosphere version
+      ! (geometric heights are replaced by geopotential heights)
+
+!DIR$ IVDEP
+      DO jc = i_startidx, i_endidx
+        dz1 = p_metrics%dzgpot_mc(jc,nlev,jb)
+        dz2 = p_metrics%dzgpot_mc(jc,nlev-1,jb)
+        dz3 = 0.5_wp*p_metrics%dzgpot_mc(jc,nlev-2,jb) 
+        
+        pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-2,jb)) + &
+          &  grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb) +  &
+          & dz3/pt_diag%tempv(jc,nlev-2,jb)) )
+        
+        pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
+      ENDDO  !jc
+      
+      DO jk = nlev, slev,-1
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          
+          pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                &
+            & *EXP(-grav_o_rd*p_metrics%dzgpot_mc(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
+          
+          ! pressure at main levels
+          ! (since gpot(0.5*(z1+z2)) /= 0.5*(gpot(z1)+gpot(z2)), where gpot(z)=zgpot, 
+          ! the pressure at main levels cannot be computed from the geometric mean, 
+          ! so we have to integrate again)
+          pt_diag%pres(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
+            & *EXP(-grav_o_rd*(p_metrics%zgpot_mc(jc,jk,jb)     & 
+            & -p_metrics%zgpot_ifc(jc,jk+1,jb))                 & 
+            & /pt_diag%tempv(jc,jk,jb))
+          
+          pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
+            &                        - pt_diag%pres_ifc(jc,jk  ,jb)
+          
+        ENDDO  !jc
+      ENDDO  !jk
+      
+    ENDIF  !IF (lconstgrav)
 
   END SUBROUTINE diag_pres
 
