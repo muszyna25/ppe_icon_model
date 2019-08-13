@@ -182,7 +182,7 @@ install: all
 
 # Generate a list of files that are going to be compiled in the current configuration:
 srclist: $(deps)
-	$(silent_GEN)$(DEPLIST) -t $(icon_rootobj) -p '*.f90' -p '*.c' -p '*.inc' -p '*.incf' -f $^ | sort > $@
+	$(silent_GEN)$(DEPLIST) -t $(icon_rootobj) -p '*.f90' -p '*.c' -p '*.inc' -p '*.incf' -p '*.h' --inc-oo -f $^ | sort > $@
 
 # Check rule (run the tests serially to make the output
 # readable and prevent from possible overloading due to
