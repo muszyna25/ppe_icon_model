@@ -309,8 +309,6 @@ extra_f90.d: icon.mk
 	$(silent_DEPGEN)echo '$(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_o3_column.@OBJEXT@' > $@; \
 	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init_o3.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@' >> $@; \
@@ -318,8 +316,7 @@ extra_f90.d: icon.mk
 	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/ocprod.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/sedshi.@OBJEXT@' >> $@; \
 	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/swr_absorption.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/ocean/drivers/mo_hydro_ocean_run.@OBJEXT@:| $(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/ocean/drivers/mo_hydro_ocean_run.@OBJEXT@:| $(f90_prefix)src/hamocc/icon_specific/ini_bgc_icon.@OBJEXT@' >> $@
+	echo '$(f90_prefix)src/hamocc/icon_specific/mo_hamocc_ocean_physics.@OBJEXT@:| $(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@' >> $@;
 
 # Make bundled libraries:
 $(bundled_subdirs):
