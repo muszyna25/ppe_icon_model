@@ -606,6 +606,7 @@ DEPGEN_FCFLAGS
 BUNDLED_FCFLAGS
 BUNDLED_LIBS
 SB2_ENABLED
+ART_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
 ICON_RPATH_LDFLAGS
@@ -4866,12 +4867,17 @@ if test "x$enable_rttov" = xyes; then :
 fi
 
 if test "x$enable_art" = xyes; then :
-  icon_subdir_srcdir="$srcdir/src/art"
+  icon_subdir_srcdir="$srcdir/externals/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
    if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
   as_fn_error $? "unable to find sources of the ART component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
 fi
+   ART_ENABLED=''
+
    as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
+else
+  ART_ENABLED='#'
+
 fi
 
 if test "x$enable_mpi" = xno; then :

@@ -421,14 +421,16 @@ AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
 
 AS_VAR_IF([enable_art], [yes],
-  [icon_subdir_srcdir="$srcdir/src/art"
+  [icon_subdir_srcdir="$srcdir/externals/art"
    icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
    AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
      [AC_MSG_ERROR([unable to find sources of the ART component dnl
 ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
 (--disable-art)])])
+   AC_SUBST([ART_ENABLED], [''])
    AS_VAR_APPEND([FCFLAGS],
-     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])])
+     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])],
+  [AC_SUBST([ART_ENABLED], ['#'])])
 
 AS_VAR_IF([enable_mpi], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])

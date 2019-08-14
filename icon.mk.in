@@ -84,6 +84,11 @@ c_srcs:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.c'))
 # Lists of preprocessed source files:
 pp_srcs:=
 
+# ART sources:
+@ART_ENABLED@art_srcdir:= $(srcdir)/externals/art
+@ART_ENABLED@f90_srcs+= $(patsubst $(srcdir)/%,%,$(shell find $(art_srcdir) -name '*.f90'))
+@ART_ENABLED@inc_srcs+= $(patsubst $(srcdir)/%,%,$(shell find $(art_srcdir) -name '*.inc' -o -name '*.incf'))
+
 # JSBACH preprocessing:
 @JSBACH_ENABLED@jsb_srcdir:= $(srcdir)/externals/jsbach
 @JSBACH_ENABLED@jsb_subdir:= $(ppdir)/jsb
