@@ -20,5 +20,5 @@ LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_
 # libraries at the configure time and when running 'make check':
 BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --with-external-sct --with-external-ecrad --with-external-rte-rrtmgp --enable-sct --enable-grib2 --enable-yaxt --disable-ocean --enable-ecrad --enable-rte-rrtmgp "$@"
+"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --with-external-sct --with-external-ecrad --with-external-rte-rrtmgp --enable-sct --enable-grib2 --enable-yaxt --disable-ocean --enable-ecrad --enable-rte-rrtmgp "$@"
 

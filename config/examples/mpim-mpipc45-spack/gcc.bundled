@@ -24,5 +24,5 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 BUILD_ENV="$BUILD_ENV PATH=\"$(dirname "$MPICH_LAUNCH"):\$PATH\"; export PATH;"
 MPI_LAUNCH=$(basename "$MPICH_LAUNCH")
 
-$(cd "$(dirname "$0")"; pwd)/../../../configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --enable-sct --enable-grib2 --enable-yaxt --enable-ecrad --enable-rte-rrtmgp "$@"
+"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --enable-sct --enable-grib2 --enable-yaxt --enable-ecrad --enable-rte-rrtmgp "$@"
 
