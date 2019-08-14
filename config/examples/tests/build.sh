@@ -33,7 +33,7 @@ case $(host $(uname -n)) in
 esac
 
 art_repo='git@gitlab.dkrz.de:m300488/art.git'
-art_dir="$root_dir/../../../src/art"
+art_dir="$root_dir/../../../externals/art"
 if test ! -d "$art_dir"; then
   git clone "$art_repo" "$art_dir"
 else
