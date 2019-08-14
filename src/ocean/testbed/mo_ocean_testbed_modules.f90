@@ -24,7 +24,9 @@ MODULE mo_ocean_testbed_modules
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
-  USE mo_grid_config,            ONLY: n_dom
+  USE mo_grid_config,            ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
+  USE mo_math_constants,         ONLY: pi, pi_2, rad2deg, deg2rad
+  USE mo_math_types,             ONLY: t_cartesian_coordinates
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
     & atmos_flux_analytical_type, no_tracer, OceanReferenceDensity
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
@@ -34,8 +36,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
-  USE mo_ocean_ab_timestepping,  ONLY: update_time_indices
-!    solve_free_surface_eq_ab, calc_vert_velocity,       &
+  USE mo_ocean_ab_timestepping,  ONLY: update_time_indices , &
+     & solve_free_surface_eq_ab!, calc_vert_velocity,       &
   USE mo_random_util,            ONLY: add_random_noise_global
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_hamocc_types,           ONLY: t_hamocc_state
@@ -91,6 +93,11 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_physics,         ONLY: update_ho_params
 
   USE mo_ocean_tracer_transport_types
+
+  !! Needed to test advection of velocity 
+  USE mo_ocean_velocity_advection, ONLY: veloc_adv_horz_mimetic, &
+      & veloc_adv_vert_mimetic
+
 
   IMPLICIT NONE
   PRIVATE
@@ -186,6 +193,22 @@ CONTAINS
 
       CASE (14)
         CALL checkVarlistKeys(patch_3d%p_patch_2D(1))
+    
+    
+      CASE (91) ! Test advection part of momentum  
+        CALL test_mom( patch_3d, ocean_state,  &
+          & external_data , &
+          & this_datetime, &
+          & ocean_surface, &
+          & physics_parameters, &
+          & oceans_atmosphere, &
+          & oceans_atmosphere_fluxes, &
+          & ocean_ice, &
+          & hamocc_state, &
+          & operators_coefficients, &
+          & solvercoeff_sp)
+
+
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 
@@ -1679,4 +1702,217 @@ CONTAINS
     call print_var_list(varnameCheckList)
     call delete_var_list(varnameCheckList)
   END SUBROUTINE checkVarlistKeys
+  
+  
+  !>
+  !! Testing for the advection of velocity in the momentum equation 
+  !!
+  !!
+  SUBROUTINE test_mom( patch_3d, ocean_state, p_ext_data,  &
+    & this_datetime, p_oce_sfc, physics_parameters, &
+    & p_as, p_atm_f, sea_ice, &
+    & hamocc_state,operators_coefficients,solvercoeff_sp)
+    
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
+    TYPE(datetime), POINTER                          :: this_datetime
+    TYPE(t_ocean_surface)                            :: p_oce_sfc
+    TYPE(t_ho_params)                                :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
+    TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
+    TYPE(t_hamocc_state),     INTENT(inout)          :: hamocc_state
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    
+    ! local variables
+    INTEGER :: jstep, jg, return_status
+    !LOGICAL                         :: l_outputtime
+    CHARACTER(LEN=32)               :: datestring
+    TYPE(t_patch), POINTER :: patch_2d
+    INTEGER :: jstep0 ! start counter for time loop
+    REAL(wp) :: mean_height, old_mean_height
+    REAL(wp) :: verticalMeanFlux(n_zlev+1)
+    INTEGER :: level
+    !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_testbed_modules:test_output'
+   
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+    !! New variables to test stretching 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+    REAL(wp) :: vn_test(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: uu, vv      ! zonal,  meridional velocity
+    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
+    REAL(wp) :: u0, sphere_radius 
+    INTEGER  :: edge_index, edge_block, start_edges_index, end_edges_index
+    INTEGER  :: blockNo, cell_index, cell_block, start_cells_index, end_cells_index
+    TYPE(t_cartesian_coordinates) :: cell_center, edge_center
+    INTEGER  :: start_index, end_index, neigbor 
+    INTEGER  :: bot_level 
+    INTEGER  :: zcoord_type 
+    INTEGER,  DIMENSION(:,:,:), POINTER :: idx, blk
+    INTEGER  :: id1, id2, bl1, bl2 
+    INTEGER  :: bt_level 
+    REAL(wp) :: ht_edge, ht1, ht2, ht3 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+
+    TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
+    TYPE(timedelta), POINTER            :: model_time_step => NULL()
+    TYPE(datetime), POINTER             :: mtime_current   => NULL()
+    TYPE(datetime), POINTER             :: eventRefDate    => NULL(), eventStartDate  => NULL(), eventEndDate    => NULL()
+    TYPE(timedelta), POINTER            :: eventInterval   => NULL()
+    TYPE(event), POINTER                :: checkpointEvent => NULL()
+    TYPE(event), POINTER                :: restartEvent    => NULL()
+    
+    INTEGER                             :: checkpointEvents, ierr
+    LOGICAL                             :: lwrite_checkpoint, lret
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstring
+    CHARACTER(len=MAX_MTIME_ERROR_STR_LEN):: errstring
+
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(datetime), POINTER               :: current_date
+    
+    TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
+    !------------------------------------------------------------------
+    patch_2D      => patch_3d%p_patch_2d(1)
+    idx           => patch_3D%p_patch_2D(1)%edges%cell_idx
+    blk           => patch_3D%p_patch_2D(1)%edges%cell_blk
+
+    IF (n_dom > 1 ) THEN
+      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+    END IF
+    jg = n_dom
+
+    vn_test = 0.0 
+
+    all_edges   => patch_2d%edges%ALL
+    all_cells   => patch_2d%cells%ALL
+    owned_cells => patch_2D%cells%owned
+    
+    sphere_radius = grid_sphere_radius
+    u0            = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
+
+    bot_level = n_zlev + 1
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! 0 for z, 1 for zstar
+    !! Make sure that the height is not initialized if zcoord_type = 1
+    zcoord_type = 0 
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! FIXME: For now we assume that the height of the edges is not 
+    !! available as a separate array
+    !! Initialize velocity
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon  
+        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat  
+
+        bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
+        DO level = 1, bt_level 
+          id1 = (idx(edge_index, edge_block, 1))
+          id2 = (idx(edge_index, edge_block, 2))
+          bl1 = (blk(edge_index, edge_block, 1))
+          bl2 = (blk(edge_index, edge_block, 2))
+
+          !! Get height of the cell center at mid point from the bottom
+          ht1 = patch_3d%p_patch_1d(1)%depth_CellInterface(id1, bt_level + 1, bl1)& 
+              & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+          ht2 = patch_3d%p_patch_1d(1)%depth_CellInterface(id2, bt_level + 1, bl2)& 
+              & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+
+          !! Get height of edge as average of the centers of the 2 adjoining cells
+          ht_edge = 0.5*( ht1 + ht2 )
+          uu = 1.0_wp + 0.01*ht_edge
+          vv = 0.0_wp 
+
+          edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+            & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+          vn_test(edge_index, level, edge_block) = edge_vn
+          ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block) &
+              & = edge_vn
+
+        ENDDO
+
+      ENDDO
+    ENDDO
+
+
+    !! Show that cell centers and edge centers are not in the same z plane
+    DO cell_block = owned_cells%start_block, owned_cells%end_block
+      CALL get_index_range(owned_cells, cell_block, start_index, end_index)
+      DO cell_index = start_index, end_index
+
+        cell_center%x = patch_2D%cells%cartesian_center(cell_index, cell_block)%x
+
+        !-------------------------------
+        DO neigbor=1, patch_2D%cells%num_edges(cell_index,cell_block)!no_primal_edges
+
+          edge_index = patch_2D%cells%edge_idx(cell_index, cell_block, neigbor)
+          edge_block = patch_2D%cells%edge_blk(cell_index, cell_block, neigbor)
+
+          IF (edge_block > 0 ) THEN
+!            write(*, *)  patch_2D%edges%cartesian_center(edge_index,edge_block)%x(1), &
+!              &  patch_2D%edges%cartesian_center(edge_index,edge_block)%x(2), &
+!              &  patch_2D%edges%cartesian_center(edge_index,edge_block)%x(3), &
+!              & cell_center%x(1), cell_center%x(2), cell_center%x(3) 
+
+          ENDIF !(edge_block > 0 )
+        ENDDO !neigbor=1,patch_2D%num_edges
+        !-------------------------------
+      ENDDO ! cell_index = start_index, end_index
+    ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
+
+
+    !! Get kinetic energy
+    CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(jg)%p_prog(nold(1))%vn,    &
+        & ocean_state(jg)%p_diag,                     &
+        & operators_coefficients)
+
+    !! Show that Pv is not constant for a constant input velocity
+    DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_cells_index, end_cells_index)
+        DO cell_index =  start_cells_index, end_cells_index
+          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+
+!              write(*, *)ocean_state(jg)%p_diag%p_vn(cell_index,level,blockNo)%x
+              
+          ENDDO
+        ENDDO
+    ENDDO
+
+    ! STEP 1: horizontal advection
+    CALL veloc_adv_horz_mimetic( patch_3d,         &
+      & ocean_state(jg)%p_prog(nold(1))%vn,    &
+      & ocean_state(jg)%p_prog(nold(1))%vn,    &
+      & ocean_state(jg)%p_diag,                &
+      & ocean_state(jg)%p_diag%veloc_adv_horz, &
+      & operators_coefficients)
+    
+    CALL dbg_print('test_mom: coriolis  ' ,ocean_state(jg)%p_diag%veloc_adv_horz ,&
+        & '', 3, patch_2D%edges%owned )
+    CALL dbg_print('test_mom: w',          ocean_state(jg)%p_diag%w,              &
+        & '', 3, patch_2D%cells%owned )
+
+
+!      ! STEP 2: compute 3D contributions: vertical velocity advection
+!      CALL veloc_adv_vert_mimetic(          &
+!        & patch_3d,                         &
+!        & ocean_state(jg)%p_diag,           &
+!        & operators_coefficients,           &
+!        & ocean_state(jg)%p_diag%veloc_adv_vert )
+!
+  END SUBROUTINE test_mom
+
+
 END MODULE mo_ocean_testbed_modules

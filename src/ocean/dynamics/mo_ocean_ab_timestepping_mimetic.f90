@@ -91,6 +91,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: calc_vert_velocity_mim_bottomup
   PUBLIC :: invert_mass_matrix
   PUBLIC :: clear_ocean_ab_timestepping_mimetic
+  PUBLIC :: calculate_explicit_term_ab
   !
 ! solver object (free ocean surface)
   CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
