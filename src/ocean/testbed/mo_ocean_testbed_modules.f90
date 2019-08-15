@@ -19,10 +19,13 @@
 !! headers of the routines.
 !!
 !!
+#include "omp_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
+
 MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
-  USE mo_impl_constants,         ONLY: max_char_length
+  USE mo_impl_constants,         ONLY: max_char_length, sea_boundary, zero_coriolis
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
   USE mo_math_constants,         ONLY: pi, pi_2, rad2deg, deg2rad
@@ -68,7 +71,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_testbed_vertical_diffusion
   USE mo_ocean_math_operators
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
+  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, &
+      & map_edges2cell_3d, map_scalar_center2prismtop
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list
@@ -1743,7 +1747,7 @@ CONTAINS
     !! New variables to test stretching 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
     REAL(wp) :: vn_test(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_edges, edges_in_domain
     TYPE(t_subset_range), POINTER :: all_cells
     REAL(wp) :: point_lon, point_lat     ! latitude of point
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
@@ -1759,6 +1763,14 @@ CONTAINS
     INTEGER  :: id1, id2, bl1, bl2 
     INTEGER  :: bt_level 
     REAL(wp) :: ht_edge, ht1, ht2, ht3 
+    REAL(wp) :: z1, z2, H1, H2, eta1, eta2 
+    REAL(wp) :: eta(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: mom_grad(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: wstar(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: zgrad(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    TYPE(t_cartesian_coordinates) :: p_zgrad(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: p_zgrad_sc(nproma, n_zlev ,patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: p_zgrad_top(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
     TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
@@ -1784,6 +1796,7 @@ CONTAINS
     patch_2D      => patch_3d%p_patch_2d(1)
     idx           => patch_3D%p_patch_2D(1)%edges%cell_idx
     blk           => patch_3D%p_patch_2D(1)%edges%cell_blk
+    edges_in_domain => patch_3D%p_patch_2D(1)%edges%in_domain
 
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
@@ -1804,7 +1817,27 @@ CONTAINS
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! 0 for z, 1 for zstar
     !! Make sure that the height is not initialized if zcoord_type = 1
-    zcoord_type = 0 
+    zcoord_type = 1 
+
+    !! If zcoord type is 1, then we set eta equal to
+    !! sea surface height type 201 which is what we compare against
+    IF (zcoord_type == 1) THEN
+        eta = 0.  
+        ! Initialize eta for zstar
+        ! #slo#: simple elevation between 30W and 30E (pi/3.)
+        DO cell_block = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, cell_block, start_index, end_index)
+          DO cell_index = start_index, end_index
+            IF ( patch_3d%lsm_c(cell_index,1,cell_block) <= sea_boundary ) THEN
+    
+               eta(cell_index, cell_block) = 10.0_wp * &
+                & SIN(patch_2d%cells%center(cell_index, cell_block)%lon * 6.0_wp) &
+                & * COS(patch_2d%cells%center(cell_index, cell_block)%lat * 3.0_wp)
+
+            ENDIF
+          END DO
+        END DO
+    ENDIF
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! FIXME: For now we assume that the height of the edges is not 
@@ -1823,21 +1856,43 @@ CONTAINS
           bl1 = (blk(edge_index, edge_block, 1))
           bl2 = (blk(edge_index, edge_block, 2))
 
-          !! Get height of the cell center at mid point from the bottom
-          ht1 = patch_3d%p_patch_1d(1)%depth_CellInterface(id1, bt_level + 1, bl1)& 
-              & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
-          ht2 = patch_3d%p_patch_1d(1)%depth_CellInterface(id2, bt_level + 1, bl2)& 
-              & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+          ht_edge = 0.
+          IF (zcoord_type == 0) THEN
+              !! Get height of the cell center at mid point from the bottom
+              ht1 = patch_3d%p_patch_1d(1)%depth_CellInterface(id1, bt_level + 1, bl1)& 
+                  & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+              ht2 = patch_3d%p_patch_1d(1)%depth_CellInterface(id2, bt_level + 1, bl2)& 
+                  & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+    
+              !! Get height of edge as average of the centers of the 2 adjoining cells
+              ht_edge = 0.5*( ht1 + ht2 )
+          ELSE IF (zcoord_type == 1) THEN
+              !! Get height of the cell center at mid point from the bottom
+              H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
+              ht1 = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+              H2  = patch_3d%p_patch_1d(1)%depth_CellInterface(id2,bt_level+1,bl2) 
+              ht2 = H2 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+              
+              eta1 = eta(id1, bl1) 
+              eta2 = eta(id2, bl2) 
 
-          !! Get height of edge as average of the centers of the 2 adjoining cells
-          ht_edge = 0.5*( ht1 + ht2 )
-          uu = 1.0_wp + 0.01*ht_edge
+              !! Transform to z from zstar
+              z1   = ht1*(H1 + eta1)/H1 + eta1
+              z2   = ht2*(H2 + eta2)/H2 + eta2
+    
+              !! Get height of edge as average of the centers of the 2 adjoining cells
+              ht_edge = 0.5*( z1 + z2 )
+
+          ENDIF
+
+          uu = 1.0_wp !+ 0.01*ht_edge
           vv = 0.0_wp 
 
           edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
             & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
 
           vn_test(edge_index, level, edge_block) = edge_vn
+
           ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block) &
               & = edge_vn
 
@@ -1904,14 +1959,93 @@ CONTAINS
     CALL dbg_print('test_mom: w',          ocean_state(jg)%p_diag%w,              &
         & '', 3, patch_2D%cells%owned )
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! Transform vertical velocity using 
+    !! wstar = w - u.grad( z )
+    !! Only valid for static grid 
+    IF (zcoord_type == 1) THEN
+        DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+          DO edge_index = start_edges_index, end_edges_index
+            bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
+            DO level = 1, bt_level 
+              id1 = (idx(edge_index, edge_block, 1))
+              id2 = (idx(edge_index, edge_block, 2))
+              bl1 = (blk(edge_index, edge_block, 1))
+              bl2 = (blk(edge_index, edge_block, 2))
+    
+              !! Get height of the cell center at mid point from the bottom
+              H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
+              ht1 = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+              H2  = patch_3d%p_patch_1d(1)%depth_CellInterface(id2,bt_level+1,bl2) 
+              ht2 = H2 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+              
+              eta1 = eta(id1, bl1) 
+              eta2 = eta(id2, bl2) 
+    
+              !! Transform to z from zstar
+              z1   = ht1*(H1 + eta1)/H1 + eta1
+              z2   = ht2*(H2 + eta2)/H2 + eta2
 
-!      ! STEP 2: compute 3D contributions: vertical velocity advection
-!      CALL veloc_adv_vert_mimetic(          &
-!        & patch_3d,                         &
-!        & ocean_state(jg)%p_diag,           &
-!        & operators_coefficients,           &
-!        & ocean_state(jg)%p_diag%veloc_adv_vert )
-!
+              !! However we need these at the prism top and bottom        
+              zgrad(edge_index,level,edge_block) =                                &
+                & ocean_state(jg)%p_prog(nold(1))%vn(edge_index,level,edge_block) &
+                & *operators_coefficients%grad_coeff(edge_index,level,edge_block)* &
+                & ( z2 - z1 ) 
+
+            ENDDO
+    
+          ENDDO
+        ENDDO
+    
+        CALL map_edges2cell_3d(patch_3d, zgrad, operators_coefficients, p_zgrad) 
+        
+        DO blockNo = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, blockNo, start_cells_index, end_cells_index)
+            DO cell_index =  start_cells_index, end_cells_index
+                DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+                    p_zgrad_sc(cell_index, level, blockNo) =           &
+                        SQRT( DOT_PRODUCT(                             & 
+                   & p_zgrad(cell_index, level, blockNo)%x,             & 
+                   & p_zgrad(cell_index, level, blockNo)%x             & 
+                   & ) )
+                ENDDO
+            ENDDO
+        ENDDO
+        
+        CALL map_scalar_center2prismtop(patch_3d, p_zgrad_sc, operators_coefficients, p_zgrad_top)
+
+        DO blockNo = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, blockNo, start_cells_index, end_cells_index)
+            DO cell_index =  start_cells_index, end_cells_index
+                DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)+1 
+                    ocean_state(jg)%p_diag%w(cell_index, level, blockNo) = &
+                      &  ocean_state(jg)%p_diag%w(cell_index, level, blockNo) &
+                      & - p_zgrad_top(cell_index, level, blockNo) 
+                ENDDO
+            ENDDO
+        ENDDO
+ 
+    ENDIF
+
+    CALL dbg_print('test_mom: w corr' , ocean_state(jg)%p_diag%w ,&
+        & '', 3, patch_2D%cells%owned )
+
+
+    ! STEP 2: compute 3D contributions: vertical velocity advection
+    CALL veloc_adv_vert_mimetic(          &
+      & patch_3d,                         &
+      & ocean_state(jg)%p_diag,           &
+      & operators_coefficients,           &
+      & ocean_state(jg)%p_diag%veloc_adv_vert )
+
+    !! Add kin. energy gradient, vorticity term and vertical mom. gradient
+    mom_grad = ocean_state(jg)%p_diag%grad + ocean_state(jg)%p_diag%veloc_adv_horz&
+        & + ocean_state(jg)%p_diag%veloc_adv_vert 
+
+    CALL dbg_print('test_mom: vel. terms' ,mom_grad ,&
+        & '', 3, patch_2D%edges%owned )
+
   END SUBROUTINE test_mom
 
 
