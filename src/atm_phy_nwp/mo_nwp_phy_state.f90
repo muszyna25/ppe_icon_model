@@ -51,6 +51,8 @@ USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
   &                               TASK_COMPUTE_RH, TASK_COMPUTE_PV,   &
+  &                               TASK_COMPUTE_SDI2,                  &
+  &                               TASK_COMPUTE_LPI,                   &
   &                               iedmf,                              &
   &                               HINTP_TYPE_LONLAT_NNB,              &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
@@ -151,11 +153,13 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-SUBROUTINE construct_nwp_phy_state( p_patch, l_rh, l_pv)
+SUBROUTINE construct_nwp_phy_state( p_patch, l_rh, l_pv, l_sdi2, l_lpi)
 
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
-LOGICAL, INTENT(IN) :: l_rh(n_dom), &!< Flag. TRUE if computation of relative humidity desired
-                       l_pv(n_dom)   !< Flag. TRUE if computation of potential vorticity desired
+LOGICAL, INTENT(IN) :: l_rh(n_dom),   & !< Flag. TRUE if computation of relative humidity desired
+                       l_pv(n_dom),   & !< Flag. TRUE if computation of potential vorticity desired
+                       l_sdi2(n_dom), & !< Flag. TRUE if computation of supercell detection index desired
+                       l_lpi(n_dom)     !< Flag. TRUE if computation of lightning potential index desired
 
 CHARACTER(len=max_char_length) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
@@ -193,7 +197,7 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
 
      CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),   &
-       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg), l_pv(jg))
+       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg), l_pv(jg), l_sdi2(jg), l_lpi(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
      CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
@@ -256,7 +260,7 @@ END SUBROUTINE destruct_nwp_phy_state
 
      !
 SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
-                     & listname, diag_list, diag, l_rh, l_pv)
+                     & listname, diag_list, diag, l_rh, l_pv, l_sdi2, l_lpi)
 
     INTEGER,INTENT(IN) :: klev, klevp1, kblks, k_jg !< dimension sizes
 
@@ -267,8 +271,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
-    LOGICAL, INTENT(IN) :: l_rh, & !< Flag. TRUE if computation of relative humidity desired
-                           l_pv    !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL, INTENT(IN) :: l_rh,   & !< Flag. TRUE if computation of relative humidity desired
+                           l_pv,   & !< Flag. TRUE if computation of potential vorticity desired
+                           l_sdi2, & !< Flag. TRUE if computation of supercell detection index desired
+                           l_lpi     !< Flag. TRUE if computation of lightning potential index desired
     ! Local variables
 
     INTEGER :: n_updown = 7 !> number of up/downdrafts variables
@@ -3085,6 +3091,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                     & l_pp_scheduler_task=TASK_COMPUTE_PV, lrestart=.FALSE.          )
     END IF
 
+    IF (l_sdi2) THEN
+      cf_desc    = t_cf_var('sdi2', 's-1', 'supercell detection index (SDI2)', datatype_flt)
+      grib2_desc = grib2_var(0, 7, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list,                                                       &
+                    & "sdi2", diag%sdi2,                                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_SDI2, lrestart=.FALSE. )
+    END IF
+
+    IF (l_lpi) THEN
+      cf_desc    = t_cf_var('lpi', 'J kg-1', 'lightning potential index (LPI)', datatype_flt)
+      grib2_desc = grib2_var(0, 17, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list,                                                       &
+                    & "lpi", diag%lpi,                                               &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_LPI, lrestart=.FALSE. )
+    END IF
 
     !  Height of 0 deg C level
     cf_desc    = t_cf_var('hzerocl', '', 'height of 0 deg C level', datatype_flt)

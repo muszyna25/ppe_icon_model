@@ -358,7 +358,7 @@ cat > NAMELIST_NWP << EOF
  ml_varlist='u', 'v', 'w', 'temp', 'qv', 'qc','qi','qr','qs','clcl','clcm','clch', 
 'group:precip_vars', 'group:additional_precip_vars','tqv','tqc','tqi','group:land_vars','freshsnow','albdif',
 'rh_2m','u_10m','v_10m','sp_10m','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S','ASHFL_S','ASOB_S','ASOB_T',
- 'ATHB_S','ATHB_T','tmax_2m','tmin_2m','t_2m','pres_sfc','pres_msl','gust10','z_mc'
+ 'ATHB_S','ATHB_T','tmax_2m','tmin_2m','t_2m','pres_sfc','pres_msl','gust10','z_mc', 'SDI2', 'LPI'
 /
 
 ! radiation_nml: radiation scheme ---------------------------------------------
