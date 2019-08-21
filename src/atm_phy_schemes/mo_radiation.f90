@@ -42,6 +42,7 @@
 !
 MODULE mo_radiation
 
+  USE mo_bc_greenhouse_gases,  ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_kind,                 ONLY: wp, i8
   USE mo_exception,            ONLY: finish
@@ -729,28 +730,35 @@ CONTAINS
     !
     ! --- gas profiles in [ppm]
     !
-    xm_co2   (1:jce,:) = gas_profile(jce, klev, irad_co2,    &
-      &                              mmr_gas = mmr_co2   )
-    xm_ch4   (1:jce,:) = gas_profile(jce, klev, irad_ch4,    &
-      &                              mmr_gas = mmr_ch4,      &
-      &                              pressure = pp_fl,       &
-      &                              xp = vpp_ch4        )
-    xm_n2o   (1:jce,:) = gas_profile(jce, klev, irad_n2o,    &
-      &                              mmr_gas = mmr_n2o,      &
-      &                              pressure = pp_fl,       &
-      &                              xp = vpp_n2o        )
-    xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,     &
-      &                              mmr_gas = mmr_o2    )
+    xm_co2   (1:jce,:) = gas_profile(jce, klev, irad_co2,        &
+      &                              mmr_gas = mmr_co2,          &
+      &                              gas_scenario = ghg_co2mmr   )
+    xm_ch4   (1:jce,:) = gas_profile(jce, klev, irad_ch4,        &
+      &                              mmr_gas = mmr_ch4,          &
+      &                              gas_scenario = ghg_ch4mmr,  &
+      &                              pressure = pp_fl,           &
+      &                              xp = vpp_ch4                )
+    xm_n2o   (1:jce,:) = gas_profile(jce, klev, irad_n2o,        &
+      &                              mmr_gas = mmr_n2o,          &
+      &                              gas_scenario = ghg_n2ommr,  &
+      &                              pressure = pp_fl,           &
+      &                              xp = vpp_n2o                )
+    xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,         &
+      &                              mmr_gas = mmr_o2            )
 #ifdef __SX__
-    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
-      &                              mmr_gas = REAL(vmr_cfc11,wp) )
-    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
-      &                              mmr_gas = REAL(vmr_cfc12,wp) )
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,        &
+      &                              mmr_gas = REAL(vmr_cfc11,wp), &
+      &                              gas_scenario = ghg_cfcmmr(1)  )
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,        &
+      &                              mmr_gas = REAL(vmr_cfc12,wp), &
+      &                              gas_scenario = ghg_cfcmmr(2)  )
 #else
-    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
-      &                              mmr_gas = vmr_cfc11 )
-    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
-      &                              mmr_gas = vmr_cfc12 )
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,        &
+      &                              mmr_gas = vmr_cfc11 ,         &
+      &                              gas_scenario = ghg_cfcmmr(1)  ) 
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,        &
+      &                              mmr_gas = vmr_cfc12,          &
+      &                              gas_scenario = ghg_cfcmmr(2)  )
 #endif
     !
 

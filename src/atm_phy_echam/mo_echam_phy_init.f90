@@ -500,7 +500,7 @@ CONTAINS
       IF (ANY(ighg(:) > 0)) THEN
         ! read annual means
         IF (.NOT. bc_greenhouse_gases_file_read) THEN
-          CALL read_bc_greenhouse_gases
+          CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
         END IF
         ! interpolate to the current date and time, placing the annual means at
         ! the mid points of the current and preceding or following year, if the
