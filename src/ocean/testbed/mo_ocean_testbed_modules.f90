@@ -72,7 +72,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_math_operators
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, &
-      & map_edges2cell_3d, map_scalar_center2prismtop
+      & map_edges2cell_3d, map_scalar_center2prismtop, map_vec_prismtop2center_on_block, &
+      & map_cell2edges_3D
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list
@@ -1786,7 +1787,15 @@ CONTAINS
     REAL(wp) :: p_zgrad_sc(nproma, n_zlev ,patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: p_zgrad_top(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: phi(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    REAL(wp) :: dphi_dz1, dphi_dz2, dz_dn, dphi_dn
+    REAL(wp) :: dphi_dz1, dphi_dz2, dz_dn, dphi_dn, dpv_dn
+    REAL(wp) :: pv_x1, pv_x2, pv_y1, pv_y2, dpvx_dn, dpvy_dn
+    
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma, n_zlev+1)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: pvn(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: vert_der_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: div_v(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+ 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
     TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
@@ -1829,7 +1838,11 @@ CONTAINS
         ENDIF
       END DO
     END DO
-       
+ 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! 0 for z, 1 for zstar
+    !! Make sure that the height is not initialized if zcoord_type = 1
+    zcoord_type = 1
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !! FIXME: For now we assume that the height of the edges is not 
@@ -1883,10 +1896,17 @@ CONTAINS
           edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
             & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
 
-          vn_test(edge_index, level, edge_block) = edge_vn
-
           ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block) &
               & = edge_vn
+
+          uu = 1.0_wp 
+          vv = 0.0_wp 
+
+          edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+            & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+          vn_test(edge_index, level, edge_block) = edge_vn
+
 
         ENDDO
 
@@ -1967,7 +1987,7 @@ CONTAINS
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
         bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
-        DO level = 2, bt_level - 1 
+        DO level = 2, bt_level - 1 ! FIXME: starts from second level
           id1 = (idx(edge_index, edge_block, 1))
           id2 = (idx(edge_index, edge_block, 2))
           bl1 = (blk(edge_index, edge_block, 1))
@@ -1985,7 +2005,9 @@ CONTAINS
           !! Transform to z from zstar
           z1   = ht1*(H1 + eta1)/H1 + eta1
           z2   = ht2*(H2 + eta2)/H2 + eta2
-    
+   
+          !! Note that ds/dz is the analytic value
+          !! We are using the interface value instead of the middle value for the test 
           dphi_dz1 =  ( H1/(H1 + eta1)  ) *                                                       & 
              & ( -phi(id1, level, bl1) + phi(id1, level - 1, bl1) ) *                             &
              & patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(id1, level, bl1)
@@ -1998,7 +2020,7 @@ CONTAINS
           dphi_dn =  (phi(id1,level,bl1) - phi(id2,level,bl2))*                                 &
               & operators_coefficients%grad_coeff(edge_index,level,edge_block)
     
-          write(*, *) dz_dn*dphi_dz1, dphi_dn 
+!          write(*, *) dz_dn*dphi_dz1, dphi_dn 
     
     
         ENDDO
@@ -2006,8 +2028,122 @@ CONTAINS
       ENDDO
     ENDDO
     
+    CALL map_edges2cell_3d(patch_3d, ocean_state(jg)%p_prog(nold(1))%vn, &
+        & operators_coefficients, pvn) 
+
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      !vertical derivative at ocean interior Surface is handled below
+      ! this does not include h
+      CALL verticalDeriv_vec_midlevel_on_block( patch_3d, &
+                                              & pvn(:,:,blockNo),  &
+                                              & z_adv_u_i(:,:),&
+                                              & 1+1,             & ! FIXME: starts from second level
+                                              & blockNo, start_index, end_index)
+
+      !! TODO: Need to multiply with ds/dz to get values at cell center
+      !! Then need to multiply with edge values, which will require transformation
+      CALL get_index_range(all_cells, cell_block, start_index, end_index)
+
+      DO cell_index = start_index, end_index
+ 
+          bt_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+          H1       = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, bt_level+1, blockNo)
+          eta1     = eta(cell_index, blockNo) 
+
+          z_adv_u_i(cell_index, :)%x(1) = z_adv_u_i(cell_index, :)%x(1)*( H1/(H1 + eta1)  )
+          z_adv_u_i(cell_index, :)%x(2) = z_adv_u_i(cell_index, :)%x(2)*( H1/(H1 + eta1)  )
+          z_adv_u_i(cell_index, :)%x(3) = z_adv_u_i(cell_index, :)%x(3)*( H1/(H1 + eta1)  )
 
 
+          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+
+!              write(*, *) level, z_adv_u_i(cell_index, level)%x(1), ( H1/(H1 + eta1)  )
+
+          END DO
+
+      END DO
+     
+      !! Project values to prism middle from top
+      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, z_adv_u_m(:,:,blockNo), &
+        & blockNo, start_index, end_index)
+
+    END DO
+
+    !! Get the derivatives at the cell edges    
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_m, vert_der_e, operators_coefficients)
+
+    
+    !! Get kinetic energy
+    CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(jg)%p_prog(nold(1))%vn,    &
+        & ocean_state(jg)%p_diag,                     &
+        & operators_coefficients)
+
+    ! STEP 1: horizontal advection
+    CALL veloc_adv_horz_mimetic( patch_3d,         &
+      & ocean_state(jg)%p_prog(nold(1))%vn,    &
+      & ocean_state(jg)%p_prog(nold(1))%vn,    &
+      & ocean_state(jg)%p_diag,                &
+      & ocean_state(jg)%p_diag%veloc_adv_horz, &
+      & operators_coefficients)
+
+    !! Horizontal total derivative
+    mom_grad = ocean_state(jg)%p_diag%grad + ocean_state(jg)%p_diag%veloc_adv_horz
+
+    DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+        bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
+        DO level = 2, bt_level - 1 ! FIXME: starts from second level
+          id1 = (idx(edge_index, edge_block, 1))
+          id2 = (idx(edge_index, edge_block, 2))
+          bl1 = (blk(edge_index, edge_block, 1))
+          bl2 = (blk(edge_index, edge_block, 2))
+    
+          !! Get height of the cell center at mid point from the bottom
+          H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
+          ht1 = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+          H2  = patch_3d%p_patch_1d(1)%depth_CellInterface(id2,bt_level+1,bl2) 
+          ht2 = H2 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+          
+          eta1 = eta(id1, bl1) 
+          eta2 = eta(id2, bl2) 
+    
+          !! Transform to z from zstar
+          z1   = ht1*(H1 + eta1)/H1 + eta1
+          z2   = ht2*(H2 + eta2)/H2 + eta2
+          
+          pv_x1  = pvn(id1, level, bl1)%x(1) 
+          pv_x2  = pvn(id2, level, bl2)%x(1)
+          pv_y1  = pvn(id1, level, bl1)%x(2) 
+          pv_y2  = pvn(id2, level, bl2)%x(2)
+  
+          dz_dn    =  (z1 - z2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+          dpvx_dn  =  (pv_x1 - pv_x2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+          dpvy_dn  =  (pv_y1 - pv_y2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+          
+          dpv_dn   = dpvx_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v1 + &
+              & dpvy_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v2 
+
+          dpv_dn   = -1.0_wp*dpv_dn
+
+!          write(*, *) -1.0*dz_dn*vert_der_e(edge_index, level, edge_block)* &
+!              & ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block), & 
+!              & mom_grad(edge_index, level, edge_block) 
+
+!          write(*, *) dpv_dn, dz_dn*vert_der_e(edge_index, level, edge_block)
+!          write(*, *) dpv_dn, dz_dn, vert_der_e(edge_index, level, edge_block), vn_test(edge_index, level, edge_block)
+!          write(*, *) patch_2d%edges%primal_normal(edge_index,edge_block)%v1, &
+!              patch_2d%edges%primal_normal(edge_index,edge_block)%v2, vn_test(edge_index, level, edge_block)
+
+    
+        ENDDO
+    
+      ENDDO
+    ENDDO
+    
+
+  
   END SUBROUTINE test_zstar
 
  
