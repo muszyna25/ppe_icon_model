@@ -601,8 +601,15 @@
 
       ! Read parameters QV, QC and QI
       CALL get_data(latbc, 'qv', latbc%latbc_data(tlev)%atm_in%qv, read_params(icell))
-      CALL get_data(latbc, 'qc', latbc%latbc_data(tlev)%atm_in%qc, read_params(icell))
-      CALL get_data(latbc, 'qi', latbc%latbc_data(tlev)%atm_in%qi, read_params(icell))
+      IF ( latbc_config%latbc_contains_qcqi ) THEN ! get qc, qi from latbc data
+        CALL get_data(latbc, 'qc', latbc%latbc_data(tlev)%atm_in%qc, read_params(icell))
+        CALL get_data(latbc, 'qi', latbc%latbc_data(tlev)%atm_in%qi, read_params(icell))
+      ELSE  ! initialize qc, qi with 0
+!$OMP PARALLEL
+        CALL init(latbc%latbc_data(tlev)%atm_in%qc(:,:,:))
+        CALL init(latbc%latbc_data(tlev)%atm_in%qi(:,:,:))
+!$OMP END PARALLEL
+      ENDIF
 
       ! Read parameter QR
       IF (latbc%buffer%lread_qr) THEN

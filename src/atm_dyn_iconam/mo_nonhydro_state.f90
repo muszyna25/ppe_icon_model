@@ -63,6 +63,7 @@ MODULE mo_nonhydro_state
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqtke, nqtendphy, ltestcase, lart
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
+  USE mo_limarea_config,       ONLY: latbc_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
@@ -74,7 +75,7 @@ MODULE mo_nonhydro_state
     &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
-  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic, MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
     &                                vintp_types, new_action, actions
@@ -456,6 +457,7 @@ MODULE mo_nonhydro_state
     TYPE(t_list_element), POINTER :: target_element
     INTEGER                       :: tracer_idx
 
+    LOGICAL :: ingroup(MAX_GROUPS)
     !**
     !--------------------------------------------------------------
 
@@ -642,6 +644,21 @@ MODULE mo_nonhydro_state
             &                           "mode_iniana","icon_lbc_vars") )
         END IF ! iqv 
 
+        IF ( latbc_config%latbc_contains_qcqi ) THEN
+          ingroup=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",               &
+            &                           "dwd_fg_atm_vars","mode_dwd_fg_in",          &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",     &
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in",       &
+            &                           "LATBC_PREFETCH_VARS",                       &
+            &                           "mode_iniana","icon_lbc_vars")
+        ELSE
+          ingroup=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",               &
+            &                           "dwd_fg_atm_vars","mode_dwd_fg_in",          &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",     &
+            &                           "mode_iau_fg_in","mode_iau_old_fg_in",       &
+            &                           "mode_iniana","icon_lbc_vars")
+        ENDIF
+
         !QC
         IF ( iqc /= 0 ) THEN
           CALL add_ref( p_prog_list, 'tracer',&
@@ -663,13 +680,8 @@ MODULE mo_nonhydro_state
             &                     vert_intp_method=VINTP_METHOD_LIN,                 &
             &                     l_loglin=.FALSE.,                                  &
             &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-            &                     lower_limit=0._wp  ),                              & 
-            &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-            &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                         "mode_iau_ana_in", "mode_iau_anaatm_in",       &
-            &                         "mode_iau_fg_in","mode_iau_old_fg_in",         &
-            &                         "LATBC_PREFETCH_VARS",                         &
-            &                         "mode_iniana","icon_lbc_vars") )
+            &                     lower_limit=0._wp  ),                              &
+            &         in_group=ingroup)
         END IF ! iqc
         !QI
         IF ( iqi /= 0 ) THEN
@@ -691,13 +703,8 @@ MODULE mo_nonhydro_state
             &                     vert_intp_method=VINTP_METHOD_LIN,                 &
             &                     l_loglin=.FALSE.,                                  &
             &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-            &                     lower_limit=0._wp  ),                              & 
-            &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-            &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                          "mode_iau_ana_in", "mode_iau_anaatm_in",      &
-            &                         "mode_iau_fg_in","mode_iau_old_fg_in",         &
-            &                         "LATBC_PREFETCH_VARS",                         &
-            &                         "mode_iniana","icon_lbc_vars") )
+            &                     lower_limit=0._wp  ),                              &
+            &         in_group=ingroup )
         END IF ! iqi
         !QR
         IF ( iqr /= 0 ) THEN
