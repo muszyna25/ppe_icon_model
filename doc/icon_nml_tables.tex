@@ -2731,7 +2731,7 @@ diagnostic integral output interval &
 
 %\hline
 \textbf{dt\_checkpoint}&
-R& 2592000 & s&
+R& 0 & s&
 Time interval for writing restart files.
 Note that if the value of dt\_checkpoint resulting from
 model default or user's specification is longer than time\_nml:dt\_restart,
@@ -3680,7 +3680,7 @@ Selects the calendar type to use:   \\
 %\hline
 
 \textbf{experimentReferenceDate} &
-C & experiment start date & &
+C & '' '' & ISO8601 formatted string &
 This specifies the reference date for the calendar in use. It is an
 anchor date for cycling of events on the time line.
 If this namelist parameter is unspecified, then the reference
@@ -3689,7 +3689,7 @@ date is set to the experiment start date.
 \tabularnewline
 
 \textbf{experimentStartDate} &
-C & ISO8601 formatted string & date of initial file &
+C & '' '' & ISO8601 formatted string &
 This is the start date of an experiment, which remains valid for the
 whole experiment. The start date is also the reference date of the
 experiment, which is the anchor point for cycling events. In special
@@ -3699,24 +3699,24 @@ other experiment.
 \tabularnewline
 
 \textbf{experimentStopDate} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string &
 This is the date an experiment is finished.&
 \tabularnewline
 
 \textbf{forecastLeadTime} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string & 
 Specifies the time span for a numerical weather forecast.
 It is used to set the experiment stop time with respect to
 the experiment start date. &
 \tabularnewline
 
 \textbf{checkpointTimeIntVal} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string & 
 Time interval for writing checkpoints.&
 \tabularnewline
 
 \textbf{restartTimeIntVal} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string &
 Time interval for writing a restart file and interrupt the
 current running job.&
 \tabularnewline
@@ -4979,7 +4979,7 @@ I(:)&-1& &
 
 %\hline
 \textbf{file\_interval} &
-C&\'' \''& &
+C&'' ''& &
 Defines the length of a file in terms of an ISO-8601 duration string. An example for this time stamp format is given below. This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 &
 \tabularnewline
@@ -5149,7 +5149,7 @@ L&.FALSE.& &
 
 %\hline
  \textbf{output\_start }&
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for begin of output.
  An example for this time stamp format is given below.
  More than one value is possible in order to define multiple start/end/interval triples.
@@ -5159,7 +5159,7 @@ C(:)&\'' \''& &
 
 %\hline
 \textbf{output\_end }&
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for end of output.
  An example for this time stamp format is given below.
  More than one value is possible in order to define multiple start/end/interval triples.
@@ -5169,7 +5169,7 @@ C(:)&\'' \''& &
 
 %\hline
 \textbf{output\_interval} &
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) > dtime}.
@@ -5238,7 +5238,7 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
 
 %\hline
  ready\_file &
- C & \''default\'' & &
+ C & ''default'' & &
  A \emph{ready file} is a technique for handling dependencies between the NWP processes.
  The completion of the write process is signalled by creating a small file 
  with name \texttt{ready\_file}.
@@ -6481,7 +6481,7 @@ Calendar type: \\
 
 %\hline
 dt\_restart &
-R & 86400.*30.& s &
+R & 0. & s &
 Length of restart cycle in seconds.
 This namelist parameter specifies how long the model runs until it saves its
 state to a file and stops.

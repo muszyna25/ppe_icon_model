@@ -17,80 +17,79 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: ildf_echam, inwp, iheldsuarez,                    &
-    &                              ildf_dry, inoforcing, ihs_atm_temp,               &
-    &                              ihs_atm_theta, tracer_only, inh_atmosphere,       &
-    &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,       &
-    &                              NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,       &
-    &                              MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
-    &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
-    &                              RAYLEIGH_CLASSIC,                                 &
-    &                              iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
-  USE mo_time_config,        ONLY: time_config, dt_restart
-  USE mo_extpar_config,      ONLY: itopo                                             
-  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                              lnetcdf_flt64_output
-  USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
-    &                              num_io_procs, itype_comm,                         &
-    &                              num_prefetch_proc, use_dp_mpi2io
-  USE mo_limarea_config,     ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
-  USE mo_master_config,      ONLY: isRestart
-  USE mo_run_config,         ONLY: nsteps, dtime, iforcing, output_mode,             &
-    &                              ltransport, ntracer, nlev, ltestcase,             &
-    &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
-    &                              iqs, iqr, iqt, iqtvar, ltimer,                    &
-    &                              ico2, ich4, in2o, io3,                            &
-    &                              iqni, iqni_nuc, iqg, iqm_max,                     &
-    &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
-    &                              inccn, ininact, ininpot,                          &
-    &                              activate_sync_timers, timers_level, lart,         &
-    &                              msg_level
-  USE mo_dynamics_config,    ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
-  USE mo_advection_config,   ONLY: advection_config
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
+  USE mo_kind,                     ONLY: wp
+  USE mo_exception,                ONLY: message, message_text, finish
+  USE mo_impl_constants,           ONLY: ildf_echam, inwp, iheldsuarez,                    &
+    &                                    ildf_dry, inoforcing, ihs_atm_temp,               &
+    &                                    ihs_atm_theta, tracer_only, inh_atmosphere,       &
+    &                                    ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,       &
+    &                                    NO_HADV, UP, MIURA, MIURA3, FFSL, FFSL_HYB,       &
+    &                                    MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
+    &                                    FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
+    &                                    RAYLEIGH_CLASSIC,                                 &
+    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
+  USE mo_time_config,              ONLY: time_config, dt_restart
+  USE mo_extpar_config,            ONLY: itopo                                             
+  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+    &                                    lnetcdf_flt64_output
+  USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
+    &                                    num_io_procs, itype_comm,                         &
+    &                                    num_prefetch_proc, use_dp_mpi2io
+  USE mo_limarea_config,           ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
+  USE mo_master_config,            ONLY: isRestart
+  USE mo_run_config,               ONLY: nsteps, dtime, iforcing, output_mode,             &
+    &                                    ltransport, ntracer, nlev, ltestcase,             &
+    &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
+    &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
+    &                                    ico2, ich4, in2o, io3,                            &
+    &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
+    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
+    &                                    inccn, ininact, ininpot,                          &
+    &                                    activate_sync_timers, timers_level, lart,         &
+    &                                    msg_level
+  USE mo_dynamics_config,          ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
+  USE mo_advection_config,         ONLY: advection_config
+  USE mo_nonhydrostatic_config,    ONLY: itime_scheme_nh => itime_scheme,                  &
+    &                                    lhdiff_rcf, rayleigh_type,                        &
+    &                                    ivctype, ndyn_substeps
+  USE mo_ha_dyn_config,            ONLY: ha_dyn_config
+  USE mo_diffusion_config,         ONLY: diffusion_config
+  USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
+  USE mo_lnd_nwp_config,           ONLY: ntiles_lnd, lsnowtile
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
+  USE mo_radiation_config,         ONLY: irad_o3, irad_aero, irad_h2o, irad_co2, irad_ch4, &
+    &                                    irad_n2o, irad_o2, irad_cfc11, irad_cfc12,        &
+    &                                    icld_overlap, llw_cloud_scat, iliquid_scat,       &
+    &                                    iice_scat
+  USE mo_turbdiff_config,          ONLY: turbdiff_config
+  USE mo_initicon_config,          ONLY: init_mode, dt_iau, ltile_coldstart, timeshift,    &
+    &                                    itype_vert_expol
+  USE mo_nh_testcases_nml,         ONLY: nh_test_name, layer_thickness
+  USE mo_ha_testcases,             ONLY: ctest_name, ape_sst_case
 
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme,               &
-    &                                 lhdiff_rcf, rayleigh_type,                     &
-    &                                 ivctype, ndyn_substeps
-  USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_diffusion_config,   ONLY: diffusion_config
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
-  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_radiation_config,   ONLY: irad_o3, irad_aero, irad_h2o, irad_co2, irad_ch4, &
-    &                              irad_n2o, irad_o2, irad_cfc11, irad_cfc12,        &
-    &                              icld_overlap, llw_cloud_scat, iliquid_scat,       &
-    &                              iice_scat
-  USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart, timeshift, &
-    &                              itype_vert_expol
-  USE mo_nh_testcases_nml,   ONLY: nh_test_name, layer_thickness
-  USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
-
-  USE mo_meteogram_config,   ONLY: meteogram_output_config, check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area, start_time,        &
-    &                              nroot, is_plane_torus, n_dom_start
-
-  USE mo_art_config,         ONLY: art_config
-  USE mo_time_management,    ONLY: compute_timestep_settings,                        &
-    &                              compute_restart_settings,                         &
-    &                              compute_date_settings
-  USE mo_event_manager,      ONLY: initEventManager
-  USE mtime,                 ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
-    &                              newDatetime, deallocateDatetime
-  USE mo_gridref_config,     ONLY: grf_intmethod_e
+  USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
+  USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
+    &                                    nroot, is_plane_torus, n_dom_start
+  USE mo_art_config,               ONLY: art_config
+  USE mo_time_management,          ONLY: compute_timestep_settings,                        &
+    &                                    compute_restart_settings,                         &
+    &                                    compute_date_settings
+  USE mo_event_manager,            ONLY: initEventManager
+  USE mtime,                       ONLY: getTotalMilliSecondsTimeDelta, datetime,          &
+    &                                    newDatetime, deallocateDatetime
+  USE mo_gridref_config,           ONLY: grf_intmethod_e
   USE mo_interpol_config
   USE mo_sleve_config
-  USE mo_nudging_config,     ONLY: nudging_config, indg_type
-  USE mo_nudging_nml,        ONLY: check_nudging
-  USE mo_upatmo_config,      ONLY: upatmo_config
-  USE mo_upatmo_nml,         ONLY: check_upatmo
-  USE mo_name_list_output_config, ONLY: first_output_name_list
-  USE mo_nh_testcase_check,  ONLY: check_nh_testcase
+  USE mo_nudging_config,           ONLY: nudging_config, indg_type
+  USE mo_nudging_nml,              ONLY: check_nudging
+  USE mo_upatmo_config,            ONLY: upatmo_config
+  USE mo_upatmo_nml,               ONLY: check_upatmo
+  USE mo_name_list_output_config,  ONLY: first_output_name_list
+  USE mo_nh_testcase_check,        ONLY: check_nh_testcase
 
 #ifdef __ICON_ART
-  USE mo_grid_config,        ONLY: lredgrid_phys
+  USE mo_grid_config,              ONLY: lredgrid_phys
 #endif
 
   IMPLICIT NONE
@@ -110,9 +109,10 @@ CONTAINS
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
-    REAL(wp) :: restart_time
+    REAL(wp) :: secs_restart, secs_checkpoint, secs_iau_end
     TYPE(datetime), POINTER :: reference_dt
     LOGICAL  :: l_global_nudging
+    INTEGER(c_int64_t) :: msecs_restart
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
@@ -923,19 +923,22 @@ CONTAINS
         CALL finish('initicon_nml:', message_text)
       ENDIF 
 
-      reference_dt => newDatetime("1980-06-01T00:00:00.000")
+      IF (.NOT. isRestart()) THEN
+        reference_dt => newDatetime("1980-06-01T00:00:00.000")
 
-      IF (dt_checkpoint > 0._wp) THEN
-        restart_time = MIN(dt_checkpoint, &
-          &                0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt))
-      ELSE
-        restart_time = 0.001_wp * getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
-      ENDIF
+        msecs_restart   = getTotalMilliSecondsTimeDelta(time_config%tc_dt_restart, reference_dt)
+        secs_restart    = 0.001_wp * REAL(msecs_restart,wp)
+        secs_checkpoint = dt_checkpoint
+        secs_iau_end    = dt_iau+timeshift%dt_shift
+        ! ignore restart and/or checkpoint intervals if zero:
+        IF (secs_restart    <= 0._wp)  secs_restart    = secs_iau_end
+        IF (secs_checkpoint <= 0._wp)  secs_checkpoint = secs_restart
+        IF (MIN(secs_checkpoint, secs_restart) < secs_iau_end) THEN
+          WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
+          CALL finish('atm_crosscheck:', message_text)
+        ENDIF
 
-      CALL deallocateDatetime(reference_dt)
-      IF (.NOT. isRestart() .AND. (restart_time <= dt_iau+timeshift%dt_shift)) THEN
-        WRITE (message_text,'(a)') "Restarting is not allowed within the IAU phase"
-        CALL finish('atm_crosscheck:', message_text)
+        CALL deallocateDatetime(reference_dt)
       ENDIF
 
       DO jg = 2, n_dom
