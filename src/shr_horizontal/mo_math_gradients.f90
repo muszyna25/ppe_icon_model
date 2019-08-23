@@ -1172,9 +1172,10 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
         !$ACC LOOP VECTOR
         DO jk = slev, elev
 #else
-      !$ACC LOOP GANG
+
+! DA TODO: hot kernel, investigate performance
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
-        !$ACC LOOP VECTOR
         DO jc = i_startidx, i_endidx
 #endif
 #ifdef __SWAPDIM
