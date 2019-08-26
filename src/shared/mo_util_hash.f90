@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_util_hash
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_SIZE_T
 
   IMPLICIT NONE
 
@@ -16,13 +16,13 @@ MODULE mo_util_hash
   INTERFACE
     FUNCTION util_hashword(text, text_len, inithash) RESULT(hash) BIND(C,NAME='util_hashword')
 #if defined(__SUNPRO_F95)
-      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_SIZE_T
 #else
-      IMPORT :: C_INT, C_CHAR
+      IMPORT :: C_INT, C_CHAR, C_SIZE_T
 #endif
       INTEGER(C_INT) :: hash
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: text
-      INTEGER(C_INT), VALUE,           INTENT(in) :: text_len
+      INTEGER(kind=c_size_t), VALUE,   INTENT(in) :: text_len
       INTEGER(C_INT), VALUE,           INTENT(in) :: inithash
     END FUNCTION util_hashword
   END INTERFACE

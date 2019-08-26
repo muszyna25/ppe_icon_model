@@ -18,7 +18,7 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double, c_null_char, C_SIZE_T
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
@@ -226,7 +226,7 @@ MODULE mo_name_list_output_init
   TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
   TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
-  TYPE(vector), SAVE                         :: outputRegiser
+  TYPE(vector), SAVE                         :: outputRegister
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
@@ -360,7 +360,7 @@ CONTAINS
 
     ! create variable of registering output variables. should be used later for
     ! triggering computation only in case of output request
-    call outputRegiser%init(verbose=.FALSE.)
+    call outputRegister%init(verbose=.FALSE.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -1053,9 +1053,12 @@ CONTAINS
     l_print_list = .FALSE.
     is_mpi_test = my_process_is_mpi_test()
 
+    is_io = my_process_is_io()
+    is_stdio = my_process_is_stdio()
+
     CALL assign_if_present(l_print_list, opt_lprintlist)
 
-    IF (my_process_is_stdio() .AND. &
+    IF (.NOT. p_test_run .AND. is_stdio .AND. &
       & (l_print_list .OR. (msg_level >= 15))) THEN
 
       this_i_lctype = 0
@@ -1073,9 +1076,6 @@ CONTAINS
     !
     ! We need dtime
     IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
-
-    is_io = my_process_is_io()
-    is_stdio = my_process_is_stdio()
 
 #ifndef NOMPI
     ! Set broadcast root for intercommunicator broadcasts
@@ -3252,14 +3252,16 @@ CONTAINS
 
     INTEGER :: key
 
-    key = util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0)
-    CALL outputRegiser%add(key)
+    key = util_hashword(TRIM(tolower(name))//c_null_char, &
+      &                 INT(LEN_TRIM(name), C_SIZE_T),0)
+    CALL outputRegister%add(key)
   END SUBROUTINE registerOutputVariable
 
   LOGICAL FUNCTION isRegistered(name)
     CHARACTER(LEN=*), INTENT(IN) :: name
 
-    isRegistered = outputRegiser%includes(util_hashword(TRIM(tolower(name)),LEN_TRIM(name),0))
+    isRegistered = outputRegister%includes(util_hashword(TRIM(tolower(name))//c_null_char, &
+      &                                    INT(LEN_TRIM(name), C_SIZE_T), 0))
   END FUNCTION
 
 

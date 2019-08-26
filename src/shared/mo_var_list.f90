@@ -15,6 +15,8 @@ MODULE mo_var_list
 #endif
 #endif
 
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_null_char, C_SIZE_T
+
   USE mo_kind,             ONLY: sp, wp, i8
   USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_cdi,              ONLY: CDI_DATATYPE_FLT64,                &
@@ -766,7 +768,7 @@ CONTAINS
     !
     ! hash variable name for fast search
     !
-    IF (PRESENT(name)) info%key = util_hashword(name, LEN_TRIM(name), 0)
+    IF (PRESENT(name)) info%key = util_hashword(name//c_null_char, int(LEN_TRIM(name), C_SIZE_T), 0)
     !
 !!$    CALL assign_if_present (info%used_dimensions(1:SIZE(ldims)), ldims)
     CALL assign_if_present (info%used_dimensions, ldims)
@@ -4205,7 +4207,7 @@ CONTAINS
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
-    key = util_hashword(name, LEN_TRIM(name), 0)
+    key = util_hashword(name//c_null_char, INT(LEN_TRIM(name), C_SIZE_T), 0)
     name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element

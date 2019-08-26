@@ -103,18 +103,21 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
     &  this_storage
   LOGICAL,INTENT(in),OPTIONAL       :: &
     &  lcase_sensitivity
+  !
+  TYPE(t_HashTable), POINTER :: tmp_container
 
   IF (PRESENT(lcase_sensitivity))THEN
     IF (lcase_sensitivity) THEN
-      this_storage%container = hashTable_make(storage_hashKey_DJB_cs, storage_equalKeysFunction_cs)
+      tmp_container => hashTable_make(storage_hashKey_DJB_cs, storage_equalKeysFunction_cs)
     ELSE
-      this_storage%container = hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
+      tmp_container => hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
     ENDIF
   ELSE
     ! Not present: case insensitive by default
-    this_storage%container = hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
+    tmp_container => hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
   ENDIF
-
+ this_storage%container = tmp_container
+ DEALLOCATE(tmp_container)
 END SUBROUTINE init_storage
 !!
 !!-------------------------------------------------------------------------
