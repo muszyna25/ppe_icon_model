@@ -1799,7 +1799,7 @@ CONTAINS
     REAL(wp) :: vert_der_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_v(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: div_v_z(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    REAL(wp) :: coeff 
+    REAL(wp) :: coeff
  
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
@@ -1911,6 +1911,8 @@ CONTAINS
 
           ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block) &
               & = edge_vn
+          
+          vn_z(edge_index, level, edge_block) =  edge_vn*ht_edge
           
         ENDDO
 
@@ -2036,6 +2038,9 @@ CONTAINS
         & operators_coefficients, pvn) 
     CALL map_cell2edges_3D( patch_3D, pvn, ptpvn, operators_coefficients)
 
+    CALL div_oce_3d( ocean_state(jg)%p_prog(nold(1))%vn, patch_3D, operators_coefficients%div_coeff, div_v)
+    CALL div_oce_3d( vn_z, patch_3D, operators_coefficients%div_coeff, div_v_z)
+
     DO blockNo = all_cells%start_block, all_cells%end_block
       !vertical derivative at ocean interior Surface is handled below
       ! this does not include h
@@ -2049,7 +2054,7 @@ CONTAINS
       !! Then need to multiply with edge values, which will require transformation
       CALL get_index_range(all_cells, cell_block, start_index, end_index)
 
-      DO cell_index = start_index, end_index
+      do cell_index = start_index, end_index
  
           bt_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
           H1       = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, bt_level+1, blockNo)
@@ -2060,8 +2065,16 @@ CONTAINS
           z_adv_u_i(cell_index, :)%x(3) = z_adv_u_i(cell_index, :)%x(3)*( H1/(H1 + eta1)  )
 
           DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+          
+              ht1   = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(cell_index, level, blockNo) 
+              z1    = ht1*(H1 + eta1)/H1 + eta1
 
-!              write(*, *) level, z_adv_u_i(cell_index, level)%x(1), ( H1/(H1 + eta1)  )
+              !! Multiply with u.grad(z) = div(uz) - z*div(u)
+              coeff  = div_v_z(cell_index, level, blockNo) - z1*div_v(cell_index, level, blockNo)  
+
+              z_adv_u_i(cell_index, level)%x(1) = z_adv_u_i(cell_index, level)%x(1)*coeff  
+              z_adv_u_i(cell_index, level)%x(2) = z_adv_u_i(cell_index, level)%x(2)*coeff
+              z_adv_u_i(cell_index, level)%x(3) = z_adv_u_i(cell_index, level)%x(3)*coeff
 
           END DO
 
@@ -2146,17 +2159,16 @@ CONTAINS
 !          write(*, *) level,  pv_y1 - pv_y2,         0.05_wp*( z1 - z2 )
 !          write(*, *) level,  ( pv_y1 - pv_y2 )-0.05_wp*( z1 - z2 )
 
-          !! Show that the chain rule does not work here  
-          !! For du/dn = dz/dn*ds/dz*du/ds because of the difference error shown above
-!          write(*, *) level, dpv_dn, 0.05_wp*dz_dn,  &
-!          & dz_dn*vert_der_e(edge_index, level, edge_block)
-    
           !! Show that the derivative is exact only if normal is  
           !! aligned with the velocity
 !          write(*, *) level, dpv_dn, 0.05_wp*dz_dn,  &
-!              & dz_dn*vert_der_e(edge_index, level, edge_block), &
 !              & patch_2d%edges%primal_normal(edge_index,edge_block)%v1, &
 !              &  patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+!           !! Show that u.grad(u) NE ( u.grad(z) ) du/dz
+!           !! NE -> not equal 
+!           write(*, *) level, mom_grad(edge_index, level, edge_block), &
+!              &  vert_der_e(edge_index, level, edge_block)
 
         ENDDO
     
