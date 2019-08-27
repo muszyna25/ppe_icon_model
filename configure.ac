@@ -539,7 +539,7 @@ AC_SUBST([DEPGEN_INTRINSIC_MODS],
 [[ieee_features,omp_lib,omp_lib_kinds,openacc]])
 
 AS_VAR_IF([enable_mpi], [yes],
-  [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
+  [AC_MSG_CHECKING([whether Fortran 2003 interface of MPI library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
        use mpi, only: mpi_init
        implicit none
@@ -547,7 +547,7 @@ AS_VAR_IF([enable_mpi], [yes],
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
+      AC_MSG_FAILURE([unable to link a test program using Fortran 2003 dnl
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])

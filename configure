@@ -4972,8 +4972,8 @@ DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithme
 
 
 if test "x$enable_mpi" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 90 interface of MPI library is available" >&5
-$as_echo_n "checking whether Fortran 90 interface of MPI library is available... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 2003 interface of MPI library is available" >&5
+$as_echo_n "checking whether Fortran 2003 interface of MPI library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -4991,7 +4991,7 @@ else
 $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to link a test program using Fortran 90 interface of MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
+as_fn_error $? "unable to link a test program using Fortran 2003 interface of MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
