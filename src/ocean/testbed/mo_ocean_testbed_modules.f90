@@ -1778,6 +1778,7 @@ CONTAINS
     INTEGER  :: id1, id2, bl1, bl2 
     INTEGER  :: bt_level 
     REAL(wp) :: ht_edge, ht1, ht2, ht3 
+    REAL(wp) :: pt_l1, pt_l2 
     REAL(wp) :: z1, z2, H1, H2, eta1, eta2 
     REAL(wp) :: eta(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: mom_grad(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
@@ -1787,14 +1788,18 @@ CONTAINS
     REAL(wp) :: p_zgrad_sc(nproma, n_zlev ,patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: p_zgrad_top(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: phi(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    REAL(wp) :: dphi_dz1, dphi_dz2, dz_dn, dphi_dn, dpv_dn
+    REAL(wp) :: dphi_dz1, dphi_dz2, dz_dn, dphi_dn, dpv_dn, ke1, ke2, dk_dn
     REAL(wp) :: pv_x1, pv_x2, pv_y1, pv_y2, dpvx_dn, dpvy_dn
     
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma, n_zlev+1)
     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: pvn(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: vn_z(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: ptpvn(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: vert_der_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_v(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: div_v_z(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: coeff 
  
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
@@ -1829,13 +1834,15 @@ CONTAINS
     DO cell_block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, cell_block, start_index, end_index)
       DO cell_index = start_index, end_index
-        IF ( patch_3d%lsm_c(cell_index,1,cell_block) <= sea_boundary ) THEN
+!        IF ( patch_3d%lsm_c(cell_index,1,cell_block) <= sea_boundary ) THEN
     
-           eta(cell_index, cell_block) = 10.0_wp * &
-            & SIN(patch_2d%cells%center(cell_index, cell_block)%lon * 6.0_wp) &
-            & * COS(patch_2d%cells%center(cell_index, cell_block)%lat * 3.0_wp)
+!           eta(cell_index, cell_block) = 10.0_wp * &
+!            & SIN(patch_2d%cells%center(cell_index, cell_block)%lon * 6.0_wp) &
+!            & * COS(patch_2d%cells%center(cell_index, cell_block)%lat * 3.0_wp)
+               
+           eta(cell_index, cell_block) = 2.0_wp*patch_2d%cells%center(cell_index, cell_block)%lat 
 
-        ENDIF
+!        ENDIF
       END DO
     END DO
  
@@ -1848,19 +1855,25 @@ CONTAINS
     !! FIXME: For now we assume that the height of the edges is not 
     !! available as a separate array
     !! Initialize velocity
+    !! Note that the velocity only has a z dependence. However on a zstar grid
+    !! with arbitrary order variation in z, derivatives like dv/dn will not
+    !! be exact for constant in x, y and linear in z initialization
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
+        id1 = (idx(edge_index, edge_block, 1))
+        id2 = (idx(edge_index, edge_block, 2))
+        bl1 = (blk(edge_index, edge_block, 1))
+        bl2 = (blk(edge_index, edge_block, 2))
+
+
         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon  
         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat  
+        pt_l1     = patch_2d%cells%center(id1,bl1)%lat  
+        pt_l2     = patch_2d%cells%center(id2,bl2)%lat  
 
         bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
         DO level = 1, bt_level 
-          id1 = (idx(edge_index, edge_block, 1))
-          id2 = (idx(edge_index, edge_block, 2))
-          bl1 = (blk(edge_index, edge_block, 1))
-          bl2 = (blk(edge_index, edge_block, 2))
-
           ht_edge = 0.
           IF (zcoord_type == 0) THEN
               !! Get height of the cell center at mid point from the bottom
@@ -1870,7 +1883,7 @@ CONTAINS
                   & - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
     
               !! Get height of edge as average of the centers of the 2 adjoining cells
-              ht_edge = 0.5*( ht1 + ht2 )
+              ht_edge = 0.5_wp*( ht1 + ht2 )
           ELSE IF (zcoord_type == 1) THEN
               !! Get height of the cell center at mid point from the bottom
               H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
@@ -1884,30 +1897,21 @@ CONTAINS
               !! Transform to z from zstar
               z1   = ht1*(H1 + eta1)/H1 + eta1
               z2   = ht2*(H2 + eta2)/H2 + eta2
-    
+   
               !! Get height of edge as average of the centers of the 2 adjoining cells
-              ht_edge = 0.5*( z1 + z2 )
+              ht_edge = 0.5_wp*( z1 + z2 )
 
           ENDIF
 
-          uu = 1.0_wp + 0.01*ht_edge
-          vv = 0.0_wp 
+          uu = 0.0_wp 
+          vv = 1.0_wp + 0.05_wp*ht_edge
 
           edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
             & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
 
           ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block) &
               & = edge_vn
-
-          uu = 1.0_wp 
-          vv = 0.0_wp 
-
-          edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-            & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
-
-          vn_test(edge_index, level, edge_block) = edge_vn
-
-
+          
         ENDDO
 
       ENDDO
@@ -2020,7 +2024,7 @@ CONTAINS
           dphi_dn =  (phi(id1,level,bl1) - phi(id2,level,bl2))*                                 &
               & operators_coefficients%grad_coeff(edge_index,level,edge_block)
     
-!          write(*, *) dz_dn*dphi_dz1, dphi_dn 
+!          write(*, *) dz_dn, dphi_dz1, dphi_dn 
     
     
         ENDDO
@@ -2030,6 +2034,7 @@ CONTAINS
     
     CALL map_edges2cell_3d(patch_3d, ocean_state(jg)%p_prog(nold(1))%vn, &
         & operators_coefficients, pvn) 
+    CALL map_cell2edges_3D( patch_3D, pvn, ptpvn, operators_coefficients)
 
     DO blockNo = all_cells%start_block, all_cells%end_block
       !vertical derivative at ocean interior Surface is handled below
@@ -2053,7 +2058,6 @@ CONTAINS
           z_adv_u_i(cell_index, :)%x(1) = z_adv_u_i(cell_index, :)%x(1)*( H1/(H1 + eta1)  )
           z_adv_u_i(cell_index, :)%x(2) = z_adv_u_i(cell_index, :)%x(2)*( H1/(H1 + eta1)  )
           z_adv_u_i(cell_index, :)%x(3) = z_adv_u_i(cell_index, :)%x(3)*( H1/(H1 + eta1)  )
-
 
           DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
 
@@ -2089,7 +2093,7 @@ CONTAINS
 
     !! Horizontal total derivative
     mom_grad = ocean_state(jg)%p_diag%grad + ocean_state(jg)%p_diag%veloc_adv_horz
-
+          
     DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
@@ -2113,10 +2117,16 @@ CONTAINS
           z1   = ht1*(H1 + eta1)/H1 + eta1
           z2   = ht2*(H2 + eta2)/H2 + eta2
           
+          !! Get height of edge as average of the centers of the 2 adjoining cells
+          ht_edge = 0.5_wp*( z1 + z2 )
+
           pv_x1  = pvn(id1, level, bl1)%x(1) 
           pv_x2  = pvn(id2, level, bl2)%x(1)
           pv_y1  = pvn(id1, level, bl1)%x(2) 
           pv_y2  = pvn(id2, level, bl2)%x(2)
+
+          ke1    = 0.5_wp*( pv_x1**2._wp + pv_y1**2._wp )
+          ke2    = 0.5_wp*( pv_x2**2._wp + pv_y2**2._wp )
   
           dz_dn    =  (z1 - z2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
           dpvx_dn  =  (pv_x1 - pv_x2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
@@ -2124,19 +2134,30 @@ CONTAINS
           
           dpv_dn   = dpvx_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v1 + &
               & dpvy_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v2 
+          
+          dk_dn    =  (ke1 - ke2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
 
-          dpv_dn   = -1.0_wp*dpv_dn
+!          !! Show that after vn and PTP(vn) are the same 
+!          write(*, *) level, ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block), & 
+!              & ptpvn(edge_index, level, edge_block) 
 
-!          write(*, *) -1.0*dz_dn*vert_der_e(edge_index, level, edge_block)* &
-!              & ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block), & 
-!              & mom_grad(edge_index, level, edge_block) 
+          !! Show that after reconstruction using P, averages are conserved but not difference 
+!          write(*, *) level,  pv_y1 + pv_y2, 2._wp + 0.05_wp*( z1 + z2 )
+!          write(*, *) level,  pv_y1 - pv_y2,         0.05_wp*( z1 - z2 )
+!          write(*, *) level,  ( pv_y1 - pv_y2 )-0.05_wp*( z1 - z2 )
 
-!          write(*, *) dpv_dn, dz_dn*vert_der_e(edge_index, level, edge_block)
-!          write(*, *) dpv_dn, dz_dn, vert_der_e(edge_index, level, edge_block), vn_test(edge_index, level, edge_block)
-!          write(*, *) patch_2d%edges%primal_normal(edge_index,edge_block)%v1, &
-!              patch_2d%edges%primal_normal(edge_index,edge_block)%v2, vn_test(edge_index, level, edge_block)
-
+          !! Show that the chain rule does not work here  
+          !! For du/dn = dz/dn*ds/dz*du/ds because of the difference error shown above
+!          write(*, *) level, dpv_dn, 0.05_wp*dz_dn,  &
+!          & dz_dn*vert_der_e(edge_index, level, edge_block)
     
+          !! Show that the derivative is exact only if normal is  
+          !! aligned with the velocity
+!          write(*, *) level, dpv_dn, 0.05_wp*dz_dn,  &
+!              & dz_dn*vert_der_e(edge_index, level, edge_block), &
+!              & patch_2d%edges%primal_normal(edge_index,edge_block)%v1, &
+!              &  patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
         ENDDO
     
       ENDDO
