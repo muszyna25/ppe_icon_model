@@ -1487,8 +1487,7 @@ CONTAINS
     REAL(sp), POINTER :: collector_buffer_fill_r(:,:)
     INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
     INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_nofill_size, &
-      &        collector_buffer_fill_size, num_collectors, num_points_per_coll
+    INTEGER :: collector_buffer_nofill_size, collector_buffer_fill_size
     LOGICAL :: use_fill_value
 
     !
@@ -1544,8 +1543,7 @@ CONTAINS
     INTEGER, POINTER :: collector_buffer_fill_i(:,:)
     INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
     INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
-    INTEGER :: i, collector_idx, collector_buffer_nofill_size, &
-      &        collector_buffer_fill_size, num_collectors, num_points_per_coll
+    INTEGER :: collector_buffer_nofill_size, collector_buffer_fill_size
     LOGICAL :: use_fill_value
 
     !

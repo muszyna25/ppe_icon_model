@@ -28,7 +28,7 @@ CONTAINS
 
     REAL(wp), INTENT(IN) :: pressure_scale, droplet_scale
     CALL read_flat_data(pressure_scale, droplet_scale)
-!$acc enter data copyin(flat_data)
+!$ACC ENTER DATA COPYIN(flat_data)
 
   END SUBROUTINE setup_flat_data
 

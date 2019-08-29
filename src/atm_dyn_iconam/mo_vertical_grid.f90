@@ -427,6 +427,9 @@ MODULE mo_vertical_grid
         ENDIF
       ENDDO
 
+! TODO:  the allocation is in mo_nonhydro_state, which is confusing
+!$ACC UPDATE DEVICE( p_nh(jg)%metrics%rayleigh_w, p_nh(jg)%metrics%rayleigh_vn )
+
 
       ! Enhancement coefficient for nabla4 background diffusion near model top
       DO jk = 1, nrdmax(jg)
@@ -441,6 +444,9 @@ MODULE mo_vertical_grid
           (1._wp-TANH(3.8_wp*z_diff                          &
           /MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))
       ENDDO
+
+! TODO:  the allocation is in mo_nonhydro_state, which is confusing
+!$ACC UPDATE DEVICE( p_nh(jg)%metrics%enhfac_diffu )
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a,i4,a,i4)') 'Domain', jg, &
@@ -476,6 +482,9 @@ MODULE mo_vertical_grid
         ENDDO
         kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
+
+! TODO:  the allocation is in mo_nonhydro_state, which is confusing
+!$ACC UPDATE DEVICE( p_nh(jg)%metrics%scalfac_dd3d )
 
       ! Horizontal mask field for 3D divergence damping term; 2D div damping is generally applied in the 
       ! immediate vicinity of nest boundaries
@@ -680,6 +689,8 @@ MODULE mo_vertical_grid
         ENDDO
       ENDDO
 
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%nudge_c_idx, p_nh(jg)%metrics%nudge_c_blk )
+
       ic = 0
       DO jb = 1, nblks_e
         IF (jb /= nblks_e) THEN
@@ -712,6 +723,8 @@ MODULE mo_vertical_grid
           ENDIF
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN(p_nh(jg)%metrics%nudge_e_idx, p_nh(jg)%metrics%nudge_e_blk)
 
       ! Index lists needed to minimize the number of halo communications in solve_nh and feedback
 
@@ -755,6 +768,8 @@ MODULE mo_vertical_grid
           ENDIF
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN(p_nh(jg)%metrics%bdy_halo_c_idx, p_nh(jg)%metrics%bdy_halo_c_blk)
 
       ! Index list for which interpolated mass fluxes along the lateral nest boundary need to be updated
       ! part 1: count nest boundary points of row 9
@@ -810,6 +825,9 @@ MODULE mo_vertical_grid
           p_nh(jg)%metrics%bdy_mflx_e_blk(ic) = jb
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%bdy_mflx_e_idx,p_nh(jg)%metrics%bdy_mflx_e_blk, &
+!$ACC                    p_nh(jg)%diag%grf_bdy_mflx )
 
       ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
@@ -881,6 +899,9 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
       ENDDO
+
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%ovlp_halo_c_dim, p_nh(jg)%metrics%ovlp_halo_c_idx,   &
+!$ACC                    p_nh(jg)%metrics%ovlp_halo_c_blk )
 
       IF (l_zdiffu_t) THEN
         CALL prepare_zdiffu(p_patch(jg), p_nh(jg), p_int(jg), z_maxslp, z_maxhgtd)
@@ -1659,6 +1680,9 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
 
+!$ACC ENTER DATA COPYIN( p_nh(jg)%metrics%pg_edgeidx, p_nh(jg)%metrics%pg_edgeblk,   &
+!$ACC                    p_nh(jg)%metrics%pg_vertidx, p_nh(jg)%metrics%pg_exdist )
+
         DEALLOCATE(imask,icount,z_shift)
 
       ENDIF
@@ -1952,6 +1976,10 @@ MODULE mo_vertical_grid
              p_nh%metrics%zd_intcoef(3,numpoints), &
              p_nh%metrics%zd_diffcoef(numpoints)    )
 
+!$ACC ENTER DATA CREATE( p_nh%metrics%zd_indlist, p_nh%metrics%zd_blklist, p_nh%metrics%zd_vertidx,   &
+!$ACC                    p_nh%metrics%zd_edgeidx, p_nh%metrics%zd_edgeblk, p_nh%metrics%zd_geofac,    &
+!$ACC                    p_nh%metrics%zd_e2cell,  p_nh%metrics%zd_intcoef, p_nh%metrics%zd_diffcoef )
+
     p_nh%metrics%zd_listdim = numpoints
 
     ! Fill index lists
@@ -1997,6 +2025,10 @@ MODULE mo_vertical_grid
 
       ENDDO
     ENDDO
+
+!$ACC UPDATE DEVICE( p_nh%metrics%zd_indlist, p_nh%metrics%zd_blklist, p_nh%metrics%zd_vertidx,   &
+!$ACC                p_nh%metrics%zd_edgeidx, p_nh%metrics%zd_edgeblk, p_nh%metrics%zd_geofac,    &
+!$ACC                p_nh%metrics%zd_e2cell,  p_nh%metrics%zd_intcoef, p_nh%metrics%zd_diffcoef )
 
     numpoints = global_sum_array(p_nh%metrics%zd_listdim)
 
@@ -2225,7 +2257,9 @@ MODULE mo_vertical_grid
         p_nh%metrics%nudgecoeff_vert(jk) = 1._wp / ( distance_scaled**(2*nexp) + 1._wp )
       ENDDO  !jk      
     END SELECT
-    
+
+!$ACC ENTER DATA COPYIN( p_nh%metrics%nudgecoeff_vert )
+
     ! Print some info
     IF (msg_level >= nudging_config%msg_thr%high .AND. my_process_is_stdio()) THEN 
       ! Print the vertical profile of the nudging coefficient (nudging strength)

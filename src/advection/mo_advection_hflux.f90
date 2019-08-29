@@ -66,13 +66,6 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#define LAXFR_UPFLUX_MACRO(PPp_vn,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_vn)*((PPp_psi_a)+(PPp_psi_b))-ABS(PPp_vn)*((PPp_psi_b)-(PPp_psi_a))))
-
-#ifdef __INTEL_COMPILER
-#define USE_LAXFR_MACROS
-#define laxfr_upflux LAXFR_UPFLUX_MACRO
-#endif
-
 MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp, vp
@@ -101,9 +94,6 @@ MODULE mo_advection_hflux
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList
-#ifndef USE_LAXFR_MACROS
-  USE mo_advection_utils,     ONLY: laxfr_upflux
-#endif
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_l,                    &
     &                               prep_gauss_quadrature_l_list,               &
@@ -476,11 +466,8 @@ CONTAINS
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
         CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, z_real_vt ), IF( i_am_accel_node .AND. acc_on )
-!DR
-!DR I think that a HOST update is also required for p_rhodz_now, p_rhodz_new, given 
-!DR that the computation of the latter two (in mo_advection_stepping) was performed on the DEVICE.
-!DR
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
         i_am_accel_node = .FALSE.     ! deactivate GPUs throughout upwind_hflux_ffsl
 #endif
@@ -512,10 +499,8 @@ CONTAINS
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
         CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, z_real_vt ), IF( i_am_accel_node .AND. acc_on )
-!DR
-!DR same here. Missing HOST update for p_rhodz_now, p_rhodz_new
-!DR
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
         i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
 #endif
@@ -658,10 +643,8 @@ CONTAINS
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing upwind_hflux_ffsl on host; for performance use upwind_hflux_miura'
         CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, z_real_vt ), IF( i_am_accel_node .AND. acc_on )
-!DR
-!DR missing HOST update for p_rhodz_now, p_rhodz_new
-!DR
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
         i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
 #endif
@@ -719,10 +702,8 @@ CONTAINS
 ! NOTE: this is only for testing; use upwind_hflux_miura/miura3 for performance
         WRITE(message_text,'(a)') 'GPU mode: performing hflux_ffsl_hybrid on host; for performance use upwind_hflux_miura'
         CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, z_real_vt ), IF( i_am_accel_node .AND. acc_on )
-!DR
-!DR missing HOST update for p_rhodz_now, p_rhodz_new
-!DR
+!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_mass_flx_e, p_vn, p_rhodz_now, p_rhodz_new, z_real_vt ), &
+!$ACC        IF( i_am_accel_node .AND. acc_on )
         save_i_am_accel_node = i_am_accel_node
         i_am_accel_node = .FALSE.     ! deactivate GPUs throughout hflux_ffsl_hybrid
 #endif
@@ -890,7 +871,7 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
@@ -907,8 +888,11 @@ CONTAINS
           ! compute final conservative update using the discrete
           ! div operator
           !
-          p_upflux(je,jk,jb) =  &
-            &  laxfr_upflux(p_mass_flx_e(je,jk,jb),p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)),p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)))
+          IF ( p_mass_flx_e(je,jk,jb) .GE. 0.0_wp ) THEN
+            p_upflux(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_cc(iilc(je,jb,2),jk,iibc(je,jb,2))
+          ELSE
+            p_upflux(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_cc(iilc(je,jb,1),jk,iibc(je,jb,1))
+          ENDIF
 
         END DO  ! end loop over edges
 
@@ -1106,7 +1090,7 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
     IF (p_test_run) THEN
-!$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
+!$ACC KERNELS DEFAULT(PRESENT) IF (i_am_accel_node .AND. acc_on)
 #ifdef __INTEL_COMPILER
 !$OMP PARALLEL DO SCHEDULE(STATIC)
       DO i = 1,SIZE(z_grad,4)
@@ -1210,7 +1194,7 @@ CONTAINS
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
 !CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE(ilc0,ibc0) COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1232,7 +1216,7 @@ CONTAINS
       ELSE IF (use_zlsq) THEN
 
 !CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE(ilc0,ibc0) COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1255,7 +1239,7 @@ CONTAINS
       ELSE
 
 !CDIR UNROLL=5
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE(ilc0,ibc0), COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1607,7 +1591,7 @@ CONTAINS
         ! 3.2 Compute intermediate tracer mass flux
         !
         IF (use_zlsq) THEN
-!$ACC PARALLEL IF ( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
 !CDIR UNROLL=5
           DO jk = slev, elev
@@ -1627,7 +1611,7 @@ CONTAINS
           ENDDO   ! loop over vertical levels
 !$ACC END PARALLEL
         ELSE
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
 !CDIR UNROLL=5
           DO jk = slev, elev
@@ -1698,7 +1682,7 @@ CONTAINS
         ! p_mass_flx_e is assumed to be constant in time.
         !
         IF ( nsub == 1 ) THEN
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
             DO jc = i_startidx, i_endidx
@@ -1720,7 +1704,7 @@ CONTAINS
         ENDIF
 
           ! compute tracer mass flux divergence
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
@@ -1742,7 +1726,7 @@ CONTAINS
 
 ! Because the next loop requires z_fluxdiv_c it is crucial to synchronize with END PARALLEL
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
@@ -1803,7 +1787,7 @@ CONTAINS
         ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
         !
         IF (p_ncycl == 2) THEN
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
           DO jk = slev, elev
@@ -1813,7 +1797,7 @@ CONTAINS
           ENDDO   ! loop over vertical levels
 !$ACC END PARALLEL
         ELSE IF (p_ncycl == 3) THEN
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
           DO jk = slev, elev
@@ -2220,7 +2204,7 @@ CONTAINS
         SELECT  CASE( lsq_high_ord )
         CASE( 2 )  ! quadratic reconstruction
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=4
         DO jk = slev, elev
@@ -2237,7 +2221,7 @@ CONTAINS
 
         CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
         DO jk = slev, elev
@@ -2254,7 +2238,7 @@ CONTAINS
 
         CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=4
         DO jk = slev, elev
@@ -2283,7 +2267,7 @@ CONTAINS
         SELECT  CASE( lsq_high_ord )
         CASE( 2 )  ! quadratic reconstruction
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=4
         DO jk = slev, elev
@@ -2301,7 +2285,7 @@ CONTAINS
 
         CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
         DO jk = slev, elev
@@ -2319,7 +2303,7 @@ CONTAINS
 
         CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
 !CDIR UNROLL=4
         DO jk = slev, elev

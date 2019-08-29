@@ -8,8 +8,7 @@
 MODULE mo_psrad_interface
   USE mo_kind,                       ONLY: wp
   USE mo_physical_constants,         ONLY: avo, amd, amw, amco2, amch4, &
-                                           amn2o, amo3, amo2, amc11, amc12, &
-                                           zemiss_def
+                                           amn2o, amo3, amo2, amc11, amc12
   USE mo_exception,                  ONLY: finish, warning
   USE mo_model_domain,               ONLY: t_patch
   USE mo_parallel_config,            ONLY: nproma
@@ -132,6 +131,7 @@ CONTAINS
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -172,6 +172,7 @@ CONTAINS
          alb_nir_dir(:,:),  & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),  & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),  & !< surface albedo for NIR range and dif light
+         emissivity(:,:),   & !< surface longwave emissivity
          zf(:,:,:),         & !< geometric height at full level in m
          zh(:,:,:),         & !< geometric height at half level in m
          dz(:,:,:),         & !< geometric height thickness in m
@@ -251,6 +252,7 @@ CONTAINS
             & pcos_mu0(:,jb),       daylght_frc(:,jb),                          &
             & alb_vis_dir(:,jb),    alb_nir_dir(:,jb),                          &
             & alb_vis_dif(:,jb),    alb_nir_dif(:,jb),                          &
+            & emissivity(:,jb),                                                 &
             & zf(:,:,jb),           zh(:,:,jb),           dz(:,:,jb),           &
             & pp_sfc(:,jb),         pp_fl(:,:,jb),                              &
             & tk_sfc(:,jb),         tk_fl(:,:,jb),        tk_hl(:,:,jb),        &
@@ -280,6 +282,7 @@ CONTAINS
             & pcos_mu0(:,jb),       daylght_frc(:,jb),                          &
             & alb_vis_dir(:,jb),    alb_nir_dir(:,jb),                          &
             & alb_vis_dif(:,jb),    alb_nir_dif(:,jb),                          &
+            & emissivity(:,jb),                                                 &
             & zf(:,:,jb),           zh(:,:,jb),           dz(:,:,jb),           &
             & pp_sfc(:,jb),         pp_fl(:,:,jb),                              &
             & tk_sfc(:,jb),         tk_fl(:,:,jb),        tk_hl(:,:,jb),        &
@@ -342,6 +345,7 @@ CONTAINS
        & pcos_mu0,       daylght_frc,                        &
        & alb_vis_dir,    alb_nir_dir,                        &
        & alb_vis_dif,    alb_nir_dif,                        &
+       & emissivity,                                         &
        & zf,             zh,             dz,                 &
        & pp_sfc,         pp_fl,                              &
        & tk_sfc,         tk_fl,          tk_hl,              &
@@ -386,6 +390,7 @@ CONTAINS
          alb_nir_dir(:),   & !< surface albedo for NIR range and dir light
          alb_vis_dif(:),   & !< surface albedo for vis range and dif light
          alb_nir_dif(:),   & !< surface albedo for NIR range and dif light
+         emissivity(:),    & !< surface longwave emissivity
          zf(:,:),       & !< geometric height at full level in m
          zh(:,:),     & !< geometric height at half level in m
          dz(:,:),       & !< geometric height thickness in m
@@ -559,7 +564,7 @@ CONTAINS
 
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(1:kproma,:) = zemiss_def 
+    zsemiss(1:kproma,1:nbndlw) = SPREAD(emissivity(1:kproma),2,nbndlw)
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -761,6 +766,7 @@ CONTAINS
        & pcos_mu0,       daylght_frc,                    &
        & alb_vis_dir,    alb_nir_dir,                    &
        & alb_vis_dif,    alb_nir_dif,                    &
+       & emissivity,                                     &
        & zf,             zh,             dz,             &
        & pp_sfc,         pp_fl,                          &
        & tk_sfc,         tk_fl,          tk_hl,          &
@@ -804,6 +810,7 @@ CONTAINS
          & alb_nir_dir(:),   & !< surface albedo for NIR range and dir light
          & alb_vis_dif(:),   & !< surface albedo for vis range and dif light
          & alb_nir_dif(:),   & !< surface albedo for NIR range and dif light
+         emissivity(:),      & !< surface longwave emissivity
          & zf(:,:),       & !< geometric height at full level in m
          & zh(:,:),     & !< geometric height at half level in m
          & dz(:,:),       & !< geometric height thickness in m
@@ -867,6 +874,7 @@ CONTAINS
          & s_alb_nir_dir    (kbdim),   & !< surface albedo for NIR range and dir light
          & s_alb_vis_dif    (kbdim),   & !< surface albedo for vis range and dif light
          & s_alb_nir_dif    (kbdim),   & !< surface albedo for NIR range and dif light
+         & s_emissivity     (kbdim),   & !< surface longwave emissivity
          & s_zf             (kbdim,klev),       & !< geometric height at full level in m
          & s_zh             (kbdim,klevp1),     & !< geometric height at half level in m
          & s_dz             (kbdim,klev),       & !< geometric height thickness in m
@@ -924,6 +932,7 @@ CONTAINS
     s_alb_nir_dir (1:s_jce)     = alb_nir_dir (jcs:jce)
     s_alb_vis_dif (1:s_jce)     = alb_vis_dif (jcs:jce)
     s_alb_nir_dif (1:s_jce)     = alb_nir_dif (jcs:jce)
+    s_emissivity  (1:s_jce)     = emissivity  (jcs:jce)
     s_zf          (1:s_jce,:)   = zf          (jcs:jce,:)
     s_zh          (1:s_jce,:)   = zh          (jcs:jce,:)
     s_dz          (1:s_jce,:)   = dz          (jcs:jce,:)
@@ -958,6 +967,7 @@ CONTAINS
          & s_pcos_mu0(:),       s_daylght_frc(:),                         &
          & s_alb_vis_dir(:),    s_alb_nir_dir(:),                         &
          & s_alb_vis_dif(:),    s_alb_nir_dif(:),                         &
+         & s_emissivity(:),                                               &
          & s_zf(:,:),           s_zh(:,:),           s_dz(:,:),           &
          & s_pp_sfc(:),         s_pp_fl(:,:),                             &
          & s_tk_sfc(:),         s_tk_fl(:,:),        s_tk_hl(:,:),        &

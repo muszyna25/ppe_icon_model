@@ -134,42 +134,68 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
   ! Shortcuts to components of echam_sso_config
   !
-  REAL(wp), POINTER :: gpicmea, gstd
-  REAL(wp), POINTER :: gkdrag, gkwake, gklift
+  REAL(wp) :: gpicmea, gstd
+  REAL(wp) :: gkdrag, gkwake, gklift
   !
-  gpicmea => echam_sso_config(jg)% gpicmea
-  gstd    => echam_sso_config(jg)% gstd
-  gkwake  => echam_sso_config(jg)% gkwake
-  gkdrag  => echam_sso_config(jg)% gkdrag
-  gklift  => echam_sso_config(jg)% gklift
+  gpicmea = echam_sso_config(jg)% gpicmea
+  gstd    = echam_sso_config(jg)% gstd
+  gkwake  = echam_sso_config(jg)% gkwake
+  gkdrag  = echam_sso_config(jg)% gkdrag
+  gklift  = echam_sso_config(jg)% gklift
+
+  !$ACC DATA PRESENT( pcoriol, pzf, pzs, paphm1, papm1, pmair, ptm1, pum1, pvm1,  &
+  !$ACC               pmea, pstd, psig, pgam, pthe, ppic, pval, psftlf, pustrgw,  &
+  !$ACC               pvstrgw, pvdisgw, pdis_sso, pdu_sso, pdv_sso )               &
+  !$ACC       CREATE( idx, itest, zhgeo, zdu_oro, zdv_oro, zdis_oro, zdu_lif,     &
+  !$ACC               zdv_lif, zdis_lif )
 
   !
   !*         1.    initialization
   !                --------------
 
-  pustrgw (:)   = 0.0_wp
-  pvstrgw (:)   = 0.0_wp
-  pvdisgw (:)   = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    pustrgw (jl)   = 0.0_wp
+    pvstrgw (jl)   = 0.0_wp
+    pvdisgw (jl)   = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
 
-  pdis_sso(:,:) = 0.0_wp
-  pdu_sso (:,:) = 0.0_wp
-  pdv_sso (:,:) = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
+  DO jk = 1, klev
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      pdis_sso(jl,jk) = 0.0_wp
+      pdu_sso (jl,jk) = 0.0_wp
+      pdv_sso (jl,jk) = 0.0_wp
 
-  zhgeo   (:,:) = pzf(:,:)-SPREAD(pzs(:),2,klev)
-  
-  zdu_oro (:,:) = 0.0_wp
-  zdv_oro (:,:) = 0.0_wp
-  zdis_oro(:,:) = 0.0_wp
+      zhgeo   (jl,jk) = pzf(jl,jk)-pzs(jl)
+      
+      zdu_oro (jl,jk) = 0.0_wp
+      zdv_oro (jl,jk) = 0.0_wp
+      zdis_oro(jl,jk) = 0.0_wp
 
-  zdu_lif (:,:) = 0.0_wp
-  zdv_lif (:,:) = 0.0_wp
-  zdis_lif(:,:) = 0.0_wp
+      zdu_lif (jl,jk) = 0.0_wp
+      zdv_lif (jl,jk) = 0.0_wp
+      zdis_lif(jl,jk) = 0.0_wp
+    END DO
+  END DO
+  !$ACC END PARALLEL
 
 
   !  SELECTION  POINTS WHERE THE SCHEME IS ACTIVE
 
   igwd=0
-  idx(:) = 0
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    idx(jl) = 0
+  END DO
+  !$ACC END PARALLEL
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO jl=jcs,kproma
      itest(jl)=0
      IF (((ppic(jl)-pmea(jl)) > gpicmea).AND.(pstd(jl) > gstd)) THEN
@@ -178,6 +204,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
         idx(igwd)=jl
      ENDIF
   ENDDO
+  !$ACC END PARALLEL
 
 
   IF (.NOT.((gkwake == 0.0_wp).AND.(gkdrag == 0.0_wp))) THEN
@@ -220,8 +247,11 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   ! - the effects happen only above this part of the surface, assuming
   !   perfect vertical propagation of gravity waves as used here.
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO jk = 1, klev
 !CDIR NODEP
+     !$ACC LOOP GANG VECTOR PRIVATE( ji )
      DO jl = 1, igwd
         ji=idx(jl)
         pustrgw(ji) = pustrgw(ji)+( zdu_oro(ji,jk)+ zdu_lif(ji,jk))*pmair(ji,jk)*psftlf(ji)
@@ -229,12 +259,16 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
         pvdisgw(ji) = pvdisgw(ji)+(zdis_oro(ji,jk)+zdis_lif(ji,jk))*pmair(ji,jk)*psftlf(ji)
      ENDDO
   ENDDO
+  !$ACC END PARALLEL
   !
   !*         4.    total quantities
   !                ----------------
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   do jk=1,klev
 !CDIR NODEP
+    !$ACC LOOP GANG VECTOR PRIVATE( ji )
     do jl=1,igwd
       ji=idx(jl)
       pdis_sso(ji,jk)= (zdis_oro(ji,jk) +zdis_lif(ji,jk))*psftlf(ji)
@@ -242,6 +276,9 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
       pdv_sso(ji,jk) = ( zdv_oro(ji,jk) + zdv_lif(ji,jk))*psftlf(ji)
     enddo
   enddo
+  !$ACC END PARALLEL
+
+  !$ACC END DATA
 
 END SUBROUTINE ssodrag
 
@@ -327,10 +364,16 @@ SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
 
   ! Shortcuts to components of echam_sso_config
   !
-  REAL(wp), POINTER :: gkdrag, gkwake
+  REAL(wp) :: gkdrag, gkwake
   !
-  gkdrag => echam_sso_config(jg)% gkdrag
-  gkwake => echam_sso_config(jg)% gkwake
+  gkdrag = echam_sso_config(jg)% gkdrag
+  gkwake = echam_sso_config(jg)% gkwake
+
+  !$ACC DATA PRESENT( kdx, phgeo, paphm1, papm1, pmair, ptm1, pum1, pvm1, pmea, &
+  !$ACC               pstd, psig, pgam, pthe, ppic, pval, pvom, pvol, pdis )    &
+  !$ACC       CREATE( icrit, ikcrith, ikenvh, iknu, iknu2, ikcrit, zdudt, zdvdt,&
+  !$ACC               znu, zd1, zd2, zdmod, ztau0, ztau, zstab, zvph, zrho, zri,&
+  !$ACC               zpsi, zzdep, pulow, pvlow )
 
 
   !  Executable statements
@@ -391,13 +434,28 @@ SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
   !  explicit solution at all levels for the gravity wave
   !  implicit solution for the blocked levels
   !
-  zdudt(:)   = 0.0_wp
-  zdvdt(:)   = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    zdudt(jl) = 0.0_wp
+    zdvdt(jl) = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
   !
-  pvom (:,:) = 0.0_wp
-  pvol (:,:) = 0.0_wp
-  pdis (:,:) = 0.0_wp  
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
+  DO jk = 1, klev
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      pvom (jl,jk) = 0.0_wp
+      pvol (jl,jk) = 0.0_wp
+      pdis (jl,jk) = 0.0_wp
+    END DO
+  END DO
+  !$ACC END PARALLEL
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 524 jk=1,klev
 !CDIR NODEP
 
@@ -406,6 +464,8 @@ SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( ji, ztemp, zforc, ztend, rover, zb, zc, zconb,     &
+     !$ACC                           zabsv, zzd1, ratio, zbet, zust, zvst, zdis, zred )
      DO 523 jl=1,kgwd
         ji=kdx(jl)
         !
@@ -494,7 +554,9 @@ SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
         pdis(ji,jk)=zdis/pdtime
 523  END DO
 524 END DO
+    !$ACC END PARALLEL
 
+    !$ACC END DATA
 END SUBROUTINE orodrag
 
 SUBROUTINE orosetup                                           &
@@ -620,10 +682,16 @@ SUBROUTINE orosetup                                           &
 
   ! Shortcuts to components of echam_sso_config
   !
-  INTEGER , POINTER :: nktopg
+  INTEGER :: nktopg
   !
-  nktopg => echam_sso_config(jg)% nktopg
+  nktopg = echam_sso_config(jg)% nktopg
 
+  !$ACC DATA PRESENT( kdx, kkcrit, kkcrith, kcrit, kkenvh, kknu, kknu2, paphm1, papm1,    &
+  !$ACC               pmair, pum1, pvm1, ptm1, phgeo, prho, pri, pstab, ptau, pvph, ppsi, &
+  !$ACC               pzdep, pulow, pvlow, ptheta, pgam, pmea, ppic, pval, pnu, pd1, pd2, &
+  !$ACC               pdmod )                                                             &
+  !$ACC       CREATE( kknu, kknu2, kknub, kknul, znorm, zb, zc, znup, znum, zhcrit, zvpf, &
+  !$ACC               zdp, zmair, ll1 )
 
   !     ------------------------------------------------------------------
   !*         1.1   computational constants
@@ -639,6 +707,8 @@ SUBROUTINE orosetup                                           &
   !*                 low level wind, determine sector in which to take
   !*                 the variance and set indicator for critical levels.
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
   DO jl=jcs,kproma
      kknu(jl)    =klev
      kknu2(jl)   =klev
@@ -647,17 +717,24 @@ SUBROUTINE orosetup                                           &
      pgam(jl) =MAX(pgam(jl),gtsec)
      ll1(jl,klev+1)=.FALSE.
   END DO
+  !$ACC END PARALLEL
   !
   ! Ajouter une initialisation (L. Li, le 23fev99):
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO jk=klev,ilevh,-1
+     !$ACC LOOP GANG VECTOR
      DO jl=jcs,kproma
         ll1(jl,jk)= .TRUE.
      END DO
   END DO
+  !$ACC END PARALLEL
   !
   !*      define top of low level flow
   !       ----------------------------
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2002 jk=klev,ilevh,-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -665,6 +742,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, lo )
     DO 2003 ji=1,kgwd
        jl = kdx(ji)
        lo=(paphm1(jl,jk)/paphm1(jl,klev+1)) >= gsigcr
@@ -679,7 +757,10 @@ SUBROUTINE orosetup                                           &
        IF(.NOT.ll1(jl,ilevh))kknu(jl)=ilevh
 2003 END DO
 2002 END DO
+!$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2004 jk=klev,ilevh,-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -687,6 +768,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 2005 ji=1,kgwd
         jl = kdx(ji)
         zhcrit(jl,jk)=ppic(jl)-pmea(jl)
@@ -697,9 +779,13 @@ SUBROUTINE orosetup                                           &
         IF(.NOT.ll1(jl,ilevh))kknu2(jl)=ilevh
 2005 END DO
 2004 END DO
+  !$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2006 jk=klev,ilevh,-1
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 2007 ji=1,kgwd
         jl = kdx(ji)
         zhcrit(jl,jk)=MIN(ppic(jl)-pmea(jl),pmea(jl)-pval(jl))
@@ -710,8 +796,11 @@ SUBROUTINE orosetup                                           &
         IF(.NOT.ll1(jl,ilevh))kknub(jl)=ilevh
 2007 END DO
 2006 END DO
+  !$ACC END PARALLEL
   !
 !IBM* ASSERT(NODEPS)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( jl )
   DO 2010 ji=1,kgwd
      jl = kdx(ji)
      kknu (jl)=MIN(kknu (jl),nktopg)
@@ -719,29 +808,37 @@ SUBROUTINE orosetup                                           &
      kknub(jl)=MIN(kknub(jl),nktopg)
      kknul(jl)=klev
 2010 END DO
+  !$ACC END PARALLEL
   !
   !     initialize various arrays
   !
-  zmair  (:)        = 0.0_wp
-  prho   (:,klev+1) = 0.0_wp
-  pstab  (:,1)      = 0.0_wp
-  pstab  (:,klev+1) = 0.0_wp
-  pri    (:,1)      = 0.0_wp
-  pri    (:,klev+1) = 9999.0_wp
-  pvph   (:,1)      = 0.0_wp
-  pvph   (:,klev+1) = 0.0_wp
-  ppsi   (:,klev+1) = 0.0_wp
-  pulow  (:)        = 0.0_wp
-  pvlow  (:)        = 0.0_wp
-  kkcrith(:)        = klev
-  kkenvh (:)        = klev
-  kcrit  (:)        = 1
-  ll1    (:,klev+1) = .FALSE.
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    zmair  (jl)        = 0.0_wp
+    prho   (jl,klev+1) = 0.0_wp
+    pstab  (jl,1)      = 0.0_wp
+    pstab  (jl,klev+1) = 0.0_wp
+    pri    (jl,1)      = 0.0_wp
+    pri    (jl,klev+1) = 9999.0_wp
+    pvph   (jl,1)      = 0.0_wp
+    pvph   (jl,klev+1) = 0.0_wp
+    ppsi   (jl,klev+1) = 0.0_wp
+    pulow  (jl)        = 0.0_wp
+    pvlow  (jl)        = 0.0_wp
+    kkcrith(jl)        = klev
+    kkenvh (jl)        = klev
+    kcrit  (jl)        = 1
+    ll1    (jl,klev+1) = .FALSE.
+  END DO
+  !$ACC END PARALLEL
   !
   !*     define flow density and stratification (rho and N2)
   !      at semi layers.
   !      -------------------------------------------------------
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 223 jk=klev,2,-1
 !IBM* NOVECTOR
 #ifdef _CRAYFTN
@@ -750,6 +847,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 222 ji=1,kgwd
         jl = kdx(ji)
         zdp(jl,jk)=papm1(jl,jk)-papm1(jl,jk-1)
@@ -759,11 +857,14 @@ SUBROUTINE orosetup                                           &
         pstab(jl,jk)=MAX(pstab(jl,jk),gssec)
 222  END DO
 223 END DO
+  !$ACC END PARALLEL
   !
   !********************************************************************
   !
   !*     define Low level flow (between ground and peacks-valleys)
   !      ---------------------------------------------------------
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2115 jk=klev,ilevh,-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -771,6 +872,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 2116 ji=1,kgwd
         jl = kdx(ji)
         IF(jk >= kknu2(jl).AND.jk <= kknul(jl)) THEN
@@ -782,8 +884,11 @@ SUBROUTINE orosetup                                           &
         END IF
 2116 END DO
 2115 END DO
+  !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
   DO 2110 ji=1,kgwd
      jl = kdx(ji)
      zmair_inv        = 1._wp/zmair(jl)
@@ -795,11 +900,14 @@ SUBROUTINE orosetup                                           &
      znorm(jl)        = MAX(SQRT(pulow(jl)**2+pvlow(jl)**2),gvsec)
      pvph (jl,klev+1) = znorm(jl)
 2110 END DO
+  !$ACC END PARALLEL
   !
   !*******  setup orography orientation relative to the low level
   !       wind and define parameters of the Anisotropic wave stress.
   !
 !IBM* ASSERT(NODEPS)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
   DO 2112 ji=1,kgwd
      jl = kdx(ji)
      lo=(pulow(jl) < gvsec).AND.(pulow(jl) >= -gvsec)
@@ -817,10 +925,13 @@ SUBROUTINE orosetup                                           &
           *COS(ppsi(jl,klev+1))
      pdmod(jl)=SQRT(pd1(jl)**2+pd2(jl)**2)
 2112 END DO
+  !$ACC END PARALLEL
   !
   !  ************ projet flow in plane of lowlevel stress *************
   !  ************ Find critical levels...                 *************
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 213 jk=1,klev
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -828,6 +939,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, zvt1, zvt2 )
      DO 212 ji=1,kgwd
         jl = kdx(ji)
         zvt1       =pulow(jl)*pum1(jl,jk)+pvlow(jl)*pvm1(jl,jk)
@@ -835,12 +947,29 @@ SUBROUTINE orosetup                                           &
         zvpf(jl,jk)=(zvt1*pd1(jl)+zvt2*pd2(jl))/(znorm(jl)*pdmod(jl))
 212  END DO
 213 END DO
-  ptau (:,:) = 0.0_wp
-  pzdep(:,:) = 0.0_wp
-  ppsi (:,:) = 0.0_wp
-  ll1  (:,:) = .FALSE.
+  !$ACC END PARALLEL
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
+  DO jk = 1, klev
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ptau (jl,jk) = 0.0_wp
+      pzdep(jl,jk) = 0.0_wp
+      ppsi (jl,jk) = 0.0_wp
+      ll1  (jl,jk) = .FALSE.
+    END DO
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ptau (jl,klev+1) = 0.0_wp
+      ppsi (jl,klev+1) = 0.0_wp
+      ll1  (jl,klev+1) = .FALSE.
+    END DO
+  END DO
+  !$ACC END PARALLEL
 
 !!  DO 215 jk=2,klev-1  ! BUG FIX FOR NaN (undefined values)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 215 jk=2,klev
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -848,6 +977,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 214 ji=1,kgwd
         jl = kdx(ji)
         zdp (jl,jk)=  papm1 (jl,jk)-papm1 (jl,jk-1)
@@ -860,9 +990,12 @@ SUBROUTINE orosetup                                           &
         ENDIF
 214  END DO
 215 END DO
+  !$ACC END PARALLEL
   !
   !*         2.3     mean flow richardson number.
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 232 jk=2,klev
 #ifdef _CRAYFTN
  !DIR$ CONCURRENT
@@ -870,6 +1003,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, zdwind )
     DO 231 ji=1,kgwd
        jl = kdx(ji)
        zdwind     = MAX(ABS(zvpf(jl,jk)-zvpf(jl,jk-1)),gvsec)
@@ -877,12 +1011,20 @@ SUBROUTINE orosetup                                           &
        pri(jl,jk) = MAX(pri(jl,jk),grcrit)
 231  END DO
 232 END DO
+  !$ACC END PARALLEL
   !
   !*      define top of 'envelope' layer
   !       ----------------------------
-  pnu(:)  = 0.0_wp
-  znum(:) = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    pnu(jl)  = 0.0_wp
+    znum(jl) = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO jk=2,klev-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -892,6 +1034,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, zwind, zstabm, zstabp, zrhom, zrhop )
      DO ji=1,kgwd
         jl = kdx(ji)
         IF(jk >= kknu(jl)) THEN
@@ -908,6 +1051,7 @@ SUBROUTINE orosetup                                           &
         ENDIF
      END DO
   END DO
+  !$ACC END PARALLEL
   !
   !  calculation of a dynamical mixing height for when the waves
   !  BREAK AT LOW LEVEL: The drag will be repartited over
@@ -915,9 +1059,16 @@ SUBROUTINE orosetup                                           &
   !  not just between two adjacent model layers.
   !  of gravity waves:
   !
-  znup(:) = 0.0_wp
-  znum(:) = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    znup(jl) = 0.0_wp
+    znum(jl) = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO jk=klev-1,2,-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -925,6 +1076,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, zwind, zstabm, zstabp, zrhom, zrhop )
     DO ji=1,kgwd
        jl = kdx(ji)
        znum(jl)= znup(jl)
@@ -939,17 +1091,23 @@ SUBROUTINE orosetup                                           &
        IF ((znum(jl) <= pi/2._wp).AND.(znup(jl) > pi/2._wp).AND.(kkcrith(jl) == klev))  kkcrith(jl)=jk
     END DO
   END DO
+  !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( jl )
   DO  ji=1,kgwd
      jl = kdx(ji)
      kkcrith(jl)=min0(kkcrith(jl),kknu(jl))
      kkcrith(jl)=max0(kkcrith(jl),ilevh*2)
      IF(kcrit(jl) >= kkcrith(jl))kcrit(jl)=1
   END DO
+  !$ACC END PARALLEL
   !
   !     directional info for flow blocking *************************
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 251 jk=1,klev
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
@@ -957,6 +1115,7 @@ SUBROUTINE orosetup                                           &
 !DIR$ IVDEP
 #endif
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, lo, zu, zphi )
      DO 252 ji=1,kgwd
         jl = kdx(ji)
         lo=(pum1(jl,jk) < gvsec).AND.(pum1(jl,jk) >= -gvsec)
@@ -969,11 +1128,15 @@ SUBROUTINE orosetup                                           &
         ppsi(jl,jk)=ptheta(jl)*pi/180._wp-zphi
 252  END DO
 251 END DO
+  !$ACC END PARALLEL
 
   !      forms the vertical 'leakiness' **************************
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 254  jk=ilevh,klev
 !IBM* ASSERT(NODEPS)
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 253  ji=1,kgwd
         jl = kdx(ji)
         pzdep(jl,jk)=0._wp
@@ -983,6 +1146,9 @@ SUBROUTINE orosetup                                           &
         END IF
 253  END DO
 254 END DO
+  !$ACC END PARALLEL
+
+  !$ACC END DATA
 
 END SUBROUTINE orosetup
 
@@ -1034,17 +1200,25 @@ SUBROUTINE gwstress( jg, kbdim,  klev,              &
 
   ! Shortcuts to components of echam_sso_config
   !
-  REAL(wp), POINTER :: gkdrag
+  REAL(wp) :: gkdrag
   !
-  gkdrag => echam_sso_config(jg)% gkdrag
+  gkdrag = echam_sso_config(jg)% gkdrag
 
+  !$ACC DATA PRESENT( kdx, kkenvh, pstd, psig, ppic, pval, prho, pstab, pvph, pdmod, ptau0 )
   !
   !*         1.1     gravity wave stress.
   !
 
-  ptau0(:) = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    ptau0(jl) = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( jl, zeff )
   DO 301 ji=1,kgwd
      jl = kdx(ji)
 
@@ -1070,6 +1244,9 @@ SUBROUTINE gwstress( jg, kbdim,  klev,              &
         !       if(lo) ptau0(jl)=0.0_wp
 
 301 END DO
+  !$ACC END PARALLEL
+  
+  !$ACC END DATA
 
 END SUBROUTINE gwstress
 
@@ -1121,14 +1298,26 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
   ! Shortcuts to components of echam_sso_config
   !
-  INTEGER , POINTER :: ntop
+  INTEGER :: ntop
   !
-  ntop   => echam_sso_config(jg)% ntop
+  ntop = echam_sso_config(jg)% ntop
+
+  !$ACC DATA PRESENT( kdx, kkcrith, kcrit, pstd, psig, paphm1, prho, pri, pstab, &
+  !$ACC              pvph, pdmod, ptau0, ptau )                                 &
+  !$ACC       CREATE( zdz2, znorm, zoro, ztau )
 
   !
   !  Executable statements
 
-  ptau(:,:) = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
+  DO jk = 1, klev+1
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ptau(jl,jk) = 0.0_wp
+    END DO
+  END DO
+  !$ACC END PARALLEL
   
 !CDIR NODEP
 #ifdef _CRAYFTN
@@ -1136,14 +1325,19 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 #else
 !DIR$ IVDEP
 #endif
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( jl )
   DO 400 ji=1,kgwd
      jl=kdx(ji)
      zoro(jl)=psig(jl)*pdmod(jl)/4._wp/pstd(jl)
      ztau(jl,klev+1)=ptau0(jl)
      ztau(jl,kkcrith(jl))=grahilo*ptau0(jl)
 400 END DO
+  !$ACC END PARALLEL
 
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 430 jk=klev+1,2,-1
      !
      !
@@ -1158,6 +1352,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, zdelp, zdelpt )
      DO 411 ji=1,kgwd
         jl=kdx(ji)
         IF(jk > kkcrith(jl)) THEN
@@ -1171,6 +1366,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 411  END DO
 
 430 END DO
+    !$ACC END PARALLEL
 
   !
   !*         4.15   constant shear stress until the top of the
@@ -1187,13 +1383,15 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
   !*                and stress:  breaking evaluation and critical
   !                 level
   !
-
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 440 jk=klev,2,-1
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 441 ji=1,kgwd
         jl=kdx(ji)
         znorm(jl)=prho(jl,jk)*SQRT(pstab(jl,jk))*pvph(jl,jk)
@@ -1206,6 +1404,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, zsqr, zalfa, zriw, zdel, zb, zdz2n )
      DO 442 ji=1,kgwd
         jl=kdx(ji)
         IF(jk < kkcrith(jl)) THEN
@@ -1229,6 +1428,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
         ENDIF
 442  END DO
 440 END DO
+  !$ACC END PARALLEL
 
 
 
@@ -1239,18 +1439,24 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 #else
 !DIR$ IVDEP
 #endif
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( jl )
   DO 530 ji=1,kgwd
      jl=kdx(ji)
      ztau(jl,kkcrith(jl))=ptau(jl,kkcrith(jl))
      ztau(jl,ntop)=ptau(jl,ntop)
 530 END DO
+  !$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 531 jk=1,klev
 #ifdef _CRAYFTN
 !DIR$ CONCURRENT
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( jl, zdelp, zdelpt )
      DO 532 ji=1,kgwd
         jl=kdx(ji)
 
@@ -1273,6 +1479,7 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 #else
 !DIR$ IVDEP
 #endif
+     !$ACC LOOP GANG VECTOR PRIVATE( jl )
      DO 533 ji=1,kgwd
         jl=kdx(ji)
 
@@ -1289,7 +1496,9 @@ SUBROUTINE gwprofil( jg, kbdim,  klev,                                  &
 
 
 531 END DO
+  !$ACC END PARALLEL
 
+  !$ACC END DATA
 
 END SUBROUTINE gwprofil
 
@@ -1366,11 +1575,16 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
 
   ! Shortcuts to components of echam_sso_config
   !
-  REAL(wp), POINTER :: gklift
-  INTEGER , POINTER :: nktopg
+  REAL(wp) :: gklift
+  INTEGER  :: nktopg
   !
-  nktopg => echam_sso_config(jg)% nktopg
-  gklift => echam_sso_config(jg)% gklift
+  nktopg = echam_sso_config(jg)% nktopg
+  gklift = echam_sso_config(jg)% gklift
+
+  !$ACC DATA PRESENT( pcoriol, pdtime, ktest, phgeo, paphm1, pmair, ptm1, pum1, &
+  !$ACC               pvm1, pmea, pstd, ppic, pvom, pvol, pdis )                &
+  !$ACC       CREATE( iknub, iknul, zdudt, zdvdt, pulow, pvlow, ztau, ztav,     &
+  !$ACC               zrho, zmair, zhcrit, ll1 )
 
   !-----------------------------------------------------------------------
   !
@@ -1381,18 +1595,31 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
 
   zcons1=1._wp/rd
 
-  iknub(:)        = klev
-  iknul(:)        = klev
-  ll1  (:,klev+1) = .FALSE.
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
+  DO jl = 1, kbdim
+    iknub(jl)        = klev
+    iknul(jl)        = klev
+    ll1  (jl,klev+1) = .FALSE.
 
-  zrho (:,klev+1) = 0.0_wp
-  zmair(:)        = 0.0_wp
-  pulow(:)        = 0.0_wp
-  pvlow(:)        = 0.0_wp
+    zrho (jl,klev+1) = 0.0_wp
+    zmair(jl)        = 0.0_wp
+    pulow(jl)        = 0.0_wp
+    pvlow(jl)        = 0.0_wp
+  END DO
+  !$ACC END PARALLEL
 
-  pvom (:,:)      = 0.0_wp
-  pvol (:,:)      = 0.0_wp
-  pdis (:,:)      = 0.0_wp
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
+  DO jk = 1, klev
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      pvom (jl,jk) = 0.0_wp
+      pvol (jl,jk) = 0.0_wp
+      pdis (jl,jk) = 0.0_wp
+    END DO
+  END DO
+  !$ACC END PARALLEL
 
   !
   !*         2.1     DEFINE LOW LEVEL WIND, PROJECT WINDS IN PLANE OF
@@ -1400,7 +1627,10 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
   !*                 THE VARIANCE AND SET INDICATOR FOR CRITICAL LEVELS.
   !
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2006 jk=klev,1,-1
+     !$ACC LOOP GANG VECTOR
      DO 2007 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            zhcrit(jl,jk)=MAX(ppic(jl)-pmea(jl),100.0_wp)
@@ -1411,7 +1641,10 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         ENDIF
 2007 END DO
 2006 END DO
+  !$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
   DO 2010 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         iknub(jl)=MAX(iknub(jl),klev/2)
@@ -1421,19 +1654,27 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         IF(iknub(jl) == iknul(jl)) iknub(jl)=iknul(jl)-1
      ENDIF
 2010 END DO
+  !$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 223 jk=klev,2,-1
+     !$ACC LOOP GANG VECTOR
      DO 222 jl=jcs,kproma
         zrho(jl,jk)=2._wp*paphm1(jl,jk)*zcons1/(ptm1(jl,jk)+ptm1(jl,jk-1))
 222  END DO
 223 END DO
+  !$ACC END PARALLEL
 
   !     print *,'  dans orolift: 223'
   !********************************************************************
   !
   !*     define low level flow
   !      -------------------
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 2115 jk=klev,1,-1
+     !$ACC LOOP GANG VECTOR
      DO 2116 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            IF(jk >= iknub(jl).AND.jk <= iknul(jl)) THEN
@@ -1445,7 +1686,10 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         ENDIF
 2116 END DO
 2115 END DO
+  !$ACC END PARALLEL
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR PRIVATE( zmair_inv )
   DO 2110 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         zmair_inv        = 1._wp/zmair(jl)
@@ -1454,6 +1698,7 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         zrho (jl,klev+1) = zrho (jl,klev+1) *zmair_inv
      ENDIF
 2110 END DO
+  !$ACC END PARALLEL
 
 
 
@@ -1461,6 +1706,8 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
   !
   !*         3.      COMPUTE MOUNTAIN LIFT
   !
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP GANG VECTOR
   DO 301 jl=jcs,kproma
      IF(ktest(jl) == 1) THEN
         ztau(jl,klev+1)= - gklift                       &
@@ -1478,12 +1725,16 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         ztav(jl,klev+1)=0.0_wp
      ENDIF
 301 END DO
+  !$ACC END PARALLEL
   !
   !*         4.      COMPUTE LIFT PROFILE
   !*                 --------------------
   !
 
+  !$ACC PARALLEL DEFAULT(PRESENT)
+  !$ACC LOOP SEQ
   DO 401 jk=1,klev
+     !$ACC LOOP GANG VECTOR
      DO 402 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
            ztau(jl,jk)=ztau(jl,klev+1)*paphm1(jl,jk)/paphm1(jl,klev+1)
@@ -1494,6 +1745,7 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
         ENDIF
 402  END DO
 401 END DO
+  !$ACC END PARALLEL
   !
   !
   !*         5.      COMPUTE TENDENCIES.
@@ -1504,7 +1756,10 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
      !
      !  EXPLICIT SOLUTION AT ALL LEVELS
      !
+     !$ACC PARALLEL DEFAULT(PRESENT)
+     !$ACC LOOP SEQ
      DO 524 jk=1,klev
+        !$ACC LOOP GANG VECTOR PRIVATE( zmair_inv )
         DO 523 jl=jcs,kproma
            IF(ktest(jl) == 1) THEN
               zmair_inv = 1._wp/pmair(jl,jk)
@@ -1513,10 +1768,14 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
            ENDIF
 523     END DO
 524  END DO
+     !$ACC END PARALLEL
      !
      !  PROJECT PERPENDICULARLY TO U NOT TO DESTROY ENERGY
      !
+     !$ACC PARALLEL DEFAULT(PRESENT)
+     !$ACC LOOP SEQ
      DO 530 jk=1,klev
+        !$ACC LOOP GANG VECTOR PRIVATE( zslow, zsqua, zscav )
         DO 531 jl=jcs,kproma
            IF(ktest(jl) == 1) THEN
               zslow=SQRT(pulow(jl)**2+pvlow(jl)**2)
@@ -1537,14 +1796,18 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
            ENDIF
 531     END DO
 530  END DO
+     !$ACC END PARALLEL
      !
      !  6.  LOW LEVEL LIFT, SEMI IMPLICIT:
      !  ----------------------------------
 
   ELSE
 
+     !$ACC PARALLEL DEFAULT(PRESENT)
+     !$ACC LOOP GANG VECTOR PRIVATE( zbet )
      DO 601 jl=jcs,kproma
         IF(ktest(jl) == 1) THEN
+           !$ACC LOOP SEQ
            DO jk=klev,iknub(jl),-1
               zbet =  gklift*pcoriol(jl)*pdtime               &
                    & *(phgeo(jl,iknub(jl)-1)-phgeo(jl,  jk))  &
@@ -1556,8 +1819,11 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
            ENDDO
         ENDIF
 601  END DO
+    !$ACC END PARALLEL
 
   ENDIF
+
+  !$ACC END DATA
   !           PRINT *,' out orolift'
 END SUBROUTINE orolift
 

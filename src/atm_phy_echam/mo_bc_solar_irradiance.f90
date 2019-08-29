@@ -19,7 +19,7 @@
 MODULE mo_bc_solar_irradiance
 
   USE mo_kind,            ONLY: dp, i8
-  USE mo_exception,       ONLY: finish, message
+  USE mo_exception,       ONLY: finish, message, warning
   USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                        p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
        &                        nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
@@ -80,8 +80,10 @@ CONTAINS
     IF (lradt) THEN
        IF (.NOT.(ASSOCIATED(tsi_radt_m))) ALLOCATE(tsi_radt_m(0:13))
        IF (.NOT.(ASSOCIATED(ssi_radt_m))) ALLOCATE(ssi_radt_m(ssi_numwl,0:13))
+       !$ACC ENTER DATA PCREATE( tsi_radt_m, ssi_radt_m )
     ELSE
        IF (.NOT.(ASSOCIATED(tsi_m)))      ALLOCATE(tsi_m(0:13))
+       !$ACC ENTER DATA PCREATE( tsi_m )
     END IF
 
     CALL nf_check(p_nf_inq_varid(ncid, 'year', nvarid))
@@ -108,11 +110,16 @@ CONTAINS
        CALL nf_check(p_nf_get_vara_double (ncid, nvarid, start, cnt, ssi_radt_m))
        lread_solar_radt=.FALSE.
        last_year_radt=year
+       !$ACC UPDATE DEVICE( tsi_radt_m, ssi_radt_m )
     ELSE
        CALL nf_check(p_nf_get_vara_double(ncid, nvarid, start, cnt, tsi_m))
        lread_solar=.FALSE.
        last_year=year
+       !$ACC UPDATE DEVICE( tsi_m )
     END IF
+#ifdef _OPENACC
+       CALL warning("GPU:read_bc_solar_irradiance", "GPU device synchronization")
+#endif
 
     CALL nf_check(p_nf_close(ncid))
 

@@ -70,7 +70,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
     &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart, ldass_lhn
@@ -570,10 +570,6 @@ MODULE mo_nh_stepping
     ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
     IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
   ENDIF
-  
-  ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
-  ! MPI communication from now on.
-  IF (test_mode > 0) iorder_sendrecv = 0
 
   IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
@@ -1434,7 +1430,7 @@ MODULE mo_nh_stepping
           &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
           &        p_nh_state(jg)%diag%airmass_new,                      & !in
           &        p_nh_state(jg)%diag%airmass_now,                      & !in
-          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
           &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
           &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
           &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
@@ -1557,7 +1553,7 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &          p_nh_state(jg)%diag%airmass_new,                      & !in
             &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
             &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out

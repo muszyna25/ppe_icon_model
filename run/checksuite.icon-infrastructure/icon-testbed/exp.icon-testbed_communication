@@ -89,14 +89,14 @@ cat > ${null_namelist} << EOF
 /
 EOF
 #-----------------------------------------------------------------------------
-dec_size=${dec_size:=$mpi_total_procs}
-end_atmo_proc=`expr $dec_size - 1`
-end_null_proc=`expr $mpi_total_procs - 1`
-namelist_list=( "$atmo_namelist"  "$null_namelist" )
-modelname_list=(   "atmo"          "null"          )
-modeltype_list=(      1               99           )
-minrank_list=(        0            $dec_size       )
-maxrank_list=(  $end_atmo_proc    $end_null_proc   )
-incrank_list=(        1                1           )
+#dec_size=${dec_size:=$mpi_total_procs}
+#end_atmo_proc=`expr $dec_size - 1`
+#end_null_proc=`expr $mpi_total_procs - 1`
+#namelist_list=( "$atmo_namelist"  "$null_namelist" )
+#modelname_list=(   "atmo"          "null"          )
+#modeltype_list=(      1               99           )
+#minrank_list=(        0            $dec_size       )
+#maxrank_list=(  $end_atmo_proc    $end_null_proc   )
+#incrank_list=(        1                1           )
 #-----------------------------------------------------------------------------
 

@@ -35,7 +35,7 @@ MODULE mo_grf_ubcintp
 !
 USE mo_kind,                ONLY: wp
 USE mo_model_domain,        ONLY: t_patch
-USE mo_parallel_config,     ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma, cpu_min_nproma
 USE mo_communication,       ONLY: exchange_data_grf
 
 USE mo_grf_intp_data_strc
@@ -87,7 +87,7 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   iblk    => p_grf%blklist_ubcintp_e
 
   ! Compute values for dynamic nproma blocking
-  nproma_ubcintp = MIN(nproma,256)
+  nproma_ubcintp = cpu_min_nproma(nproma,256)
   nblks_ubcintp  = INT(p_grf%npoints_ubcintp_e/nproma_ubcintp)
   npromz_ubcintp = MOD(p_grf%npoints_ubcintp_e,nproma_ubcintp)
   IF (npromz_ubcintp > 0) THEN
@@ -225,7 +225,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
   ENDIF
 
   ! Compute values for dynamic nproma blocking
-  nproma_ubcintp = MIN(nproma,256)
+  nproma_ubcintp = cpu_min_nproma(nproma,256)
   nblks_ubcintp  = INT(p_grf%npoints_ubcintp_c/nproma_ubcintp)
   npromz_ubcintp = MOD(p_grf%npoints_ubcintp_c,nproma_ubcintp)
   IF (npromz_ubcintp > 0) THEN

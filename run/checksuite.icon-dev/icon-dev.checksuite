@@ -99,6 +99,7 @@ function print_mode
         'n') PRINT_MD='n(proma)';;
         'm') PRINT_MD='m(pi)';;
         'o') PRINT_MD='o(mp)';;
+        't') PRINT_MD='t(olerance)';;
         *) PRINT_MD=$MOD;;
     esac
     echo "- test mode    = $PRINT_MD"
@@ -118,6 +119,7 @@ function print_usage
             'n') MD='n(proma)';;
             'm') MD='m(pi)';;
             'o') MD='o(mp)';;
+            't') MD='t(olerance)';;
             *) MD=$MOD;;
         esac
         MOD_ARG=$MOD_ARG'|'$MD
@@ -131,7 +133,7 @@ function print_usage
     echo '     '"'no'"': perform make_runscripts only if no runscripts are available'
     echo '-h : display help'
     echo '-m : test mode, either single tests like base, update, restart,'
-    echo '     nproma, mpi or omp test'
+    echo '     nproma, mpi, omp, or tolerance test'
     echo '     or combined tests like ur (update and restart) possible'
     echo '     Default mode: rnmo'
     echo '-o : '"'yes'"': overwrite existing experiments (default)'
@@ -322,6 +324,101 @@ function string_in_list
     fi
 }
 
+#------------------------------------------------------------------------
+function tolerance_check
+{
+    typeset MODEL_DIR1 EXP_BASE EXPERIMENT STATUS
+    MODEL_DIR1=$1
+    EXP_BASE=$2
+    EXPERIMENT=$3
+
+    # status variable that is evaluated after the function call
+    TOL_STATUS=0
+    cd $MODEL_DIR
+
+    # make sure that repos do not exist
+    if [ -d probtest ]; then
+        rm -rf probtest
+    fi
+    if [ -d icon-test-references ]; then
+        rm -rf icon-test-references
+    fi
+    
+    # Clone the testsuite
+    git clone --depth 1 https://github.com/remodietlicher/probtest.git
+
+    # Clone the reference data
+    git clone https://github.com/remodietlicher/icon-test-references.git
+
+    # This variable stores the version of the reference data
+    REFERENCE_HASH=2798c17b24bb2532cc6d96752c7ead038e60b0af
+
+    # change to the relevant version of the reference data
+    cd icon-test-references
+    git reset --hard ${REFERENCE_HASH}
+    cd ..
+
+    case ${BB_SLAVE} in 
+        *pgi*)
+            COMPILER=pgi ;;
+        *gcc*)
+            COMPILER=gcc ;;
+        *cce*)
+            COMPILER=cce ;;
+        *)
+            COMPILER=gcc ;;
+    esac
+    echo "Using ${COMPILER} as the reference compiler"
+
+    echo "Running tolerance check with compiler-specific reference (${COMPILER})"
+    # call the tolerance test with 
+    # -o model output directory
+    # -t tolerance file
+    # --cur this model run that is to be tested
+    # --ref the reference from the repository
+    # and write the output to a file (tolerance.log)
+    python probtest/probtest.py icon-test-references/config.cfg stats check \
+        -o ${MODEL_DIR}/experiments \
+        -e ${EXP_BASE} \
+        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
+        --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
+        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
+        > tolerance.log
+
+    echo "TOLERANCE test output:"
+    cat tolerance.log
+
+    # get the relevant success check
+    fail=$(grep RESULT tolerance.log | grep 'FAIL' | wc -l)
+    crash=$(grep RESULT tolerance.log | grep 'CRASH' | wc -l)
+    finished=$(grep RESULT tolerance.log | wc -l)
+    if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
+       echo "testsuite did not complete successfully"
+       TOL_STATUS=1
+    fi
+
+    echo "Running tolerance check with GCC reference"
+    COMPILER=gcc
+    python probtest/probtest.py icon-test-references/config.cfg stats check \
+        -o ${MODEL_DIR}/experiments \
+        -e ${EXP_BASE} \
+        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
+        --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
+        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
+        > tolerance_gcc.log
+
+    # check for validation against GCC
+    fail=$(grep RESULT tolerance_gcc.log | grep 'FAIL' | wc -l)
+    crash=$(grep RESULT tolerance_gcc.log | grep 'CRASH' | wc -l)
+    finished=$(grep RESULT tolerance_gcc.log | wc -l)
+    if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
+       echo "Careful, no validation against GCC"
+    fi
+
+    rm -rf probtest icon-test-references
+
+    return TOL_STATUS
+}
 #################### main script ########################################
 
 date
@@ -336,7 +433,7 @@ MODEL_DIR=`pwd`
 cd $SCRIPT_DIR
 
 # possible test modes
-MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno rmo nmo urnm urno urmo unmo rnmo urnmo"
+MODES="b u r n m o t ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno rmo nmo urnm urno urmo unmo rnmo urnmo rnmot"
 
 while getopts ":cd:e:f:hm:o:r:s:t:u" OPT; do
     case $OPT in
@@ -363,12 +460,25 @@ while getopts ":cd:e:f:hm:o:r:s:t:u" OPT; do
                 'nproma')   MD='n';;
                 'mpi')      MD='m';;
                 'omp')      MD='o';;
+                'tolerance')MD='t';;
                 *)      MD=$MODE;;
             esac
-            if ! string_in_list $MD $MODES; then
-                print_usage $0
-                exit 1
-            fi 
+
+            # Check if the given MODE arguments are correct
+            i=1
+            while (( i <= ${#MD} ))
+            do
+               char=$(expr substr "$MD" $i 1)
+               case "$char" in
+                  b|u|r|n|m|o|t )
+                     (( i += 1 ))
+                     ;;
+                  *) 
+                     print_usage $0
+                     exit 1
+                     ;;
+               esac
+            done
             ;;
         o  ) OVERWRITE=$OPTARG
             if [ "$OVERWRITE" != 'yes' -a "$OVERWRITE" != 'no' ]; then
@@ -491,7 +601,7 @@ SCRIPT=${EXPERIMENT}
 cd ${MODEL_DIR}
 
 if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
-    ./make_runscripts ${SCRIPT}
+    ./make_runscripts -s ${SCRIPT}
 fi
 
 if [ ! -d experiments ]; then
@@ -566,7 +676,7 @@ if string_in_list $MD $CMODES; then
     RUN_STATUS=-1
     if [ ! -d experiments/${EXP_BASE} ] ;then 
         if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
-            ${MODEL_DIR}/make_runscripts ${SCRIPT}
+            ${MODEL_DIR}/make_runscripts -s ${SCRIPT}
         fi
         if [ ! -d experiments ]; then
             mkdir experiments
@@ -620,7 +730,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="r ur rn rm ro urn urm uro rnm rno rmo urnm urno urmo rnmo urnmo"
+CMODES="r ur rn rm ro urn urm uro rnm rno rmo urnm urno urmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='restart'
     echo ' '
@@ -679,7 +789,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="n un rn nm no urn unm uno rnm rno nmo urnm urno unmo rnmo urnmo"
+CMODES="n un rn nm no urn unm uno rnm rno nmo urnm urno unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='nproma'
     echo ' '
@@ -733,7 +843,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo"
+CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='mpi'
     echo ' '
@@ -778,20 +888,6 @@ if string_in_list $MD $CMODES; then
                       's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE_NEW"'/g' \
                       ${RUN_SCRIPT}
 
-                    # change system variables where necessary
-                    if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                        PPNODE=`grep "# @"     ${RUN_SCRIPT} | grep  " tasks_per_node "`
-                        PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-                        sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-                    if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-                        PPNODE=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "ntasks-per-node"`
-                        PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-                        sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-
 	        else
 
                     # use one node less and keep one process per node
@@ -803,20 +899,6 @@ if string_in_list $MD $CMODES; then
 	            sed -i \
                       's/\b\(no_of_nodes\)=.*/\1='"$N_NODES_NEW"'/g' \
                       ${RUN_SCRIPT}
-
-                    # change system variables where necessary
-                    if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                        NODES=`grep "# @"     ${RUN_SCRIPT} | grep  " node "`
-                        NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-                        sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-                    if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-                        NODES=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "nodes"`
-                        NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-                        sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
 
 	        fi # N_PPNODE>1
 
@@ -876,7 +958,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 
 
-CMODES="o uo ro no mo uro uno umo rno rmo nmo urno urmo unmo rnmo urnmo"
+CMODES="o uo ro no mo uro uno umo rno rmo nmo urno urmo unmo rnmo urnmo rnmot"
 if string_in_list $MD $CMODES; then
     TEST='omp'
     echo ' '
@@ -921,22 +1003,6 @@ if string_in_list $MD $CMODES; then
                   -e 's/\b\(ICON_THREADS\)=.*/\1='"$N_ICON_THREADS_NEW"'/g' \
                   -e 's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE"'/g' \
                       ${RUN_SCRIPT}
-
-                # change system variables where necessary
-                if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                    THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " task_affinity "`
-                    THREADS_NEW=${THREADS%\($N_OMP_NUM_THREADS\)}\($N_OMP_NUM_THREADS_NEW\)
-                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
-                    THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " parallel_threads "`
-                    THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
-                fi
-##        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
-##          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-##          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-##          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-##        fi
 
                 echo "Perform $TEST run"
                 chmod 755 ${RUN_SCRIPT}
@@ -988,6 +1054,23 @@ if string_in_list $MD $CMODES; then
     fi # TEST_POSSIBLE
 fi # MODE
 
+CMODES="t rnmot"
+if string_in_list $MD $CMODES; then
+    TEST='tolerance'
+    echo ' '
+    echo "#################### perform $TEST test          ####################"
+    echo ' '
+
+    # compare base run with reference
+    tolerance_check $MODEL_DIR $EXP_BASE $EXPERIMENT
+    if [ "$TOL_STATUS" == 0 ]; then
+        PASSED_TESTS="$PASSED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+        FAILED_TESTS="$FAILED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
+fi
 
 echo ' '
 echo ' '

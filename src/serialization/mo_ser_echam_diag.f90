@@ -32,10 +32,15 @@ MODULE mo_ser_echam_diag
   SUBROUTINE serialize_initialize_input(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_INI) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -75,11 +80,13 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_initialize_input
 
   SUBROUTINE serialize_initialize_output(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_INI) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -108,15 +115,17 @@ MODULE mo_ser_echam_diag
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_initialize_output
 
   SUBROUTINE serialize_fractions_input(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_FRA) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
-    LOGICAL, SAVE :: lenabled = .TRUE.
+    LOGICAL, SAVE :: lenabled = .FALSE.
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -168,11 +177,13 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_fractions_input
 
   SUBROUTINE serialize_fractions_output(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_FRA) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -209,15 +220,17 @@ MODULE mo_ser_echam_diag
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_fractions_output
 
   SUBROUTINE serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_DPN) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
-    LOGICAL, SAVE :: lenabled = .TRUE.
+    LOGICAL, SAVE :: lenabled = .FALSE.
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -263,11 +276,13 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_droplet_number_input
 
   SUBROUTINE serialize_droplet_number_output(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_DPN) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -300,15 +315,17 @@ MODULE mo_ser_echam_diag
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_droplet_number_output
 
   SUBROUTINE serialize_cpair_cvair_qconv_input(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_CCQ) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
-    LOGICAL, SAVE :: lenabled = .TRUE.
+    LOGICAL, SAVE :: lenabled = .FALSE.
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -357,11 +374,13 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_cpair_cvair_qconv_input
 
   SUBROUTINE serialize_cpair_cvair_qconv_output(jg, jb, jcs, jce, nproma, nlev, field)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_DIAG_CCQ) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -396,16 +415,18 @@ MODULE mo_ser_echam_diag
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_cpair_cvair_qconv_output
 
   SUBROUTINE serialize_finalize_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT) :: tend
+#if defined(SERIALIZE_ECHAM_DIAG_FIN) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
-    LOGICAL, SAVE :: lenabled = .TRUE.
+    LOGICAL, SAVE :: lenabled = .FALSE.
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -463,12 +484,14 @@ MODULE mo_ser_echam_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_finalize_input
 
   SUBROUTINE serialize_finalize_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT) :: tend
+#if defined(SERIALIZE_ECHAM_DIAG_FIN) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -509,6 +532,7 @@ MODULE mo_ser_echam_diag
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_finalize_output
 
 END MODULE mo_ser_echam_diag

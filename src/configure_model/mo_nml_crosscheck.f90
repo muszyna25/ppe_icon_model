@@ -460,20 +460,42 @@ CONTAINS
 
       IF (ntracer < 3) CALL finish(routine,'ECHAM physics needs at least 3 tracers')
 
-      ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqr    = 0     !! rain water
-      iqs    = 0     !! snow
-      iqm_max= 3     !! end index of water species mixing ratios
-      iqt    = 4     !! starting index of non-water species
-      io3    = 4     !! O3
-      ico2   = 5     !! CO2
-      ich4   = 6     !! CH4
-      in2o   = 7     !! N2O
-      nqtendphy = 0  !! number of water species for which convective and turbulent
-                     !! tendencies are stored
+      IF (ANY(echam_phy_config(:)%lmig)) THEN
+
+        iqv       = 1     !> water vapour
+        iqc       = 2     !! cloud water
+        iqi       = 3     !! ice
+        iqr       = 4     !! rain water
+        iqs       = 5     !! snow
+        iqg       = 6     !! graupel
+        iqm_max   = iqg   !! end index of water species mixing ratios
+        iqt       = 4     !! start index of other tracers not related at all to moisture
+        io3       = 7     !! O3
+        ico2      = 8     !! CO2
+        ich4      = 9     !! CH4
+        in2o      = 10    !! N2O
+
+        nqtendphy = 0     !! number of water species for which convective and turbulent
+                          !! tendencies are stored
+
+      ELSE
+      
+        ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
+        iqv       = 1     !> water vapour
+        iqc       = 2     !! cloud water
+        iqi       = 3     !! ice
+        iqr       = 0     !! rain water
+        iqs       = 0     !! snow
+        iqm_max   = 3     !! end index of water species mixing ratios
+        iqt       = 4     !! starting index of non-water species
+        io3       = 4     !! O3
+        ico2      = 5     !! CO2
+        ich4      = 6     !! CH4
+        in2o      = 7     !! N2O
+
+        nqtendphy = 0     !! number of water species for which convective and turbulent
+                          !! tendencies are stored
+      END IF
 
       IF (lart) THEN
         

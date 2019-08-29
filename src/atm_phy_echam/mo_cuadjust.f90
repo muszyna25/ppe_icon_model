@@ -72,17 +72,23 @@ CONTAINS
 
     IF (kcall >= 0.AND. kcall <= 2 ) THEN
 
-      CALL lookup_ubc_list(jcs,kproma,ldcnt,ldidx(1),pt(1,kk),ub(1),uc(1))
-      CALL lookup_ua_list_spline('cuadjtq (1)',jcs,kproma,ldcnt,ldidx(1),pt(1,kk),ua(1), &
-        &                                      dua(1),klev=klev,kblock=jb,kblock_size=kbdim)
+      !$ACC DATA PRESENT( pp, ldidx, pq, pt )                        &
+      !$ACC       CREATE( zcond, zppi, ua, dua, ub, uc, idx, ncond )
+
+      CALL lookup_ubc_list(jcs,kproma,ldcnt,ldidx(:),pt(:,kk),ub(:),uc(:))
+      CALL lookup_ua_list_spline('cuadjtq (1)',jcs,kproma,ldcnt,ldidx(:),pt(:,kk),ua(:), &
+        &                                      dua(:),klev=klev,kblock=jb,kblock_size=kbdim)
 
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl )
       DO nl=jcs,ldcnt
         jl = ldidx(nl)
         zppi(jl)=1._wp/pp(jl)
       END DO
+      !$ACC END PARALLEL
 
       IF (kcall.EQ.0) THEN
 
@@ -91,6 +97,8 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM ASSERT(NODEPS)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zes, zcor, zqsat, zdqsdt, zlcdqsdt )
         DO nl=jcs,ldcnt
           jl = ldidx(nl)
 
@@ -110,12 +118,15 @@ CONTAINS
           ! mpuetz: zcond is almost always > 0
           ncond(nl) = INT(FSEL(-ABS(zcond(jl)),0._wp,1._wp))
         END DO
+        !$ACC END PARALLEL
 
       ELSE IF (kcall.EQ.1) THEN
 
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM ASSERT(NODEPS)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zes, zcor, zqsat, zdqsdt, zlcdqsdt )
         DO nl=jcs,ldcnt
           jl = ldidx(nl)
 
@@ -135,12 +146,15 @@ CONTAINS
           ! mpuetz: zcond is almost always > 0
           ncond(nl) = INT(FSEL(-ABS(zcond(jl)),0._wp,1._wp))
         END DO
+        !$ACC END PARALLEL
 
       ELSE
 
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zes, zcor, zqsat, zdqsdt, zlcdqsdt )
         DO nl=jcs,ldcnt
           jl = ldidx(nl)
 
@@ -160,14 +174,17 @@ CONTAINS
           ! mpuetz: zcond is almost always > 0
           ncond(nl) = INT(FSEL(-ABS(zcond(jl)),0._wp,1._wp))
         END DO
+        !$ACC END PARALLEL
 
       END IF
 
       nsum = jcs
+      !$ACC UPDATE HOST( ldidx, ncond )
       DO nl=jcs,ldcnt
         idx(nsum) = ldidx(nl)
         nsum = nsum + ncond(nl)
       END DO
+      !$ACC UPDATE DEVICE( idx )
       nsum = nsum - 1
 
 #ifdef __ibmdbg__
@@ -176,15 +193,17 @@ CONTAINS
 
       IF (nsum > jcs-1) THEN
 
-        CALL lookup_ubc_list(jcs,kproma,nsum,idx(1),pt(1,kk),ub(1),uc(1))
-        CALL lookup_ua_list_spline('cuadjtq (2)',jcs,kproma,nsum,idx(1),pt(1,kk),ua(1),  &
-          &                                      dua(1),klev=klev,kblock=jb,kblock_size=kbdim)
+        CALL lookup_ubc_list(jcs,kproma,nsum,idx(:),pt(:,kk),ub(:),uc(:))
+        CALL lookup_ua_list_spline('cuadjtq (2)',jcs,kproma,nsum,idx(:),pt(:,kk),ua(:),  &
+          &                                      dua(:),klev=klev,kblock=jb,kblock_size=kbdim)
 
 !PREVENT_INCONSISTENT_IFORT_FMA
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
 !IBM* UNROLL(3)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zes, zcor, zqsat, zdqsdt, zlcdqsdt, zcond1 )
         DO nl=jcs,nsum
           jl = idx(nl)
 
@@ -200,9 +219,11 @@ CONTAINS
           pt(jl,kk) = pt(jl,kk) + uc(nl)*zcond1
           pq(jl,kk) = pq(jl,kk) - zcond1
         END DO
+        !$ACC END PARALLEL
 
       END IF
-
+      
+      !$ACC END DATA
     END IF
 
   END SUBROUTINE cuadjtq

@@ -53,7 +53,7 @@ nlev=35                # number of full levels
 #
 #-----------------------------------------------------------------------------
 # the grid files
-icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 grids_folder=${icon_data_poolFolder}/grids
 
 #domain globe

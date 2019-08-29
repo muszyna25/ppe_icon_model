@@ -195,6 +195,7 @@ MODULE mo_var_metadata_types
     ! Index of tracer in tracer and in diagnostics container
     INTEGER                    :: idx_tracer          !< index of tracer in tracer container
     INTEGER                    :: idx_diag            !< index of tracer in diagnostics container
+    LOGICAL                    :: lopenacc       ! Variable exists on GPU
 
   END TYPE t_var_metadata
 

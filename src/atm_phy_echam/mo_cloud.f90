@@ -160,7 +160,8 @@ CONTAINS
 
     INTEGER:: nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
-    LOGICAL   lo
+    INTEGER:: i1_loc, i2_loc
+    LOGICAL   lo, lomask(kbdim)
     !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
 
@@ -195,41 +196,65 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    INTEGER , POINTER :: jks
-    REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
-         &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
-         &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
+    INTEGER   :: jks
+    REAL(wp)  :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
+         &       clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
+         &       ccsaut, ccsacl , ccracl , ccwmin , clwprat
     !
-    jks      => echam_cld_config(jg)% jks
-    cqtmin   => echam_cld_config(jg)% cqtmin
-    cvtfall  => echam_cld_config(jg)% cvtfall
-    crhosno  => echam_cld_config(jg)% crhosno
-    cn0s     => echam_cld_config(jg)% cn0s
-    cthomi   => echam_cld_config(jg)% cthomi
-    csecfrl  => echam_cld_config(jg)% csecfrl
-    cauloc   => echam_cld_config(jg)% cauloc
-    clmax    => echam_cld_config(jg)% clmax
-    clmin    => echam_cld_config(jg)% clmin
-    ccraut   => echam_cld_config(jg)% ccraut
-    ceffmin  => echam_cld_config(jg)% ceffmin
-    ceffmax  => echam_cld_config(jg)% ceffmax
-    crhoi    => echam_cld_config(jg)% crhoi
-    ccsaut   => echam_cld_config(jg)% ccsaut
-    ccsacl   => echam_cld_config(jg)% ccsacl
-    ccracl   => echam_cld_config(jg)% ccracl
-    ccwmin   => echam_cld_config(jg)% ccwmin
-    clwprat  => echam_cld_config(jg)% clwprat
+    !$ACC DATA PRESENT( kctop, ktype, papm1, pdz, pmref, prho, pcpair, pacdnc, ptm1, pqm1,   &
+    !$ACC               pxlm1, pxim1, paclc, paclcov, prsfl, pssfl, prelhum, pq_cld,         &
+    !$ACC               pqte_cld, pxlte_cld, pxite_cld ) &
+    !$ACC       CREATE( zclcpre ,zclcpre_inv, zcnd, zdep, zevp, zxievap, zxlevap, zfrl,      &
+    !$ACC               zimlt, zsmlt, zrpr, zspr, zsub, zxiflux, zclcauxi, zdqsat1, zsacl,   &
+    !$ACC               zqp1, zlsdcp, zlvdcp, zcoeff, ztp1tmp, zqp1tmp, zrfl, zsfl, ztp1,    &
+    !$ACC               zxlb, zxib, zqrho, zqrho_sqrt, zpapm1_inv, zpapp1i, zclcov, zclcaux, &
+    !$ACC               zqsed, zxlvi, zxlvitop, zxlvibot, zxrp1, zxsp1, zxsp2, zgenti,       &
+    !$ACC               zgentl, zauloc, zqsi, ztmp1, ztmp2, ztmp3, ztmp4, zxised, zqvdt,     &
+    !$ACC               zqsm1, zdtdt, zstar1, zlo2, za, ub, ua, dua, uaw, duaw,              &
+    !$ACC               loidx, nloidx, jjclcpre, cond1, cond2, idx1, idx2, lomask )
+    !
+    jks      = echam_cld_config(jg)% jks
+    cqtmin   = echam_cld_config(jg)% cqtmin
+    cvtfall  = echam_cld_config(jg)% cvtfall
+    crhosno  = echam_cld_config(jg)% crhosno
+    cn0s     = echam_cld_config(jg)% cn0s
+    cthomi   = echam_cld_config(jg)% cthomi
+    csecfrl  = echam_cld_config(jg)% csecfrl
+    cauloc   = echam_cld_config(jg)% cauloc
+    clmax    = echam_cld_config(jg)% clmax
+    clmin    = echam_cld_config(jg)% clmin
+    ccraut   = echam_cld_config(jg)% ccraut
+    ceffmin  = echam_cld_config(jg)% ceffmin
+    ceffmax  = echam_cld_config(jg)% ceffmax
+    crhoi    = echam_cld_config(jg)% crhoi
+    ccsaut   = echam_cld_config(jg)% ccsaut
+    ccsacl   = echam_cld_config(jg)% ccsacl
+    ccracl   = echam_cld_config(jg)% ccracl
+    ccwmin   = echam_cld_config(jg)% ccwmin
+    clwprat  = echam_cld_config(jg)% clwprat
 
     ! initialize output arrays
     !
-    paclcov  (:)    = 0.0_wp
-    prsfl    (:)    = 0.0_wp
-    pssfl    (:)    = 0.0_wp
-    prelhum  (:,:)  = 0.0_wp
-    pq_cld   (:,:)  = 0.0_wp
-    pqte_cld (:,:)  = 0.0_wp
-    pxlte_cld(:,:)  = 0.0_wp
-    pxite_cld(:,:)  = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      paclcov  (jl) = 0.0_wp
+      prsfl    (jl) = 0.0_wp
+      pssfl    (jl) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk = 1, klev
+      DO jl = 1, kbdim
+        prelhum  (jl,jk)  = 0.0_wp
+        pq_cld   (jl,jk)  = 0.0_wp
+        pqte_cld (jl,jk)  = 0.0_wp
+        pxlte_cld(jl,jk)  = 0.0_wp
+        pxite_cld(jl,jk)  = 0.0_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
 !!$    ! initialize locla arrays
 !!$    zmratepr(:,:) = 0._wp
@@ -261,12 +286,15 @@ CONTAINS
     !
     nclcpre = jcs-1
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 111 jl = jcs,kproma
        zclcpre(jl)   = 0.0_wp
        zxiflux(jl)   = 0.0_wp
        zrfl(jl)      = 0.0_wp
        zsfl(jl)      = 0.0_wp
 111 END DO
+    !$ACC END PARALLEL
 
     !
     DO 831 jk = jks,klev  ! the big jk-loop
@@ -274,23 +302,33 @@ CONTAINS
     !       1.3   Air density
     !
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
          zqrho(jl)        = 1.3_wp/prho(jl,jk)
       END DO
+      !$ACC END PARALLEL
 
-      zqrho_sqrt(jcs:kproma) = SQRT(zqrho(jcs:kproma))
-      zpapm1_inv(jcs:kproma) = 1._wp/papm1(jcs:kproma,jk)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        zqrho_sqrt(jl) = SQRT(zqrho(jl))
+        zpapm1_inv(jl) = 1._wp/papm1(jl,jk)
+      END DO
+      !$ACC END PARALLEL
 
-      CALL prepare_ua_index_spline(jg,'cloud (1)',jcs,kproma,ptm1(1,jk),loidx(1),za(1), &
+      CALL prepare_ua_index_spline(jg,'cloud (1)',jcs,kproma,ptm1(:,jk),loidx(:),za(:), &
                                       klev=jk,kblock=jb,kblock_size=kbdim)
-      CALL lookup_ua_spline(jcs,kproma,loidx(1),za(1),ua(1),dua(1))
-      CALL lookup_uaw_spline(jcs,kproma,loidx(1),za(1),uaw(1),duaw(1))
+      CALL lookup_ua_spline(jcs,kproma,loidx(:),za(:),ua(:),dua(:))
+      CALL lookup_uaw_spline(jcs,kproma,loidx(:),za(:),uaw(:),duaw(:))
       !
       !     --------------------------------------------------------------------------
       !       2.    Set to zero some local tendencies (increments)
       !     --------------------------------------------------------------------------
       !
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zrc )
       DO 201 jl = jcs,kproma
 
          zevp(jl)       = 0.0_wp
@@ -303,6 +341,7 @@ CONTAINS
          zlvdcp(jl)     = alv*zrc
          zlsdcp(jl)     = als*zrc
 201   END DO
+      !$ACC END PARALLEL
       !
       !     --------------------------------------------------------------------------
       !
@@ -314,6 +353,8 @@ CONTAINS
         !       3.1   Melting of snow and ice
         !
 !IBM* NOVECTOR
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( zcons, ztdif, zsnmlt )
         DO 321 jl = jcs,kproma
 
            zcons     = (pmref(jl,jk)/pdtime)/(zlsdcp(jl)-zlvdcp(jl))
@@ -325,6 +366,7 @@ CONTAINS
            zsnmlt    = MAX(0.0_wp,pxim1(jl,jk))
            zimlt(jl) = FSEL(-ztdif,0.0_wp,zsnmlt)
 321     END DO
+        !$ACC END PARALLEL
 
         IF (nclcpre.GT.jcs-1) THEN
         ! equals old zclcpre.gt.0
@@ -333,6 +375,8 @@ CONTAINS
         !
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( jl, zesi, zsusati, zb1, zb2 )
           DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
              zesi     = ua(jl)*zpapm1_inv(jl)
@@ -344,41 +388,66 @@ CONTAINS
              zcoeff(jl) = 3.e6_wp*2._wp*pi*(zsusati/(prho(jl,jk)*(zb1+zb2)))
              zclcpre_inv(jl) = 1._wp/zclcpre(jl)
           END DO
+          !$ACC END PARALLEL
           !
           ! definition of conditions for the sublimation of snow and ice
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( jl )
           DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
              cond1(nl) = INT(FSEL(cqtmin-zsfl(jl)   ,0._wp,1._wp))
              cond2(nl) = INT(FSEL(cqtmin-zrfl(jl)   ,0._wp,1._wp))
           END DO
+          !$ACC END PARALLEL
           i1 = jcs
           i2 = jcs
+          !$ACC PARALLEL
+          !$ACC LOOP SEQ PRIVATE( jl, i1_loc, i2_loc )
           DO nl = jcs,nclcpre
              jl = jjclcpre(nl)
-             idx1(i1) = jl
+             ! local copy of the index is needed for parallel execution on GPU
+             !$ACC ATOMIC CAPTURE
+             i1_loc = i1
              i1 = i1 + cond1(nl)
-             idx2(i2) = jl
+             !$ACC END ATOMIC
+             idx1(i1_loc) = jl
+             ! local copy of the index is needed for parallel execution on GPU
+             !$ACC ATOMIC CAPTURE
+             i2_loc = i2
              i2 = i2 + cond2(nl)
+             !$ACC END ATOMIC
+             idx2(i2_loc) = jl
           END DO
+          !$ACC END PARALLEL
           i1 = i1 - 1
           i2 = i2 - 1
           !    old if(zsfl(jl).GT.ctqmin)
           !
           IF (i1.GT.jcs-1) THEN
 !IBM* ASSERT(NODEPS)
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR PRIVATE( jl )
             DO nl = jcs,i1
                jl = idx1(nl)
                ztmp1(nl)    = zqrho_sqrt(jl)
                ztmp2(nl)    = zsfl(jl)*zclcpre_inv(jl)/cvtfall
             END DO
-            ztmp1(jcs:i1)   = SQRT(ztmp1(jcs:i1))
-            ztmp2(jcs:i1)   = ztmp2(jcs:i1)**(1._wp/1.16_wp)
-            ztmp2(jcs:i1)   = ztmp2(jcs:i1)/(pi*crhosno*cn0s)
-            ztmp2(jcs:i1)   = SQRT(ztmp2(jcs:i1))
-            ztmp3(jcs:i1)   = ztmp2(jcs:i1)**1.3125_wp
+            !$ACC END PARALLEL
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jl = jcs,i1
+              ztmp1(jl)   = SQRT(ztmp1(jl))
+              ztmp2(jl)   = ztmp2(jl)**(1._wp/1.16_wp)
+              ztmp2(jl)   = ztmp2(jl)/(pi*crhosno*cn0s)
+              ztmp2(jl)   = SQRT(ztmp2(jl))
+              ztmp3(jl)   = ztmp2(jl)**1.3125_wp
+            END DO
+            !$ACC END PARALLEL
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR PRIVATE( jl, zclcstar, zcfac4c, zzeps )
             DO nl = jcs,i1
                jl = idx1(nl)
                zclcstar = zclcpre(jl)
@@ -390,6 +459,7 @@ CONTAINS
                zsub(jl) = MAX(zsub(jl),0.0_wp)
                zsub(jl) = MIN(zsub(jl),zsfl(jl)/pmref(jl,jk)*pdtime)
             END DO
+            !$ACC END PARALLEL
           END IF
           !
           !    end if(zsfl(jl).GT.ctqmin)
@@ -401,6 +471,8 @@ CONTAINS
           IF (i2.GT.jcs-1) THEN
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR PRIVATE( jl, zesw, zesat, zqsw, zsusatw, zdv, zptm1_inv, zast, zbst )
             DO nl = jcs,i2
                jl = idx2(nl)
                zesw      = uaw(jl)*zpapm1_inv(jl)
@@ -417,8 +489,16 @@ CONTAINS
                ztmp3(nl) = zqsw
                ztmp4(nl) = zsusatw
             END DO
-            ztmp2(jcs:i2) = ztmp2(jcs:i2)**0.61_wp
+            !$ACC END PARALLEL
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jl = jcs,i2
+              ztmp2(jl) = ztmp2(jl)**0.61_wp
+            END DO
+            !$ACC END PARALLEL
 !IBM* ASSERT(NODEPS)
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR PRIVATE( jl, zqsw, zsusatw, zclcstar, zzepr )
             DO nl = jcs,i2
                jl = idx2(nl)
                zqsw     = ztmp3(nl)
@@ -432,6 +512,7 @@ CONTAINS
                zevp(jl) = MAX(zevp(jl),0.0_wp)
                zevp(jl) = MIN(zevp(jl),zrfl(jl)/pmref(jl,jk)*pdtime)
             END DO
+            !$ACC END PARALLEL
           END IF
           !
           !    end if(zrfl(jl).gt.cqtmin)
@@ -440,10 +521,13 @@ CONTAINS
 
       ELSE
 
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jl = jcs,kproma
            zimlt(jl)  = 0.0_wp
            zsmlt(jl)  = 0.0_wp
         END DO
+        !$ACC END PARALLEL
 
       END IF ! jk.GT.1
       !
@@ -456,7 +540,9 @@ CONTAINS
       !             precipitation at the surface (through 'zzdrs', see 7.3).
       !             Finally: In-cloud cloud water/ice.
       !
-
+      
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zxip1 )
       DO 401 jl = jcs,kproma
         zxip1         = pxim1(jl,jk)-zimlt(jl)
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*pdtime-zimlt(jl)
@@ -464,19 +550,35 @@ CONTAINS
         ztmp1(jl)     = zxip1
         ztmp2(jl)     = prho(jl,jk)*zxip1
 401   END DO
+      !$ACC END PARALLEL
 
-      ztmp2(jcs:kproma) = ztmp2(jcs:kproma)**0.16_wp
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        ztmp2(jl) = ztmp2(jl)**0.16_wp
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zxifall, zal1 )
       DO 402 jl = jcs,kproma
         zxifall       = cvtfall*ztmp2(jl)
         zal1          = -zxifall*pdtime/pdz(jl,jk)
         ztmp3(jl)     = zal1
 402   END DO
+      !$ACC END PARALLEL
 
-      ztmp3(jcs:kproma) = EXP(ztmp3(jcs:kproma))
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs,kproma
+        ztmp3(jl) = EXP(ztmp3(jl))
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zxitop, zxip1, zxifall, zal2, zxibot )
       DO 410 jl = jcs,kproma
         zxitop        = zxiflux(jl)
         zxip1         = ztmp1(jl)
@@ -489,15 +591,26 @@ CONTAINS
         zxised(jl)    = zxip1+zqsed(jl)
         zxiflux(jl)   = zxibot
 410   END DO
+      !$ACC END PARALLEL
 
 !!$      DO 411 jl = jcs,kproma
 !!$        zmrateps(jl,jk)=zmrateps(jl,jk)+(ztmp1(jl)-zxised(jl))
 !!$411   END DO
 
-      locnt = jcs-1
-      nlocnt = jcs-1
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO 420 jl = jcs,kproma
         zclcaux(jl) = paclc(jl,jk)
+      !  zesw          = uaw(jl)*zpapm1_inv(jl)
+      !  zesw          = MIN(zesw,0.5_wp)
+      !  zqsw          = zesw/(1._wp-vtmpc1*zesw)
+      !  zsupsatw(jl)  = MAX(pqm1(jl,jk)/zqsw-1.0_wp,0.0_wp)
+420   END DO
+      !$ACC END PARALLEL
+      locnt = jcs-1
+      nlocnt = jcs-1
+      !$ACC UPDATE HOST( zclcaux )
+      DO jl = jcs,kproma
         IF (zclcaux(jl) .GT. 0.0_wp) THEN    ! locc=T
            locnt = locnt + 1
            loidx(locnt) = jl
@@ -505,15 +618,14 @@ CONTAINS
            nlocnt = nlocnt + 1
            nloidx(nlocnt) = jl
         END IF
-      !  zesw          = uaw(jl)*zpapm1_inv(jl)
-      !  zesw          = MIN(zesw,0.5_wp)
-      !  zqsw          = zesw/(1._wp-vtmpc1*zesw)
-      !  zsupsatw(jl)  = MAX(pqm1(jl,jk)/zqsw-1.0_wp,0.0_wp)
-420   END DO
+      END DO
+      !$ACC UPDATE DEVICE( loidx, nloidx )
 
       !
       ! definition of lo2 (new zlo2(jl))
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO 421 jl = jcs,kproma
 
       !       IF ((ptm1(jl,jk).LT.cthomi).OR.
@@ -531,6 +643,7 @@ CONTAINS
         cond1(jl) = INT(zlo2(jl))
         zlo2(jl)  = zlo2(jl)-0.5_wp ! zlo2 >= 0  <==> cond1 = 1
 421   END DO
+      !$ACC END PARALLEL
       !
       !             In-cloud water/ice calculated from respective grid-means,
       !             partial cloud cover, advective/diffusive tendencies,
@@ -538,6 +651,8 @@ CONTAINS
       !             In-cloud values are required for cloud microphysics.
       !
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zxip1, zxlp1 )
       DO 430 nl = jcs,nlocnt
         jl = nloidx(nl)
         zxib(jl)     = 0.0_wp
@@ -548,9 +663,12 @@ CONTAINS
         zxievap(jl)  = MAX(0.0_wp,zxip1)
         zxlevap(jl)  = MAX(0.0_wp,zxlp1)
 430   END DO
+      !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zxip1, zxlp1 )
       DO 431 nl = jcs,locnt
         jl = loidx(nl)
         zclcauxi(jl) = 1._wp/zclcaux(jl)
@@ -561,6 +679,7 @@ CONTAINS
       !  zxievap(jl)  = (1.0_wp-zclcaux(jl))*MAX(0.0_wp,zxip1)
       !  zxlevap(jl)  = (1.0_wp-zclcaux(jl))*MAX(0.0_wp,zxlp1)
 431   END DO
+      !$ACC END PARALLEL
       !
       !     --------------------------------------------------------------------------
       !       5.    Condensation/deposition and evaporation/sublimation
@@ -571,6 +690,8 @@ CONTAINS
       !             zdqsdt    = dq_sat / dT
       !
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zlc, zua, zdua, zcor, zdqsdt, zlcdqsdt, zrelhum )
       DO 500 jl = jcs,kproma
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
         zua         = FSEL(zlo2(jl),ua(jl),uaw(jl))
@@ -600,7 +721,10 @@ CONTAINS
         zrelhum        = MAX(MIN(zrelhum,1._wp),0._wp)
         prelhum(jl,jk) = zrelhum
 500   END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zdtdtstar, zdqsat, zxilb, zqcdif )
       DO 520 jl = jcs,kproma
         zdtdtstar = zdtdt(jl)+zstar1(jl)
         zdqsat    = zdtdtstar*zdqsat1(jl)
@@ -610,8 +734,11 @@ CONTAINS
         zqcdif    = MIN(zqcdif,zqsec*zqp1(jl))
         ztmp1(jl) = zqcdif
 520   END DO
+      !$ACC END PARALLEL
 
       i1 = 0
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zqcdif, zxilb, zifrac )
       DO 530 jl = jcs,kproma
         zqcdif = ztmp1(jl)
         IF (zqcdif .LT. 0.0_wp) THEN                 ! cloud dissipation
@@ -626,24 +753,35 @@ CONTAINS
           zcnd(jl) = FSEL(zlo2(jl),0.0_wp,zqcdif)
         END IF
 530   END DO
+      !$ACC END PARALLEL
       !
       !       5.4 Checking for supersaturation of whole grid-box
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zxip1 )
       DO jl = jcs,kproma
         ztp1tmp(jl) = ztp1(jl) + zlvdcp(jl)*zcnd(jl) + zlsdcp(jl)*zdep(jl)
         zqp1tmp(jl) = zqp1(jl) -            zcnd(jl) -            zdep(jl)
         zxip1       = MAX(pxim1(jl,jk)+zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
         ztmp1(jl)   = zxip1
       END DO
+      !$ACC END PARALLEL
 
-      CALL lookup_ubc(jcs,kproma,ztp1tmp(1),ub(1))
-      CALL prepare_ua_index_spline(jg,'cloud (2)',jcs,kproma,ztp1tmp(1),idx1(1),za(1)   &
-                                                 ,ztmp1(1),nphase,zlo2(1),cond1(1)      &
+      CALL lookup_ubc(jcs,kproma,ztp1tmp(:),ub(:))
+      CALL prepare_ua_index_spline(jg,'cloud (2)',jcs,kproma,ztp1tmp(:),idx1(:),za(:)   &
+                                                 ,ztmp1(:),nphase,zlo2(:),cond1(:)      &
                                                  ,klev=jk,kblock=jb,kblock_size=kbdim)
-      CALL lookup_ua_eor_uaw_spline(jcs,kproma,idx1(1),za(1),nphase,cond1(1),ua(1),dua(1))
-      zpapp1i(jcs:kproma) = 1._wp/papm1(jcs:kproma,jk)
+      CALL lookup_ua_eor_uaw_spline(jcs,kproma,idx1(:),za(:),nphase,cond1(:),ua(:),dua(:))
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs, kproma
+        zpapp1i(jl) = 1._wp/papm1(jl,jk)
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zes, zcor, zqsp1tmp, zoversat, zdqsdt, zlc, zlcdqsdt, zqcon, zupdate )
       DO 540 jl = jcs,kproma
         zes         = ua(jl)*zpapp1i(jl)
         zes         = MIN(zes,0.5_wp)
@@ -660,21 +798,32 @@ CONTAINS
         zcnd(jl)    = FSEL(zlo2(jl),zcnd(jl),zupdate) ! water cloud
         ztmp2(jl)   = zqsp1tmp
 540   END DO
+      !$ACC END PARALLEL
 
       ! mpuetz: ztmp2 holds inverse of zqsp1tmp
-      ztmp2(jcs:kproma) = 1._wp/ztmp2(jcs:kproma)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs, kproma
+        ztmp2(jl) = 1._wp/ztmp2(jl)
+      END DO
+      !$ACC END PARALLEL
       !
       !       5.5 Change of in-cloud water due to deposition/sublimation and
       !           condensation/evaporation (input for cloud microphysics)
       !
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl )
       DO 551 nl = jcs,locnt
         jl = loidx(nl)
         zxib(jl) = MAX(zxib(jl)+zdep(jl)*zclcauxi(jl),0.0_wp)
         zxlb(jl) = MAX(zxlb(jl)+zcnd(jl)*zclcauxi(jl),0.0_wp)
  551  END DO
+      !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zdepos, zcond )
       DO 552 nl = jcs,nlocnt
         jl = nloidx(nl)
         zdepos           = MAX(zdep(jl)+zgenti(jl),0.0_wp)
@@ -686,16 +835,22 @@ CONTAINS
           zxlb(jl)      = zcond *zclcauxi(jl)
         END IF
  552  END DO
+      !$ACC END PARALLEL
 
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO 553 jl = jcs,kproma
         ztp1tmp(jl) = ztp1(jl)+zlvdcp(jl)*zcnd(jl)+zlsdcp(jl)*zdep(jl)
 553   END DO
+      !$ACC END PARALLEL
       !
       !     --------------------------------------------------------------------------
       !       6.    Freezing of cloud water
       !
       !       6.1   Freezing of cloud water for T < 238 K
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zlo )
       DO 610 jl = jcs,kproma
         zlo = cthomi - ztp1tmp(jl)
         ! mpuetz: using compute & select is faster than branching
@@ -704,63 +859,85 @@ CONTAINS
         zxib(jl)  = FSEL(zlo,zxib(jl)+zxlb(jl),zxib(jl))
         zxlb(jl)  = FSEL(zlo,0.0_wp,zxlb(jl))
  610  END DO
+      !$ACC END PARALLEL
       !
       !       6.2   Freezing of cloud water between 238 and 273 K
       !
-      locnt = jcs-1
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( lo )
       DO 620 jl = jcs,kproma
         ! triple floating point compare + high predictability
         ! -> branched logic works best in SMT mode
-        lo = ztp1tmp(jl).GT.cthomi.AND. &
+        lomask(jl) = ztp1tmp(jl).GT.cthomi.AND. &
              ztp1tmp(jl).LT.tmelt.AND.  &
              zxlb(jl).GT.0._wp
-
-        IF (lo) THEN
+620   END DO
+      !$ACC END PARALLEL
+      locnt = jcs-1
+      !$ACC UPDATE HOST( lomask )
+      DO jl = jcs,kproma
+        IF (lomask(jl)) THEN
           locnt = locnt + 1
           loidx(locnt) = jl
         END IF
-620   END DO
+      END DO
+      !$ACC UPDATE DEVICE( loidx )
 
       IF (locnt > jcs-1) THEN
 !IBM* ASSERT(NODEPS)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl )
         DO 621 nl = jcs,locnt
           jl = loidx(nl)
           ztmp1(nl) = 0.66_wp*(tmelt-ztp1tmp(jl))
 621     END DO
+        !$ACC END PARALLEL  
 
-      ztmp1(jcs:locnt) = EXP(ztmp1(jcs:locnt))
-
-!IBM* ASSERT(NODEPS)
-!IBM* NOVECTOR
-      DO 622 nl = jcs,locnt
-        jl = loidx(nl)
-        zfrho    = prho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
-        zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
-#if defined (__PGI)
-        zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*pdtime*zxlb(jl)))
-#else
-        zfrl(jl) = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*pdtime*zxlb(jl))))
-#endif
-        ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
-622   END DO
-
-      ztmp1(jcs:locnt) = ztmp1(jcs:locnt)**(1._wp/3._wp)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
+        DO nl = jcs,locnt
+          ztmp1(nl) = EXP(ztmp1(nl))
+        END DO
+        !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
-      DO 623 nl = jcs,locnt
-        jl = loidx(nl)
-        zradl    = ztmp1(nl)
-        zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
-        zf1      = zval/prho(jl,jk)
-        zf1      = MAX(0.0_wp,zf1)
-        zfrl(jl) = zfrl(jl)+pdtime*1.4e-20_wp*zf1
-        zfrl(jl) = MAX(0.0_wp,MIN(zfrl(jl),zxlb(jl)))
-        zxlb(jl) = zxlb(jl)-zfrl(jl)
-        zxib(jl) = zxib(jl)+zfrl(jl)
-        zfrl(jl) = zfrl(jl)*zclcaux(jl)
-623   END DO
-    END IF
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zfrho )
+        DO 622 nl = jcs,locnt
+          jl = loidx(nl)
+          zfrho    = prho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
+          zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
+          zfrl(jl) = zxlb(jl)*(1._wp - SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*pdtime*zxlb(jl))))
+          ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
+622     END DO
+        !$ACC END PARALLEL
+
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
+        DO nl = jcs,locnt
+          ztmp1(nl) = ztmp1(nl)**(1._wp/3._wp)
+        END DO
+        !$ACC END PARALLEL
+
+!IBM* ASSERT(NODEPS)
+!IBM* NOVECTOR
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zradl, zval, zf1 )
+        DO 623 nl = jcs,locnt
+          jl = loidx(nl)
+          zradl    = ztmp1(nl)
+          zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
+          zf1      = zval/prho(jl,jk)
+          zf1      = MAX(0.0_wp,zf1)
+          zfrl(jl) = zfrl(jl)+pdtime*1.4e-20_wp*zf1
+          zfrl(jl) = MAX(0.0_wp,MIN(zfrl(jl),zxlb(jl)))
+          zxlb(jl) = zxlb(jl)-zfrl(jl)
+          zxib(jl) = zxib(jl)+zfrl(jl)
+          zfrl(jl) = zfrl(jl)*zclcaux(jl)
+623     END DO
+        !$ACC END PARALLEL
+      END IF
     !
     !       6.3 Revised Bergeron-Findeisen process
     !
@@ -781,36 +958,60 @@ CONTAINS
     !       7.  Cloud physics and precipitation fluxes at the surface
     !     ----------------------------------------------------------------------------
     !
-    zxlb(jcs:kproma) = MAX(zxlb(jcs:kproma),1.e-20_wp)
-    zxib(jcs:kproma) = MAX(zxib(jcs:kproma),1.e-20_wp)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs,kproma
+      zxlb(jl) = MAX(zxlb(jl),1.e-20_wp)
+      zxib(jl) = MAX(zxib(jl),1.e-20_wp)
+    END DO
+    !$ACC END PARALLEL
 !!$    zmlwc(jcs:kproma,jk)=zxlb(jcs:kproma)
 !!$    zmiwc(jcs:kproma,jk)=zxib(jcs:kproma)
 
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 701 jl = jcs,kproma
       zauloc(jl) = cauloc*pdz(jl,jk)/5000._wp
       zauloc(jl) = MAX(MIN(zauloc(jl),clmax),clmin)
 701 END DO
+    !$ACC END PARALLEL
 
-    zxrp1(jcs:kproma) = 0.0_wp
-    zxsp1(jcs:kproma) = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs,kproma
+      zxrp1(jl) = 0.0_wp
+      zxsp1(jl) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
     !
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl )
     DO 711 nl = jcs,nclcpre
       jl = jjclcpre(nl)
       ztmp1(nl) = (zrfl(jl)*zclcpre_inv(jl))/(12.45_wp*zqrho_sqrt(jl))
       ztmp2(nl) = zsfl(jl)*zclcpre_inv(jl)/cvtfall
 711 END DO
+    !$ACC END PARALLEL
 
-    ztmp1(jcs:nclcpre) = ztmp1(jcs:nclcpre)**(8._wp/9._wp)
-    ztmp2(jcs:nclcpre) = ztmp2(jcs:nclcpre)**(1._wp/1.16_wp)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO nl = jcs,nclcpre
+      ztmp1(nl) = ztmp1(nl)**(8._wp/9._wp)
+      ztmp2(nl) = ztmp2(nl)**(1._wp/1.16_wp)
+    END DO
+    !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl )
     DO 712 nl = jcs,nclcpre
       jl = jjclcpre(nl)
       zxrp1(jl) = ztmp1(nl)
       zxsp1(jl) = ztmp2(nl)
 712 END DO
+    !$ACC END PARALLEL
     !
     !       7.1   Warm clouds: Coalescence processes after Beheng (1994):
     !             Autoconversion of cloud droplets and collection of cloud
@@ -820,15 +1021,23 @@ CONTAINS
     i1 = jcs-1
     i2 = jcs-1
     locnt = jcs-1
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 720 jl = jcs,kproma
       zsacl(jl) = 0.0_wp
       zrpr(jl)  = 0.0_wp
       zspr(jl)  = 0.0_wp
-      IF (zclcaux(jl).GT.0.0_wp .AND. (zxlb(jl)>cqtmin.OR.zxib(jl)>cqtmin)) THEN
+      lomask(jl) = (zclcaux(jl).GT.0.0_wp .AND. (zxlb(jl)>cqtmin.OR.zxib(jl)>cqtmin))
+720 END DO
+    !$ACC END PARALLEL
+    !$ACC UPDATE HOST( lomask )
+    DO jl = jcs,kproma
+      IF (lomask(jl)) THEN
         locnt = locnt + 1
         loidx(locnt) = jl
       END IF
-720 END DO
+    END DO
+    !$ACC UPDATE DEVICE( loidx )
 
     IF (locnt.GT.jcs-1) THEN
       zexm1    = 4.7_wp-1.0_wp
@@ -836,6 +1045,8 @@ CONTAINS
 
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl )
       DO nl = jcs,locnt
          jl = loidx(nl)
          ztmp1(nl) = (ccraut*1.2e27_wp)/prho(jl,jk)
@@ -843,16 +1054,33 @@ CONTAINS
          ztmp3(nl) = prho(jl,jk)  *1.e-3_wp
          ztmp4(nl) = zxlb(jl)
       END DO
-      ztmp2(jcs:locnt) = ztmp2(jcs:locnt)**(-3.3_wp)
-      ztmp3(jcs:locnt) = ztmp3(jcs:locnt)**4.7_wp
-      ztmp4(jcs:locnt) = ztmp4(jcs:locnt)**zexm1
+      !$ACC END PARALLEL
+
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO nl = jcs,locnt
+        ztmp2(nl) = ztmp2(nl)**(-3.3_wp)
+        ztmp3(nl) = ztmp3(nl)**4.7_wp
+        ztmp4(nl) = ztmp4(nl)**zexm1
+      END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zraut )
       DO nl = jcs,locnt
          zraut     = ztmp1(nl)*ztmp2(nl)*ztmp3(nl)
          ztmp4(nl) =  1._wp+zraut*pdtime*zexm1*ztmp4(nl)
       END DO
-      ztmp4(jcs:locnt) = ztmp4(jcs:locnt)**zexp
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO nl = jcs,locnt
+        ztmp4(nl) = ztmp4(nl)**zexp
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zraut )
       DO nl = jcs,locnt
          jl = loidx(nl)
          zraut     = zxlb(jl)*(1._wp-ztmp4(nl))
@@ -861,12 +1089,20 @@ CONTAINS
          ztmp3(nl) = zxib(jl)*prho(jl,jk)*1000._wp
          ztmp4(nl) = zraut
       END DO
-      ztmp1(jcs:locnt) = EXP(ztmp1(jcs:locnt))
-      ztmp2(jcs:locnt) = EXP(ztmp2(jcs:locnt))
-      ztmp3(jcs:locnt) = ztmp3(jcs:locnt)**0.216_wp
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO nl = jcs,locnt
+        ztmp1(nl) = EXP(ztmp1(nl))
+        ztmp2(nl) = EXP(ztmp2(nl))
+        ztmp3(nl) = ztmp3(nl)**0.216_wp
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zraut, zrac1, zrac2, zclcstar )
       DO nl = jcs,locnt
          jl = loidx(nl)
          zraut = ztmp4(nl)
@@ -880,6 +1116,7 @@ CONTAINS
          ! zrpr is initialized to zero
 !!$         zmratepr(jl,jk)=zraut+zrac1+zrac2
       END DO
+      !$ACC END PARALLEL
       !
       !       7.2  Cold clouds:
       !            Conversion of cloud ice to snow after Levkov et al. 1992:
@@ -889,6 +1126,8 @@ CONTAINS
       !            Effective radius of ice crystals after Moss (1995)
       !
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zrieff )
       DO nl = jcs,locnt
          jl = loidx(nl)
          zrieff    = 83.8_wp*ztmp3(nl)
@@ -897,14 +1136,22 @@ CONTAINS
          ztmp2(nl) = zqrho(jl)
          ztmp3(nl) = 0.025_wp*(ztp1tmp(jl)-tmelt)
       END DO
-      ztmp1(jcs:locnt) = SQRT(ztmp1(jcs:locnt))
-      ztmp1(jcs:locnt) = ztmp1(jcs:locnt)-2261._wp
-      ztmp1(jcs:locnt) = LOG10(ztmp1(jcs:locnt))
-      ztmp2(jcs:locnt) = ztmp2(jcs:locnt)**0.33_wp
-      ztmp3(jcs:locnt) = EXP(ztmp3(jcs:locnt))
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO nl = jcs,locnt
+        ztmp1(nl) = SQRT(ztmp1(nl))
+        ztmp1(nl) = ztmp1(nl)-2261._wp
+        ztmp1(nl) = LOG10(ztmp1(nl))
+        ztmp2(nl) = ztmp2(nl)**0.33_wp
+        ztmp3(nl) = EXP(ztmp3(nl))
+      END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zc1, zdt2, zsaut )
       DO 721 nl = jcs,locnt
          jl = loidx(nl)
          zc1       = 17.5_wp*prho(jl,jk)/crhoi*ztmp2(nl)
@@ -915,8 +1162,11 @@ CONTAINS
          zxsp2(nl) = zauloc(jl)*prho(jl,jk)*zsaut
          ztmp1(nl) = zsaut
 721   END DO
+      !$ACC END PARALLEL
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zsaut, zcolleffi, zclcstar, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm )
       DO 722 nl = jcs,locnt
          jl = loidx(nl)
          zsaut     = ztmp1(nl)
@@ -963,6 +1213,7 @@ CONTAINS
 !!$         zmrateps(jl,jk)=zmrateps(jl,jk)+zsaut+zsaci1+zsaci2
 
 722   END DO
+      !$ACC END PARALLEL
 
     END IF ! locnt > 0 (> jcs-1)
 
@@ -980,6 +1231,8 @@ CONTAINS
     IF (jk.EQ.klev) THEN
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zzdrr, zzdrs, zcons, zsnmlt, zpretot, zpredel, zpresum, zclcpre1 ) REDUCTION( +:zcnt )
       DO jl = jcs,kproma
          zzdrr       =  zrpr(jl)           *pmref(jl,jk)/pdtime
          zzdrs       = (zspr(jl)+zsacl(jl))*pmref(jl,jk)/pdtime
@@ -1030,10 +1283,13 @@ CONTAINS
          zrfl(jl)    = zrfl(jl)+zzdrr-zevp(jl)*pmref(jl,jk)/pdtime
          zsfl(jl)    = zsfl(jl)+zzdrs-zsub(jl)*pmref(jl,jk)/pdtime
       END DO
+      !$ACC END PARALLEL
 
     ELSE
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zzdrr, zzdrs, zpretot, zpredel, zpresum, zclcpre1 ) REDUCTION( +:zcnt )
       DO jl = jcs,kproma
          zzdrr          =  zrpr(jl)           *pmref(jl,jk)/pdtime
          zzdrs          = (zspr(jl)+zsacl(jl))*pmref(jl,jk)/pdtime
@@ -1076,15 +1332,18 @@ CONTAINS
          zrfl(jl)       = zrfl(jl)+zzdrr-zevp(jl)*pmref(jl,jk)/pdtime
          zsfl(jl)       = zsfl(jl)+zzdrs-zsub(jl)*pmref(jl,jk)/pdtime
       END DO
+      !$ACC END PARALLEL
 
     END IF
 
     IF (zcnt > 0._wp) THEN
       nclcpre = jcs
+      !$ACC UPDATE HOST( cond1 )
       DO jl = jcs,kproma
          jjclcpre(nclcpre) = jl
          nclcpre = nclcpre + cond1(jl)
       END DO
+      !$ACC UPDATE DEVICE( jjclcpre )
       nclcpre = nclcpre - 1
     END IF
 
@@ -1094,6 +1353,8 @@ CONTAINS
     !
 
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zqvte, zxlte, zxite, zq )
     DO 820 jl = jcs,kproma
     !
     !       8.3   Tendencies of thermodynamic variables
@@ -1115,8 +1376,11 @@ CONTAINS
        pxite_cld(jl,jk)  = pxite_cld(jl,jk) + zxite
        pq_cld(jl,jk)     = pq_cld(jl,jk)    + zq*pmref(jl,jk)
 820 END DO
+    !$ACC END PARALLEL
 
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zxlp1, zxip1, zxlold, zxiold, zxlp1_d, zxip1_d, zdxlcor, zdxicor )
     DO 821 jl = jcs,kproma
 
        zxlp1        = pxlm1(jl,jk) + pxlte_cld(jl,jk)*pdtime
@@ -1143,6 +1407,7 @@ CONTAINS
        pq_cld(jl,jk)      = pq_cld(jl,jk)    + (alv*zdxlcor + als*zdxicor)*pmref(jl,jk)
 
 821 END DO
+    !$ACC END PARALLEL
 
     !
 831 END DO    ! Vertical loop
@@ -1156,59 +1421,88 @@ CONTAINS
     !
     !       10.1   Accumulated precipitation at the surface
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 911 jl    = jcs,kproma
        prsfl(jl) = zrfl(jl)
        pssfl(jl) = zsfl(jl)
 911 END DO
+    !$ACC END PARALLEL
 
     !
     !       10.2   Total cloud cover
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 921 jl    = jcs,kproma
        zclcov(jl) = 1.0_wp-paclc(jl,1)
 921 END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO 923 jk      = jks+1,klev
 !IBM* NOVECTOR
+      !$ACC LOOP GANG VECTOR
       DO 922 jl    = jcs,kproma
          zclcov(jl) = zclcov(jl) * ((1._wp-MAX(paclc(jl,jk),paclc(jl,jk-1)))         &
                                  / (1._wp-MIN(paclc(jl,jk-1),zxsec)))
 922   END DO
 923 END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 924 jl     = jcs,kproma
        zclcov(jl)  = 1.0_wp-zclcov(jl)
        paclcov(jl) = zclcov(jl)
 924 END DO
+    !$ACC END PARALLEL
     !
     !      10.3 Vertical integrals of cloud water
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 931 jl   = jcs,kproma
        zxlvi(jl) = 0.0_wp
 931 END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO 933 jk     = jks,klev
+       !$ACC LOOP GANG VECTOR
        DO 932 jl   = jcs,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 932    END DO
 933 END DO
+    !$ACC END PARALLEL
 
     ! compare liquid water path below and above convective cloud top
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( klevtop )
     DO 938 jl = jcs,kproma
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
+       !$ACC LOOP SEQ
        DO 936 jk = jks, klevtop
           zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 936    END DO
 938 END DO
+    !$ACC END PARALLEL
 
     ! modify ktype where appropriate (to be used in mo_cloud_optics)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO 940 jl = jcs,kproma
        zxlvibot(jl) = zxlvi(jl) - zxlvitop(jl)
        IF (ktype(jl) .EQ. 2 .AND. zxlvibot(jl) .GT. clwprat * zxlvitop(jl)) THEN
           ktype(jl) = 4
        END IF
 940 END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE cloud
 

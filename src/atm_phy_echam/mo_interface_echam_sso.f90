@@ -58,11 +58,11 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
-    INTEGER                 ,POINTER    :: fc_sso
+    LOGICAL                             :: lparamcpl
+    INTEGER                             :: fc_sso
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
-    LOGICAL                 ,POINTER    :: lsftlf   ! <-- provisional
+    LOGICAL                             :: lsftlf   ! <-- provisional
 
     ! Local variables
     !
@@ -78,28 +78,46 @@ CONTAINS
     !
     REAL(wp)                            :: zdis_sso(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
     REAL(wp)                            :: zscale(nproma)         !< area scaling factor
+    INTEGER                             :: jc, jk
 
     IF (ltimer) call timer_start(timer_sso)
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    fc_sso    => echam_phy_config(jg)%fc_sso
+    lparamcpl = echam_phy_config(jg)%lparamcpl
+    fc_sso    = echam_phy_config(jg)%fc_sso
     field     => prm_field(jg)
     tend      => prm_tend (jg)
-    lsftlf    => echam_sso_config(jg)%lsftlf        ! <-- provisional
+    lsftlf    = echam_sso_config(jg)%lsftlf        ! <-- provisional
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_sso_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
        !
+       !$ACC DATA PRESENT( field%qconv ) &
+       !$ACC       CREATE( u_stress_sso, v_stress_sso, dissipation_sso, q_sso, tend_ta_sso,  &
+       !$ACC               tend_ua_sso, tend_va_sso, zdis_sso, zscale )
+       !
+
        IF ( is_active ) THEN
           !
           ! area scaling factor                     ! <-- provisional
           IF (lsftlf) THEN                          ! <-- provisional
-             zscale(:) = field% sftlf (:,jb)
+             !$ACC DATA PRESENT( field%sftlf )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = 1, nproma
+               zscale(jc) = field% sftlf (jc,jb)
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
           ELSE                                      ! <-- provisional
-             zscale(:) = 1.0_wp                     ! <-- provisional
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = 1, nproma
+               zscale(jc) = 1.0_wp                     ! <-- provisional
+             END DO
+             !$ACC END PARALLEL
           END IF                                    ! <-- provisional
           !
           CALL ssodrag(jg                           ,& ! in,  grid index
@@ -139,49 +157,216 @@ CONTAINS
                &       tend_va_sso(:,:)              ) ! out, tendency of meridional wind
           !
           ! heating
-          q_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * field%mair(jcs:jce,:,jb)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              q_sso(jc,jk) = zdis_sso(jc,jk) * field%mair(jc,jk,jb)
+            END DO
+          END DO
+          !$ACC END PARALLEL
           !
           ! store in memory for output or recycling
           !
-          IF (ASSOCIATED(field%    u_stress_sso)) field%    u_stress_sso(jcs:jce,jb) =    u_stress_sso(jcs:jce)
-          IF (ASSOCIATED(field%    v_stress_sso)) field%    v_stress_sso(jcs:jce,jb) =    v_stress_sso(jcs:jce)
-          IF (ASSOCIATED(field% dissipation_sso)) field% dissipation_sso(jcs:jce,jb) = dissipation_sso(jcs:jce)
+          IF (ASSOCIATED(field% u_stress_sso)) THEN
+            !$ACC DATA PRESENT( field%u_stress_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% u_stress_sso(jc,jb) = u_stress_sso(jc)
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% v_stress_sso)) THEN
+            !$ACC DATA PRESENT( field%v_stress_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% v_stress_sso(jc,jb) = v_stress_sso(jc)
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% dissipation_sso)) THEN
+            !$ACC DATA PRESENT( field%dissipation_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% dissipation_sso(jc,jb) = dissipation_sso(jc)
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(field% q_sso   )) field% q_sso   (jcs:jce,:,jb) =     q_sso(jcs:jce,:)
-          IF (ASSOCIATED(field% q_sso_vi)) field% q_sso_vi(jcs:jce,  jb) = SUM(q_sso(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_sso)) THEN
+            !$ACC DATA PRESENT( field%q_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                field% q_sso(jc,jk,jb) = q_sso(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% q_sso_vi)) THEN
+            !$ACC DATA PRESENT( field%q_sso_vi )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_sso_vi(jc,jb) = SUM(q_sso(jc,:))
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(tend% ua_sso)) tend% ua_sso(jcs:jce,:,jb) = tend_ua_sso(jcs:jce,:)
-          IF (ASSOCIATED(tend% va_sso)) tend% va_sso(jcs:jce,:,jb) = tend_va_sso(jcs:jce,:)
+          IF (ASSOCIATED(tend% ua_sso)) THEN
+            !$ACC DATA PRESENT( tend%ua_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                tend% ua_sso(jc,jk,jb) = tend_ua_sso(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(tend% va_sso)) THEN
+            !$ACC DATA PRESENT( tend%va_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                tend% va_sso(jc,jk,jb) = tend_va_sso(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
        ELSE
           !
           ! retrieve from memory for recycling
           !
-          IF (ASSOCIATED(field% q_sso)) q_sso(jcs:jce,:) = field% q_sso(jcs:jce,:,jb)
+          IF (ASSOCIATED(field% q_sso)) THEN
+            !$ACC DATA PRESENT( field%q_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                q_sso(jc,jk) = field% q_sso(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(tend% ua_sso)) tend_ua_sso(jcs:jce,:) = tend% ua_sso(jcs:jce,:,jb)
-          IF (ASSOCIATED(tend% va_sso)) tend_va_sso(jcs:jce,:) = tend% va_sso(jcs:jce,:,jb)
+          IF (ASSOCIATED(tend% ua_sso)) THEN
+            !$ACC DATA PRESENT( tend%ua_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                tend_ua_sso(jc,jk) = tend% ua_sso(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(tend% va_sso)) THEN
+            !$ACC DATA PRESENT( tend%va_sso )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jk = 1, nlev
+              !$ACC LOOP GANG VECTOR
+              DO jc = jcs, jce
+                tend_va_sso(jc,jk) = tend% va_sso(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
        END IF
        !
        ! convert    heating
-       tend_ta_sso(jcs:jce,:) = q_sso(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
+       DO jk = 1, nlev
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           tend_ta_sso(jc,jk) = q_sso(jc,jk) * field% qconv(jc,jk,jb)
+         END DO
+       END DO
+       !$ACC END PARALLEL
        !
-       IF (ASSOCIATED(tend% ta_sso)) tend% ta_sso(jcs:jce,:,jb) = tend_ta_sso(jcs:jce,:)
+       IF (ASSOCIATED(tend% ta_sso)) THEN
+         !$ACC DATA PRESENT( tend%ta_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             tend% ta_sso(jc,jk,jb) = tend_ta_sso(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
 
        ! for output: accumulate heating
-       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_sso(jcs:jce,:)
-       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_sso(jcs:jce,:),DIM=2)
+       IF (ASSOCIATED(field% q_phy)) THEN
+         !$ACC DATA PRESENT( field%q_phy )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             field% q_phy (jc,jk,jb) = field% q_phy(jc,jk,jb) + q_sso(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_phy_vi)) THEN
+         !$ACC DATA PRESENT( field%q_phy_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+         field% q_phy_vi(jc,jb) = field% q_phy_vi(jc,jb) + SUM(q_sso(jc,:))
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_sso)
        CASE(0)
           ! diagnostic, do not use tendency
        CASE(1)
-          ! use tendency to update the model state
-          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend_ta_sso(jcs:jce,:)
-          tend% ua_phy(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb) + tend_ua_sso(jcs:jce,:)
-          tend% va_phy(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb) + tend_va_sso(jcs:jce,:)
+          !$ACC DATA PRESENT( tend%ta_phy, tend%ua_phy, tend%va_phy )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              ! use tendency to update the model state
+              tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) + tend_ta_sso(jc,jk)
+              tend% ua_phy(jc,jk,jb) = tend% ua_phy(jc,jk,jb) + tend_ua_sso(jc,jk)
+              tend% va_phy(jc,jk,jb) = tend% va_phy(jc,jk,jb) + tend_va_sso(jc,jk)
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -189,23 +374,119 @@ CONTAINS
        !
        ! update physics state for input to the next physics process
        IF (lparamcpl) THEN
-          field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_sso(jcs:jce,:)*pdtime
-          field% ua(jcs:jce,:,jb) = field% ua(jcs:jce,:,jb) + tend_ua_sso(jcs:jce,:)*pdtime
-          field% va(jcs:jce,:,jb) = field% va(jcs:jce,:,jb) + tend_va_sso(jcs:jce,:)*pdtime
+          !$ACC DATA PRESENT( field%ta, field%ua, field%va )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_sso(jc,jk)*pdtime
+              field% ua(jc,jk,jb) = field% ua(jc,jk,jb) + tend_ua_sso(jc,jk)*pdtime
+              field% va(jc,jk,jb) = field% va(jc,jk,jb) + tend_va_sso(jc,jk)*pdtime
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
        END IF
+       !
+       !$ACC END DATA
        !
     ELSE
        !
-       IF (ASSOCIATED(field%    u_stress_sso)) field%    u_stress_sso(jcs:jce,jb) = 0.0_wp
-       IF (ASSOCIATED(field%    v_stress_sso)) field%    v_stress_sso(jcs:jce,jb) = 0.0_wp
-       IF (ASSOCIATED(field% dissipation_sso)) field% dissipation_sso(jcs:jce,jb) = 0.0_wp
+       IF (ASSOCIATED(field% u_stress_sso)) THEN
+         !$ACC DATA PRESENT( field%u_stress_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% u_stress_sso(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% v_stress_sso)) THEN
+         !$ACC DATA PRESENT( field%v_stress_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% v_stress_sso(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% dissipation_sso)) THEN
+         !$ACC DATA PRESENT( field%dissipation_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% dissipation_sso(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(field% q_sso   )) field% q_sso   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_sso_vi)) field% q_sso_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_sso)) THEN
+         !$ACC DATA PRESENT( field%dissipation_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             field% q_sso(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_sso_vi)) THEN
+         !$ACC DATA PRESENT( field%q_sso_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_sso_vi(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(tend% ta_sso)) tend% ta_sso(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% ua_sso)) tend% ua_sso(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% va_sso)) tend% va_sso(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ta_sso)) THEN
+         !$ACC DATA PRESENT( tend%ta_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             tend% ta_sso(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ua_sso)) THEN
+         !$ACC DATA PRESENT( tend%ua_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             tend% ua_sso(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% va_sso)) THEN
+         !$ACC DATA PRESENT( tend%va_sso )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP SEQ
+         DO jk = 1, nlev
+           !$ACC LOOP GANG VECTOR
+           DO jc = jcs, jce
+             tend% va_sso(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
     END IF
 
@@ -213,11 +494,8 @@ CONTAINS
     !$ser verbatim call serialize_sso_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     
     ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(fc_sso)
     NULLIFY(field)
     NULLIFY(tend)
-    NULLIFY(lsftlf)                                 ! <-- provisional
 
     IF (ltimer) call timer_stop(timer_sso)
 

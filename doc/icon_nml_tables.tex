@@ -1938,8 +1938,20 @@ grid\_rescale\_factor &
 R & 1.0   &  &
 Defined as the inverse of the reduced-size earth reduction factor $X$. 
 Choose \texttt{grid\_rescale\_factor $<$ 1} for a reduced-size earth.\\
-The geometry and the timestep will be multiplied by this factor.\\
-The angular velocity will be divided by this factor.
+&
+\tabularnewline
+
+%\hline
+lrescale\_timestep &
+L & .FALSE.   &  &
+if .TRUE. then the timestep will be multiplied by \texttt{grid\_rescale\_factor}.\\
+&
+\tabularnewline
+
+%\hline
+lrescale\_ang\_vel &
+L & .FALSE.   &  &
+if .TRUE. then the angular velocity will be divided by \texttt{grid\_rescale\_factor}.\\
 &
 \tabularnewline
 
@@ -6225,15 +6237,6 @@ If .TRUE., precede output messages by time stamp.&
 \tabularnewline
 
 %\hline
-test\_mode&
-I & 0& &
-Setting a value larger than 0 activates a dummy mode in which time stepping is changed
-into just doing iterations, and MPI communication is replaced by copying some value from
-the send buffer into the receive buffer (does not work with nesting and reduced radiation
-grid because the send buffer may then be empty on some PEs) & iequations = 3
-\tabularnewline
-
-%\hline
 debug\_check\_level&
 I & 0& &
 Setting a value larger than 0 activates debug checks.
@@ -7568,6 +7571,19 @@ amplitude of the u-perturbation in jabw test case&
 nh\_test\_name='jabw'
 \tabularnewline
 
+%\hline
+jw\_u0&
+R& 35.0& m/s&
+maximum zonal wind in jabw test case&
+nh\_test\_name='jabw'
+\tabularnewline
+
+%\hline
+jw\_temp0&
+R& 288.0& K&
+horizontal-mean temperature at surface in jabw test case&
+nh\_test\_name='jabw'
+\tabularnewline
 
 %\hline
 u0\_mrw&

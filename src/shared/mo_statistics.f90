@@ -21,7 +21,7 @@
 !----------------------------
 MODULE mo_statistics
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp,sp
   USE mo_exception,          ONLY: warning, finish
   USE mo_fortran_tools,      ONLY: assign_if_present
 #ifdef _OPENMP
@@ -250,18 +250,27 @@ MODULE mo_statistics
     MODULE PROCEDURE add_fields_3d
     MODULE PROCEDURE add_fields_2d
     MODULE PROCEDURE add_fields_2d_nosubset
+    MODULE PROCEDURE add_fields_3d_sp
+    MODULE PROCEDURE add_fields_2d_sp
+    MODULE PROCEDURE add_fields_2d_nosubset_sp
   END INTERFACE add_fields
 
   INTERFACE add_sqr_fields
     MODULE PROCEDURE add_sqr_fields_2d
     MODULE PROCEDURE add_sqr_fields_3d
     MODULE PROCEDURE add_sqr_fields_2d_nosubset
+    MODULE PROCEDURE add_sqr_fields_2d_sp
+    MODULE PROCEDURE add_sqr_fields_3d_sp
+    MODULE PROCEDURE add_sqr_fields_2d_nosubset_sp
   END INTERFACE add_sqr_fields
 
   INTERFACE assign_fields
     MODULE PROCEDURE assign_fields_3d
     MODULE PROCEDURE assign_fields_2d
     MODULE PROCEDURE assign_fields_2d_nosubset
+    MODULE PROCEDURE assign_fields_3d_sp
+    MODULE PROCEDURE assign_fields_2d_sp
+    MODULE PROCEDURE assign_fields_2d_nosubset_sp
   END INTERFACE assign_fields
 
   INTERFACE print_value_location
@@ -273,11 +282,17 @@ MODULE mo_statistics
     MODULE PROCEDURE max_fields_3d
     MODULE PROCEDURE max_fields_2d
     MODULE PROCEDURE max_fields_2d_nosubset
+    MODULE PROCEDURE max_fields_3d_sp
+    MODULE PROCEDURE max_fields_2d_sp
+    MODULE PROCEDURE max_fields_2d_nosubset_sp
   END INTERFACE max_fields
   INTERFACE min_fields
     MODULE PROCEDURE min_fields_3d
     MODULE PROCEDURE min_fields_2d
     MODULE PROCEDURE min_fields_2d_nosubset
+    MODULE PROCEDURE min_fields_3d_sp
+    MODULE PROCEDURE min_fields_2d_sp
+    MODULE PROCEDURE min_fields_2d_nosubset_sp
   END INTERFACE min_fields
 
  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
@@ -764,13 +779,14 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted Sum for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights(values, weights, in_subset, total_sum, start_level, end_level, mean)
+  SUBROUTINE LevelHorizontalSum_3D_InRange_2Dweights(values, weights, in_subset, total_sum, start_level, end_level, mean, lopenacc)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), INTENT(out) :: total_sum(:)   ! mean for each level
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp), INTENT(out), OPTIONAL :: mean(:)   ! mean for each level
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc  ! Flag to run on GPU
 
     ! fixme: this uses a hand-written reduction over threads without
     ! any assertion to be faster/better than the reduction clause of
@@ -779,6 +795,13 @@ CONTAINS
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalSum_3D_InRange_2Dweights'
+    LOGICAL :: lzopenacc
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
 
     IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
 
@@ -792,6 +815,10 @@ CONTAINS
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
       & total_weight(allocated_levels) )
+
+    !$ACC DATA PRESENT( values, weights, total_sum, mean ) &
+    !$ACC       CREATE( total_weight ) IF( lzopenacc )
+    !$ACC DATA CREATE( sum_value, sum_weight ) IF( lzopenacc )
 
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -815,19 +842,28 @@ CONTAINS
 !$  no_of_threads = OMP_GET_NUM_THREADS()
 #endif
 !ICON_OMP_END_SINGLE NOWAIT
-    sum_value(:,  myThreadNo) = 0.0_wp
-    sum_weight(:,  myThreadNo) = 0.0_wp
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR
+    DO level = 1, allocated_levels
+      sum_value(level,  myThreadNo) = 0.0_wp
+      sum_weight(level, myThreadNo) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP SEQ
         DO idx = start_index, end_index
+          !$ACC LOOP SEQ
           DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx, block)
             sum_weight(level, myThreadNo)  = sum_weight(level, myThreadNo) + weights(idx, block)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
@@ -836,48 +872,75 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP SEQ
         DO idx = start_index, end_index
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
           sum_weight(start_vertical, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, block)
+          !$ACC LOOP SEQ
           DO level = start_vertical, end_vertical
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx, block)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
       ! copy the weights to all levels
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
       DO level = start_vertical+1, end_vertical
          sum_weight(level, myThreadNo)  = sum_weight(start_vertical, myThreadNo)
       ENDDO
+      !$ACC END PARALLEL
 
     ENDIF
 !ICON_OMP_END_PARALLEL
 
     ! gather the total level sum of this process in total_sum(level)
-    total_sum(:)     = 0.0_wp
-    total_weight(:) = 0.0_wp
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR
+    DO level = 1, allocated_levels
+      total_sum(level)     = 0.0_wp
+      total_weight(level) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP SEQ
     DO myThreadNo=0, no_of_threads-1
+      !$ACC LOOP GANG VECTOR
       DO level = start_vertical, end_vertical
         ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
         total_sum(level)    = total_sum(level)    + sum_value(level, myThreadNo)
         total_weight(level) = total_weight(level) + sum_weight(level, myThreadNo)
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
+    !$ACC END DATA
     DEALLOCATE(sum_value, sum_weight)
 
     ! Collect the value and weight sums (at all procs)
-    CALL gather_sums(total_sum, total_weight)
+    CALL gather_sums(total_sum, total_weight, lopenacc=lzopenacc)
 
     IF (PRESENT(mean)) THEN
-      mean(:) = 0.0_wp
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
+      DO level = 1, allocated_levels
+        mean(level) = 0.0_wp
+      END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
       DO level = start_vertical, end_vertical
         ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
         mean(level) = total_sum(level)/total_weight(level)
       ENDDO
+      !$ACC END PARALLEL
     ENDIF
+    
+    !$ACC END DATA
 
     DEALLOCATE(total_weight)
 
@@ -887,18 +950,29 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level)
+  SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights(values, weights, in_subset, mean, start_level, end_level, lopenacc)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), INTENT(out) :: mean(:)   ! mean for each level
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc                 ! Flag to run on GPU
 
     REAL(wp) :: total_sum(SIZE(mean))
+    LOGICAL :: lzopenacc
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    !$ACC DATA CREATE( total_sum ) IF( lzopenacc )
 
     CALL LevelHorizontalSum_3D_InRange_2Dweights(values=values, weights=weights, in_subset=in_subset, &
       & total_sum=total_sum, start_level=start_level, end_level=end_level, mean=mean)
 
+    !$ACC END DATA
   END SUBROUTINE LevelHorizontalMean_3D_InRange_2Dweights
   !-----------------------------------------------------------------------
 
@@ -948,13 +1022,14 @@ CONTAINS
   !>
   ! Returns the weighted sum for each level in a 3D array in a given range subset.
   SUBROUTINE LevelHorizontalSum_3D_InRange_3Dweights(values, weights, in_subset, total_sum, &
-    & start_level, end_level, mean, sumLevelWeights)
+    & start_level, end_level, mean, sumLevelWeights, lopenacc)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), INTENT(inout) :: total_sum(:)   ! mean for each level
     INTEGER, OPTIONAL, INTENT(in) :: start_level, end_level
     REAL(wp), OPTIONAL, INTENT(out) :: mean(:), sumLevelWeights(:)   ! the sum of the weights in each level
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc                 ! Flag to run on GPU
 
     ! fixme: this uses a hand-written reduction over threads without
     ! any assertion to be faster/better than the reduction clause of
@@ -963,6 +1038,13 @@ CONTAINS
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalSum_3D_InRange_2Dweights'
+    LOGICAL :: lzopenacc
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
 
     IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
 
@@ -976,6 +1058,10 @@ CONTAINS
     ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
       & sum_weight(allocated_levels, 0:no_of_threads-1), &
       & total_weight(allocated_levels) )
+
+    !$ACC DATA PRESENT( values, weights, total_sum, mean, sumLevelWeights ) &
+    !$ACC       CREATE( total_weight ) IF( lzopenacc )
+    !$ACC DATA CREATE( sum_value, sum_weight ) IF( lzopenacc )
 
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -1001,19 +1087,28 @@ CONTAINS
 !$  no_of_threads = OMP_GET_NUM_THREADS()
 #endif
 !ICON_OMP_END_SINGLE NOWAIT
-    sum_value(:,  myThreadNo) = 0.0_wp
-    sum_weight(:,  myThreadNo) = 0.0_wp
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR
+    DO level = 1, allocated_levels
+      sum_value(level,  myThreadNo) = 0.0_wp
+      sum_weight(level,  myThreadNo) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP SEQ
         DO idx = start_index, end_index
+          !$ACC LOOP SEQ
           DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx, level, block)
             sum_weight(level, myThreadNo)  = sum_weight(level, myThreadNo) + weights(idx, level, block)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
@@ -1022,15 +1117,19 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(block, start_index, end_index, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP SEQ
         DO idx = start_index, end_index
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
+          !$ACC LOOP SEQ
           DO level = start_vertical, end_vertical
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx,level, block)
             sum_weight(level, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, level, block)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
@@ -1038,31 +1137,55 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     ! gather the total level sum of this process in total_sum(level)
-    total_sum(:)     = 0.0_wp
-    total_weight(:) = 0.0_wp
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR
+    DO level = 1, allocated_levels
+      total_sum(level)     = 0.0_wp
+      total_weight(level) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP SEQ
     DO myThreadNo=0, no_of_threads-1
+      !$ACC LOOP GANG VECTOR
       DO level = start_vertical, end_vertical
         ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
         total_sum(level)    = total_sum(level)    + sum_value(level, myThreadNo)
         total_weight(level) = total_weight(level) + sum_weight(level, myThreadNo)
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
+    !$ACC END DATA
     DEALLOCATE(sum_value, sum_weight)
 
     ! Collect the value and weight sums (at all procs)
-    CALL gather_sums(total_sum, total_weight)
+    CALL gather_sums(total_sum, total_weight, lopenacc=lzopenacc)
 
     IF (PRESENT(mean)) THEN
-      mean(:) = 0.0_wp
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
+      DO level = 1, allocated_levels
+        mean(level) = 0.0_wp
+      END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
       DO level = start_vertical, end_vertical
         mean(level) = total_sum(level)/total_weight(level)
       ENDDO
+      !$ACC END PARALLEL
     ENDIF
 
     IF (PRESENT(sumLevelWeights)) THEN
-      sumLevelWeights(:) = total_weight(:)
+      !$ACC PARALLEL IF( lzopenacc )
+      !$ACC LOOP GANG VECTOR
+      DO level = 1, allocated_levels
+        sumLevelWeights(level) = total_weight(level)
+      END DO
+      !$ACC END PARALLEL
     ENDIF
 
+    !$ACC END DATA
     DEALLOCATE(total_weight)
 
   END SUBROUTINE LevelHorizontalSum_3D_InRange_3Dweights
@@ -1071,18 +1194,32 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights)
+  SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights, &
+    lopenacc)
     REAL(wp), INTENT(in) :: values(:,:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), INTENT(out) :: mean(:)   ! mean for each level
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp), OPTIONAL, INTENT(out) :: sumLevelWeights(:)   ! the sum of the weights in each level
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc             ! Flag to run on GPU
 
     REAL(wp) :: sumLevels(SIZE(mean))
+    LOGICAL :: lzopenacc
 
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    !$ACC DATA CREATE( sumLevels ) IF( lzopenacc )
+    
     CALL LevelHorizontalSum_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
-      & total_sum=sumLevels, start_level=start_level, end_level=end_level, mean=mean, sumLevelWeights=sumLevelWeights)
+      & total_sum=sumLevels, start_level=start_level, end_level=end_level, mean=mean, sumLevelWeights=sumLevelWeights, &
+      & lopenacc=lzopenacc)
+
+    !$ACC END DATA
 
   END SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights
   !-----------------------------------------------------------------------
@@ -1166,12 +1303,12 @@ CONTAINS
   !-----------------------------------------------------------------------
   !-----------------------------------------------------------------------
   !>
-  REAL(wp)  FUNCTION Sum_2D_2Dweights_InRange(values, weights, in_subset, mean) 
+  REAL(wp)  FUNCTION Sum_2D_2Dweights_InRange(values, weights, in_subset, mean, lopenacc) 
     REAL(wp), INTENT(in) :: values(:,:)
     REAL(wp), INTENT(in) :: weights(:,:)
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), OPTIONAL, INTENT(out)   :: mean
-
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc                 ! Flag to run on GPU
 
     ! fixme: this uses a hand-written reduction over threads without
     ! any assertion to be faster/better than the reduction clause of
@@ -1181,6 +1318,13 @@ CONTAINS
     INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_2D_2Dweights_InRange'
+    LOGICAL :: lzopenacc
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
 
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
 
@@ -1193,6 +1337,9 @@ CONTAINS
     ALLOCATE( sum_value(0:no_of_threads-1), &
       & sum_weight(0:no_of_threads-1) )
 
+    !$ACC DATA PRESENT( values, weights ) IF( lzopenacc )
+    !$ACC DATA CREATE( sum_value, sum_weight ) IF( lzopenacc )
+
 !ICON_OMP_PARALLEL PRIVATE(myThreadNo)
 #ifdef _OPENMP
 !$  myThreadNo = omp_get_thread_num()
@@ -1202,19 +1349,25 @@ CONTAINS
 !$  no_of_threads = OMP_GET_NUM_THREADS()
 #endif
 !ICON_OMP_END_SINGLE NOWAIT
+    !$ACC KERNELS IF( lzopenacc )
     sum_value(myThreadNo) = 0.0_wp
     sum_weight(myThreadNo) = 0.0_wp
+    !$ACC END KERNELS
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
 !ICON_OMP_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP SEQ
         DO idx = start_index, end_index
+          !$ACC LOOP SEQ
           DO level = 1, MIN(1, in_subset%vertical_levels(idx,block))
             sum_value(myThreadNo)  = sum_value(myThreadNo) + &
               & values(idx, block) * weights(idx, block)
             sum_weight(myThreadNo)  = sum_weight(myThreadNo) + weights(idx, block)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
@@ -1223,6 +1376,8 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(block, start_index, end_index)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
+        !$ACC PARALLEL IF( lzopenacc )
+        !$ACC LOOP GANG VECTOR
         DO idx = start_index, end_index
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
@@ -1230,6 +1385,7 @@ CONTAINS
           sum_value(myThreadNo)  = sum_value(myThreadNo) + &
               & values(idx, block) * weights(idx, block)
         ENDDO
+        !$ACC END PARALLEL
       ENDDO
 !ICON_OMP_END_DO
 
@@ -1239,36 +1395,49 @@ CONTAINS
     ! gather the total level sum of this process in total_sum(level)
     total_sum     = 0.0_wp
     total_weight = 0.0_wp
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR REDUCTION( +:total_sum ) REDUCTION( +:total_weight )
     DO myThreadNo=0, no_of_threads-1
       ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
       total_sum    = total_sum    + sum_value( myThreadNo)
       total_weight = total_weight + sum_weight( myThreadNo)
     ENDDO
+    !$ACC END PARALLEL
+    !$ACC END DATA
     DEALLOCATE(sum_value, sum_weight)
 
     ! Collect the value and weight sums (at all procs)
-    CALL gather_sums(total_sum, total_weight)
+    CALL gather_sums(total_sum, total_weight, lopenacc=lzopenacc)
 
     IF (PRESENT(mean)) THEN
       ! Get average
       mean = total_sum / total_weight
     ENDIF
     Sum_2D_2Dweights_InRange = total_sum
+    !$ACC END DATA
   END FUNCTION Sum_2D_2Dweights_InRange
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
-  SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
+  SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean, lopenacc)
     REAL(wp), INTENT(in) :: values(:,:)
     REAL(wp), INTENT(in) :: weights(:,:)
     TYPE(t_subset_range), INTENT(in) :: in_subset
     REAL(wp), INTENT(out) :: mean   ! mean for each level
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc  ! Flag to run on GPU
 
     REAL(wp) :: WeightedSum
+    LOGICAL :: lzopenacc
 
-    WeightedSum = Sum_2D_2Dweights_InRange(values, weights, in_subset, mean)
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    WeightedSum = Sum_2D_2Dweights_InRange(values, weights, in_subset, mean, lopenacc=lzopenacc)
 
   END SUBROUTINE HorizontalMean_2D_InRange_2Dweights
   !-----------------------------------------------------------------------
@@ -1334,14 +1503,24 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------
-  SUBROUTINE gather_sums_1D(sum_1, sum_2)
+  SUBROUTINE gather_sums_1D(sum_1, sum_2, lopenacc)
     REAL(wp), INTENT(inout) :: sum_1(:), sum_2(:)
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc                 ! Flag to run on GPU
 
     REAL(wp), ALLOCATABLE :: concat_input_sum(:), concat_output_sum(:)
     INTEGER :: communicator
     INTEGER :: size_of_sum_1, size_of_sum_2, total_size
+    LOGICAL :: lzopenacc
 
     IF (my_process_is_mpi_seq()) RETURN
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    !$ACC UPDATE HOST( sum_1, sum_2 ) IF( lzopenacc )
 
     size_of_sum_1 = SIZE(sum_1(:))
     size_of_sum_2 = SIZE(sum_2(:))
@@ -1364,20 +1543,38 @@ CONTAINS
 
     DEALLOCATE(concat_input_sum, concat_output_sum)
 
+    !$ACC UPDATE DEVICE( sum_1, sum_2 ) IF( lzopenacc )
+
   END SUBROUTINE gather_sums_1D
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE gather_sums_0D(sum_1, sum_2)
+  SUBROUTINE gather_sums_0D(sum_1, sum_2, lopenacc)
     REAL(wp), INTENT(inout) :: sum_1, sum_2
+    LOGICAL, OPTIONAL, INTENT(in)   :: lopenacc                 ! Flag to run on GPU
+    LOGICAL :: lzopenacc
 
     REAL(wp) :: array_sum_1(1), array_sum_2(1)
 
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    !$ACC DATA CREATE( array_sum_1, array_sum_2 ) IF( lzopenacc )
+
+    !$ACC KERNELS IF( lzopenacc )
     array_sum_1(1) = sum_1
     array_sum_2(1) = sum_2
-    CALL gather_sums(array_sum_1, array_sum_2)
+    !$ACC END KERNELS
+    CALL gather_sums(array_sum_1, array_sum_2, lopenacc=lzopenacc)
+    !$ACC KERNELS IF( lzopenacc )
     sum_1 = array_sum_1(1)
     sum_2 = array_sum_2(1)
+    !$ACC END KERNELS
+
+    !$ACC END DATA
 
   END SUBROUTINE gather_sums_0D
   !-----------------------------------------------------------------------
@@ -1933,6 +2130,97 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE assign_fields_2d_nosubset
+
+  SUBROUTINE assign_fields_3d_sp(out_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:,:)
+    REAL(sp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+    ! use constant levels
+    mylevels                       = SIZE(out_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        out_field(idx,level,block) = MERGE(my_miss, &
+                                        &  REAL(field(idx,level,block),wp), &
+                                        &  my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE assign_fields_3d_sp
+  SUBROUTINE assign_fields_2d_sp(out_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
+          & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE assign_fields_2d_sp
+
+  SUBROUTINE assign_fields_2d_nosubset_sp(out_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: out_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        out_field(jc,jb) = MERGE(my_miss, REAL(field(jc,jb),wp), &
+            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE assign_fields_2d_nosubset_sp
   !-----------------------------------------------------------------------
   SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
@@ -2024,6 +2312,100 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d_nosubset
 
+  SUBROUTINE add_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(sp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+    
+    INTEGER :: idx,block,level,start_index,end_index
+    
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+      ! use constant levels
+      mylevels                       = SIZE(sum_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            sum_field(idx,level,block) = MERGE(my_miss, &
+                                             & sum_field(idx,level,block) + REAL(field(idx,level,block),wp), &
+                                             & my_has_missvals .AND. (field(idx,level,block) == REAL(my_miss,sp)))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE add_fields_3d_sp
+  
+  SUBROUTINE add_fields_2d_sp(sum_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+    
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        sum_field(jc,jb) = MERGE(my_miss, &
+                               & sum_field(jc,jb) + REAL(field(jc,jb),wp), &
+                               & my_has_missvals .AND. (field(jc,jb) == REAL(my_miss,sp)))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_fields_2d_sp
+  SUBROUTINE add_fields_2d_nosubset_sp(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+    
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, &
+                               & sum_field(jc,jb) + REAL(field(jc,jb),wp), &
+                               & my_has_missvals .AND. (field(jc,jb) == REAL(my_miss,wp)))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_fields_2d_nosubset_sp
+
+
   SUBROUTINE add_sqr_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -2114,6 +2496,98 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_sqr_fields_2d_nosubset
   !-----------------------------------------------------------------------
+
+  SUBROUTINE add_sqr_fields_3d_sp(sum_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(sp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+    ! use constant levels
+    mylevels                       = SIZE(sum_field, VerticalDim_Position)
+    IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        DO level = 1, mylevels
+        sum_field(idx,level,block) = MERGE(my_miss, &
+                                        & sum_field(idx,level,block) + REAL(field(idx,level,block),wp)**2, &
+                                        & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE add_sqr_fields_3d_sp
+
+  SUBROUTINE add_sqr_fields_2d_sp(sum_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
+            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d_sp
+
+  SUBROUTINE add_sqr_fields_2d_nosubset_sp(sum_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + REAL(field(jc,jb),wp)**2, &
+            & my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d_nosubset_sp
 
   !-----------------------------------------------------------------------
   SUBROUTINE add_verticallyIntegrated_field(vint_field_acc,field_3D,subset,height,levels)
@@ -2346,6 +2820,104 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE max_fields_3d
+  ! routine for computing max of two fields ------------------------------
+  SUBROUTINE max_fields_2d_sp(max_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        max_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(max_field(jc,jb), &
+            &                          REAL(field(jc,jb),wp), &
+            &                          max_field(jc,jb) .gt. REAL(field(jc,jb),wp)), &
+            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE max_fields_2d_sp
+  SUBROUTINE max_fields_2d_nosubset_sp(max_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        max_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(max_field(jc,jb), &
+            &                          REAL(field(jc,jb),wp), &
+            &                          max_field(jc,jb) .gt. REAL(field(jc,jb),wp)), &
+            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE max_fields_2d_nosubset_sp
+  SUBROUTINE max_fields_3d_sp(max_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: max_field(:,:,:)
+    REAL(sp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+      ! use constant levels
+      mylevels                       = SIZE(max_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            max_field(idx,level,block) = MERGE(my_miss, &
+                                          &    MERGE(max_field(idx,level,block), &
+                                          &          REAL(field(idx,level,block),wp), &
+                                          &          max_field(idx,level,block) .gt. REAL(field(idx, level, block),wp)), &
+                                          & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE max_fields_3d_sp
   ! routines for computing min of two fields ------------------------------
   SUBROUTINE min_fields_2d(min_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: min_field(:,:)
@@ -2444,8 +3016,103 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO
-
   END SUBROUTINE min_fields_3d
+  SUBROUTINE min_fields_2d_sp(min_field,field,subset,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        min_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(min_field(jc,jb), &
+            &                          REAL(field(jc,jb),wp), &
+            &                          min_field(jc,jb) .lt. REAL(field(jc,jb),wp)), &
+            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE min_fields_2d_sp
+  SUBROUTINE min_fields_2d_nosubset_sp(min_field,field,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:)
+    REAL(sp),INTENT(in)             :: field(:,:)
+    LOGICAL, INTENT(in), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(in), OPTIONAL :: missval
+
+    INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = LBOUND(field,2),UBOUND(field,2)
+      DO jc = LBOUND(field,1),UBOUND(field,1)
+        min_field(jc,jb) = MERGE(my_miss, &
+            &                    MERGE(min_field(jc,jb), &
+            &                          REAL(field(jc,jb),wp), &
+            &                          min_field(jc,jb) .lt. REAL(field(jc,jb),wp)), &
+            &                    my_has_missvals .AND. (REAL(field(jc,jb),wp) == my_miss))
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE min_fields_2d_nosubset_sp
+  SUBROUTINE min_fields_3d_sp(min_field,field,subset,levels,has_missvals, missval)
+    REAL(wp),INTENT(inout)          :: min_field(:,:,:)
+    REAL(sp),INTENT(in)             :: field(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
+      ! use constant levels
+      mylevels                       = SIZE(min_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            min_field(idx,level,block) = MERGE(my_miss, &
+                                          &    MERGE(min_field(idx,level,block), &
+                                          &          REAL(field(idx,level,block),wp), &
+                                          &          min_field(idx,level,block) .lt. REAL(field(idx, level, block),wp)), &
+                                          & my_has_missvals .AND. (REAL(field(idx,level,block),wp) == my_miss))
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE min_fields_3d_sp
 
   !-----------------------------------------------------------------------
   !>

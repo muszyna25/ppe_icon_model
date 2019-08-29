@@ -205,6 +205,15 @@ CONTAINS
          &  rln   (kbdim,klevp1)   ,&
          &  drlus_dtsr(kbdim)      ,&
          &  dtsr  (kbdim)
+    INTEGER :: jc, jk
+
+    !$ACC DATA PRESENT( cosmu0, daylght_frc, emiss, tsr, tsr_rt, rsd_rt, rsu_rt, rsdcs_rt, rsucs_rt, &
+    !$ACC               rld_rt, rlu_rt, rldcs_rt, rlucs_rt, rvds_dir_rt, rpds_dir_rt, rnds_dir_rt,   &
+    !$ACC               rvds_dif_rt, rpds_dif_rt, rnds_dif_rt, rvus_rt, rpus_rt, rnus_rt, rsdt, rsut,&
+    !$ACC               rsds, rsus, rsutcs, rsdscs, rsuscs, rvds_dir, rpds_dir, rnds_dir, rvds_dif,  &
+    !$ACC               rpds_dif, rnds_dif, rvus, rpus, rnus, rlut, rlds, rlus, rlutcs, rldscs,      &
+    !$ACC               q_rsw, q_rlw )                                                               &
+    !$ACC       CREATE( xsdt, rsn, rln, drlus_dtsr, dtsr )
 
     ! Shortwave fluxes
     ! ----------------
@@ -218,73 +227,114 @@ CONTAINS
     ! - scaling ratio for fluxes at current time: xsdt    = rsdt / rsdt_rt
     !
     ! top of atmophere
-    rsdt  (jcs:jce)   = rsdt0*cosmu0(jcs:jce)*daylght_frc(jcs:jce)
-    WHERE (rsd_rt(jcs:jce,1) > 0.0_wp)
-       xsdt  (jcs:jce)   = rsdt  (jcs:jce) / rsd_rt(jcs:jce,1)
-    ELSEWHERE
-       xsdt  (jcs:jce)   = 0.0_wp
-    END WHERE
-    !
-    rsut  (jcs:jce)   = rsu_rt  (jcs:jce,1) * xsdt(jcs:jce)
-    rsutcs(jcs:jce)   = rsucs_rt(jcs:jce,1) * xsdt(jcs:jce)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc = jcs, jce
+      rsdt  (jc)   = rsdt0*cosmu0(jc)*daylght_frc(jc)
+      IF (rsd_rt(jc,1) > 0.0_wp) THEN
+         xsdt  (jc)   = rsdt  (jc) / rsd_rt(jc,1)
+      ELSE
+         xsdt  (jc)   = 0.0_wp
+      END IF
+      !
+      rsut  (jc)   = rsu_rt  (jc,1) * xsdt(jc)
+      rsutcs(jc)   = rsucs_rt(jc,1) * xsdt(jc)
+    END DO
+    !$ACC END PARALLEL
     !
     ! all half levels
-    rsn   (jcs:jce,:) = (rsd_rt(jcs:jce,:) - rsu_rt(jcs:jce,:)) * SPREAD(xsdt(jcs:jce),2,klevp1)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
+    DO jk = 1, klevp1
+      !$ACC LOOP VECTOR
+      DO jc = jcs, jce
+        rsn(jc,jk) = (rsd_rt(jc,jk) - rsu_rt(jc,jk)) * xsdt(jc)
+      END DO
+    END DO
+    !$ACC END PARALLEL
     !
-    ! surface
-    rsds  (jcs:jce)   = rsd_rt  (jcs:jce,klevp1) * xsdt(jcs:jce)
-    rsdscs(jcs:jce)   = rsdcs_rt(jcs:jce,klevp1) * xsdt(jcs:jce)
-    !
-    rsus  (jcs:jce)   = rsu_rt  (jcs:jce,klevp1) * xsdt(jcs:jce)
-    rsuscs(jcs:jce)   = rsucs_rt(jcs:jce,klevp1) * xsdt(jcs:jce)
-    !
-    ! components
-    rvds_dir(jcs:jce) = rvds_dir_rt(jcs:jce) * xsdt(jcs:jce)
-    rpds_dir(jcs:jce) = rpds_dir_rt(jcs:jce) * xsdt(jcs:jce)
-    rnds_dir(jcs:jce) = rnds_dir_rt(jcs:jce) * xsdt(jcs:jce)
-    !
-    rvds_dif(jcs:jce) = rvds_dif_rt(jcs:jce) * xsdt(jcs:jce)
-    rpds_dif(jcs:jce) = rpds_dif_rt(jcs:jce) * xsdt(jcs:jce)
-    rnds_dif(jcs:jce) = rnds_dif_rt(jcs:jce) * xsdt(jcs:jce)
-    !
-    rvus(jcs:jce)     = rvus_rt(jcs:jce) * xsdt(jcs:jce)
-    rpus(jcs:jce)     = rpus_rt(jcs:jce) * xsdt(jcs:jce)
-    rnus(jcs:jce)     = rnus_rt(jcs:jce) * xsdt(jcs:jce)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc = jcs, jce
+      ! surface
+      rsds  (jc)   = rsd_rt  (jc,klevp1) * xsdt(jc)
+      rsdscs(jc)   = rsdcs_rt(jc,klevp1) * xsdt(jc)
+      !
+      rsus  (jc)   = rsu_rt  (jc,klevp1) * xsdt(jc)
+      rsuscs(jc)   = rsucs_rt(jc,klevp1) * xsdt(jc)
+      !
+      ! components
+      rvds_dir(jc) = rvds_dir_rt(jc) * xsdt(jc)
+      rpds_dir(jc) = rpds_dir_rt(jc) * xsdt(jc)
+      rnds_dir(jc) = rnds_dir_rt(jc) * xsdt(jc)
+      !
+      rvds_dif(jc) = rvds_dif_rt(jc) * xsdt(jc)
+      rpds_dif(jc) = rpds_dif_rt(jc) * xsdt(jc)
+      rnds_dif(jc) = rnds_dif_rt(jc) * xsdt(jc)
+      !
+      rvus(jc)     = rvus_rt(jc) * xsdt(jc)
+      rpus(jc)     = rpus_rt(jc) * xsdt(jc)
+      rnus(jc)     = rnus_rt(jc) * xsdt(jc)
 
-    ! Longwave fluxes
-    ! ---------------
-    !
-    ! The original downward and upward fluxes form the radiative transfer (rt) calculation
-    ! are kept constant, except for the upward flux from the surface, which is corrected
-    ! for the change in radiative surface temperature using a 1st order Taylor expansion.
-    ! - surface upward flux at rt-time      : rlus_rt = rlu(jk=klevp1)
-    ! - rad. surface temp.  at rt-time      : tsr_rt
-    ! - rad. surface temp.  at current time : tsr
-    !
-    ! top of atmophere
-    rlut  (jcs:jce)   = rlu_rt  (jcs:jce,1)
-    rlutcs(jcs:jce)   = rlucs_rt(jcs:jce,1)
-    !
+      ! Longwave fluxes
+      ! ---------------
+      !
+      ! The original downward and upward fluxes form the radiative transfer (rt) calculation
+      ! are kept constant, except for the upward flux from the surface, which is corrected
+      ! for the change in radiative surface temperature using a 1st order Taylor expansion.
+      ! - surface upward flux at rt-time      : rlus_rt = rlu(jk=klevp1)
+      ! - rad. surface temp.  at rt-time      : tsr_rt
+      ! - rad. surface temp.  at current time : tsr
+      !
+      ! top of atmophere
+      rlut  (jc)   = rlu_rt  (jc,1)
+      rlutcs(jc)   = rlucs_rt(jc,1)
+      !
+    END DO
+    !$ACC END PARALLEL
     ! all half levels
-    rln   (jcs:jce,:) = (rld_rt(jcs:jce,:) - rlu_rt(jcs:jce,:))
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
+    DO jk = 1, klevp1
+      !$ACC LOOP VECTOR
+      DO jc = jcs, jce
+        rln(jc,jk) = (rld_rt(jc,jk) - rlu_rt(jc,jk))
+      END DO
+    END DO
+    !$ACC END PARALLEL
     !
-    ! surface
-    rlds  (jcs:jce)  = rld_rt  (jcs:jce,klevp1)
-    rldscs(jcs:jce)  = rldcs_rt(jcs:jce,klevp1)
-    !
-    ! - correct upward flux for changed radiative surface temperature
-    drlus_dtsr(jcs:jce) = emiss(jcs:jce)*4._wp*stbo*tsr(jcs:jce)**3 ! derivative
-    dtsr      (jcs:jce) = tsr(jcs:jce) - tsr_rt(jcs:jce)            ! change in tsr
-    rlus(jcs:jce)       = rlu_rt(jcs:jce,klevp1)                  & ! rlus = rlus_rt
-         &               +drlus_dtsr(jcs:jce) * dtsr(jcs:jce)       !       + correction
-    !
-    rln(jcs:jce,klevp1) = rlds(jcs:jce) - rlus(jcs:jce)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc = jcs, jce
+      ! surface
+      rlds  (jc)  = rld_rt  (jc,klevp1)
+      rldscs(jc)  = rldcs_rt(jc,klevp1)
+      !
+      ! - correct upward flux for changed radiative surface temperature
+      drlus_dtsr(jc) = emiss(jc)*4._wp*stbo*tsr(jc)**3 ! derivative
+      dtsr      (jc) = tsr(jc) - tsr_rt(jc)            ! change in tsr
+      rlus(jc)       = rlu_rt(jc,klevp1)                  & ! rlus = rlus_rt
+           &               +drlus_dtsr(jc) * dtsr(jc)       !       + correction
+      !
+      rln(jc,klevp1) = rlds(jc) - rlus(jc)
+    END DO
+    !$ACC END PARALLEL
 
 
     ! Heating rates in atmosphere
     !----------------------------
-    q_rsw(jcs:jce,1:klev) = rsn(jcs:jce,1:klev)-rsn(jcs:jce,2:klev+1)
-    q_rlw(jcs:jce,1:klev) = rln(jcs:jce,1:klev)-rln(jcs:jce,2:klev+1)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
+    DO jk = 1, klev
+      !$ACC LOOP VECTOR
+      DO jc = jcs, jce
+        q_rsw(jc,jk) = rsn(jc,jk)-rsn(jc,jk+1)
+        q_rlw(jc,jk) = rln(jc,jk)-rln(jc,jk+1)
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE radheating
 
