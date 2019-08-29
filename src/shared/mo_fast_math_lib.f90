@@ -281,13 +281,17 @@ CONTAINS
 
   END SUBROUTINE vec_sqrt
 
-  SUBROUTINE vec_cbrt(x, y, n)
+  SUBROUTINE vec_cbrt(x, y, n, lopenacc)
     INTEGER,  INTENT(in), OPTIONAL :: n
     REAL(dp), INTENT(in)    :: x(:)
     REAL(dp), INTENT(inout) :: y(:)
-    INTEGER :: vec_size
+    LOGICAL,  INTENT(in), OPTIONAL :: lopenacc
+    INTEGER :: i, vec_size
+    LOGICAL :: lzopenacc
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
+
+#ifndef _OPENACC
 
 #ifndef HAVE_FAST_MATH_LIB
     y(1:vec_size) = x(1:vec_size)**onethird
@@ -300,6 +304,24 @@ CONTAINS
     y(1:vec_size) = x(1:vec_size)**onethird
     ! cbrt - no fast math library call available, use native Fortran ...
 #endif
+#endif
+
+#else
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
+
+    !$ACC DATA PRESENT( x, y ) IF( lzopenacc )
+    !$ACC PARALLEL IF( lzopenacc )
+    !$ACC LOOP GANG VECTOR
+    DO i = 1, vec_size
+      y(i) = x(i)**onethird
+    END DO
+    !$ACC END PARALLEL
+    !$ACC END DATA
 #endif
 
   END SUBROUTINE vec_cbrt

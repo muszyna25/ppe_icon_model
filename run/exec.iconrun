@@ -339,13 +339,9 @@ check_error $? "${MODEL} does not exist?"
 
 rm -f finish.status
 #
-#if [ x$target = "xblizzard" ] ; then
-#  run_model
-#else
-  date
-  ${START} ${MODEL} # > out.txt 2>&1
-  date
-#fi
+date
+${START} ${MODEL} # > out.txt 2>&1
+date
 #
 if [ -r finish.status ] ; then
   check_final_status 0 "${START} ${MODEL}"

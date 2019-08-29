@@ -226,6 +226,7 @@ case "$ac_sitename" in
                 GRIBAPIROOT = /apps/daint/UES/6.0.UP02/sandbox-ws/grib_api
                 XML2ROOT    = /apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08
                 ZLIBROOT    = /apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/zlib/1.2.11-CrayGNU-18.08
+                SERIALIZE_EXTRA_FLAGS = -DSERIALIZE_ALL
 
                 case "$fortran_compiler" in
                     gcc*)
@@ -329,10 +330,11 @@ case "$ac_sitename" in
                         ;;
                     pgi*)
                         #FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
-                        FFLAGS      = -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
+                        FFLAGS      = -g -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS    = $FFLAGS
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
-                        SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.2/PGI/18.10
+                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/serialbox2_v2.4.3/pgi_18.10
+                        SERIALBOX2_LIB = -L\$(SERIALBOX2ROOT)/lib -lSerialboxFortran -L${GCC_PATH}/snos/lib64/ -lstdc++fs -lstdc++
                         OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
                         LAPACK_LIB  = -llapack -lblas
@@ -353,7 +355,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5
+                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
@@ -513,6 +515,13 @@ case "$ac_sitename" in
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/gnu/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.2/gnu
                         config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Cleanup setup for serialization
+                        case "$enable_serialization" in
+                            read|perturb|create)
+                                FLANG = ${FLANG/ffree-line-length-132/ffree-line-length-none}
+                                FFLAGS = ${FFLAGS/ffree-line-length-132/ffree-line-length-none}
+                                ;;
+                        esac
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
@@ -564,7 +573,7 @@ case "$ac_sitename" in
                         F77= mpif90
                         FFLAGS         = -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS       = $FFLAGS
-                        CFLAGS         = -c99 -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4
+                        CFLAGS         = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
                         GRIBAPIROOT    = /project/c14/install/kesch/libgrib_api/v1.20.0.2/pgi/
                         SERIALBOX2ROOT = /project/c14/install/kesch/serialbox2_v2.4.2/pgi
                         LAPACKROOT  = ${PGI}/linux86-64/17.10
@@ -572,6 +581,11 @@ case "$ac_sitename" in
                         config_tuning  = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
+                            gpu_1810*)
+                                config_target = kesch_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=tesla,cc35,cuda9.1 -Minfo=accel,inline
+                                #LDFLAGS       = -ta=tesla,cc35,cuda9.1
+                                ;;
                             gpu*)
                                 config_target = kesch_gpu
                                 FFLAGS        = ${FFLAGS} -acc=verystrict -ta=tesla,cc35,cuda8.0 -Minfo=accel,inline
@@ -589,10 +603,29 @@ case "$ac_sitename" in
                                 NETCDFROOT    = ${NETCDF_ROOT}
                                 HDF5ROOT      = ${NETCDF_ROOT}
                                 ;;
+                            gpu_1810*)
+                                load_modules = kesch/eniac/pgi-env-18.10
+                                XML2ROOT       = ${LIBXML2_ROOT}
+                                ZLIBROOT       = ${ZLIB_ROOT}
+                                GRIBAPIROOT    = ${GRIBAPI_ROOT}
+                                NETCDFROOT     = ${NETCDF_ROOT}
+                                HDF5ROOT       = ${HDF5_ROOT}
+                                SERIALBOX2ROOT = ${SERIALBOX2_ROOT}
+                                ;;
                             gpu*)
                                 load_modules  = git/2.14.1 PrgEnv-pgi/17.10 pgi/17.10 gcc/5.4.0-2.26 mvapich2gdr_gnu/2.3a_cuda_8.0_pgi17.10 netcdf/4.4.1.1/2017
                                 NETCDFROOT    = ${NETCDF_ROOT}
                                 HDF5ROOT      = ${NETCDF_ROOT}
+                                ;;
+                            1810*)
+                                load_modules = kesch/eniac/pgi-env-18.10
+                                LDFLAGS        = -ldl
+                                XML2ROOT       = ${LIBXML2_ROOT}
+                                ZLIBROOT       = ${ZLIB_ROOT}
+                                GRIBAPIROOT    = ${GRIBAPI_ROOT}
+                                NETCDFROOT     = ${NETCDF_ROOT}
+                                HDF5ROOT       = ${HDF5_ROOT}
+                                SERIALBOX2ROOT = ${SERIALBOX2_ROOT}
                                 ;;
                             *)
                                 (>&6 echo "")
@@ -766,7 +799,7 @@ case "$ac_sitename" in
                 load_modules  = ncl/6.2.1-gccsys cdo/1.9.5-gcc64 svn/1.8.13 ${load_modules}
                 load_profile  = /etc/profile
                 software_tree = /sw/rhel6-x64
-                config_target = bullx
+                config_target = bullx_cpu
                 make_command  = make -j 8
                 submit        = sbatch
                 sync_submit   = sbatch --wait
@@ -808,6 +841,7 @@ case "$ac_sitename" in
                         FFLAGS      = $FPPFLAGS -assume realloc_lhs
                         LDFLAGS     = -gdwarf-4
                         F77FLAGS    = $FPPFLAGS
+                        SERIALIZE_EXTRA_FLAGS = -DSERIALIZE_ALL
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
@@ -934,6 +968,16 @@ case "$ac_sitename" in
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
+                        SERIALBOX2ROOT = /scratch/m/m300652/serialbox2/gnu/6.4
+                        SERIALBOX2_LIB = ${SERIALBOX2ROOT}/lib/libSerialboxFortran.a -lstdc++fs -lstdc++ -lpthread
+                        config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Cleanup setup for serialization
+                        case "$enable_serialization" in
+                            read|perturb|create)
+                                FLANG = ${FLANG/ffree-line-length-132/ffree-line-length-none}
+                                FFLAGS = ${FFLAGS/ffree-line-length-132/ffree-line-length-none}
+                                ;;
+                        esac
 
                         case "$with_mpi" in
                             "${software_tree}/intel/impi/2017.2.174")
@@ -983,9 +1027,10 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     pgi*)
-                        load_modules    = /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 ${load_modules}
+                        load_modules    = gcc/7.1.0 /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 ${load_modules}
                         config_compiler = pgi
-                        CC              = pgcc
+                        CC              = mpicc
+                        FC              = mpif90
                         CFLAGS          = -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_NETCDF -DHAVE_LIBSZ -DpgiFortran
                         FFLAGS          = -O -Mpreprocess -Mrecursive -Mallocatable=03
 
@@ -997,11 +1042,27 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
                         LDFLAGS     = ${LDFLAGS} $WLFLAG,-rpath,$NETCDFFROOT/lib $WLFLAG,-rpath,$NETCDFROOT/lib $WLFLAG,-rpath,$HDF5ROOT/lib $WLFLAG,-rpath,$SZIPROOT/lib
 
-                        MPIROOT     = $software_tree/mpi/openmpi-2.0.2p2_hpcx-pgi18.10
-                        MPI_LIB     = -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                        # for pure CPU version
-                        FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
-                        LDFLAGS     = ${LDFLAGS} -tp=haswell -Mnorpath
+                        #MPIROOT     = $software_tree/mpi/openmpi-2.0.2p2_hpcx-pgi18.10
+                        #MPI_LIB     = -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                        SERIALBOX2ROOT = /scratch/m/m300652/serialbox2/pgi/18.10
+			SERIALBOX2_LIB = ${SERIALBOX2ROOT}/lib/libSerialboxFortran.a -L/sw/rhel6-x64/gcc/gcc-7.1.0/lib64 -lstdc++fs -lstdc++
+
+                        config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        # Generic CPU/GPU setup
+                        case "${config_tuning}" in
+                            gpu*)
+                                config_target = bullx_gpu
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc35,cuda9.1 -Minfo=accel,inline -Mcuda
+                                LDFLAGS       = ${LDFLAGS} -ta=nvidia:cc35,cuda9.1 -Mcuda -Mnorpath -acc=verystrict 
+                                load_modules  = ${load_modules} /home/mpim/m300742/modules/cudatoolkit/9.1 /home/dkrz/k202077/modules/openmpi-2.0.2_hpcx_cuda9.2-pgi18.10
+                                ;;
+                            *)
+                                config_target = bullx_cpu
+                                FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
+                                LDFLAGS       = ${LDFLAGS} -tp=haswell -Mnorpath
+                                load_modules  = ${load_modules} /home/mpim/m300742/modules/mpi/openmpi-2.0.2p2_hpcx-pgi18.10
+                                ;;
+                        esac
                         ;;
                     *)
                         echo
@@ -1239,7 +1300,6 @@ case "$ac_sitename" in
                                 LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
                                 MPIROOT = $software_tree/mpi/mpich3-3.2.1-${compiler_version}
                                 MPI_LIB = -lmpifort -lmpi $SYS_LIBS -Wl,-Wl,,-rpath,$MPIROOT/lib -Wl,-Wl,,-rpath,$NETCDFROOT/lib -Wl,-Wl,,-rpath,$NETCDFFROOT/lib -Wl,-Wl,,-rpath,$HDF5ROOT/lib
-                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.4-${compiler_version}
                                ;;
                             intel)
                                 load_modules=intel/17.0.2 ${load_modules}

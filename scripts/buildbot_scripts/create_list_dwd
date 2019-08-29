@@ -36,7 +36,6 @@ listname=dwd
 ./set_builder_flags Inactive --builders BREEZE_intel_openmp          --list $listname
 ./set_builder_flags Inactive --builders BREEZE_nag                   --list $listname
 ./set_builder_flags Inactive --builders DAINT_CPU_cce                --list $listname
-./set_builder_flags Inactive --builders DAINT_GPU_cce                --list $listname
 ./set_builder_flags Inactive --builders DAINT_CPU_pgi                --list $listname
 ./set_builder_flags Inactive --builders DAINT_GPU_pgi                --list $listname
 ./set_builder_flags Active   --builders DWD_cray                     --list $listname

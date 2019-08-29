@@ -495,7 +495,7 @@ SCRIPT=${EXPERIMENT}
 cd ${MODEL_DIR}
 
 if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
-    ./make_runscripts ${SCRIPT}
+    ./make_runscripts -s ${SCRIPT}
 fi
 
 if [ ! -d experiments ]; then
@@ -570,7 +570,7 @@ if string_in_list $MD $CMODES; then
     RUN_STATUS=-1
     if [ ! -d experiments/${EXP_BASE} ] ;then 
         if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
-            ${MODEL_DIR}/make_runscripts ${SCRIPT}
+            ${MODEL_DIR}/make_runscripts -s ${SCRIPT}
         fi
         if [ ! -d experiments ]; then
             mkdir experiments
@@ -782,20 +782,6 @@ if string_in_list $MD $CMODES; then
                       's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE_NEW"'/g' \
                       ${RUN_SCRIPT}
 
-                    # change system variables where necessary
-                    if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                        PPNODE=`grep "# @"     ${RUN_SCRIPT} | grep  " tasks_per_node "`
-                        PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-                        sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-                    if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-                        PPNODE=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "ntasks-per-node"`
-                        PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-                        sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-
 	        else
 
                     # use one node less and keep one process per node
@@ -807,20 +793,6 @@ if string_in_list $MD $CMODES; then
 	            sed -i \
                       's/\b\(no_of_nodes\)=.*/\1='"$N_NODES_NEW"'/g' \
                       ${RUN_SCRIPT}
-
-                    # change system variables where necessary
-                    if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                        NODES=`grep "# @"     ${RUN_SCRIPT} | grep  " node "`
-                        NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-                        sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
-                    if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-                        NODES=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "nodes"`
-                        NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-                        sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                    fi
 
 	        fi # N_PPNODE>1
 
@@ -925,22 +897,6 @@ if string_in_list $MD $CMODES; then
                   -e 's/\b\(ICON_THREADS\)=.*/\1='"$N_ICON_THREADS_NEW"'/g' \
                   -e 's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE"'/g' \
                       ${RUN_SCRIPT}
-
-                # change system variables where necessary
-                if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
-                    THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " task_affinity "`
-                    THREADS_NEW=${THREADS%\($N_OMP_NUM_THREADS\)}\($N_OMP_NUM_THREADS_NEW\)
-                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
-                    THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " parallel_threads "`
-                    THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
-                fi
-##        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
-##          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-##          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-##          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-##        fi
 
                 echo "Perform $TEST run"
                 chmod 755 ${RUN_SCRIPT}

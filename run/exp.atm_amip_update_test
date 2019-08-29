@@ -35,16 +35,7 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -348,7 +339,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical.nc                         ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -372,7 +363,7 @@ add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariol
 # - tropospheric anthropogenic aerosols, simple plumes
 add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
 #
-# - Kinne background aerosols are needed for the year 1850 (iaero_rad=18) 
+# - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
 datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}_${grid_label}
 #
@@ -450,13 +441,13 @@ EOF
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
 
-output_atm_cgrid=yes
+output_atm_vgrid=yes
 #
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -465,8 +456,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon'    , 'clat'    , 'areacella',
-                    'zghalf'  , 'zg'      ,
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
@@ -600,32 +590,6 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 /
 EOF
 fi
-
-
-output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-#
-if [[ "$output_aer_3d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_aer_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'ps'          , 'pfull'       , 'zg'          ,
-                    'aer_aod_533' , 'aer_ssa_533',  'aer_asy_533' , 
-                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
-                    'aer_aod_9731',
-/
-EOF
-fi
-
 
 # minimal jsbach output for running atm_amip experiment
 # for more jsbach output see exp.atm_amip_les

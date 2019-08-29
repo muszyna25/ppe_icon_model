@@ -209,7 +209,7 @@ MODULE mo_nh_testcases
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, jw_u0)
     END DO
 
   CASE ('jabw_m')  
@@ -218,7 +218,7 @@ MODULE mo_nh_testcases
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, &
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, jw_u0, &
                           & opt_m_height = mount_height, opt_m_half_width = mount_half_width )
     END DO
 
@@ -504,7 +504,7 @@ MODULE mo_nh_testcases
     CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                    & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
                                    & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up )
+                                   & p_sfc_jabw,jw_up,jw_u0,jw_temp0 )
 
 
     IF ( ltransport .AND. iforcing /= inwp ) THEN   ! passive tracers
@@ -821,14 +821,13 @@ MODULE mo_nh_testcases
 
     p_sfc_jabw   = zp_ape          ! Pa
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
-    jw_up = 1._wp
 
     DO jg = 1, n_dom
     
       CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
                                      & p_int(jg),                                   &
-                                     & p_sfc_jabw,jw_up )
+                                     & p_sfc_jabw,jw_up,jw_u0,jw_temp0 )
     
       IF ( ltransport ) THEN   !
     

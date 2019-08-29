@@ -34,10 +34,15 @@ MODULE mo_ser_iconam_echam
     TYPE(t_nh_prog)       , INTENT(INOUT), TARGET   :: pt_prog_new
     TYPE(t_nh_prog)       , INTENT(INOUT), TARGET   :: pt_prog_new_rcf
     TYPE(t_nh_diag)       , INTENT(INOUT), TARGET   :: pt_diag
+#if defined(SERIALIZE_ECHAM_ICONAM) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .TRUE.
+#endif
     LOGICAL, SAVE :: lactive = .TRUE.
     REAL(wp), POINTER :: c_lin_e(:,:,:), rbf_vec_coeff_c(:,:,:,:)
     INTEGER, POINTER  :: rbf_vec_idx_c(:,:,:), rbf_vec_blk_c(:,:,:)
@@ -218,8 +223,8 @@ MODULE mo_ser_iconam_echam
     !$ser data echam_iconam_pt_diag_ddt_exner_phy=pt_diag%ddt_exner_phy IF (ASSOCIATED(pt_diag%ddt_exner_phy))
     !$ser data echam_iconam_pt_diag_exner_dyn_incr=pt_diag%exner_dyn_incr IF (ASSOCIATED(pt_diag%exner_dyn_incr))
     !$ser data echam_iconam_pt_diag_exner_pr=pt_diag%exner_pr IF (ASSOCIATED(pt_diag%exner_pr))
-    !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
+    !$ser verbatim   lactive = .FALSE.
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
@@ -306,6 +311,7 @@ MODULE mo_ser_iconam_echam
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_iconam_input
 
   SUBROUTINE serialize_iconam_output(jg, field, tend,           &
@@ -321,6 +327,7 @@ MODULE mo_ser_iconam_echam
     TYPE(t_nh_prog)       , INTENT(INOUT), TARGET   :: pt_prog_new
     TYPE(t_nh_prog)       , INTENT(INOUT), TARGET   :: pt_prog_new_rcf
     TYPE(t_nh_diag)       , INTENT(INOUT), TARGET   :: pt_diag
+#if defined(SERIALIZE_ECHAM_ICONAM) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -495,12 +502,13 @@ MODULE mo_ser_iconam_echam
     !$ser data echam_iconam_pt_diag_ddt_exner_phy=pt_diag%ddt_exner_phy IF (ASSOCIATED(pt_diag%ddt_exner_phy))
     !$ser data echam_iconam_pt_diag_exner_dyn_incr=pt_diag%exner_dyn_incr IF (ASSOCIATED(pt_diag%exner_dyn_incr))
     !$ser data echam_iconam_pt_diag_exner_pr=pt_diag%exner_pr IF (ASSOCIATED(pt_diag%exner_pr))
-    !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
+    !$ser verbatim   lactive = .FALSE.
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_iconam_output
 
 END MODULE mo_ser_iconam_echam

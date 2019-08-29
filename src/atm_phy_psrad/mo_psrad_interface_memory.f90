@@ -114,6 +114,7 @@ MODULE mo_psrad_interface_memory
          alb_nir_dir(:,:),        & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),        & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),        & !< surface albedo for NIR range and dif light
+         emissivity(:,:),         & !< surface longwave emissivity
          pp_sfc(:,:),             & !< surface pressure in Pa
          pp_fl(:,:,:),            & !< full level pressure in Pa
          tk_sfc(:,:),             & !< surface temperature in K
@@ -468,6 +469,13 @@ CONTAINS
     CALL add_var( field_list, prefix//'albnirdif', psrad_interface_fields%in%alb_nir_dif,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.FALSE., ldims=shape2d  )
+
+    ! &       field% emissivity (nproma,nblks),          &
+    cf_desc    = t_cf_var('emissivity', '', 'longwave surface emissivity', datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'emissivity', psrad_interface_fields%in%emissivity,        &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart=.FALSE., ldims=shape2d )
 
 
     cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', datatype_flt)

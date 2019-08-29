@@ -17,6 +17,8 @@ CONTAINS
     REAL(wp)                           :: scr(nproma,patch%alloc_cell_blocks)
 
     REAL(wp) :: tas_gmean, rsdt_gmean, rsut_gmean, rlut_gmean, prec_gmean, evap_gmean, radtop_gmean, fwfoce_gmean
+    TYPE(t_echam_phy_field), POINTER    :: field
+    INTEGER  :: jc, jk
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_input(patch%id, prm_field(patch%id))
@@ -27,7 +29,7 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%tas(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & tas_gmean)
+          & tas_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%tas_gmean = tas_gmean
 
@@ -37,7 +39,7 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%rsdt(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & rsdt_gmean)
+          & rsdt_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%rsdt_gmean = rsdt_gmean
 
@@ -47,7 +49,7 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%rsut(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & rsut_gmean)
+          & rsut_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%rsut_gmean = rsut_gmean
 
@@ -57,7 +59,7 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%rlut(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & rlut_gmean)
+          & rlut_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%rlut_gmean = rlut_gmean
 
@@ -67,7 +69,7 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%pr(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & prec_gmean)
+          & prec_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%prec_gmean = prec_gmean
 
@@ -77,31 +79,67 @@ CONTAINS
       call levels_horizontal_mean( prm_field(patch%id)%evap(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & evap_gmean)
+          & evap_gmean, lopenacc=.TRUE.)
     END IF
     prm_field(patch%id)%evap_gmean = evap_gmean
 
     ! global mean toa total radiation, radtop, derived variable
     radtop_gmean = 0.0_wp
     IF ( isRegistered("radtop_gmean") ) THEN
-      scr(:,:) = 0.0_wp
-      scr(:,:) = prm_field(patch%id)%rsdt(:,:) - prm_field(patch%id)%rsut(:,:) - prm_field(patch%id)%rlut(:,:)
+
+      field => prm_field(patch%id)
+
+      !$ACC DATA PRESENT( field%rsdt, field%rsut, field%rlut ) &
+      !$ACC       CREATE( scr )
+
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO jk = 1, patch%alloc_cell_blocks
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, nproma
+          scr(jc,jk) = 0.0_wp
+          scr(jc,jk) = field%rsdt(jc,jk) - field%rsut(jc,jk) - field%rlut(jc,jk)
+        END DO
+      END DO
+      !$ACC END PARALLEL
       call levels_horizontal_mean( scr(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & radtop_gmean)
+          & radtop_gmean, lopenacc=.TRUE.)
+
+      !$ACC END DATA
+
+      NULLIFY(field)
     END IF
     prm_field(patch%id)%radtop_gmean = radtop_gmean
 
     ! global mean freshwater flux over ocean area, fwfoce, derived variable
     fwfoce_gmean = 0.0_wp
     IF ( isRegistered("fwfoce_gmean") ) THEN
-      scr(:,:) = 0.0_wp
-      scr(:,:) = (prm_field(patch%id)%pr(:,:) + prm_field(patch%id)%evap(:,:))*prm_field(patch%id)%sftof(:,:)
+
+      field => prm_field(patch%id)
+
+      !$ACC DATA PRESENT( field%pr, field%evap, field%sftof ) &
+      !$ACC       CREATE( scr )
+
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
+      DO jk = 1, patch%alloc_cell_blocks
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, nproma
+          scr(jc,jk) = 0.0_wp
+          scr(jc,jk) = (field%pr(jc,jk) + field%evap(jc,jk))*field%sftof(jc,jk)
+        END DO
+      END DO
+      !$ACC END PARALLEL
       call levels_horizontal_mean( scr(:,:), &
           & patch%cells%area(:,:), &
           & patch%cells%owned, &
-          & fwfoce_gmean)
+          & fwfoce_gmean, lopenacc=.TRUE.)
+
+      !$ACC END DATA
+
+      NULLIFY(field)
     END IF
     prm_field(patch%id)%fwfoce_gmean = fwfoce_gmean
 

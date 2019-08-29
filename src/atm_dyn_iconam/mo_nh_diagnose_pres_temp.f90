@@ -32,6 +32,9 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_diagnose_pres_temp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -147,6 +150,7 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 
+    !$ACC DATA COPYIN( advection_config(jg)%trHydroMass%list ) IF(i_am_accel_node)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -163,6 +167,8 @@ MODULE mo_nh_diagnose_pres_temp
 
         ELSE ! .NOT. lforcing or Held-Suarez test forcing
 
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -170,6 +176,7 @@ MODULE mo_nh_diagnose_pres_temp
                pt_diag%temp(jc,jk,jb)  = pt_diag%tempv  (jc,jk,jb)
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDIF
       ENDIF
@@ -180,25 +187,35 @@ MODULE mo_nh_diagnose_pres_temp
       
       IF ( l_opt_calc_temp_ifc ) THEN
         
+        !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+        !$ACC LOOP GANG
         DO jk = MAX(slev+1,2), nlev
 !DIR$ IVDEP
+          !$ACC LOOP VECTOR
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,jk,jb) = &
               p_metrics%wgtfac_c(jc,jk,jb)*pt_diag%temp(jc,jk,jb) +      &
               (1._wp-p_metrics%wgtfac_c(jc,jk,jb))*pt_diag%temp(jc,jk-1,jb)
           ENDDO
         ENDDO
+        !$ACC END PARALLEL
 
         IF ( PRESENT(lnd_prog) ) THEN
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+          !$ACC LOOP GANG VECTOR
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,     1,jb) = pt_diag%temp (jc,1,jb)
             pt_diag%temp_ifc(jc,nlevp1,jb) = lnd_prog%t_g (jc,jb)
           ENDDO
+          !$ACC END PARALLEL
         ELSE
+          !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+          !$ACC LOOP GANG VECTOR
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,     1,jb) = pt_diag%temp (jc,1,jb)
             pt_diag%temp_ifc(jc,nlevp1,jb) = pt_diag%temp (jc,nlev,jb)
           ENDDO
+          !$ACC END PARALLEL
         ENDIF
 
       ENDIF !l_opt_calc_temp_ifc
@@ -219,6 +236,7 @@ MODULE mo_nh_diagnose_pres_temp
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    !$ACC END DATA
     
     IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
@@ -261,9 +279,15 @@ MODULE mo_nh_diagnose_pres_temp
       lconstgrav = .TRUE.
     ENDIF
 
+    !$ACC DATA PRESENT(pt_diag%tempv, pt_diag%pres_sfc, pt_diag%pres_ifc, pt_diag%pres, &
+    !$ACC              pt_diag%dpres_mc, pt_prog%theta_v, pt_prog%exner, p_metrics%ddqz_z_full), &
+    !$ACC      IF(i_am_accel_node) 
+
     IF (lconstgrav) THEN
       
+      !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
 !DIR$ IVDEP
+      !$ACC LOOP GANG VECTOR PRIVATE(dz1, dz2, dz3)
       DO jc = i_startidx, i_endidx
         ! Height differences between surface and third-lowest main level
         dz1 = p_metrics%ddqz_z_full(jc,nlev,jb)
@@ -278,7 +302,15 @@ MODULE mo_nh_diagnose_pres_temp
         
         pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO
+      !$ACC END PARALLEL
       
+    !-------------------------------------------------------------------------
+    !> diagnose pressure for physics parameterizations
+    !! this is accomplished by vertical integration of the hydrostatic equation
+    !! because the physics schemes actually need the air mass represented 
+    !! by a given model layer
+    !-------------------------------------------------------------------------
+
       
       !-------------------------------------------------------------------------
       !> diagnose pressure for physics parameterizations
@@ -287,8 +319,11 @@ MODULE mo_nh_diagnose_pres_temp
       !! by a given model layer
       !-------------------------------------------------------------------------
       
+      !$ACC PARALLEL DEFAULT(PRESENT) IF (i_am_accel_node)
+      !$ACC LOOP SEQ
       DO jk = nlev, slev,-1
 !DIR$ IVDEP
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           
           ! pressure at interface levels
@@ -305,6 +340,7 @@ MODULE mo_nh_diagnose_pres_temp
           
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ELSE
 
@@ -312,6 +348,8 @@ MODULE mo_nh_diagnose_pres_temp
       ! (geometric heights are replaced by geopotential heights)
 
 !DIR$ IVDEP
+      !$ACC PARALLEL DEFAULT(PRESENT) IF (i_am_accel_node)
+      !$ACC LOOP GANG VECTOR PRIVATE(dz1, dz2, dz3)
       DO jc = i_startidx, i_endidx
         dz1 = p_metrics%dzgpot_mc(jc,nlev,jb)
         dz2 = p_metrics%dzgpot_mc(jc,nlev-1,jb)
@@ -323,9 +361,13 @@ MODULE mo_nh_diagnose_pres_temp
         
         pt_diag%pres_ifc(jc,nlev+1,jb) = pt_diag%pres_sfc(jc,jb)
       ENDDO  !jc
+      !$ACC END PARALLEL
       
+      !$ACC PARALLEL DEFAULT(PRESENT) IF (i_am_accel_node)
+      !$ACC LOOP SEQ
       DO jk = nlev, slev,-1
 !DIR$ IVDEP
+        !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           
           pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                &
@@ -345,8 +387,11 @@ MODULE mo_nh_diagnose_pres_temp
           
         ENDDO  !jc
       ENDDO  !jk
+      !$ACC END PARALLEL
       
     ENDIF  !IF (lconstgrav)
+
+!$ACC END DATA
 
   END SUBROUTINE diag_pres
 
@@ -378,18 +423,30 @@ MODULE mo_nh_diagnose_pres_temp
 
     REAL(wp) :: z_qsum(nproma,nlev)
 
+    !$ACC DATA PRESENT(pt_prog_rcf%tracer, pt_diag%tempv, pt_diag%temp, &
+    !$ACC              pt_prog%theta_v, pt_prog%exner), &
+    !$ACC      CREATE(z_qsum), &
+    !$ACC      IF(i_am_accel_node)
     
+    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR
     DO jk = slev, slev_moist-1
       z_qsum(:,jk) = 0._wp
     ENDDO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev_moist, nlev
       DO jc = i_startidx, i_endidx
         z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
 
 
+    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, nlev
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
@@ -398,6 +455,9 @@ MODULE mo_nh_diagnose_pres_temp
           ( 1._wp+vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)-z_qsum(jc,jk) )
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
       
   END SUBROUTINE diag_temp
 

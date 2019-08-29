@@ -23,6 +23,7 @@ my $srcdirs;
 my $enable_atmo;
 my $enable_ocean;
 my $enable_jsbach;
+my $enable_rte_rrtmgp;
 my $enable_testbed;
 my $enable_serialization;
 my $iconsrcdir = "src";
@@ -34,6 +35,7 @@ GetOptions(
             'enable_atmo=s' => \$enable_atmo,
             'enable_ocean=s' => \$enable_ocean,
             'enable_jsbach=s' => \$enable_jsbach,
+            'enable_rte_rrtmgp=s' => \$enable_rte_rrtmgp,
             'enable_testbed=s' => \$enable_testbed,
             'enable_serialization=s' => \$enable_serialization,
             'iconsrcdir=s' => \$iconsrcdir,
@@ -70,6 +72,102 @@ if (defined $iconppdir) {
   $iconppdir = $prefix . "/" . $iconppdir;
 } else {
   $iconppdir = $build_path . "/" . $iconsrcdir;
+}
+
+#__________________________________________________________________________________________________________________________________
+# collect src files og rte-rrtmgp dependent on the accelerator type
+
+if ( -d "externals/rte-rrtmgp") {
+
+    # 0. select kernel type cpu(default), openacc
+    my $kernel_type = $enable_rte_rrtmgp;
+
+    if ($kernel_type ne "none") {
+	print "\nProcess rte/rrtmgp for ${kernel_type} ...\n\n";
+
+	# 1. create src directory
+	if ( ! -d "externals/rte-rrtmgp/src" ) {
+	    mkdir "externals/rte-rrtmgp/src";
+	}
+	# 2. copy all files from rte, rrtmgp, extensions to src
+	opendir(DIR, "externals/rte-rrtmgp/rte");
+	my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/rte/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/rrtmgp");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/rrtmgp/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/extensions");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/extensions/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/extensions/cloud_optics");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/extensions/cloud_optics/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	# 3. copy architecture related files
+	if ($kernel_type eq "openacc") {
+            opendir(DIR, "externals/rte-rrtmgp/rte/kernels-openacc");
+            my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rte/kernels-openacc/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+            opendir(DIR, "externals/rte-rrtmgp/rrtmgp/kernels-openacc");
+            @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rrtmgp/kernels-openacc/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+        }
+        else {
+            opendir(DIR, "externals/rte-rrtmgp/rte/kernels");
+            my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rte/kernels/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+            opendir(DIR, "externals/rte-rrtmgp/rrtmgp/kernels");
+            @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rrtmgp/kernels/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+        }
+    }
 }
 
 #__________________________________________________________________________________________________________________________________

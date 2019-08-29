@@ -764,6 +764,9 @@ CONTAINS
       ENDDO
     ENDIF
 
+!
+! WS:  why is p_lnd_state not deallocated here?
+!
     IF (iforcing == iecham) THEN
       CALL cleanup_echam_phy
     ENDIF

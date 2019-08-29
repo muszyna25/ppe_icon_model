@@ -21,7 +21,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_kind,                   ONLY: wp, i8
   USE mo_model_domain,           ONLY: t_patch
   USE mo_psrad_general,          ONLY: nbndlw, nbndsw
-  USE mo_exception,              ONLY: finish, message_text
+  USE mo_exception,              ONLY: finish, message_text, warning
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
@@ -77,6 +77,8 @@ SUBROUTINE su_bc_aeropt_stenchikov
   ALLOCATE(ssa_v_t(nbndlw,lev_clim,0:lat_clim+1,nmonths))
   ALLOCATE(p_lim_clim(lev_clim+1))
   ALLOCATE(r_lat_clim(0:lat_clim+1))
+  !$ACC ENTER DATA CREATE( aod_v_s, ext_v_s, ssa_v_s, asy_v_s, aod_v_t, ext_v_t, ssa_v_t, &
+  !$ACC                    p_lim_clim, r_lat_clim )
 
 ! initialize with zero
   aod_v_s(:,:,:)   = 0._wp
@@ -87,6 +89,11 @@ SUBROUTINE su_bc_aeropt_stenchikov
   ext_v_t(:,:,:,:) = 0._wp
   ssa_v_t(:,:,:,:) = 0._wp
   p_lim_clim(lev_clim+1) = 0._wp
+#ifdef _OPENACC
+  CALL warning("GPU:su_bc_aeropt_stenchikov", "GPU device synchronization")
+#endif
+  !$ACC UPDATE DEVICE( aod_v_s, ext_v_s, ssa_v_s, asy_v_s, aod_v_t, ext_v_t, ssa_v_t, &
+  !$ACC                p_lim_clim )
 END SUBROUTINE su_bc_aeropt_stenchikov
 
   !> SUBROUTINE shift_months_bc_aeropt_stenchikov -- shifts months in order to read a new one.
@@ -169,6 +176,11 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, p_patch)
     END DO
 
   ENDIF
+#ifdef _OPENACC
+  CALL warning("GPU:read_bc_aeropt_stenchikov", "GPU device synchronization")
+#endif
+  !$ACC UPDATE DEVICE( aod_v_s, ext_v_s, ssa_v_s, asy_v_s, aod_v_t, ext_v_t, ssa_v_t, &
+  !$ACC                p_lim_clim, r_lat_clim )
 
 END SUBROUTINE read_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
@@ -549,9 +561,9 @@ END SUBROUTINE pressure_index
          message_text)
   END IF
   r_lat_clim(1:lat_clim)=zlat(lat_clim:1:-1)*deg2rad
-  r_lat_clim(0)=0.0_wp
-  r_lat_clim(lat_clim+1)=-pi_2
-  r_lat_shift=r_lat_clim(1)                      ! this is the value at the N-pole (so +89)
+  r_lat_clim(0)         = pi_2                   ! N-pole
+  r_lat_clim(lat_clim+1)=-pi_2                   ! S-pole
+  r_lat_shift=r_lat_clim(1)                      ! latitude next to the N-pole (so +89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
   DEALLOCATE(zlat)
   CALL closeFile(ifile_id)
