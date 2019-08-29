@@ -532,6 +532,9 @@ CONTAINS
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_testbed_modules:test_advection'
+
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jg
@@ -555,6 +558,11 @@ CONTAINS
 
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
+    
+    IF (n_dom > 1 ) THEN
+      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+    END IF
+    jg = n_dom
 
     jstep0 = 0
     !------------------------------------------------------------------
@@ -582,6 +590,7 @@ CONTAINS
           transport_state%patch_3d    => patch_3d
           transport_state%h_old       => ocean_state(jg)%p_prog(nold(1))%h
           transport_state%h_new       => ocean_state(jg)%p_prog(nnew(1))%h
+          transport_state%vn          => ocean_state(jg)%p_prog(nold(1))%vn
           transport_state%w           => ocean_state(jg)%p_diag%w
           transport_state%mass_flux_e => ocean_state(jg)%p_diag%mass_flx_e
 
@@ -1799,7 +1808,7 @@ CONTAINS
     REAL(wp) :: vert_der_e(1:nproma,1:n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_v(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: div_v_z(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    REAL(wp) :: coeff
+    REAL(wp) :: coeff, dz_dy
  
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
@@ -2072,6 +2081,15 @@ CONTAINS
               !! Multiply with u.grad(z) = div(uz) - z*div(u)
               coeff  = div_v_z(cell_index, level, blockNo) - z1*div_v(cell_index, level, blockNo)  
 
+              dz_dy  = (2._wp*(1._wp + ht1/H1))/44106._wp
+
+              !! Show that v.grad(z) is exact
+!              write(*, *) level, coeff, (1._wp + 0.05_wp*z1)*dz_dy 
+!              write(*, *) level, div_v_z(cell_index, level, blockNo), & 
+!                  & dz_dy + 0.1*z1*dz_dy
+!              write(*, *) level, div_v(cell_index, level, blockNo) , & 
+!                  & 0.05_wp*dz_dy
+
               z_adv_u_i(cell_index, level)%x(1) = z_adv_u_i(cell_index, level)%x(1)*coeff  
               z_adv_u_i(cell_index, level)%x(2) = z_adv_u_i(cell_index, level)%x(2)*coeff
               z_adv_u_i(cell_index, level)%x(3) = z_adv_u_i(cell_index, level)%x(3)*coeff
@@ -2149,7 +2167,7 @@ CONTAINS
               & dpvy_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v2 
           
           dk_dn    =  (ke1 - ke2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
-
+              
 !          !! Show that after vn and PTP(vn) are the same 
 !          write(*, *) level, ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block), & 
 !              & ptpvn(edge_index, level, edge_block) 
