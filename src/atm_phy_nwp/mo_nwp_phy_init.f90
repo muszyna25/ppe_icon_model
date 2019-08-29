@@ -52,7 +52,8 @@ MODULE mo_nwp_phy_init
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
-  USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw
+  USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw,&
+    &                               ighg, ghg_filename
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
@@ -123,6 +124,8 @@ MODULE mo_nwp_phy_init
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
     &                               timer_init_nwp_phy
+  USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
+    &                               bc_greenhouse_gases_file_read, ghg_co2mmr
 
   IMPLICIT NONE
 
@@ -1643,6 +1646,23 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   !
   CALL sugwd(nlev, pref, phy_params, jg )
   IF (linit_mode) prm_diag%ktop_envel(:,:) = nlev
+
+   ! read time-dependent boundary conditions from file
+
+    ! well mixed greenhouse gases, horizontally constant
+    IF (ighg > 0) THEN
+      ! read annual means
+
+!$OMP SINGLE
+      CALL read_bc_greenhouse_gases(ghg_filename)
+!$OMP END SINGLE
+
+      ! interpolate to the current date and time, placing the annual means at
+      ! the mid points of the current and preceding or following year, if the
+      ! current date is in the 1st or 2nd half of the year, respectively.
+      CALL bc_greenhouse_gases_time_interpolation(ini_date) 
+      
+    ENDIF
 
   IF (timers_level > 3) CALL timer_stop(timer_init_nwp_phy)
 

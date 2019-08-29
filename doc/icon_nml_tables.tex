@@ -3201,6 +3201,14 @@ file dict.latbc in run folder.
 & num\_prefetch\_proc=1
 \tabularnewline
 
+%\hline
+latbc\_contains\_qcqi&
+L &
+.TRUE. &
+&
+Set to .FALSE. if there is no qc, qi in latbc data.
+&
+\tabularnewline
 
 %\hline
 nretries&
@@ -6079,6 +6087,16 @@ I&
 Select dynamic greenhouse gases scenario (read from file)\\
 0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
 1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
+\tabularnewline
+
+%\hline
+ghg\_filename &
+C&
+bc\_greenhouse\_\newline gases.nc &
+&
+Time-depedent greenhouse gas data file
+&
+run\_nml/iforcing=2, 3 (ECHAM, NWP)
 \tabularnewline
 
 %\hline

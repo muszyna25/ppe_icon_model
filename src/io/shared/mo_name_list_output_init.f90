@@ -18,7 +18,7 @@
 !!
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double
 
   ! constants and global settings
   USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
@@ -2563,7 +2563,7 @@ CONTAINS
         of%cdiLonLatGridID = curvilinearGridID
 
         CALL gridDefParamRLL(cdiLonLatGridID, lonlat%grid%north_pole(1), &
-          &                  lonlat%grid%north_pole(2), lonlat%grid%north_pole(1))
+          &                  lonlat%grid%north_pole(2), 0._c_double)
       END IF
 
       CALL gridDefXsize(cdiLonLatGridID, ll_dim1)

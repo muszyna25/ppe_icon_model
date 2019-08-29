@@ -180,6 +180,8 @@ CONTAINS
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
+    LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
     LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -269,9 +271,11 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg)  = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)  = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_smi(jg) = is_variable_in_output(first_output_name_list, var_name="smi")
+        l_rh(jg)   = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg)   = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_sdi2(jg) = is_variable_in_output(first_output_name_list, var_name="sdi2")
+        l_lpi(jg)  = is_variable_in_output(first_output_name_list, var_name="lpi")
+        l_smi(jg)  = is_variable_in_output(first_output_name_list, var_name="smi")
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
         ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
@@ -291,7 +295,7 @@ CONTAINS
     END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi )
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
