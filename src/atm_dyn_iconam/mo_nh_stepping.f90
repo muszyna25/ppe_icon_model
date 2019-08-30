@@ -1392,6 +1392,10 @@ MODULE mo_nh_stepping
             &                         jstep_adv(jg)%marchuk_order  )  !in
         ENDIF
 
+#ifdef _OPENACC
+        i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
+
         ! Diagnose some velocity-related quantities for the tracer
         ! transport scheme
         CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &! in
@@ -1415,11 +1419,6 @@ MODULE mo_nh_stepping
           &                  p_nh_state(jg)%metrics,        &
           &                  p_nh_state(jg)%prog(nnew(jg)), &
           &                  p_nh_state(jg)%diag, itlev = 2)
-
-
-#ifdef _OPENACC
-        i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
 
 
         CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
@@ -2241,6 +2240,7 @@ MODULE mo_nh_stepping
       ENDIF
 
       IF (llast .OR. advection_config(jg)%lfull_comp) &
+
         CALL prepare_tracer( p_patch, p_nh_state%prog(nnow(jg)),        &! in
           &                  p_nh_state%prog(nnew(jg)),                 &! in
           &                  p_nh_state%metrics, p_int_state,           &! in

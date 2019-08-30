@@ -54,11 +54,15 @@ MODULE mo_nh_feedback
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_radar_data_types,    ONLY: t_lhn_diag
   USE mo_fortran_tools,       ONLY: t_ptr_3d
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
   PRIVATE
 
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
 
   PUBLIC :: feedback, relax_feedback, lhn_feedback
 
@@ -1046,7 +1050,15 @@ CONTAINS
     ! for collecting all tracer fields which undergo feedback and thus
     ! require synchronization
     TYPE(t_ptr_3d) :: tracer_ptr(advection_config(jg)%trFeedback%len)
+
+    LOGICAL :: use_acc
     !-----------------------------------------------------------------------
+
+#ifdef _OPENACC
+    use_acc = acc_on ! .AND. i_am_accel_node
+#else
+    use_acc = .FALSE.
+#endif
 
     ! write(0,*) "n_dom_start,n_dom, jg, jgp=", n_dom_start, n_dom, jg, jgp
     IF (msg_level >= 10) THEN
@@ -1152,6 +1164,15 @@ CONTAINS
       diff_vn  = 0._wp
     ENDIF
 
+!$ACC DATA CREATE( feedback_rho, feedback_thv, feedback_vn, feedback_w, feedback_rhoqx,                     &
+!$ACC              parent_rho, parent_thv, parent_w, diff_rho, diff_thv, diff_w, parent_rhoqx,              &
+!$ACC              parent_vn, diff_vn, rho_parent_sv, rot_diff_vn, div_diff_vn, theta_v_pr, z_fbk_rho ),    &
+!$ACC     PRESENT( p_nh_state(jg), p_nh_state(jgp), p_int, p_grf, p_grfp, p_patch(jgp))                     &
+!$ACC      IF ( use_acc )
+
+!$ACC DATA CREATE(feedback_aero, parent_aero) PRESENT(prm_diagc%aerosol, prm_diagp%aerosol) , &
+!$ACC         IF ( use_acc .AND. iprog_aero >= 1 )
+
     ! 1. Feedback of child-domain variables to the parent grid
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -1167,6 +1188,8 @@ CONTAINS
       CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 
@@ -1175,6 +1198,7 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO
 !$OMP END DO
@@ -1188,6 +1212,8 @@ CONTAINS
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2), PRIVATE(z_rho_corr)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1230,6 +1256,7 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
 
       IF (ltransport) THEN ! tracer mass feedback
@@ -1244,6 +1271,8 @@ CONTAINS
         DO nt = 1, trFeedback%len
           jt = trFeedback%list(nt)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
@@ -1260,11 +1289,14 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDDO
       ENDIF
 
       IF (PRESENT(prm_diag) .AND. ltransport .AND. iprog_aero >= 1) THEN
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1280,6 +1312,7 @@ CONTAINS
               prm_diagc%aerosol(iccidx(jc,jb,4),jt,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
       ENDIF
 
     ENDDO
@@ -1296,7 +1329,8 @@ CONTAINS
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
-
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1311,6 +1345,7 @@ CONTAINS
             p_child_prog%vn(iceidx(je,jb,2),jk,iceblk(je,jb,2))*p_fbkwgt_e(je,jb,2)
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO
 !$OMP END DO NOWAIT
@@ -1375,31 +1410,34 @@ CONTAINS
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-      diff_vn (:,:,jb) = 0._wp
-
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
+!$ACC PARALLEL IF( use_acc )
 #ifdef __LOOP_EXCHANGE
+!$ACC LOOP GANG
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
+!$ACC LOOP VECTOR
 !DIR$ IVDEP
           DO jk = 1, nlev_c
+            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk+js,jb)
+          ENDDO
+        ELSE
+!$ACC KERNELS
+          diff_vn(je,1:nlev_c,jb) = 0._wp
+!$ACC END KERNELS
+        ENDIF
+      ENDDO
 #else
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO je = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
-#endif
-            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk+js,jb)
-
-#ifdef __LOOP_EXCHANGE
-          ENDDO
-        ENDIF
-#else
-          ENDIF
+          diff_vn(je,jk,jb) = MERGE(p_fbk_vn(je,jk,jb)-p_parent_prog%vn(je,jk+js,jb), 0._wp, &
+                                    p_grfp%mask_ovlp_e(je,jb,i_chidx) )
         ENDDO
-#endif
       ENDDO
-
+#endif
+!$ACC END PARALLEL
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1431,6 +1469,8 @@ CONTAINS
 
       CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int-1)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jv = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
@@ -1457,6 +1497,7 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
+!$ACC END PARALLEL
     ENDDO
 !$OMP END DO
 
@@ -1468,6 +1509,8 @@ CONTAINS
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell_int-1)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
@@ -1491,6 +1534,7 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
+!$ACC END PARALLEL
     ENDDO
 !$OMP END DO
 
@@ -1502,6 +1546,8 @@ CONTAINS
 
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
@@ -1534,8 +1580,11 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
+!$ACC END PARALLEL
 
       ! 2b. Execute relaxation
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
@@ -1557,6 +1606,8 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
+!$ACC END PARALLEL
+
     ENDDO
 !$OMP END DO
 
@@ -1572,6 +1623,8 @@ CONTAINS
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
 
       ! Compute differences between feedback fields and corresponding parent fields
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1601,10 +1654,12 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
-
+!$ACC END PARALLEL
 
 
       ! Relaxation of dynamical variables
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1641,8 +1696,7 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
-
-
+!$ACC END PARALLEL
 
 
       ! Relaxation of tracer variables
@@ -1659,6 +1713,8 @@ CONTAINS
 #else
         DO nt = 1, trFeedback%len
           jt = trFeedback%list(nt)
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = nshift+nst_fbk, nlev_p
             DO jc = i_startidx,i_endidx
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1677,11 +1733,14 @@ CONTAINS
               ENDIF
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 #endif
         ENDDO
 
         IF (PRESENT(prm_diag) .AND. iprog_aero >= 1) THEN
 
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jt = 1, nclass_aero
             DO jc = i_startidx,i_endidx
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1690,6 +1749,7 @@ CONTAINS
               ENDIF
             ENDDO
           ENDDO
+!$ACC END PARALLEL
 
         ENDIF  ! iprog_aero
       ENDIF  ! ltransport
@@ -1733,6 +1793,8 @@ CONTAINS
     ENDIF
 
     ! Recomputation of exner on halo points (saves communication of one field)
+!$ACC PARALLEL IF( use_acc )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
       jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
@@ -1752,7 +1814,10 @@ CONTAINS
 
       ENDDO
     ENDDO
+!$ACC END PARALLEL
 
+!$ACC END DATA
+!$ACC END DATA
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
     IF (ltransport) DEALLOCATE(feedback_rhoqx)

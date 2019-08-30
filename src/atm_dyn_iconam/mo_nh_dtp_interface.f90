@@ -62,7 +62,7 @@ MODULE mo_nh_dtp_interface
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -83,6 +83,8 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-05-06)
   !! - removed rho_ic which became obsolete after removing the second order
   !!   MUSCL scheme for vertical transport
+  !! Modification by William Sawyer, CSCS (2019-07-08)
+  !! - OpenACC implementation
   !!
   SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,         &!in
     &                        ndyn_substeps, lstep_advphy, lclean_mflx,        &!in
@@ -129,6 +131,7 @@ CONTAINS
 
     TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
   !--------------------------------------------------------------------------
+
     IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
 
     ! number of vertical levels
@@ -151,6 +154,11 @@ CONTAINS
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
+
+!$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra, iqidx, iqblk, trAdvect ) &
+!$ACC      CREATE( z_mass_flx_me, z_topflx_tra ) IF ( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
+!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !!$    ! The full set of setup computations is NOT executed in prepare_tracer 
 !!$    ! when the tracer advection is running together with the dynmical core 
@@ -197,10 +205,14 @@ CONTAINS
 
         ! reset mass fluxes and trajectory-velocities to start new integration sweep
         IF (lclean_mflx) THEN
+!$ACC KERNELS DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
           p_vn_traj    (:,:,jb) = 0._wp
           p_mass_flx_me(:,:,jb) = 0._wp
+!$ACC END KERNELS
         ENDIF
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1,nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -221,6 +233,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
       ENDDO
 !$OMP END DO NOWAIT
     ENDIF
@@ -247,9 +260,13 @@ CONTAINS
 
         ! reset mass fluxes and trajectory-velocities to start new integration sweep
         IF (lclean_mflx) THEN
+!$ACC KERNELS DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
           p_mass_flx_ic(:,:,jb) = 0._wp
+!$ACC END KERNELS
         ENDIF
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlevp1
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -266,6 +283,8 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
+
       ENDDO
 !$OMP END DO
     ENDIF
@@ -303,6 +322,8 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_e, i_rlend_e )
 
         IF (idiv_method == 1) THEN
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
 
@@ -311,7 +332,10 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ELSE ! use averaged mass fluxes for approximate consistency with averaged divergence
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
             DO jk = 1, nlev
@@ -332,6 +356,7 @@ CONTAINS
 
             ENDDO
           ENDDO
+!$ACC END PARALLEL
         ENDIF
       ENDDO
 !$OMP END DO NOWAIT
@@ -345,6 +370,8 @@ CONTAINS
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlevp1
           DO jc = i_startidx, i_endidx
 
@@ -352,7 +379,7 @@ CONTAINS
 
           ENDDO
         ENDDO
-
+!$ACC END PARALLEL
       ENDDO
 !$OMP END DO
 
@@ -371,6 +398,8 @@ CONTAINS
         CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_e, i_rlend_e )
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev
@@ -388,6 +417,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+!$ACC END PARALLEL
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -414,19 +444,22 @@ CONTAINS
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO nt = 1, trAdvect%len ! Tracer loop
-
-          jt = trAdvect%list(nt)
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
+            jt = trAdvect%list(nt)
             z_topflx_tra(jc,jt,jb) = p_nh_diag%q_ubc(jc,jb,jt)           &
               &                    * p_mass_flx_ic(jc,1,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
       ENDDO
 !$OMP END PARALLEL DO
 
-      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra)
+      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra,&
+                                 opt_varname = 'prepare_tracer: p_mass_flx_ic and z_topflx_tra')
 
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
@@ -436,24 +469,31 @@ CONTAINS
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
 
+!$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO nt = 1, trAdvect%len ! Tracer loop
-
-          jt = trAdvect%list(nt)
-
           DO jc = i_startidx, i_endidx
+            jt = trAdvect%list(nt)
             p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
           ENDDO
         ENDDO
+!$ACC END PARALLEL
       ENDDO
 !$OMP END PARALLEL DO
 
     ELSE IF (lstep_advphy) THEN               ! no vertical nesting
 
+!$ACC KERNELS DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
       p_topflx_tra(:,:,:) = 0._wp
-      CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
+!$ACC END KERNELS
+      CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic, opt_varname='prepare_tracer: p_mass_flux_ic')
 
     ENDIF
 
+!$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra ) &
+!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
+!$ACC END DATA
 
     IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
@@ -499,9 +539,12 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-!$ACC DATA PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PRESENT( p_prog%rho, p_metrics%ddqz_z_full, p_nh_diag%airmass_now, p_nh_diag%airmass_new ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
 
-!TODO: add debugging mode
+!$ACC UPDATE DEVICE( p_prog%rho, p_metrics%ddqz_z_full ),                                              &
+!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -511,11 +554,10 @@ CONTAINS
          &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
        IF (itlev == 1) THEN
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-         !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = 1, nlev
 !DIR$ IVDEP
-           !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
              p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
                &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
@@ -523,11 +565,10 @@ CONTAINS
          ENDDO  ! jk
 !$ACC END PARALLEL
        ELSE !  itlev = 2
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-         !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = 1, nlev
 !DIR$ IVDEP
-           !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
              p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
                &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
@@ -535,11 +576,10 @@ CONTAINS
          ENDDO  ! jk
 !$ACC END PARALLEL
          IF (is_iau_active) THEN ! Correct 'old' air mass for IAU density increments
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-           !$ACC LOOP GANG
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
            DO jk = 1, nlev
 !DIR$ IVDEP
-             !$ACC LOOP VECTOR
              DO jc= i_startidx, i_endidx
                p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_now(jc,jk,jb) + &
                  iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb) * &
@@ -554,7 +594,8 @@ CONTAINS
 !$OMP ENDDO NOWAIT
 !$OMP END PARALLEL
 
-!TODO: add debugging mode
+!$ACC UPDATE HOST( p_nh_diag%airmass_now ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( p_nh_diag%airmass_new ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate .AND. (itlev==2) )
 
 !$ACC END DATA
 
