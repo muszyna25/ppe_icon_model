@@ -641,10 +641,6 @@ CONTAINS
     CALL hines_wind ( v_alpha,                                     &
       &               vel_u, vel_v, naz,                           &
       &               il1, il2, lev1, lev2, nlons, nlevs, nazmth )
-
-    ! DA: TODO check if this is possible to remove
-    !$ACC WAIT
-
     !
     !  calculate cutoff vertical wavenumber and velocity variances.
     !
@@ -680,7 +676,6 @@ CONTAINS
        CALL vert_smooth ( sigma_t, smoothr2, smco, nsmax,      &
          &                il1, il2, lev1, lev2, nlons, nlevs )
 
-    !$acc wait
     END IF
     !
     !  calculate zonal and meridional components of the
@@ -726,6 +721,8 @@ CONTAINS
          &  nazmth, losigma_t )
     END IF
 
+
+    !$ACC WAIT
     !$ACC END DATA
 
     !  finished.
@@ -1175,8 +1172,6 @@ CONTAINS
        !
     END DO
 
-
-    !$ACC WAIT
     !$ACC END DATA
     !
     !-----------------------------------------------------------------------
@@ -1367,15 +1362,13 @@ CONTAINS
     !
     lev1p = lev1 + 1
     lev2p = lev2 + 1
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO k = 1, nazmth
-      !$ACC LOOP GANG VECTOR
       DO i = il1,il2
         ak_k_alpha(i,k) = ak_alpha(i,k)*k_alpha(i,k)
       END DO
     END DO
-    !$ACC END PARALLEL
     !
     !  for case where slope = 1.:
     !
@@ -1384,7 +1377,7 @@ CONTAINS
        !  case with 4 azimuths.
        !
        IF (naz==4)  THEN
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO l = lev1,lev2
              !$ACC LOOP GANG VECTOR
@@ -1403,7 +1396,7 @@ CONTAINS
        !  case with 8 azimuths.
        !
        IF (naz==8)  THEN
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO l = lev1,lev2
              !$ACC LOOP SEQ
@@ -1432,7 +1425,7 @@ CONTAINS
        !  case with 4 azimuths.
        !
        IF (naz==4)  THEN
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO l = lev1,lev2
              !$ACC LOOP GANG VECTOR
@@ -1451,7 +1444,7 @@ CONTAINS
        !  case with 8 azimuths.
        !
        IF (naz==8)  THEN
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO l = lev1,lev2
              !$ACC LOOP SEQ
@@ -1480,7 +1473,7 @@ CONTAINS
     !  for case where slope = 1.:
     !
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO l = lev1,lev2
           !$ACC LOOP GANG VECTOR
@@ -1503,13 +1496,12 @@ CONTAINS
     !
     ELSE
        inv_slope = 1._wp / slope
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR
+       !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
        DO i = il1, il2
          densb_slope(i) = densb(i) * inv_slope
        END DO
-       !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO l = lev1,lev2
           !$ACC LOOP GANG VECTOR
@@ -1530,11 +1522,9 @@ CONTAINS
     !
     !  calculate drag at intermediate levels
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO l = lev1p,lev2
 !IBM* NOVECTOR
-       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
              drag_u(i,l) = - ( flux_u(i,l-1) - flux_u(i,l) ) / mair(i,l)
@@ -1542,31 +1532,27 @@ CONTAINS
           ENDIF
        END DO
     END DO
-    !$ACC END PARALLEL
     !
     !  drag at first and last levels using one-side differences.
     !
 !IBM* NOVECTOR
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO i = il1,il2
        IF (lorms(i)) THEN
           drag_u(i,lev1) =  flux_u(i,lev1)  / mair(i,lev1)
           drag_v(i,lev1) =  flux_v(i,lev1)  / mair(i,lev1)
        ENDIF
     END DO
-    !$ACC END PARALLEL
+
     IF (nlevs > lev2) THEN
 !IBM* NOVECTOR
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR
+       !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
        DO i = il1,il2
           IF (lorms(i)) THEN
              drag_u(i,lev2p) = - flux_u(i,lev2)  / mair(i,lev2p)
              drag_v(i,lev2p) = - flux_v(i,lev2)  / mair(i,lev2p)
           ENDIF
        END DO
-       !$ACC END PARALLEL
     ENDIF
 
     !$ACC END DATA
@@ -1648,10 +1634,8 @@ CONTAINS
 
     lev1p = lev1 + 1
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO l = lev1p,lev2
-       !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m )
        DO i = il1,il2
           IF (losigma_t(i,l) /= 0) THEN
              visc    = MAX ( visc_mol(i,l), visc_min )
@@ -1667,10 +1651,8 @@ CONTAINS
           ENDIF
        END DO
     END DO
-    !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m )
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO i = il1,il2
        IF (losigma_t(i,lev1) /= 0) THEN
           visc    = MAX ( visc_mol(i,lev1), visc_min )
@@ -1685,7 +1667,6 @@ CONTAINS
           END DO
        ENDIF
     END DO
-    !$ACC END PARALLEL
 
     !
     !  heating and diffusion.
@@ -1696,10 +1677,8 @@ CONTAINS
     !  that imposed by molecular viscosity (m_sub_m_mol).
     !
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO l = lev1,lev2
-       !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m, heatng )
        DO i = il1,il2
           IF (losigma_t(i,l) /= 0) THEN
              visc    = MAX ( visc_mol(i,l), visc_min )
@@ -1716,7 +1695,6 @@ CONTAINS
           ENDIF
        END DO
     END DO
-    !$ACC END PARALLEL
 
     !$ACC END DATA
 
@@ -1771,63 +1749,103 @@ CONTAINS
     !  calculate azimuthal rms velocity for the 4 azimuth case.
     !
     IF (naz==4)  THEN
+#ifndef _OPENACC
 !CDIR NODEP
-       !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
-       DO i = il1,il2
-          sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1)+sigsqh_alpha(i,lev,3)
-          sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2)+sigsqh_alpha(i,lev,4)
-#ifndef _OPENACC
-       END DO
-       DO i = il1,il2
+      DO i = il1,il2
+        sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1)+sigsqh_alpha(i,lev,3)
+        sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2)+sigsqh_alpha(i,lev,4)
+      END DO
+      DO i = il1,il2
+       sigma_alpha(i,lev,1) =  SQRT(sigma_alpha(i,lev,1))
+       sigma_alpha(i,lev,2) =  SQRT(sigma_alpha(i,lev,2))
+      END DO
+      DO i = il1,il2
+        sigma_alpha(i,lev,3) = sigma_alpha(i,lev,1)
+        sigma_alpha(i,lev,4) = sigma_alpha(i,lev,2)
+      END DO
+#else
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+      DO i = il1,il2
+        sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1)+sigsqh_alpha(i,lev,3)
+        sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2)+sigsqh_alpha(i,lev,4)
+
+        sigma_alpha(i,lev,1) =  SQRT(sigma_alpha(i,lev,1))
+        sigma_alpha(i,lev,2) =  SQRT(sigma_alpha(i,lev,2))
+
+        sigma_alpha(i,lev,3) = sigma_alpha(i,lev,1)
+        sigma_alpha(i,lev,4) = sigma_alpha(i,lev,2)
+
+        sigma_t(i,lev) = 0.0_wp
+        DO n = 1,naz
+          sigma_t(i,lev) = sigma_t(i,lev) + sigsqh_alpha(i,lev,n)
+        END DO
+        sigma_t(i,lev) = SQRT(sigma_t(i,lev))
+      END DO
 #endif
-         sigma_alpha(i,lev,1) =  SQRT(sigma_alpha(i,lev,1))
-         sigma_alpha(i,lev,2) =  SQRT(sigma_alpha(i,lev,2))
-#ifndef _OPENACC
-       END DO
-       DO i = il1,il2
-#endif
-          sigma_alpha(i,lev,3) = sigma_alpha(i,lev,1)
-          sigma_alpha(i,lev,4) = sigma_alpha(i,lev,2)
-       END DO
     END IF
     !
     !  calculate azimuthal rms velocity for the 8 azimuth case.
     !
     IF (naz==8)  THEN
+#ifndef _OPENACC
 !CDIR NODEP
-       !$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE( sum_odd, sum_even ) GANG VECTOR ASYNC(1)
-       DO i = il1,il2
-          sum_odd  = ( sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,3)            &
-            &        + sigsqh_alpha(i,lev,5) + sigsqh_alpha(i,lev,7) ) * 0.5_wp
-          sum_even = ( sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,4)            &
-            &        + sigsqh_alpha(i,lev,6) + sigsqh_alpha(i,lev,8) ) * 0.5_wp
-          sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,5) + sum_even
-          sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,6) + sum_odd
-          sigma_alpha(i,lev,3) = sigsqh_alpha(i,lev,3) + sigsqh_alpha(i,lev,7) + sum_even
-          sigma_alpha(i,lev,4) = sigsqh_alpha(i,lev,4) + sigsqh_alpha(i,lev,8) + sum_odd
-#ifndef _OPENACC
-       END DO
-       DO i = il1,il2
-#endif
-         sigma_alpha(i,lev,1) = SQRT(sigma_alpha(i,lev,1))
-         sigma_alpha(i,lev,2) = SQRT(sigma_alpha(i,lev,2))
-         sigma_alpha(i,lev,3) = SQRT(sigma_alpha(i,lev,3))
-         sigma_alpha(i,lev,4) = SQRT(sigma_alpha(i,lev,4))
-#ifndef _OPENACC
-       END DO
-       DO i = il1,il2
-#endif
-          sigma_alpha(i,lev,5) = sigma_alpha(i,lev,1)
-          sigma_alpha(i,lev,6) = sigma_alpha(i,lev,2)
-          sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
-          sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
-       END DO
+      DO i = il1,il2
+        sum_odd  = ( sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,3)            &
+          &        + sigsqh_alpha(i,lev,5) + sigsqh_alpha(i,lev,7) ) * 0.5_wp
+        sum_even = ( sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,4)            &
+          &        + sigsqh_alpha(i,lev,6) + sigsqh_alpha(i,lev,8) ) * 0.5_wp
+        sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,5) + sum_even
+        sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,6) + sum_odd
+        sigma_alpha(i,lev,3) = sigsqh_alpha(i,lev,3) + sigsqh_alpha(i,lev,7) + sum_even
+        sigma_alpha(i,lev,4) = sigsqh_alpha(i,lev,4) + sigsqh_alpha(i,lev,8) + sum_odd
+      END DO
+      DO i = il1,il2
+       sigma_alpha(i,lev,1) = SQRT(sigma_alpha(i,lev,1))
+       sigma_alpha(i,lev,2) = SQRT(sigma_alpha(i,lev,2))
+       sigma_alpha(i,lev,3) = SQRT(sigma_alpha(i,lev,3))
+       sigma_alpha(i,lev,4) = SQRT(sigma_alpha(i,lev,4))
+      END DO
+      DO i = il1,il2
+        sigma_alpha(i,lev,5) = sigma_alpha(i,lev,1)
+        sigma_alpha(i,lev,6) = sigma_alpha(i,lev,2)
+        sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
+        sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
+      END DO
+ #else
+      !$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE( sum_odd, sum_even ) GANG VECTOR ASYNC(1)
+      DO i = il1,il2
+        sum_odd  = ( sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,3)            &
+          &        + sigsqh_alpha(i,lev,5) + sigsqh_alpha(i,lev,7) ) * 0.5_wp
+        sum_even = ( sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,4)            &
+          &        + sigsqh_alpha(i,lev,6) + sigsqh_alpha(i,lev,8) ) * 0.5_wp
+        sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,5) + sum_even
+        sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2) + sigsqh_alpha(i,lev,6) + sum_odd
+        sigma_alpha(i,lev,3) = sigsqh_alpha(i,lev,3) + sigsqh_alpha(i,lev,7) + sum_even
+        sigma_alpha(i,lev,4) = sigsqh_alpha(i,lev,4) + sigsqh_alpha(i,lev,8) + sum_odd
+
+        sigma_alpha(i,lev,1) = SQRT(sigma_alpha(i,lev,1))
+        sigma_alpha(i,lev,2) = SQRT(sigma_alpha(i,lev,2))
+        sigma_alpha(i,lev,3) = SQRT(sigma_alpha(i,lev,3))
+        sigma_alpha(i,lev,4) = SQRT(sigma_alpha(i,lev,4))
+
+        sigma_alpha(i,lev,5) = sigma_alpha(i,lev,1)
+        sigma_alpha(i,lev,6) = sigma_alpha(i,lev,2)
+        sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
+        sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
+
+        sigma_t(i,lev) = 0.0_wp
+        DO n = 1,naz
+          sigma_t(i,lev) = sigma_t(i,lev) + sigsqh_alpha(i,lev,n)
+        END DO
+        sigma_t(i,lev) = SQRT(sigma_t(i,lev))
+      END DO
+ #endif
     END IF
     !
     !  calculate total rms velocity.
     !
 
-    ! DA: TODO fuse all three next kernels with nz inner-most
+! DA: for OpenACC those loops are already fused into the previous one
 #ifndef _OPENACC
     DO i = il1,il2
        sigma_t(i,lev) = 0.0_wp
@@ -1840,15 +1858,6 @@ CONTAINS
     END DO
 
     DO i = il1, il2
-      sigma_t(i,lev) = SQRT(sigma_t(i,lev))
-    END DO
-#else
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
-    DO i = il1,il2
-      sigma_t(i,lev) = 0.0_wp
-      DO n = 1,naz
-        sigma_t(i,lev) = sigma_t(i,lev) + sigsqh_alpha(i,lev,n)
-      END DO
       sigma_t(i,lev) = SQRT(sigma_t(i,lev))
     END DO
 #endif
@@ -1960,8 +1969,6 @@ CONTAINS
     !  for integer value slope = 1.
     !
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
-
-      ! print *, "  case 1"
 
 #ifndef _OPENACC
        DO n = 1,naz
@@ -2137,8 +2144,6 @@ CONTAINS
     !  for integer value slope = 2.
     !
     IF ( ABS(slope-2.0_wp) < EPSILON(1.0_wp) )  THEN
-
-      print *, "  case 2"
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
           !$ACC PARALLEL DEFAULT(PRESENT)
@@ -2269,67 +2274,57 @@ CONTAINS
        ENDDO
        !$ACC END PARALLEL
     END IF
+
+
     !
     !  if integral is negative (which in principle should not happen) then
     !  print a message and some info since execution will abort when calculating
     !  the variances.
     !
+    nerror = 0
+    !$ACC PARALLEL LOOP DEFAULT(NONE) REDUCTION(+:nerror) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO n = 1,naz
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR
-       DO i = il1, il2
-          icond(i-il1+1) = INT(FSEL(i_alpha(i,n),0._wp,1._wp))
-       END DO
-       !$ACC END PARALLEL
-       IF (il2 >= il1) THEN  ! mpuetz: don't fuse with previous loop
-          nerror = 0
-          !$ACC UPDATE HOST( icond )
-          DO i = il1, il2
-             nerror = nerror + icond(i-il1+1)
-          END DO
-       END IF
-
-       IF (nerror > 0) THEN
-
-          ! find the first error and dump
-
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO i = il1, il2
-             IF (icond(i-il1+1) > 0) EXIT
-          END DO
-          !$ACC END PARALLEL
-          !$ACC UPDATE HOST( i_alpha, v_alpha, m_alpha, rbvfb )
-
-          WRITE (message_text,*) ' '
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '******************************'
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) 'hines integral i_alpha < 0 '
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  column i =',i
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  azimuth n=',n
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  levellev =',lev
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  i_alpha  =',i_alpha(i,n)
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  v_alpha  =',v_alpha(i,lev,n)
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  m_alpha  =',m_alpha(i,lev,n)
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  q_alpha  =',v_alpha(i,lev,n)*rbvfb(i)
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '  qm       =',v_alpha(i,lev,n)*rbvfb(i)*m_alpha(i,lev,n)
-          CALL message(TRIM(routine),message_text)
-          WRITE (message_text,*) '******************************'
-
-          CALL finish(TRIM(routine),'Hines i_alpha integral is negative')
-
-       END IF
-
+      DO i = il1, il2
+        IF ( i_alpha(i,n) < 0._wp ) nerror = nerror + 1
+      END DO
     END DO
+
+    IF (nerror > 0) THEN
+
+      !$ACC UPDATE HOST( i_alpha )
+OUTER:DO n = 1,naz
+        DO i = il1, il2
+          IF ( i_alpha(i,n) < 0._wp ) EXIT OUTER
+        END DO
+      END DO OUTER
+
+      WRITE (message_text,*) ' '
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '******************************'
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) 'hines integral i_alpha < 0 '
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  column i =',i
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  azimuth n=',n
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  levellev =',lev
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  i_alpha  =',i_alpha(i,n)
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  v_alpha  =',v_alpha(i,lev,n)
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  m_alpha  =',m_alpha(i,lev,n)
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  q_alpha  =',v_alpha(i,lev,n)*rbvfb(i)
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '  qm       =',v_alpha(i,lev,n)*rbvfb(i)*m_alpha(i,lev,n)
+      CALL message(TRIM(routine),message_text)
+      WRITE (message_text,*) '******************************'
+
+      CALL finish(TRIM(routine),'Hines i_alpha integral is negative')
+
+    END IF ! nerror
 
     !$ACC END DATA
     !
@@ -2495,7 +2490,7 @@ CONTAINS
     !
     !  data values at first level above alt_exp.
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO i = il1,il2
        !$ACC LOOP SEQ
@@ -2509,6 +2504,8 @@ CONTAINS
     !
     !  exponentially damp field above alt_exp to model top at l=1.
     !
+
+#ifndef _OPENACC
     DO l = 1,lev2
        nalt = 0
        !$ACC UPDATE HOST( alt(:,l) )
@@ -2542,6 +2539,18 @@ CONTAINS
        END DO
        !$ACC END PARALLEL
     END DO
+#else
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO l = 1,lev2
+      DO i = il1,il2
+        IF (alt(i,l) >= alt_exp)  THEN
+          vtmp_scal = (alt_exp-alt(i,l))/hscale
+          vtmp_scal = EXP(vtmp_scal)
+          darr(i,l) = data_zmax(i) * vtmp_scal
+        END IF
+      END DO
+    END DO
+#endif
 
     !$ACC END DATA
     !
