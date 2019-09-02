@@ -334,9 +334,8 @@ CONTAINS
           IF (jcs>jce) CYCLE
           !
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP GANG VECTOR
             DO jc = jcs, jce
               !
               pt_prog_new_rcf% tracer(jc,jk,jb,jt) =  pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
@@ -428,9 +427,8 @@ CONTAINS
       IF (jcs>jce) CYCLE
       !
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev
-        !$ACC LOOP GANG VECTOR
         DO jc = jcs, jce
           tend% ua(jc,jk,jb) = pt_diag% u   (jc,jk,jb)
           tend% va(jc,jk,jb) = pt_diag% v   (jc,jk,jb)
@@ -500,9 +498,8 @@ CONTAINS
       IF (jcs>jce) CYCLE
       !
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev
-        !$ACC LOOP GANG VECTOR
         DO jc = jcs, jce
           !
           ! Fill the time dependent physics state variables, which are used by echam:
@@ -599,9 +596,8 @@ CONTAINS
       !$ACC END PARALLEL
       !
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev+1
-        !$ACC LOOP GANG VECTOR
         DO jc = jcs, jce
           !
           field% presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
@@ -627,9 +623,8 @@ CONTAINS
         IF (jcs>jce) CYCLE
         !
         !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1,nlev
-          !$ACC LOOP GANG VECTOR
           DO jc = jcs, jce
             !
             ! Handling of negative tracer mass fractions resulting from dynamics
@@ -804,9 +799,8 @@ CONTAINS
 
     DO jb = 1, patch%nblks_c
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
-        !$ACC LOOP GANG VECTOR
         DO jc = 1, nproma
           zdudt(jc,jk,jb) = 0.0_wp
           zdvdt(jc,jk,jb) = 0.0_wp
@@ -823,9 +817,8 @@ CONTAINS
       IF (jcs>jce) CYCLE
       !
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
-        !$ACC LOOP GANG VECTOR
         DO jc = jcs, jce
           zdudt(jc,jk,jb) = tend% ua_phy(jc,jk,jb)
           zdvdt(jc,jk,jb) = tend% va_phy(jc,jk,jb)
@@ -853,9 +846,8 @@ CONTAINS
       IF (jes>jee) CYCLE
       !
       !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP SEQ
+      !$ACC LOOP GANG VECTOR PRIVATE( jcn, jbn, zvn1, zvn2 ) COLLAPSE(2)
       DO jk = 1,nlev
-        !$ACC LOOP GANG VECTOR PRIVATE( jcn, jbn, zvn1, zvn2 )
         DO je = jes,jee
           !
           jcn  =   patch%edges%cell_idx(je,jb,1)
@@ -918,9 +910,8 @@ CONTAINS
         IF (jes>jee) CYCLE
         !
         !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlev
-          !$ACC LOOP GANG VECTOR
           DO je = jes, jee
             !
             ! (1) Velocity
@@ -979,6 +970,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
                 &                            *field% mref(jc,jk,jb)
               !
               ! tracer path tendency
+              ! DA this guy prevents collapsing loops!!
+              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
               tend% mtrcvi_phy(jc,   jb,jt) = tend% mtrcvi_phy(jc,   jb,jt) &
                 &                            +tend% mtrc_phy  (jc,jk,jb,jt)
               !
@@ -1011,6 +1004,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
               END IF
               !
               ! new tracer path
+              ! DA this guy prevents collapsing loops!!
+              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
               field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
                 &                            +field% mtrc    (jc,jk,jb,jt)
               !
@@ -1080,6 +1075,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
             END IF
             !
             ! h2o path
+            ! DA these guys prevent collapsing loops!!
+            ! DA TODO: figure out how to best optimize that
             field% mh2ovi(jc,   jb) = field% mh2ovi(jc,   jb) &
                 &                    +field% mh2o  (jc,jk,jb)
             !
@@ -1113,9 +1110,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
           IF (jcs>jce) CYCLE
           !
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP GANG VECTOR
             DO jc = jcs, jce
               !
               ! new tracer mass fraction with respect to dry air
@@ -1164,9 +1160,8 @@ ENDIF
         IF (jcs>jce) CYCLE
         !
         !$ACC PARALLEL DEFAULT(PRESENT)
-        !$ACC LOOP SEQ
+        !$ACC LOOP GANG VECTOR PRIVATE( z_qsum, z_exner ) COLLAPSE(2)
         DO jk = 1,nlev
-          !$ACC LOOP GANG VECTOR PRIVATE( z_qsum, z_exner )
           DO jc = jcs, jce
             !
             ! Diagnose the total tendencies
