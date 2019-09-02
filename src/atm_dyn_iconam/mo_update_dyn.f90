@@ -30,6 +30,9 @@ MODULE mo_update_dyn
   USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int
   USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
+#ifdef _OPENACC
+  USE mo_mpi,                ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -38,6 +41,15 @@ MODULE mo_update_dyn
 
   PUBLIC  :: add_slowphys
 
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__NH_SUPERVISE_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
+#endif
 
 CONTAINS
 
@@ -77,6 +89,12 @@ CONTAINS
 
     i_nchdom = MAX(1,p_patch%n_childdom)
 
+!$ACC DATA PRESENT( p_nh )  IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE ( p_nh%prog(nnow)%exner, p_nh%prog(nnow)%vn,                           &
+!$ACC                 p_nh%diag%ddt_exner_phy, p_nh%diag%ddt_vn_phy, p_nh%prog(nnew)%rho ) &
+!$ACC        IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     rl_start = grf_bdywidth_c+1 
     rl_end   = min_rlcell_int 
@@ -90,6 +108,8 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
 
@@ -103,6 +123,7 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO
 !$OMP ENDDO NOWAIT
@@ -120,6 +141,8 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
 
@@ -129,6 +152,7 @@ CONTAINS
 
         ENDDO  ! je
       ENDDO  ! jk
+!$ACC END PARALLEL
 
     ENDDO  ! jb
 !$OMP ENDDO
@@ -136,8 +160,13 @@ CONTAINS
 
 
     ! Synchronize updated prognostic variables
-    CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner)
-    CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
+    CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner,opt_varname="prog(nnew)%exner")
+    CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn,opt_varname="prog(nnew)%vn")
+
+!$ACC UPDATE HOST( p_nh%prog(nnew)%exner, p_nh%prog(nnew)%vn, p_nh%prog(nnew)%theta_v ) &
+!$ACC        IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
+
+!$ACC END DATA
 
   END SUBROUTINE add_slowphys 
 

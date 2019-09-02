@@ -76,6 +76,7 @@ MODULE mo_nh_supervise
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .TRUE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -653,7 +654,7 @@ CONTAINS
     ! local variables
     REAL(wp) :: vn_aux(patch%edges%end_blk(min_rledge_int,MAX(1,patch%n_childdom)),patch%nlev)
     REAL(wp) :: w_aux (patch%cells%end_blk(min_rlcell_int,MAX(1,patch%n_childdom)),patch%nlevp1)
-    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2)
+    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2), vn_aux_tmp, w_aux_tmp
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
@@ -670,9 +671,10 @@ CONTAINS
     iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
     jg          = patch%id
 
-!$ACC DATA CREATE( vn_aux, w_aux ),                                   &
-!$ACC      COPYOUT( vn_aux_lev, w_aux_lev ),                          &
+!$ACC DATA PRESENT( vn, w ) COPYOUT( vn_aux, w_aux ) &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE ( vn, w ) IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
     IF (jg > 1 .OR. l_limited_area) THEN
 !$ACC KERNELS PRESENT( vn_aux, w_aux ), IF ( i_am_accel_node .AND. acc_on )
@@ -693,14 +695,15 @@ CONTAINS
                          grf_bdywidth_e+1, min_rledge_int)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG PRIVATE( vn_aux_tmp )
       DO jk = 1, patch%nlev
 #if defined( __INTEL_COMPILER ) || defined( _OPENACC )
-        vn_aux(jb,jk) = 0._wp
-        !$ACC LOOP VECTOR
+        vn_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:vn_aux_tmp)
         DO jec = i_startidx,i_endidx
-          vn_aux(jb,jk) = MAX(vn_aux(jb,jk), -vn(jec,jk,jb), vn(jec,jk,jb))
+          vn_aux_tmp = MAX(vn_aux_tmp, -vn(jec,jk,jb), vn(jec,jk,jb))
         ENDDO
+        vn_aux(jb,jk) = vn_aux_tmp
 #else
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
 #endif
@@ -720,14 +723,15 @@ CONTAINS
                          grf_bdywidth_c+1, min_rlcell_int)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG PRIVATE( w_aux_tmp )
       DO jk = 1, patch%nlevp1
 #if defined( __INTEL_COMPILER ) || defined( _OPENACC )
-        w_aux(jb,jk) = 0._wp
-        !$ACC LOOP VECTOR
+        w_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:w_aux_tmp)
         DO jec = i_startidx,i_endidx
-          w_aux(jb,jk) = MAX(w_aux(jb,jk), -w(jec,jk,jb), w(jec,jk,jb))
+          w_aux_tmp = MAX(w_aux_tmp, -w(jec,jk,jb), w(jec,jk,jb))
         ENDDO
+        w_aux(jb,jk) = w_aux_tmp
 #else
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
 #endif
@@ -736,25 +740,24 @@ CONTAINS
     END DO
 !$OMP END DO
 
+!$ACC END DATA
+
+! At this point vn_aux and w_aux reside on the host.  
+! Avoid doing MAXVAL with OpenACC -- this is not well supported!
+
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG
     DO jk = 1, patch%nlev
       vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
       w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
     END DO
-!$ACC END PARALLEL
 
 !$OMP END DO
 !$OMP END PARALLEL
 
     ! Add surface level for w
     jk = patch%nlevp1
-!$ACC KERNELS PRESENT( w_aux, w_aux_lev ), IF ( i_am_accel_node .AND. acc_on )
     w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
-!$ACC END KERNELS
-!$ACC END DATA
 
     !--- Get max over all PEs
     vmax(1)   = MAXVAL(vn_aux_lev(:))

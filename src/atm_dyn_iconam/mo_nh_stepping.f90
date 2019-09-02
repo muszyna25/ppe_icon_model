@@ -273,6 +273,10 @@ MODULE mo_nh_stepping
 
   IF (timers_level > 3) CALL timer_start(timer_model_init)
 
+#if defined(MESSY) && defined(_OPENACC)
+   CALL finish (routine, 'MESSY:  OpenACC version currently not implemented')
+#endif
+
   CALL allocate_nh_stepping (mtime_current)
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
@@ -844,7 +848,14 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
@@ -1282,6 +1293,9 @@ MODULE mo_nh_stepping
 
 
       IF (ifeedback_type == 1 .AND. (jstep == 1) .AND. jg > 1 ) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'FEEDBACK (nesting): OpenACC version currently not implemented')
+#endif
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)
@@ -1313,6 +1327,9 @@ MODULE mo_nh_stepping
 
       IF ( p_patch(jg)%n_childdom > 0 .AND. ndyn_substeps_var(jg) > 1) THEN
 
+#ifdef _OPENACC
+          CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
+#endif
         lbdy_nudging = .FALSE.
         lnest_active = .FALSE.
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1382,6 +1399,9 @@ MODULE mo_nh_stepping
 
         ! Update nh-testcases
         IF (ltestcase_update) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'nh_testcase_interface: OpenACC version currently not implemented')
+#endif
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
@@ -1391,10 +1411,6 @@ MODULE mo_nh_stepping
             &                         p_int_state(jg),             &  !in
             &                         jstep_adv(jg)%marchuk_order  )  !in
         ENDIF
-
-#ifdef _OPENACC
-        i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
 
         ! Diagnose some velocity-related quantities for the tracer
         ! transport scheme
@@ -1439,11 +1455,6 @@ MODULE mo_nh_stepping
           &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
           &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
 
-#ifdef _OPENACC
-        i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
-
 #ifdef MESSY
         CALL main_tracer_afteradv
 #endif
@@ -1456,6 +1467,9 @@ MODULE mo_nh_stepping
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
         IF ( iforcing == iheldsuarez) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'held_suarez_nh_interface: OpenACC version currently not implemented')
+#endif
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
@@ -1468,14 +1482,10 @@ MODULE mo_nh_stepping
         ! ndyn_substeps (for bit-reproducibility).
         IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
-#ifdef _OPENACC
-          i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
+
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
-#ifdef _OPENACC
-          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
+
         ENDIF
 
         IF (itype_comm == 1) THEN
@@ -1489,20 +1499,11 @@ MODULE mo_nh_stepping
 
             ! diffusion at physics time steps
             !
-#ifdef _OPENACC
-            i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
-
-#ifdef _OPENACC
-            i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
-
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
@@ -1521,6 +1522,9 @@ MODULE mo_nh_stepping
         IF ( ltransport) THEN
 
           IF (lart) THEN
+#ifdef _OPENACC
+            CALL finish (routine, 'art_emission_interface: OpenACC version currently not implemented')
+#endif
             CALL art_emission_interface(                       &
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
@@ -1540,10 +1544,6 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
-#ifdef _OPENACC
-          i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
-
           CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1562,12 +1562,11 @@ MODULE mo_nh_stepping
             &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
 
-#ifdef _OPENACC
-          i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
           IF (iprog_aero >= 1) THEN
             
+#ifdef _OPENACC
+            CALL finish (routine, 'aerosol_2D_advection: OpenACC version currently not implemented')
+#endif
             CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), iprog_aero, & !in
               &          dt_loc, prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,       & !in, inout, in
               &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,       & !in
@@ -1581,6 +1580,9 @@ MODULE mo_nh_stepping
         !     Optional internal substepping with nart_substeps_sedi
         !-----------------------
           IF (lart) THEN
+#ifdef _OPENACC
+            CALL finish (routine, 'art_sedi_interface: OpenACC version currently not implemented')
+#endif
             CALL art_sedi_interface( p_patch(jg),             &!in
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
@@ -1599,10 +1601,12 @@ MODULE mo_nh_stepping
 #endif
 
 
-
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 ) THEN
 
+#ifdef _OPENACC
+          CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
+#endif
           IF (lfeedback(jg) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
             IF (ltimer)            CALL timer_start(timer_nesting)
             IF (timers_level >= 2) CALL timer_start(timer_nudging)
@@ -1624,6 +1628,9 @@ MODULE mo_nh_stepping
           ! Determine which physics packages must be called/not called at the current
           ! time step
           IF ( iforcing==inwp ) THEN
+#ifdef _OPENACC
+            CALL finish (routine, 'NWP: OpenACC version currently not implemented')
+#endif
             CALL mtime_ctrl_physics(phyProcs      = atm_phy_nwp_config(jg)%phyProcs,    & !in
               &                     mtime_current = datetime_local(jg)%ptr,             & !in
               &                     isInit        = .FALSE.,                            & !in
@@ -1632,6 +1639,9 @@ MODULE mo_nh_stepping
 
           IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
+#ifdef _OPENACC
+            CALL finish (routine, 'les_phy_interface: OpenACC version currently not implemented')
+#endif
             ! les physics
             CALL les_phy_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
               &                  .FALSE.,                            & !in
@@ -1663,6 +1673,9 @@ MODULE mo_nh_stepping
 
             CASE (inwp) ! iforcing
 
+#ifdef _OPENACC
+              CALL finish (routine, 'nwp_nh_interface: OpenACC version currently not implemented')
+#endif
               ! nwp physics
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
                 &                  .FALSE.,                            & !in
@@ -1716,6 +1729,9 @@ MODULE mo_nh_stepping
           IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
           DO jn = 1, p_patch(jg)%n_childdom
 
+#ifdef _OPENACC
+            CALL finish (routine, 'CHILD DOMAINS: OpenACC version currently not implemented')
+#endif
             jgc = p_patch(jg)%child_id(jn)
             IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
@@ -1760,6 +1776,9 @@ MODULE mo_nh_stepping
         ! since the initialization is done in init_nh_testcase. However, 
         ! nothing speaks against combining toy chemistry with real case runs.
         IF (ltestcase .AND. is_toy_chem) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'dcmip_terminator_interface: OpenACC version currently not implemented')
+#endif
           CALL dcmip_terminator_interface (p_patch(jg),            & !in
             &                              p_nh_state(jg)%metrics, & !in
             &                              p_nh_state(jg)%prog,    & !inout
@@ -1770,6 +1789,9 @@ MODULE mo_nh_stepping
 
         ! Update nh-testcases
         IF (ltestcase_update) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'nh_testcase_interface: OpenACC version currently not implemented')
+#endif
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
@@ -1789,6 +1811,9 @@ MODULE mo_nh_stepping
 
       ! Update nudging tendency fields for limited-area mode
       IF (jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging)) THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'NUDGING: OpenACC version currently not implemented')
+#endif
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
@@ -1828,6 +1853,9 @@ MODULE mo_nh_stepping
         
       ELSEIF (jg == 1 .AND. l_global_nudging) THEN
         
+#ifdef _OPENACC
+        CALL finish (routine, 'nudging_interface: OpenACC version currently not implemented')
+#endif
         ! Apply global nudging
         CALL nudging_interface( p_patch          = p_patch(jg),            & !in
           &                     p_nh_state       = p_nh_state(jg),         & !inout
@@ -1852,6 +1880,9 @@ MODULE mo_nh_stepping
       ! Check if at least one of the nested domains is active
       !
       IF (p_patch(jg)%n_childdom > 0) THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
+#endif
         lnest_active = .FALSE.
         DO jn = 1, p_patch(jg)%n_childdom
           jgc = p_patch(jg)%child_id(jn)
@@ -1862,6 +1893,9 @@ MODULE mo_nh_stepping
       ! If there are nested domains...
       IF (p_patch(jg)%n_childdom > 0 .AND. lnest_active ) THEN
 
+#ifdef _OPENACC
+        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
+#endif
 
         IF (ndyn_substeps_var(jg) == 1) THEN
           n_now_grf  = nnow(jg)
@@ -1978,6 +2012,9 @@ MODULE mo_nh_stepping
       ! Average atmospheric variables needed as first guess for data assimilation
       !
       IF ( jg == 1 .AND. is_avgFG_time(datetime_local(jg)%ptr))  THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'average_first_guess: OpenACC version currently not implemented')
+#endif
         CALL average_first_guess(p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag, &
           p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%prog(nnew_rcf(jg)))
       ENDIF
@@ -1998,6 +2035,9 @@ MODULE mo_nh_stepping
       ! Check if nested domains have to be activated
       IF ( p_patch(jg)%n_childdom > 0 ) THEN
 
+#ifdef _OPENACC
+        CALL finish (routine, 'NESTING: OpenACC version currently not implemented')
+#endif
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
           jgc = p_patch(jg)%child_id(jn)
@@ -2113,6 +2153,8 @@ MODULE mo_nh_stepping
 
     TYPE(datetime)      ,INTENT(IN)    :: mtime_current
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':perform_dyn_substepping'
+
     ! local variables
     INTEGER                  :: jg                ! domain ID
     INTEGER                  :: nstep             ! timestep counter
@@ -2187,6 +2229,9 @@ MODULE mo_nh_stepping
       ENDIF
 
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
+#ifdef _OPENACC
+        CALL finish (routine, 'IAU: OpenACC version currently not implemented')
+#endif
         time_diff  => newTimedelta("PT0S")
         time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
         cur_time = REAL(getTotalSecondsTimedelta(time_diff, mtime_current)                  &
@@ -2201,23 +2246,20 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
-#ifdef _OPENACC
-      i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
       IF (.NOT. ldeepatmo) THEN ! shallow atmosphere
         CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
           &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
           &           lsave_mflx, lprep_adv, lclean_mflx,             &
           &           nstep, ndyn_substeps_tot-1, dt_dyn)
       ELSE                      ! deep atmosphere
+#ifdef _OPENACC
+        CALL finish (routine, 'solve_nh_deepatmo: OpenACC version currently not implemented')
+#endif
         CALL solve_nh_deepatmo(p_nh_state, p_patch, p_int_state, prep_adv,      &
           &                    nnow(jg), nnew(jg), linit_dyn(jg), l_recompute,  &
           &                    lsave_mflx, lprep_adv, lclean_mflx,              &
           &                    nstep, ndyn_substeps_tot-1, dt_dyn)
       ENDIF
-#ifdef _OPENACC
-      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
@@ -2225,17 +2267,9 @@ MODULE mo_nh_stepping
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
       IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf) THEN
 
-#ifdef _OPENACC
-        i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
-         
         CALL diffusion(p_nh_state%prog(nnew(jg)), p_nh_state%diag, &
           &            p_nh_state%metrics, p_patch, p_int_state,   &
           &            dt_dyn, .FALSE.)
-
-#ifdef _OPENACC
-        i_am_accel_node = .FALSE.    ! Deactivate GPUs
-#endif
 
       ENDIF
 
@@ -2261,13 +2295,11 @@ MODULE mo_nh_stepping
 
     END DO SUBSTEPS
 
-
     ! compute airmass \rho*\Delta z [kg m-2] for nnew
     CALL compute_airmass(p_patch,                   &
       &                  p_nh_state%metrics,        &
       &                  p_nh_state%prog(nnew(jg)), &
       &                  p_nh_state%diag, itlev = 2)
-
 
   END SUBROUTINE perform_dyn_substepping
 

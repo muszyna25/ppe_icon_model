@@ -155,8 +155,9 @@ CONTAINS
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-!$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra, iqidx, iqblk, trAdvect ) &
-!$ACC      CREATE( z_mass_flx_me, z_topflx_tra ) IF ( i_am_accel_node .AND. acc_on )
+!$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra, iqidx, iqblk )           &
+!$ACC      COPYIN( trAdvect, trAdvect%list ) CREATE( z_mass_flx_me, z_topflx_tra )                  &
+!$ACC      IF ( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 

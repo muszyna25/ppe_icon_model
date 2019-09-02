@@ -70,9 +70,7 @@ CONTAINS
 ! Copy all data need on GPU from host to device
 !
 
-#ifndef _CRAYFTN
 !$ACC ENTER DATA COPYIN( p_int_states, p_patches, prep_advs ), IF ( i_am_accel_node  )
-#endif
 
     CALL transfer_int_state( p_int_states, .TRUE. )
 
@@ -101,9 +99,7 @@ CONTAINS
     CALL transfer_patch( p_patches, .FALSE. )
     CALL transfer_int_state( p_int_states, .FALSE. )
 
-#ifndef _CRAYFTN
 !$ACC EXIT DATA DELETE( prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
-#endif
 
   END SUBROUTINE d2h_icon
 
@@ -112,91 +108,12 @@ CONTAINS
     LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
     TYPE ( t_int_state ), TARGET,  INTENT(INOUT) :: p_int(:)
 
-#ifdef _CRAYFTN
-    INTEGER,  POINTER, DIMENSION(:,:)    :: h_lsq_dim_stencil, l_lsq_dim_stencil
-    INTEGER,  POINTER, DIMENSION(:,:,:)  :: h_lsq_idx_c, h_lsq_blk_c, l_lsq_idx_c, l_lsq_blk_c,           &
-                                            rbf_vec_idx_c, rbf_vec_blk_c, rbf_vec_idx_e, rbf_vec_blk_e,   &
-                                            rbf_vec_idx_v, rbf_vec_blk_v, rbf_c2grad_idx, rbf_c2grad_blk
-    REAL(wp), POINTER, DIMENSION(:,:)    :: nudgecoeff_e
-    REAL(wp), POINTER, DIMENSION(:,:,:)  :: c_bln_avg, c_lin_e, cells_aw_verts, e_bln_c_s, e_flx_avg,     &
-                                            geofac_div, geofac_grdiv, geofac_n2s, geofac_qdiv, geofac_rot,&
-                                            h_lsq_moments, h_lsq_rmat_utri_c, h_lsq_weights_c,            &
-                                            l_lsq_moments, l_lsq_rmat_utri_c, l_lsq_weights_c,            &
-                                            rbf_vec_coeff_e
-    REAL(wp), POINTER, DIMENSION(:,:,:,:):: geofac_grg, h_lsq_moments_hat, h_lsq_pseudoinv, h_lsq_qtmat_c,&
-                                            l_lsq_moments_hat, l_lsq_pseudoinv, l_lsq_qtmat_c,            &
-                                            pos_on_tplane_e, rbf_vec_coeff_c, rbf_vec_coeff_v,            &
-                                            rbf_c2grad_coeff
-#endif
     INTEGER  :: j
 
     DO j=1, SIZE(p_int)
 
-#ifdef _CRAYFTN
-
-      c_bln_avg                            => p_int(j)%c_bln_avg
-      c_lin_e                              => p_int(j)%c_lin_e
-      cells_aw_verts                       => p_int(j)%cells_aw_verts
-      e_bln_c_s                            => p_int(j)%e_bln_c_s
-      e_flx_avg                            => p_int(j)%e_flx_avg
-      geofac_div                           => p_int(j)%geofac_div
-      geofac_grdiv                         => p_int(j)%geofac_grdiv
-      geofac_grg                           => p_int(j)%geofac_grg
-      geofac_n2s                           => p_int(j)%geofac_n2s
-      geofac_qdiv                          => p_int(j)%geofac_qdiv
-      geofac_rot                           => p_int(j)%geofac_rot
-      h_lsq_blk_c                          => p_int(j)%lsq_high%lsq_blk_c
-      h_lsq_dim_stencil                    => p_int(j)%lsq_high%lsq_dim_stencil
-      h_lsq_idx_c                          => p_int(j)%lsq_high%lsq_idx_c
-      h_lsq_moments                        => p_int(j)%lsq_high%lsq_moments
-      h_lsq_moments_hat                    => p_int(j)%lsq_high%lsq_moments_hat
-      h_lsq_pseudoinv                      => p_int(j)%lsq_high%lsq_pseudoinv
-      h_lsq_qtmat_c                        => p_int(j)%lsq_high%lsq_qtmat_c
-      h_lsq_rmat_utri_c                    => p_int(j)%lsq_high%lsq_rmat_utri_c
-      h_lsq_weights_c                      => p_int(j)%lsq_high%lsq_weights_c
-      l_lsq_blk_c                          => p_int(j)%lsq_lin%lsq_blk_c
-      l_lsq_dim_stencil                    => p_int(j)%lsq_lin%lsq_dim_stencil
-      l_lsq_idx_c                          => p_int(j)%lsq_lin%lsq_idx_c
-      l_lsq_moments                        => p_int(j)%lsq_lin%lsq_moments
-      l_lsq_moments_hat                    => p_int(j)%lsq_lin%lsq_moments_hat
-      l_lsq_pseudoinv                      => p_int(j)%lsq_lin%lsq_pseudoinv
-      l_lsq_qtmat_c                        => p_int(j)%lsq_lin%lsq_qtmat_c
-      l_lsq_rmat_utri_c                    => p_int(j)%lsq_lin%lsq_rmat_utri_c
-      l_lsq_weights_c                      => p_int(j)%lsq_lin%lsq_weights_c
-      nudgecoeff_e                         => p_int(j)%nudgecoeff_e
-      pos_on_tplane_e                      => p_int(j)%pos_on_tplane_e
-      rbf_c2grad_blk                       => p_int(j)%rbf_c2grad_blk
-      rbf_c2grad_idx                       => p_int(j)%rbf_c2grad_idx
-      rbf_c2grad_coeff                     => p_int(j)%rbf_c2grad_coeff
-      rbf_vec_blk_c                        => p_int(j)%rbf_vec_blk_c
-      rbf_vec_idx_c                        => p_int(j)%rbf_vec_idx_c
-      rbf_vec_coeff_c                      => p_int(j)%rbf_vec_coeff_c
-      rbf_vec_blk_e                        => p_int(j)%rbf_vec_blk_e
-      rbf_vec_idx_e                        => p_int(j)%rbf_vec_idx_e
-      rbf_vec_coeff_e                      => p_int(j)%rbf_vec_coeff_e
-      rbf_vec_blk_v                        => p_int(j)%rbf_vec_blk_v
-      rbf_vec_idx_v                        => p_int(j)%rbf_vec_idx_v
-      rbf_vec_coeff_v                      => p_int(j)%rbf_vec_coeff_v
-
-#endif
-
       IF ( host_to_device ) THEN
 
-#ifdef _CRAYFTN
-!$ACC ENTER DATA &
-!$ACC       COPYIN( c_bln_avg, c_lin_e, cells_aw_verts, e_bln_c_s, e_flx_avg,                  &
-!$ACC               geofac_div, geofac_grdiv, geofac_grg, geofac_n2s, geofac_qdiv, geofac_rot, &
-!$ACC               h_lsq_blk_c, h_lsq_dim_stencil, h_lsq_idx_c, h_lsq_moments,                &
-!$ACC               h_lsq_moments_hat, h_lsq_pseudoinv, h_lsq_qtmat_c, h_lsq_rmat_utri_c,      &
-!$ACC               h_lsq_weights_c, l_lsq_blk_c, l_lsq_dim_stencil, l_lsq_idx_c,              &
-!$ACC               l_lsq_moments, l_lsq_moments_hat, l_lsq_pseudoinv, l_lsq_qtmat_c,          &
-!$ACC               l_lsq_rmat_utri_c, l_lsq_weights_c, nudgecoeff_e, pos_on_tplane_e,         &
-!$ACC               rbf_c2grad_blk, rbf_c2grad_idx, rbf_c2grad_coeff,                          &
-!$ACC               rbf_vec_blk_c, rbf_vec_idx_c, rbf_vec_coeff_c,                             &
-!$ACC               rbf_vec_blk_e, rbf_vec_idx_e, rbf_vec_coeff_e,                             &
-!$ACC               rbf_vec_blk_v, rbf_vec_idx_v, rbf_vec_coeff_v ),                           &
-!$ACC       IF ( i_am_accel_node )
-#else
 !$ACC ENTER DATA &
 !$ACC       COPYIN( p_int(j)%lsq_high, p_int(j)%lsq_lin,                                         &
 !$ACC               p_int(j)%c_bln_avg, p_int(j)%c_lin_e, p_int(j)%cells_aw_verts,               &
@@ -218,25 +135,9 @@ CONTAINS
 !$ACC               p_int(j)%rbf_vec_blk_e, p_int(j)%rbf_vec_idx_e, p_int(j)%rbf_vec_coeff_e,    &
 !$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v ),  &
 !$ACC       IF ( i_am_accel_node )        
-#endif
 
       ELSE
 
-#ifdef _CRAYFTN
-!$ACC EXIT DATA &
-!$ACC      DELETE(  c_bln_avg, c_lin_e, cells_aw_verts, e_bln_c_s, e_flx_avg,                  &
-!$ACC               geofac_div, geofac_grdiv, geofac_grg, geofac_n2s, geofac_qdiv, geofac_rot, &
-!$ACC               h_lsq_blk_c, h_lsq_dim_stencil, h_lsq_idx_c, h_lsq_moments,                &
-!$ACC               h_lsq_moments_hat, h_lsq_pseudoinv, h_lsq_qtmat_c, h_lsq_rmat_utri_c,      &
-!$ACC               h_lsq_weights_c, l_lsq_blk_c, l_lsq_dim_stencil, l_lsq_idx_c,              &
-!$ACC               l_lsq_moments, l_lsq_moments_hat, l_lsq_pseudoinv, l_lsq_qtmat_c,          &
-!$ACC               l_lsq_rmat_utri_c, l_lsq_weights_c, nudgecoeff_e, pos_on_tplane_e,         &
-!$ACC               rbf_c2grad_blk, rbf_c2grad_idx, rbf_c2grad_coeff,                          &
-!$ACC               rbf_vec_blk_c, rbf_vec_idx_c, rbf_vec_coeff_c,                             &
-!$ACC               rbf_vec_blk_e, rbf_vec_idx_e, rbf_vec_coeff_e,                             &
-!$ACC               rbf_vec_blk_v, rbf_vec_idx_v, rbf_vec_coeff_v ),                           &
-!$ACC       IF ( i_am_accel_node )
-#else
 !$ACC EXIT DATA &
 !$ACC      DELETE(  p_int(j)%c_bln_avg, p_int(j)%c_lin_e, p_int(j)%cells_aw_verts,               &
 !$ACC               p_int(j)%e_bln_c_s, p_int(j)%e_flx_avg, p_int(j)%geofac_div,                 &
@@ -258,7 +159,6 @@ CONTAINS
 !$ACC               p_int(j)%rbf_vec_blk_v, p_int(j)%rbf_vec_idx_v, p_int(j)%rbf_vec_coeff_v,    &
 !$ACC               p_int(j)%lsq_high, p_int(j)%lsq_lin )                                        &
 !$ACC       IF ( i_am_accel_node )        
-#endif
 
       ENDIF
 
@@ -273,20 +173,6 @@ CONTAINS
     TYPE ( t_patch ), TARGET, INTENT(INOUT)    :: p_patch(:)
 
     INTEGER :: j
-#ifdef _CRAYFTN
-    INTEGER, POINTER, DIMENSION(:,:)   :: refin_ctrl_c, refin_ctrl_e, refin_ctrl_v
-    INTEGER, POINTER, DIMENSION(:,:,:) :: edge_idx, edge_blk, cell_idx, cell_blk, vertex_idx, vertex_blk, &
-                                          quad_idx, quad_blk, neighbor_idx, neighbor_blk,                 &
-                                          verts_cell_idx, verts_cell_blk, verts_edge_idx, verts_edge_blk
-    TYPE(t_tangent_vectors), POINTER   :: primal_normal_cell(:,:,:), dual_normal_cell(:,:,:)
-    TYPE(t_tangent_vectors), POINTER   :: primal_normal_vert(:,:,:), dual_normal_vert(:,:,:)
-    REAL(wp), POINTER, DIMENSION(:,:)  :: inv_primal_edge_length, inv_dual_edge_length, &
-                                          inv_vert_vert_length, tangent_orientation,    &
-                                          area, area_edge, f_e
-    REAL(wp), POINTER, DIMENSION(:,:,:):: edge_cell_length
-    TYPE(t_geographical_coordinates), POINTER   :: center(:,:)
-    LOGICAL, POINTER :: owner_mask(:,:)
-#endif
 
 !
 ! Copy the static data structures in p_patch to the device -- this is a small subset of all the components
@@ -295,62 +181,8 @@ CONTAINS
 
       DO j=1,SIZE(p_patch)
 
-#ifdef _CRAYFTN
+        IF ( host_to_device ) THEN
 
-        owner_mask                     =>   p_patch(j)%cells%decomp_info%owner_mask
-
-        area                           =>   p_patch(j)%cells%area
-        edge_idx                       =>   p_patch(j)%cells%edge_idx
-        edge_blk                       =>   p_patch(j)%cells%edge_blk
-        neighbor_idx                   =>   p_patch(j)%cells%neighbor_idx
-        neighbor_blk                   =>   p_patch(j)%cells%neighbor_blk
-        center                         =>   p_patch(j)%cells%center
-
-        area_edge                      =>   p_patch(j)%edges%area_edge
-        cell_idx                       =>   p_patch(j)%edges%cell_idx
-        cell_blk                       =>   p_patch(j)%edges%cell_blk
-        edge_cell_length               =>   p_patch(j)%edges%edge_cell_length
-        f_e                            =>   p_patch(j)%edges%f_e
-        quad_idx                       =>   p_patch(j)%edges%quad_idx
-        quad_blk                       =>   p_patch(j)%edges%quad_blk
-        vertex_idx                     =>   p_patch(j)%edges%vertex_idx
-        vertex_blk                     =>   p_patch(j)%edges%vertex_blk
-
-        primal_normal_cell             =>   p_patch(j)%edges%primal_normal_cell
-        dual_normal_cell               =>   p_patch(j)%edges%dual_normal_cell
-        primal_normal_vert             =>   p_patch(j)%edges%primal_normal_vert
-        dual_normal_vert               =>   p_patch(j)%edges%dual_normal_vert
-
-        inv_primal_edge_length         =>   p_patch(j)%edges%inv_primal_edge_length
-        inv_dual_edge_length           =>   p_patch(j)%edges%inv_dual_edge_length
-        inv_vert_vert_length           =>   p_patch(j)%edges%inv_vert_vert_length
-        tangent_orientation            =>   p_patch(j)%edges%tangent_orientation 
-
-        refin_ctrl_c                   =>   p_patch(j)%cells%refin_ctrl
-        refin_ctrl_e                   =>   p_patch(j)%edges%refin_ctrl
-        refin_ctrl_v                   =>   p_patch(j)%verts%refin_ctrl
-
-        verts_cell_idx                 =>   p_patch(j)%verts%cell_idx
-        verts_cell_blk                 =>   p_patch(j)%verts%cell_blk
-        verts_edge_idx                 =>   p_patch(j)%verts%edge_idx
-        verts_edge_blk                 =>   p_patch(j)%verts%edge_blk
-
-#endif
-
-      IF ( host_to_device ) THEN
-
-#ifdef _CRAYFTN
-!$ACC ENTER DATA &
-!$ACC      COPYIN( area, edge_idx, edge_blk, neighbor_idx, neighbor_blk, center,   &
-!$ACC              area_edge, cell_idx, cell_blk, f_e, quad_idx, quad_blk,         &  
-!$ACC              vertex_idx, vertex_blk, primal_normal_cell, dual_normal_cell,   &
-!$ACC              primal_normal_vert, dual_normal_vert, inv_vert_vert_length,     &
-!$ACC              inv_primal_edge_length, inv_dual_edge_length, edge_cell_length, &
-!$ACC              owner_mask, refin_ctrl_c, refin_ctrl_e, refin_ctrl_v,           &
-!$ACC              tangent_orientation, verts_cell_idx, verts_cell_blk,            &
-!$ACC              verts_edge_idx, verts_edge_blk ), &
-!$ACC      IF ( i_am_accel_node  )
-#else
 !$ACC ENTER DATA &
 !$ACC      COPYIN( p_patch(j)%cells, p_patch(j)%cells%decomp_info, p_patch(j)%cells%decomp_info%owner_mask, &
 !$ACC              p_patch(j)%cells%area, p_patch(j)%cells%edge_idx, p_patch(j)%cells%edge_blk,             &
@@ -367,22 +199,9 @@ CONTAINS
 !$ACC              p_patch(j)%verts, p_patch(j)%verts%cell_idx, p_patch(j)%verts%cell_blk,                  &
 !$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl ),     &
 !$ACC      IF ( i_am_accel_node  )
-#endif
      
-      ELSE
+        ELSE
 
-#ifdef _CRAYFTN
-!$ACC EXIT DATA &
-!$ACC      DELETE( area, edge_idx, edge_blk, neighbor_idx, neighbor_blk, center,   &
-!$ACC              area_edge, cell_idx, cell_blk, f_e, quad_idx, quad_blk,         &  
-!$ACC              vertex_idx, vertex_blk, primal_normal_cell, dual_normal_cell,   &
-!$ACC              primal_normal_vert, dual_normal_vert, inv_vert_vert_length,     &
-!$ACC              inv_primal_edge_length, inv_dual_edge_length, edge_cell_length, &
-!$ACC              owner_mask, refin_ctrl_c, refin_ctrl_e, refin_ctrl_v,           &
-!$ACC              tangent_orientation, verts_cell_idx, verts_cell_blk,            &
-!$ACC              verts_edge_idx, verts_edge_blk ),                               &
-!$ACC      IF ( i_am_accel_node  )
-#else
 !$ACC EXIT DATA &
 !$ACC      DELETE( p_patch(j)%cells%decomp_info, p_patch(j)%cells%decomp_info%owner_mask,               &
 !$ACC              p_patch(j)%cells%area, p_patch(j)%cells%edge_idx, p_patch(j)%cells%edge_blk,         &
@@ -399,7 +218,6 @@ CONTAINS
 !$ACC              p_patch(j)%verts%edge_idx, p_patch(j)%verts%edge_blk, p_patch(j)%verts%refin_ctrl,   &
 !$ACC              p_patch(j)%verts  ), &
 !$ACC      IF ( i_am_accel_node  )
-#endif
 
       ENDIF   
 
@@ -415,36 +233,18 @@ CONTAINS
     TYPE ( t_prepare_adv ), TARGET, INTENT(INOUT) :: prep_adv(:)
 
     INTEGER :: j
-#ifdef _CRAYFTN
-    REAL(wp), POINTER, DIMENSION(:,:,:)  :: vn_traj, mass_flx_me, mass_flx_ic, topflx_tra
-#endif
 
     DO j=1, SIZE(prep_adv)
 
-#ifdef _CRAYFTN
-      vn_traj     => prep_adv(j)%vn_traj
-      mass_flx_me => prep_adv(j)%mass_flx_me
-      mass_flx_ic => prep_adv(j)%mass_flx_ic
-      topflx_tra  => prep_adv(j)%topflx_tra
-#endif
-
       IF ( host_to_device ) THEN
 
-#ifdef _CRAYFTN
-!$ACC ENTER DATA COPYIN( vn_traj, mass_flx_me, mass_flx_ic, topflx_tra ), IF ( i_am_accel_node  )
-#else
 !$ACC ENTER DATA COPYIN(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
 !$ACC       IF ( i_am_accel_node  )
-#endif
 
       ELSE
 
-#ifdef _CRAYFTN
-!$ACC EXIT DATA DELETE( vn_traj, mass_flx_me, mass_flx_ic, topflx_tra ), IF ( i_am_accel_node  )
-#else
 !$ACC EXIT DATA DELETE(prep_adv(j)%vn_traj,prep_adv(j)%mass_flx_me,prep_adv(j)%mass_flx_ic,prep_adv(j)%topflx_tra ), &
 !$ACC      IF ( i_am_accel_node  )
-#endif
 
       ENDIF
 
