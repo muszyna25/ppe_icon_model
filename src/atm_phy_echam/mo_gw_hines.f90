@@ -1971,9 +1971,9 @@ CONTAINS
     DO i = il1,il2
       rbvfb(i)=1.0_wp/bvfb(i)
     ENDDO
-#endif
 
-    ! CALL generate_index_list(lorms_int, ilorms, il1, il2, nlorms, 1)
+    CALL generate_index_list(lorms_int, ilorms, il1, il2, nlorms, 1)
+#endif
 
     !
     !  for integer value slope = 1.
