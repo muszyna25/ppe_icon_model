@@ -528,6 +528,7 @@ MODULE mo_solve_nonhydro
 
 #ifdef _OPENACC
 ! Exchanging loop order to remove data dep
+! TODO: evaluate if this makes sense
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) PRIVATE(z_thermal_exp_local) DEFAULT(NONE) ASYNC
             !$ACC LOOP GANG VECTOR
             DO jc = i_startidx, i_endidx
