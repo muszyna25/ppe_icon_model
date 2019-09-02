@@ -475,8 +475,8 @@ CONTAINS
     ! special fields for which time-dependent metainfos should be set even though they are not of 
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
-    CHARACTER(LEN=8) :: ana_avg_vars(7) = (/"u_avg   ", "v_avg  ", "pres_avg",&
-                                          & "temp_avg", "qv_avg ", "tmax_2m ",&
+    CHARACTER(LEN=8) :: ana_avg_vars(7) = (/"u_avg   ", "v_avg   ", "pres_avg",&
+                                          & "temp_avg", "qv_avg  ", "tmax_2m ",&
                                           & "tmin_2m "/)
 
     !---------------------------------------------------------
