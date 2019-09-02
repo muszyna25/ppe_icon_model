@@ -834,7 +834,7 @@ CONTAINS
     REAL(wp) :: i_alpha(nlons,nazmth)
     LOGICAL  :: do_alpha(nlons,nazmth)
 
-    REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)! , vtmp3(nlons), maxdiff
+    REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons), vtmp1_scal, vtmp2_scal
 
     ! Here for optimization purposes distinguish:
     ! - the standard slope = 1 -> slope+1=2
@@ -1009,10 +1009,10 @@ CONTAINS
        !  use value at level below.
        !
 
+#ifndef _OPENACC
        CALL generate_index_list(losigma_t(:,lbelow), ilorms, il1, il2, nlorms, 1)
 
 !IBM* ASSERT(NODEPS)
-       !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
        DO j = 1,nlorms
           i = ilorms(j)
 
@@ -1025,24 +1025,17 @@ CONTAINS
             * sigma_t(i,lbelow)
           vtmp1(j) = bvfreq(i,l) / n_over_m(i)
           vtmp2(j) = bvfreq(i,l)*kstar/visc
-#ifndef _OPENACC
        END DO
 
        CALL vec_cbrt(vtmp2, vtmp2, n=nlorms, lopenacc=.TRUE.)
 
        DO j = 1,nlorms
-#else
-          vtmp2(j) = vtmp2(j) ** (1.0_wp / 3.0_wp)
-#endif
           i = ilorms(j)
           m_sub_m_turb = vtmp1(j)
           m_sub_m_mol  = vtmp2(j)/f3
           IF (m_sub_m_turb>=m_sub_m_mol) n_over_m(i) = bvfreq(i,l) / m_sub_m_mol
        END DO
-       !
-       !  calculate cutoff wavenumber at this level.
-       !
-#ifndef _OPENACC
+
        DO n = 1,naz
           ! set the default
           DO i = il1, il2
@@ -1058,6 +1051,9 @@ CONTAINS
              END IF
           END DO
 
+       !
+       !  calculate cutoff wavenumber at this level.
+       !
 !IBM* ASSERT(NODEPS)
           DO j = 1,nalpha
              i = ialpha(j)
@@ -1088,21 +1084,33 @@ CONTAINS
        END DO
 #else
         ! On the GPU we need to reorganize the loops
-        ! We can also get rid of the second indices here
+        ! We can also get rid of the indices here
         !
-        ! set the default
-        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) ASYNC(1)
-        DO n = 1,naz
-          DO i = il1, il2
-            m_alpha(i,l,n) = m_min
-          END DO
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+        DO i = il1,il2
+          IF ( losigma_t(i,lbelow) ) THEN
+            f2mfac=sigmatm(i,lbelow)**2
+
+            visc = MAX ( visc_mol(i,l), visc_min )
+            n_over_m(i) = f2 * &
+              & (1.0_wp+ 2.0_wp*f2mfac / (f2mfac+sigma_t(i,lbelow)**2 )) & !f2mod(i,lbelow)
+              * sigma_t(i,lbelow)
+            vtmp1_scal = bvfreq(i,l) / n_over_m(i)
+            vtmp2_scal = bvfreq(i,l)*kstar/visc
+
+            vtmp2_scal = vtmp2_scal ** (1.0_wp / 3.0_wp)
+
+            m_sub_m_turb = vtmp1_scal
+            m_sub_m_mol  = vtmp2_scal/f3
+            IF (m_sub_m_turb>=m_sub_m_mol) n_over_m(i) = bvfreq(i,l) / m_sub_m_mol
+          END IF
         END DO
 
         !$ACC PARALLEL LOOP GANG VECTOR PRIVATE( i, m_trial ) DEFAULT(NONE) COLLAPSE(2) ASYNC(1)
         DO n = 1,naz
-          DO j = 1,nlorms
-            i = ilorms(j)
-            IF (do_alpha(i,n)) THEN
+          DO i = il1,il2
+            m_alpha(i,l,n) = m_min
+            IF ( losigma_t(i,lbelow) .AND. do_alpha(i,n) ) THEN
               !
               !  calculate trial value (variance at this level is not yet known:
               !  use value at level below). if trial value negative or larger
@@ -1946,9 +1954,9 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_hines_intgrl'
 
-    !$ACC DATA PRESENT( i_alpha, v_alpha, m_alpha, bvfb, lorms, do_alpha ) &
-    !$ACC       CREATE( rbvfb, ixi, ixnaz, itx, ilorms, icond, vinp, vout, &
-    !$ACC               winp, wout, xinp, xout )
+    !$ACC DATA PRESENT( i_alpha, v_alpha, m_alpha, bvfb, lorms, do_alpha )
+!    !$ACC       CREATE( rbvfb, ixi, ixnaz, itx, ilorms, icond, vinp, vout, &
+!    !$ACC               winp, wout, xinp, xout )
 
     !-----------------------------------------------------------------------
     !
@@ -1958,12 +1966,14 @@ CONTAINS
     qm_min = 0.01_wp
 
 !IBM *NOVECTOR
-    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+    ! DA: this loop is fused right into the integral computation on the GPU
+#ifndef _OPENACC
     DO i = il1,il2
       rbvfb(i)=1.0_wp/bvfb(i)
     ENDDO
+#endif
 
-    CALL generate_index_list(lorms_int, ilorms, il1, il2, nlorms, 1)
+    ! CALL generate_index_list(lorms_int, ilorms, il1, il2, nlorms, 1)
 
     !
     !  for integer value slope = 1.
@@ -2089,56 +2099,60 @@ CONTAINS
 
       !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
       DO n = 1,naz
-        DO j = 1,nlorms
+        DO i = il1,il2
 
-          i = ilorms(j)
+          IF ( lorms(i) ) THEN
 
-          IF ( INT(FSEL(m_min - m_alpha(i,lev,n),0._wp,1._wp)) <= 0 ) THEN
-            i_alpha(i,n) = 0.0_wp
-            do_alpha(i,n) = .FALSE.
+            IF ( INT(FSEL(m_min - m_alpha(i,lev,n),0._wp,1._wp)) <= 0 ) THEN
+              i_alpha(i,n) = 0.0_wp
+              do_alpha(i,n) = .FALSE.
 
-          ELSE
-            q_alpha = v_alpha(i,lev,n) * rbvfb(i)
-            vinp_scal = q_alpha**2
-            qm      = q_alpha * m_alpha(i,lev,n)
-            winp_scal = 1.0_wp-qm
-            qmm     = q_alpha * m_min
-            xinp_scal = 1.0_wp-qmm
+            ELSE
+              q_alpha = v_alpha(i,lev,n) / bvfb(i)
+              vinp_scal = q_alpha**2
+              qm      = q_alpha * m_alpha(i,lev,n)
+              winp_scal = 1.0_wp-qm
+              qmm     = q_alpha * m_min
+              xinp_scal = 1.0_wp-qmm
 
-            vout_scal = 1._wp/vinp_scal
-            wout_scal = LOG(winp_scal)
-            xout_scal = LOG(xinp_scal)
+              vout_scal = 1._wp/vinp_scal
+              wout_scal = LOG(winp_scal)
+              xout_scal = LOG(xinp_scal)
 
-            i_alpha(i,n) = - (wout_scal - winp_scal - xout_scal + xinp_scal ) * vout_scal
+              i_alpha(i,n) = - (wout_scal - winp_scal - xout_scal + xinp_scal ) * vout_scal
 
-            ! if |qm| is small (rare event) we must do a Taylor expansion
-            IF ( ABS(q_alpha) < q_min .OR. ABS(qm) < qm_min ) THEN
+              ! if |qm| is small (rare event) we must do a Taylor expansion
+              IF ( ABS(q_alpha) < q_min .OR. ABS(qm) < qm_min ) THEN
 
-              IF ( ABS(q_alpha) < EPSILON(1.0_wp) )  THEN
-                i_alpha(i,n) = ( m_alpha(i,lev,n)**2  - m_min**2 ) * 0.5_wp
-              ELSE
-              ! i_alpha(i,n) = ( qm**2 * 0.50_wp + qm**3 * one_third   &
-              !   &            + qm**4 * 0.25_wp + qm**5 * 0.2_wp   &
-              !   &            -qmm**2 * 0.50_wp -qmm**3  * one_third    &
-              !   &            -qmm**4 * 0.25_wp -qmm**5 * 0.2_wp ) &
-              !   &           / q_alpha**2
-              ! LL Aply Horner scheme
-                i_alpha(i,n) = ( qm**2 * ( 0.50_wp + qm * ( one_third +  &
-                  &     qm * ( 0.25_wp + qm * 0.2_wp)))   &
-                  &  - (qmm**2 * (0.50_wp  + qmm * ( one_third +  &
-                  &     qmm * ( 0.25_wp  + qmm * 0.2_wp ))))) &
-                  &           / q_alpha**2
-              END IF
-            END IF ! small |qm|
+                IF ( ABS(q_alpha) < EPSILON(1.0_wp) )  THEN
+                  i_alpha(i,n) = ( m_alpha(i,lev,n)**2  - m_min**2 ) * 0.5_wp
+                ELSE
+                ! i_alpha(i,n) = ( qm**2 * 0.50_wp + qm**3 * one_third   &
+                !   &            + qm**4 * 0.25_wp + qm**5 * 0.2_wp   &
+                !   &            -qmm**2 * 0.50_wp -qmm**3  * one_third    &
+                !   &            -qmm**4 * 0.25_wp -qmm**5 * 0.2_wp ) &
+                !   &           / q_alpha**2
+                ! LL Aply Horner scheme
+                  i_alpha(i,n) = ( qm**2 * ( 0.50_wp + qm * ( one_third +  &
+                    &     qm * ( 0.25_wp + qm * 0.2_wp)))   &
+                    &  - (qmm**2 * (0.50_wp  + qmm * ( one_third +  &
+                    &     qmm * ( 0.25_wp  + qmm * 0.2_wp ))))) &
+                    &           / q_alpha**2
+                END IF
+              END IF ! small |qm|
 
-            !  If i_alpha negative due to round off error, set it to zero
-            i_alpha(i,n) = MAX( i_alpha(i,n) , 0.0_wp )
-          END IF ! m_alpha condition
+              !  If i_alpha negative due to round off error, set it to zero
+              i_alpha(i,n) = MAX( i_alpha(i,n) , 0.0_wp )
+            END IF ! m_alpha condition
+          END IF ! lorms condition
         END DO
       END DO ! n
 ! _OPENACC
 #endif
     END IF
+
+! DA: TODO: change this to proper OpenACC like before.
+! Fuse, transform, get rid of indices, also *rbvfb(i) ==> /bvfb(i)
 
     !
     !  for integer value slope = 2.
@@ -2281,8 +2295,9 @@ CONTAINS
     !  print a message and some info since execution will abort when calculating
     !  the variances.
     !
+
+#ifndef _OPENACC
     nerror = 0
-    !$ACC PARALLEL LOOP DEFAULT(NONE) REDUCTION(+:nerror) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO n = 1,naz
       DO i = il1, il2
         IF ( i_alpha(i,n) < 0._wp ) nerror = nerror + 1
@@ -2291,7 +2306,6 @@ CONTAINS
 
     IF (nerror > 0) THEN
 
-      !$ACC UPDATE HOST( i_alpha )
 OUTER:DO n = 1,naz
         DO i = il1, il2
           IF ( i_alpha(i,n) < 0._wp ) EXIT OUTER
@@ -2325,6 +2339,18 @@ OUTER:DO n = 1,naz
       CALL finish(TRIM(routine),'Hines i_alpha integral is negative')
 
     END IF ! nerror
+#else
+    ! DA Omit precise error checking on the GPU,
+    ! reduction is taking too long in the tight loop
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+     DO n = 1,naz
+      DO i = il1, il2
+        IF ( i_alpha(i,n) < 0._wp ) THEN
+          PRINT *, "Hines integral less than 0 at azimuth = ", n, " i = ", i
+        END IF
+      END DO
+    END DO
+#endif
 
     !$ACC END DATA
     !
@@ -2462,7 +2488,7 @@ OUTER:DO n = 1,naz
     !
     ! internal variables.
     !
-    REAL(wp) :: vtmp(nlons)
+    REAL(wp) :: vtmp(nlons), vtmp_scal
     INTEGER  :: ialt(nlons)
     INTEGER  :: levbot, levtop, lincr, i, l, nalt, j
     REAL(wp) :: hscale
@@ -2470,8 +2496,7 @@ OUTER:DO n = 1,naz
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_exp'
 
     !-----------------------------------------------------------------------
-    !$ACC DATA PRESENT( darr, data_zmax, alt ) &
-    !$ACC       CREATE( vtmp, ialt )
+    !$ACC DATA PRESENT( darr, data_zmax, alt )
 
     hscale = 5.e3_wp
 
