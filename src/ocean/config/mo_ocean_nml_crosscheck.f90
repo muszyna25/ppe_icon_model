@@ -95,29 +95,17 @@ CONTAINS
     nlev = n_zlev
 
     IF (p_test_run .AND. l_fast_sum ) THEN                      
-       CALL warning(method_name, "p_test_run sets l_fast_sum=.f alse.")
+       CALL warning(method_name, "p_test_run sets l_fast_sum=.false.")
        l_fast_sum = .false.                                     
     ENDIF                                                       
-    
+
     SELECT CASE (select_solver)
-      CASE (select_gmres)
-
-      CASE (select_restart_gmres, select_restart_mixedPrecision_gmres)
-
-        IF (p_test_run .OR. .NOT. l_fast_sum ) THEN
-           CALL warning(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
-           CALL message(method_name, "Using the standard gmres solver")
-           select_solver = select_gmres
-!        ELSE
-!           use_absolute_solver_tolerance = .true.
-        ENDIF
-
+      CASE (select_gmres, select_gmres_r, select_gmres_mp_r, select_cg, select_cg_mp, select_cgj, select_bcgs, &
+        & select_legacy_gmres, select_mres)
       CASE default
-        CALL finish(method_name, "Unknown solver")
-
+        CALL finish(method_name, "Unknown solver type")
     END SELECT
-    
-    
+
     IF (no_tracer < 1) THEN
       CALL warning("ocean_crosscheck", "no_tracer < 1, use_constant_mixing")
       PPscheme_type = PPscheme_Constant_type
@@ -139,7 +127,7 @@ CONTAINS
     ENDIF
     
     IF (isRestart() .AND. write_initial_state) THEN
-      CALL warning(method_name, "write_initial_state is disbaled for restarts")
+      CALL warning(method_name, "write_initial_state is disabled for restarts")
       write_initial_state = .false.
     ENDIF
 

@@ -26,7 +26,7 @@
 #ifndef NOMPI
     USE mpi
     USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
-         &                            p_comm_work, my_process_is_io,            &
+         &                            p_comm_work,                              &
          &                            my_process_is_mpi_test
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
@@ -44,7 +44,7 @@
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
     USE mo_exception,           ONLY: message, finish, message_text
-    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int, min_rlcell
+    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
     USE mo_io_units,            ONLY: filename_max
@@ -52,9 +52,7 @@
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-    USE mo_util_phys,           ONLY: virtual_temp
-    USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, convert_omega2w, &
-      &                               compute_input_pressure_and_height
+    USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
@@ -70,7 +68,7 @@
          &                            getTriggerNextEventAtDateTime
     USE mo_util_mtime,          ONLY: dummyDateTime
     USE mo_time_config,         ONLY: time_config
-    USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
+    USE mo_limarea_config,      ONLY: latbc_config, generate_filename
     USE mo_initicon_config,     ONLY: timeshift
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, msg_level
@@ -531,7 +529,7 @@
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_latbc_data"
       INTEGER(i8)                         :: eoff
-      INTEGER                             :: jc, jk, jb, j, jv, nlev_in, i_endblk, ierrstat, rl_end, i_startidx,i_endidx, nblks_c
+      INTEGER                             :: jc, jk, jb, jv, nlev_in, i_endblk, ierrstat, rl_end, i_startidx,i_endidx, nblks_c
       REAL(wp)                            :: log_exner, tempv
       REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:),    &
         &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -604,7 +602,7 @@
         CALL get_data(latbc, 'rho',     latbc%latbc_data(tlev)%atm_in%rho,     read_params(icell), latbc_dict)
 
         ! Diagnose pres and temp from prognostic ICON variables
-!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc,log_exner,tempv,i_startidx,i_endidx)
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,log_exner,tempv,i_startidx,i_endidx)
         DO jb = 1, i_endblk
 
           CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)
@@ -681,7 +679,7 @@
          END IF
 
          IF (latbc%buffer%lread_w) THEN
-!$OMP PARALLEL DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL DO PRIVATE (jk,jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = 1, i_endblk
 
              CALL get_indices_c(p_patch, jb, 1, i_endblk, i_startidx, i_endidx, 1, rl_end)

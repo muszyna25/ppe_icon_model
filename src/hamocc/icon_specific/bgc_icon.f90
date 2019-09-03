@@ -16,18 +16,15 @@
 !!
 #include "icon_definitions.inc"
 
-SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
+SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
 
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
 
-  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
        &                            set_bgc_tendencies_output
   USE mo_dynamics_config,     ONLY: nold 
-  USE mo_sea_ice_types,       ONLY: t_sea_ice
-  USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
   USE mo_control_bgc,         ONLY: ndtdaybgc,  &
@@ -47,13 +44,14 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
     &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
     &                           timer_bgc_tend, timer_start, timer_stop, timers_level
   USE mo_settling,   ONLY    : settling, settling_pdm
+  USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
+    & t_hamocc_ocean_state
+!   USE mo_util_dbg_prnt,          ONLY: dbg_print
 
   IMPLICIT NONE
 
   TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
-  TYPE(t_hydro_ocean_state)              :: p_os
-  TYPE(t_atmos_for_ocean)                :: p_as
-  TYPE(t_sea_ice)                        :: p_ice
+  TYPE(t_hamocc_ocean_state), TARGET     :: hamocc_ocean_state
 
   ! Local variables
   INTEGER ::  jb
@@ -66,6 +64,17 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   INTEGER :: alloc_cell_blocks
   TYPE(t_patch),POINTER    :: p_patch
 
+  TYPE(t_ocean_to_hamocc_state), POINTER           :: ocean_to_hamocc_state
+  TYPE(t_hamocc_to_ocean_state), POINTER           :: hamocc_to_ocean_state
+
+  INTEGER :: i
+  
+!   CHARACTER(LEN=*), PARAMETER  :: str_module = 'BGC_ICON'  ! Output of module for 1 line debug
+!   INTEGER :: idt_src
+!   TYPE(t_subset_range), POINTER :: owned_cells
+
+  ocean_to_hamocc_state => hamocc_ocean_state%ocean_to_hamocc_state
+  hamocc_to_ocean_state => hamocc_ocean_state%hamocc_to_ocean_state
 
 
   !-----------------------------------------------------------------------
@@ -76,6 +85,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   !----------------------------------------------------------------------
   !
   all_cells => p_patch%cells%ALL
+!   owned_cells => p_patch%cells%owned
 
   
   ! trigger chemcon at depth only once per day
@@ -84,10 +94,20 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   !
   !----------------------------------------------------------------------
 
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+!   idt_src=1  ! output print level (1-5, fix)
+!   CALL dbg_print('h_old'           ,ocean_to_hamocc_state%h_old, str_module,idt_src, owned_cells)
+!   CALL dbg_print('co2_mixing'      ,ocean_to_hamocc_state%co2_mixing_ratio, str_module,idt_src, owned_cells)
+!   CALL dbg_print('short_wave_flux' ,ocean_to_hamocc_state%short_wave_flux, str_module,idt_src, owned_cells) 
+!   CALL dbg_print('concSum'         ,ocean_to_hamocc_state%ice_concentration_sum, str_module,idt_src, owned_cells)
+!   CALL dbg_print('salinity'        ,ocean_to_hamocc_state%salinity, str_module,idt_src, owned_cells)
+!   CALL dbg_print('temperature'     ,ocean_to_hamocc_state%temperature, str_module,idt_src, owned_cells)
+!   CALL dbg_print('wind10m'         ,ocean_to_hamocc_state%wind10m, str_module,idt_src, owned_cells)
+ !----------------------------------------------------------------------
  
 IF(l_bgc_check)THEN
  call message('before loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, p_os%p_prog(nold(1))%h, p_os%p_prog(nold(1))%tracer, p_patch_3d) 
+ call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d) 
 ENDIF
 
 !DIR$ INLINE
@@ -100,8 +120,8 @@ ENDIF
         start_detail_timer(timer_bgc_up_bgc,5)
         CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-             &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
-             & ,p_as%co2(:,jb)                        & ! co2mixing ratio
+             &jb, hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:), &
+             & ocean_to_hamocc_state%co2_mixing_ratio(:,jb)                        & ! co2mixing ratio
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
         stop_detail_timer(timer_bgc_up_bgc,5)
 
@@ -110,8 +130,8 @@ ENDIF
         start_detail_timer(timer_bgc_swr,5)
        ! Net solar radiation update and swr_frac
         CALL swr_absorption(start_index,end_index,levels,                   &
- &                          p_as%fswr(:,jb),                                & ! SW radiation
- &                          p_ice%concSum(:,jb),                            & ! sea ice concentration
+ &                          ocean_to_hamocc_state%short_wave_flux(:,jb),                                 & ! SW radiation
+ &                          ocean_to_hamocc_state%ice_concentration_sum(:,jb),                           & ! sea ice concentration
  &                          p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))   ! level thickness
 
         stop_detail_timer(timer_bgc_swr,5)
@@ -126,7 +146,7 @@ ENDIF
        ! Weathering fluxes 
         CALL update_weathering(start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&! cell thickness (check for z0)
-   &                 p_os%p_prog(nold(1))%h(:,jb)) ! surface_height
+   &                 ocean_to_hamocc_state%h_old(:,jb)) ! surface_height
 
         stop_detail_timer(timer_bgc_wea,5)
 
@@ -134,12 +154,12 @@ ENDIF
       ! Dust deposition
         CALL dust_deposition(start_index, end_index,  & ! index range, levels,
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
-   &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
+   &                 ocean_to_hamocc_state%h_old(:,jb),& ! surface_height
    &                 ext_data_bgc%dusty(:,jb))       ! dust input
       ! Nitrogen deposition
         CALL nitrogen_deposition(start_index, end_index,  & ! index range, levels
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
-   &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
+   &                 ocean_to_hamocc_state%h_old(:,jb),& ! surface_height
    &                 ext_data_bgc%nitro(:,jb))      ! nitrogen input
 
         stop_detail_timer(timer_bgc_depo,5)
@@ -147,8 +167,8 @@ ENDIF
        ! Calculate chemical properties 
 
         start_detail_timer(timer_bgc_chemcon,5)
-        CALL chemcon(start_index, end_index,levels,  p_os%p_prog(nold(1))%tracer(:,:,jb,2), & ! index range, levels, salinity
-   &                 p_os%p_prog(nold(1))%tracer(:,:,jb,1),                              & ! pot. temperature
+        CALL chemcon(start_index, end_index,levels,  ocean_to_hamocc_state%salinity(:,:,jb), & ! index range, levels, salinity
+   &                 ocean_to_hamocc_state%temperature(:,:,jb),                              & ! pot. temperature
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),                    & ! cell thickness
    &                 p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ,  &           ! depths at interface  
    &                 itrig_chemcon)           
@@ -160,9 +180,9 @@ ENDIF
 
         start_detail_timer(timer_bgc_ocprod,5)
          ! plankton dynamics and remineralization  
-         CALL ocprod(levels, start_index,end_index, p_os%p_prog(nold(1))%tracer(:,:,jb,1),&
+         CALL ocprod(levels, start_index,end_index, ocean_to_hamocc_state%temperature(:,:,jb),&
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
-   &               p_os%p_prog(nold(1))%h(:,jb),& ! surface height
+   &               ocean_to_hamocc_state%h_old(:,jb),& ! surface height
    &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
    &               l_dynamic_pi ) ! depths at interface  
         stop_detail_timer(timer_bgc_ocprod,5)
@@ -176,7 +196,7 @@ ENDIF
         ELSE
          CALL settling(levels,start_index, end_index, &
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-   &                   p_os%p_prog(nold(1))%h(:,jb))                   ! surface height
+   &                   ocean_to_hamocc_state%h_old(:,jb))                   ! surface height
        
         ENDIF 
        endif
@@ -192,14 +212,14 @@ ENDIF
         ! dynamic cyanobacteria
         CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
      &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-     &               p_os%p_prog(nold(1))%h(:,jb), &                 ! surface height
-     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1), &        ! pot. temperature 
+     &               ocean_to_hamocc_state%h_old(:,jb), &                 ! surface height
+     &               ocean_to_hamocc_state%temperature(:,:,jb), &        ! pot. temperature 
      &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
      &               l_dynamic_pi ) ! depths at interface  
        ELSE
         ! diagnostic N2 fixation
         CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
-     &               p_os%p_prog(nold(1))%h(:,jb))                 ! surface height    
+     &               ocean_to_hamocc_state%h_old(:,jb))                 ! surface height    
        endif
        stop_detail_timer(timer_bgc_cya,5)
 
@@ -210,11 +230,11 @@ ENDIF
         start_detail_timer(timer_bgc_gx,5)
         CALL gasex( start_index, end_index,    & 
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-  &               p_os%p_prog(nold(1))%h(:,jb), &                   ! surface height
-  &               p_os%p_prog(nold(1))%tracer(:,:,jb,1), &          ! pot. temperature 
-  &               p_os%p_prog(nold(1))%tracer(:,:,jb,2), &          ! salinity
-  &               p_as%fu10(:,jb)                      , &          ! 10m wind speed 
-  &               p_ice%concSum(:,jb))                              ! sea ice concentration
+  &               ocean_to_hamocc_state%h_old(:,jb), &                   ! surface height
+  &               ocean_to_hamocc_state%temperature(:,:,jb), &          ! pot. temperature 
+  &               ocean_to_hamocc_state%salinity(:,:,jb), &          ! salinity
+  &               ocean_to_hamocc_state%wind10m(:,jb)            , &          ! 10m wind speed 
+  &               ocean_to_hamocc_state%ice_concentration_sum(:,jb))                              ! sea ice concentration
 
        stop_detail_timer(timer_bgc_gx,5)
         !----------------------------------------------------------------------
@@ -223,7 +243,7 @@ ENDIF
         start_detail_timer(timer_bgc_calc,5)
          CALL calc_dissol( start_index, end_index, levels,   & 
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
-   &               p_os%p_prog(nold(1))%tracer(:,:,jb,2))           ! salinity
+   &               ocean_to_hamocc_state%salinity(:,:,jb))           ! salinity
  
         stop_detail_timer(timer_bgc_calc,5)
        !----------------------------------------------------------------------
@@ -231,11 +251,11 @@ ENDIF
         start_detail_timer(timer_bgc_powach,5)
         if(l_implsed)then 
          CALL powach_impl( start_index, end_index,    & 
-   &               p_os%p_prog(nold(1))%tracer(:,:,jb,2))          ! salinity
+   &               ocean_to_hamocc_state%salinity(:,:,jb))          ! salinity
          else
  
         CALL powach( start_index, end_index, &    
-   &               p_os%p_prog(nold(1))%tracer(:,:,jb,2),          &! salinity
+   &               ocean_to_hamocc_state%salinity(:,:,jb),          &! salinity
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))  ! cell thickness
          endif
         stop_detail_timer(timer_bgc_powach,5)
@@ -245,8 +265,8 @@ ENDIF
         start_detail_timer(timer_bgc_up_ic,5)
         CALL update_icon(start_index,end_index,levels,&
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-  &               p_os%p_prog(nold(1))%tracer(:,:,jb,:),            &
-  &               p_as%co2flx(:,jb)                    )          ! co2flux for coupling
+  &               hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:),            &
+  &               hamocc_to_ocean_state%co2_flux(:,jb)                    )          ! co2flux for coupling
         stop_detail_timer(timer_bgc_up_ic,5)
 
         start_detail_timer(timer_bgc_tend,5)
@@ -261,7 +281,7 @@ ENDIF
  ENDDO
 
 ! O2 min depth & value diagnostics
-CALL get_omz(hamocc_state,p_os,p_patch_3d)
+CALL get_omz(hamocc_state,ocean_to_hamocc_state%h_old,p_patch_3d)
 
   ! Increment bgc time step counter of run (initialized in INI_BGC).
   !
@@ -269,7 +289,7 @@ CALL get_omz(hamocc_state,p_os,p_patch_3d)
 
 IF(l_bgc_check)THEN
  call message('after loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, p_os%p_prog(nold(1))%h, p_os%p_prog(nold(1))%tracer, p_patch_3d) 
+ call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d) 
 ENDIF
   
 

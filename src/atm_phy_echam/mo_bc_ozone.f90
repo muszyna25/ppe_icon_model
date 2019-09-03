@@ -20,7 +20,7 @@
 MODULE mo_bc_ozone
 
   USE mo_kind,                     ONLY: wp, i8
-  USE mo_exception,                ONLY: message, message_text
+  USE mo_exception,                ONLY: message, message_text, warning
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: p_test_run
   USE mo_io_config,                ONLY: default_read_method
@@ -100,6 +100,7 @@ CONTAINS
 
     ! allocate once only structure for all grids
     IF (.NOT. ALLOCATED(ext_ozone)) ALLOCATE(ext_ozone(n_dom))
+    !$ACC ENTER DATA PCREATE( ext_ozone )
 
     IF (year > pre_year(jg)) THEN
       !
@@ -218,6 +219,7 @@ CONTAINS
           ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
             &                             SIZE(zo3_plev,2), &
             &                             SIZE(zo3_plev,3),0:13))
+          !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
           !
           ext_ozone(jg)% o3_plev(:,:,:,kmonth_beg:kmonth_end) = vmr2mmr_o3*zo3_plev(:,:,:,1:nmonths)
           !
@@ -270,6 +272,7 @@ CONTAINS
           !
           ! Now the spatial dimensions are known --> allocate memory for one time slice
           ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),1))
+          !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
           !
           ext_ozone(jg)% o3_plev(:,:,:,1) = vmr2mmr_o3*zo3_plev(:,:,:,1)
           !
@@ -317,6 +320,7 @@ CONTAINS
             ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                             SIZE(zo3_plev,2), &
                                             SIZE(zo3_plev,3), 0:13))
+            !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
             !
             ext_ozone(jg)% o3_plev(:,:,:,0) = vmr2mmr_o3*zo3_plev(:,:,:,1)
           ENDIF
@@ -348,6 +352,7 @@ CONTAINS
             ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                             SIZE(zo3_plev,2), &
                                             SIZE(zo3_plev,3), 0:13))
+            !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
           ENDIF
           !
           ext_ozone(jg)% o3_plev(:,:,:,kmonth_beg:kmonth_end) = vmr2mmr_o3*zo3_plev(:,:,:,1:nmonths)
@@ -380,6 +385,7 @@ CONTAINS
               ALLOCATE(ext_ozone(jg)% o3_plev(SIZE(zo3_plev,1), &
                                               SIZE(zo3_plev,2), &
                                               SIZE(zo3_plev,3), 0:13))
+              !$ACC ENTER DATA PCREATE( ext_ozone(jg)%o3_plev )
             ENDIF
             !
             ext_ozone(jg)% o3_plev(:,:,:,13) = vmr2mmr_o3*zo3_plev(:,:,:,1)
@@ -395,10 +401,13 @@ CONTAINS
 
         ext_ozone(jg)% nplev_o3 = nplev_o3
 
+        !$ACC EXIT DATA DELETE( ext_ozone(jg)%plev_full_o3 ) IF( ALLOCATED(ext_ozone(jg)%plev_full_o3) )
+        !$ACC EXIT DATA DELETE( ext_ozone(jg)%plev_half_o3 ) IF( ALLOCATED(ext_ozone(jg)%plev_half_o3) )
         IF(ALLOCATED(ext_ozone(jg)% plev_full_o3)) DEALLOCATE(ext_ozone(jg)% plev_full_o3)
         IF(ALLOCATED(ext_ozone(jg)% plev_half_o3)) DEALLOCATE(ext_ozone(jg)% plev_half_o3)
         ALLOCATE(ext_ozone(jg)% plev_full_o3(nplev_o3  ))
         ALLOCATE(ext_ozone(jg)% plev_half_o3(nplev_o3+1))
+        !$ACC ENTER DATA PCREATE( ext_ozone(jg)%plev_full_o3, ext_ozone(jg)%plev_half_o3 )
 
         mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
@@ -416,8 +425,15 @@ CONTAINS
         ext_ozone(jg)% plev_half_o3(1)          = 0._wp
         ext_ozone(jg)% plev_half_o3(2:nplev_o3) = 0.5_wp*( ext_ozone(jg)% plev_full_o3(1:nplev_o3-1) &
           &                                               +ext_ozone(jg)% plev_full_o3(2:nplev_o3  ) )
+
         ext_ozone(jg)% plev_half_o3(nplev_o3+1) = 125000._wp
 
+#ifdef _OPENACC
+        CALL warning("GPU:read_bc_ozone", "GPU device synchronization")
+#endif
+        ! Set pointer for OpenACC
+        !$ACC UPDATE DEVICE( ext_ozone(jg)%o3_plev, ext_ozone(jg)%plev_half_o3, &
+        !$ACC                ext_ozone(jg)%plev_full_o3 )
       END IF
 
       pre_year(jg) = year

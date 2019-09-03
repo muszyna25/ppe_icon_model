@@ -5,6 +5,8 @@
 
 set -x
 thisfolder=`pwd`
+# icon_from="${thisfolder}/git/$1"
+# icon_ocean_to=$thisfolder/$2
 icon_from=$1
 icon_ocean_to=$2
 
@@ -41,6 +43,29 @@ link_source_list()
   
 }
 
+#-----------------------------------------------------------------------------------
+copy_source_list()
+{
+  source_folder=$1
+  source_files_list="$2"
+
+  if [ ${source_folder} != "" ] ; then
+    if [ ! -d ${icon_ocean_to}/${source_folder} ] ; then
+      mkdir -p ${icon_ocean_to}/${source_folder}
+    fi
+  fi
+  
+  if [ "${source_files_list}" == "all" ] ; then
+    cp -r ${icon_from}/${source_folder}*  ${icon_ocean_to}/${source_folder}
+  else 
+    for source_file in ${source_files_list}
+    do
+      cp -r ${icon_from}/${source_folder}${source_file}  ${icon_ocean_to}/${source_folder}
+    done
+  fi
+  
+}
+
 
 
 #-----------------------------------------------------------------------------------
@@ -53,7 +78,8 @@ link_source_list "" "$link_list"
 rm $icon_ocean_to/config $icon_ocean_to/run $icon_ocean_to/externals
 link_source_list "config/" all
 link_source_list "run/" all
-link_source_list "externals/" "tixi mtime self"
+link_source_list "externals/" "ecrad tixi mtime self"
+copy_source_list "externals/" "yaxt"
 
 
 #-----------------------------------------------------------------------------------
@@ -69,8 +95,9 @@ link_source_list "src/advection/" "mo_advection_utils.f90"
 # needed by src/io/shared/mo_util_cdi
 link_source_list "src/lnd_phy_nwp/" "mo_nwp_sfc_tiles.f90"
 
+# (mo_upatmo_config.f90 just added to ensure compilability)
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
-mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90" 
+mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90 mo_upatmo_config.f90" 
 # mo_master_config.f90"
 
 link_source_list "src/drivers/" "icon.f90 mo_master_control.f90"
@@ -109,21 +136,21 @@ run_scripts=*
 
 #==============================================
 # Define parameters for each build (testbed is disabled by default) - examples:
-build_folder=gcc_yMyO configure_options=--with-fortran=gcc --with-mpi  --with-openmp --disable-atmo --disable-jsbach --disable-psrad --with-yac=no
-build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=gcc_yMnO configure_options=--with-fortran=gcc --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=gcc_yMnO_hiopt configure_options=--with-fortran=gcc --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=nag_nMnO configure_options=--with-fortran=nag --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=nag_yMnO configure_options=--with-fortran=nag --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
-build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no
+build_folder=gcc_yMyO configure_options=--with-fortran=gcc --with-mpi  --with-openmp --disable-atmo --disable-jsbach --disable-psrad --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=gcc_yMnO configure_options=--with-fortran=gcc --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=gcc_yMnO_hiopt configure_options=--with-fortran=gcc --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=nag_nMnO configure_options=--with-fortran=nag --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=nag_yMnO configure_options=--with-fortran=nag --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
+build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no  --with-yaxt=yes --without-regard-for-quality
 EOF
 
 ln -s ${icon_ocean_to}/scripts/building/create_builds ${icon_ocean_to}

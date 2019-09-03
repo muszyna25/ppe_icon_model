@@ -25,7 +25,7 @@ MODULE mo_initicon_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
     &                              MODE_IAU, MODE_IAU_OLD, MODE_COMBINED,    &
-    &                              MODE_COSMO, MODE_ICONVREMAP
+    &                              MODE_COSMO, MODE_ICONVREMAP, ivexpol
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -58,6 +58,7 @@ MODULE mo_initicon_nml
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
+    & config_itype_vert_expol    => itype_vert_expol,    &
     & config_ana_varnames_map_file => ana_varnames_map_file
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -153,6 +154,11 @@ CONTAINS
   INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
   INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
 
+  INTEGER :: itype_vert_expol ! Type of vertical extrapolation of initial data. 
+                              ! 1: Linear extrapolation (standard setting) 
+                              ! 2: Blending with climatology 
+                              ! (intended for simulations with the upper-atmosphere configuration)
+
 
   TYPE(t_check_input) :: check_ana(max_dom)  ! patch-specific list of mandatory analysis fields.
                                              ! This list can include a subset or the 
@@ -200,7 +206,8 @@ CONTAINS
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
-                          niter_diffu, qcana_mode, qiana_mode
+                          niter_diffu, qcana_mode, qiana_mode,              &
+                          itype_vert_expol
                           
 
   !------------------------------------------------------------
@@ -226,6 +233,7 @@ CONTAINS
   niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
   niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
+  itype_vert_expol = ivexpol%lin ! linear vertical extrapolation of initial data
 
   DO jg=1,SIZE(check_ana)
     check_ana(jg)%list(:) = '' ! list of mandatory analysis fields. This list can include a subset 
@@ -347,6 +355,14 @@ CONTAINS
     iterate_iau = .FALSE.
   END IF
 
+  ! Check setting for vertical extrapolation
+  SELECT CASE(itype_vert_expol)
+  CASE(ivexpol%lin, ivexpol%upatmo) 
+    ! Ok
+  CASE DEFAULT
+    CALL finish( TRIM(routine),'Invalid value for itype_vert_expol.' )
+  END SELECT
+
   ! 
   WRITE(message_text,'(a)') &
     &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
@@ -385,6 +401,7 @@ CONTAINS
   config_ana_varnames_map_file = ana_varnames_map_file
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
+  config_itype_vert_expol      = itype_vert_expol
 
   DO jg=1,max_dom
     initicon_config(jg)%ana_checklist = check_ana(jg)%list

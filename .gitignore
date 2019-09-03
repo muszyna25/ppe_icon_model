@@ -20,9 +20,9 @@ src/art
 .status.file
 cdo_diffn*.out
 experiments*
-run/*.run
-run/*.status
-run/*_status
+run*/*.run
+run*/*.status
+run*/*_status
 *#
 autom4te.cache
 externals/bin/
@@ -30,3 +30,6 @@ externals/lib/
 externals/include/
 externals/sct/
 externals/cdi/
+externals/ecrad/*/*.i
+externals/ecrad/*/*.lst
+externals/ecrad/Makefile_include.ecradICON

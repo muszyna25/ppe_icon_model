@@ -212,7 +212,7 @@ mpi_oce_io_procs=0                 # for ocean (not working yet)
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_cgrid=yes               # produces 1 atm file 
+output_atm_vgrid=no                # produces 1 atm file 
 output_atm_debug=no                # produces 1 atm file 
 output_atm_3d=yes                  # produces 1 atm file 
 output_atm_2d=yes                  # produces 1 atm file 
@@ -807,7 +807,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 # - well mixed greenhouse gases
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical.nc                       ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -924,11 +924,11 @@ cat >> ${atm_namelist} << EOF
 /
 EOF
 
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -937,9 +937,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"           ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"  !     the output interval and
  file_interval    = "${atm_file_interval}"    !     the file interval
- ml_varlist       = 'clon'    , 'clat'    , 'areacella',
-                    'sftlf'   , 'sftgif'  , 'sftof'    ,
-                    'orog'    , 'zghalf'  , 'zg'
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
@@ -1194,21 +1192,23 @@ cat >> ${oce_namelist} << EOF
                    100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                    220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based                               = .FALSE.          ! edge- or cell-based mimetic discretization
-! l_partial_cells                            = .FALSE.          ! partial bottom cells=TRUE: local varying bottom depth
-  select_solver                              = 2                ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
-  use_absolute_solver_tolerance              = .TRUE.
-  solver_tolerance                           = 7.5E-14
-  solver_max_iter_per_restart                = 19
-  solver_max_restart_iterations              = 100              ! outer (restart solver)
-! select_lhs                                 = 2
 
-  fast_performance_level                     = 200              ! performance level 12: for cell-based; 5: default
-  use_continuity_correction                  = .TRUE.           ! height adjustment according to vertical velocity in dynamics
-  cfl_check                                  = .FALSE.
-  cfl_write                                  = .FALSE.
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
+  use_absolute_solver_tolerance   = .true.
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
 
-  i_bc_veloc_top                             = 1
-  i_bc_veloc_bot                             = 1                ! 0: (def) bottom friction off, 1: on
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
+  fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
+  use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
+  cfl_check                       = .FALSE.
+  cfl_write                       = .FALSE.
+
+  i_bc_veloc_top                  =   1
+  i_bc_veloc_bot                  =   1       ! 0: (def) bottom friction off, 1: on
 /
 &ocean_tracer_transport_nml
   flux_calculation_horz                      = 5                ! 1=upwind, 2=central, 3=Lax-Friedrichs,

@@ -143,7 +143,7 @@ mpi_oce_io_procs=0                 # for ocean (not working yet)
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_cgrid=yes               # produces 1 atm file 
+output_atm_vgrid=yes               # produces 1 atm file 
 output_atm_debug=no                # produces 1 atm file 
 output_atm_3d=yes                  # produces 1 atm file 
 output_atm_2d=yes                  # produces 1 atm file 
@@ -395,7 +395,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 # - well mixed greenhouse gases
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical.nc                       ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -512,11 +512,11 @@ cat >> ${atm_namelist} << EOF
 /
 EOF
 
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -525,9 +525,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"           ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"  !     the output interval and
  file_interval    = "${atm_file_interval}"    !     the file interval
- ml_varlist       = 'clon'    , 'clat'    , 'areacella',
-                    'sftlf'   , 'sftgif'  , 'sftof'    ,
-                    'orog'    , 'zghalf'  , 'zg'
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi

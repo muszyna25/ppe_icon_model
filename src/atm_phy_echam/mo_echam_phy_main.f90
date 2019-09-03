@@ -27,7 +27,7 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind                ,ONLY: wp
-  USE mo_exception           ,ONLY: message
+  USE mo_exception           ,ONLY: message, warning
   USE mtime                  ,ONLY: datetime, isCurrentEventActive, &
        &                            OPERATOR(<=), OPERATOR(>)
 
@@ -44,6 +44,9 @@ MODULE mo_echam_phy_main
     &                               finalize
 
   USE mo_echam_diagnostics   ,ONLY: echam_global_diagnostics
+#if defined( _OPENACC )
+  USE mo_var_list_gpu        ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+#endif
 
   USE mo_interface_echam_cov ,ONLY: interface_echam_cov
   USE mo_interface_echam_wmo ,ONLY: interface_echam_wmo
@@ -56,6 +59,7 @@ MODULE mo_echam_phy_main
   USE mo_interface_echam_gwd ,ONLY: interface_echam_gwd
   USE mo_interface_echam_sso ,ONLY: interface_echam_sso
   USE mo_interface_echam_cld ,ONLY: interface_echam_cld
+  USE mo_interface_echam_mig ,ONLY: interface_echam_mig
   USE mo_interface_echam_mox ,ONLY: interface_echam_mox
 
   IMPLICIT NONE
@@ -123,7 +127,6 @@ CONTAINS
     !
     CALL omp_loop_cell_diag(patch,droplet_number)
 
-
     !-------------------------------------------------------------------
     ! Radiation (one interface for LW+SW)
     !-------------------------------------------------------------------
@@ -134,6 +137,14 @@ CONTAINS
             &                          (echam_phy_tc(jg)%ed_rad >  datetime_old)
        is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_rad,   datetime_old)
        !
+#if defined( _OPENACC )
+       IF ( is_active ) THEN
+          CALL warning('GPU:echam_rad_main','GPU host synchronization should be removed when port is done!')
+          CALL gpu_d2h_var_list('prm_field_D', jg)
+          CALL gpu_d2h_var_list('prm_tend_D', jg)
+       END IF
+#endif
+       !
        CALL message_forcing_action('LW and SW radiation (rad:fluxes )' ,&
             &                      is_in_sd_ed_interval, is_active )
        !
@@ -141,6 +152,13 @@ CONTAINS
        CALL interface_echam_rad(is_in_sd_ed_interval, is_active, &
             &                   patch,                           &
             &                   datetime_old                     )
+#if defined( _OPENACC )
+       IF ( is_active ) THEN
+          CALL warning('GPU:echam_rad_main','GPU device synchronization should be removed when port is done!')
+          CALL gpu_h2d_var_list('prm_field_D', jg)
+          CALL gpu_h2d_var_list('prm_tend_D', jg)
+       END IF
+#endif
        !
        ! always compute radiative heating
        is_active = .TRUE.
@@ -180,6 +198,11 @@ CONTAINS
     !-------------------------------------------------------------------
     !
     IF ( echam_phy_tc(jg)%dt_car > dt_zero ) THEN
+#if defined( _OPENACC )
+       CALL warning('GPU:echam_car_main','GPU host synchronization should be removed when port is done!')
+       CALL gpu_d2h_var_list('prm_field_D', jg)
+       CALL gpu_d2h_var_list('prm_tend_D', jg)
+#endif
        !
        is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_car <= datetime_old) .AND. &
             &                          (echam_phy_tc(jg)%ed_car >  datetime_old)
@@ -192,6 +215,11 @@ CONTAINS
             &                  is_in_sd_ed_interval, is_active ,&
             &                  datetime_old, pdtime            )
        !
+#if defined( _OPENACC )
+       CALL warning('GPU:echam_car_main','GPU device synchronization should be removed when port is done!')
+       CALL gpu_h2d_var_list('prm_field_D', jg)
+       CALL gpu_h2d_var_list('prm_tend_D', jg)
+#endif
     END IF
 
 
@@ -200,6 +228,11 @@ CONTAINS
     !-------------------------------------------------------------------
     !
     IF (echam_phy_tc(jg)%dt_art > dt_zero) THEN
+#if defined( _OPENACC )
+       CALL warning('GPU:echam_art_main','GPU host synchronization should be removed when port is done!')
+       CALL gpu_d2h_var_list('prm_field_D', jg)
+       CALL gpu_d2h_var_list('prm_tend_D', jg)
+#endif
       !
       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_art <= datetime_old) .AND. &
            &                          (echam_phy_tc(jg)%ed_art >  datetime_old)
@@ -217,6 +250,11 @@ CONTAINS
            &                   is_in_sd_ed_interval, is_active ,&
            &                   datetime_old, pdtime            )
       !
+#if defined( _OPENACC )
+       CALL warning('GPU:echam_art_main','GPU device synchronization should be removed when port is done!')
+       CALL gpu_h2d_var_list('prm_field_D', jg)
+       CALL gpu_h2d_var_list('prm_tend_D', jg)
+#endif
     END IF
     !
 
@@ -299,6 +337,24 @@ CONTAINS
        !
     END IF
 
+    !-------------------------------------------------------------------
+    ! Graupel (microphysics) processes
+    !-------------------------------------------------------------------
+    !
+    IF ( echam_phy_tc(jg)%dt_mig > dt_zero ) THEN
+       !
+       is_in_sd_ed_interval =          (echam_phy_tc(jg)%sd_mig <= datetime_old) .AND. &
+            &                          (echam_phy_tc(jg)%ed_mig >  datetime_old)
+       is_active = isCurrentEventActive(echam_phy_tc(jg)%ev_mig,   datetime_old)
+       !
+       CALL message_forcing_action('graupel microphysics (mig)',    &
+            &                      is_in_sd_ed_interval, is_active)
+       !
+       CALL omp_loop_cell_prog(patch, interface_echam_mig      ,&
+            &                  is_in_sd_ed_interval, is_active ,&
+            &                  datetime_old, pdtime            )
+       !
+    END IF
 
     !-------------------------------------------------------------------
     ! Methane oxidation + H2O photolysis

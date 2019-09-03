@@ -68,8 +68,6 @@ MODULE mo_ocean_diagnostics
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
     &  t_ocean_region_areas, t_ocean_monitor
-  USE mo_hamocc_types,       ONLY: t_hamocc_state
-  USE mo_hamocc_diagnostics, ONLY: get_monitoring 
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
@@ -79,7 +77,8 @@ MODULE mo_ocean_diagnostics
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums
+  USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
+    & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var,                  &
@@ -784,10 +783,11 @@ CONTAINS
   END SUBROUTINE calc_slow_oce_diagnostics
 
 !<Optimize:inUse>
-  SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, dolic, prism_thickness, depths, &
-          &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, hamocc, ice, lhamocc)
+  SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, ocean_state, dolic, prism_thickness, depths, &
+          &  p_diag, sea_surface_height, normal_veloc, tracers, p_atm_f, p_oce_sfc, ice)
     TYPE(t_patch ),TARGET :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)     :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout)    :: ocean_state
     INTEGER,  POINTER                           :: dolic(:,:)
     REAL(wp), POINTER                           :: prism_thickness(:,:,:)
     REAL(wp), INTENT(in)                        :: depths(:)
@@ -795,11 +795,9 @@ CONTAINS
     REAL(wp), POINTER                           :: sea_surface_height(:,:)
     REAL(wp), POINTER                           :: normal_veloc(:,:,:)
     REAL(wp), POINTER                           :: tracers(:,:,:,:)
-    TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
+     TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
     TYPE(t_ocean_surface), INTENT(IN)           :: p_oce_sfc
-    TYPE(t_hamocc_state), TARGET, INTENT(inout) :: hamocc
     TYPE(t_sea_ice),          INTENT(inout)     :: ice
-    LOGICAL, INTENT(IN)                         :: lhamocc
 
     !Local variables
     INTEGER :: start_cell_index, end_cell_index,i
@@ -812,10 +810,11 @@ CONTAINS
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
 !   REAL(wp) :: sflux
 
-    TYPE(t_subset_range), POINTER :: owned_cells
+    TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     TYPE(t_ocean_monitor),  POINTER :: monitor
     !-----------------------------------------------------------------------
     owned_cells    => patch_2d%cells%owned
+    owned_edges    => patch_2d%edges%owned
     monitor        => p_diag%monitor
 
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
@@ -823,30 +822,6 @@ CONTAINS
     CASE (1) ! shallow water mode
 
     CASE default !3D model
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index) SCHEDULE(dynamic)
-      DO blockNo = owned_cells%start_block, owned_cells%end_block
-        CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
-        !We are dealing with the surface layer first
-        DO jc =  start_cell_index, end_cell_index
-
-         !p_diag%mld(jc,blockNo) = calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,blockNo),&
-         !  & 0.125_wp, &
-         !  & dolic(jc,blockNo), &
-         !  & prism_thickness(jc,:,blockNo), &
-         !  & depths(1))
-         !
-         ! compute mixed layer depth
-          ! save the maximal mixed layer depth  - RESET TO 0 ECHT OUTPUT TIMESTEP
-          p_diag%mld(jc,blockNo) = MAX(calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,blockNo),&
-            & 0.125_wp, &
-            & dolic(jc,blockNo), &
-            & prism_thickness(jc,:,blockNo), &
-            & depths(1)),p_diag%mld(jc,blockNo))
-          p_diag%condep(jc,blockNo) = REAL(calc_condep(p_diag%zgrad_rho(jc,:,blockNo), dolic(jc,blockNo)),KIND=wp)
-
-        ENDDO
-      ENDDO
-!ICON_OMP_END_PARALLEL_DO
 
       ! {{{ compute global mean values of:
       ! sea surface height
@@ -1130,15 +1105,46 @@ CONTAINS
 
       ENDIF
 
+      IF (isRegistered('mld')) THEN
 
+        CALL calc_mld(patch_3d, ocean_state%p_diag%mld, &
+             ocean_state%p_diag%zgrad_rho,0.125_wp)
 
+        CALL dbg_print('Diag: mld',ocean_state%p_diag%mld, &
+             str_module,4,in_subset=owned_cells)
+      ENDIF
+
+      IF (isRegistered('mlotst') .or. isRegistered('mlotstsq') ) THEN
+
+        CALL calc_mld(patch_3d, ocean_state%p_diag%mlotst, &
+             ocean_state%p_diag%zgrad_rho,0.03_wp)
+
+        CALL dbg_print('Diag: mlotst',ocean_state%p_diag%mlotst, &
+             str_module,4,in_subset=owned_cells)
+
+        IF (isRegistered('mlotstsq')) THEN
+
+          ocean_state%p_diag%mlotstsq= &
+	       ocean_state%p_diag%mlotst*ocean_state%p_diag%mlotst
+
+          CALL dbg_print('Diag: mlotstsq',ocean_state%p_diag%mlotstsq, &
+               str_module,4,in_subset=owned_cells)
+        ENDIF
+
+      ENDIF
+
+      IF (isRegistered('condep')) THEN
+
+        CALL calc_condep(patch_3d, ocean_state%p_diag%condep, &
+             ocean_state%p_diag%zgrad_rho)
+
+        CALL dbg_print('Diag: condep',ocean_state%p_diag%condep,str_module,4, &
+             in_subset=owned_cells)
+      ENDIF
 
 
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
       
-      ! hamocc global diagnostics
-      IF (lhamocc) CALL get_monitoring( hamocc, sea_surface_height , tracers, patch_3d)
-
       ! square of ssh
       p_diag%zos_square = merge(sea_surface_height*sea_surface_height,0.0_wp,isRegistered('zos_square'))
 
@@ -1172,7 +1178,12 @@ CONTAINS
       monitor%ice_framStrait = merge(section_ice_flux(oce_sections(7), ice%hi*ice%conc, ice%vn_e), &
           &                      0.0_wp, &
           &                      isRegistered('ice_framStrait'))
-
+     
+      IF (isRegistered('verticallyTotal_mass_flux_e')) THEN
+        CALL verticallyIntegrated_field(ocean_state%p_diag%verticallyTotal_mass_flux_e, &
+          & ocean_state%p_diag%mass_flx_e, owned_edges, patch_3D%p_patch_1d(1)%prism_thick_e)
+      ENDIF
+      
 !TODO       CASE (10)
 !TODO         monitor%agulhas                = sflux*OceanReferenceDensity
 !TODO       CASE (11)
@@ -1918,8 +1929,8 @@ CONTAINS
 
 
     REAL(wp) :: z_lat_deg, z_lon_deg, z_lat_dist, delta_z, rsmth
-    REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
-    REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
+    REAL(wp), ALLOCATABLE :: z_uint_reg(:,:)                     ! vertical integral on regular grid
+    REAL(wp), ALLOCATABLE :: psi_reg(:,:)                        ! horizontal stream function
 
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
@@ -1927,9 +1938,6 @@ CONTAINS
     !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi')
 
     !-----------------------------------------------------------------------
-
-    psi_reg(:,:)    = 0.0_wp
-    z_uint_reg(:,:) = 0.0_wp
 
     jsmth2          = 2*jsmth + 1
     rsmth           = REAL(jsmth2*jsmth2, wp)
@@ -1963,10 +1971,16 @@ CONTAINS
 
     IF (idiag_psi == 1) RETURN
 
+    ALLOCATE(z_uint_reg(nlon,nlat), psi_reg(nlon,nlat))
+    !$OMP PARALLEL WORKSHARE
+    z_uint_reg(:,:) = 0.0_wp
+    !$OMP END PARALLEL WORKSHARE
     ! (2) distribute integrated zonal velocity (u*dz) on 1x1 deg grid
     !     this code is not mature yet
 
     ! in domain: count all cells only once
+    !$OMP PARALLEL DO PRIVATE(start_index,end_index,jc,z_lat_deg,z_lon_deg, &
+    !$OMP & jlat,jlon,jltx,jlt,jlnx,jln)
     DO blockNo = dom_cells%start_block, dom_cells%end_block
       CALL get_index_range(dom_cells, blockNo, start_index, end_index)
       DO jc = start_index, end_index
@@ -1996,7 +2010,7 @@ CONTAINS
             jln = jlnx
             IF (jln <    1) jln = jln+nlon  ! circular boundary
             IF (jln > nlon) jln = jln-nlon  ! circular boundary
-
+            !$OMP ATOMIC
             z_uint_reg(jln,jlt) = z_uint_reg(jln,jlt) + u_vint(jc,blockNo) / rsmth
 
 
@@ -2005,6 +2019,7 @@ CONTAINS
 
       END DO
     END DO
+    !$OMP END PARALLEL DO
 
     ! (3) calculate meridional integral on regular grid starting from south pole:
 
@@ -2017,9 +2032,9 @@ CONTAINS
     ! meridional distance of 1 deg
     ! ATTENTION - fixed 1 deg resolution should be related to icon-resolution
     z_lat_dist = 111111.0_wp  ! * 1.3_wp ??
-
+    !$OMP PARALLEL WORKSHARE
     psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * OceanReferenceDensity
-
+    !$OMP END PARALLEL WORKSHARE
     ! stream function on icon grid without calculation of meridional integral
     !  - tbd after interpolation to regular grid externally
     !  psi    (:,:) = u_vint    (:,:)              * OceanReferenceDensity
@@ -2091,14 +2106,14 @@ CONTAINS
     patch_2d  => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
     all_cells => patch_2d%cells%ALL
-
+    !$OMP PARALLEL WORKSHARE
     vn_vint  (:,:,:)    = 0.0_wp
     vint_cc(:,:,:)%x(1) = 0.0_wp
     vint_cc(:,:,:)%x(2) = 0.0_wp
     vint_cc(:,:,:)%x(3) = 0.0_wp
     u_2d       (:,:)    = 0.0_wp
     v_2d       (:,:)    = 0.0_wp
-
+    !$OMP END PARALLEL WORKSHARE
     ! (1) barotropic system:
     !     vertical integration of normal velocity times vertical layer thickness [m/s*m]
 !ICON_OMP_PARALLEL_DO PRIVATE(je, jk, start_index, end_index) SCHEDULE(dynamic)
@@ -2158,7 +2173,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !!taken from MPIOM
 !<Optimize:inUse>
-  FUNCTION calc_condep(vertical_density_gradient,max_lev) result(condep)
+  FUNCTION calc_max_condep(vertical_density_gradient,max_lev) RESULT(condep)
     REAL(wp),INTENT(in)  :: vertical_density_gradient(n_zlev)
     INTEGER, INTENT(in)  :: max_lev
     INTEGER :: condep
@@ -2186,7 +2201,7 @@ CONTAINS
     ENDDO
 
     condep = max0(maxcondep,condep)
-  END FUNCTION calc_condep
+  END FUNCTION calc_max_condep
 !<Optimize:inUse>
   FUNCTION calc_mixed_layer_depth(vertical_density_gradient,critical_value,max_lev,thickness, depth_of_first_layer) &
     & result(mixed_layer_depth)
@@ -2598,4 +2613,68 @@ END SUBROUTINE diag_heat_tendency
     monitor%ice_ocean_salinity_budget(:)  = 0.0_wp
     monitor%ice_ocean_volume_budget(:)    = 0.0_wp
   END SUBROUTINE reset_ocean_monitor
+
+  SUBROUTINE calc_condep(patch_3d, condep, zgrad_rho)
+
+    TYPE(t_patch_3d), TARGET, INTENT(in)  :: patch_3d
+!    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
+    TYPE(t_patch), POINTER        :: patch_2d
+    TYPE(t_subset_range), POINTER :: owned_cells
+
+    REAL(wp), INTENT(inout) :: 	 condep(:,:)
+    REAL(wp), INTENT(in) :: 	 zgrad_rho(:,:,:)
+
+
+    INTEGER  :: blockNo, jc, start_index, end_index
+
+    patch_2d => patch_3D%p_patch_2d(1)
+    owned_cells => patch_2d%cells%owned
+
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index) SCHEDULE(dynamic)
+    DO blockNo = owned_cells%start_block, owned_cells%end_block
+      CALL get_index_range(owned_cells, blockNo, start_index, end_index)
+      DO jc =  start_index, end_index
+        	condep(jc,blockNo) = &
+             REAL(calc_max_condep(zgrad_rho(jc,:,blockNo), &
+             patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)),KIND=wp)
+
+      ENDDO
+    ENDDO
+    !ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE calc_condep
+
+  SUBROUTINE calc_mld(patch_3d, mld, zgrad_rho, sigcrit)
+
+    TYPE(t_patch_3d), TARGET, INTENT(in)     :: patch_3d
+    REAL(wp), TARGET, Intent(inout)          :: mld(:,:)
+    REAL(wp), TARGET, Intent(in)             :: zgrad_rho(:,:,:)
+    REAL(wp)                                 :: sigcrit 
+
+    TYPE(t_patch), POINTER                   :: patch_2d
+    TYPE(t_subset_range), POINTER            :: owned_cells
+
+
+    INTEGER  :: blockNo, jc, start_index, end_index
+
+    patch_2d => patch_3D%p_patch_2d(1)
+    owned_cells => patch_2d%cells%owned
+
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index) SCHEDULE(dynamic)
+    DO blockNo = owned_cells%start_block, owned_cells%end_block
+      CALL get_index_range(owned_cells, blockNo, start_index, end_index)
+      DO jc =  start_index, end_index
+
+         mld(jc,blockNo) = calc_mixed_layer_depth(zgrad_rho(jc,:,blockNo),&
+             sigcrit, &
+             patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), &
+             patch_3d%p_patch_1d(1)%prism_thick_c(jc,:,blockNo), &
+             patch_3d%p_patch_1d(1)%zlev_m(1))
+
+      ENDDO
+    ENDDO
+    !ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE calc_mld
+
+
 END MODULE mo_ocean_diagnostics

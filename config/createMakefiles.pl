@@ -23,6 +23,7 @@ my $srcdirs;
 my $enable_atmo;
 my $enable_ocean;
 my $enable_jsbach;
+my $enable_rte_rrtmgp;
 my $enable_testbed;
 my $enable_serialization;
 my $iconsrcdir = "src";
@@ -34,6 +35,7 @@ GetOptions(
             'enable_atmo=s' => \$enable_atmo,
             'enable_ocean=s' => \$enable_ocean,
             'enable_jsbach=s' => \$enable_jsbach,
+            'enable_rte_rrtmgp=s' => \$enable_rte_rrtmgp,
             'enable_testbed=s' => \$enable_testbed,
             'enable_serialization=s' => \$enable_serialization,
             'iconsrcdir=s' => \$iconsrcdir,
@@ -73,6 +75,102 @@ if (defined $iconppdir) {
 }
 
 #__________________________________________________________________________________________________________________________________
+# collect src files og rte-rrtmgp dependent on the accelerator type
+
+if ( -d "externals/rte-rrtmgp") {
+
+    # 0. select kernel type cpu(default), openacc
+    my $kernel_type = $enable_rte_rrtmgp;
+
+    if ($kernel_type ne "none") {
+	print "\nProcess rte/rrtmgp for ${kernel_type} ...\n\n";
+
+	# 1. create src directory
+	if ( ! -d "externals/rte-rrtmgp/src" ) {
+	    mkdir "externals/rte-rrtmgp/src";
+	}
+	# 2. copy all files from rte, rrtmgp, extensions to src
+	opendir(DIR, "externals/rte-rrtmgp/rte");
+	my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/rte/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/rrtmgp");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/rrtmgp/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/extensions");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/extensions/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	opendir(DIR, "externals/rte-rrtmgp/extensions/cloud_optics");
+	@f90s = grep /\.(f90|F90)/, readdir(DIR);
+	closedir(DIR);
+	foreach my $f90 ( @f90s ) {
+	    my $in = $f90;
+	    my $out = $in;
+	    $out =~ s/F90/f90/;
+	    copy ( "externals/rte-rrtmgp/extensions/cloud_optics/${in}", "externals/rte-rrtmgp/src/${out}" );
+	}
+	# 3. copy architecture related files
+	if ($kernel_type eq "openacc") {
+            opendir(DIR, "externals/rte-rrtmgp/rte/kernels-openacc");
+            my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rte/kernels-openacc/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+            opendir(DIR, "externals/rte-rrtmgp/rrtmgp/kernels-openacc");
+            @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rrtmgp/kernels-openacc/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+        }
+        else {
+            opendir(DIR, "externals/rte-rrtmgp/rte/kernels");
+            my @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rte/kernels/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+            opendir(DIR, "externals/rte-rrtmgp/rrtmgp/kernels");
+            @f90s = grep /\.(f90|F90)/, readdir(DIR);
+            closedir(DIR);
+            foreach my $f90 ( @f90s ) {
+                my $in = $f90;
+                my $out = $in;
+                $out =~ s/F90/f90/;
+                copy ( "externals/rte-rrtmgp/rrtmgp/kernels/${in}", "externals/rte-rrtmgp/src/${out}" );
+            }
+        }
+    }
+}
+
+#__________________________________________________________________________________________________________________________________
 # collect include files in build tree
 
 copy ("config/config.h", "${build_path}/include/config.h");
@@ -96,6 +194,24 @@ if ( -d "externals/mtime/include" ) {
     closedir(DIR);
     foreach my $inc ( @incs ) {
 	copy ( "externals/mtime/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( -d "externals/ecrad/include" ) {
+    opendir(DIR, "externals/ecrad/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+        copy ( "externals/ecrad/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( -d "externals/ecrad/radiation" ) {
+    opendir(DIR, "externals/ecrad/radiation");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+        copy ( "externals/ecrad/radiation/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
@@ -458,7 +574,8 @@ sub ScanDirectory {
     my %ignored_entries;
     {
       my @ignored_list = ('.', '..', '.svn', 'templates', 'hydro',
-                          'interface', 'nh', 'phys', 'sw_options');
+                          'interface', 'nh', 'phys', 'sw_options',
+                          'ecrad');
       push(@ignored_list, 'ocean', 'sea_ice', 'hamocc')
           if ($enable_ocean eq "no");
       push(@ignored_list, 'lnd_phy_jsbach') if ($enable_jsbach eq "no");

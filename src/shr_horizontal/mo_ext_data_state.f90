@@ -37,7 +37,7 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam,                &
+  USE mo_impl_constants,     ONLY: inwp, MODIS,                                    &
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
@@ -255,6 +255,7 @@ CONTAINS
       &     p_ext_atm%gamso_lk,        &
       &     p_ext_atm%sso_stdh,        &
       &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%l_pat,           &
       &     p_ext_atm%sso_gamma,       &
       &     p_ext_atm%sso_theta,       &
       &     p_ext_atm%sso_sigma,       &
@@ -299,8 +300,7 @@ CONTAINS
       &     p_ext_atm%albuv_dif,       &
       &     p_ext_atm%albni_dif,       &
       &     p_ext_atm%lsm_ctr_c,       &
-      &     p_ext_atm%elevation_c,     &
-      &     p_ext_atm%emis_rad         )
+      &     p_ext_atm%elevation_c      )
 
 
     !
@@ -408,14 +408,14 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT,                       &
-        &           in_group=groups("dwd_fg_sfc_vars","ICON_INI_OUT") )
+        &           in_group=groups("dwd_fg_sfc_vars","mode_iniana") )
 
 
       ! glacier fraction
       !
       ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
       cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', datatype_flt)
-      grib2_desc = grib2_var( 2, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
@@ -555,6 +555,15 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
         &           isteptype=TSTEP_CONSTANT )
 
+      ! effective length scale of circulation patterns
+      ! l_pat            p_ext_atm%l_pat(nproma,nblks_c)
+      cf_desc    = t_cf_var('effective_length_scale', 'm',    &
+        &                   'effective length scale of circulation patterns', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'l_pat', p_ext_atm%l_pat,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT )
 
       ! Anisotropy of sub-gridscale orography
       !
@@ -1010,11 +1019,12 @@ CONTAINS
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
       cf_desc    = t_cf_var('soil_temperature', 'K',                  &
         &                   'CRU near surface temperature climatology', datatype_flt)
-      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var( 0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+        &            + t_grib2_int_key("typeOfGeneratingProcess", 9)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,      &
-        &           isteptype=TSTEP_CONSTANT )
+        &           isteptype=TSTEP_AVG )
 
       IF (itype_vegetation_cycle > 1) THEN
         ! t2m_clim         p_ext_atm%t2m_clim(nproma,nblks_c)
@@ -1104,10 +1114,7 @@ CONTAINS
 
       END IF  ! albedo_type
 
-    END IF ! iforcing
-
-
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    ELSE ! iforcing
 
       ! atmosphere land-sea-mask at surface on cell centers
       ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
@@ -1127,15 +1134,6 @@ CONTAINS
           &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
           grib2_desc, ldims=shape2d_c )
       END IF
-
-      ! longwave surface emissivity
-      !
-      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
-      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', datatype_flt)
-      grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! HDmodel land-sea-mask at surface on cell centers
       ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)

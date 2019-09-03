@@ -38,6 +38,8 @@ MODULE mo_interface_echam_rad
   USE mo_psrad_radiation,     ONLY: psrad_radiation
 
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radiation
+  !$ser verbatim USE mo_ser_echam_rad, ONLY: serialize_rad_input,&
+  !$ser verbatim                             serialize_rad_output
 
   IMPLICIT NONE
   PRIVATE
@@ -72,6 +74,9 @@ CONTAINS
     ! associate pointers
     field => prm_field(jg)
 
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_rad_input(jg, nproma, nlev, field)
+
     IF ( is_in_sd_ed_interval ) THEN
         !
         IF ( is_active ) THEN
@@ -98,6 +103,7 @@ CONTAINS
               & alb_nir_dir    = field%albnirdir(:,:)     ,&!< in  surface albedo for near IR range, direct
               & alb_vis_dif    = field%albvisdif(:,:)     ,&!< in  surface albedo for visible range, diffuse
               & alb_nir_dif    = field%albnirdif(:,:)     ,&!< in  surface albedo for near IR range, diffuse
+              & emissivity     = field%emissivity(:,:)    ,&!< in  surface longwave emissivity
               & tk_sfc         = field%ts_rad_rt(:,:)     ,&!< in  grid box mean surface temperature
               & zf             = field%zf(:,:,:)          ,&!< in  geometric height at full level      [m]
               & zh             = field%zh(:,:,:)          ,&!< in  geometric height at half level      [m]
@@ -164,6 +170,9 @@ CONTAINS
           !
        !
        END IF
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_rad_output(jg, nproma, nlev, field)
 
      IF (ltimer) CALL timer_stop(timer_radiation)
 

@@ -80,8 +80,8 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE construct_bgc_ext_data (p_patch, ext_data,pext_data_bgc)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_patch), INTENT(IN)            :: p_patch
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
     TYPE(t_hamocc_bcond), INTENT(INOUT) :: pext_data_bgc
 
     INTEGER :: jg
@@ -100,10 +100,8 @@ CONTAINS
       &                          'external data started')
 
 
-    DO jg = 1, n_dom
-      WRITE(listname,'(a,i2.2)') 'ext_data_bgc_D',jg
-      CALL new_ext_data_bgc_list(p_patch(jg), ext_data(jg)%bgc, pext_data_bgc, ext_data(jg)%bgc_list, TRIM(listname))
-    END DO ! jg = 1,n_dom
+    WRITE(listname,'(a,i2.2)') 'ext_data_bgc_D',jg
+    CALL new_ext_data_bgc_list(p_patch, ext_data%bgc, pext_data_bgc, ext_data%bgc_list, TRIM(listname))
 
 
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
@@ -229,8 +227,8 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE read_ext_data_bgc (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_patch), INTENT(IN)            :: p_patch
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'read_ext_data_bgc'
@@ -238,11 +236,11 @@ CONTAINS
     CHARACTER(filename_max) :: dust_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg,  no_cells,  no_tst
+    INTEGER ::  no_cells,  no_tst
     INTEGER :: ncid, dimid
     TYPE(t_stream_id) :: stream_id
 
-    REAL(wp):: z_flux(nproma,12,p_patch(1)%alloc_cell_blocks)
+    REAL(wp):: z_flux(nproma,12,p_patch%alloc_cell_blocks)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     CALL message (TRIM(routine), 'start')
@@ -251,7 +249,7 @@ CONTAINS
     !  READ DUST
     !-------------------------------------------------------------------------
 
-    jg = 1
+!     jg = 1
 
     z_flux(:,:,:) = 0.0_wp
 
@@ -280,7 +278,7 @@ CONTAINS
         CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        IF(p_patch%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
           & 'Number of patch cells and cells in HAMOCC dust file do not match - ABORT')
         ENDIF
@@ -303,7 +301,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch(jg))
+      stream_id = openInputFile(dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -313,7 +311,7 @@ CONTAINS
       !-------------------------------------------------------
 
         CALL read_3D(stream_id, on_cells, 'DUST', z_flux)
-        ext_data(jg)%bgc%dust(:,:,:) = z_flux(:,:,:)
+        ext_data%bgc%dust(:,:,:) = z_flux(:,:,:)
      
 
       !
@@ -348,7 +346,7 @@ CONTAINS
         CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        IF(p_patch%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
           & 'Number of patch cells and cells in HAMOCC input file do not match - ABORT')
         ENDIF
@@ -371,7 +369,7 @@ CONTAINS
         CALL nf(nf_close(ncid), routine)
       ENDIF
 
-      stream_id = openInputFile(dust_file, p_patch(jg))
+      stream_id = openInputFile(dust_file, p_patch)
       
       no_tst = 12
       !-------------------------------------------------------
@@ -380,7 +378,7 @@ CONTAINS
       !
       !-------------------------------------------------------
         CALL read_3D(stream_id, on_cells, 'ndepo', z_flux)
-        ext_data(jg)%bgc%nitro(:,:,:) = z_flux(:,:,:)
+        ext_data%bgc%nitro(:,:,:) = z_flux(:,:,:)
      
 
       !
@@ -398,7 +396,7 @@ CONTAINS
    SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, this_datetime)
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hamocc_bcond)                        :: bgc_ext
-    TYPE(datetime), INTENT(INOUT)               :: this_datetime
+    TYPE(datetime), INTENT(IN)                  :: this_datetime
 
   
  ! local variables

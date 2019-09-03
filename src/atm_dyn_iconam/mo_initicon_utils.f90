@@ -24,7 +24,7 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
+  USE mo_run_config,          ONLY: msg_level, ntracer, iqv, iqc, iqi, iqr, iqs, iqg, iforcing
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
@@ -40,7 +40,7 @@ MODULE mo_initicon_utils
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
-    &                               iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
@@ -80,6 +80,7 @@ MODULE mo_initicon_utils
   USE mo_time_config,         ONLY: time_config
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
+  USE mo_upatmo_config,       ONLY: upatmo_config
 
 
   IMPLICIT NONE
@@ -701,34 +702,55 @@ MODULE mo_initicon_utils
           DO jc = 1, nlen
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = 0.0_wp
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = 0.0_wp
-            IF ( iqr /= 0 ) THEN
+            IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
             END IF
-            IF ( iqs /= 0 ) THEN
+            IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
             END IF
-            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+            IF ( (atm_phy_nwp_config(jg)%lhave_graupel) .OR. ( iqg /= 0 .AND. iqg <= ntracer) ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
             END IF
           ENDDO
         ENDDO
         !
-        ! at and below kstart_moist(jg): copy from initicon%atm
-        DO jk = kstart_moist(jg), nlev
-          DO jc = 1, nlen
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
-            IF ( iqr /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
-            END IF
-            IF ( iqs /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
-            END IF
-            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
-            END IF
+        IF (iforcing == iecham) THEN
+          ! at and below kstart_moist(jg): copy from initicon%atm or set to zero
+          ! HAS TO BE CHECKED for possibility to initialize
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
+              END IF
+              IF ( iqg /= 0 .AND. iqg <= ntracer) THEN
+                ! as qg is not in atm initialize with zero
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+              END IF
+            ENDDO
           ENDDO
-        ENDDO
+        ELSE
+          ! at and below kstart_moist(jg): copy from initicon%atm
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
+              END IF
+            ENDDO
+          ENDDO
+        END IF
 
         ! w at surface level
         DO jc = 1, nlen
@@ -751,14 +773,18 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
     ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
+    ! (in case of an upper-atmosphere extrapolation, this is already part 
+    ! of the pressure "extrapolation" in 'src/atm_dyn_iconam/mo_nh_vert_interp: vert_interp')
     DO jg = 1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       ntl = nnow(jg)
 
-      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
-                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
-                        p_nh_state(jg)%prog(ntl)%theta_v )
+      IF (.NOT. upatmo_config(jg)%exp%l_expol) THEN
+        CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
+                          p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
+                          p_nh_state(jg)%prog(ntl)%theta_v )
+      ENDIF
 
     ENDDO
 

@@ -649,6 +649,7 @@ YAXT_INCLUDE
 YAXT_LIB
 subdirs
 YAXTROOT
+MODOPT
 MODDIR
 LIB
 F77FLAGS
@@ -773,6 +774,7 @@ ac_user_opts='
 enable_option_checking
 enable_atmo
 enable_jsbach
+enable_rte_rrtmgp
 enable_ocean
 enable_testbed
 enable_psrad
@@ -783,6 +785,7 @@ with_fortran
 with_openmp
 with_yaxt
 with_yac
+with_ecrad
 enable_cdi_pio
 with_messy
 with_flags
@@ -1429,6 +1432,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-atmo           Use atmosphere model component.
   --enable-jsbach         Use jsbach model component.
+  --enable-rte-rrtmgp     Use rte-rrtmgp model component.
   --enable-ocean          Use ocean model component.
   --enable-testbed        Use testbed component.
   --enable-psrad          Use psrad model component.
@@ -1446,6 +1450,7 @@ Optional Packages:
   --with-openmp           enable OpenMP, if available for selected compiler
   --with-yaxt             enable experimental use of yaxt
   --with-yac              enable use of yac
+  --with-ecrad            enable use of ecrad
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group of flags (std, hiopt, noopt, etc
@@ -1901,8 +1906,6 @@ do
     $as_echo "PATH: $as_dir"
   done
 IFS=$as_save_IFS
-
-
 
 } >&5
 
@@ -2562,14 +2565,15 @@ case $ac_hostname in #(
   daint*|tave*|santis*|kesch*) :
     ac_sitename=cscs.ch
          fqdn=$ac_hostname.$ac_sitename ;; #(
+  ic2*) :
+    ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;; #(
   uc1*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
   fh2*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  juwles*) ac_sitename=fh-juelich.de;
-         fqdn=$ac_hostname.$ac_sitename ;;
   *) :
 
          if test "x$(hostname)" = "x$ac_hostname"; then :
@@ -2626,6 +2630,14 @@ if test "${enable_jsbach+set}" = set; then :
   enableval=$enable_jsbach;
 else
   enable_jsbach=yes
+fi
+
+
+# Check whether --enable-rte-rrtmgp was given.
+if test "${enable_rte_rrtmgp+set}" = set; then :
+  enableval=$enable_rte_rrtmgp;
+else
+  enable_rte_rrtmgp=no
 fi
 
 
@@ -2753,6 +2765,20 @@ if test "x$with_yac" = "xno"; then :
   use_yac="no"
 else
   use_yac="yes"
+fi
+
+
+
+# Check whether --with-ecrad was given.
+if test "${with_ecrad+set}" = set; then :
+  withval=$with_ecrad;
+fi
+
+
+if test "x$with_ecrad" = "xyes"; then :
+  use_ecrad="yes"
+else
+  use_ecrad="no"
 fi
 
 
@@ -2969,6 +2995,7 @@ fi
 
 
 
+
           moduleshome_in_use="${MODULESHOME-}"
           load_modules_in_use="$load_modules"
           shell_in_use="${SHELL##*/}"
@@ -3131,6 +3158,10 @@ fi
 
 if test "x$enable_jsbach" = "xno"; then :
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"
+fi
+
+if test "x$enable_rte_rrtmgp" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_RTE_RRTMGP__"
 fi
 
 if test "x$enable_ocean" = "xno"; then :
@@ -4512,7 +4543,7 @@ if test -n "$NETCDFROOT" ; then
   elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
      NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
   else
-     echo "cannot read $NETCDFLIBPATH/libnetcdf.a"
+     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
      exit 1
   fi
   if test x$gcc_lib != x ; then
@@ -4541,13 +4572,6 @@ esac
   else
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-	   case $ac_hostname in
-        juwels*) 
-	     NETCDF_LIB='-L$(NETCDFROOT)/lib64 -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib64 -lnetcdff'
-		 NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
-		 ;;
-	 *)
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
@@ -4568,12 +4592,9 @@ esac ;; #(
 esac
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
-         #echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
-         echo "cannot read $NETCDFFROOT include"
+         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
        fi
-	   ;;
-	   esac
      fi
   fi
   if [ "x$use_yac" = xyes ] ; then
@@ -6629,7 +6650,7 @@ if test "x$enable_serialization" != "xno"; then :
 
      my_iconsrcdir="build/${build_host}/pp"
      my_iconppdir="${my_iconsrcdir}"
-     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE ${SERIALIZE_EXTRA_FLAGS}"
      case "$enable_serialization" in #(
   "read") :
     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE" ;; #(
@@ -6657,6 +6678,12 @@ fi
 
 my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
+if [ "x$enable_rte_rrtmgp" = xyes ]
+then
+    my_srcdirs="externals/rte-rrtmgp/src ${my_srcdirs}"
+    ac_libs="$ac_libs -lrte-rrtmgp"
+fi
+
 if [ "x$use_yac" = xyes ] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
     FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
@@ -6665,6 +6692,11 @@ if [ "x$use_yac" = xyes ] ; then
         FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
         CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
     fi
+fi
+
+if [ "x$use_ecrad" = xyes ] ; then
+    FFLAGS="${FFLAGS} -I`pwd`/externals/ecrad/module ${DEFOPT}__ECRAD"
+    CFLAGS="${CFLAGS} -I`pwd`/externals/ecrad/module"
 fi
 
 if [ "x$use_messy" = xyes ] ; then
@@ -6698,6 +6730,9 @@ if test "$use_mpcc_r" = yes ; then
 fi
 
 ac_objdirs=""
+if [ "x$use_ecrad" = xyes ] ; then
+    ac_objdirs="${ac_objdirs} `pwd`/externals/ecrad"
+fi
 for dir in $my_srcdirs ; do
     dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
@@ -6739,6 +6774,10 @@ fi
 
 if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+if [ "x$use_ecrad" = xyes ] ; then
+   ac_libs="$ac_libs -L`pwd`/externals/ecrad/lib -lradiation -lutilities -lifsrrtm -lifsaux"
 fi
 
 #------------------------
@@ -6827,24 +6866,14 @@ if test "x$enable_serialization" != "xno"; then :
 
                      if test -z "${SERIALBOX2_INCLUDE}"; then :
 
-                      SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
 
 fi
 
-elif test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"; then :
+elif test -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a" -o -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.so" ; then :
 
-                     case $fortran_compiler in #(
-  pgi*) :
-
-                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
-                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-                       ;; #(
-  *) :
-
-                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-                       ;;
-esac
+                     SERIALBOX2_LIB='-L$(SERIALBOX2ROOT)/lib -lSerialboxFortran -lstdc++fs -lstdc++'
+                     SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
 
 else
 
@@ -6880,6 +6909,11 @@ else
               as_fn_error $? "\"Serialization is enabled but SERIALBOX2ROOT is not defined\"" "$LINENO" 5
 
 fi
+
+else
+
+        SERIALBOX2_LIB=''
+        SERIALBOX2_INCLUDE=''
 
 fi
 
@@ -7016,6 +7050,8 @@ LIB=$ac_libs
 
 MODDIR=$MODDIR
 
+MODOPT=$MODOPT
+
 
 LDFLAGS=$LDFLAGS
 
@@ -7129,7 +7165,7 @@ SRCDIRS=$ac_srcdirs
 OBJDIRS=$ac_objdirs
 
 
-ac_config_files="$ac_config_files Makefile"
+ac_config_files="$ac_config_files Makefile externals/ecrad/Makefile_include.ecradICON"
 
 
 
@@ -8064,6 +8100,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
+                    enable_rte_rrtmgp="${enable_rte_rrtmgp}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
                     my_preprocess_command='${my_preprocess_command}'
@@ -8079,6 +8116,7 @@ do
   case $ac_config_target in
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "externals/ecrad/Makefile_include.ecradICON") CONFIG_FILES="$CONFIG_FILES externals/ecrad/Makefile_include.ecradICON" ;;
     "Makefiles") CONFIG_COMMANDS="$CONFIG_COMMANDS Makefiles" ;;
     "build_command") CONFIG_FILES="$CONFIG_FILES build_command:config/build_command.in" ;;
     "config/set-up.info") CONFIG_FILES="$CONFIG_FILES config/set-up.info" ;;
@@ -8653,12 +8691,26 @@ fi
                            externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
 
 fi
+                    if test "x$enable_rte_rrtmgp" = "xyes"; then :
+
+			   case $config_target in #(
+  *_gpu) :
+    kernel_type=openacc ;; #(
+  *) :
+    kernel_type=cpu
+                                   ;;
+esac
+
+else
+  kernel_type=none
+fi
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
+                                              --enable_rte_rrtmgp="${kernel_type}" \
                                               --enable_testbed="${enable_testbed}" \
                                               --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \

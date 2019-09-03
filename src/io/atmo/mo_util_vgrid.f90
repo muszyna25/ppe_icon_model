@@ -122,11 +122,15 @@ CONTAINS
           CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, layer_thickness, n_flat_level)
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord(p_patch(1)%nlev, vct_a, vct_b)
+        ELSE IF (ivctype == 12) THEN
+          CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, layer_thickness, n_flat_level)
         ENDIF
 
         IF (ivctype == 1) THEN
           CALL prepare_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, vct, nflatlev)
         ELSE IF (ivctype == 2) THEN
+          CALL prepare_sleve_coord(p_patch(1)%nlev, vct_a, vct_b, vct, nflatlev)
+        ELSE IF (ivctype == 12) THEN
           CALL prepare_sleve_coord(p_patch(1)%nlev, vct_a, vct_b, vct, nflatlev)
         ENDIF
 
@@ -173,7 +177,7 @@ CONTAINS
           ALLOCATE(topography_smt(nproma,p_patch(jg)%nblks_c))
 
           ! Compute smooth topography when SLEVE coordinate is used
-          IF ( ivctype == 2 .AND. .NOT. lread_smt ) THEN
+          IF ( (ivctype == 2 .OR. ivctype == 12) .AND. .NOT. lread_smt ) THEN
             CALL compute_smooth_topo(p_patch(jg), p_int_state(jg), ext_data(jg)%atm%topography_c, & ! in, in, in,
               &                      topography_smt)                                                ! out
           ENDIF

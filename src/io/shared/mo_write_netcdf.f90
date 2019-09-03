@@ -356,7 +356,7 @@ contains
     logical :: ltime, ldef
     integer :: iret,varid, dimsize
     real(wp), dimension(:), allocatable :: dimvar
-    character(80) :: fname
+    character(LEN=80) :: fname
 
     if (all(dimvalues == 0)) then ! If all values of this dimension are zero, 
                                   ! it is the unlimited (time) dimension
@@ -546,7 +546,7 @@ contains
     else
       varid = nf_global
     end if
-    putatt_single_nc = nf_put_att_real(ncid, varid, validate(attrname), nf_float, 1, attrval)
+    putatt_single_nc = nf_put_att_real(ncid, varid, validate(attrname), nf_float, 1, [attrval])
     if (ldef .eqv. .false.) then
       ldef = ensuredata_nc(ncid)
     end if
@@ -609,7 +609,7 @@ contains
     else
       varid = nf_global
     end if
-    putatt_short_nc = nf_put_att_int2(ncid, varid, validate(attrname), nf_short, 1, attrval)
+    putatt_short_nc = nf_put_att_int2(ncid, varid, validate(attrname), nf_short, 1, [attrval])
     if (ldef .eqv. .false.) then
       ldef = ensuredata_nc(ncid)
     end if
@@ -644,7 +644,7 @@ contains
     else
       varid = nf_global
     end if
-    getatt_single_nc= nf_get_att_real(ncid, varid, validate(attrname), attrval)
+    getatt_single_nc= nf_get_att_real(ncid, varid, validate(attrname), [attrval])
   end function getatt_single_nc
   
 !-------------------------------------------------------------------------
@@ -692,7 +692,7 @@ contains
     else
       varid = nf_global
     end if
-    getatt_short_nc= nf_get_att_int2(ncid, varid, validate(attrname), attrval)
+    getatt_short_nc= nf_get_att_int2(ncid, varid, validate(attrname), [attrval])
   end function getatt_short_nc
   
 !-------------------------------------------------------------------------

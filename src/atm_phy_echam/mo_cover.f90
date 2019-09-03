@@ -114,7 +114,7 @@ CONTAINS
     REAL(wp) :: zqsm1(kproma*klev)
     REAL(wp) :: ua(kproma)
 
-    LOGICAL :: lao, lao1
+    LOGICAL :: lao, lao1, lomask(kbdim)
 
     REAL(wp) :: zpapm1i(kbdim,klev),     ztmp(kproma*klev)
 
@@ -124,61 +124,88 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    INTEGER , POINTER :: jks, jbmin, jbmax, nex
-    REAL(wp), POINTER :: csatsc, crt, crs, cinv
+    INTEGER  :: jks, jbmin, jbmax, nex
+    REAL(wp) :: csatsc, crt, crs, cinv
     !
-    jks    => echam_cld_config(jg)% jks
-    jbmin  => echam_cld_config(jg)% jbmin
-    jbmax  => echam_cld_config(jg)% jbmax
-    csatsc => echam_cld_config(jg)% csatsc
-    crs    => echam_cld_config(jg)% crs
-    crt    => echam_cld_config(jg)% crt
-    nex    => echam_cld_config(jg)% nex
-    cinv   => echam_cld_config(jg)% cinv
+    jks    = echam_cld_config(jg)% jks
+    jbmin  = echam_cld_config(jg)% jbmin
+    jbmax  = echam_cld_config(jg)% jbmax
+    csatsc = echam_cld_config(jg)% csatsc
+    crs    = echam_cld_config(jg)% crs
+    crt    = echam_cld_config(jg)% crt
+    nex    = echam_cld_config(jg)% nex
+    cinv   = echam_cld_config(jg)% cinv
+
+    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxim1, paclc, printop ) &
+    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase, &
+    !$ACC               knvb, loidx, lomask )
 
     !
     !   Initialize variables
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
     DO jk = 1,jks-1
+      !$ACC LOOP VECTOR
       DO jl = jcs,kproma
          paclc(jl,jk) = 0.0_wp
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
       zknvb(jl)  = 1.0_wp
       printop(jl)= 0.0_wp
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
     DO jk = jks,klev
+      !$ACC LOOP VECTOR
       DO jl = jcs,kproma
          zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
       END DO
     END DO
+    !$ACC END PARALLEL
     !
     !       1.3   Checking occurrence of low-level inversion
     !             (below 2000 m, sea points only, no convection)
     !
-    locnt = jcs-1
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
-      IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
+      lomask(jl) = (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0)
+    END DO
+    !$ACC END PARALLEL
+    locnt = jcs-1
+    !$ACC UPDATE HOST( lomask )
+    DO jl = jcs,kproma
+      IF (lomask(jl)) THEN
         locnt = locnt + 1
         loidx(locnt) = jl
       END IF
     END DO
+    !$ACC UPDATE DEVICE( loidx )
 
     IF (locnt.GT.jcs-1) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
       DO jk = klev,jbmin,-1
 
 !IBM* ASSERT(NODEPS)
 !IBM* novector
+        !$ACC LOOP GANG VECTOR PRIVATE( jl )
         DO nl = jcs,locnt
           jl = loidx(nl)
           ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
         END DO
 
         zjk = REAL(jk,wp)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zdtdz )
 !IBM* ASSERT(NODEPS)
         DO nl = jcs,locnt
           jl = loidx(nl)
@@ -187,8 +214,14 @@ CONTAINS
           zdtmin(jl)  = MAX(zdtdz,zdtmin(jl))
         END DO
       END DO
+      !$ACC END PARALLEL
     END IF
-    knvb(jcs:kproma) = INT(zknvb(jcs:kproma))
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs,kproma
+      knvb(jl) = INT(zknvb(jl))
+    END DO
+    !$ACC END PARALLEL
     !
     !       1.   Calculate the saturation mixing ratio
     !
@@ -196,26 +229,31 @@ CONTAINS
 
       DO jk = jks,klev
 
-        CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(1,jk),itv1(1),   &
-                                         za(1),pxim1(1,jk),nphase,zphase,itv2,       &
+        CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
+                                         za(:),pxim1(:,jk),nphase,zphase,itv2,       &
                                          klev=jk,kblock=jb,kblock_size=kbdim)
         ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
-        CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
+        CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(:),za(:),nphase,itv2(:),ua(:))
         ! output: ua
 
 !IBM* novector
 
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( zcor )
         DO jl = jcs,kproma
           zqsm1(jl) = MIN(ua(jl)*zpapm1i(jl,jk),0.5_wp)
           zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl))
           zqsm1(jl) = zqsm1(jl)*zcor  ! qsat
         END DO
+        !$ACC END PARALLEL
         !
         !       Threshold relative humidity, qsat and cloud cover
         !       This is from cloud, and is the original calculation for
         !       cloud cover, based on relative humidity
         !       (Lohmann and Roeckner, Clim. Dyn.  96)
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( zrhc, zsat, jbm, lao, lao1, ilev, zdtdz, zgam, zqr )
         DO jl = jcs,kproma
         !
           zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
@@ -237,9 +275,11 @@ CONTAINS
           paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp)
           paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
         END DO !jl
+        !$ACC END PARALLEL
       END DO  !jk
     END IF
 
+    !$ACC END DATA
     !
     !
   END SUBROUTINE cover

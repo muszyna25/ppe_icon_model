@@ -49,7 +49,7 @@ MODULE mo_echam_phy_init
   ! test cases
   USE mo_nh_testcases_nml,     ONLY: nh_test_name, ape_sst_case, th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
-  USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3
+  USE mo_physical_constants,   ONLY: tmelt, Tf, albedoW, amd, amo3, zemiss_def
 
   USE mo_sea_ice_nml,          ONLY: albi
 
@@ -109,10 +109,18 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
+
+  ! for 6hourly sst and ice data
+  USE mo_reader_sst_sic,       ONLY: t_sst_sic_reader
+  USE mo_interpolate_time,     ONLY: t_time_intp
+
   ! psrad
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
+  ! for microphysics  (graupel)
+  USE gscp_data,              ONLY: gscp_set_coefficients
+  USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   IMPLICIT NONE
 
@@ -120,6 +128,12 @@ MODULE mo_echam_phy_init
 
   PUBLIC  :: init_echam_phy_params, init_echam_phy_external, init_echam_phy_field
   PUBLIC  :: init_o3_lcariolle
+
+  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
+  TYPE(t_time_intp)      :: sst_intp
+  TYPE(t_time_intp)      :: sic_intp
+  REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
+  REAL(wp), ALLOCATABLE  :: sic_dat(:,:,:,:)
 
 CONTAINS
   !>
@@ -227,7 +241,11 @@ CONTAINS
       ! Before more sophisticated meta-data structure becomes available,
       ! it is assumed here that all tracers are subject to turbulent mixing.
       !
-      khydromet = iqt - 2        ! # of hydrometeors
+      !khydromet = iqt - 2        ! # of hydrometeors
+      ! as long as init_vdiff_solver is extremely hard-coded it is sufficient
+      ! to set khydromet to 2 for xl and xi to be mixed. init_vdiff_solver is
+      ! not able to handel khydromet not equal to 2
+      khydromet = 2
       ktrac = ntracer - iqt + 1  ! # of non-water species
       !
       CALL init_vdiff_solver( khydromet, ktrac, nlev )
@@ -271,6 +289,23 @@ CONTAINS
     END DO
     IF (lany) THEN
       CALL print_echam_cld_config
+    END IF
+
+    ! cloud microphysics (graupel)
+    !
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_mig > dt_zero)
+    END DO
+    IF (lany) THEN
+      CALL print_echam_cld_config
+      CALL print_echam_mig_config
+
+      CALL gscp_set_coefficients(tune_zceff_min = echam_mig_config(jg)%tune_zceff_min,  &
+        &                        tune_v0snow    = echam_mig_config(jg)%tune_v0snow,     &
+        &                        tune_zvz0i     = echam_mig_config(jg)%tune_zvz0i,      &
+        &                        tune_mu_rain   = echam_mig_config(jg)%mu_rain )
+
     END IF
 
     ! atmospheric gravity wave drag
@@ -437,6 +472,14 @@ CONTAINS
                  &       variable_name='albedo',                &
                  &       fill_array=prm_field(jg)% alb(:,:))
             !
+            ! Here surface emissivity should be read from an external file.
+            ! But currently this is not available. Instead a default constant
+            ! is used as source.
+            WRITE(message_text,'(2a)') 'Use default surface emissivity zemiss_def from mo_physical_constants'
+            CALL message('mo_echam_phy_init:init_echam_phy_external', message_text)
+            !
+            prm_field(jg)% emissivity(:,:) = zemiss_def
+            !
           END IF
           !
           CALL closeFile(stream_id)
@@ -521,26 +564,54 @@ CONTAINS
       !
       IF (.NOT. isrestart()) THEN
         !
-        ! interpolation weights for linear interpolation of monthly means to the current time
-        current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+        IF (.NOT.  ANY(echam_phy_config(:)%lsstice)) THEN
+          !
+          ! interpolation weights for linear interpolation of monthly means to the current time
+          current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+          !
+          DO jg= 1,n_dom
+            !
+            IF (echam_phy_tc(jg)%dt_rad > dt_zero .OR. echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
+              !
+              CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
+              !
+              CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
+                   &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
+                   &                             prm_field(jg)%seaice (:,:)                           ,&
+                   &                             prm_field(jg)%siced  (:,:)                           ,&
+                   &                             p_patch(jg)                                          ,&
+                   &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) < 1._wp ,&
+                   &                             .TRUE. )
+              !
+            END IF
+            !
+          END DO
+          !
+          !
+        ELSE
+          !
+          ! READ 6-hourly sst values (dyamond+- setup, preliminary)
+          CALL sst_sic_reader%init(p_patch(1), 'sst-sic-runmean_G.nc')
+          CALL sst_intp%init(sst_sic_reader, mtime_current, "SST")
+          CALL sst_intp%intp(mtime_current, sst_dat)
+          WHERE (sst_dat(:,1,:,1) > 0.0_wp)
+            prm_field(1)%ts_tile(:,:,iwtr) = sst_dat(:,1,:,1)
+          END WHERE
+          !
+          CALL sic_intp%init(sst_sic_reader, mtime_current, "SIC")
+          CALL sic_intp%intp(mtime_current, sic_dat)
+          prm_field(1)%seaice(:,:) = sic_dat(:,1,:,1)
+          prm_field(1)%seaice(:,:) = MERGE(0.99_wp, prm_field(1)%seaice(:,:), prm_field(1)%seaice(:,:) > 0.99_wp)
+          prm_field(1)%seaice(:,:) = MERGE(0.0_wp, prm_field(1)%seaice(:,:), prm_field(1)%seaice(:,:) <= 0.01_wp)
+
+          ! set ice thickness
+          WHERE (prm_field(1)%seaice(:,:) > 0.0_wp)
+            prm_field(1)%siced(:,:) = MERGE(2.0_wp, 1.0_wp, p_patch(1)%cells%center(:,:)%lat > 0.0_wp)
+          ELSEWHERE
+            prm_field(1)%siced(:,:) = 0.0_wp
+          ENDWHERE
         !
-        DO jg= 1,n_dom
-          !
-          IF (echam_phy_tc(jg)%dt_rad > dt_zero .OR. echam_phy_tc(jg)%dt_vdf > dt_zero) THEN
-            !
-            CALL read_bc_sst_sic(mtime_current%date%year, p_patch(jg))
-            !
-            CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights                   ,&
-                 &                             prm_field(jg)%ts_tile(:,:,iwtr)                      ,&
-                 &                             prm_field(jg)%seaice (:,:)                           ,&
-                 &                             prm_field(jg)%siced  (:,:)                           ,&
-                 &                             p_patch(jg)                                          ,&
-                 &                             prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:) < 1._wp ,&
-                 &                             .TRUE. )
-            !
-          END IF
-          !
-        END DO
+        END IF
         !
       END IF
       !
@@ -726,7 +797,7 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst') !Note that there is only one surface type in this case
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe

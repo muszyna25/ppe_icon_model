@@ -36,12 +36,12 @@ MODULE mo_ext_data_init
 
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
+  USE mo_impl_constants,     ONLY: inwp, io3_clim, io3_ape,                                         &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
     &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
     &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: o3mr2gg, ppmv2gg, zemiss_def, tmelt
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -233,21 +233,17 @@ CONTAINS
           ext_data(jg)%atm%frac_t(:,:,:)    = 0._wp       ! set all tiles to 0
           ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
           ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class
-        END DO
-      END IF
-      IF ( iforcing == inwp .OR. iforcing == iecham .OR. iforcing == ildf_echam ) THEN
-        DO jg = 1, n_dom
+
           ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
         END DO
-      END IF
 
-      ! call read_ext_data_atm to read O3
-      IF ( iforcing == inwp ) THEN
+        ! call read_ext_data_atm to read O3
         IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM) THEN
           CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, &
             &                     extpar_varnames_dict)
           CALL message(routine,'read_ext_data_atm completed' )
         END IF
+
       END IF
 
     CASE(1) ! itopo, read external data from file
@@ -875,26 +871,9 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
+    IF ( itopo == 1 .AND. iforcing /= inwp ) THEN
 
       DO jg = 1,n_dom
-
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-
-        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), &
-          &                       default_read_method)
-
-        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-          &              ext_data(jg)%atm%lsm_ctr_c)
-
-        CALL closeFile(stream_id)
-
-        ! get topography [m]
-        ! - The non-hydrostatic AMIP setup starts directly from the topography read from
-        !   the elevation stored in the land_sso file. Hence the read in elevation is 
-        !   stored in 'topography_c'.
 
         ! Read topography
 
@@ -910,22 +889,27 @@ CONTAINS
 
         CALL closeFile(stream_id)
 
-        ! LW surface emissivity
-        !
-        ! (eventually emis_rad should be read from file)
-        !
-        ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
-
-
       END DO
 
     END IF
 
-    ! Open/Read slm for HDmodel in configuration with jsbach, used in yac-coupler
-    IF ( iforcing == iecham .AND. is_coupled_run() ) THEN
+    ! If ocean coupling is used, then read the land sea masks
+    IF ( iforcing /= inwp .AND. is_coupled_run() ) THEN
 
       DO jg = 1,n_dom
 
+        ! get land-sea-mask on cells, integer marks are:
+        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+        ! boundary land (1, cells and vertices), inner land (2)
+
+        stream_id = openInputFile(p_patch(jg)%grid_filename, p_patch(jg), default_read_method)
+
+        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
+          &              ext_data(jg)%atm%lsm_ctr_c)
+
+        CALL closeFile(stream_id)
+
+        ! If JSBACH is used open/read the mask for the hydrological discharge model
         IF ( echam_phy_config(jg)%ljsb ) THEN
 
           stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)

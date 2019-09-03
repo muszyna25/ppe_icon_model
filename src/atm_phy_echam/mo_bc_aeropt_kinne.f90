@@ -23,7 +23,7 @@ MODULE mo_bc_aeropt_kinne
   USE mo_grid_config,          ONLY: n_dom
   USE mo_parallel_config,      ONLY: nproma
   USE mo_psrad_general,        ONLY: nbndlw, nbndsw
-  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_exception,            ONLY: finish, message, message_text, warning
   USE mo_io_config,            ONLY: default_read_method
   USE mo_time_config,          ONLY: time_config
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
@@ -132,6 +132,12 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
   ALLOCATE(ext_aeropt_kinne(jg)% asy_c_f(nblks_len,nbndlw,nblks,imonth_beg:imonth_end))
   ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_c_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
   ALLOCATE(ext_aeropt_kinne(jg)% z_km_aer_f_mo(nblks_len,lev_clim,nblks,imonth_beg:imonth_end))
+  !$ACC ENTER DATA CREATE( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
+  !$ACC                    ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
+  !$ACC                    ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
+  !$ACC                    ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)%ssa_c_f,        &
+  !$ACC                    ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)%z_km_aer_c_mo,  &
+  !$ACC                    ext_aeropt_kinne(jg)%z_km_aer_f_mo )
 ! initialize with zero
   ext_aeropt_kinne(jg)% aod_c_s(:,:,:,:) = 0._wp
   ext_aeropt_kinne(jg)% aod_f_s(:,:,:,:) = 0._wp
@@ -144,6 +150,17 @@ SUBROUTINE su_bc_aeropt_kinne(p_patch)
   ext_aeropt_kinne(jg)% asy_c_f(:,:,:,:) = 0._wp
   ext_aeropt_kinne(jg)% z_km_aer_c_mo(:,:,:,:) = 0._wp
   ext_aeropt_kinne(jg)% z_km_aer_f_mo(:,:,:,:) = 0._wp
+
+#ifdef _OPENACC
+  CALL warning("GPU:su_bc_aeropt_kinne", "GPU device synchronization")
+#endif
+  !$ACC UPDATE DEVICE ( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
+  !$ACC                 ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
+  !$ACC                 ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
+  !$ACC                 ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)%ssa_c_f,        &
+  !$ACC                 ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)%z_km_aer_c_mo,  &
+  !$ACC                 ext_aeropt_kinne(jg)%z_km_aer_f_mo )
+
 END SUBROUTINE su_bc_aeropt_kinne
 
   !> SUBROUTINE shift_months_bc_aeropt_kinne -- shifts December of current year into imonth=0 and 
@@ -239,6 +256,16 @@ SUBROUTINE read_bc_aeropt_kinne(mtime_current, p_patch)
 
     rdz_clim = 1._wp/dz_clim
     pre_year(jg) = mtime_current%date%year
+
+#ifdef _OPENACC
+    CALL warning("GPU:read_bc_aeropt_kinne", "GPU device synchronization")
+#endif
+    !$ACC UPDATE DEVICE ( ext_aeropt_kinne(jg)%aod_c_s, ext_aeropt_kinne(jg)%aod_f_s,        &
+    !$ACC                 ext_aeropt_kinne(jg)%ssa_c_s, ext_aeropt_kinne(jg)%ssa_f_s,        &
+    !$ACC                 ext_aeropt_kinne(jg)%asy_c_s, ext_aeropt_kinne(jg)%asy_f_s,        &
+    !$ACC                 ext_aeropt_kinne(jg)%aod_c_f, ext_aeropt_kinne(jg)%ssa_c_f,        &
+    !$ACC                 ext_aeropt_kinne(jg)%asy_c_f, ext_aeropt_kinne(jg)%z_km_aer_c_mo,  &
+    !$ACC                 ext_aeropt_kinne(jg)%z_km_aer_f_mo )
 
   END IF    
 END SUBROUTINE read_bc_aeropt_kinne

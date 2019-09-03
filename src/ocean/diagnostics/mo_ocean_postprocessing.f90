@@ -26,7 +26,7 @@ MODULE mo_ocean_postprocessing
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_grid_config,         ONLY: n_dom
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
+  USE mo_ocean_types, ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
   USE mo_ocean_physics_types, ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_ocean_nml
@@ -41,12 +41,11 @@ MODULE mo_ocean_postprocessing
     & activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-
-  USE mo_read_interface
-  USE mo_statistics
+  USE mo_impl_constants, ONLY: on_cells
+  USE mo_read_interface, ONLY: t_stream_id, openInputFile, read_3D_time, read_2D_time, closeFile
+  USE mo_statistics, ONLY: total_mean, levels_horizontal_mean
   USE mtime,                  ONLY: datetime
 
-  !  USE mo_netcdf_read
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -69,8 +68,8 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in) :: solverCoeff_sp
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_postprocess"
 
@@ -103,8 +102,8 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in) :: solverCoeff_sp
     CHARACTER(LEN=*), INTENT(in)         :: fileName
     INTEGER, INTENT(in)                  :: timeIndex
 
@@ -169,7 +168,7 @@ CONTAINS
     ! calclulate volume
     CALL calculate_thickness( patch_3D, ocean_state, external_data, operators_coefficients, solverCoeff_sp)
 !     CALL update_thickness_dependent_operator_coeff( patch_3D, ocean_state, operators_coefficients, solverCoeff_sp)
-	
+
     CALL calculate_density( patch_3d,            &
         & tracers(:,:,:,1:2),&
         & ocean_state%p_diag%rho(:,:,:) )

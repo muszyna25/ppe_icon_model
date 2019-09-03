@@ -44,6 +44,7 @@ MODULE mo_read_namelists
 
   USE mo_echam_phy_nml       ,ONLY: process_echam_phy_nml
   USE mo_echam_cld_nml       ,ONLY: process_echam_cld_nml
+  USE mo_echam_mig_nml       ,ONLY: process_echam_mig_nml
   USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
   USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
   USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
@@ -81,6 +82,7 @@ MODULE mo_read_namelists
   USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM, INWP
   USE mo_assimilation_nml    ,ONLY: read_assimilation_namelist
   USE mo_nudging_nml         ,ONLY: read_nudging_namelist
+  USE mo_upatmo_nml          ,ONLY: read_upatmo_namelist
 
   IMPLICIT NONE
 
@@ -166,6 +168,7 @@ CONTAINS
        !
        ! ... and the employed parameterizations
        CALL process_echam_cld_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_mig_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cnv_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_gwd_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_rad_nml        (atm_namelist_filename(1:tlen))
@@ -192,6 +195,10 @@ CONTAINS
        CALL read_ls_forcing_namelist     (atm_namelist_filename(1:tlen))
        !
     END SELECT
+
+    ! Upper atmosphere
+    !
+    CALL read_upatmo_namelist         (TRIM(atm_namelist_filename))
 
     ! Initial conditions
     !
