@@ -1747,7 +1747,7 @@ MODULE mo_nh_stepping
               lcall_rrg = .FALSE.
             ENDIF
 
-            IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+            IF (lcall_rrg) THEN
               CALL interpol_rrg_grf(jg, jgc, jn, nnew_rcf(jg))
             ENDIF
             IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%latm_above_top) THEN
