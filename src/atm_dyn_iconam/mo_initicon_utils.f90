@@ -57,10 +57,10 @@ MODULE mo_initicon_utils
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
+  USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_nh_init_utils,       ONLY: hydro_adjust
-  USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
+  USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
     &                               dict_loadfile, dict_resize
   USE mo_post_op,             ONLY: perform_post_op
@@ -68,7 +68,7 @@ MODULE mo_initicon_utils
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_flake,               ONLY: flake_coldinit
+  USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state

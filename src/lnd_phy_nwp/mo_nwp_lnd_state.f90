@@ -50,7 +50,7 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, &
     &                                HINTP_TYPE_LONLAT_BCTR, TLEV_NNOW_RCF,           &
-    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI
+    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI, zml_soil
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
@@ -85,6 +85,7 @@ MODULE mo_nwp_lnd_state
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
     &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_HEIGHT_2M
+  USE sfc_terra_data,          ONLY: zzhls, zdzhs, zdzms
 
 
 
@@ -138,6 +139,7 @@ MODULE mo_nwp_lnd_state
       &        ist, &! status
       &        jg,  &! grid level counter
       &        jt,  &! time level counter
+      &        kso, &! soil level counter
       &      nblks_c ! number of blocks of cells
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
@@ -147,6 +149,22 @@ MODULE mo_nwp_lnd_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'land state construction started')
+
+    ! Allocate and compute fields with information about soil levels and layers
+    ALLOCATE (zzhls          (nlev_soil)       , & ! depth of the half level soil layers in m
+              zdzhs          (nlev_soil)       , & ! layer thickness between half levels
+              zdzms          (nlev_soil)  )        ! distance between main levels
+
+    zzhls(1) = 2.0_wp*zml_soil(1) ! depth of first half level
+    zdzhs(1) = zzhls(1)           ! layer thickness betw. half levels of uppermost layer
+    zdzms(1) = zml_soil(1)        ! layer thickness between soil surface and main level
+                                  !   of uppermost layer
+
+    DO kso = 2,nlev_soil
+      zzhls(kso) = zzhls(kso-1) + 2.0_wp*(zml_soil(kso) -zzhls(kso-1))
+      zdzhs(kso) = zzhls(kso) - zzhls(kso-1)       ! layer thickness betw. half levels
+      zdzms(kso) = zml_soil(kso) - zml_soil(kso-1) ! layer thickness betw. main levels
+    ENDDO
 
     DO jg = 1, n_dom
 
@@ -248,6 +266,9 @@ MODULE mo_nwp_lnd_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'Destruction of nwp land state started')
+
+    ! Deallocate fields with information about soil levels and layers
+    DEALLOCATE (zzhls, zdzhs, zdzms)
 
     DO jg = 1, n_dom
 

@@ -52,11 +52,11 @@ USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mul
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow, lseaice, llake, &
                                   frlake_thrhld, frsea_thrhld, isub_lake, ntiles_total
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-USE mo_phyparam_soil,       ONLY: cadp
+USE sfc_terra_data,         ONLY: cadp
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq
-USE mo_seaice_nwp,          ONLY: frsi_min
-USE mo_flake,               ONLY: flake_coldinit
-USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
+USE sfc_seaice,             ONLY: frsi_min
+USE sfc_flake,              ONLY: flake_coldinit
+USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
 USE mo_fortran_tools,       ONLY: init, copy
 
 IMPLICIT NONE

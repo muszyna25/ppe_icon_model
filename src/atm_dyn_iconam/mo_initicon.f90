@@ -58,10 +58,10 @@ MODULE mo_initicon
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
     &                               frlake_thrhld, lprog_albsi
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
-  USE mo_seaice_nwp,          ONLY: frsi_min
+  USE sfc_seaice,             ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
-  USE mo_nwp_soil_init,       ONLY: get_wsnow
+  USE sfc_terra_data,         ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -69,7 +69,7 @@ MODULE mo_initicon
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
-  USE mo_flake,               ONLY: flake_coldinit
+  USE sfc_flake,              ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles, copy_initicon2prog_atm, copy_initicon2prog_sfc, &
                                   & construct_initicon, deallocate_initicon, copy_fg2initicon, &
                                   & initVarnamesDict, printChecksums, init_aerosol

@@ -39,7 +39,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
     &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
+  USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ext_data_init,       ONLY: diagnose_ext_aggr, interpol_monthly_mean, vege_clim
@@ -56,16 +56,16 @@ MODULE mo_nwp_sfc_utils
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
-  USE mo_nwp_soil_init,       ONLY: terra_multlay_init
-  USE mo_flake,               ONLY: flake_init
-  USE mo_seaice_nwp,          ONLY: seaice_init_nwp, alb_seaice_equil, hice_min, frsi_min, &
+  USE sfc_terra_init,         ONLY: terra_init
+  USE sfc_flake,              ONLY: flake_init
+  USE sfc_seaice,             ONLY: seaice_init_nwp, alb_seaice_equil, hice_min, frsi_min, &
     &                               hice_ini_min, hice_ini_max, seaice_coldinit_albsi_nwp
-  USE mo_phyparam_soil,       ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
+  USE sfc_terra_data,         ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
+  USE turb_data,              ONLY: c_lnd, c_sea
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
   USE mo_sync,                ONLY: global_sum_array, global_max, global_min
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf
-  USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
 
   IMPLICIT NONE
@@ -277,12 +277,11 @@ CONTAINS
     !
     INTEGER  :: icount_ice          ! total number of sea-ice points per block
 
-    INTEGER  :: i_count, ic, i_count_snow, isubs_snow, jg
+    INTEGER  :: i_count, ic, i_count_snow, isubs_snow, jg, kso
     REAL(wp) :: temp, deglat, deglon
     REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
 
   !-------------------------------------------------------------------------
-
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
@@ -505,15 +504,16 @@ CONTAINS
       DO isubs = 1,ntiles_total
 
         i_count = ext_data%atm%lp_count_t(jb,isubs)
-        CALL terra_multlay_init(                                  &
+        CALL terra_init(                                          &
         &  init_mode         = init_mode_soil                   , & ! coldstart/warmstart/warmstart with snow increments
-        &  ie                = nproma                           , & ! array dimensions
-        &  istartpar=1, iendpar= i_count                        , & ! optional start/end indicies
+        &  nvec              = nproma                           , & ! array dimensions
+        &  ivstart=1,   ivend= i_count                          , & ! optional start/end indicies
+        &  iblock            = jb                               , & ! actual block
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow               , & ! without lowermost (climat.) soil layer
-        &  czmls             = zml_soil                         , & ! processing soil level structure
+        &   zmls             = zml_soil                         , & ! processing soil level structure
         &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
         &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
-        &  plcov             = plcov_t(:,jb,isubs)             , & ! surface fraction covered by plants ( -  )
+        &  plcov             = plcov_t(:,jb,isubs)              , & ! surface fraction covered by plants ( -  )
         &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
         &  t_rhosnowini      = t_rhosnowini_t(:,jb,isubs)       , & ! temperature used for snow density initialization (  K  )

@@ -47,7 +47,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_advection_config,     ONLY: advection_config
   USE turb_data,               ONLY: get_turbdiff_param
-  USE mo_data_flake,           ONLY: h_Ice_min_flk, tpl_T_f
+  USE sfc_flake_data,          ONLY: h_Ice_min_flk, tpl_T_f
   USE turb_transfer,           ONLY: turbtran
   USE mo_satad,                ONLY: sat_pres_water, spec_humi
   USE mo_gme_turbdiff,         ONLY: parturs, nearsfc

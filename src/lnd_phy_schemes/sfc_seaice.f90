@@ -77,6 +77,15 @@
 !! - Changes related to the use of a rate equation 
 !!   for the sea-ice albedo.
 !!
+!
+! History:
+! Version      Date       Name
+! ------------ ---------- ----
+! V5_4e        2017-03-23 Ulrich Schaettler
+!  Initial release for COSMO (taken from ICON version)
+! @VERSION@    @DATE@     Ulrich Schaettler
+!  Re-unification with ICON version
+!
 !!
 !! @par Copyright and License
 !!
@@ -98,8 +107,27 @@
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
-MODULE mo_seaice_nwp
+MODULE sfc_seaice
 
+#ifdef __COSMO__
+  USE kind_parameters, ONLY:      &
+                   &  wp  !< KIND-type parameter for real variables
+
+  USE data_constants,  ONLY:      &
+     tf_fresh => t0_melt,         & !
+     tf_salt,                     & !
+     alf      => lh_f,            & !
+     rhoi     => rho_ice,         & !
+     ci,                          & !
+     ki
+
+  USE data_parallel   , ONLY :   &
+    my_cart_id       ! rank of this sub-domain in the Cartesian communicator
+
+  USE environment,      ONLY: model_abort
+#endif
+
+#ifdef __ICON__
   USE mo_kind, ONLY:      &
                    &  wp  !< KIND-type parameter for real variables
 
@@ -109,28 +137,33 @@ MODULE mo_seaice_nwp
 
   USE mo_impl_constants, ONLY :     &
                               &  ALB_SI_MISSVAL             !< missing value for prognostic seaice albedo
+
 !_cdm>
 ! Note that ki is equal to 2.1656 in ICON, but is 2.29 in COSMO and GME. 
 !_cdm<
-  USE mo_physical_constants, ONLY:                       &
-                                 & tf_fresh => tmelt   , &  !< fresh-water freezing point [K]
-                                 &             tf_salt , &  !< salt-water freezing point [K]
-                                 &             alf     , &  !< latent heat of fusion [J/kg]
-                                 &             rhoi    , &  !< density of ice [kg/m^3]
-                                 &             ci      , &  !< specific heat of ice [J/(kg K)]
-                                 &             ki           !< molecular heat conductivity of ice [J/(m s K)]  
+  USE mo_physical_constants, ONLY:                      &
+                                 & tf_fresh => tmelt  , &  !< fresh-water freezing point [K]
+                                 &             tf_salt, &  !< salt-water freezing point [K]
+                                 &             alf    , &  !< latent heat of fusion [J/kg]
+                                 &             rhoi   , &  !< density of ice [kg/m^3]
+                                 &             ci     , &  !< specific heat of ice [J/(kg K)]
+                                 &             ki          !< molecular heat conductivity of ice [J/(m s K)]  
 
-
-  USE mo_lnd_nwp_config,     ONLY:                      & 
+  USE mo_lnd_nwp_config,     ONLY:                      &
                                  & lprog_albsi             !< sea-ice albedo is computed prognostically 
+#endif
 
-  USE mo_phyparam_soil,      ONLY:                      &
+  USE sfc_terra_data,        ONLY:                      &
                                  & csalb              , &  !< solar albedo for different soil types
                                  & ist_seaice              !< ID of soiltype "sea ice"
 
   IMPLICIT NONE
 
   PRIVATE
+
+#ifdef __COSMO__
+  LOGICAL :: lprog_albsi = .FALSE.
+#endif
 
   REAL (wp), PARAMETER ::                             &
                        &  frsi_min     = 0.015_wp   , &  !< minimum sea-ice fraction [-]
@@ -201,17 +234,31 @@ MODULE mo_seaice_nwp
                                     &  (/1.0E+07_wp, 1.E+10_wp/)) 
 
   ! Minimum values of the sea-ice fraction and of the sea-ice thickness are used outside 
-  ! "mo_seaice_nwp" to compose an index list of grid boxes where sea ice is present. 
-  PUBLIC ::                            &
+  ! "sfc_seaice" to compose an index list of grid boxes where sea ice is present. 
+  PUBLIC ::                       &
+#ifdef ALLOC_WKARR
+         &  seaice_wkarr_alloc       , & ! subroutine for allocation
+         &  seaice_wkarr_dealloc     , & ! subroutine for deallocation
+#endif
          &  frsi_min                 , & ! parameter
          &  hice_min                 , & ! parameter 
          &  hice_ini_min             , & ! parameter
          &  hice_ini_max             , & ! parameter
          &  seaice_init_nwp          , & ! procedure     
-         &  seaice_coldinit_nwp      , & ! procedure  
+         &  seaice_coldinit_nwp      , & ! procedure
          &  seaice_coldinit_albsi_nwp, & ! procedure
          &  seaice_timestep_nwp      , & ! procedure
-         &  alb_seaice_equil 
+         &  alb_seaice_equil
+
+#ifdef ALLOC_WKARR
+    ! Local variables as automatic arrays
+    REAL(wp), ALLOCATABLE, DIMENSION(:) :: &
+                                &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
+                                &  dhicedt , &  !< time tendency of ice thickness [m/s] 
+                                &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
+                                &  dhsnowdt     !< time tendency of snow thickness [m/s] 
+#endif
+
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
@@ -223,10 +270,9 @@ CONTAINS
   !! Prognostic variables of the sea-ice parameterization scheme are initialized 
   !! and some consistency checks are performed. 
   !!
-  !! The procedure arguments are arrays (vectors) 
-  !! of the sea-ice fraction, and 
+  !! The procedure arguments are arrays (vectors) of the sea-ice fraction, and 
   !! of the sea-ice scheme prognostic variables.
-  !! The vector length is equal to the number of ICON grid boxes (within a given block)
+  !! The vector length is equal to the number of grid boxes (within a given block)
   !! where sea ice is present, i.e. where the sea-ice fraction exceeds its minimum value.
   !! First, the sea-ice fraction is checked. 
   !! If a value less than a minimum threshold value is found 
@@ -334,7 +380,7 @@ CONTAINS
         ! (only required if sea-ice albedo is treated prognostically)
         IF ( lprog_albsi ) THEN
           albsi_p(isi) = alb_seaice_equil( tice_p(isi) )
-        ENDIF 
+        ENDIF
       END IF
       ! In general we assume that new seaice points are characterized by 
       ! ( fr_seaice>0, h_ice_p=0 ). However, it may happen that h_ice_p 
@@ -360,24 +406,30 @@ CONTAINS
       tsnow_n(isi) = tsnow_p(isi)    
       hsnow_n(isi) = hsnow_p(isi)    
       IF ( lprog_albsi ) THEN
-        albsi_n(isi) = albsi_p(isi) 
-      ENDIF 
+        albsi_n(isi) = albsi_p(isi)
+      ENDIF
 
     END DO GridBoxesWithSeaIce  
 
     ! Call model abort if errors are encountered
     IF( lcallabort ) THEN 
+#ifdef __ICON__
       ! Send an error message 
-      WRITE(nameerr,*) "MODULE mo_seaice_nwp, SUBROUTINE seaice_init_nwp" 
+      WRITE(nameerr,*) "MODULE sfc_seaice, SUBROUTINE seaice_init_nwp" 
       WRITE(texterr,*) "Sea-ice fraction ", frsi(isi),                        & 
                     &  " is less than a minimum threshold value ", frsi_min,  & 
                     &  " Call model abort."
       CALL message(TRIM(nameerr), TRIM(texterr))
 
       ! Call model abort
-      WRITE(nameerr,*) "mo_seaice_nwp:seaice_init_nwp" 
+      WRITE(nameerr,*) "sfc_seaice:seaice_init_nwp" 
       WRITE(texterr,*) "error in sea-ice fraction"
       CALL finish(TRIM(nameerr), TRIM(texterr))
+#elif __COSMO__
+      PRINT *, 'Sea-ice fraction ', frsi(isi),                        & 
+                    &  ' is less than a minimum threshold value ', frsi_min
+      CALL model_abort(my_cart_id, 10565, 'Problems with sea ice fraction:', 'sfc_seaice:seaice_init')
+#endif
     END IF 
 
     !-----------------------------------------------------------------------------------------------
@@ -470,13 +522,13 @@ CONTAINS
                         &  nsigb  !< number of grid boxes within a block 
                                   !< where the sea ice is present (<=nproma)
 
-    REAL(wp), DIMENSION(:), INTENT(IN) ::           & 
+    REAL(wp), DIMENSION(:), INTENT(IN) ::           &
                                        &  qsen    , &  !< sensible heat flux at the surface [W/m^2]
                                        &  qlat    , &  !< latent heat flux at the surface [W/m^2]
                                        &  qlwrnet , &  !< net long-wave radiation flux at the surface [W/m^2] 
                                        &  qsolnet      !< net solar radiation flux at the surface [W/m^2] 
 
-    REAL(wp), DIMENSION(:), INTENT(IN) ::             & 
+    REAL(wp), DIMENSION(:), INTENT(IN) ::             &
                                        &  snow_rate , &  !< snow rate (convecive + grid-scale) [kg/(m^2 s)]
                                        &  rain_rate      !< rain rate (convecive + grid-scale) [kg/(m^2 s)]
 
@@ -487,18 +539,18 @@ CONTAINS
                                        &  hsnow_p , &  !< snow thickness at previous time level [m] 
                                        &  albsi_p      !< sea-ice albedo at previous time level [-] 
 
-    REAL(wp), DIMENSION(:), INTENT(OUT) ::           &
-                                        &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
-                                        &  hice_n  , &  !< ice thickness at new time level [m] 
-                                        &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
-                                        &  hsnow_n , &  !< snow thickness at new time level [m] 
-                                        &  albsi_n      !< sea-ice albedo at new time level [-] 
+    REAL(wp), DIMENSION(:), INTENT(OUT) ::          &
+                                       &  tice_n  , &  !< temperature of ice upper surface at new time level [K] 
+                                       &  hice_n  , &  !< ice thickness at new time level [m] 
+                                       &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
+                                       &  hsnow_n , &  !< snow thickness at new time level [m] 
+                                       &  albsi_n      !< sea-ice albedo at new time level [-] 
 
-    REAL(wp), DIMENSION(:), INTENT(OUT), OPTIONAL ::         &
-                                            &  opt_dticedt , &  !< time tendency of ice surface temperature [K/s] 
-                                            &  opt_dhicedt , &  !< time tendency of ice thickness [m/s] 
-                                            &  opt_dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
-                                            &  opt_dhsnowdt     !< time tendency of snow thickness [m/s] 
+    REAL(wp), DIMENSION(:), INTENT(OUT), OPTIONAL ::    &
+                                       &  opt_dticedt , &  !< time tendency of ice surface temperature [K/s] 
+                                       &  opt_dhicedt , &  !< time tendency of ice thickness [m/s] 
+                                       &  opt_dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
+                                       &  opt_dhsnowdt     !< time tendency of snow thickness [m/s] 
 
     ! Derived parameters 
     ! (combinations of physical constants encountered several times in the code)
@@ -510,12 +562,14 @@ CONTAINS
                          &  ki_o_rhoialf = ki*r_rhoialf     , & 
                          &  ci_o_alf     = ci/alf        
 
+#ifndef ALLOC_WKARR
     ! Local variables 
     REAL(wp), DIMENSION(nsigb) ::            &
                                 &  dticedt , &  !< time tendency of ice surface temperature [K/s] 
                                 &  dhicedt , &  !< time tendency of ice thickness [m/s] 
                                 &  dtsnowdt, &  !< time tendency of snow surface temperature [K/s] 
                                 &  dhsnowdt     !< time tendency of snow thickness [m/s] 
+#endif
 
     INTEGER ::      &
             &  isi  !< DO loop index
@@ -537,12 +591,12 @@ CONTAINS
               &  strg_1       , &  !< temporary storage variable 
               &  strg_2            !< temporary storage variable 
 
-    REAL (wp) ::                  &
-              &  albsi_e        , &  !< equilibrium sea-ice albedo [-]
-              &  albsi_snow_e   , &  !< equilibrium albedo of snow over sea ice [-]
-              &  taualbsi       , &  !< relaxation time scale for sea-ice albedo [s]
-              &  rtaualbsisn    , &  !< reciprocal of relaxation time scale for snow-over-ice albedo [s^{-1}]
-              &  albsi_e_wghtd       !< weighted equilibrium albedo (storage variable) [-] 
+    REAL (wp) ::                &
+              &  albsi_e      , &  !< equilibrium sea-ice albedo [-]
+              &  albsi_snow_e , &  !< equilibrium albedo of snow over sea ice [-]
+              &  taualbsi     , &  !< relaxation time scale for sea-ice albedo [s]
+              &  rtaualbsisn  , &  !< reciprocal of relaxation time scale for snow-over-ice albedo [s^{-1}]
+              &  albsi_e_wghtd     !< weighted equilibrium albedo (storage variable) [-] 
 
     !===============================================================================================
     !  Start calculations
@@ -696,18 +750,18 @@ CONTAINS
         ! Relaxation towards snow-over-ice albedo is only applied if
         ! albedo tends to increase, and
         ! the sea-ice surface temperature is not too close to the freezing point
-        rtaualbsisn = snow_rate(isi)*c_tausi_snow*MERGE( 1._wp, 0._wp,  & 
+        rtaualbsisn = snow_rate(isi)*c_tausi_snow*MERGE( 1._wp, 0._wp,  &
           &           ((albsi_p(isi)<albsi_snow_e).AND.(tice_n(isi)<t_albsi_snow_max)) )
 
         ! Weighted equilibrium albedo 
         albsi_e_wghtd = (albsi_e+taualbsi*rtaualbsisn*albsi_snow_e)  &
           &           / (1._wp+taualbsi*rtaualbsisn)
-        
+
         ! Relax sea-ice albedo towards equilibrium value 
         albsi_n(isi) = albsi_e_wghtd+(albsi_p(isi)-albsi_e_wghtd)  &
           &          * EXP(-dtime*(1._wp/taualbsi+rtaualbsisn))
 
-      END DO 
+      END DO
 
     ENDIF PrognosticSeaIceAlbedo
 
@@ -783,8 +837,8 @@ CONTAINS
 
     ! Procedure arguments 
 
-    INTEGER, INTENT(IN) ::          &
-                        &  nswgb      !< number of "see" grid boxes within a block (<=nproma)
+    INTEGER, INTENT(IN)  ::                &
+                        &  nswgb      !< number of "sea" grid boxes within a block (<=nproma)
 
     REAL(wp), INTENT(IN) :: frice_thrhld     !< fraction threshold for creating a sea grid point
 
@@ -805,6 +859,7 @@ CONTAINS
                                           &  tsnow_n , &  !< temperature of snow upper surface at new time level [K] 
                                           &  hsnow_n , &  !< snow thickness at new time level [m] 
                                           &  albsi_n      !< sea-ice albedo at new time level [-] 
+
     ! Local variables 
 
     INTEGER ::      &
@@ -824,9 +879,9 @@ CONTAINS
       ! with the seaice index list generation routine
       IF ( frsi(isi) >= frice_thrhld ) THEN  ! ice point
 
-        hice_p(isi)  = h_ice_coldstart            ! constant ice thickness of 1m 
-        tice_p(isi)  = temp_in(isi)               ! some proper estimate (here: tskin from IFS)
-        tice_p(isi) = MIN(tice_p(isi), tf_fresh)  ! security
+        hice_p(isi)  = h_ice_coldstart             ! constant ice thickness of 1m 
+        tice_p(isi)  = temp_in(isi)                ! some proper estimate (here: tskin from IFS)
+        tice_p(isi)  = MIN(tice_p(isi), tf_fresh)  ! security
         tsnow_p(isi) = tice_p(isi)                ! snow temperature is equal to ice temperature
         hsnow_p(isi) = 0._wp                      ! snow over ice is not treated explicitly 
         IF ( lprog_albsi ) THEN                   ! set sea-ice albedo to its equilibrium value
@@ -838,8 +893,9 @@ CONTAINS
         hice_n(isi)  = hice_p(isi)     
         tsnow_n(isi) = tsnow_p(isi)    
         hsnow_n(isi) = hsnow_p(isi)
-        albsi_n(isi) = albsi_p(isi)   
-
+        IF ( lprog_albsi ) THEN                   ! set sea-ice albedo to its equilibrium value
+          albsi_n(isi) = albsi_p(isi)
+        ENDIF
       ENDIF
 
     END DO ! isi  
@@ -873,7 +929,7 @@ CONTAINS
   !! Modification by <name>, <institution> (<yyyy>-<mm>-<dd>)
   !!
 
-  SUBROUTINE seaice_coldinit_albsi_nwp (              & 
+  SUBROUTINE seaice_coldinit_albsi_nwp (              &
                                     &  nswgb,         &
                                     &  frice_thrhld,  &
                                     &  frsi,          &
@@ -909,7 +965,7 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     ! Loop over sea-water grid boxes
-    DO isi=1, nswgb 
+    DO isi=1, nswgb
 
       ! Note that we make use of >= instead of > in order to be consistent 
       ! with the seaice index list generation routine
@@ -919,7 +975,7 @@ CONTAINS
         albsi_p(isi) = alb_seaice_equil( tice_p(isi) )
 
         ! set albedo at new time level
-        albsi_n(isi) = albsi_p(isi)   
+        albsi_n(isi) = albsi_p(isi)
 
       ENDIF
 
@@ -944,7 +1000,7 @@ CONTAINS
   !! Modification by <name>, <institution> (<yyyy>-<mm>-<dd>)
   !!
 
-  REAL (wp) FUNCTION alb_seaice_equil ( t_ice ) 
+  REAL (wp) FUNCTION alb_seaice_equil ( t_ice )
 
     IMPLICIT NONE
 
@@ -972,5 +1028,40 @@ CONTAINS
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
-END MODULE mo_seaice_nwp
+#ifdef ALLOC_WKARR
+!===================================================================================================
 
+SUBROUTINE seaice_wkarr_alloc (nproma, istat)
+
+  INTEGER, INTENT(IN)  :: nproma
+  INTEGER, INTENT(OUT) :: istat
+
+  istat = 0
+
+  ALLOCATE (                 &
+    dticedt  (nproma), &  !< time tendency of ice surface temperature [K/s] 
+    dhicedt  (nproma), &  !< time tendency of ice thickness [m/s] 
+    dtsnowdt (nproma), &  !< time tendency of snow surface temperature [K/s] 
+    dhsnowdt (nproma), &  !< time tendency of snow thickness [m/s] 
+    STAT=istat)
+
+END SUBROUTINE seaice_wkarr_alloc
+
+!===================================================================================================
+
+SUBROUTINE seaice_wkarr_dealloc (istat)
+
+  INTEGER, INTENT(OUT) :: istat
+
+  istat = 0
+
+  DEALLOCATE (                                  &
+    dticedt  , dhicedt  , dtsnowdt , dhsnowdt , &
+    STAT=istat)
+
+END SUBROUTINE seaice_wkarr_dealloc
+
+!===================================================================================================
+#endif
+
+END MODULE sfc_seaice
