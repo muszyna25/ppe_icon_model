@@ -211,9 +211,6 @@ CONTAINS
     INTEGER :: jt_end
 
     !-------------------------------------------------------------------------------------
-#if defined( _OPENACC )
-    CALL gpu_h2d_iconam_echam(patch, pt_int_state, p_metrics)
-#endif
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
@@ -1308,35 +1305,6 @@ ENDIF
 
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
-
-  SUBROUTINE gpu_h2d_iconam_echam(patch,            &
-                                  pt_int_state,     &
-                                  p_metrics)
-    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
-    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
-    TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
-    TYPE(t_nh_metrics)    , INTENT(in)            :: p_metrics
-    INTEGER :: jg
-
-    jg = patch%id
-
-    !$ACC UPDATE DEVICE( pt_int_state%c_lin_e, pt_int_state%rbf_vec_idx_c,                       &
-    !$ACC                pt_int_state%rbf_vec_coeff_c, pt_int_state%rbf_vec_blk_c,               &
-    !$ACC                patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
-    !$ACC                p_metrics%deepatmo_t1mc )
-
-#if defined( _OPENACC )
-      CALL warning('GPU:interface_iconam_echam','GPU device synchronization should be removed when port is done!')
-      CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
-      CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
-      CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
-      CALL gpu_h2d_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
-      CALL gpu_h2d_var_list('nh_state_diag_of_domain_', domain=jg )
-      CALL gpu_h2d_var_list('prm_field_D', domain=jg)
-      CALL gpu_h2d_var_list('prm_tend_D', domain=jg)
-#endif
-
-  END SUBROUTINE gpu_h2d_iconam_echam
 
   SUBROUTINE gpu_d2h_iconam_echam(patch)
     USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
